@@ -15,8 +15,6 @@
 package istio
 
 import (
-	dto "github.com/prometheus/client_model/go"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
@@ -26,10 +24,6 @@ import (
 // Instance represents a deployed Istio instance
 type Instance interface {
 	resource.Resource
-
-	// ControlPlaneStats fetches the metrics that would be sent to prometheus by pilot
-	ControlPlaneStats(cluster resource.Cluster) (map[string]*dto.MetricFamily, error)
-	ControlPlaneStatsOrFail(f test.Failer, cluster resource.Cluster) map[string]*dto.MetricFamily
 
 	Settings() Config
 }
