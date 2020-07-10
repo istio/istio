@@ -77,8 +77,6 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c *controller) Get(kind resource.GroupVersionKind, key, namespace string) *model.Config {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
 	return c.configStore.Get(kind, key, namespace)
 }
 
