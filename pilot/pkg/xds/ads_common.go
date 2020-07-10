@@ -51,7 +51,9 @@ func ConfigAffectsProxy(pushEv *Event, proxy *model.Proxy) bool {
 			}
 		}
 
-		return affected && checkProxyDependencies(proxy, config)
+		if affected && checkProxyDependencies(proxy, config) {
+			return true
+		}
 	}
 
 	return false
