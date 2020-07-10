@@ -175,10 +175,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 		}
 	case model.EventDelete:
 		deletedSvcs = cs
-		// If service entry is deleted, cleanup endpoint shards for services.
-		for _, svc := range cs {
-			s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
-		}
 	case model.EventAdd:
 		addedSvcs = cs
 	default:
@@ -239,15 +235,21 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	}
 
 	if fullPush {
-		// When doing a full push, for the added and updated services trigger an eds update so that
-		// endpoint shards are updated.
-		// var instances []*model.ServiceInstance
-		// for _, svcs := range [][]*model.Service{addedSvcs, updatedSvcs} {
-		// 	instances = append(instances, convertInstances(curr, svcs)...)
-		// }
+		// When doing a full push, for added and updated services trigger an eds update
+		// so that endpoint shards are updated.
+		var instances []*model.ServiceInstance
+		if len(addedSvcs) > 0 {
+			instances = append(instances, convertInstances(curr, addedSvcs)...)
+		}
+		if len(updatedSvcs) > 0 {
+			instances = append(instances, convertInstances(curr, updatedSvcs)...)
+		}
+		s.edsUpdate(instances)
 
-		// fmt.Println("eds update.... ", len(instances))
-		// s.edsUpdate(instances)
+		// If service entry is deleted, cleanup endpoint shards for services.
+		for _, svc := range deletedSvcs {
+			s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
+		}
 
 		pushReq := &model.PushRequest{
 			Full:           true,
