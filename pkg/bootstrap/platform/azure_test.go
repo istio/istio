@@ -23,9 +23,9 @@ import (
 // Mock responses for Azure Metadata (based on Microsoft API documentation samples)
 // https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
 const (
-	MockVersionsTemplate = "{\"error\": \"Bad request. api-version was not specified in the request\",\"newest-versions\": [\"%s\"]}"
-	MockMetadata         = "{\"compute\": {\"location\": \"centralus\", \"name\": \"negasonic\", \"tags\": \"Department:IT;Environment:Prod;Role:WorkerRole\", " +
-		"\"vmId\": \"13f56399-bd52-4150-9748-7190aae1ff21\", \"zone\": \"1\"}}"
+	MockVersionsTemplate = `{"error": "Bad request. api-version was not specified in the request","newest-versions": ["%s"]}`
+	MockMetadata         = `{"compute": {"location": "centralus", "name": "negasonic", "tags": "Department:IT;Environment:Prod;Role:WorkerRole", ` +
+		`"vmId": "13f56399-bd52-4150-9748-7190aae1ff21", "zone": "1"}}`
 )
 
 func TestAzureVersionUpdate(t *testing.T) {
@@ -73,7 +73,7 @@ func TestAzureMetadata(t *testing.T) {
 	azureAPIVersionsFn = func() string { return "" }
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			azureMetadataFn = func(e *azureEnv) string { return tt.response }
+			azureMetadataFn = func(string) string { return tt.response }
 			e := NewAzure()
 			if metadata := e.Metadata(); !reflect.DeepEqual(metadata, tt.metadata) {
 				t.Errorf("Metadata() => '%v'; want '%v'", metadata, tt.metadata)

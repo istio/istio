@@ -42,43 +42,8 @@ var (
 	azureAPIVersionsFn = func() string {
 		return metadataRequest("")
 	}
-	azureMetadataFn = func(e *azureEnv) string {
-		return metadataRequest(fmt.Sprintf("api-version=%s", e.APIVersion))
-	}
-
-	azureNameFn = func(e *azureEnv) string {
-		if an, ok := e.computeMetadata["name"]; ok {
-			return an.(string)
-		}
-		return ""
-	}
-	azureTagsFn = func(e *azureEnv) map[string]string {
-		tags := map[string]string{}
-		if at, ok := e.computeMetadata["tags"]; ok && len(at.(string)) > 0 {
-			for _, tag := range strings.Split(at.(string), ";") {
-				kv := strings.Split(tag, ":")
-				tags[kv[0]] = kv[1]
-			}
-		}
-		return tags
-	}
-	azureLocationFn = func(e *azureEnv) string {
-		if al, ok := e.computeMetadata["location"]; ok {
-			return al.(string)
-		}
-		return ""
-	}
-	azureZoneFn = func(e *azureEnv) string {
-		if az, ok := e.computeMetadata["zone"]; ok {
-			return az.(string)
-		}
-		return ""
-	}
-	azureVMIDFn = func(e *azureEnv) string {
-		if aid, ok := e.computeMetadata["vmId"]; ok {
-			return aid.(string)
-		}
-		return ""
+	azureMetadataFn = func(version string) string {
+		return metadataRequest(fmt.Sprintf("api-version=%s", version))
 	}
 )
 
@@ -115,7 +80,7 @@ func (e *azureEnv) updateAPIVersion() {
 func NewAzure() Environment {
 	e := &azureEnv{APIVersion: AzureDefaultAPIVersion}
 	e.updateAPIVersion()
-	e.parseMetadata(azureMetadataFn(e))
+	e.parseMetadata(e.azureMetadata())
 	return e
 }
 
@@ -169,16 +134,16 @@ func stringToJSON(s string) map[string]interface{} {
 // Returns Azure instance metadata. Must be run on an Azure VM
 func (e *azureEnv) Metadata() map[string]string {
 	md := map[string]string{}
-	if an := azureNameFn(e); an != "" {
+	if an := e.azureName(); an != "" {
 		md[AzureName] = an
 	}
-	if al := azureLocationFn(e); al != "" {
+	if al := e.azureLocation(); al != "" {
 		md[AzureLocation] = al
 	}
-	if aid := azureVMIDFn(e); aid != "" {
+	if aid := e.azureVMID(); aid != "" {
 		md[AzureVMID] = aid
 	}
-	for k, v := range azureTagsFn(e) {
+	for k, v := range e.azureTags() {
 		md[k] = v
 	}
 	return md
@@ -187,7 +152,50 @@ func (e *azureEnv) Metadata() map[string]string {
 // Locality returns the region and zone
 func (e *azureEnv) Locality() *core.Locality {
 	var l core.Locality
-	l.Region = azureLocationFn(e)
-	l.Zone = azureZoneFn(e)
+	l.Region = e.azureLocation()
+	l.Zone = e.azureZone()
 	return &l
+}
+
+func (e *azureEnv) azureMetadata() string {
+	return azureMetadataFn(e.APIVersion)
+}
+
+func (e *azureEnv) azureName() string {
+	if an, ok := e.computeMetadata["name"]; ok {
+		return an.(string)
+	}
+	return ""
+}
+
+func (e *azureEnv) azureTags() map[string]string {
+	tags := map[string]string{}
+	if at, ok := e.computeMetadata["tags"]; ok && len(at.(string)) > 0 {
+		for _, tag := range strings.Split(at.(string), ";") {
+			kv := strings.Split(tag, ":")
+			tags[kv[0]] = kv[1]
+		}
+	}
+	return tags
+}
+
+func (e *azureEnv) azureLocation() string {
+	if al, ok := e.computeMetadata["location"]; ok {
+		return al.(string)
+	}
+	return ""
+}
+
+func (e *azureEnv) azureZone() string {
+	if az, ok := e.computeMetadata["zone"]; ok {
+		return az.(string)
+	}
+	return ""
+}
+
+func (e *azureEnv) azureVMID() string {
+	if aid, ok := e.computeMetadata["vmId"]; ok {
+		return aid.(string)
+	}
+	return ""
 }
