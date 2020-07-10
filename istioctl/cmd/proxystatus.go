@@ -82,8 +82,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				if configDumpFile != "" {
 					envoyDump, err = readConfigFile(configDumpFile)
 				} else {
-					path := "config_dump"
-					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", ConfigDumpPath, nil)
 				}
 				if err != nil {
 					return err

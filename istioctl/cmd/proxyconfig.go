@@ -38,8 +38,8 @@ const (
 	jsonOutput    = "json"
 	summaryOutput = "short"
 
-	// ConigDumpPath is a path for envoy config_dump
-	ConigDumpPath = "config_dump?include_eds"
+	// ConfigDumpPath is a path for envoy config_dump
+	ConfigDumpPath = "config_dump?include_eds"
 )
 
 var (
@@ -157,7 +157,7 @@ func setupPodConfigdumpWriter(podName, podNamespace string, out io.Writer) (*con
 	if err != nil {
 		return nil, fmt.Errorf("failed to create k8s client: %v", err)
 	}
-	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", ConigDumpPath, nil)
+	debug, err := kubeClient.EnvoyDo(context.TODO(), podName, podNamespace, "GET", ConfigDumpPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
 	}

@@ -888,7 +888,7 @@ func printIngressInfo(writer io.Writer, matchingServices []v1.Service, podsLabel
 	if len(ingressSvcs.Items) == 0 {
 		return fmt.Errorf("no ingress gateway service")
 	}
-	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", ConigDumpPath, nil)
+	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", ConfigDumpPath, nil)
 	if err != nil {
 		return fmt.Errorf("failed to execute command on ingress gateway sidecar: %v", err)
 	}
