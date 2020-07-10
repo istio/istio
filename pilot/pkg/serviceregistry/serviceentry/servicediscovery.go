@@ -248,7 +248,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 
 		// If service entry is deleted, cleanup endpoint shards for services.
 		for _, svc := range deletedSvcs {
-			s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
+			s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 		}
 
 		pushReq := &model.PushRequest{
