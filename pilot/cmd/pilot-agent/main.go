@@ -134,7 +134,8 @@ var (
 	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar("STALED_CONNECTION_RECYCLE_RUN_INTERVAL", 5*time.Minute,
 		"The ticker to detect and close stale connections").Get()
 	initialBackoffInMilliSecEnv = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", 0, "").Get()
-	pkcs8KeysEnv                = env.RegisterBoolVar("PKCS8_KEY", false, "Whether to generate PKCS#8 private keys").Get()
+	pkcs8KeysEnv                = env.RegisterBoolVar("PKCS8_KEY", false,
+		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv                = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
 	fileMountedCertsEnv         = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
 
