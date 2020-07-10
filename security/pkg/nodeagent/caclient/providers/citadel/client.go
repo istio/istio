@@ -122,6 +122,7 @@ func (c *citadelClient) Reconnect(isRotate bool) error {
 	if err != nil {
 		return err
 	}
+	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return err
 }
