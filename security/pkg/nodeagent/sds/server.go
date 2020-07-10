@@ -47,9 +47,9 @@ type Options struct {
 	// WorkloadUDSPath is the unix domain socket through which SDS server communicates with workload proxies.
 	WorkloadUDSPath string
 
-	// IngressGatewayUDSPath is the unix domain socket through which SDS server communicates with
-	// ingress gateway proxies.
-	IngressGatewayUDSPath string
+	// GatewayUDSPath is the unix domain socket through which SDS server communicates with
+	// gateway proxies.
+	GatewayUDSPath string
 
 	// CertFile is the path of Cert File for gRPC server TLS settings.
 	CertFile string
@@ -94,8 +94,8 @@ type Options struct {
 	// EnableWorkloadSDS indicates whether node agent works as SDS server for workload proxies.
 	EnableWorkloadSDS bool
 
-	// EnableIngressGatewaySDS indicates whether node agent works as ingress gateway agent.
-	EnableIngressGatewaySDS bool
+	// EnableGatewaySDS indicates whether node agent works as gateway agent.
+	EnableGatewaySDS bool
 
 	// AlwaysValidTokenFlag is set to true for if token used is always valid(ex, normal k8s JWT)
 	AlwaysValidTokenFlag bool
@@ -160,14 +160,15 @@ func NewServer(options Options, workloadSecretCache, gatewaySecretCache cache.Se
 		sdsServiceLog.Infof("SDS gRPC server for workload UDS starts, listening on %q \n", options.WorkloadUDSPath)
 	}
 
-	if options.EnableIngressGatewaySDS {
+	if options.EnableGatewaySDS {
 		if err := s.initGatewaySdsService(&options); err != nil {
-			sdsServiceLog.Errorf("Failed to initialize secret discovery service for ingress gateway: %v", err)
+			sdsServiceLog.Errorf("Failed to initialize secret discovery service for gateway: %v", err)
 			return nil, err
 		}
-		sdsServiceLog.Infof("SDS gRPC server for ingress gateway controller starts, listening on %q \n",
-			options.IngressGatewayUDSPath)
+		sdsServiceLog.Infof("SDS gRPC server for gateway controller starts, listening on %q \n",
+			options.GatewayUDSPath)
 	}
+
 	version.Info.RecordComponentBuildTag("citadel_agent")
 
 	if options.DebugPort > 0 {
@@ -301,7 +302,7 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 	s.gatewaySds.register(s.grpcGatewayServer)
 
 	var err error
-	s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath)
+	s.grpcGatewayListener, err = setUpUds(options.GatewayUDSPath)
 	if err != nil {
 		sdsServiceLog.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
 		return fmt.Errorf("SDS grpc server for ingress gateway proxy failed to start: %v", err)
@@ -321,7 +322,7 @@ func (s *Server) initGatewaySdsService(options *Options) error {
 				}
 			}
 			if s.grpcGatewayListener == nil {
-				if s.grpcGatewayListener, err = setUpUds(options.IngressGatewayUDSPath); err != nil {
+				if s.grpcGatewayListener, err = setUpUds(options.GatewayUDSPath); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for ingress gateway proxy failed to set up UDS: %v", err)
 					setUpUdsOK = false
 				}

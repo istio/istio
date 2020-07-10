@@ -21,7 +21,7 @@ fi
 
 RETRY_COUNT=3
 
-api=$(go list -m -f "{{.Dir}}" istio.io/api)
+api=$(go list -mod=readonly -m -f "{{.Dir}}" istio.io/api)
 
 # This occasionally flakes out, so have a simple retry loop
 for (( i=1; i <= RETRY_COUNT; i++ )); do
