@@ -25,5 +25,12 @@
           "source_workload_name": "clt-v1",
           "source_workload_namespace": "{{ .EchoNamespace }}"
        }
+    },
+    "resource": {
+       "labels": {
+          "container_name": "app",
+          "namespace_name": "{{ .EchoNamespace }}"
+       },
+       "type": "k8s_container"
     }
 }
