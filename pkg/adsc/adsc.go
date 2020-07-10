@@ -549,12 +549,10 @@ func (a *ADSC) handleRecv() {
 
 		a.mutex.Lock()
 		if len(gvk) == 3 {
-			gt := resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			a.sync[gt.String()] = time.Now()
 		}
 		a.Received[msg.TypeUrl] = msg
-		// TODO: add hook to inject nacks
-		a.ack(msg)
 		a.mutex.Unlock()
 
 		if len(listeners) > 0 {
@@ -1039,15 +1037,6 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 	})
 }
 
-func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: msg.Nonce,
-		TypeUrl:       msg.TypeUrl,
-		Node:          a.node(),
-		VersionInfo:   msg.VersionInfo,
-	})
-}
-
 // GetHTTPListeners returns all the http listeners.
 func (a *ADSC) GetHTTPListeners() map[string]*listener.Listener {
 	a.mutex.Lock()
@@ -1111,7 +1100,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 		return err
 	}
-	val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+	val.GroupVersionKind = resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 	if cfg == nil {
 		_, err = a.Store.Create(*val)
