@@ -665,10 +665,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				}
-			} else {
-
-			}
-			if sc.isTokenExpired(&secret) {
+			} else if sc.isTokenExpired(&secret) {
 				cacheLog.Infof("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)

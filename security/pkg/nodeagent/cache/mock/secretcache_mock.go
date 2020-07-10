@@ -132,6 +132,6 @@ func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string) (st
 	return "some-token", time.Now(), 200, nil
 }
 
-func (c *CAClient) Reconnect(isRotate bool) error{
+func (c *CAClient) Reconnect(isRotate bool) error {
 	return nil
 }
