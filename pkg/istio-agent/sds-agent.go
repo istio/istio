@@ -263,6 +263,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 			gatewaySecretCache = sa.newSecretCache(podNamespace)
 		} else {
 			log.Infof("Skipping gateway SDS")
+			sa.secOpts.EnableGatewaySDS = false
 		}
 	}
 
