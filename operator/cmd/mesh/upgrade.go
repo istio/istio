@@ -222,20 +222,27 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 		return nil
 	}
 
-	// Waits for the upgrade to complete by periodically comparing the each
-	// component version to the target version.
-	err = waitUpgradeComplete(kubeClient, istioNamespace, targetVersion, l)
-	if err != nil {
-		return fmt.Errorf("failed to wait for the upgrade to complete. Error: %v", err)
+	if !rootArgs.dryRun {
+		// Waits for the upgrade to complete by periodically comparing the each
+		// component version to the target version.
+		err = waitUpgradeComplete(kubeClient, istioNamespace, targetVersion, l)
+		if err != nil {
+			return fmt.Errorf("failed to wait for the upgrade to complete. Error: %v", err)
+		}
+
+		// Read the upgraded Istio version from the the cluster
+		upgradeVer, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
+		if err != nil {
+			return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
+		}
+
+		l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
+	} else {
+		l.LogAndPrintf("Upgrade rollout completed. " +
+			"All Istio control plane pods are running on the target version.\n\n")
+		l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", targetVersion)
 	}
 
-	// Read the upgraded Istio version from the the cluster
-	upgradeVer, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
-	if err != nil {
-		return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
-	}
-
-	l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
 	l.LogAndPrintf(upgradeSidecarMessage)
 	return nil
 }
