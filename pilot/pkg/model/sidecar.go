@@ -42,6 +42,10 @@ var (
 
 	sidecarScopeNamespaceConfigTypes = map[resource.GroupVersionKind]struct{}{
 		gvk.Sidecar: {},
+		gvk.EnvoyFilter: {},
+		gvk.AuthorizationPolicy: {},
+		gvk.PeerAuthentication: {},
+		gvk.RequestAuthentication: {},
 	}
 )
 
