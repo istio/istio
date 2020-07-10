@@ -15,15 +15,7 @@
 package pilot
 
 import (
-	"fmt"
-	"math"
-	"strings"
 	"testing"
-	"time"
-
-	"istio.io/istio/tests/integration/pilot/vm"
-
-	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -31,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/integration/pilot/vm"
 )
 
 //	Virtual service topology
@@ -87,10 +80,10 @@ func TestTrafficShifting(t *testing.T) {
 
 			var instances [4]echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&instances[0], echoVMConfig(ns, "a")).
-				With(&instances[1], echoVMConfig(ns, "b")).
-				With(&instances[2], echoVMConfig(ns, "c", vm.DefaultVMImage)).
-				With(&instances[3], echoVMConfig(ns, "d")).
+				With(&instances[0], echoConfig(ns, "a")).
+				With(&instances[1], echoConfig(ns, "b")).
+				With(&instances[2], echoConfig(ns, "c")).
+				With(&instances[3], echoConfig(ns, "d")).
 				BuildOrFail(t)
 
 			hosts := []string{"b", "c", "d"}
@@ -113,63 +106,8 @@ func TestTrafficShifting(t *testing.T) {
 					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
 					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
-					sendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
+					vm.SendTraffic(t, 100, instances[0], instances[1], hosts, v, errorThreshold)
 				})
 			}
 		})
-}
-
-// Wrapper to initialize instance with ServicePort without affecting other tests
-// If ServicePort is set to InstancePort, tests such as TestDescribe would fail
-func echoVMConfig(ns namespace.Instance, name string, vmImage ...string) echo.Config {
-	image := ""
-	if len(vmImage) > 0 {
-		image = vmImage[0]
-	}
-	config := echoConfig(ns, name)
-	config.DeployAsVM = image != ""
-	config.VMImage = image
-
-	// This is necessary because there exists a bug in WorkloadEntry
-	// The ServicePort has to be the same with the InstancePort
-	config.Ports[0].ServicePort = config.Ports[0].InstancePort
-	return config
-}
-
-func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
-	t.Helper()
-	// Send `batchSize` requests and ensure they are distributed as expected.
-	retry.UntilSuccessOrFail(t, func() error {
-		resp, err := from.Call(echo.CallOptions{
-			Target:   to,
-			PortName: "http",
-			Count:    batchSize,
-		})
-		if err != nil {
-			return fmt.Errorf("error during call: %v", err)
-		}
-		var totalRequests int
-		hitCount := map[string]int{}
-		for _, r := range resp {
-			for _, h := range hosts {
-				if strings.HasPrefix(r.Hostname, h+"-") {
-					hitCount[h]++
-					totalRequests++
-					break
-				}
-			}
-		}
-
-		for i, v := range hosts {
-			percentOfTrafficToHost := float64(hitCount[v]) * 100.0 / float64(totalRequests)
-			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToHost)
-			if errorThreshold-deltaFromExpected < 0 {
-				return fmt.Errorf("unexpected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
-					v, weight[i], percentOfTrafficToHost, errorThreshold)
-			}
-			t.Logf("Got expected traffic weight for host %v. Expected %d%%, got %g%% (thresold: %g%%)",
-				v, weight[i], percentOfTrafficToHost, errorThreshold)
-		}
-		return nil
-	}, retry.Delay(time.Second))
 }

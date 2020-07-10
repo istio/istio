@@ -40,10 +40,10 @@ func TestSyncz(t *testing.T) {
 		defer cancel()
 
 		// Need to send two of each so that the second sends an Ack that is picked up
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), "", "", adsstr); err != nil {
 			t.Fatal(err)
 		}
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp"), "", "", adsstr); err != nil {
 			t.Fatal(err)
 		}
 		if err := sendCDSReq(sidecarID(app3Ip, "syncApp"), adsstr); err != nil {
@@ -64,14 +64,14 @@ func TestSyncz(t *testing.T) {
 				t.Fatal("Recv failed", err)
 			}
 		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, "", adsstr); err != nil {
+		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, "", "", adsstr); err != nil {
 			t.Fatal(err)
 		}
 		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
 		if err != nil {
 			t.Fatal("Recv failed", err)
 		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, rdsResponse.Nonce, adsstr); err != nil {
+		if err := sendRDSReq(sidecarID(app3Ip, "syncApp"), []string{"80", "8080"}, rdsResponse.VersionInfo, rdsResponse.Nonce, adsstr); err != nil {
 			t.Fatal(err)
 		}
 
@@ -88,7 +88,7 @@ func TestSyncz(t *testing.T) {
 		}
 		defer cancel()
 
-		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
+		if err := sendEDSReq([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), "", "", adsstr); err != nil {
 			t.Fatal(err)
 		}
 		if err := sendEDSNack([]string{"outbound|9080||app2.default.svc.cluster.local"}, sidecarID(app3Ip, "syncApp2"), adsstr); err != nil {
@@ -112,7 +112,7 @@ func TestSyncz(t *testing.T) {
 				t.Fatal("Recv failed", err)
 			}
 		}
-		if err := sendRDSReq(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, "", adsstr); err != nil {
+		if err := sendRDSReq(sidecarID(app3Ip, "syncApp2"), []string{"80", "8080"}, "", "", adsstr); err != nil {
 			t.Fatal(err)
 		}
 		rdsResponse, err := adsReceive(adsstr, 5*time.Second)
@@ -229,7 +229,7 @@ func TestConfigDump(t *testing.T) {
 				t.Fatal(err)
 			}
 			// Only most recent proxy will have routes
-			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", envoy); err != nil {
+			if err := sendRDSReq(sidecarID(app3Ip, "dumpApp"), []string{"80", "8080"}, "", "", envoy); err != nil {
 				t.Fatal(err)
 			}
 			// Expect CDS, LDS, then RDS

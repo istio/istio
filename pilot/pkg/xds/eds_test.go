@@ -96,7 +96,7 @@ func TestEds(t *testing.T) {
 	// 30% faster than 1.0 config style. Keeping the test to track fixes and
 	// verify we fix the regression.
 	t.Run("MultipleRequest08", func(t *testing.T) {
-		// TODO: bump back up to 50 - regression in msater
+		// TODO: bump back up to 50 - regression in master
 		multipleRequest(server, false, 20, 5, 20*time.Second,
 			map[string]string{}, t)
 	})

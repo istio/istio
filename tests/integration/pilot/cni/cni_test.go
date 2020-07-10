@@ -57,7 +57,7 @@ func TestCNIReachability(t *testing.T) {
 			if err != nil {
 				ctx.Fatal(err)
 			}
-			rctx := reachability.CreateContext(ctx, pilot.NewOrFail(t, ctx, pilot.Config{}))
+			rctx := reachability.CreateContext(ctx, pilot.NewOrFail(t, ctx, pilot.Config{}), false)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{

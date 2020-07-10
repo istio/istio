@@ -54,12 +54,12 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 
 	t := discReq.TypeUrl
 	con.mu.Lock()
-	w := con.node.Active[t]
+	w := con.node.ActiveExperimental[t]
 	if w == nil {
 		w = &model.WatchedResource{
 			TypeUrl: t,
 		}
-		con.node.Active[t] = w
+		con.node.ActiveExperimental[t] = w
 		isAck = false // newly watched resource
 	}
 	con.mu.Unlock()
@@ -89,9 +89,9 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 	}
 
 	if nonceSent != discReq.ResponseNonce {
-		adsLog.Debugf("ADS:RDS: Expired nonce received %s, sent %s, received %s",
+		adsLog.Debugf("ADS: Expired nonce received %s, sent %s, received %s",
 			con.ConID, nonceSent, discReq.ResponseNonce)
-		rdsExpiredNonce.Increment()
+		xdsExpiredNonce.Increment()
 		// This is an ACK for a resource sent on an older stream, or out of sync.
 		// Send a response back.
 		isAck = false
@@ -102,6 +102,7 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 		isAck = false
 		w.ResourceNames = discReq.ResourceNames
 	}
+	w.LastRequest = discReq
 
 	return w, isAck
 }
@@ -149,6 +150,16 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 	if cg, f := s.Generators[con.node.Metadata.Generator+"/"+w.TypeUrl]; f {
 		g = cg
 	}
+	if cg, f := s.Generators[w.TypeUrl]; f {
+		g = cg
+	}
+	if g == nil {
+		g = s.Generators["api"] // default to MCS generators - any type supported by store
+	}
+
+	if g == nil {
+		return nil
+	}
 
 	cl := g.Generate(con.node, push, w, nil)
 	sz := 0
@@ -166,6 +177,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 	w.LastSent = time.Now()
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
+
 	adsLog.Infof("Pushed %s to %s count=%d size=%d", w.TypeUrl, con.node.ID, len(cl), sz)
 
 	return nil

@@ -43,25 +43,25 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "prints multiple pilot inputs to buffer in alphabetical order by pod name",
+			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
 			input: map[string][]xds.SyncStatus{
-				"pilot1": statusInput1(),
-				"pilot2": statusInput2(),
-				"pilot3": statusInput3(),
+				"istiod1": statusInput1(),
+				"istiod2": statusInput2(),
+				"istiod3": statusInput3(),
 			},
 			want: "testdata/multiStatusMultiPilot.txt",
 		},
 		{
-			name: "prints single pilot input to buffer in alphabetical order by pod name",
+			name: "prints single istiod input to buffer in alphabetical order by pod name",
 			input: map[string][]xds.SyncStatus{
-				"pilot1": append(statusInput1(), statusInput2()...),
+				"istiod1": append(statusInput1(), statusInput2()...),
 			},
 			want: "testdata/multiStatusSinglePilot.txt",
 		},
 		{
 			name: "error if given non-syncstatus info",
 			input: map[string][]xds.SyncStatus{
-				"pilot1": {},
+				"istiod1": {},
 			},
 			wantErr: true,
 		},
@@ -75,9 +75,9 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 				b, _ := json.Marshal(ss)
 				input[key] = b
 			}
-			if len(tt.input["pilot1"]) == 0 {
+			if len(tt.input["istiod1"]) == 0 {
 				input = map[string][]byte{
-					"pilot1": []byte(`gobbledygook`),
+					"istiod1": []byte(`gobbledygook`),
 				}
 			}
 			err := sw.PrintAll(input)
@@ -103,18 +103,18 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name: "prints multiple pilot inputs to buffer filtering for pod",
+			name: "prints multiple istiod inputs to buffer filtering for pod",
 			input: map[string][]xds.SyncStatus{
-				"pilot1": statusInput1(),
-				"pilot2": statusInput2(),
+				"istiod1": statusInput1(),
+				"istiod2": statusInput2(),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatus.txt",
 		},
 		{
-			name: "single pilot input to buffer filtering for pod",
+			name: "single istiod input to buffer filtering for pod",
 			input: map[string][]xds.SyncStatus{
-				"pilot2": append(statusInput1(), statusInput2()...),
+				"istiod2": append(statusInput1(), statusInput2()...),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatus.txt",
@@ -122,7 +122,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 		{
 			name: "fallback to proxy version",
 			input: map[string][]xds.SyncStatus{
-				"pilot2": statusInputProxyVersion(),
+				"istiod2": statusInputProxyVersion(),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatusFallback.txt",
@@ -130,7 +130,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 		{
 			name: "error if given non-syncstatus info",
 			input: map[string][]xds.SyncStatus{
-				"pilot1": {},
+				"istiod1": {},
 			},
 			wantErr: true,
 		},
@@ -144,9 +144,9 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 				b, _ := json.Marshal(ss)
 				input[key] = b
 			}
-			if len(tt.input["pilot1"]) == 0 && len(tt.input["pilot2"]) == 0 {
+			if len(tt.input["istiod1"]) == 0 && len(tt.input["istiod2"]) == 0 {
 				input = map[string][]byte{
-					"pilot1": []byte(`gobbledygook`),
+					"istiod1": []byte(`gobbledygook`),
 				}
 			}
 			err := sw.PrintSingle(input, tt.filterPod)

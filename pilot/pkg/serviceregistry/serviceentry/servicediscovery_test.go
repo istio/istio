@@ -1035,3 +1035,152 @@ func sortPorts(ports []*model.Port) {
 		return ports[i].Port < ports[j].Port
 	})
 }
+
+func Test_autoAllocateIP_conditions(t *testing.T) {
+
+	tests := []struct {
+		name         string
+		inServices   []*model.Service
+		wantServices []*model.Service
+	}{
+		{
+			name: "no allocation for passthrough",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.Passthrough,
+					Address:    "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.Passthrough,
+					Address:    "0.0.0.0",
+				},
+			},
+		},
+		{
+			name: "no allocation if address exists",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+		},
+		{
+			name: "no allocation if hostname is wildcard",
+			inServices: []*model.Service{
+				{
+					Hostname:   "*.foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:   "*.foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "1.1.1.1",
+				},
+			},
+		},
+		{
+			name: "allocate IP for clientside lb",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.ClientSideLB,
+					Address:    "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:             "foo.com",
+					Resolution:           model.ClientSideLB,
+					Address:              "0.0.0.0",
+					AutoAllocatedAddress: "240.240.0.1",
+				},
+			},
+		},
+		{
+			name: "allocate IP for dns lb",
+			inServices: []*model.Service{
+				{
+					Hostname:   "foo.com",
+					Resolution: model.DNSLB,
+					Address:    "0.0.0.0",
+				},
+			},
+			wantServices: []*model.Service{
+				{
+					Hostname:             "foo.com",
+					Resolution:           model.DNSLB,
+					Address:              "0.0.0.0",
+					AutoAllocatedAddress: "240.240.0.1",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := autoAllocateIPs(tt.inServices); !reflect.DeepEqual(got, tt.wantServices) {
+				t.Errorf("autoAllocateIPs() = %v, want %v", got, tt.wantServices)
+			}
+		})
+	}
+}
+
+func Test_autoAllocateIP_values(t *testing.T) {
+	inServices := make([]*model.Service, 512)
+	for i := 0; i < 512; i++ {
+		temp := model.Service{
+			Hostname:   "foo.com",
+			Resolution: model.ClientSideLB,
+			Address:    constants.UnspecifiedIP,
+		}
+		inServices[i] = &temp
+	}
+	gotServices := autoAllocateIPs(inServices)
+
+	// out of the 512 IPs, we dont expect the following IPs
+	// 240.240.0.0
+	// 240.240.0.255
+	// 240.240.1.0
+	// 240.240.1.255
+	// 240.240.2.0
+	// 240.240.2.255
+	// The last IP should be 240.240.2.4
+	doNotWant := map[string]bool{
+		"240.240.0.0":   true,
+		"240.240.0.255": true,
+		"240.240.1.0":   true,
+		"240.240.1.255": true,
+		"240.240.2.0":   true,
+		"240.240.2.255": true,
+	}
+	expectedLastIP := "240.240.2.4"
+	if gotServices[len(gotServices)-1].AutoAllocatedAddress != expectedLastIP {
+		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedAddress)
+	}
+
+	gotIPMap := make(map[string]bool)
+	for _, svc := range gotServices {
+		if svc.AutoAllocatedAddress == "" || doNotWant[svc.AutoAllocatedAddress] {
+			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedAddress)
+		}
+		if gotIPMap[svc.AutoAllocatedAddress] {
+			t.Errorf("multiple allocations of same IP address to different services: %s", svc.AutoAllocatedAddress)
+		}
+		gotIPMap[svc.AutoAllocatedAddress] = true
+	}
+}

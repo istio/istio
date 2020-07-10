@@ -11,14 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package xds
 
 import (
 	"net"
+	"sync"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"istio.io/istio/pkg/adsc"
 
 	"istio.io/pkg/log"
 
@@ -33,18 +36,37 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
+// Server represents the XDS serving feature of Istiod (pilot).
+// Unlike bootstrap/, this packet has no dependencies on K8S, CA,
+// and other features. It'll be used initially in the istio-agent,
+// to provide a minimal proxy while reusing the same code as istiod.
+// Portions of the code will also be used in istiod - after it becomes
+// stable the plan is to refactor bootstrap to use this code instead
+// of directly bootstrapping XDS.
+//
+// The server support proxy/federation of multiple sources - last part
+// or parity with MCP/Galley and MCP-over-XDS.
 type SimpleServer struct {
 	// DiscoveryServer is the gRPC XDS implementation
-	// Env and MemRegistry are available as fields, as well as the default PushContext.
+	// Env and MemRegistry are available as fields, as well as the default
+	// PushContext.
 	DiscoveryServer *DiscoveryServer
 
-	// MemoryStore is an in-memory config store, part of the aggregate store used by the discovery server.
+	// MemoryStore is an in-memory config store, part of the aggregate store
+	// used by the discovery server.
 	MemoryConfigStore model.IstioConfigStore
 
+	// GRPCListener is the listener used for GRPC. For agent it is
+	// an insecure port, bound to 127.0.0.1
 	GRPCListener net.Listener
 
-	syncCh           chan string
+	// syncCh is used for detecting if the stores have synced,
+	// which needs to happen before serving requests.
+	syncCh chan string
+
 	ConfigStoreCache model.ConfigStoreCache
+
+	m sync.RWMutex
 }
 
 // Creates an basic, functional discovery server, using the same code as Istiod, but
@@ -136,5 +158,55 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 			log.Infoa("Serve done ", err)
 		}
 	}()
+	return nil
+}
+
+// ProxyGen implements a proxy generator - any request is forwarded using the agent ADSC connection.
+// Responses are forwarded back on the connection that they are received.
+type ProxyGen struct {
+	adsc   *adsc.ADSC
+	server *SimpleServer
+}
+
+// HandleResponse will dispatch a response from a federated
+// XDS server to all connections listening for that type.
+func (p *ProxyGen) HandleResponse(con *adsc.ADSC, res *discovery.DiscoveryResponse) {
+	// TODO: filter the push to only connections that
+	// match a filter.
+	p.server.DiscoveryServer.PushAll(res)
+}
+
+func (s *SimpleServer) NewProxy() *ProxyGen {
+	return &ProxyGen{
+		server: s,
+	}
+}
+
+func (p *ProxyGen) AddClient(adsc *adsc.ADSC) {
+	p.server.m.Lock()
+	p.adsc = adsc // TODO: list
+	p.server.m.Unlock()
+}
+
+// TODO: remove clients, multiple clients (agent has only one)
+
+// Generate will forward the request to all remote XDS servers.
+// Responses will be forwarded back to the client.
+//
+// TODO: allow clients to indicate which requests they handle ( similar with topic )
+func (p *ProxyGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+	if p.adsc == nil {
+		return nil
+	}
+
+	// TODO: track requests to connections, so resonses from server are dispatched to the right con
+	//
+	// TODO: Envoy (or client) may send multiple requests without waiting for the ack.
+	// Need to change the signature of Generator to take Request as parameter.
+	err := p.adsc.Send(w.LastRequest)
+	if err != nil {
+		log.Debuga("Failed to send, connection probably closed ", err)
+	}
+
 	return nil
 }

@@ -22,8 +22,70 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/visibility"
 )
+
+func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta ConfigMeta) {
+	// resolve top level hosts
+	for i, h := range rule.Hosts {
+		rule.Hosts[i] = string(ResolveShortnameToFQDN(h, meta))
+	}
+	// resolve gateways to bind to
+	for i, g := range rule.Gateways {
+		if g != constants.IstioMeshGateway {
+			rule.Gateways[i] = resolveGatewayName(g, meta)
+		}
+	}
+	// resolve host in http route.destination, route.mirror
+	for _, d := range rule.Http {
+		for _, m := range d.Match {
+			for i, g := range m.Gateways {
+				if g != constants.IstioMeshGateway {
+					m.Gateways[i] = resolveGatewayName(g, meta)
+				}
+			}
+		}
+		for _, w := range d.Route {
+			if w.Destination != nil {
+				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, meta))
+			}
+		}
+		if d.Mirror != nil {
+			d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, meta))
+		}
+	}
+	// resolve host in tcp route.destination
+	for _, d := range rule.Tcp {
+		for _, m := range d.Match {
+			for i, g := range m.Gateways {
+				if g != constants.IstioMeshGateway {
+					m.Gateways[i] = resolveGatewayName(g, meta)
+				}
+			}
+		}
+		for _, w := range d.Route {
+			if w.Destination != nil {
+				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, meta))
+			}
+		}
+	}
+	//resolve host in tls route.destination
+	for _, tls := range rule.Tls {
+		for _, m := range tls.Match {
+			for i, g := range m.Gateways {
+				if g != constants.IstioMeshGateway {
+					m.Gateways[i] = resolveGatewayName(g, meta)
+				}
+			}
+		}
+		for _, w := range tls.Route {
+			if w.Destination != nil {
+				w.Destination.Host = string(ResolveShortnameToFQDN(w.Destination.Host, meta))
+			}
+		}
+	}
+}
 
 func mergeVirtualServicesIfNeeded(vServices []Config, defaultExportTo map[visibility.Instance]bool) (out []Config) {
 	out = make([]Config, 0, len(vServices))

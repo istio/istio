@@ -21,11 +21,15 @@ import (
 )
 
 const (
-	DefaultKubernetesDomain = "svc." + constants.DefaultKubernetesDomain
-	MeshGateway             = "mesh"
-	ExportToNamespaceLocal  = "."
-	ExportToAllNamespaces   = "*"
-	Wildcard                = "*"
+	DefaultKubernetesDomain   = "svc." + constants.DefaultKubernetesDomain
+	ExportToNamespaceLocal    = "."
+	ExportToAllNamespaces     = "*"
+	IstioProxyName            = "istio-proxy"
+	MeshGateway               = "mesh"
+	Wildcard                  = "*"
+	MeshConfigName            = "istio"
+	InjectionLabelName        = "istio-injection"
+	InjectionLabelEnableValue = "enabled"
 )
 
 var (

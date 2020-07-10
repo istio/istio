@@ -15,7 +15,6 @@
 package crdclient
 
 import (
-	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -44,13 +43,19 @@ var (
 	)
 )
 
+func init() {
+	monitoring.MustRegister(k8sEvents)
+	monitoring.MustRegister(k8sErrors)
+	monitoring.MustRegister(k8sTotalErrors)
+}
+
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
 func handleValidationFailure(obj *model.Config, err error) {
 	key := obj.Namespace + "/" + obj.Name
-	log.Debugf("CRD validation failed: %s (%v): %v", key, obj.GroupVersionKind, err)
+	scope.Debugf("CRD validation failed: %s (%v): %v", key, obj.GroupVersionKind, err)
 	k8sErrors.With(nameTag.Value(key)).Record(1)
 
 	k8sTotalErrors.Increment()

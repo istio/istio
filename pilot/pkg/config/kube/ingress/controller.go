@@ -137,6 +137,8 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 	var classes v1beta1.IngressClassInformer
 	if ingressClassSupported(client) {
 		classes = client.KubeInformer().Networking().V1beta1().IngressClasses()
+		// Register the informer now, so it will be properly started
+		_ = classes.Informer()
 	} else {
 		log.Infof("Skipping IngressClass, resource not supported")
 	}
@@ -258,11 +260,6 @@ func (c *controller) Run(stop <-chan struct{}) {
 		cache.WaitForCacheSync(stop, c.HasSynced)
 		c.queue.Run(stop)
 	}()
-	go c.ingressInformer.Run(stop)
-	go c.serviceInformer.Run(stop)
-	if c.classes != nil {
-		go c.classes.Informer().Run(stop)
-	}
 	<-stop
 }
 

@@ -13,6 +13,7 @@ spec:
           resources:
             requests:
               cpu: 111m
+              memory: 111Mi
       - name: user-ingressgateway
         enabled: true
         label:
@@ -22,6 +23,7 @@ spec:
           resources:
             requests:
               cpu: 222m
+              memory: 888Mi
       - namespace: user-ingressgateway-ns
         name: ilb-gateway
         enabled: true

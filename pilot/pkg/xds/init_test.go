@@ -164,9 +164,10 @@ func adsReceive(ads AdsClient, to time.Duration) (*discovery.DiscoveryResponse, 
 	return ads.Recv()
 }
 
-func sendEDSReq(clusters []string, node string, edsClient AdsClient) error {
+func sendEDSReq(clusters []string, node string, version, nonce string, edsClient AdsClient) error {
 	err := edsClient.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
+		ResponseNonce: nonce,
+		VersionInfo:   version,
 		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,
@@ -228,9 +229,10 @@ func sendLDSNack(node string, client AdsClient) error {
 	return sendXds(node, client, v3.ListenerType, "NOPE!")
 }
 
-func sendRDSReq(node string, routes []string, nonce string, rdsclient AdsClient) error {
+func sendRDSReq(node string, routes []string, version, nonce string, rdsclient AdsClient) error {
 	err := rdsclient.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: nonce,
+		VersionInfo:   version,
 		Node: &corev3.Node{
 			Id:       node,
 			Metadata: nodeMetadata,

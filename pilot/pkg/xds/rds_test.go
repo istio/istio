@@ -60,7 +60,7 @@ func TestRDS(t *testing.T) {
 			}
 			defer cancel()
 
-			err = sendRDSReq(tt.node, tt.routes, "", rdsr)
+			err = sendRDSReq(tt.node, tt.routes, "", "", rdsr)
 			if err != nil {
 				t.Fatal(err)
 			}

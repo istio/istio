@@ -384,6 +384,10 @@ func (store *istioConfigStore) ServiceEntries() []Config {
 	if err != nil {
 		return nil
 	}
+
+	// To ensure the ip allocation logic deterministically
+	// allocates the same IP to a service entry.
+	sortConfigByCreationTime(serviceEntries)
 	return serviceEntries
 }
 

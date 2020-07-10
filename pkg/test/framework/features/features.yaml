@@ -35,9 +35,12 @@ features:
   # features relating to controlling the traffic of the service mesh.
   traffic:
     reachability:
+    shifting:
     routing:
     short-circuiting:
     mirroring:
+    ingress:
+      loadbalancing:
   usability:
     observability:
       status:

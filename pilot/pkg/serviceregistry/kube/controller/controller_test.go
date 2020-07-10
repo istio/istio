@@ -27,10 +27,8 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
-	metafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/annotation"
@@ -177,8 +175,7 @@ func newFakeControllerWithOptions(opts fakeControllerOptions) (*Controller, *Fak
 	go c.Run(c.stop)
 	clients.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.serviceInformer.HasSynced)
+	cache.WaitForCacheSync(c.stop, c.pods.informer.HasSynced, c.serviceInformer.HasSynced, c.endpoints.HasSynced)
 	return c, fx
 }
 
@@ -1502,15 +1499,10 @@ func generateNode(name string, labels map[string]string) *coreV1.Node {
 }
 
 func addNodes(t *testing.T, controller *Controller, nodes ...*coreV1.Node) {
-	nodeResource := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes"}
-	fakeClient := controller.metadataClient.(*metafake.FakeMetadataClient)
+	fakeClient := controller.client
 
 	for _, node := range nodes {
-		partialMetadata := &metaV1.PartialObjectMetadata{
-			TypeMeta:   node.TypeMeta,
-			ObjectMeta: node.ObjectMeta,
-		}
-		_, err := fakeClient.Resource(nodeResource).(metafake.MetadataClient).CreateFake(partialMetadata, metaV1.CreateOptions{})
+		_, err := fakeClient.CoreV1().Nodes().Create(context.TODO(), node, metaV1.CreateOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}

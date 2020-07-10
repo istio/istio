@@ -145,7 +145,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 					matchHash := hashRuntimeTLSMatchPredicates(match)
 					if !matchHasBeenHandled[matchHash] {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadataV2(cfg.ConfigMeta),
+							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
 							networkFilters:   buildOutboundNetworkFilters(node, tls.Route, push, listenPort, cfg.ConfigMeta),
@@ -225,7 +225,7 @@ TcpLoop:
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
-					metadata:         util.BuildConfigInfoMetadataV2(cfg.ConfigMeta),
+					metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 					destinationCIDRs: destinationCIDRs,
 					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 				})
@@ -249,7 +249,7 @@ TcpLoop:
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
 					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadataV2(cfg.ConfigMeta),
+							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
 							destinationCIDRs: destinationCIDRs,
 							networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
 						})

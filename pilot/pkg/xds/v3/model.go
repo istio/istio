@@ -14,7 +14,11 @@
 
 package v3
 
-import "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+import (
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
+)
 
 const (
 	ClusterType  = resource.ClusterType
@@ -22,3 +26,25 @@ const (
 	ListenerType = resource.ListenerType
 	RouteType    = resource.RouteType
 )
+
+var (
+	ListenerShortType = "LDS"
+	RouteShortType    = "RDS"
+	EndpointShortType = "EDS"
+	ClusterShortType  = "CDS"
+)
+
+func GetShortType(typeURL string) string {
+	switch typeURL {
+	case v2.ClusterType, ClusterType:
+		return ClusterShortType
+	case v2.ListenerType, ListenerType:
+		return ListenerShortType
+	case v2.RouteType, RouteType:
+		return RouteShortType
+	case v2.EndpointType, EndpointType:
+		return EndpointShortType
+	default:
+		return typeURL
+	}
+}
