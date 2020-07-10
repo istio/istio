@@ -1,5 +1,5 @@
 # Default ASM Profile for GCP multiproject installations.
-#   * Security: citedal
+#   * Security: citadel
 #   * Telemetry: Stackdriver
 #   * Networking: istiod
 apiVersion: install.istio.io/v1alpha1
