@@ -2534,7 +2534,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
-						ValidationContextType: &tls.CommonTlsContext_ValidationContext{ValidationContext: &tls.CertificateValidationContext{}},
+						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
 					},
 					Sni: "some-sni.com",
 				},
@@ -3012,7 +3012,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						ValidationContextType: &tls.CommonTlsContext_ValidationContext{ValidationContext: &tls.CertificateValidationContext{}},
+						ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
 					},
 					Sni: "some-sni.com",
 				},
