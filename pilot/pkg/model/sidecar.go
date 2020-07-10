@@ -221,6 +221,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
 		configDependencies: make(map[ConfigKey]struct{}),
+		rootNS:             ps.Mesh.RootNamespace,
 	}
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
