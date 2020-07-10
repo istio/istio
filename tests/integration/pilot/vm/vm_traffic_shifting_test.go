@@ -59,9 +59,10 @@ func TestTrafficShifting(t *testing.T) {
 
 			ports := []echo.Port{
 				{
-					Name:     "http",
-					Protocol: protocol.HTTP,
+					Name:         "http",
+					Protocol:     protocol.HTTP,
 					ServicePort:  8090,
+					InstancePort: 9090,
 				},
 			}
 
