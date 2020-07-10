@@ -83,6 +83,10 @@ func TestProxyNeedsPush(t *testing.T) {
 			{
 				Kind: gvk.Gateway,
 				Name: generalName, Namespace: nsName}: {}}, true},
+		{"sidecar config for gateway", gateway, map[model.ConfigKey]struct{}{
+			{
+				Kind: gvk.Sidecar,
+				Name: scName, Namespace: nsName}: {}}, false},
 		{"quotaspec config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
 				Kind: gvk.QuotaSpec,
