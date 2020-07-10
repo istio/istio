@@ -241,12 +241,13 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	if fullPush {
 		// When doing a full push, for the added and updated services trigger an eds update so that
 		// endpoint shards are updated.
-		var instances []*model.ServiceInstance
-		for _, svcs := range [][]*model.Service{addedSvcs, updatedSvcs} {
-			instances = append(instances, convertInstances(curr, svcs)...)
-		}
+		// var instances []*model.ServiceInstance
+		// for _, svcs := range [][]*model.Service{addedSvcs, updatedSvcs} {
+		// 	instances = append(instances, convertInstances(curr, svcs)...)
+		// }
 
-		s.edsUpdate(instances)
+		// fmt.Println("eds update.... ", len(instances))
+		// s.edsUpdate(instances)
 
 		pushReq := &model.PushRequest{
 			Full:           true,
