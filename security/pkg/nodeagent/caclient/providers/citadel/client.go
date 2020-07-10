@@ -205,7 +205,6 @@ func (c *citadelClient) buildConnection(isRotate bool) (*grpc.ClientConn, error)
 	}
 
 	conn, err := grpc.Dial(c.caEndpoint, opts)
-	c.conn = conn
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.caEndpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", c.caEndpoint)
