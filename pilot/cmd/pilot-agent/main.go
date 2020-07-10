@@ -26,8 +26,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
-	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pkg/dns"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -185,7 +187,6 @@ var (
 			}
 
 			proxyConfig, err := constructProxyConfig()
-
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -217,7 +218,6 @@ var (
 				OutputKeyCertToDir: outputKeyCertToDir,
 				ClusterID:          clusterIDVar.Get(),
 			})
-
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {
@@ -346,8 +346,6 @@ var (
 		},
 	}
 )
-
-
 
 // explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first

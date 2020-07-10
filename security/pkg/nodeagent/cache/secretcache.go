@@ -28,8 +28,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
@@ -46,26 +44,15 @@ import (
 	google "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"github.com/google/uuid"
 )
 
 var (
-	ProxyConfig meshconfig.ProxyConfig
 
 	cacheLog       = log.RegisterScope("cache", "cache debugging", 0)
 	newFileWatcher = filewatcher.NewWatcher
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
-
-	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
-		"The JWT validation policy.")
-	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
-		"the provider of Pilot DNS certificate.").Get()
-	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
-		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
-				"Must be set for VMs using provisioning certificates.").Get()
-	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 )
 
 const (
@@ -108,9 +95,6 @@ const (
 
 	// CSR empty token, will be applied when the CSR request doesn't contain a token
 	EmptyToken = ""
-	// trustworthy token JWTPath
-	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
-
 )
 
 type k8sJwtPayload struct {
@@ -508,10 +492,6 @@ func (sc *SecretCache) Close() {
 
 func (sc *SecretCache) keyCertRotationJob() {
 	// Wake up once in a while and rotate keys and certificates if in grace period.
-	cacheLog.Infof("kkkkkkkkkkkkkkkmmmmmmmmmmmm")
-	cacheLog.Infof("%+v", sc.configOptions.RotationInterval.Seconds())
-	sc.configOptions.RotationInterval = time.Duration(time.Second * 10)
-	cacheLog.Infof("%+v", sc.configOptions.RotationInterval.Seconds())
 	sc.rotationTicker = time.NewTicker(sc.configOptions.RotationInterval)
 	for {
 		select {
@@ -605,12 +585,10 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 func (sc *SecretCache) rotate(updateRootFlag bool) {
 	// Skip secret rotation for kubernetes secrets.
 	if !sc.fetcher.UseCaClient {
-		cacheLog.Infof("rotate09090909090")
-		cacheLog.Infof("%+v", sc.fetcher.UseCaClient)
 		return
 	}
 
-	cacheLog.Infof("Rotation job running")
+	cacheLog.Debug("Rotation job running")
 
 	var secretMap sync.Map
 	wg := sync.WaitGroup{}
@@ -671,11 +649,11 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					citadelClient := sc.fetcher.CaClient.(*citadel.CitadelClient)
 					sc.fetcher.ResetIstiodCaClientForCertRotation(citadelClient.GetCaEndpoint(), citadelClient.GetClusterId())
 				case *google.GoogleCAClient:
-					// TODO(myidpt): re create the google CA client to do mtls verification
+					// TODO(myidpt): recreate the google CA client to do mtls verification
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				case *vault.VaultClient:
-					// TODO(myidpt): re create the vault CA client to do mtls verification
+					// TODO(myidpt): recreate the vault CA client to do mtls verification
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				default:
@@ -696,7 +674,6 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				var ns *model.SecretItem
 				var err error
 				if isTokenExpired {
-					//ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
 					ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
 				} else {
 					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now)
@@ -705,9 +682,6 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					cacheLog.Errorf("%s failed to rotate secret: %v", logPrefix, err)
 					return
 				}
-				cacheLog.Infof("kkkkjjkjkjkjkjkjkjkjkkllllloooo")
-				cacheLog.Infof("%+v", sc.configOptions.OutputKeyCertToDir)
-				cacheLog.Infof("%ggggggggggggg")
 				// Output the key and cert to dir to make sure key and cert are rotated.
 				if err = nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, ns.PrivateKey,
 					ns.CertificateChain, ns.RootCert); err != nil {
@@ -993,7 +967,6 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
-		cacheLog.Infof("14141414141414")
 		return sc.generateGatewaySecret(token, connKey, t)
 	}
 
@@ -1094,10 +1067,8 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
 	sc.configOptions.SecretRotationGracePeriodRatio = 0.99
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
-	rotate := time.Now().After(secret.CreatedTime.Add(time.Second * 30))
-	cacheLog.Infof("gggggggkkkkjjjjjjjjssss")
-	cacheLog.Infof("Ratio:%s, secretLifeTime: %s, secret.CreatedTime: %s", sc.configOptions.SecretRotationGracePeriodRatio, secretLifeTime, secret.CreatedTime)
-	cacheLog.Infof("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
+	rotate := time.Now().After(secret.ExpireTime.Add(-gracePeriod))
+	cacheLog.Debugf("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
 		secret.ResourceName, secretLifeTime, gracePeriod, secret.ExpireTime, rotate)
 	return rotate
 }
@@ -1105,10 +1076,7 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 func (sc *SecretCache) isTokenExpired(secret *model.SecretItem) bool {
 	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
 	if sc.configOptions.AlwaysValidTokenFlag {
-		sc.configOptions.AlwaysValidTokenFlag = false
 		return false
-	} else {
-		return true
 	}
 
 	expired, err := util.IsJwtExpired(secret.Token, time.Now())
@@ -1266,4 +1234,3 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 	cacheLog.Debugf("Token exchange succeeded for %s", logPrefix)
 	return exchangedTokens[0], nil
 }
-

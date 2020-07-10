@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"strings"
 
-	"google.golang.org/grpc/peer"
 	"istio.io/pkg/env"
 
 	"google.golang.org/grpc"
@@ -42,15 +41,13 @@ const (
 var (
 	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
 
-	EnvoyProvCert = env.RegisterStringVar("ENVOY_PROV_CERT", "",
-		"Set to a directory containing provisioned certs, for VMs").Get()
 	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
 	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
 	// with extra SAN (labels, etc) in data path.
 	ProvCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
-	// EMPTY_PROV_CERT needs to be set true if the ProvCert path is provided
-	// but cert not exists
+
+	// if OUTPUT_CERTS path is set, it will restore the cert from the signed by the CA
 	OutputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 				"Must be set for VMs using provisioning certificates.").Get()
@@ -84,10 +81,6 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		opts = grpc.WithInsecure()
 	}
 
-	citadelClientLog.Infof("3333333333\n")
-	citadelClientLog.Infof("%+v\n", ProvCert)
-	citadelClientLog.Infof("4444444444\n")
-
 	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
 	//  need a way to reconnect.
 	conn, err := grpc.Dial(endpoint, opts)
@@ -107,15 +100,6 @@ func (c *CitadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
-
-	citadelClientLog.Infof("CSRSign========\n")
-	citadelClientLog.Infof("%+v\n",ctx)
-	peer, _ := peer.FromContext(ctx)
-	citadelClientLog.Infof("ssssssppppoooooo\n")
-	citadelClientLog.Infof("%+v\n",ctx)
-	citadelClientLog.Infof("pppppkkkkkkkkk\n")
-	citadelClientLog.Infof("%+v\n",peer)
-	citadelClientLog.Infof("nnnnnnnnnnnnnnnnn\n")
 
 	// add Bearer prefix, which is required by Citadel.
 	token = bearerTokenPrefix + token
@@ -152,7 +136,6 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 			return nil, fmt.Errorf("failed to append certificates")
 		}
 	}
-	citadelClientLog.Infof("101010101010")
 	var certificate tls.Certificate
 	config := tls.Config{
 		Certificates: []tls.Certificate{certificate},
@@ -160,7 +143,6 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 			if isRotate {
 				if OutputKeyCertToDir != "" {
 					// Load the certificate from disk
-					citadelClientLog.Infof("151515151515")
 					certificate, err = tls.LoadX509KeyPair(OutputKeyCertToDir+"/cert-chain.pem", OutputKeyCertToDir+"/key.pem")
 					if err != nil {
 						return nil, fmt.Errorf("cannot load key pair: %s", err)
@@ -170,7 +152,6 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 			} else {
 				if ProvCert != "" {
 					// Load the certificate from disk
-					citadelClientLog.Infof("999999999")
 					certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
 					if err != nil {
 						return nil, fmt.Errorf("cannot load key pair: %s", err)
