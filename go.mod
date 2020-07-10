@@ -23,9 +23,12 @@ replace github.com/Microsoft/hcsshim => github.com/Microsoft/hcsshim v0.8.8-0.20
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
+replace cloud.google.com/go/meshtelemetry/v1alpha1 v0.0.0 => ./pkg/test/framework/components/stackdriver/edges
+
 require (
 	cloud.google.com/go v0.50.0
 	cloud.google.com/go/logging v1.0.0
+	cloud.google.com/go/meshtelemetry/v1alpha1 v0.0.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.12.9
 	contrib.go.opencensus.io/exporter/zipkin v0.1.1

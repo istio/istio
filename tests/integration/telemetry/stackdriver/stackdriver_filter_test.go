@@ -15,14 +15,19 @@
 package stackdriver
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	edgespb "cloud.google.com/go/meshtelemetry/v1alpha1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -43,6 +48,7 @@ const (
 	serverRequestCount           = "testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
+	trafficAssertionTmpl         = "testdata/traffic_assertion.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 )
 
@@ -62,48 +68,25 @@ func getEchoNamespaceInstance() namespace.Instance {
 	return echoNsInst
 }
 
-func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSeries, err error) {
-	srvRequestCountTmpl, err := ioutil.ReadFile(serverRequestCount)
+func unmarshalFromTemplateFile(file string, out proto.Message) error {
+	templateFile, err := ioutil.ReadFile(file)
 	if err != nil {
-		return
+		return err
 	}
-	sr, err := tmpl.Evaluate(string(srvRequestCountTmpl), map[string]interface{}{
+	resource, err := tmpl.Evaluate(string(templateFile), map[string]interface{}{
 		"EchoNamespace": getEchoNamespaceInstance().Name(),
 	})
 	if err != nil {
-		return
+		return err
 	}
-	if err = jsonpb.UnmarshalString(sr, &srvRequestCount); err != nil {
-		return
-	}
-	cltRequestCountTmpl, err := ioutil.ReadFile(clientRequestCount)
-	if err != nil {
-		return
-	}
-	cr, err := tmpl.Evaluate(string(cltRequestCountTmpl), map[string]interface{}{
-		"EchoNamespace": getEchoNamespaceInstance().Name(),
-	})
-	if err != nil {
-		return
-	}
-	err = jsonpb.UnmarshalString(cr, &cltRequestCount)
-	return
+	return jsonpb.UnmarshalString(resource, out)
 }
 
-func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
-	srvlogEntryTmpl, err := ioutil.ReadFile(serverLogEntry)
-	if err != nil {
+func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSeries, err error) {
+	if err = unmarshalFromTemplateFile(serverRequestCount, &srvRequestCount); err != nil {
 		return
 	}
-	sr, err := tmpl.Evaluate(string(srvlogEntryTmpl), map[string]interface{}{
-		"EchoNamespace": getEchoNamespaceInstance().Name(),
-	})
-	if err != nil {
-		return
-	}
-	if err = jsonpb.UnmarshalString(sr, &srvLogEntry); err != nil {
-		return
-	}
+	err = unmarshalFromTemplateFile(clientRequestCount, &cltRequestCount)
 	return
 }
 
@@ -112,62 +95,24 @@ func getWantServerLogEntry() (srvLogEntry loggingpb.LogEntry, err error) {
 func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			srvReceived := false
-			cltReceived := false
-			logReceived := false
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := clt.Call(echo.CallOptions{
-					Target:   srv,
-					PortName: "grpc",
-					Count:    1,
-				})
-				if err != nil {
+				if err := sendTraffic(t); err != nil {
+					return fmt.Errorf("could not generate traffic: %v", err)
+				}
+				if err := validateMetrics(t); err != nil {
 					return err
 				}
-				// Verify stackdriver metrics
-				wantClt, wantSrv, err := getWantRequestCountTS()
-				if err != nil {
+				if err := validateLogs(t); err != nil {
 					return err
 				}
-				// Traverse all time series received and compare with expected client and server time series.
-				ts, err := sdInst.ListTimeSeries()
-				if err != nil {
+				if err := validateTraces(t); err != nil {
 					return err
 				}
-				for _, t := range ts {
-					if proto.Equal(t, &wantSrv) {
-						srvReceived = true
-					}
-					if proto.Equal(t, &wantClt) {
-						cltReceived = true
-					}
-				}
-
-				// Verify log entry
-				wantLog, err := getWantServerLogEntry()
-				if err != nil {
-					return fmt.Errorf("failed to parse wanted log entry: %v", err)
-				}
-				// Traverse all log entries received and compare with expected server log entry.
-				entries, err := sdInst.ListLogEntries()
-				if err != nil {
-					return fmt.Errorf("failed to get received log entries: %v", err)
-				}
-				for _, l := range entries {
-					if proto.Equal(l, &wantLog) {
-						logReceived = true
-					}
-				}
-
-				// Check if both client and server side request count metrics are received
-				if !srvReceived || !cltReceived {
-					return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
-				}
-				if !logReceived {
-					return fmt.Errorf("stackdriver server does not received expected log entry")
+				if err := validateEdges(t); err != nil {
+					return err
 				}
 				return nil
-			}, retry.Delay(3*time.Second), retry.Timeout(40*time.Second))
+			}, retry.Delay(10*time.Second), retry.Timeout(40*time.Second))
 		})
 }
 
@@ -184,9 +129,17 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
+	cfg.ControlPlaneValues = `
+meshConfig:
+  enableTracing: true
+`
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
+	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
+	cfg.Values["global.proxy.tracer"] = "stackdriver"
+	cfg.Values["pilot.traceSampling"] = "100"
+	cfg.Values["telemetry.v2.stackdriver.configOverride"] = `{"enable_mesh_edges_reporting": true,"meshEdgesReportingDuration":"5s"}`
 }
 
 func testSetup(ctx resource.Context) (err error) {
@@ -238,6 +191,20 @@ func testSetup(ctx resource.Context) (err error) {
 		With(&srv, echo.Config{
 			Service:   "srv",
 			Namespace: getEchoNamespaceInstance(),
+			Ports: []echo.Port{
+				{
+					Name:     "grpc",
+					Protocol: protocol.GRPC,
+					// We use a port > 1024 to not require root
+					InstancePort: 7070,
+				},
+				{
+					Name:     "http",
+					Protocol: protocol.HTTP,
+					// We use a port > 1024 to not require root
+					InstancePort: 8888,
+				},
+			},
 			Subsets: []echo.SubsetConfig{
 				{
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -252,4 +219,154 @@ func testSetup(ctx resource.Context) (err error) {
 		return
 	}
 	return nil
+}
+
+// send both a grpc and http requests (http with forced tracing).
+func sendTraffic(t *testing.T) error {
+	t.Helper()
+	grpcOpts := echo.CallOptions{
+		Target:   srv,
+		PortName: "grpc",
+		Count:    1,
+	}
+	if _, err := clt.Call(grpcOpts); err != nil {
+		return err
+	}
+
+	// an HTTP request with forced tracing
+	hdr := http.Header{}
+	hdr.Add("x-envoy-force-trace", "true")
+	hdr.Add("X-B3-Sampled", "1")
+	httpOpts := echo.CallOptions{
+		Target:   srv,
+		PortName: "http",
+		Headers:  hdr,
+		Count:    1,
+	}
+	_, err := clt.Call(httpOpts)
+	return err
+}
+
+func validateMetrics(t *testing.T) error {
+	t.Helper()
+
+	var wantClient, wantServer monitoring.TimeSeries
+	if err := unmarshalFromTemplateFile(serverRequestCount, &wantServer); err != nil {
+		return fmt.Errorf("metrics: error generating wanted server request: %v", err)
+	}
+	if err := unmarshalFromTemplateFile(clientRequestCount, &wantClient); err != nil {
+		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
+	}
+
+	// Traverse all time series received and compare with expected client and server time series.
+	ts, err := sdInst.ListTimeSeries()
+	if err != nil {
+		return fmt.Errorf("metrics: error getting time-series from Stackdriver: %v", err)
+	}
+
+	t.Logf("number of timeseries: %v", len(ts))
+	var gotServer, gotClient bool
+	for _, tt := range ts {
+		if proto.Equal(tt, &wantServer) {
+			gotServer = true
+		}
+		if proto.Equal(tt, &wantClient) {
+			gotClient = true
+		}
+	}
+	if !(gotServer && gotClient) {
+		return fmt.Errorf("metrics: did not get expected metrics; server = %t, client = %t", gotServer, gotClient)
+	}
+	return nil
+}
+
+func validateLogs(t *testing.T) error {
+	t.Helper()
+
+	var wantLog loggingpb.LogEntry
+	if err := unmarshalFromTemplateFile(serverLogEntry, &wantLog); err != nil {
+		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
+	}
+	// Traverse all log entries received and compare with expected server log entry.
+	entries, err := sdInst.ListLogEntries()
+	if err != nil {
+		return fmt.Errorf("logs: failed to get received log entries: %v", err)
+	}
+	for _, l := range entries {
+		if proto.Equal(l, &wantLog) {
+			return nil
+		}
+	}
+	return errors.New("logs: did not get expected log entry")
+}
+
+func validateEdges(t *testing.T) error {
+	t.Helper()
+
+	var wantEdge edgespb.TrafficAssertion
+	if err := unmarshalFromTemplateFile(trafficAssertionTmpl, &wantEdge); err != nil {
+		return fmt.Errorf("edges: failed to build wanted traffic assertion: %v", err)
+	}
+	edges, err := sdInst.ListTrafficAssertions()
+	if err != nil {
+		return fmt.Errorf("edges: failed to get traffic assertions from Stackdriver: %v", err)
+	}
+	for _, edge := range edges {
+		edge.Destination.Uid = ""
+		edge.Destination.ClusterName = ""
+		edge.Source.Uid = ""
+		edge.Source.ClusterName = ""
+		t.Logf("edge: %v", edge)
+		if proto.Equal(edge, &wantEdge) {
+			return nil
+		}
+	}
+	return errors.New("edges: did not get expected traffic assertion")
+}
+
+func validateTraces(t *testing.T) error {
+	t.Helper()
+
+	// we are looking for a trace that looks something like:
+	//
+	// project_id:"projects/test-project"
+	// trace_id:"99bc9a02417c12c4877e19a4172ae11a"
+	// spans:{
+	//   span_id:440543054939690778
+	//   name:"projects/test-project/traces/99bc9a02417c12c4877e19a4172ae11a/spans/061d1f9309f2171a"
+	//   start_time:{seconds:1594418699  nanos:648039133}
+	//   end_time:{seconds:1594418699  nanos:669864006}
+	//   parent_span_id:18050098903530484457
+	//   labels:{
+	//     key:"span"
+	//     value:"srv.istio-echo-1-92573.svc.cluster.local:80/*"
+	//   }
+	// }
+	//
+	// we only need to validate the span value in the labels and project_id for
+	// the purposes of this test at the moment.
+	//
+	// future improvements include adding canonical service info, etc. in the
+	// span.
+
+	wantSpanLabel := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", getEchoNamespaceInstance().Name())
+	traces, err := sdInst.ListTraces()
+	if err != nil {
+		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
+	}
+	for _, trace := range traces {
+		t.Logf("trace: %v\n", trace)
+		if trace.ProjectId != "projects/test-project" {
+			continue
+		}
+		for _, span := range trace.Spans {
+			if !strings.HasPrefix(span.Name, "projects/test-project") {
+				continue
+			}
+			if got, ok := span.Labels["span"]; ok && got == wantSpanLabel {
+				return nil
+			}
+		}
+	}
+	return errors.New("traces: could not find expected trace")
 }
