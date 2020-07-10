@@ -153,8 +153,9 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st security.SecretManager, skipTokenVerification, localJWT, fileMountedCertsOnly bool,
-	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
+func newSDSService(st security.SecretManager,
+	secOpt *security.Options,
+	skipTokenVerification bool) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -162,12 +163,12 @@ func newSDSService(st security.SecretManager, skipTokenVerification, localJWT, f
 	ret := &sdsservice{
 		st:                   st,
 		skipToken:            skipTokenVerification,
-		fileMountedCertsOnly: fileMountedCertsOnly,
-		tickerInterval:       recycleInterval,
+		fileMountedCertsOnly: secOpt.FileMountedCerts,
+		tickerInterval:       secOpt.RecycleInterval,
 		closing:              make(chan bool),
-		localJWT:             localJWT,
-		jwtPath:              jwtPath,
-		outputKeyCertToDir:   outputKeyCertToDir,
+		localJWT:             secOpt.UseLocalJWT,
+		jwtPath:              secOpt.JWTPath,
+		outputKeyCertToDir:   secOpt.OutputKeyCertToDir,
 	}
 
 	go ret.clearStaledClientsJob()

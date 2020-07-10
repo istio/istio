@@ -488,7 +488,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns security.SecretItem
 				defer wg.Done()
 				var newSecret *security.SecretItem
 				if strings.HasSuffix(secretName, secretfetcher.GatewaySdsCaSuffix) {
-					newSecret = &model.SecretItem{
+					newSecret = &security.SecretItem{
 						ResourceName: secretName,
 						RootCert:     ns.RootCert,
 						ExpireTime:   ns.ExpireTime,

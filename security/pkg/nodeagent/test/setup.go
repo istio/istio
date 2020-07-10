@@ -156,7 +156,7 @@ func (e *Env) StartProxy(t *testing.T) {
 
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
-	serverOptions := security.Options{
+	serverOptions := &security.Options{
 		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
 		UseLocalJWT:       true,
 		JWTPath:           proxyTokenPath,
@@ -182,9 +182,9 @@ func (e *Env) StartSDSServer(t *testing.T) {
 	e.SDSServer = sdsServer
 }
 
-func (e *Env) cacheOptions(t *testing.T) cache.Options {
+func (e *Env) cacheOptions(t *testing.T) *security.Options {
 	// Default options does not rotate cert until cert expires after 1 hour.
-	opt := cache.Options{
+	opt := &security.Options{
 		SecretTTL:                      1 * time.Hour,
 		TrustDomain:                    spiffe.GetTrustDomain(),
 		RotationInterval:               5 * time.Minute,

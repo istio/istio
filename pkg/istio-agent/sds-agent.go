@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -159,6 +160,11 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		secOpts:     sopts,
 	}
 
+	// Fix the defaults - mainly for tests ( main uses env )
+	if sopts.RecycleInterval.Seconds() == 0 {
+		sopts.RecycleInterval = 5 * time.Minute
+	}
+
 	discAddr := proxyConfig.DiscoveryAddress
 
 	sa.SDSAddress = "unix:" + LocalSDS
@@ -253,8 +259,8 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 			log.Infof("Starting gateway SDS")
 			sa.secOpts.EnableGatewaySDS = true
 			// TODO: what is the setting for ingress ?
-			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.IngressGatewaySdsUdsPath, "unix:")
-			gatewaySecretCache = sa.newIngressSecretCache(podNamespace)
+			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
+			gatewaySecretCache = sa.newSecretCache(podNamespace)
 		} else {
 			log.Infof("Skipping gateway SDS")
 		}

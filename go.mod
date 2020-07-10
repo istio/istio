@@ -100,6 +100,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.3
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/json-iterator/go v1.1.9 // indirect
+	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/kr/pretty v0.1.0
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v0.9.0

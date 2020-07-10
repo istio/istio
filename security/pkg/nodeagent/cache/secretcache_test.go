@@ -198,7 +198,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := Options{
+	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
 	}
@@ -206,7 +206,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 	if isUsingPluginProvider {
 		// The mocked token exchanger server returns 3 errors before returning a valid response.
 		fakePlugin := mock.NewMockTokenExchangeServer(3)
-		opt.Plugins = []security.TokenExchanger{fakePlugin}
+		opt.TokenExchangers = []security.TokenExchanger{fakePlugin}
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
@@ -271,7 +271,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := Options{
+	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
 	}
@@ -645,7 +645,7 @@ func createSecretCache() *SecretCache {
 	fetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	ch := make(chan struct{})
 	fetcher.Run(ch)
-	opt := Options{
+	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
 	}
@@ -657,7 +657,7 @@ func TestShouldWaitForGatewaySecretForFileMountedCerts(t *testing.T) {
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
-	opt := Options{
+	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
 	}
@@ -880,7 +880,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
-	opt := Options{
+	opt := &security.Options{
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 	}
@@ -1012,7 +1012,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	fetcher := &secretfetcher.SecretFetcher{}
 
-	opt := Options{
+	opt := &security.Options{
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 	}
@@ -1138,7 +1138,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 		totalTimeout = originalTimeout
 	}()
 
-	opt := Options{
+	opt := &security.Options{
 		RotationInterval: 1 * time.Millisecond,
 		EvictionDuration: 0,
 	}
@@ -1233,7 +1233,7 @@ func TestShouldRotate(t *testing.T) {
 				ExpireTime:   now.Add(time.Hour),
 				CreatedTime:  now.Add(-time.Hour),
 			},
-			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0.4}},
+			sc:           &SecretCache{configOptions: &security.Options{SecretRotationGracePeriodRatio: 0.4}},
 			shouldRotate: false,
 		},
 		"In grace period": {
@@ -1242,7 +1242,7 @@ func TestShouldRotate(t *testing.T) {
 				ExpireTime:   now.Add(time.Hour),
 				CreatedTime:  now.Add(-time.Hour),
 			},
-			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0.6}},
+			sc:           &SecretCache{configOptions: &security.Options{SecretRotationGracePeriodRatio: 0.6}},
 			shouldRotate: true,
 		},
 		"Passed the expiration": {
@@ -1251,7 +1251,7 @@ func TestShouldRotate(t *testing.T) {
 				ExpireTime:   now.Add(-time.Minute),
 				CreatedTime:  now.Add(-time.Hour),
 			},
-			sc:           &SecretCache{configOptions: Options{SecretRotationGracePeriodRatio: 0}},
+			sc:           &SecretCache{configOptions: &security.Options{SecretRotationGracePeriodRatio: 0}},
 			shouldRotate: true,
 		},
 	}

@@ -97,11 +97,12 @@ func TestAgent(t *testing.T) {
 			DiscoveryAddress:       util.MockPilotSGrpcAddr,
 			ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
 		}, &istioagent.AgentConfig{
-			PilotCertProvider: "custom",
-			ClusterID:         "kubernetes",
 			// Enable proxy - off by default, will be XDS_LOCAL env in install.
 			LocalXDSAddr: "127.0.0.1:15002",
-		}, &security.Options{})
+		}, &security.Options{
+			PilotCertProvider: "custom",
+			ClusterID:         "kubernetes",
+		})
 
 		// Override agent auth - start will use this instead of a gRPC
 		// TODO: add a test for cert-based config.

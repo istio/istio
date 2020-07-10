@@ -267,7 +267,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 				"certificate that fails to parse: %v", resourceName, err)
 			return nil, nil, isCAOnlySecret
 		}
-		certificateAuthorityNewSecret := &model.SecretItem{
+		certificateAuthorityNewSecret := &security.SecretItem{
 			ResourceName:                  resourceName + GatewaySdsCaSuffix,
 			CreatedTime:                   t,
 			Version:                       t.String(),

@@ -117,7 +117,7 @@ var (
 	pluginNamesEnv = env.RegisterStringVar("PLUGINS", "", "Token exchange plugins").Get()
 
 	// This is also disabled by presence of the SDS socket directory
-	enableIngressGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
+	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_GATEWAY_SDS", false,
 		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
 
 	// TODO: This is already present in ProxyConfig !!!
@@ -257,7 +257,7 @@ var (
 
 			secOpts.EnableWorkloadSDS = true
 
-			secOpts.EnableIngressGatewaySDS = enableIngressGatewaySDSEnv
+			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
 			secOpts.CAProviderName = caProviderEnv
 
 			// TODO: extract from ProxyConfig
