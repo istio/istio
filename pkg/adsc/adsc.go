@@ -1106,7 +1106,6 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		return err
 	}
 	val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
-	a.mutex.Lock()
 	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 	if cfg == nil {
 		_, err = a.Store.Create(*val)
@@ -1119,7 +1118,6 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 			return err
 		}
 	}
-	a.mutex.Unlock()
 	if a.LocalCacheDir != "" {
 		strResponse, err := json.MarshalIndent(val, "  ", "  ")
 		if err != nil {

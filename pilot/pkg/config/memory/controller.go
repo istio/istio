@@ -16,6 +16,7 @@ package memory
 
 import (
 	"errors"
+	"sync"
 
 	"istio.io/pkg/ledger"
 
@@ -27,6 +28,7 @@ import (
 type controller struct {
 	monitor     Monitor
 	configStore model.ConfigStore
+	mutex       sync.RWMutex
 }
 
 // NewController return an implementation of model.ConfigStoreCache
@@ -36,6 +38,7 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	out := &controller{
 		configStore: cs,
 		monitor:     NewMonitor(cs),
+		mutex:       sync.RWMutex{},
 	}
 	return out
 }
@@ -74,10 +77,14 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c *controller) Get(kind resource.GroupVersionKind, key, namespace string) *model.Config {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	return c.configStore.Get(kind, key, namespace)
 }
 
 func (c *controller) Create(config model.Config) (revision string, err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if revision, err = c.configStore.Create(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			config: config,
@@ -88,6 +95,8 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 }
 
 func (c *controller) Update(config model.Config) (newRevision string, err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	oldconfig := c.configStore.Get(config.GroupVersionKind, config.Name, config.Namespace)
 	if newRevision, err = c.configStore.Update(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
@@ -100,6 +109,8 @@ func (c *controller) Update(config model.Config) (newRevision string, err error)
 }
 
 func (c *controller) Delete(kind resource.GroupVersionKind, key, namespace string) (err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if config := c.Get(kind, key, namespace); config != nil {
 		if err = c.configStore.Delete(kind, key, namespace); err == nil {
 			c.monitor.ScheduleProcessEvent(ConfigEvent{
@@ -113,5 +124,7 @@ func (c *controller) Delete(kind resource.GroupVersionKind, key, namespace strin
 }
 
 func (c *controller) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	return c.configStore.List(kind, namespace)
 }
