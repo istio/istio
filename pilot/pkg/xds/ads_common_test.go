@@ -56,7 +56,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	gateway := &model.Proxy{Type: model.Router}
 
 	sidecarScopeKindNames := map[resource.GroupVersionKind]string{
-		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName, gvk.Sidecar: scName}
+		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName}
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
 	}
