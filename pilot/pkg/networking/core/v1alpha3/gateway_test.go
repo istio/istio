@@ -15,22 +15,22 @@
 package v1alpha3
 
 import (
-	"reflect"
-	"sort"
-	"testing"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"reflect"
+	"sort"
+	"testing"
+	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -105,6 +105,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -128,6 +129,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									InitialFetchTimeout: features.InitialFetchTimeout,
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -195,6 +197,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -237,6 +240,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -348,6 +352,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -376,6 +381,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
+									//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									InitialFetchTimeout: features.InitialFetchTimeout,
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -419,6 +425,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -447,6 +454,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
+									//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									InitialFetchTimeout: features.InitialFetchTimeout,
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -490,6 +498,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
+								//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -518,6 +527,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
+									//InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									InitialFetchTimeout: features.InitialFetchTimeout,
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{

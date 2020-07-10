@@ -100,11 +100,7 @@ var (
 			"This prevents envoy from getting stuck waiting on config during startup.",
 	)
 	InitialFetchTimeout = func() *duration.Duration {
-		timeout, f := initialFetchTimeoutVar.Lookup()
-		if !f {
-			return nil
-		}
-		return ptypes.DurationProto(timeout)
+		return ptypes.DurationProto(time.Second*0)
 	}()
 
 	TerminationDrainDuration = env.RegisterIntVar(

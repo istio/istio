@@ -104,6 +104,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
+					InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 					InitialFetchTimeout: features.InitialFetchTimeout,
 					ResourceApiVersion:  core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -223,6 +224,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
 							ResourceApiVersion:  core.ApiVersion_V3,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -246,6 +248,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -280,6 +283,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					{
 						Name: "file-cert:serverCertChain~serverKey",
 						SdsConfig: &core.ConfigSource{
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							InitialFetchTimeout: features.InitialFetchTimeout,
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -303,6 +307,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "file-root:servrRootCert",
 							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
