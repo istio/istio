@@ -177,7 +177,11 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 func newKube(ctx resource.Context, cfg Config) Instance {
 	c := &kubeComponent{}
 	c.id = ctx.TrackResource(c)
-	c.namespace = cfg.Istio.Settings().IngressNamespace
+	if cfg.Namespace != nil {
+		c.namespace = cfg.Namespace.Name()
+	} else {
+		c.namespace = cfg.Istio.Settings().IngressNamespace
+	}
 	c.env = ctx.Environment().(*kube.Environment)
 	c.cluster = resource.ClusterOrDefault(cfg.Cluster, ctx.Environment())
 

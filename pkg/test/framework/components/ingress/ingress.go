@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 // CallType defines ingress gateway type
@@ -108,6 +109,8 @@ type Config struct {
 	IngressType CallType
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
+	// Namespace to deploy ingress util to, overrides cfg.IngressNamespace if specified
+	Namespace namespace.Instance
 }
 
 // CallResponse is the result of a call made through Istio Ingress.
