@@ -337,10 +337,8 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 }
 
 func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ListenerShortType) {
-		if !s.shouldRespond(con, ldsReject, discReq) {
-			return nil
-		}
+	if !s.shouldRespond(con, ldsReject, discReq) {
+		return nil
 	}
 	adsLog.Debugf("ADS:LDS: REQ %s", con.ConID)
 	err := s.pushLds(con, s.globalPushContext(), versionInfo())
@@ -351,10 +349,8 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ClusterShortType) {
-		if !s.shouldRespond(con, cdsReject, discReq) {
-			return nil
-		}
+	if !s.shouldRespond(con, cdsReject, discReq) {
+		return nil
 	}
 	adsLog.Infof("ADS:CDS: REQ %v version:%s", con.ConID, discReq.VersionInfo)
 	err := s.pushCds(con, s.globalPushContext(), versionInfo())
@@ -370,9 +366,9 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	}
 	// TODO(ramaraochavali): This special handling is not needed for EDS. But tests are failing without this.
 	// Need to investigate if there is a bug in adsc.
-	if discReq.ResourceNames == nil && discReq.ResponseNonce != "" {
-		return nil
-	}
+	// if discReq.ResourceNames == nil && discReq.ResponseNonce != "" {
+	// 	return nil
+	// }
 	con.node.Active[v3.EndpointShortType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)

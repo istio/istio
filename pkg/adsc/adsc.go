@@ -358,8 +358,6 @@ func (a *ADSC) Close() {
 
 // Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
-
-	// TODO: pass version info, nonce properly
 	var err error
 	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
 		tlsCfg, err := a.tlsConfig()
@@ -828,9 +826,8 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&discovery.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       ListenerType,
+			Node:    a.node(),
+			TypeUrl: ListenerType,
 		})
 	}
 
@@ -981,9 +978,8 @@ func (a *ADSC) EndpointsJSON() string {
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       v3.ClusterType,
+		Node:    a.node(),
+		TypeUrl: v3.ClusterType,
 	})
 }
 
@@ -1025,8 +1021,18 @@ func (a *ADSC) WaitConfigSync(max time.Duration) bool {
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
+	ex := a.Received[typeurl]
+	version := ""
+	nonce := ""
+	if ex != nil {
+		version = ex.VersionInfo
+		nonce = ex.Nonce
+	}
+
+	fmt.Println(version, nonce)
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: "",
+		ResponseNonce: nonce,
+		VersionInfo:   version,
 		Node:          a.node(),
 		TypeUrl:       typeurl,
 		ResourceNames: rsc,
