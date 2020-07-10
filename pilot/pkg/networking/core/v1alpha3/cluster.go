@@ -1034,12 +1034,24 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
-			},
+
+		// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
+		if res.GetRootResourceName() == "" {
+			tlsContext.CommonTlsContext = &auth.CommonTlsContext{
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: certValidationContext,
+				},
+			}
+			tlsContext.Sni = tls.Sni
+		} else {
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
+				},
+			}
 		}
+
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only

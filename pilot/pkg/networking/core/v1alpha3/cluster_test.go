@@ -2508,6 +2508,40 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
+			name: "tls mode SIMPLE, with no certs specified in tls",
+			opts: &buildClusterOpts{
+				cluster: &cluster.Cluster{
+					Name: "test-cluster",
+				},
+				proxy: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+				},
+				push: &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						SdsUdsPath: "this must not be nil",
+					},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			certValidationContext: &tls.CertificateValidationContext{},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						ValidationContextType: &tls.CommonTlsContext_ValidationContext{ValidationContext: &tls.CertificateValidationContext{}},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
 			name: "tls mode SIMPLE, with certs specified in tls",
 			opts: &buildClusterOpts{
 				cluster: &cluster.Cluster{
