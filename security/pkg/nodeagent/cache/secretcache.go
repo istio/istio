@@ -666,7 +666,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 
-				switch _ := sc.fetcher.CaClient.(type) {
+				switch sc.fetcher.CaClient.(type) {
 				case *citadel.CitadelClient:
 					citadelClient := sc.fetcher.CaClient.(*citadel.CitadelClient)
 					sc.fetcher.ResetIstiodCaClientForCertRotation(citadelClient.GetCaEndpoint(), citadelClient.GetClusterId())
