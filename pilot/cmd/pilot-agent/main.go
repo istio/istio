@@ -26,11 +26,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
-	"istio.io/istio/security/pkg/nodeagent/cache"
-
-	"istio.io/istio/pkg/dns"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/dns"
 	"istio.io/pkg/collateral"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -188,7 +185,7 @@ var (
 			}
 
 			proxyConfig, err := constructProxyConfig()
-			cache.ProxyConfig = proxyConfig
+
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -220,6 +217,7 @@ var (
 				OutputKeyCertToDir: outputKeyCertToDir,
 				ClusterID:          clusterIDVar.Get(),
 			})
+
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {

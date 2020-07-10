@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	istioagentutil "istio.io/istio/pkg/istio-agent/istioagentutil"
+	"istio.io/istio/security/pkg/nodeagent/sds"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -504,4 +506,12 @@ func (sf *SecretFetcher) AddSecret(obj interface{}) {
 // DeleteSecret deletes obj from local store. Only used for testing.
 func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 	sf.scrtDeleted(obj)
+}
+
+func (sf *SecretFetcher) ResetIstiodCaClientForCertRotation(caEndpoint, clusterId string) {
+		var serverOptions sds.Options
+		serverOptions.CAEndpoint = caEndpoint
+		serverOptions.TLSEnabled = true
+		serverOptions.ClusterID = clusterId
+		sf.CaClient,_, _ = istioagentutil.NewCAClient( "istiod" , serverOptions,true)
 }

@@ -29,8 +29,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/jwt"
-	cacheutil "istio.io/istio/security/pkg/nodeagent/cache/util"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -113,8 +111,6 @@ const (
 	// trustworthy token JWTPath
 	trustworthyJWTPath = "./var/run/secrets/tokens/istio-token"
 
-	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
-	LocalSDS = "./etc/istio/proxy/SDS"
 )
 
 type k8sJwtPayload struct {
@@ -672,28 +668,8 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 				switch _ := sc.fetcher.CaClient.(type) {
 				case *citadel.CitadelClient:
-					sa, err := cacheutil.GetNewAgent()
-					if err != nil {
-						cacheLog.Errorf("%s could not get the new agent error is %v", logPrefix, err)
-						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-						return true
-					}
-					var serverOptions sds.Options
-					serverOptions.WorkloadUDSPath = LocalSDS
-					serverOptions.CertsDir = sa.CertsPath
-					serverOptions.JWTPath = sa.Cfg.JWTPath
-					serverOptions.OutputKeyCertToDir = sa.Cfg.OutputKeyCertToDir
-					serverOptions.CAEndpoint = sa.CAEndpoint
-					serverOptions.TLSEnabled = sa.RequireCerts
-					serverOptions.ClusterID = sa.Cfg.ClusterID
-					serverOptions.FileMountedCerts = sa.FileMountedCerts
-					// If proxy is using file mounted certs, JWT token is not needed.
-					if sa.FileMountedCerts {
-						serverOptions.UseLocalJWT = false
-					} else {
-						serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
-					}
-					_, sc.fetcher.CaClient = sa.NewSecretCache(serverOptions, true)
+					citadelClient := sc.fetcher.CaClient.(*citadel.CitadelClient)
+					sc.fetcher.ResetIstiodCaClientForCertRotation(citadelClient.GetCaEndpoint(), citadelClient.GetClusterId())
 				case *google.GoogleCAClient:
 					// TODO(myidpt): re create the google CA client to do mtls verification
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)

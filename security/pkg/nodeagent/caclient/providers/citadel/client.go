@@ -197,3 +197,10 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
+
+func (c *CitadelClient) GetCaEndpoint() string {
+	return c.caEndpoint
+}
+func (c *CitadelClient) GetClusterId() string {
+	return c.clusterID
+}
