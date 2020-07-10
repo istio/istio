@@ -337,8 +337,10 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 }
 
 func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, ldsReject, discReq) {
-		return nil
+	if con.Watching(v3.ListenerShortType) {
+		if !s.shouldRespond(con, ldsReject, discReq) {
+			return nil
+		}
 	}
 	adsLog.Debugf("ADS:LDS: REQ %s", con.ConID)
 	err := s.pushLds(con, s.globalPushContext(), versionInfo())
@@ -349,8 +351,10 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, cdsReject, discReq) {
-		return nil
+	if con.Watching(v3.ClusterShortType) {
+		if !s.shouldRespond(con, cdsReject, discReq) {
+			return nil
+		}
 	}
 	adsLog.Infof("ADS:CDS: REQ %v version:%s", con.ConID, discReq.VersionInfo)
 	err := s.pushCds(con, s.globalPushContext(), versionInfo())
