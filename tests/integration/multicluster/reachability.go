@@ -47,10 +47,9 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 					// (see https://github.com/istio/istio/issues/23591).
 					clusters := ctx.Environment().Clusters()
 					services := map[resource.ClusterIndex][]*echo.Instance{}
-					vms := map[resource.ClusterIndex]*echo.Instance{}
+					var vmInstance echo.Instance
 					builder := echoboot.NewBuilderOrFail(ctx, ctx)
 					for _, cluster := range clusters {
-						var vmInstance echo.Instance
 						for i := 0; i < mcReachabilitySvcPerCluster; i++ {
 							var instance echo.Instance
 							ref := &instance
@@ -58,25 +57,23 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 							builder = builder.With(ref, newEchoConfig(svcName, ns, cluster, pilots))
 							services[cluster.Index()] = append(services[cluster.Index()], ref)
 						}
-						builder = builder.With(&vmInstance, echo.Config{
-							Service:    fmt.Sprintf("vm-%v", cluster.Index()),
-							Namespace:  ns,
-							Ports:      []echo.Port{
-								{
-									Name:     "http",
-									Protocol: protocol.HTTP,
-									// Due to a bug in WorkloadEntry, service port must equal target port for now
-									InstancePort: 8090,
-									ServicePort:  8090,
-								},
-							},
-							Pilot:      pilots[cluster.Index()],
-							DeployAsVM: true,
-							VMImage:    vm.DefaultVMImage,
-						})
-						vms[cluster.Index()] = &vmInstance
 					}
-					builder.BuildOrFail(ctx)
+					builder.With(&vmInstance, echo.Config{
+						Service:    "vm",
+						Namespace:  ns,
+						Ports:      []echo.Port{
+							{
+								Name:     "http",
+								Protocol: protocol.HTTP,
+								// Due to a bug in WorkloadEntry, service port must equal target port for now
+								InstancePort: 8090,
+								ServicePort:  8090,
+							},
+						},
+						Pilot:      pilots[0],
+						DeployAsVM: true,
+						VMImage:    vm.DefaultVMImage,
+					}).BuildOrFail(ctx)
 
 					// Now verify that all services in each cluster can hit one service in each cluster.
 					// Calling 1 service per remote cluster makes the number linear rather than quadratic with
@@ -86,7 +83,6 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 							for i, dstServices := range services {
 								src := *src
 								dest := *dstServices[0]
-								destVM := *vms[i]
 								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
 									src.Config().Service,
 									"http",
@@ -97,7 +93,7 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 								ctx.NewSubTest(subTestName).
 									RunParallel(func(ctx framework.TestContext) {
 										_ = callOrFail(ctx, src, dest)
-										_ = callOrFail(ctx, src, destVM)
+										_ = callOrFail(ctx, src, vmInstance)
 									})
 							}
 						}
