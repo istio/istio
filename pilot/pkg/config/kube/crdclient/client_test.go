@@ -84,12 +84,21 @@ func TestClientNoCRDs(t *testing.T) {
 		t.Fatalf("Create => got %v", err)
 	}
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), "ns")
-		if err == nil {
-			return fmt.Errorf("expected error, but got none")
+		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
+		// List should actually not return an error in this case; this allows running with missing CRDs
+		// Instead, we just return an empty list.
+		if err != nil {
+			return fmt.Errorf("expected no error, but got %v", err)
 		}
 		if len(l) != 0 {
 			return fmt.Errorf("expected no items returned for unknown CRD")
+		}
+		return nil
+	}, retry.Timeout(time.Second*5), retry.Converge(5))
+	retry.UntilSuccessOrFail(t, func() error {
+		l := store.Get(r.GroupVersionKind(), configMeta.Name, configMeta.Namespace)
+		if l != nil {
+			return fmt.Errorf("expected no items returned for unknown CRD, got %v", l)
 		}
 		return nil
 	}, retry.Timeout(time.Second*5), retry.Converge(5))

@@ -17,17 +17,13 @@ package vm
 import (
 	"context"
 	"fmt"
-	"math"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
 	epb "istio.io/istio/pkg/test/echo/proto"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/util/file"
-	"istio.io/istio/pkg/test/util/tmpl"
-
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -36,19 +32,9 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-type TrafficShiftConfig struct {
-	Name      string
-	Namespace string
-	Host      string
-	Subset0   string
-	Subset1   string
-	Weight0   int32
-	Weight1   int32
-}
-
 // Test wrapper for the VM OS version test. This test will run in pre-submit
 // to avoid building and testing all OS images
-func TestVmOS(t *testing.T) {
+func TestReachability(t *testing.T) {
 	vmImages := []string{DefaultVMImage}
 	VMTestBody(t, vmImages)
 }
@@ -103,8 +89,9 @@ spec:
 
 			clusterServiceHostname := "cluster"
 			headlessServiceHostname := "headless"
-			var k8sClusterIPService echo.Instance
-			var k8sHeadlessService echo.Instance
+			vmAHostname := "vm-a"
+			var k8sClusterIPService, k8sHeadlessService echo.Instance
+			var vmA echo.Instance
 			// builder to build the instances iteratively
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&k8sClusterIPService, echo.Config{
@@ -113,9 +100,6 @@ spec:
 					Ports:     ports,
 					Pilot:     p,
 				}).
-				BuildOrFail(t)
-
-			echoboot.NewBuilderOrFail(t, ctx).
 				With(&k8sHeadlessService, echo.Config{
 					Service:   headlessServiceHostname,
 					Namespace: ns,
@@ -123,13 +107,21 @@ spec:
 					Pilot:     p,
 					Headless:  true,
 				}).
+				With(&vmA, echo.Config{
+					Service:    vmAHostname,
+					Namespace:  ns,
+					Ports:      ports,
+					Pilot:      p,
+					DeployAsVM: true,
+					VMImage:    DefaultVMImage,
+				}).
 				BuildOrFail(t)
 
 			// build the VM instances in the array
 			for i, vmImage := range vmImages {
-				var vm echo.Instance
+				var vmB echo.Instance
 				echoboot.NewBuilderOrFail(t, ctx).
-					With(&vm, echo.Config{
+					With(&vmB, echo.Config{
 						Service:    fmt.Sprintf("vm-%v", i),
 						Namespace:  ns,
 						Ports:      ports,
@@ -148,30 +140,40 @@ spec:
 					{
 						name: "k8s to vm",
 						from: k8sClusterIPService,
-						to:   vm,
+						to:   vmB,
 					},
 					{
 						name: "dns: VM to k8s cluster IP service fqdn host",
-						from: vm,
+						from: vmB,
 						to:   k8sClusterIPService,
 						host: k8sClusterIPService.Config().FQDN(),
 					},
 					{
 						name: "dns: VM to k8s cluster IP service name.namespace host",
-						from: vm,
+						from: vmB,
 						to:   k8sClusterIPService,
 						host: clusterServiceHostname + "." + ns.Name(),
 					},
 					{
 						name: "dns: VM to k8s cluster IP service short name host",
-						from: vm,
+						from: vmB,
 						to:   k8sClusterIPService,
 						host: clusterServiceHostname,
 					},
 					{
 						name: "dns: VM to k8s headless service",
-						from: vm,
+						from: vmB,
 						to:   k8sHeadlessService,
+					},
+					{
+						name: "dns: vmA to vmB",
+						from: vmA,
+						to:   vmB,
+					},
+					{
+						name: "dns: vmB to vmA",
+						from: vmB,
+						to:   vmA,
 					},
 				}
 
@@ -194,7 +196,7 @@ spec:
 
 				ctx.NewSubTest(fmt.Sprintf("dns: VM proxy resolves unknown hosts using system resolver using %v",
 					vmImages[i])).Run(func(ctx framework.TestContext) {
-					w := vm.WorkloadsOrFail(ctx)[0]
+					w := vmB.WorkloadsOrFail(ctx)[0]
 					externalURL := "http://www.bing.com"
 					responses, err := w.ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
 						Url:   externalURL,
@@ -212,80 +214,6 @@ spec:
 						ctx.Errorf("expected status %s but got %s", response.StatusCodeOK, resp.Code)
 					}
 				})
-
-				// now launch another proper k8s pod for the same VM service, such that the VM service is made
-				// of a pod and a VM. Set the subset for this pod to v2 so that we can check traffic shift
-				echoboot.NewBuilderOrFail(t, ctx).
-					With(&vm, echo.Config{
-						Service:    fmt.Sprintf("vm-%v", i),
-						Namespace:  ns,
-						Ports:      ports,
-						Pilot:      p,
-						DeployAsVM: false,
-						Version:    "v2", // WHY?
-						Subsets: []echo.SubsetConfig{
-							{
-								Version: "v2",
-							},
-						},
-					}).
-					BuildOrFail(t)
-
-				ctx.NewSubTest(fmt.Sprintf("traffic shifts for workload entries %v",
-					vmImages[i])).Run(func(ctx framework.TestContext) {
-
-					vsc := TrafficShiftConfig{
-						"traffic-shifting-rule-wle",
-						ns.Name(),
-						fmt.Sprintf("vm-%v", i),
-						"v1",
-						"v2",
-						50,
-						50,
-					}
-					deployment := tmpl.EvaluateOrFail(t, file.AsStringOrFail(t, "testdata/traffic-shifting.yaml"), vsc)
-					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
-					sendTraffic(t, 100, k8sClusterIPService, vm, []string{"v1", "v2"}, []int32{50, 50}, 10.0)
-				})
 			}
 		})
-}
-
-// TODO: dedup from main traffic shift test
-func sendTraffic(t *testing.T, batchSize int, from, to echo.Instance, versions []string, weight []int32, errorThreshold float64) {
-	t.Helper()
-	// Send `batchSize` requests and ensure they are distributed as expected.
-	retry.UntilSuccessOrFail(t, func() error {
-		resp, err := from.Call(echo.CallOptions{
-			Target:   to,
-			PortName: "http",
-			Count:    batchSize,
-		})
-		if err != nil {
-			return fmt.Errorf("error during call: %v", err)
-		}
-		var totalRequests int
-		hitCount := map[string]int{}
-		for _, r := range resp {
-			for _, v := range versions {
-				if r.Version == v {
-					hitCount[v]++
-					totalRequests++
-					break
-				}
-			}
-		}
-
-		for i, v := range versions {
-			percentOfTrafficToVersion := float64(hitCount[v]) * 100.0 / float64(totalRequests)
-			deltaFromExpected := math.Abs(float64(weight[i]) - percentOfTrafficToVersion)
-			if errorThreshold-deltaFromExpected < 0 {
-				return fmt.Errorf("unexpected traffic weight for version %v. Expected %d%%, got %g%% (thresold: %g%%)",
-					v, weight[i], percentOfTrafficToVersion, errorThreshold)
-			}
-			t.Logf("Got expected traffic weight for version %v. Expected %d%%, got %g%% (thresold: %g%%)",
-				v, weight[i], percentOfTrafficToVersion, errorThreshold)
-		}
-		return nil
-	}, retry.Delay(time.Second))
 }

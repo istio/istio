@@ -203,17 +203,18 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	prometheus.EnableHandlingTimeHistogram()
 
+	s.initMeshConfiguration(args, s.fileWatcher)
+
 	// Apply the arguments to the configuration.
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
 
-	s.initMeshConfiguration(args, s.fileWatcher)
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
 
 	// Parse and validate Istiod Address.
-	istiodHost, istiodPort, err := e.GetDiscoveryAddress()
+	istiodHost, _, err := e.GetDiscoveryAddress()
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +248,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	// Secure gRPC Server must be initialized after CA is created as may use a Citadel generated cert.
-	if err := s.initSecureDiscoveryService(args, istiodPort); err != nil {
+	if err := s.initSecureDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing secure gRPC Listener: %v", err)
 	}
 
@@ -389,8 +390,23 @@ func (s *Server) WaitUntilCompletion() {
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
+// This is determined by the presence of a kube registry, which
+// uses in-context k8s, or a config source of type k8s.
 func (s *Server) initKubeClient(args *PilotArgs) error {
-	if hasKubeRegistry(args.RegistryOptions.Registries) {
+	hasK8SConfigStore := false
+	if args.RegistryOptions.FileDir == "" {
+		// If file dir is set - config controller will just use file.
+		meshConfig := s.environment.Mesh()
+		if meshConfig != nil && len(meshConfig.ConfigSources) > 0 {
+			for _, cs := range meshConfig.ConfigSources {
+				if cs.Address == "k8s://" {
+					hasK8SConfigStore = true
+				}
+			}
+		}
+	}
+
+	if hasK8SConfigStore || hasKubeRegistry(args.RegistryOptions.Registries) {
 		var err error
 		// Used by validation
 		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
@@ -578,7 +594,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 }
 
 // initialize secureGRPCServer.
-func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error {
+func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	if s.peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
 		log.Warnf("The secure discovery service is disabled")
@@ -603,10 +619,9 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, port string) error 
 
 	// Default is 15012 - istio-agent relies on this as a default to distinguish what cert auth to expect.
 	// TODO(ramaraochavali): clean up istio-agent startup to remove the dependency of "15012" port.
-	secureGrpc := fmt.Sprintf(":%s", port)
 
 	// create secure grpc listener
-	l, err := net.Listen("tcp", secureGrpc)
+	l, err := net.Listen("tcp", args.ServerOptions.SecureGRPCAddr)
 	if err != nil {
 		return err
 	}

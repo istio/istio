@@ -47,7 +47,7 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 
 	currItem, ok := curr.(runtime.Object)
 	if !ok {
-		log.Warnf("New Object can not be converted to runtime Object %v, is type %T", curr, curr)
+		scope.Warnf("New Object can not be converted to runtime Object %v, is type %T", curr, curr)
 		return nil
 	}
 	currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)

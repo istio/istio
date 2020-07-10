@@ -139,11 +139,11 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 			}
 			for _, vmPod := range pods.Items {
 				if vmPod.Status.PodIP == "" {
-					return fmt.Errorf("empty pod ip")
+					return fmt.Errorf("empty pod ip for pod %v", vmPod.Name)
 				}
 			}
 			return nil
-		}); err != nil {
+		}, retry.Timeout(cfg.ReadinessTimeout)); err != nil {
 			return nil, err
 		}
 		serviceAccount := cfg.Service

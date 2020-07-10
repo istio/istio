@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/security/pkg/pki/util"
 
@@ -449,16 +448,13 @@ func TestGetServerCertificate(t *testing.T) {
 			signingKeyFile:  "../../pki/testdata/multilevelpki/ecc-int2-key.pem",
 		},
 	}
-	caNamespace := "default"
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
 	for id, tc := range cases {
-		client := fake.NewSimpleClientset()
-
 		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
-			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+			defaultWorkloadCertTTL, maxWorkloadCertTTL)
 		if err != nil {
 			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
 		}

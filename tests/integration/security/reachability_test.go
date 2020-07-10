@@ -36,7 +36,7 @@ func TestReachability(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 
-			rctx := reachability.CreateContext(ctx, p)
+			rctx := reachability.CreateContext(ctx, p, true)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
@@ -60,8 +60,10 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-permissive.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						// Exclude calls to the naked app.
-						return opts.Target != rctx.Naked
+						// Exclude calls from naked->VM since naked has no Envoy
+						// so k8s is responsible for DNS resolution
+						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
+						return opts.Target != rctx.Naked && !(src == rctx.Naked && opts.Target == rctx.VM)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -71,7 +73,8 @@ func TestReachability(t *testing.T) {
 					ConfigFile: "beta-mtls-off.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
-						return true
+						// Exclude calls from naked->VM.
+						return !(src == rctx.Naked && opts.Target == rctx.VM)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -127,6 +130,13 @@ func TestReachability(t *testing.T) {
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
+							return false
+						}
+
+						// Exclude calls from naked->VM since naked has no Envoy
+						// so k8s is responsible for DNS resolution
+						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
+						if src == rctx.Naked && opts.Target == rctx.VM {
 							return false
 						}
 
