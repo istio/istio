@@ -81,8 +81,6 @@ spec:
 				{
 					Name:     "http",
 					Protocol: protocol.HTTP,
-					// Due to a bug in WorkloadEntry, service port must equal target port for now
-					InstancePort: 8090,
 					ServicePort:  8090,
 				},
 			}

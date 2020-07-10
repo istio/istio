@@ -106,6 +106,7 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 			Name:   p.Name,
 			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
 			Protocol: string(p.Protocol),
+			// TODO: target port
 		})
 	}
 
@@ -241,11 +242,16 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		instancePort = 0
 		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
-	} else {
+	} else if len(endpoint.Ports) > 0 { // endpoint port map takes precedence
 		instancePort = endpoint.Ports[servicePort.Name]
 		if instancePort == 0 {
 			instancePort = servicePort.Number
 		}
+	} else if servicePort.TargetPort > 0 {
+		instancePort = servicePort.TargetPort
+	} else {
+		// final fallback is to the service port value
+		instancePort = servicePort.Number
 	}
 
 	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
@@ -334,9 +340,6 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The foreign service instance has pointer to the foreign service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-// TODO(rshriram): we currently ignore the pod(endpoint) ports and setup 1-1 mapping
-// from service port to endpoint port. Need to figure out a way to map k8s pod port to
-// appropriate service entry port
 func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
@@ -344,7 +347,13 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 		for _, serviceEntryPort := range serviceEntry.Ports {
 			ep := *foreignInstance.Endpoint
 			ep.ServicePortName = serviceEntryPort.Name
-			ep.EndpointPort = serviceEntryPort.Number
+			// if target port is set, use the target port else fallback to the service port
+			// TODO: we need a way to get the container port map from k8s
+			if serviceEntryPort.TargetPort > 0 {
+				ep.EndpointPort = serviceEntryPort.TargetPort
+			} else {
+				ep.EndpointPort = serviceEntryPort.Number
+			}
 			ep.EnvoyEndpoint = nil
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    &ep,
@@ -358,9 +367,6 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-// TODO(rshriram): we currently ignore the workload entry (endpoint) ports. K8S will setup 1-1 mapping
-// from service port to endpoint port. Need to figure out a way to map workload entry port to
-// appropriate k8s service port
 func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
 	we *networking.WorkloadEntry) *model.ServiceInstance {
 	addr := we.GetAddress()
@@ -376,6 +382,7 @@ func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
+			// Not setting ports here as its done by k8s controller
 			Network: we.Network,
 			Locality: model.Locality{
 				Label: we.Locality,

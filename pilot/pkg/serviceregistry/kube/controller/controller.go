@@ -657,7 +657,19 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 
 	selector := labels.Instance(svc.Attributes.LabelSelectors)
 
-	// Get the service port name so that we can construct the service instance
+	// Get the service port name and target port so that we can construct the service instance
+	item, exists, err := c.serviceInformer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	// We did not find the k8s service. We cannot get the targetPort
+	if err != nil {
+		log.Infof("getForeignServiceInstancesByPort(%s.%s) failed to get k8s service => error %v",
+			svc.Attributes.Name, svc.Attributes.Namespace, err)
+		return nil
+	}
+
+	if !exists {
+		return nil
+	}
+
 	var servicePort *model.Port
 	for _, p := range svc.Ports {
 		if p.Port == reqSvcPort {
@@ -669,6 +681,18 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		return nil
 	}
 
+	// Now get the target Port for this service port
+	k8sService := item.(*v1.Service)
+	targetPort := reqSvcPort
+	for _, p := range k8sService.Spec.Ports {
+		if p.Name == servicePort.Name {
+			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
+				targetPort = int(p.TargetPort.IntVal)
+			}
+			break
+		}
+	}
+
 	out := make([]*model.ServiceInstance, 0)
 
 	c.RLock()
@@ -678,12 +702,8 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 		}
 		if selector.SubsetOf(fi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
-			// TODO(rshriram): we currently ignore the workload entry (endpoint) ports and setup 1-1 mapping
-			// from service port to endpoint port. Need to figure out a way to map workload entry port to
-			// appropriate k8s service port
 			istioEndpoint := *fi.Endpoint
-			// BUG: reqSvcPort is the Service port - it should instead be the TargetPort
-			istioEndpoint.EndpointPort = uint32(reqSvcPort)
+			istioEndpoint.EndpointPort = uint32(targetPort)
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
