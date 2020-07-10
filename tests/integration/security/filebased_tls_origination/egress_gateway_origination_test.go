@@ -177,7 +177,7 @@ spec:
   trafficPolicy:
     portLevelSettings:
       - port:
-          number: 8443
+          number: 443
         tls:
           mode: {{.Mode}}
           caCertificates: {{.RootCertPath}}
@@ -194,7 +194,7 @@ spec:
   trafficPolicy:
     portLevelSettings:
       - port:
-          number: 8443
+          number: 443
         tls:
           mode: {{.Mode}}
 
@@ -209,7 +209,7 @@ spec:
   trafficPolicy:
     portLevelSettings:
       - port:
-          number: 8443
+          number: 443
         tls:
           mode: {{.Mode}}
           clientCertificate: /etc/certs/custom/cert-chain.pem
@@ -281,14 +281,14 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 					// Plain HTTP port only used to route request to egress gateway
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					ServicePort:  8080,
+					ServicePort:  80,
 					InstancePort: 8080,
 				},
 				{
 					// HTTPS port
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
-					ServicePort:  8443,
+					ServicePort:  443,
 					InstancePort: 8443,
 					TLS:          true,
 				},
@@ -371,7 +371,7 @@ spec:
     istio: egressgateway
   servers:
     - port:
-        number: 8080
+        number: 80
         name: http-port-for-tls-origination
         protocol: HTTP
       hosts:
@@ -391,7 +391,7 @@ spec:
     - match:
         - gateways:
             - mesh # from sidecars, route to egress gateway service
-          port: 8080
+          port: 80
       route:
         - destination:
             host: istio-egressgateway.istio-system.svc.cluster.local
@@ -406,7 +406,7 @@ spec:
         - destination:
             host: server.{{.AppNamespace}}.svc.cluster.local
             port:
-              number: 8443
+              number: 443
           weight: 100
       headers:
         request:
