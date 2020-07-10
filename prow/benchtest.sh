@@ -49,8 +49,8 @@ case "${1}" in
     ;;
   compare)
     # Fetch previous results, and compare them.
-    curl "https://storage.googleapis.com/${GCS_BENCHMARK_DIR}/${COMPARE_GIT_SHA}.txt" > ${ARTIFACTS}/baseline-benchmark-log.txt
-    benchstat ${ARTIFACTS}/baseline-benchmark-log.txt ${REPORT_PLAINTEXT}
+    curl "https://storage.googleapis.com/${GCS_BENCHMARK_DIR}/${COMPARE_GIT_SHA}.txt" > "${ARTIFACTS}/baseline-benchmark-log.txt"
+    benchstat "${ARTIFACTS}/baseline-benchmark-log.txt" "${REPORT_PLAINTEXT}"
     ;;
   *)
     echo "unknown command, expect report, run, or compare."
