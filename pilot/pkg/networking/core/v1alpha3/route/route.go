@@ -1069,33 +1069,28 @@ func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 	return catchall && len(m.Headers) == 0 && len(m.QueryParams) == 0
 }
 
-// CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
+// CombineVHostRoutes semi concatenates Vhost's routes into a single route set.
 // Moves the catch all routes alone to the end, while retaining
 // the relative order of other routes in the concatenated route.
 // Assumes that the virtual services that generated first and second are ordered by
 // time.
-func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Route {
-	allroutes := make([]*route.Route, 0, len(first)+len(second))
+func CombineVHostRoutes(routeSets ...[]*route.Route) []*route.Route {
+	l := 0
+	for _, rs := range routeSets {
+		l += len(rs)
+	}
+	allroutes := make([]*route.Route, 0, l)
 	catchAllRoutes := make([]*route.Route, 0)
-
-	for _, f := range first {
-		if isCatchAllRoute(f) {
-			catchAllRoutes = append(catchAllRoutes, f)
-		} else {
-			allroutes = append(allroutes, f)
+	for _, routes := range routeSets {
+		for _, r := range routes {
+			if isCatchAllRoute(r) {
+				catchAllRoutes = append(catchAllRoutes, r)
+			} else {
+				allroutes = append(allroutes, r)
+			}
 		}
 	}
-
-	for _, s := range second {
-		if isCatchAllRoute(s) {
-			catchAllRoutes = append(catchAllRoutes, s)
-		} else {
-			allroutes = append(allroutes, s)
-		}
-	}
-
-	allroutes = append(allroutes, catchAllRoutes...)
-	return allroutes
+	return append(allroutes, catchAllRoutes...)
 }
 
 // isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
