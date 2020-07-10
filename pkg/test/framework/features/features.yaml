@@ -38,6 +38,8 @@ features:
     shifting:
     routing:
     short-circuiting:
+    sidecar:
+      isolation:
     mirroring:
     ingress:
       loadbalancing:
