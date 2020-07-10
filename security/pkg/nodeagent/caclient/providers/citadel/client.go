@@ -59,6 +59,7 @@ type CitadelClient struct {
 	caTLSRootCert []byte
 	client        pb.IstioCertificateServiceClient
 	clusterID     string
+	conn 					*grpc.ClientConn
 }
 
 // NewCitadelClient create a CA client for Citadel.
@@ -70,25 +71,10 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		clusterID:     clusterID,
 	}
 
-	var opts grpc.DialOption
-	var err error
-	if tls {
-		opts, err = c.getTLSDialOption(isRotate)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		opts = grpc.WithInsecure()
-	}
-
-	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
-	//  need a way to reconnect.
-	conn, err := grpc.Dial(endpoint, opts)
+	conn, err := c.buildConnection(isRotate)
 	if err != nil {
-		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
+		return nil, err
 	}
-
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return c, nil
 }
@@ -116,6 +102,27 @@ func (c *CitadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	}
 
 	return resp.CertChain, nil
+}
+
+func (c *CitadelClient) GetCaEndpoint() string {
+	return c.caEndpoint
+}
+func (c *CitadelClient) GetClusterID() string {
+	return c.clusterID
+}
+
+func (c *CitadelClient) Reconnect(isRotate bool) error{
+	err := c.releaseResource()
+	if err != nil {
+		return fmt.Errorf("Failed to close connection ")
+	}
+
+	conn, err := c.buildConnection(isRotate)
+	if err != nil {
+		return err
+	}
+	c.client = pb.NewIstioCertificateServiceClient(conn)
+	return err
 }
 
 func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error) {
@@ -178,9 +185,30 @@ func (c *CitadelClient) getTLSDialOption(isRotate bool) (grpc.DialOption, error)
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
-func (c *CitadelClient) GetCaEndpoint() string {
-	return c.caEndpoint
+func (c *CitadelClient) releaseResource() error{
+	err := c.conn.Close()
+	return err
 }
-func (c *CitadelClient) GetClusterID() string {
-	return c.clusterID
+
+func (c *CitadelClient) buildConnection(isRotate bool) (*grpc.ClientConn, error) {
+	var opts grpc.DialOption
+	var err error
+	if c.enableTLS {
+		opts, err = c.getTLSDialOption(isRotate)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		opts = grpc.WithInsecure()
+	}
+
+	conn, err := grpc.Dial(c.caEndpoint, opts)
+	c.conn = conn
+	if err != nil {
+		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.caEndpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", c.caEndpoint)
+	}
+
+	c.client = pb.NewIstioCertificateServiceClient(conn)
+	return conn, nil
 }

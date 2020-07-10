@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/pkg/env"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
@@ -52,6 +53,11 @@ var (
 	newFileWatcher = filewatcher.NewWatcher
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
+
+	// SupportRotationWithCert is a field controlling the use the cert for rotation
+	// If is set to "true", we will use the old cert to rotate instead of token
+	SupportRotationWithCert = env.RegisterStringVar("CERT_ROTATE", "",
+		"If the flag is set to true, use cert, instead of token to rotate.").Get()
 )
 
 const (
@@ -636,23 +642,22 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			isTokenExpired := sc.isTokenExpired(&secret)
-			if isTokenExpired {
-				cacheLog.Infof("%s token expired", logPrefix)
-
-				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-
+			if SupportRotationWithCert == "true" {
 				switch sc.fetcher.CaClient.(type) {
 				case *citadel.CitadelClient:
-					citadelClient := sc.fetcher.CaClient.(*citadel.CitadelClient)
-					sc.fetcher.ResetIstiodCaClientForCertRotation(citadelClient.GetCaEndpoint(), citadelClient.GetClusterID())
+					err := sc.fetcher.ResetClientConnectionForCertRotation(true)
+					if err != nil {
+						cacheLog.Errorf("%s Connection Reset fails", logPrefix)
+						// Send the notification to close the stream if reconnection fails, so that client could re-connect with a new token.
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
+					}
 				case *google.GoogleCAClient:
-					// TODO(myidpt): recreate the google CA client to do mtls verification
+					// TODO(myidpt): Reset ClientConnection in googleCA cases to do mtls verification
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				case *vault.VaultClient:
-					// TODO(myidpt): recreate the vault CA client to do mtls verification
+					// TODO(myidpt): Reset ClientConnection in Vault cases to do mtls verification
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				default:
@@ -660,6 +665,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				}
+			} else {
+
+			}
+			if sc.isTokenExpired(&secret) {
+				cacheLog.Infof("%s token expired", logPrefix)
+				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				return true
 			}
 
 			wg.Add(1)
@@ -672,7 +685,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				// When cert has expired, we could make it simple by assuming token has already expired.
 				var ns *model.SecretItem
 				var err error
-				if isTokenExpired {
+				if SupportRotationWithCert == "true" {
 					ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
 				} else {
 					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now)

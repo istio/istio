@@ -22,4 +22,5 @@ import (
 type Client interface {
 	CSRSign(ctx context.Context, reqID string, csrPEM []byte, subjectID string,
 		certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error)
+	Reconnect(isRotate bool) error
 }

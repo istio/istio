@@ -23,7 +23,6 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/vault/api"
-
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/pkg/log"
 )
@@ -233,4 +232,8 @@ func signCsrByVault(client *api.Client, csrSigningPath string, certTTLInSec int6
 	}
 
 	return certChain, nil
+}
+func (c *VaultClient) Reconnect(isRotate bool) error{
+	// TODO: needs to implement for VaultClient CA case
+	return nil
 }

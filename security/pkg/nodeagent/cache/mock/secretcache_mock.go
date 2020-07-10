@@ -131,3 +131,7 @@ func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string) (st
 	// Since the secret cache uses the k8s token in the stored secret, we can just return anything here.
 	return "some-token", time.Now(), 200, nil
 }
+
+func (c *CAClient) Reconnect(isRotate bool) error{
+	return nil
+}

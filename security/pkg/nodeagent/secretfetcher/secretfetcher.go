@@ -29,8 +29,6 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	istioagentutil "istio.io/istio/pkg/istio-agent/istioagentutil"
-
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
@@ -508,6 +506,7 @@ func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 	sf.scrtDeleted(obj)
 }
 
-func (sf *SecretFetcher) ResetIstiodCaClientForCertRotation(caEndpoint, clusterID string) {
-	sf.CaClient, _, _ = istioagentutil.NewIstiodCAClient("istiod", caEndpoint, clusterID, true, true)
+func (sf *SecretFetcher) ResetClientConnectionForCertRotation(isRotate bool) error{
+	return sf.CaClient.Reconnect(isRotate)
+	//sf.CaClient, _, _ = istioagentutil.NewIstiodCAClient("istiod", caEndpoint, clusterID, true, true)
 }
