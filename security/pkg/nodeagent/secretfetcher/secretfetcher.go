@@ -508,5 +508,4 @@ func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 
 func (sf *SecretFetcher) ResetClientConnectionForCertRotation(isRotate bool) error{
 	return sf.CaClient.Reconnect(isRotate)
-	//sf.CaClient, _, _ = istioagentutil.NewIstiodCAClient("istiod", caEndpoint, clusterID, true, true)
 }
