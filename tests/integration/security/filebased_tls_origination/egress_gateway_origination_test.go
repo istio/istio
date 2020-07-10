@@ -55,7 +55,6 @@ func mustReadCert(t *testing.T, f string) string {
 // This test brings up an egress gateway to originate TLS connection. The test will ensure that requests
 // are routed securely through the egress gateway and that the TLS origination happens at the gateway.
 func TestEgressGatewayTls(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/25069")
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
@@ -178,7 +177,7 @@ spec:
   trafficPolicy:
     portLevelSettings:
       - port:
-          number: 443
+          number: 8443
         tls:
           mode: {{.Mode}}
           caCertificates: {{.RootCertPath}}
@@ -195,7 +194,7 @@ spec:
   trafficPolicy:
     portLevelSettings:
       - port:
-          number: 443
+          number: 8443
         tls:
           mode: {{.Mode}}
 
@@ -210,7 +209,7 @@ spec:
   trafficPolicy:
     portLevelSettings:
       - port:
-          number: 443
+          number: 8443
         tls:
           mode: {{.Mode}}
           clientCertificate: /etc/certs/custom/cert-chain.pem
@@ -282,14 +281,14 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 					// Plain HTTP port only used to route request to egress gateway
 					Name:         "http",
 					Protocol:     protocol.HTTP,
-					ServicePort:  80,
+					ServicePort:  8080,
 					InstancePort: 8080,
 				},
 				{
 					// HTTPS port
 					Name:         "https",
 					Protocol:     protocol.HTTPS,
-					ServicePort:  443,
+					ServicePort:  8443,
 					InstancePort: 8443,
 					TLS:          true,
 				},
@@ -372,7 +371,7 @@ spec:
     istio: egressgateway
   servers:
     - port:
-        number: 80
+        number: 8080
         name: http-port-for-tls-origination
         protocol: HTTP
       hosts:
@@ -392,7 +391,7 @@ spec:
     - match:
         - gateways:
             - mesh # from sidecars, route to egress gateway service
-          port: 80
+          port: 8080
       route:
         - destination:
             host: istio-egressgateway.istio-system.svc.cluster.local
@@ -407,7 +406,7 @@ spec:
         - destination:
             host: server.{{.AppNamespace}}.svc.cluster.local
             port:
-              number: 443
+              number: 8443
           weight: 100
       headers:
         request:
