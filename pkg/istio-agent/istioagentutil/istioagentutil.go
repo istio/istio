@@ -8,9 +8,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
-	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/pkg/log"
 )
 
@@ -28,20 +25,12 @@ var (
 	CacheDefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 )
 
-func NewCAClient(pilotCertProvider string, serverOptions sds.Options, isRotate bool) (caClientInterface.Client, error, []byte) {
+func NewIstiodCAClient(pilotCertProvider, caEndpoint, clusterId string, TLSEnabled, isRotate bool) (caClientInterface.Client, error, []byte) {
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-	log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
+	log.Infof("caEndpoint == %v", caEndpoint)
 	var err error
 	var caClient caClientInterface.Client
 	var rootCert []byte
-	if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
-			stsclient.GKEClusterURL != "" {
-		// Use a plugin to an external CA - this has direct support for the K8S JWT token
-		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
-		// used.
-		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
-		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
-	} else {
 		// Determine the default CA.
 		// If /etc/certs exists - it means Citadel is used (possibly in a mode to only provision the root-cert, not keys)
 		// Otherwise: default to istiod
@@ -51,12 +40,12 @@ func NewCAClient(pilotCertProvider string, serverOptions sds.Options, isRotate b
 		tls := true
 		certReadErr := false
 
-		if serverOptions.CAEndpoint == "" {
-			// When serverOptions.CAEndpoint is nil, the default CA endpoint
+		if caEndpoint == "" {
+			// When caEndpoint is nil, the default CA endpoint
 			// will be a hardcoded default value (e.g., the namespace will be hardcoded
 			// as istio-system).
 			log.Info("Istio Agent uses default istiod CA")
-			serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
+			caEndpoint = "istiod.istio-system.svc:15012"
 
 			if pilotCertProvider == "istiod" {
 				log.Info("istiod uses self-issued certificate")
@@ -83,16 +72,16 @@ func NewCAClient(pilotCertProvider string, serverOptions sds.Options, isRotate b
 				rootCert = nil
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
-				serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
+				caEndpoint = "istiod.istio-system.svc:15010"
 				tls = false
 			}
 		} else {
 			// Explicitly configured CA
-			log.Infoa("Using user-configured CA ", serverOptions.CAEndpoint)
-			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
+			log.Infoa("Using user-configured CA ", caEndpoint)
+			if strings.HasSuffix(caEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
-			} else if serverOptions.TLSEnabled {
+			} else if TLSEnabled {
 				if pilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
@@ -133,7 +122,7 @@ func NewCAClient(pilotCertProvider string, serverOptions sds.Options, isRotate b
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID ,isRotate)
-	}
+		caClient, err = citadel.NewCitadelClient(caEndpoint, tls, rootCert, clusterId ,isRotate)
+
 	return caClient, err, rootCert
 }

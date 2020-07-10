@@ -22,7 +22,6 @@ import (
 	"time"
 
 	istioagentutil "istio.io/istio/pkg/istio-agent/istioagentutil"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -509,9 +508,5 @@ func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 }
 
 func (sf *SecretFetcher) ResetIstiodCaClientForCertRotation(caEndpoint, clusterId string) {
-		var serverOptions sds.Options
-		serverOptions.CAEndpoint = caEndpoint
-		serverOptions.TLSEnabled = true
-		serverOptions.ClusterID = clusterId
-		sf.CaClient,_, _ = istioagentutil.NewCAClient( "istiod" , serverOptions,true)
+		sf.CaClient,_, _ = istioagentutil.NewIstiodCAClient( "istiod" ,caEndpoint, clusterId, true,true)
 }
