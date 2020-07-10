@@ -86,6 +86,7 @@ func constructConfig() *config.Config {
 		RestoreFormat:           viper.GetBool(constants.RestoreFormat),
 		ProxyPort:               viper.GetString(constants.EnvoyPort),
 		InboundCapturePort:      viper.GetString(constants.InboundCapturePort),
+		InboundTunnelPort:       viper.GetString(constants.InboundTunnelPort),
 		ProxyUID:                viper.GetString(constants.ProxyUID),
 		ProxyGID:                viper.GetString(constants.ProxyGID),
 		InboundInterceptionMode: viper.GetString(constants.InboundInterceptionMode),
@@ -161,6 +162,7 @@ func init() {
 
 	var envoyPort = "15001"
 	var inboundPort = "15006"
+	var inboundTunnelPort = "15008"
 
 	rootCmd.Flags().StringP(constants.EnvoyPort, "p", "", "Specify the envoy port to which redirect all TCP traffic (default $ENVOY_PORT = 15001)")
 	if err := viper.BindPFlag(constants.EnvoyPort, rootCmd.Flags().Lookup(constants.EnvoyPort)); err != nil {
@@ -174,6 +176,13 @@ func init() {
 		handleError(err)
 	}
 	viper.SetDefault(constants.InboundCapturePort, inboundPort)
+
+	rootCmd.Flags().StringP(constants.InboundTunnelPort, "e", "",
+		"Specify the istio tunnel port for inbound tcp traffic (default $INBOUND_TUNNEL_PORT = 15008)")
+	if err := viper.BindPFlag(constants.InboundTunnelPort, rootCmd.Flags().Lookup(constants.InboundTunnelPort)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.InboundTunnelPort, inboundTunnelPort)
 
 	rootCmd.Flags().StringP(constants.ProxyUID, "u", "",
 		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
