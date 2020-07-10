@@ -80,7 +80,7 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 					// respect to len(clusters) * svcPerCluster.
 					for _, srcServices := range services {
 						for _, src := range srcServices {
-							for i, dstServices := range services {
+							for _, dstServices := range services {
 								src := *src
 								dest := *dstServices[0]
 								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
