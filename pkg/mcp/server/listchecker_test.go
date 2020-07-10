@@ -127,7 +127,7 @@ func TestListAuthChecker(t *testing.T) {
 			ids:    []string{"foo"},
 		},
 		{
-			name: "blacklist allow",
+			name: "denylist allow",
 			mode: AuthDenylist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
@@ -138,7 +138,7 @@ func TestListAuthChecker(t *testing.T) {
 			allowed: []string{"foo", "bar", "baz"},
 		},
 		{
-			name: "blacklist block",
+			name: "denylist block",
 			mode: AuthDenylist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
@@ -146,7 +146,7 @@ func TestListAuthChecker(t *testing.T) {
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{"foo"}, nil
 			},
-			err:     "id is blacklisted: foo",
+			err:     "id is denylisted: foo",
 			ids:     []string{"foo"},
 			allowed: []string{"bar", "baz"},
 		},

@@ -45,10 +45,10 @@ func (*AllowAllChecker) Check(credentials.AuthInfo) error { return nil }
 type AuthListMode bool
 
 const (
-	// AuthDenylist indicates that the list should work as a black list
+	// AuthDenylist indicates that the list should work as a deny list
 	AuthDenylist AuthListMode = false
 
-	// AuthAllowlist indicates that the list should work as a white list
+	// AuthAllowlist indicates that the list should work as an allowlist
 	AuthAllowlist AuthListMode = true
 )
 
@@ -166,9 +166,9 @@ func (l *ListAuthChecker) String() string {
 	result := ""
 	switch l.mode {
 	case AuthAllowlist:
-		result += "Mode: whitelist\n"
+		result += "Mode: allowlist\n"
 	case AuthDenylist:
-		result += "Mode: blacklist\n"
+		result += "Mode: denylist\n"
 	}
 
 	result += "Known ids:\n"
@@ -225,7 +225,7 @@ func (l *ListAuthChecker) check(authInfo credentials.AuthInfo) error {
 						return nil
 					case AuthDenylist:
 						scope.Infof("Blocking access from peer with id: %s", id)
-						return fmt.Errorf("id is blacklisted: %s", id)
+						return fmt.Errorf("id is denylisted: %s", id)
 					}
 				}
 			}
