@@ -137,7 +137,7 @@ func parseZone(clusterURL string) string {
 	return rs[2]
 }
 
-func (c *GoogleCAClient) Reconnect(isRotate bool) error {
+func (cl *GoogleCAClient) Reconnect(isRotate bool) error {
 	// TODO: needs to implement for Google CA case
 	return nil
 }
