@@ -483,57 +483,30 @@ func (a *ADSC) handleRecv() {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case v2.ListenerType:
+			case v2.ListenerType, v3.ListenerType:
 				{
 					ll := &listener.Listener{}
 					_ = proto.Unmarshal(valBytes, ll)
 					listeners = append(listeners, ll)
 				}
-			case v3.ListenerType:
-				{
-					ll := &listener.Listener{}
-					_ = proto.Unmarshal(valBytes, ll)
-					listeners = append(listeners, ll)
-				}
-			case v2.ClusterType:
+			case v2.ClusterType, v3.ClusterType:
 				{
 					cl := &cluster.Cluster{}
 					_ = proto.Unmarshal(valBytes, cl)
 					clusters = append(clusters, cl)
 				}
-
-			case v3.ClusterType:
-				{
-					cl := &cluster.Cluster{}
-					_ = proto.Unmarshal(valBytes, cl)
-					clusters = append(clusters, cl)
-				}
-
-			case v3.EndpointType:
+			case v2.EndpointType, v3.EndpointType:
 				{
 					el := &endpoint.ClusterLoadAssignment{}
 					_ = proto.Unmarshal(valBytes, el)
 					eds = append(eds, el)
 				}
-			case v2.EndpointType:
-				{
-					el := &endpoint.ClusterLoadAssignment{}
-					_ = proto.Unmarshal(valBytes, el)
-					eds = append(eds, el)
-				}
-			case v3.RouteType:
+			case v2.RouteType, v3.RouteType:
 				{
 					rl := &route.RouteConfiguration{}
 					_ = proto.Unmarshal(valBytes, rl)
 					routes = append(routes, rl)
 				}
-			case v2.RouteType:
-				{
-					rl := &route.RouteConfiguration{}
-					_ = proto.Unmarshal(valBytes, rl)
-					routes = append(routes, rl)
-				}
-
 			default:
 				err = a.handleMCP(gvk, rsc, valBytes)
 				if err != nil {
