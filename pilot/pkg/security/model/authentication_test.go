@@ -31,7 +31,7 @@ import (
 )
 
 func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
-	cases := []struct {
+	testCases := []struct {
 		name           string
 		serviceAccount string
 		sdsUdsPath     string
@@ -77,7 +77,7 @@ func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
+	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ConstructSdsSecretConfigWithCustomUds(c.serviceAccount, c.sdsUdsPath); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfigWithCustomUds: got(%#v), want(%#v)\n", got, c.expected)
@@ -87,20 +87,7 @@ func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
 }
 
 func TestConstructSdsSecretConfig(t *testing.T) {
-	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  "/tmp/sdsuds.sock",
-		StatPrefix: SDSStatPrefix,
-		ChannelCredentials: &core.GrpcService_GoogleGrpc_ChannelCredentials{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_ChannelCredentials_LocalCredentials{
-				LocalCredentials: &core.GrpcService_GoogleGrpc_GoogleLocalCredentials{},
-			},
-		},
-	}
-
-	gRPCConfig.CredentialsFactoryName = FileBasedMetadataPlugName
-	gRPCConfig.CallCredentials = ConstructgRPCCallCredentials(K8sSATrustworthyJwtFileName, K8sSAJwtTokenHeaderKey)
-
-	cases := []struct {
+	testCases := []struct {
 		name           string
 		serviceAccount string
 		sdsUdsPath     string
@@ -143,7 +130,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
+	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfig: got(%#v), want(%#v)\n", got, c.expected)
