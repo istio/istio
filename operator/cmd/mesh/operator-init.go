@@ -18,9 +18,10 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	buildversion "istio.io/pkg/version"
+
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
-	buildversion "istio.io/pkg/version"
 )
 
 type operatorInitArgs struct {
@@ -74,12 +75,12 @@ func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
-	restConfig, clientset, client, err := K8sConfig(oiArgs.kubeConfigPath, oiArgs.context)
+	kubeClient, err := k8sClient(oiArgs.kubeConfigPath, oiArgs.context)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
-	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace)
+	already, _ := isControllerInstalled(kubeClient.Kube(), oiArgs.common.operatorNamespace)
 	if already {
 		l.LogAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
 	}
@@ -106,16 +107,18 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, l); err != nil {
+	if err := applyManifest(kubeClient.RESTConfig(), kubeClient.Controller(), mstr,
+		name.IstioOperatorComponentName, opts, l); err != nil {
 		l.LogAndFatal(err)
 	}
 
 	if customResource != "" {
-		if err := createNamespace(clientset, istioNamespace); err != nil {
+		if err := createNamespace(kubeClient.Kube(), istioNamespace); err != nil {
 			l.LogAndFatal(err)
 
 		}
-		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, l); err != nil {
+		if err := applyManifest(kubeClient.RESTConfig(), kubeClient.Controller(), customResource,
+			name.IstioOperatorComponentName, opts, l); err != nil {
 			l.LogAndFatal(err)
 		}
 	}
