@@ -389,13 +389,6 @@ func (a *ADSC) Run() error {
 	a.stream = edsstr
 	a.sendNodeMeta = true
 
-	// Send the initial requests
-	for _, r := range a.cfg.Watch {
-		_ = a.Send(&discovery.DiscoveryRequest{
-			TypeUrl: r,
-		})
-	}
-
 	go a.handleRecv()
 	return nil
 }
@@ -526,6 +519,7 @@ func (a *ADSC) handleRecv() {
 			a.sync[gt.String()] = time.Now()
 		}
 		a.Received[msg.TypeUrl] = msg
+		a.ack(msg)
 		a.mutex.Unlock()
 
 		if len(listeners) > 0 {
@@ -1005,6 +999,24 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 		Node:          a.node(),
 		TypeUrl:       typeurl,
 		ResourceNames: rsc,
+	})
+}
+
+func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
+	stype := v3.GetShortType(msg.TypeUrl)
+	var resources []string
+	// TODO: Send routes also in future.
+	if stype == v3.EndpointShortType {
+		for c := range a.edsClusters {
+			resources = append(resources, c)
+		}
+	}
+	_ = a.stream.Send(&discovery.DiscoveryRequest{
+		ResponseNonce: msg.Nonce,
+		TypeUrl:       msg.TypeUrl,
+		Node:          a.node(),
+		VersionInfo:   msg.VersionInfo,
+		ResourceNames: resources,
 	})
 }
 
