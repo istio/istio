@@ -58,12 +58,12 @@ func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Co
 func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
-	restConfig, clientset, client, err := K8sConfig(orArgs.kubeConfigPath, orArgs.context)
+	kubeClient, err := k8sClient(orArgs.kubeConfigPath, orArgs.context)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
 
-	installed, err := isControllerInstalled(clientset, orArgs.operatorNamespace)
+	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
@@ -75,14 +75,15 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	}
 
 	l.LogAndPrintf("Removing Istio operator...")
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: args.dryRun, Log: l})
+	reconciler, err := helmreconciler.NewHelmReconciler(kubeClient.Controller(), kubeClient.RESTConfig(), nil,
+		&helmreconciler.Options{DryRun: args.dryRun, Log: l})
 	if err != nil {
 		l.LogAndFatal(err)
 	}
 	if err := reconciler.DeleteComponent(string(name.IstioOperatorComponentName)); err != nil {
 		l.LogAndFatal(err)
 	}
-	if err := deleteNamespace(clientset, orArgs.operatorNamespace); err != nil {
+	if err := deleteNamespace(kubeClient.Kube(), orArgs.operatorNamespace); err != nil {
 		l.LogAndFatal(err)
 	}
 	l.LogAndPrint("Deleted namespace " + orArgs.operatorNamespace)

@@ -201,6 +201,7 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 }
 
 // DefaultConfigOrFail calls DefaultConfig and fails t if an error occurs.
+// nolint: interfacer
 func DefaultConfigOrFail(t test.Failer, ctx resource.Context) Config {
 	cfg, err := DefaultConfig(ctx)
 	if err != nil {
