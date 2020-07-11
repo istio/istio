@@ -269,6 +269,9 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	}
 
 	con := newConnection(peerAddr, stream)
+	if ids != nil {
+		con.node.PeerAuthnIDs = ids
+	}
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
 	// when the connection is no longer used. Closing the channel can cause subtle race conditions

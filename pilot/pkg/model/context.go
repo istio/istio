@@ -230,6 +230,11 @@ type Proxy struct {
 		RDS string
 		LDS string
 	}
+
+	// Set to the list of peer authenticated IDs
+	// ( SANs ). The common case is a single spiffee identity,
+	// but for JWT it can be a 'sub' of any type.
+	PeerAuthnIDs []string
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.

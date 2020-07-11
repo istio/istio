@@ -602,6 +602,10 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	}
 	log.Info("initializing secure discovery service")
 
+	// TODO: this is too tightly coupled to Spiffee, Istio
+	// networking supports other types of certificates, we do
+	// not require spiffee - just default to it.
+
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,

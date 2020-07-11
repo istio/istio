@@ -21,6 +21,9 @@ import (
 	"sync"
 	"time"
 
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/ptypes/any"
+	"istio.io/istio/pilot/pkg/networking/util"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -34,6 +37,7 @@ import (
 
 	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	"istio.io/istio/security/pkg/nodeagent/model"
+	istiomodel "istio.io/istio/pilot/pkg/model"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -88,6 +92,9 @@ type SecretFetcher struct {
 	scrtStore      cache.Store
 
 	// secrets maps k8sKey to secrets
+	// The key is the secret name, in agent.
+	// In istiod in 'cluster mode', it's namespace/secretname
+	// Value is a SecretItem ( for historic reasons, not a pointer !)
 	secrets sync.Map
 
 	// Add all entries containing secretName in SecretCache. Called when K8S secret is added.
@@ -114,6 +121,54 @@ func (sf *SecretFetcher) Run(ch chan struct{}) {
 	cache.WaitForCacheSync(ch, sf.scrtController.HasSynced)
 }
 
+// Generate implements the XDS Generate method for SDS.
+// We also allow returning the secrets over the main XDS connection,
+// for efficiency.
+// This method only allows returning secret for authenticated requests.
+func (sf *SecretFetcher) Generate(proxy *istiomodel.Proxy, push *istiomodel.PushContext,
+	w *istiomodel.WatchedResource, updates istiomodel.XdsUpdates) istiomodel.Resources {
+	// 1. Get the namespace of the caller
+	// TODO: add an error to Generate (for non-empty)
+
+	// This depends on in-progress PR to VERIFY the namespace.
+
+	// 2. If istio-system - ok, can read secrets in istio-system
+	// This istiod can either be the 'master' in istio-system, or
+	// an replica of istiod running in a namespace with reduced
+	// RBAC to only namespace secret access. The second is equivalent
+	// with running the gateway with secret access, but secret permissions
+	// are granted to a separate istiod pod.
+	if proxy.Metadata.Namespace != sf.secretNamespace {
+		// First iteration: we only support istio-system ( or ingress + istiod in same namespace )
+		// If Ingress is in a different namespace - either use the old code or
+		// run a local istiod for SDS access.
+		return nil
+	}
+
+
+	// 3. Else: it must be in mesh config
+	// TODO: if mesh config for this SA exists, allow access
+	// Also remove the creation of Secrets.
+	// This is for the 'Istiod minting DNS certs signed with
+	//  citadel for other Istiod replicas', in central istiod
+
+	// Get the secret, if any
+	si, f := sf.secrets.Load(w.ResourceNames[0])
+	if !f {
+		return nil
+	}
+	msi, ok := si.(model.SecretItem)
+	if !ok {
+		return nil
+	}
+
+	secret := &tls.Secret{
+		Name: msi.ResourceName,
+	}
+
+	return []*any.Any{util.MessageToAny(secret)}
+}
+
 var namespaceVar = env.RegisterStringVar(ingressSecretNamespace, "", "")
 
 // InitWithKubeClient initializes SecretFetcher to watch kubernetes secrets.
@@ -123,6 +178,9 @@ func (sf *SecretFetcher) InitWithKubeClient(core corev1.CoreV1Interface) { // no
 
 // InitWithKubeClientAndNs initializes SecretFetcher to watch kubernetes secrets.
 func (sf *SecretFetcher) InitWithKubeClientAndNs(core corev1.CoreV1Interface, namespace string) { // nolint:interfacer
+	// TODO: attempt to read all namespaces, if RBAC permission is set.
+	// Otherwise fallback to watching only current namespace.
+
 	istioSecretSelector := fields.SelectorFromSet(nil).String()
 	scrtLW := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {

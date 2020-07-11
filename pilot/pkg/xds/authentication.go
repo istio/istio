@@ -44,6 +44,10 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok {
 		return nil, nil
 	}
+
+	// TODO: move the trust domain verification post-auth,
+	// and check the namespace as well (we only get ns in the first
+	// request).
 	for _, authn := range s.Authenticators {
 		u, err := authn.Authenticate(ctx)
 		// If one authenticator passes, return
