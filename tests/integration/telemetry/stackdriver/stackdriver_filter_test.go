@@ -82,14 +82,6 @@ func unmarshalFromTemplateFile(file string, out proto.Message) error {
 	return jsonpb.UnmarshalString(resource, out)
 }
 
-func getWantRequestCountTS() (cltRequestCount, srvRequestCount monitoring.TimeSeries, err error) {
-	if err = unmarshalFromTemplateFile(serverRequestCount, &srvRequestCount); err != nil {
-		return
-	}
-	err = unmarshalFromTemplateFile(clientRequestCount, &cltRequestCount)
-	return
-}
-
 // TODO: add test for log, trace and edge.
 // TestStackdriverMonitoring verifies that stackdriver WASM filter exports metrics with expected labels.
 func TestStackdriverMonitoring(t *testing.T) {

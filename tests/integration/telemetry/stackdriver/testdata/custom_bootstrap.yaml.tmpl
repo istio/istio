@@ -28,7 +28,6 @@ data:
               "max_number_of_links": "200"
             },
             "stackdriver_exporter_enabled": true,
-            "stackdriver_address": "stackdriver.{{ .StackdriverNamespace }}.svc.cluster.local:8090",
             "stackdriver_grpc_service": {
               "google_grpc": {
                 "target_uri": "stackdriver.{{ .StackdriverNamespace }}.svc.cluster.local:8090",
