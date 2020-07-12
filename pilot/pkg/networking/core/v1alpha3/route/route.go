@@ -375,6 +375,19 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// add a name to the route
 	out.Name = routeName
 
+	requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
+	requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
+	out.RequestHeadersToAdd = requestHeadersToAdd
+	responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
+	responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
+	out.ResponseHeadersToAdd = responseHeadersToAdd
+	requestHeadersToRemove := make([]string, 0)
+	requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
+	out.RequestHeadersToRemove = requestHeadersToRemove
+	responseHeadersToRemove := make([]string, 0)
+	responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
+	out.ResponseHeadersToRemove = responseHeadersToRemove
+
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -397,7 +410,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		case 308:
 			action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
 		default:
-			log.Warnf("Redirect Code %d are not yet supported", in.Redirect.RedirectCode)
+			log.Warnf("Redirect Code %d is not yet supported", in.Redirect.RedirectCode)
 			action = nil
 		}
 
@@ -427,19 +440,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				HostRewriteLiteral: rewrite.Authority,
 			}
 		}
-
-		requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
-		out.RequestHeadersToAdd = requestHeadersToAdd
-		responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
-		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
-		out.ResponseHeadersToAdd = responseHeadersToAdd
-		requestHeadersToRemove := make([]string, 0)
-		requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
-		out.RequestHeadersToRemove = requestHeadersToRemove
-		responseHeadersToRemove := make([]string, 0)
-		responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
-		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
 			if mp := mirrorPercent(in); mp != nil {
