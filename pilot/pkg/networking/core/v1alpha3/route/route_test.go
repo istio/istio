@@ -625,6 +625,31 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 	})
+
+	t.Run("for redirect and header manipulation", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirectAndSetHeader,
+			serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
+		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
+
+	})
+
 	t.Run("for no virtualservice but has destinationrule with consistentHash loadbalancer", func(t *testing.T) {
 		g := gomega.NewGomegaWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
@@ -963,6 +988,33 @@ var virtualServiceWithRedirect = model.Config{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRedirectAndSetHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+						},
+					},
 				},
 			},
 		},
