@@ -18,13 +18,16 @@ package multixds
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/xds"
+	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
+	istioversion "istio.io/pkg/version"
 )
 
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N local XDS servers
@@ -108,4 +111,63 @@ func makeSan(istioNamespace, revision string) string {
 		return fmt.Sprintf("istiod.%s.svc", istioNamespace)
 	}
 	return fmt.Sprintf("istiod-%s.%s.svc", revision, istioNamespace)
+}
+
+// AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N local XDS servers
+// nolint: lll
+func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+
+	// If Central Istiod case, just call it
+	if centralOpts.Xds != "" {
+		response, err := xds.GetXdsResponse(dr, centralOpts)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]*xdsapi.DiscoveryResponse{
+			CpInfo(response).ID: response,
+		}, nil
+	}
+
+	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
+	responses, err := queryEachShard(dr, istioNamespace, kubeClient, centralOpts)
+	if err != nil {
+		return nil, err
+	}
+	return mapShards(responses)
+}
+
+func mapShards(responses []*xdsapi.DiscoveryResponse) (map[string]*xdsapi.DiscoveryResponse, error) {
+	retval := map[string]*xdsapi.DiscoveryResponse{}
+
+	for _, response := range responses {
+		retval[CpInfo(response).ID] = response
+	}
+
+	return retval, nil
+}
+
+// CpInfo returns the Istio control plane info from JSON-encoded XDS ControlPlane Identifier
+func CpInfo(xdsResponse *xdsapi.DiscoveryResponse) pilotxds.IstioControlPlaneInstance {
+	if xdsResponse.ControlPlane == nil {
+		return pilotxds.IstioControlPlaneInstance{
+			Component: "MISSING",
+			ID:        "MISSING",
+			Info: istioversion.BuildInfo{
+				Version: "MISSING CP ID",
+			},
+		}
+	}
+
+	cpID := pilotxds.IstioControlPlaneInstance{}
+	err := json.Unmarshal([]byte(xdsResponse.ControlPlane.Identifier), &cpID)
+	if err != nil {
+		return pilotxds.IstioControlPlaneInstance{
+			Component: "INVALID",
+			ID:        "INVALID",
+			Info: istioversion.BuildInfo{
+				Version: "INVALID CP ID",
+			},
+		}
+	}
+	return cpID
 }

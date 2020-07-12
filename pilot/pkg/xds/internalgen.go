@@ -15,6 +15,9 @@
 package xds
 
 import (
+	"net/url"
+	"strings"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
@@ -38,6 +41,12 @@ const (
 	// the 'NACK' from envoy on rejected configs. Only ID is set in metadata.
 	// This includes all the info that envoy (client) provides.
 	TypeURLNACK = "istio.io/nack"
+
+	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
+	TypeDebugSyncronization = "istio.io/debug/syncz"
+
+	// TypeDebugConfigDump requests Envoy configuration for a proxy without creating one
+	TypeDebugConfigDump = "istio.io/debug/config_dump"
 )
 
 // InternalGen is a Generator for XDS status updates: connect, disconnect, nacks, acks
@@ -146,7 +155,20 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 // We can also expose ACKS.
 func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	res := []*any.Any{}
-	switch w.TypeUrl {
+
+	// Look for ?query parameters.  We don't use url.Parse() because we have no scheme
+	typeURL := w.TypeUrl
+	var qparams url.Values
+	if qIndex := strings.Index(w.TypeUrl, "?"); qIndex >= 0 {
+		typeURL = w.TypeUrl[:qIndex]
+		var err error
+		qparams, err = url.ParseQuery(w.TypeUrl[qIndex+1:])
+		if err != nil {
+			adsLog.Infof("Invalid TypeUrl query params: %q", w.TypeUrl)
+		}
+	}
+
+	switch typeURL {
 	case TypeURLConnections:
 		sg.Server.adsClientsMutex.RLock()
 		// Create a temp map to avoid locking the add/remove
@@ -154,21 +176,29 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			res = append(res, util.MessageToAny(v.xdsNode))
 		}
 		sg.Server.adsClientsMutex.RUnlock()
-	case "istio.io/debug/syncz":
-		res = debugSyncz(sg)
+	case TypeDebugSyncronization:
+		res = sg.debugSyncz()
+	case TypeDebugConfigDump:
+		proxyID := qparams.Get("proxyID")
+		if proxyID == "" {
+			adsLog.Info("Config Dump w/o proxyID query parameter")
+			break
+		}
+		res = sg.debugConfigDump(proxyID)
 	default:
 		adsLog.Infof("Unknown TypeUrl: %q", w.TypeUrl)
 	}
 	return res
 }
 
-func debugSyncz(sg *InternalGen) []*any.Any {
+func (sg *InternalGen) debugSyncz() []*any.Any {
 	res := []*any.Any{}
 
 	sg.Server.adsClientsMutex.RLock()
 	for _, con := range sg.Server.adsClients {
 		con.mu.RLock()
-		if con.node != nil {
+		// Skip "nodes" without metdata (they are probably istioctl queries!)
+		if con.node != nil && con.node.Metadata != nil && con.node.Metadata.ProxyConfig != nil {
 			xdsConfigs := []*status.PerXdsConfig{}
 			for stype, watchedResource := range con.node.Active {
 				pxc := &status.PerXdsConfig{
@@ -212,4 +242,24 @@ func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
 		return status.ConfigStatus_SYNCED
 	}
 	return status.ConfigStatus_STALE
+}
+
+func (sg *InternalGen) debugConfigDump(proxyID string) []*any.Any {
+	conn := sg.Server.getProxyConnection(proxyID)
+	if conn == nil {
+		// Return no configuration.  Legacy Istio 1.6 /debug/config_dump
+		// returned http.StatusNotFound, but we do not consider it an error.
+		adsLog.Infof("Config Dump could not find connection for proxyID %q", proxyID)
+		return []*any.Any{}
+	}
+
+	dump, err := sg.Server.configDump(conn)
+	if err != nil {
+		// Return no configuration.  Legacy Istio 1.6 /debug/config_dump
+		// returned http.StatusInternalServerError, but we do not consider it an error.
+		adsLog.Infof("Config Dump could not dump connection for proxyID %q", proxyID)
+		return []*any.Any{}
+	}
+
+	return dump.Configs
 }

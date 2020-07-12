@@ -16,15 +16,10 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"text/tabwriter"
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -32,10 +27,8 @@ import (
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
-	"istio.io/istio/pilot/pkg/xds"
+	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/log"
-	istioVersion "istio.io/pkg/version"
 )
 
 func statusCommand() *cobra.Command {
@@ -120,29 +113,48 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return err
+			}
+
 			if len(args) > 0 {
-				return fmt.Errorf("status of single pod unimplemented") // TODO
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				path := "config_dump"
+				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+				if err != nil {
+					return err
+				}
+
+				xdsRequest := xdsapi.DiscoveryRequest{
+					Node: &envoy_corev3.Node{
+						Id: "debug~0.0.0.0~istioctl~cluster.local",
+					},
+					TypeUrl: fmt.Sprintf("%s?proxyID=%s.%s", pilotxds.TypeDebugConfigDump, podName, ns),
+				}
+				xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+				if err != nil {
+					return err
+				}
+				c, err := compare.NewXdsComparator(c.OutOrStdout(), xdsResponses, envoyDump)
+				if err != nil {
+					return err
+				}
+				return c.Diff()
 			}
 
 			xdsRequest := xdsapi.DiscoveryRequest{
 				Node: &envoy_corev3.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
 				},
-				TypeUrl: "istio.io/debug/syncz",
+				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
 			if err != nil {
 				return err
 			}
-			// TODO Currently multixds doesn't reveal all Pod IDs, it merges them.  Don't do that.
-			xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
-			if err != nil {
-				return err
-			}
-			if len(xdsResponse.Resources) == 0 {
-				return fmt.Errorf("no proxies found on ")
-			}
-			return printAllStatuses(xdsResponse, c.OutOrStdout())
+			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+			return sw.PrintAll(xdsResponses)
 		},
 	}
 
@@ -150,72 +162,4 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 
 	return statusCmd
-}
-
-func printAllStatuses(dr *xdsapi.DiscoveryResponse, writer io.Writer) error {
-	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCDS\tLDS\tEDS\tRDS\tISTIOD\tVERSION")
-	for _, resource := range dr.Resources {
-		switch resource.TypeUrl {
-		case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
-			clientConfig := xdsstatus.ClientConfig{}
-			err := ptypes.UnmarshalAny(resource, &clientConfig)
-			if err != nil {
-				return fmt.Errorf("could not unmarshal ClientConfig: %w", err)
-			}
-			name := clientConfig.GetNode().GetId()
-			cds, lds, eds, rds := getSyncStatus(clientConfig.GetXdsConfig())
-			cp := cpInfo(dr)
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", name, cds, lds, eds, rds, cp.ID, cp.Info.Version)
-		default:
-			return fmt.Errorf("/debug/syncz unexpected resource type %q", resource.TypeUrl)
-		}
-	}
-	return w.Flush()
-}
-
-// TODO merge with code in version.go
-func cpInfo(xdsResponse *xdsapi.DiscoveryResponse) xds.IstioControlPlaneInstance {
-	if xdsResponse.ControlPlane == nil {
-		return xds.IstioControlPlaneInstance{
-			Component: "MISSING",
-			ID:        "MISSING",
-			Info: istioVersion.BuildInfo{
-				Version: "MISSING CP ID",
-			},
-		}
-	}
-
-	cpID := xds.IstioControlPlaneInstance{}
-	err := json.Unmarshal([]byte(xdsResponse.ControlPlane.Identifier), &cpID)
-	if err != nil {
-		return xds.IstioControlPlaneInstance{
-			Component: "INVALID",
-			ID:        "INVALID",
-			Info: istioVersion.BuildInfo{
-				Version: "INVALID CP ID",
-			},
-		}
-	}
-	return cpID
-}
-
-func getSyncStatus(configs []*xdsstatus.PerXdsConfig) (cds, lds, eds, rds string) {
-	for _, config := range configs {
-		switch val := config.PerXdsConfig.(type) {
-		case *xdsstatus.PerXdsConfig_ListenerConfig:
-			lds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_ClusterConfig:
-			cds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_RouteConfig:
-			rds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_EndpointConfig:
-			eds = config.Status.String()
-		case *xdsstatus.PerXdsConfig_ScopedRouteConfig:
-			// ignore; Istiod doesn't send these
-		default:
-			log.Infof("PerXdsConfig unexpected type %T\n", val)
-		}
-	}
-	return
 }
