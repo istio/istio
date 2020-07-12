@@ -21,12 +21,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// vmDeploymentOpts contains the options of a VM deployment resource.
 var (
 	name           string
 	serviceAccount string
-	labelsMap      map[string]string
 	filename       string
+	labelsMap      map[string]string
+
+	// optional GKE flags
+	gkeProject      string
+	clusterLocation string
 )
 
 func vmRegisterCmd() *cobra.Command {
@@ -78,27 +81,43 @@ func vmPackCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			envVars := map[string]string{}
-			clientset := outsideClient()
+			clientset, err := outsideClientset()
+			if err != nil {
+				return err
+			}
 
-			istiod, err := istioService(clientset, "istiod")
+			istiod, err := k8sService(clientset, "istio-system", "istiod")
 			if err != nil {
 				return err
 			}
 			envVars["IstiodIP"] = istiod.Spec.ClusterIP
 
-			cluster, err := gkeCluster(localConfig(clientset))
+			// consider passed in flags before attempting to infer config
+			if validGKEConfig(gkeProject, clusterLocation, clusterName) {
+				fmt.Printf("using provided flags for (project, location, cluster): (%s, %s, %s)\n", gkeProject, clusterLocation, clusterName)
+			} else {
+				gkeProject, clusterLocation, clusterName = gkeConfig()
+				if !validGKEConfig(gkeProject, clusterLocation, clusterLocation) {
+					return fmt.Errorf("could not infer (project, location, cluster). Try passing in flags instead")
+				}
+				fmt.Printf("inferred (project, location, cluster): (%s, %s, %s)\n", gkeProject, clusterLocation, clusterName)
+			}
+			cluster, err := gkeCluster(gkeProject, clusterLocation, clusterName)
 			if err != nil {
 				return err
 			}
 			envVars["ISTIO_SERVICE_CIDR"] = cluster.ServicesIpv4Cidr
 
 			fmt.Printf("Packed service %s in namespace %s into tarball %s\n", name, namespace, filename)
-			fmt.Println(envVars)
 			return nil
 		},
 	}
 	vmPackCmd.PersistentFlags().StringVar(&name, "name", "", "Service name")
 	vmPackCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the service")
 	vmPackCmd.PersistentFlags().StringVarP(&filename, "filename", "o", "", "Name of the tarball to be created")
+
+	vmPackCmd.PersistentFlags().StringVar(&gkeProject, "project", "", "Target project name")
+	vmPackCmd.PersistentFlags().StringVar(&clusterLocation, "location", "", "Target cluster location")
+	vmPackCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Target cluster name")
 	return vmPackCmd
 }

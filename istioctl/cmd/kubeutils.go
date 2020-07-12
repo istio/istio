@@ -17,18 +17,46 @@ package cmd
 import (
 	"context"
 	"flag"
-	"fmt"
-	"os"
 	"path/filepath"
+
+	"istio.io/pkg/env"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 // Returns a kubernetes clientset from outside the cluster
-func outsideClient() *kubernetes.Clientset {
+func outsideClientset() (*kubernetes.Clientset, error) {
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath())
+	if err != nil {
+		return nil, err
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return clientset, nil
+}
+
+// Returns a service in a namespace
+func k8sService(clientset *kubernetes.Clientset, namespace, name string) (*v1.Service, error) {
+	service, err := clientset.CoreV1().Services(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
+// Returns the kubectl config
+func k8sConfig() *api.Config {
+	return clientcmd.GetConfigFromFileOrDie(kubeconfigPath())
+}
+
+func kubeconfigPath() string {
 	var kubeconfig *string
 	if home := homeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -36,45 +64,12 @@ func outsideClient() *kubernetes.Clientset {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
 	flag.Parse()
-
-	// use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	// create the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
-	return clientset
-}
-
-// Returns a service in the istio-system namespace
-// TODO: deal with nonexistent clusters, only errs when namespace is nonexistent
-func istioService(clientset *kubernetes.Clientset, serviceName string) (*v1.Service, error) {
-	service, err := clientset.CoreV1().Services("istio-system").Get(context.Background(), serviceName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	} else if service.Name == "" {
-		return nil, fmt.Errorf("fervice %s does not exist", serviceName)
-	}
-	return service, nil
-}
-
-// TODO: Get project, location, cluster from local configuration
-func localConfig(clientset *kubernetes.Clientset) (string, string, string) {
-	project := "justinwei-test-1"
-	location := "us-central1-c"
-	cluster := "cluster-api-single"
-	return project, location, cluster
+	return *kubeconfig
 }
 
 func homeDir() string {
-	if h := os.Getenv("HOME"); h != "" {
-		return h
+	if home := env.RegisterStringVar("HOME", "", "Linux default home directory").Get(); home != "" {
+		return home
 	}
-	// Case for Windows
-	return os.Getenv("USERPROFILE")
+	return env.RegisterStringVar("USERPROFILE", "", "Windows default home directory").Get()
 }

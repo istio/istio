@@ -17,6 +17,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	container "cloud.google.com/go/container/apiv1"
@@ -57,4 +58,34 @@ func gkeCluster(project, location, clusterName string) (*containerpb.Cluster, er
 	case ok := <-status:
 		return cluster, ok
 	}
+}
+
+// First attempts to infer config (project, location, cluster) from the current kubectl context, then an active pod
+func gkeConfig() (string, string, string) {
+	project, location, cluster := gkeConfigFromContext()
+	if !validGKEConfig(project, location, cluster) {
+		project, location, cluster = gkeConfigFromActive()
+	}
+	return project, location, cluster
+}
+
+// Assumes that the kubectl context (created from gcloud container clusters get-credentials) has not been renamed
+// Targets contexts in the format "gke_project_location_cluster"
+func gkeConfigFromContext() (string, string, string) {
+	currentContext := k8sConfig().CurrentContext
+	re := regexp.MustCompile("^gke_(.+)_(.+)_(.+)$")
+	match := re.FindStringSubmatch(currentContext)
+	if len(match) == 4 {
+		return match[1], match[2], match[3]
+	}
+	return "", "", ""
+}
+
+// TODO: Remote exec on a pod or pull platform metadata
+func gkeConfigFromActive() (string, string, string) {
+	return "", "", ""
+}
+
+func validGKEConfig(project, location, cluster string) bool {
+	return project != "" && location != "" && cluster != ""
 }
