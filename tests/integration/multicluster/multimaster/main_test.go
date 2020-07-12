@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
 		})).
-		Setup(multicluster.SetupPilots(&pilots)).
+		Setup(pilot.Setup(&pilots, pilot.Config{})).
 		Run()
 }
 
