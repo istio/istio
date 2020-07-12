@@ -64,6 +64,21 @@ type manifestApplyArgs struct {
 	revision string
 }
 
+func (args manifestApplyArgs) toOptions(rootArgs *rootArgs) (ApplyManifestsOptions, error) {
+	client, err := k8sClient(args.kubeConfigPath, args.context)
+	if err != nil {
+		return ApplyManifestsOptions{}, err
+	}
+	return ApplyManifestsOptions{
+		Client:      client,
+		InFilenames: args.inFilenames,
+		SetOverlay:  applyFlagAliases(args.set, args.manifestsPath, args.revision),
+		Force:       args.force,
+		DryRun:      rootArgs.dryRun,
+		WaitTimeout: args.readinessTimeout,
+	}, nil
+}
+
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
@@ -146,26 +161,40 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	client, err := k8sClient(maArgs.kubeConfigPath, maArgs.context)
+
+	opts, err := maArgs.toOptions(rootArgs)
 	if err != nil {
 		return err
 	}
-	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.manifestsPath, maArgs.revision), maArgs.inFilenames,
-		maArgs.force, rootArgs.dryRun, client, maArgs.readinessTimeout, l); err != nil {
+
+	if err := ApplyManifests(opts, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
 
 	return nil
 }
 
+// ApplyManifestOptions options for the apply manifests command.
+type ApplyManifestsOptions struct {
+	Client      kube.Client
+	InFilenames []string
+	SetOverlay  []string
+	Force       bool
+	DryRun      bool
+	WaitTimeout time.Duration
+}
+
 // ApplyManifests generates manifests from the given input files and --set flag overlays and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-func ApplyManifests(inFilenames, setOverlay []string, force bool, dryRun bool,
-	client kube.Client, waitTimeout time.Duration, l clog.Logger) error {
-
-	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, client.RESTConfig(), l)
+func ApplyManifests(opts ApplyManifestsOptions, l clog.Logger) error {
+	_, iops, err := GenerateConfig(GenerateConfigOptions{
+		InFilenames: opts.InFilenames,
+		SetOverlay:  opts.SetOverlay,
+		Force:       opts.Force,
+		KubeConfig:  opts.Client.RESTConfig(),
+	}, l)
 	if err != nil {
 		return err
 	}
@@ -179,15 +208,20 @@ func ApplyManifests(inFilenames, setOverlay []string, force bool, dryRun bool,
 		return err
 	}
 
-	if err := createNamespace(client.Kube(), iop.Namespace); err != nil {
+	if err := createNamespace(opts.Client.Kube(), iop.Namespace); err != nil {
 		return err
 	}
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
-		Force: force}
-	reconciler, err := helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), iop, opts)
+	helmOpts := &helmreconciler.Options{
+		DryRun:      opts.DryRun,
+		Log:         l,
+		WaitTimeout: opts.WaitTimeout,
+		ProgressLog: progress.NewLog(),
+		Force:       opts.Force,
+	}
+	reconciler, err := helmreconciler.NewHelmReconciler(opts.Client.Controller(), opts.Client.RESTConfig(), iop, helmOpts)
 	if err != nil {
 		return err
 	}
@@ -199,7 +233,7 @@ func ApplyManifests(inFilenames, setOverlay []string, force bool, dryRun bool,
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	opts.ProgressLog.SetState(progress.StateComplete)
+	helmOpts.ProgressLog.SetState(progress.StateComplete)
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))

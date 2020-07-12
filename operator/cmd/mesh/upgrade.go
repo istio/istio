@@ -136,7 +136,11 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(GenerateConfigOptions{
+		InFilenames: args.inFilenames,
+		SetOverlay:  setFlags,
+		Force:       args.force,
+	}, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -206,8 +210,14 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
-		client, args.readinessTimeout, l)
+	err = ApplyManifests(ApplyManifestsOptions{
+		Client:      nil,
+		InFilenames: args.inFilenames,
+		SetOverlay:  applyFlagAliases(args.set, args.manifestsPath, ""),
+		Force:       args.force,
+		DryRun:      rootArgs.dryRun,
+		WaitTimeout: args.readinessTimeout,
+	}, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
