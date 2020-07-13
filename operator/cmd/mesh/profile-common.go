@@ -36,6 +36,14 @@ import (
 	pkgversion "istio.io/pkg/version"
 )
 
+// GenerateConfigOptions provides options for the generate command.
+type GenerateConfigOptions struct {
+	InFilenames []string
+	SetOverlay  []string
+	Force       bool
+	KubeConfig  *rest.Config
+}
+
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP/IOP files at inFilenames.
 // 2. Profile overlay, if non-default overlay is selected. This also comes either from compiled in or path specified in IOP contained in inFilenames.
@@ -47,18 +55,17 @@ import (
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
-func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeConfig *rest.Config,
-	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	if err := validateSetFlags(setFlags); err != nil {
+func GenerateConfig(opts GenerateConfigOptions, l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+	if err := validateSetFlags(opts.SetOverlay); err != nil {
 		return "", nil, err
 	}
 
-	fy, profile, err := readYamlProfile(inFilenames, setFlags, force, l)
+	fy, profile, err := readYamlProfile(opts.InFilenames, opts.SetOverlay, opts.Force, l)
 	if err != nil {
 		return "", nil, err
 	}
 
-	iopsString, iops, err := genIOPSFromProfile(profile, fy, setFlags, force, kubeConfig, l)
+	iopsString, iops, err := genIOPSFromProfile(profile, fy, opts.SetOverlay, opts.Force, opts.KubeConfig, l)
 	if err != nil {
 		return "", nil, err
 	}

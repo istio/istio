@@ -143,11 +143,16 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 
 func TestManifestGenerateGateways(t *testing.T) {
 	g := NewGomegaWithT(t)
-	m, _, err := generateManifest("gateways", "", liveCharts)
+
+	flags := "-s components.ingressGateways.[0].k8s.resources.requests.memory=999Mi " +
+		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m"
+	m, _, err := generateManifest("gateways", flags, liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	objs := parseObjectSetFromManifest(t, m)
+
 	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
 	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
@@ -160,12 +165,14 @@ func TestManifestGenerateGateways(t *testing.T) {
 	c := dobj.Container("istio-proxy")
 	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
 	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "999Mi"}))
 
 	dobj = mustGetDeployment(g, objs, "user-ingressgateway")
 	d = dobj.Unstructured()
 	c = dobj.Container("istio-proxy")
 	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "222m"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "555m"}))
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "888Mi"}))
 
 	dobj = mustGetDeployment(g, objs, "ilb-gateway")
 	d = dobj.Unstructured()
@@ -227,44 +234,72 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 	checkClusterRoleBindingsReferenceRoles(g, objs)
 }
 
+func TestManifestGenerateAllOff(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("all_off", "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	g.Expect(objs.size()).Should(Equal(0))
+}
+
+func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
+	g := NewGomegaWithT(t)
+	// Change profile from empty to minimal using flag.
+	m, _, err := generateManifest("empty", "-s profile=minimal", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	// minimal profile always has istiod, empty does not.
+	mustGetDeployment(g, objs, "istiod")
+}
+
+func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	dobj := mustGetDeployment(g, objs, "istiod")
+
+	c := dobj.Container("discovery")
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "foo/pilot:bar"}))
+}
+
+func TestManifestGenerateFlagsSetValues(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
+
+	c := dobj.Container("istio-proxy")
+	g.Expect(c).Should(HavePathValueEqual(PathValue{"image", "gcr.io/istio-testing/myproxy:latest"}))
+
+	cm := objs.kind("ConfigMap").nameEquals("istio-sidecar-injector").Unstructured()
+	// TODO: change values to some nicer format rather than text block.
+	g.Expect(cm).Should(HavePathValueMatchRegex(PathValue{"data.values", `.*"includeIPRanges"\: "172\.30\.0\.0/16,172\.21\.0\.0/16".*`}))
+}
+
 func TestManifestGenerateFlags(t *testing.T) {
 	flagOutputDir := createTempDirOrFail(t, "flag-output")
 	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
 	runTestGroup(t, testGroup{
-		{
-			desc: "all_off",
-		},
 		{
 			desc:                        "all_on",
 			diffIgnore:                  "ConfigMap:*:istio",
 			showOutputFileInPullRequest: true,
 		},
 		{
-			desc:       "gateways",
-			diffIgnore: "ConfigMap:*:istio",
-			flags: "-s components.ingressGateways.[0].k8s.resources.requests.cpu=999m " +
-				"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m",
-		},
-		{
-			desc:       "gateways_override_default",
-			diffIgnore: "ConfigMap:*:istio",
-		},
-		{
-			desc:       "flag_set_values",
-			diffSelect: "Deployment:*:istio-ingressgateway,ConfigMap:*:istio-sidecar-injector",
-			flags:      "-s values.global.proxy.image=myproxy --set values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16",
-			noInput:    true,
-		},
-		{
 			desc:       "flag_values_enable_egressgateway",
 			diffSelect: "Service:*:istio-egressgateway",
 			flags:      "--set values.gateways.istio-egressgateway.enabled=true",
 			noInput:    true,
-		},
-		{
-			desc:       "flag_override_values",
-			diffSelect: "Deployment:*:istiod",
-			flags:      "-s tag=my-tag",
 		},
 		{
 			desc:       "flag_output",
@@ -283,12 +318,6 @@ func TestManifestGenerateFlags(t *testing.T) {
 			desc:       "flag_force",
 			diffSelect: "no:resources:selected",
 			flags:      "--force",
-		},
-		{
-			desc:       "flag_output_set_profile",
-			diffIgnore: "ConfigMap:*:istio",
-			flags:      "-s profile=minimal",
-			noInput:    true,
 		},
 	})
 	removeDirOrFail(t, flagOutputDir)
@@ -621,7 +650,10 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
-	_, iops, err := GenerateConfig(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
+	_, iops, err := GenerateConfig(GenerateConfigOptions{
+		SetOverlay: []string{"installPackagePath=" + string(liveCharts)},
+		Force:      true,
+	}, l)
 	if err != nil {
 		t.Fatal(err)
 	}

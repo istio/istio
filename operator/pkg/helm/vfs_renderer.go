@@ -102,7 +102,7 @@ func readProfiles(chartsDir string) (map[string]bool, error) {
 		if err := CheckCompiledInCharts(); err != nil {
 			return nil, err
 		}
-		profilePaths, err := vfs.ReadDir(chartsDir)
+		profilePaths, err := vfs.ReadDir(filepath.Join(chartsDir, profilesRoot))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read profiles: %v", err)
 		}
@@ -176,7 +176,7 @@ func ListProfiles(charts string) ([]string, error) {
 func CheckCompiledInCharts() error {
 	if _, err := vfs.Stat(ChartsSubdirName); err != nil {
 		return fmt.Errorf("compiled in charts not found in this development build, use --manifests with " +
-			"local charts instead (e.g. istioctl install --charts manifests/) or run make gen-charts and rebuild istioctl")
+			"local charts instead (e.g. istioctl install --manifests manifests/) or run make gen-charts and rebuild istioctl")
 	}
 	return nil
 }

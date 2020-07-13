@@ -262,15 +262,24 @@ type IstioCA struct {
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
-		defaultCertTTL: opts.DefaultCertTTL,
-		maxCertTTL:     opts.MaxCertTTL,
-		keyCertBundle:  opts.KeyCertBundle,
-		livenessProbe:  probe.NewProbe(),
+		maxCertTTL:    opts.MaxCertTTL,
+		keyCertBundle: opts.KeyCertBundle,
+		livenessProbe: probe.NewProbe(),
 	}
 
 	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
 		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
 	}
+
+	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens, this function will prevent that using cert chain TTL as
+	// the workload TTL
+	defaultCertTTL, err := ca.minTTL(opts.DefaultCertTTL)
+	if err != nil {
+		return ca, fmt.Errorf("failed to get default cert TTL %s", err.Error())
+	}
+	ca.defaultCertTTL = defaultCertTTL
+
 	return ca, nil
 }
 
@@ -363,4 +372,26 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte
 	}
 
 	return certPEM, privPEM, nil
+}
+
+func (ca *IstioCA) minTTL(defaultCertTTL time.Duration) (time.Duration, error) {
+	certChainPem := ca.keyCertBundle.GetCertChainPem()
+	if len(certChainPem) == 0 {
+		return defaultCertTTL, nil
+	}
+
+	certChainExpiration, err := util.TimeBeforeCertExpires(certChainPem, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("failed to get cert chain TTL %s", err.Error())
+	}
+
+	if certChainExpiration.Seconds() <= 0 {
+		return 0, fmt.Errorf("cert chain has expired")
+	}
+
+	if defaultCertTTL.Seconds() > certChainExpiration.Seconds() {
+		return certChainExpiration, nil
+	}
+
+	return defaultCertTTL, nil
 }

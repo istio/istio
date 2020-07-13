@@ -28,12 +28,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"istio.io/pkg/log"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -41,7 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
@@ -101,7 +100,7 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 
 // confirm waits for a user to confirm with the supplied message.
 func confirm(msg string, writer io.Writer) bool {
-	fmt.Fprintf(writer, "%s ", msg)
+	_, _ = fmt.Fprintf(writer, "%s ", msg)
 
 	var response string
 	_, err := fmt.Scanln(&response)
@@ -116,77 +115,15 @@ func confirm(msg string, writer io.Writer) bool {
 	return false
 }
 
-// K8sConfig creates a rest.Config, Clientset and controller runtime Client from the given kubeconfig path and context.
-func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes.Clientset, client.Client, error) {
-	restConfig, clientset, err := InitK8SRestClient(kubeConfigPath, context)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	// We are running a one-off command locally, so we don't need to worry too much about rate limitting
-	// Bumping this up greatly decreases install time
-	restConfig.QPS = 50
-	restConfig.Burst = 100
-	client, err := client.New(restConfig, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return restConfig, clientset, client, nil
-}
-
-// InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and context.
-func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
-	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
-	if err != nil {
-		return nil, nil, err
-	}
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return restConfig, clientset, nil
-}
-
-func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {
-	config, err := BuildClientConfig(kubeconfig, kubeContext)
+func k8sClient(kubeConfigPath string, context string) (kube.Client, error) {
+	restCfg, err := kube.DefaultRestConfig(kubeConfigPath, context, func(config *rest.Config) {
+		config.QPS = 50
+		config.Burst = 100
+	})
 	if err != nil {
 		return nil, err
 	}
-	config.APIPath = "/api"
-	config.GroupVersion = &v1.SchemeGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-	return config, nil
-}
-
-// BuildClientConfig is a helper function that builds client config from a kubeconfig filepath.
-// It overrides the current context with the one provided (empty to use default).
-//
-// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
-// difference that it loads default configs if not running in-cluster.
-func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
-	if kubeconfig != "" {
-		info, err := os.Stat(kubeconfig)
-		if err != nil || info.Size() == 0 {
-			// If the specified kubeconfig doesn't exists / empty file / any other error
-			// from file stat, fall back to default
-			kubeconfig = ""
-		}
-	}
-
-	//Config loading rules:
-	// 1. kubeconfig if it not empty string
-	// 2. In cluster config if running in-cluster
-	// 3. Config(s) in KUBECONFIG environment variable
-	// 4. Use $HOME/.kube/config
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
-	loadingRules.ExplicitPath = kubeconfig
-	configOverrides := &clientcmd.ConfigOverrides{
-		ClusterDefaults: clientcmd.ClusterDefaults,
-		CurrentContext:  context,
-	}
-
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
+	return kube.NewClient(kube.NewClientConfigForRestConfig(restCfg))
 }
 
 // applyOptions contains the startup options for applying the manifest.
@@ -224,7 +161,9 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
+	_, mergedIOPS, err := GenerateConfig(GenerateConfigOptions{
+		InFilenames: []string{filePath},
+	}, l)
 	if err != nil {
 		return "", "", err
 	}

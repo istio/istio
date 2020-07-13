@@ -150,7 +150,7 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          - name: ingressgatewaysdsudspath
+          - name: gatewaysdsudspath
             mountPath: /var/run/ingress_gateway
           - name: podinfo
             mountPath: /etc/istio/pod
@@ -175,7 +175,7 @@ spec:
                 fieldPath: metadata.annotations
       - name: istio-envoy
         emptyDir: {}
-      - name: ingressgatewaysdsudspath
+      - name: gatewaysdsudspath
         emptyDir: {}
       - name: istio-token
         projected:

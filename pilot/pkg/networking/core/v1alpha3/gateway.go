@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -252,7 +251,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				if vHost, exists := vHostDedupMap[hostname]; exists {
 					// before merging this virtual service's routes, make sure that the existing one is not a tls redirect host
 					if vHost.RequireTls == route.VirtualHost_NONE {
-						vHost.Routes = istio_route.CombineVHostRoutes(vHost.Routes, routes)
+						vHost.Routes = append(vHost.Routes, routes...)
 					}
 				} else {
 					newVHost := &route.VirtualHost{
@@ -291,6 +290,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	} else {
 		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
 		for _, v := range vHostDedupMap {
+			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
 		}
 	}
@@ -379,7 +379,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		// This works because we validate that only HTTPS servers can have same port but still different port names
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
-		sniHosts:   getSNIHostsForServer(server),
+		sniHosts:   node.MergedGateway.SNIHostsByServer[server],
 		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
@@ -430,7 +430,7 @@ func buildGatewayListenerTLSContext(
 	if server.Tls.CredentialName != "" {
 		// If SDS is enabled at gateway, and credential name is specified at gateway config, create
 		// SDS config for gateway to fetch key/cert at gateway agent.
-		authn_model.ApplyCustomSDSToCommonTLSContext(ctx.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
+		authn_model.ApplyCustomSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls, authn_model.GatewaySdsUdsPath)
 	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
 	} else {
@@ -524,7 +524,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			push, server, gatewayName); len(filters) > 0 {
 			return []*filterChainOpts{
 				{
-					sniHosts:       getSNIHostsForServer(server),
+					sniHosts:       node.MergedGateway.SNIHostsByServer[server],
 					tlsContext:     buildGatewayListenerTLSContext(server, push.Mesh.SdsUdsPath, node.Metadata),
 					networkFilters: filters,
 				},
@@ -600,7 +600,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
 		filterChains = append(filterChains, &filterChainOpts{
-			sniHosts:       getSNIHostsForServer(server),
+			sniHosts:       node.MergedGateway.SNIHostsByServer[server],
 			tlsContext:     nil, // NO TLS context because this is passthrough
 			networkFilters: buildOutboundAutoPassthroughFilterStack(push, node, port),
 		})
@@ -719,31 +719,6 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 		}
 	}
 	return false
-}
-
-func getSNIHostsForServer(server *networking.Server) []string {
-	if server.Tls == nil {
-		return nil
-	}
-	// sanitize the server hosts as it could contain hosts of form ns/host
-	sniHosts := make(map[string]bool)
-	for _, h := range server.Hosts {
-		if strings.Contains(h, "/") {
-			parts := strings.Split(h, "/")
-			h = parts[1]
-		}
-		// do not add hosts, that have already been added
-		if !sniHosts[h] {
-			sniHosts[h] = true
-		}
-	}
-	sniHostsSlice := make([]string, 0, len(sniHosts))
-	for host := range sniHosts {
-		sniHostsSlice = append(sniHostsSlice, host)
-	}
-	sort.Strings(sniHostsSlice)
-
-	return sniHostsSlice
 }
 
 func buildGatewayVirtualHostDomains(hostname string) []string {

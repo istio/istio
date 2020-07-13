@@ -472,7 +472,7 @@ func getIOPFromFile(filename string) (*operator_v1alpha1.IstioOperator, error) {
 
 	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
 	by := util.ToYAML(un)
-	iop, err := operator_istio.UnmarshalIstioOperator(by)
+	iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 	if err != nil {
 		return nil, err
 	}

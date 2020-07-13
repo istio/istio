@@ -38,30 +38,40 @@ func ConfigAffectsProxy(pushEv *Event, proxy *model.Proxy) bool {
 	}
 
 	for config := range pushEv.configsUpdated {
-		// If we've already know a specific configKind will affect some proxy types, check for that.
+		affected := true
+
+		// Some configKinds only affect specific proxy types
 		if kindAffectedTypes, f := configKindAffectedProxyTypes[config.Kind]; f {
+			affected = false
 			for _, t := range kindAffectedTypes {
 				if t == proxy.Type {
-					return true
+					affected = true
+					break
 				}
 			}
-			continue
 		}
 
-		// Detailed config dependencies check.
-		switch proxy.Type {
-		case model.SidecarProxy:
-			if proxy.SidecarScope.DependsOnConfig(config) {
-				return true
-			} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config) {
-				return true
-			}
-		// TODO We'll add the check for other proxy types later.
-		default:
+		if affected && checkProxyDependencies(proxy, config) {
 			return true
 		}
 	}
 
+	return false
+}
+
+func checkProxyDependencies(proxy *model.Proxy, config model.ConfigKey) bool {
+	// Detailed config dependencies check.
+	switch proxy.Type {
+	case model.SidecarProxy:
+		if proxy.SidecarScope.DependsOnConfig(config) {
+			return true
+		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config) {
+			return true
+		}
+	default:
+		// TODO We'll add the check for other proxy types later.
+		return true
+	}
 	return false
 }
 
