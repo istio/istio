@@ -407,7 +407,6 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 		{10000, 1},
 		{100, 100},
 		{1000, 100},
-		{10000, 100},
 	}
 	adsLog.SetOutputLevel(log.WarnLevel)
 	var response interface{}
