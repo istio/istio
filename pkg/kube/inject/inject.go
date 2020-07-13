@@ -888,6 +888,9 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if pc.BinaryPath == defaults.BinaryPath {
 		pc.BinaryPath = ""
 	}
+	if pc.ControlPlaneAuthPolicy == defaults.ControlPlaneAuthPolicy {
+		pc.ControlPlaneAuthPolicy = 0
+	}
 	if pc.ServiceCluster == defaults.ServiceCluster {
 		pc.ServiceCluster = ""
 	}
