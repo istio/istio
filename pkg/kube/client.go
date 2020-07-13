@@ -53,6 +53,7 @@ import (
 	"k8s.io/kubectl/pkg/cmd/apply"
 	kubectlDelete "k8s.io/kubectl/pkg/cmd/delete"
 	"k8s.io/kubectl/pkg/cmd/util"
+	controllerRuntime "sigs.k8s.io/controller-runtime/pkg/client"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 	serviceapisfake "sigs.k8s.io/service-apis/pkg/client/clientset/versioned/fake"
 	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
@@ -79,7 +80,7 @@ type Client interface {
 	// TODO - stop embedding this, it will conflict with future additions. Use Kube() instead is preferred
 	// TODO - add istio/client-go and service-apis
 	kubernetes.Interface
-	// RESTConfig returns the Kubernetes rest.Config used to configure the clients.
+	// RESTConfig returns the Kubernetes rest.Config used to configure clients.
 	RESTConfig() *rest.Config
 
 	// Rest returns the raw Kubernetes REST client.
@@ -96,6 +97,9 @@ type Client interface {
 
 	// Metadata returns the Metadata kube client.
 	Metadata() metadata.Interface
+
+	// Controller returns a client for the controller runtime.
+	Controller() controllerRuntime.Client
 
 	// Istio returns the Istio kube client.
 	Istio() istioclient.Interface
@@ -213,6 +217,8 @@ type client struct {
 
 	config *rest.Config
 
+	controllerClient controllerRuntime.Client
+
 	extSet        kubeExtClient.Interface
 	versionClient discovery.ServerVersionInterface
 
@@ -232,59 +238,65 @@ type client struct {
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
-func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+func newClientInternal(clientConfig clientcmd.ClientConfig, revision string) (*client, error) {
 	var c client
 	var err error
 
-	c.clientFactory = clientFactory
+	c.clientFactory = newClientFactory(clientConfig)
 	c.revision = revision
 
-	c.restClient, err = clientFactory.RESTClient()
+	c.restClient, err = c.clientFactory.RESTClient()
 	if err != nil {
 		return nil, err
 	}
 
-	c.config, err = clientFactory.ToRESTConfig()
+	c.config, err = c.clientFactory.ToRESTConfig()
 	if err != nil {
 		return nil, err
 	}
+	SetRestDefaults(c.config)
 
-	c.Interface, err = kubernetes.NewForConfig(c.config)
+	c.Interface, err = kubernetes.NewForConfig(c.RESTConfig())
 	if err != nil {
 		return nil, err
 	}
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 
-	c.metadata, err = metadata.NewForConfig(c.config)
+	c.metadata, err = metadata.NewForConfig(c.RESTConfig())
 	if err != nil {
 		return nil, err
 	}
 	c.metadataInformer = metadatainformer.NewSharedInformerFactory(c.metadata, resyncInterval)
 
-	c.dynamic, err = dynamic.NewForConfig(c.config)
+	c.dynamic, err = dynamic.NewForConfig(c.RESTConfig())
 	if err != nil {
 		return nil, err
 	}
 	c.dynamicInformer = dynamicinformer.NewDynamicSharedInformerFactory(c.dynamic, resyncInterval)
 
-	c.istio, err = istioclient.NewForConfig(c.config)
+	c.istio, err = istioclient.NewForConfig(c.RESTConfig())
 	if err != nil {
 		return nil, err
 	}
 	c.istioInformer = istioinformer.NewSharedInformerFactory(c.istio, resyncInterval)
 
-	c.serviceapis, err = serviceapisclient.NewForConfig(c.config)
+	c.serviceapis, err = serviceapisclient.NewForConfig(c.RESTConfig())
 	if err != nil {
 		return nil, err
 	}
 	c.serviceapisInformers = serviceapisinformer.NewSharedInformerFactory(c.serviceapis, resyncInterval)
 
-	ext, err := kubeExtClient.NewForConfig(c.config)
+	ext, err := kubeExtClient.NewForConfig(c.RESTConfig())
 	if err != nil {
 		return nil, err
 	}
 	c.extSet = ext
 	c.versionClient = ext
+
+	c.controllerClient, err = controllerRuntime.New(c.RESTConfig(), controllerRuntime.Options{Scheme: scheme.Scheme})
+	if err != nil {
+		return nil, err
+	}
 
 	return &c, nil
 }
@@ -292,12 +304,12 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
 func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newClientInternal(newClientFactory(clientConfig), revision)
+	return newClientInternal(clientConfig, revision)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
 func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "")
+	return newClientInternal(clientConfig, "")
 }
 
 func (c *client) RESTConfig() *rest.Config {
@@ -353,6 +365,10 @@ func (c *client) ServiceApisInformer() serviceapisinformer.SharedInformerFactory
 	return c.serviceapisInformers
 }
 
+func (c *client) Controller() controllerRuntime.Client {
+	return c.controllerClient
+}
+
 // RunAndWait starts all informers and waits for their caches to sync.
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
@@ -404,7 +420,7 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 			TTY:       false,
 		}, scheme.ParameterCodec)
 
-	wrapper, upgrader, err := roundTripperFor(c.config)
+	wrapper, upgrader, err := roundTripperFor(c.RESTConfig())
 	if err != nil {
 		return "", "", err
 	}
@@ -594,7 +610,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 }
 
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
-	return newPortForwarder(c.config, podName, ns, localAddress, localPort, podPort)
+	return newPortForwarder(c.RESTConfig(), podName, ns, localAddress, localPort, podPort)
 }
 
 func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {

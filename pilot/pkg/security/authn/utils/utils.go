@@ -20,6 +20,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -46,7 +47,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	meta := node.Metadata
 	var alpnIstioMatch *listener.FilterChainMatch
 	var ctx *tls.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) &&
+	if features.EnableTCPMetadataExchange &&
 		(listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto) {
 		alpnIstioMatch = &listener.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMeshWithMxc,
