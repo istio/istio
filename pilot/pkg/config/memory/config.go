@@ -64,6 +64,7 @@ type store struct {
 	data           map[resource.GroupVersionKind]map[string]*sync.Map
 	ledger         ledger.Ledger
 	skipValidation bool
+	mutex          sync.RWMutex
 }
 
 func (cr *store) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
@@ -88,6 +89,8 @@ func (cr *store) Version() string {
 }
 
 func (cr *store) Get(kind resource.GroupVersionKind, name, namespace string) *model.Config {
+	cr.mutex.RLock()
+	defer cr.mutex.RUnlock()
 	_, ok := cr.data[kind]
 	if !ok {
 		return nil
@@ -108,6 +111,8 @@ func (cr *store) Get(kind resource.GroupVersionKind, name, namespace string) *mo
 }
 
 func (cr *store) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+	cr.mutex.RLock()
+	defer cr.mutex.RUnlock()
 	data, exists := cr.data[kind]
 	if !exists {
 		return nil, nil
@@ -134,6 +139,8 @@ func (cr *store) List(kind resource.GroupVersionKind, namespace string) ([]model
 }
 
 func (cr *store) Delete(kind resource.GroupVersionKind, name, namespace string) error {
+	cr.mutex.Lock()
+	defer cr.mutex.Unlock()
 	data, ok := cr.data[kind]
 	if !ok {
 		return errors.New("unknown type")
@@ -157,6 +164,8 @@ func (cr *store) Delete(kind resource.GroupVersionKind, name, namespace string) 
 }
 
 func (cr *store) Create(config model.Config) (string, error) {
+	cr.mutex.Lock()
+	defer cr.mutex.Unlock()
 	kind := config.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
@@ -195,6 +204,8 @@ func (cr *store) Create(config model.Config) (string, error) {
 }
 
 func (cr *store) Update(config model.Config) (string, error) {
+	cr.mutex.Lock()
+	defer cr.mutex.Unlock()
 	kind := config.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
