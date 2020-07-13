@@ -107,13 +107,6 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	return resp.CertChain, nil
 }
 
-func (c *citadelClient) GetCaEndpoint() string {
-	return c.caEndpoint
-}
-func (c *citadelClient) GetClusterID() string {
-	return c.clusterID
-}
-
 func (c *citadelClient) Reconnect(isRotate bool) error {
 	err := c.releaseResource()
 	if err != nil {
@@ -212,6 +205,5 @@ func (c *citadelClient) buildConnection(isRotate bool) (*grpc.ClientConn, error)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", c.caEndpoint)
 	}
 
-	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return conn, nil
 }
