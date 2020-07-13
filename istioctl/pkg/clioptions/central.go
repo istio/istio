@@ -56,7 +56,7 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 		"XDS Endpoint certificate directory")
 	cmd.PersistentFlags().StringVar(&o.XdsPodLabel, "xds-label", "",
 		"Istiod pod label selector")
-	cmd.PersistentFlags().IntVar(&o.XdsPodPort, "xds-port", 15012,
+	cmd.PersistentFlags().IntVar(&o.XdsPodPort, "xds-port", viper.GetInt("XDS-PORT"),
 		"Istiod pod port")
 	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
 		"the duration to wait before failing")

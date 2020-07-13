@@ -70,6 +70,9 @@ var (
 	kubeClient = newKubeClient
 
 	loggingOptions = defaultLogOptions()
+
+	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
+	scope = log.RegisterScope("cli", "istioctl", 0)
 )
 
 func defaultLogOptions() *log.Options {
@@ -111,8 +114,13 @@ func ConfigAndEnvProcessing() error {
 	viper.SetConfigName(configName)
 	viper.SetConfigType(configType)
 	viper.AddConfigPath(configPath)
-	viper.SetEnvKeyReplacer(strings.NewReplacer("_", "-"))
-	return viper.ReadInConfig()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	err := viper.ReadInConfig()
+
+	viper.SetDefault("istioNamespace", controller.IstioNamespace)
+	viper.SetDefault("xds-port", 15012)
+
+	return err
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -136,7 +144,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
 		"The name of the kubeconfig context to use")
 
-	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", viper.GetString("istioNamespace"),
 		"Istio system namespace")
 
@@ -153,7 +160,20 @@ debug and diagnose their Istio mesh.
 
 	cmd.AddFlags(rootCmd)
 
-	rootCmd.AddCommand(newVersionCommand())
+	preferExperimental := viper.GetBool("PREFER-EXPERIMENTAL")
+	legacyCmd := &cobra.Command{
+		Use:   "legacy",
+		Short: "Legacy command variants",
+	}
+	if preferExperimental {
+		rootCmd.AddCommand(legacyCmd)
+		legacyCmd.AddCommand(newVersionCommand())
+		rootCmd.AddCommand(statusCommand())
+	} else {
+		rootCmd.AddCommand(newVersionCommand())
+		rootCmd.AddCommand(statusCommand())
+	}
+
 	rootCmd.AddCommand(register())
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
@@ -174,7 +194,6 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(convertIngress())
 	rootCmd.AddCommand(dashboard())
-	rootCmd.AddCommand(statusCommand())
 	rootCmd.AddCommand(Analyze())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
@@ -192,9 +211,14 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
+	experimentalCmd.AddCommand(configCmd())
 
 	experimentalCmd.AddCommand(xdsVersionCommand())
 	experimentalCmd.AddCommand(xdsStatusCommand())
+	if preferExperimental {
+		rootCmd.AddCommand(xdsStatusCommand())
+		rootCmd.AddCommand(xdsVersionCommand())
+	}
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
