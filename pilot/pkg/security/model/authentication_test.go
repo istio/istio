@@ -506,6 +506,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -531,6 +532,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -566,6 +568,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -593,6 +596,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -622,7 +626,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 			ApplyCustomSDSToServerCommonTLSContext(tlsContext, test.tlsOpts, test.sdsUdsPath, v3.ListenerType)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
-				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
+				t.Errorf("got\n%v\n want\n%v", spew.Sdump(tlsContext), spew.Sdump(test.expected))
 			}
 		})
 	}
