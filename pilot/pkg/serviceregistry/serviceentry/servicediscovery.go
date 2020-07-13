@@ -244,6 +244,9 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 		if len(updatedSvcs) > 0 {
 			instances = append(instances, convertInstances(curr, updatedSvcs)...)
 		}
+		if len(unchangedSvcs) > 0 {
+			instances = append(instances, convertInstances(curr, unchangedSvcs)...)
+		}
 		s.edsUpdate(instances)
 
 		// If service entry is deleted, cleanup endpoint shards for services.
