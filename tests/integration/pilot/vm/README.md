@@ -16,8 +16,8 @@ This section describes the scenarios in which one might want to add a VM test:
 
 ## Secenario 1: Testing VM-related Istio Code
 
-Most integration tests in Istio use the Echo application. To test connectivity, security and telemetry for a VM 
-in the mesh, we deploy an instance of the Echo application as a VM resource. A VM Echo instance will simulate a VM, 
+Most integration tests in Istio use the Echo application. To test connectivity, security and telemetry for a VM
+in the mesh, we deploy an instance of the Echo application as a VM resource. A VM Echo instance will simulate a VM,
 disabling kube-dns, Service Account mount, etc. For more information around VM onboarding,
 refer to this [doc](https://istio.io/latest/docs/examples/virtual-machines/single-network/).
 
@@ -50,7 +50,7 @@ echo.Config{
 ```
 
 The default image referenced with `DefaultVMImage` should be used in most cases. If you want to use additional images
-please reference [next section](#add_more_images). 
+please reference [next section](#add_more_images).
 We have [additional images](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go)
 that are built in the post-submit jobs.
 If `VMImage` is not provided while `DeployAsVM` is on, it will default the Docker image to be `DefaultVMImage`.
@@ -62,7 +62,7 @@ and the images will be created in [prow/lib.sh](https://github.com/istio/istio/b
 
 To add additional supported images for testing:
 1. Modify [tools/istio-docker.mk](https://github.com/istio/istio/blob/master/tools/istio-docker.mk) to add more
-build targets. Specify the OS image name and version in the Makefile, and it will be passed to the Dockerfile. 
+build targets. Specify the OS image name and version in the Makefile, and it will be passed to the Dockerfile.
 See other build targets for references.
 1. Modify `prow/lib.sh` by adding images to the targets to build images for CI/CD.
 1. Add the images to `util.go` to be tested in PostSubmit jobs.
