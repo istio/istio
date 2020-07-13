@@ -498,7 +498,14 @@ func applyManifest(ctx resource.Context, inFiles, setOverlay []string, cluster r
 	}
 
 	scopes.Framework.Infof("Running istio control plane on cluster %s", cluster.Name())
-	err = mesh.ApplyManifests(inFiles, setOverlay, false, false, cluster, 300*time.Second, l)
+	err = mesh.ApplyManifests(mesh.ApplyManifestsOptions{
+		Client:      cluster,
+		InFilenames: inFiles,
+		SetOverlay:  setOverlay,
+		Force:       false,
+		DryRun:      false,
+		WaitTimeout: 300 * time.Second,
+	}, l)
 	if err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)
 	}

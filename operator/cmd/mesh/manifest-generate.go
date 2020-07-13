@@ -129,7 +129,12 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 // supplied logger.
 func GenManifests(inFilename []string, setOverlay []string, force bool,
 	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setOverlay, force, kubeConfig, l)
+	mergedYAML, _, err := GenerateConfig(GenerateConfigOptions{
+		InFilenames: inFilename,
+		SetOverlay:  setOverlay,
+		Force:       force,
+		KubeConfig:  kubeConfig,
+	}, l)
 	if err != nil {
 		return nil, nil, err
 	}

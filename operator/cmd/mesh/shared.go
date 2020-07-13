@@ -161,7 +161,9 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
+	_, mergedIOPS, err := GenerateConfig(GenerateConfigOptions{
+		InFilenames: []string{filePath},
+	}, l)
 	if err != nil {
 		return "", "", err
 	}
