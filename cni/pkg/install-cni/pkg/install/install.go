@@ -97,8 +97,8 @@ func Run(cfg *config.Config) (err error) {
 		}
 
 		for {
-			if err = checkInstall(cfg, files.cniConfigFilepath); err != nil {
-				log.Infof("Invalid configuration. %v", err)
+			if checkErr := checkInstall(cfg, files.cniConfigFilepath); checkErr != nil {
+				log.Infof("Invalid configuration. %v", checkErr)
 				break
 			}
 			// Valid configuration; Wait for modifications before checking again
@@ -128,7 +128,7 @@ func Run(cfg *config.Config) (err error) {
 func readServiceAccountToken() (string, error) {
 	saToken := constants.ServiceAccountPath + "/token"
 	if !fileutil.Exist(saToken) {
-		return "", fmt.Errorf("SA Token file %s does not exist. Is this not running within a pod?", saToken)
+		return "", fmt.Errorf("service account token file %s does not exist. Is this not running within a pod?", saToken)
 	}
 
 	token, err := ioutil.ReadFile(saToken)

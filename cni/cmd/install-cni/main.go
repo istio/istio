@@ -18,14 +18,12 @@ import (
 	"os"
 
 	"istio.io/istio/cni/pkg/install-cni/cmd"
-	"istio.io/pkg/log"
 )
 
 func main() {
-	cmd := cmd.GetCommand()
+	rootCmd := cmd.GetCommand()
 
-	if err := cmd.Execute(); err != nil {
-		log.Errora(err)
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

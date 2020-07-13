@@ -16,6 +16,7 @@ package install
 
 import (
 	"io/ioutil"
+	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"os"
 	"path/filepath"
 
@@ -55,7 +56,7 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 			}
 
 			srcFilepath := filepath.Join(srcDir, filename)
-			err := copyAtomically(srcFilepath, targetDir, filename)
+			err := util.CopyAtomically(srcFilepath, targetDir, filename)
 			if err != nil {
 				return err
 			}
@@ -72,36 +73,4 @@ func arrToSet(array []string) map[string]bool {
 		set[v] = true
 	}
 	return set
-}
-
-// Copy files atomically by first copying into the same directory then renaming.
-func copyAtomically(srcFilepath, targetDir, targetFilename string) error {
-	info, err := os.Stat(srcFilepath)
-	if err != nil {
-		return err
-	}
-
-	input, err := ioutil.ReadFile(srcFilepath)
-	if err != nil {
-		return err
-	}
-
-	tmpFile, err := ioutil.TempFile(targetDir, targetFilename+".tmp")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if err = tmpFile.Chmod(info.Mode()); err != nil {
-		return err
-	}
-	if _, err = tmpFile.Write(input); err != nil {
-		_ = tmpFile.Close()
-		return err
-	}
-	if err = tmpFile.Close(); err != nil {
-		return err
-	}
-
-	return os.Rename(tmpFile.Name(), filepath.Join(targetDir, targetFilename))
 }

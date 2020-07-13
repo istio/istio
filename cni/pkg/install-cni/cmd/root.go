@@ -49,18 +49,18 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	registerStringParameter(constants.CNINetDir, "/etc/cni/net.d", "Directory on the host where CNI networks are installed")
-	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
-	registerBooleanParameter(constants.Sleep, true, "Whether to sleep and wait for modifications after installation to prevent Kubernetes from restarting the pod repeatedly")
-
-	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI config template as a string")
+
+	// Not configurable in CNI helm charts
+	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
+	registerBooleanParameter(constants.Sleep, true, "Whether to sleep and wait for modifications after installation to prevent Kubernetes from restarting the pod repeatedly")
+	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 	registerStringParameter(constants.KubecfgFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the pod one")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
-
 	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
 	registerStringArrayParameter(constants.SkipCNIBinaries, []string{}, "Binaries that should not be installed")
 }

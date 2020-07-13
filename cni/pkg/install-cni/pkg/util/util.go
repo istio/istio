@@ -24,6 +24,20 @@ import (
 	"path/filepath"
 )
 
+func CopyAtomically(srcFilepath, targetDir, targetFilename string) error {
+	info, err := os.Stat(srcFilepath)
+	if err != nil {
+		return err
+	}
+
+	input, err := ioutil.ReadFile(srcFilepath)
+	if err != nil {
+		return err
+	}
+
+	return WriteAtomically(filepath.Join(targetDir, targetFilename), input, info.Mode())
+}
+
 // Write atomically by writing to a temporary file in the same directory then renaming
 func WriteAtomically(path string, data []byte, mode os.FileMode) (err error) {
 	tmpFile, err := ioutil.TempFile(filepath.Dir(path), filepath.Base(path)+".tmp.")

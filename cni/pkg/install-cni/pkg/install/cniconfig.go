@@ -230,6 +230,8 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (cniConfigFilep
 	return
 }
 
+// Follows the same semantics as kubelet
+// https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
 func getDefaultCNINetwork(confDir string) (string, error) {
 	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist"})
 	switch {
@@ -280,42 +282,40 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 
 // newCNIConfig = istio-cni config, that should be inserted into existingCNIConfig
 func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
-	var rawIstio interface{}
-	err := json.Unmarshal(newCNIConfig, &rawIstio)
+	var istioMap map[string]interface{}
+	err := json.Unmarshal(newCNIConfig, &istioMap)
 	if err != nil {
 		return nil, fmt.Errorf("error loading Istio CNI config (JSON error): %v", err)
 	}
-	istioMap := rawIstio.(map[string]interface{})
-	delete(istioMap, "cniVersion")
 
-	var rawExisting interface{}
-	err = json.Unmarshal(existingCNIConfig, &rawExisting)
+	var existingMap map[string]interface{}
+	err = json.Unmarshal(existingCNIConfig, &existingMap)
 	if err != nil {
 		return nil, fmt.Errorf("error loading existing CNI config (JSON error): %v", err)
 	}
 
+	delete(istioMap, "cniVersion")
+
 	var newMap map[string]interface{}
-	existingMap := rawExisting.(map[string]interface{})
 
 	if _, ok := existingMap["type"]; ok {
 		// Assume it is a regular network conf file
-		newMap = map[string]interface{}{}
-		newMap["name"] = "k8s-pod-network"
-		newMap["cniVersion"] = "0.3.1"
-
 		delete(existingMap, "cniVersion")
 
 		plugins := make([]map[string]interface{}, 2)
 		plugins[0] = existingMap
 		plugins[1] = istioMap
 
-		newMap["plugins"] = plugins
+		newMap = map[string]interface{}{
+			"name":       "k8s-pod-network",
+			"cniVersion": "0.3.1",
+			"plugins":    plugins,
+		}
 	} else {
 		// Assume it is a network list file
 		newMap = existingMap
 		plugins := newMap["plugins"].([]interface{})
 		newMap["plugins"] = append(plugins, istioMap)
-
 	}
 
 	return json.MarshalIndent(newMap, "", "  ")
