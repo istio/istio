@@ -74,7 +74,7 @@ func (c *kubeComponent) getAddressInner(ns string, port int) (interface{}, bool,
 			return nil, false, fmt.Errorf("no ingress pod found")
 		}
 
-		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0])
+		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
 		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
@@ -131,7 +131,7 @@ func getHTTPSAddressInner(env *kube.Environment, ns string) (interface{}, bool, 
 			return nil, false, fmt.Errorf("no ingress pod found")
 		}
 
-		scopes.Framework.Debugf("Found pod: \n%+v\n", pods.Items[0])
+		scopes.Framework.Debugf("Found pod: \n%+v\n", pods.Items[0].Name)
 		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
 			return nil, false, fmt.Errorf("no Host IP available on the ingress node yet")
