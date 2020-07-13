@@ -150,20 +150,13 @@ function setup_kind_cluster() {
       CONFIG=./prow/config/trustworthy-jwt.yaml
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
+      grep 'ipFamily: ipv6' "${CONFIG}" || \
       cat <<EOF >> "${CONFIG}"
 networking:
   ipFamily: ipv6
 EOF
     fi
   fi
-
-  # Make kind nodes pull images using the in-container address and port for images in localhost:$KIND_REGISTRY_PORT/*
-  cat <<EOF >> "${CONFIG}"
-containerdConfigPatches:
-  - |-
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
-        endpoint = ["http://${KIND_REGISTRY_NAME}:5000"]
-EOF
 
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then

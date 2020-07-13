@@ -11,3 +11,7 @@ kubeadmConfigPatches:
       extraArgs:
         "service-account-issuer": "kubernetes.default.svc"
         "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
+      endpoint = ["http://${KIND_REGISTRY_NAME}:5000"]
