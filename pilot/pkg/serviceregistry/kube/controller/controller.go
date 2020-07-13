@@ -657,15 +657,11 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 	selector := labels.Instance(svc.Attributes.LabelSelectors)
 
 	// Get the service port name and target port so that we can construct the service instance
-	item, exists, err := c.serviceInformer.GetStore().GetByKey(kube.KeyFunc(svc.Attributes.Name, svc.Attributes.Namespace))
+	k8sService, err := c.serviceLister.Services(svc.Attributes.Namespace).Get(svc.Attributes.Name)
 	// We did not find the k8s service. We cannot get the targetPort
 	if err != nil {
 		log.Infof("getForeignServiceInstancesByPort(%s.%s) failed to get k8s service => error %v",
 			svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil
-	}
-
-	if !exists {
 		return nil
 	}
 
@@ -681,10 +677,9 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 	}
 
 	// Now get the target Port for this service port
-	k8sService := item.(*v1.Service)
 	targetPort := reqSvcPort
 	for _, p := range k8sService.Spec.Ports {
-		if p.Name == servicePort.Name {
+		if p.Name == servicePort.Name || p.Port == int32(servicePort.Port) {
 			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
 				targetPort = int(p.TargetPort.IntVal)
 			}
