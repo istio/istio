@@ -52,10 +52,10 @@ func init() {
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
+	registerBooleanParameter(constants.Sleep, true, "Whether to sleep and wait for modifications after installation to prevent Kubernetes from restarting the pod repeatedly")
 
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI config template as a string")
-
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 	registerStringParameter(constants.KubecfgFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the pod one")
@@ -89,22 +89,26 @@ func bindViper(name string) {
 
 func constructConfig() (*config.Config, error) {
 	cfg := &config.Config{
-		CNINetDir:            viper.GetString(constants.CNINetDir),
-		MountedCNINetDir:     viper.GetString(constants.MountedCNINetDir),
-		CNIConfName:          viper.GetString(constants.CNIConfName),
-		ChainedCNIPlugin:     viper.GetBool(constants.ChainedCNIPlugin),
+		CNINetDir:        viper.GetString(constants.CNINetDir),
+		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
+		CNIConfName:      viper.GetString(constants.CNIConfName),
+		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
+		Sleep:            viper.GetBool(constants.Sleep),
+
 		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
 		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
-		LogLevel:             viper.GetString(constants.LogLevel),
-		KubeconfigFilename:   viper.GetString(constants.KubecfgFilename),
-		KubeCAFile:           viper.GetString(constants.KubeCAFile),
-		SkipTLSVerify:        viper.GetBool(constants.SkipTLSVerify),
-		K8sServiceProtocol:   os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
-		K8sServiceHost:       os.Getenv("KUBERNETES_SERVICE_HOST"),
-		K8sServicePort:       os.Getenv("KUBERNETES_SERVICE_PORT"),
-		K8sNodeName:          os.Getenv("KUBERNETES_NODE_NAME"),
-		UpdateCNIBinaries:    viper.GetBool(constants.UpdateCNIBinaries),
-		SkipCNIBinaries:      viper.GetStringSlice(constants.SkipCNIBinaries),
+
+		LogLevel:           viper.GetString(constants.LogLevel),
+		KubeconfigFilename: viper.GetString(constants.KubecfgFilename),
+		KubeCAFile:         viper.GetString(constants.KubeCAFile),
+		SkipTLSVerify:      viper.GetBool(constants.SkipTLSVerify),
+		K8sServiceProtocol: os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
+		K8sServiceHost:     os.Getenv("KUBERNETES_SERVICE_HOST"),
+		K8sServicePort:     os.Getenv("KUBERNETES_SERVICE_PORT"),
+		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
+
+		UpdateCNIBinaries: viper.GetBool(constants.UpdateCNIBinaries),
+		SkipCNIBinaries:   viper.GetStringSlice(constants.SkipCNIBinaries),
 	}
 
 	if len(cfg.K8sNodeName) == 0 {

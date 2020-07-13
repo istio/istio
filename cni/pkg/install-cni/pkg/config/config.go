@@ -19,6 +19,7 @@ type Config struct {
 	MountedCNINetDir string
 	CNIConfName      string
 	ChainedCNIPlugin bool
+	Sleep            bool
 
 	CNINetworkConfigFile string
 	CNINetworkConfig     string

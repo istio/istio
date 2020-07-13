@@ -55,18 +55,18 @@ type kubeconfigFields struct {
 	TLSConfig                 string
 }
 
-func createKubeconfigFile(cfg *config.Config, saToken string) error {
+func createKubeconfigFile(cfg *config.Config, saToken string) (string, error) {
 	if len(cfg.K8sServiceHost) == 0 {
-		return errors.New("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
+		return "", errors.New("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 	}
 
 	if len(cfg.K8sServicePort) == 0 {
-		return errors.New("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
+		return "", errors.New("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
 	}
 
 	tpl, err := template.New("kubeconfig").Parse(kubeconfigTemplate)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	protocol := cfg.K8sServiceProtocol
@@ -85,7 +85,7 @@ func createKubeconfigFile(cfg *config.Config, saToken string) error {
 	} else if fileutil.Exist(caFile) {
 		caContents, err := ioutil.ReadFile(caFile)
 		if err != nil {
-			return err
+			return "", err
 		}
 		caBase64 := base64.StdEncoding.EncodeToString(caContents)
 		tlsConfig = "certificate-authority-data: " + caBase64
@@ -99,25 +99,25 @@ func createKubeconfigFile(cfg *config.Config, saToken string) error {
 		TLSConfig:                 tlsConfig,
 	}
 
-	tmpFile, err := ioutil.TempFile(cfg.MountedCNINetDir, cfg.KubeconfigFilename+".tmp")
+	tmpFile, err := ioutil.TempFile(cfg.MountedCNINetDir, cfg.KubeconfigFilename+".tmp.")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer os.Remove(tmpFile.Name())
 
 	if err = tpl.Execute(tmpFile, fields); err != nil {
 		_ = tmpFile.Close()
-		return err
+		return "", err
 	}
 
 	if err = tmpFile.Close(); err != nil {
-		return err
+		return "", err
 	}
 
-	filename := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-	if err = os.Rename(tmpFile.Name(), filename); err != nil {
-		return err
+	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
+	if err = os.Rename(tmpFile.Name(), kubeconfigFilepath); err != nil {
+		return "", err
 	}
 
-	return nil
+	return kubeconfigFilepath, nil
 }

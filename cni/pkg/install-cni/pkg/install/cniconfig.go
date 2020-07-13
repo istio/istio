@@ -79,16 +79,13 @@ func getCNIConfigVars(cfg *config.Config) cniConfigVars {
 	}
 }
 
-func createCNIConfigFile(cfg *config.Config, saToken string) error {
+func createCNIConfigFile(cfg *config.Config, saToken string) (string, error) {
 	cniConfig, err := readCNIConfigTemplate(getCNIConfigTemplate(cfg))
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	cniConfig, err = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg), saToken)
-	if err != nil {
-		return err
-	}
+	cniConfig = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg), saToken)
 
 	return writeCNIConfig(cniConfig, getPluginConfig(cfg))
 }
@@ -130,30 +127,30 @@ func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) 
 	return []byte(cniConfigStr)
 }
 
-func writeCNIConfig(cniConfig []byte, cfg pluginConfig) error {
+func writeCNIConfig(cniConfig []byte, cfg pluginConfig) (string, error) {
 	ctx := context.Background()
 	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if cfg.chainedCNIPlugin {
 		if !fileutil.Exist(cniConfigFilepath) {
-			return fmt.Errorf("CNI config file %s removed during configuration", cniConfigFilepath)
+			return "", fmt.Errorf("CNI config file %s removed during configuration", cniConfigFilepath)
 		}
 		// This section overwrites an existing plugins list entry for istio-cni
 		existingCNIConfig, err := ioutil.ReadFile(cniConfigFilepath)
 		if err != nil {
-			return err
+			return "", err
 		}
 		cniConfig, err = insertCNIConfig(cniConfig, existingCNIConfig)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
 	if err = util.WriteAtomically(cniConfigFilepath, cniConfig, 0644); err != nil {
-		return err
+		return "", err
 	}
 
 	if cfg.chainedCNIPlugin && strings.HasSuffix(cniConfigFilepath, ".conf") {
@@ -161,13 +158,13 @@ func writeCNIConfig(cniConfig []byte, cfg pluginConfig) error {
 		log.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
 		err = os.Rename(cniConfigFilepath, cniConfigFilepath+"list")
 		if err != nil {
-			return err
+			return "", err
 		}
 		cniConfigFilepath += "list"
 	}
 
 	log.Infof("Created CNI config %s", cniConfigFilepath)
-	return nil
+	return cniConfigFilepath, nil
 }
 
 // If configured as chained CNI plugin, waits indefinitely for a main CNI config file to exist before returning
