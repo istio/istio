@@ -5,9 +5,11 @@ package v2alpha1
 
 import (
 	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	v1alpha1 "istio.io/istio/security/proto/authentication/v1alpha1"
 	math "math"
+
+	proto "github.com/golang/protobuf/proto"
+
+	v1alpha1 "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

@@ -34,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
-
-	"istio.io/istio/istioctl/pkg/multicluster"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
@@ -560,7 +558,7 @@ func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment,
 func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
 	cluster resource.Cluster) error {
 	// Create a secret.
-	secret, err := createRemoteSecret(cluster, cfg)
+	secret, err := createRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
@@ -570,21 +568,25 @@ func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.E
 	return nil
 }
 
-func createRemoteSecret(cluster resource.Cluster, cfg Config) (string, error) {
-	scopes.Framework.Infof("Creating remote secret for cluster %s in namespace %s", cluster.Name(),
-		cfg.SystemNamespace)
+func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Config) (string, error) {
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return "", err
+	}
+	cmd := []string{
+		"x", "create-remote-secret",
+		"--name", cluster.Name(),
+		"--namespace", cfg.SystemNamespace,
+	}
 
-	remoteSecret, err := multicluster.CreateRemoteSecret(cluster.Name(), cfg.SystemNamespace,
-		multicluster.DefaultServiceAccountName, multicluster.RemoteSecretAuthTypeBearerToken,
-		"", nil, cluster)
+	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
+	out, _, err := istioCtl.Invoke(cmd)
 	if err != nil {
 		return "", fmt.Errorf("create remote secret failed for cluster %s: %v", cluster.Name(), err)
 	}
-	encoded, err := multicluster.EncodeRemoteSecret(remoteSecret)
-	if err != nil {
-		return "", fmt.Errorf("encoding remote secret failed for cluster %s: %v", cluster.Name(), err)
-	}
-	return encoded, nil
+	return out, nil
 }
 
 func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {

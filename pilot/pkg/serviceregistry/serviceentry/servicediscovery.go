@@ -175,10 +175,6 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 		}
 	case model.EventDelete:
 		deletedSvcs = cs
-		// If service entry is deleted, cleanup endpoint shards for services.
-		for _, svc := range cs {
-			s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, event)
-		}
 	case model.EventAdd:
 		addedSvcs = cs
 	default:
@@ -215,6 +211,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	}
 
 	fullPush := len(configsUpdated) > 0
+
 	// Recomputing the index here is too expensive - lazy build when it is needed.
 	s.changeMutex.Lock()
 	s.refreshIndexes = fullPush // Only recompute indexes if services have changed.
@@ -238,11 +235,38 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	}
 
 	if fullPush {
+		// When doing a full push, for added and updated services trigger an eds update
+		// so that endpoint shards are updated.
+		var instances []*model.ServiceInstance
+		if len(addedSvcs) > 0 {
+			instances = append(instances, convertInstances(curr, addedSvcs)...)
+		}
+		if len(updatedSvcs) > 0 {
+			instances = append(instances, convertInstances(curr, updatedSvcs)...)
+		}
+		if len(unchangedSvcs) > 0 {
+			currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
+			oldServiceEntry := old.Spec.(*networking.ServiceEntry)
+			// Non DNS service entries are sent via EDS. So we should compare and update if such endpoints change.
+			if currentServiceEntry.Resolution != networking.ServiceEntry_DNS {
+				if !reflect.DeepEqual(currentServiceEntry.Endpoints, oldServiceEntry.Endpoints) {
+					instances = append(instances, convertInstances(curr, unchangedSvcs)...)
+				}
+			}
+		}
+		s.edsUpdate(instances)
+
+		// If service entry is deleted, cleanup endpoint shards for services.
+		for _, svc := range deletedSvcs {
+			s.XdsUpdater.SvcUpdate(s.Cluster(), string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
+		}
+
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,
 			Reason:         []model.TriggerReason{model.ServiceUpdate},
 		}
+
 		s.XdsUpdater.ConfigUpdate(pushReq)
 	}
 }

@@ -28,7 +28,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	alpn "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
+	alpn "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
 )
 
 const (

@@ -375,6 +375,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// add a name to the route
 	out.Name = routeName
 
+	operations := translateHeadersOperations(in.Headers)
+	out.RequestHeadersToAdd = operations.requestHeadersToAdd
+	out.ResponseHeadersToAdd = operations.responseHeadersToAdd
+	out.RequestHeadersToRemove = operations.requestHeadersToRemove
+	out.ResponseHeadersToRemove = operations.responseHeadersToRemove
+
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -397,7 +403,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		case 308:
 			action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
 		default:
-			log.Warnf("Redirect Code %d are not yet supported", in.Redirect.RedirectCode)
+			log.Warnf("Redirect Code %d is not yet supported", in.Redirect.RedirectCode)
 			action = nil
 		}
 
@@ -428,19 +434,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
-		out.RequestHeadersToAdd = requestHeadersToAdd
-		responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
-		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
-		out.ResponseHeadersToAdd = responseHeadersToAdd
-		requestHeadersToRemove := make([]string, 0)
-		requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
-		out.RequestHeadersToRemove = requestHeadersToRemove
-		responseHeadersToRemove := make([]string, 0)
-		responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
-		out.ResponseHeadersToRemove = responseHeadersToRemove
-
 		if in.Mirror != nil {
 			if mp := mirrorPercent(in); mp != nil {
 				action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
@@ -465,14 +458,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				}
 			}
 
-			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
-			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
-			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
-			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
-			requestHeadersToRemove := make([]string, 0)
-			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
-			responseHeadersToRemove := make([]string, 0)
-			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
+			operations := translateHeadersOperations(dst.Headers)
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
@@ -480,10 +466,10 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
 				Name:                    n,
 				Weight:                  weight,
-				RequestHeadersToAdd:     requestHeadersToAdd,
-				RequestHeadersToRemove:  requestHeadersToRemove,
-				ResponseHeadersToAdd:    responseHeadersToAdd,
-				ResponseHeadersToRemove: responseHeadersToRemove,
+				RequestHeadersToAdd:     operations.requestHeadersToAdd,
+				RequestHeadersToRemove:  operations.requestHeadersToRemove,
+				ResponseHeadersToAdd:    operations.responseHeadersToAdd,
+				ResponseHeadersToRemove: operations.responseHeadersToRemove,
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -591,6 +577,32 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 	}
 	sort.Stable(SortHeaderValueOption(headerValueOptionList))
 	return headerValueOptionList
+}
+
+type headersOperations struct {
+	requestHeadersToAdd     []*core.HeaderValueOption
+	responseHeadersToAdd    []*core.HeaderValueOption
+	requestHeadersToRemove  []string
+	responseHeadersToRemove []string
+}
+
+// translateHeadersOperations translates headers operations
+func translateHeadersOperations(headers *networking.Headers) headersOperations {
+	req := headers.GetRequest()
+	resp := headers.GetResponse()
+
+	requestHeadersToAdd := translateAppendHeaders(req.GetSet(), false)
+	requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(req.GetAdd(), true)...)
+
+	responseHeadersToAdd := translateAppendHeaders(resp.GetSet(), false)
+	responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(resp.GetAdd(), true)...)
+
+	return headersOperations{
+		requestHeadersToAdd:     requestHeadersToAdd,
+		responseHeadersToAdd:    responseHeadersToAdd,
+		requestHeadersToRemove:  append([]string{}, req.GetRemove()...), // copy slice
+		responseHeadersToRemove: append([]string{}, resp.GetRemove()...),
+	}
 }
 
 // translateRouteMatch translates match condition
