@@ -885,6 +885,76 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "HTTPS Protocol with server name",
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
+			server: &networking.Server{
+				Name: "server1",
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org"},
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			proxyConfig: &meshconfig.ProxyConfig{
+				GatewayTopology: &meshconfig.Topology{
+					NumTrustedProxies:        3,
+					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+				},
+			},
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: proto.BoolTrue,
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/cert-chain.pem",
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/key.pem",
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+							ValidationContext: &auth.CertificateValidationContext{
+								TrustedCa: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/root-cert.pem",
+									},
+								},
+							},
+						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					connectionManager: &hcm.HttpConnectionManager{
+						XffNumTrustedHops:        3,
+						ForwardClientCertDetails: hcm.HttpConnectionManager_FORWARD_ONLY,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+					statPrefix: "server1",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1157,7 +1227,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
-		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
+		builder := configgen.buildGatewayListeners(&ListenerBuilder{node: &proxyGateway, push: env.PushContext})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {
 			if err := l.Validate(); err != nil {

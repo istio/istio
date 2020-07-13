@@ -44,27 +44,23 @@ import (
 	"istio.io/istio/pkg/proto"
 )
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
-	node *model.Proxy,
-	push *model.PushContext,
-	builder *ListenerBuilder) *ListenerBuilder {
-
-	if node.MergedGateway == nil {
-		log.Debuga("buildGatewayListeners: no gateways for router ", node.ID)
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
+	if builder.node.MergedGateway == nil {
+		log.Debuga("buildGatewayListeners: no gateways for router ", builder.node.ID)
 		return builder
 	}
 
-	mergedGateway := node.MergedGateway
+	mergedGateway := builder.node.MergedGateway
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
-	actualWildcard, _ := getActualWildcardAndLocalHost(node)
+	actualWildcard, _ := getActualWildcardAndLocalHost(builder.node)
 	errs := &multierror.Error{}
 	listeners := make([]*listener.Listener, 0, len(mergedGateway.Servers))
-	proxyConfig := node.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
+	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	for portNumber, servers := range mergedGateway.Servers {
 		var si *model.ServiceInstance
-		services := make(map[host.Name]struct{}, len(node.ServiceInstances))
-		for _, w := range node.ServiceInstances {
+		services := make(map[host.Name]struct{}, len(builder.node.ServiceInstances))
+		for _, w := range builder.node.ServiceInstances {
 			if w.ServicePort.Port == int(portNumber) {
 				if si == nil {
 					si = w
@@ -83,8 +79,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 		// on a given port, we can either have plain text HTTP servers or
 		// HTTPS/TLS servers with SNI. We cannot have a mix of http and https server on same port.
 		opts := buildListenerOpts{
-			push:       push,
-			proxy:      node,
+			push:       builder.push,
+			proxy:      builder.node,
 			bind:       actualWildcard,
 			port:       int(portNumber),
 			bindToPort: true,
@@ -98,7 +94,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 			// We only need to look at the first server in the list as the merge logic
 			// ensures that all servers are of same type.
 			routeName := mergedGateway.RouteNamesByServer[servers[0]]
-			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(node, servers[0], routeName, "", proxyConfig)}
+			opts.filterChainOpts = []*filterChainOpts{configgen.createGatewayHTTPFilterChainOpts(builder.node, servers[0], routeName, "", proxyConfig)}
 			filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 		} else {
 			// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
@@ -112,11 +108,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 				if gateway.IsTLSServer(server) && gateway.IsHTTPServer(server) {
 					// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 					routeName := mergedGateway.RouteNamesByServer[server]
-					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(node, server, routeName, push.Mesh.SdsUdsPath, proxyConfig))
+					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server, routeName, builder.push.Mesh.SdsUdsPath, proxyConfig))
 					filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
 				} else {
 					// passthrough or tcp, yields multiple filter chains
-					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(node, push,
+					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
 						server, mergedGateway.GatewayNameForServer[server])
 					filterChainOpts = append(filterChainOpts, tcpChainOpts...)
 					for i := 0; i < len(tcpChainOpts); i++ {
@@ -139,8 +135,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(
 
 		pluginParams := &plugin.InputParams{
 			ListenerProtocol: listenerProtocol,
-			Node:             node,
-			Push:             push,
+			Node:             builder.node,
+			Push:             builder.push,
 			ServiceInstance:  si,
 			Port: &model.Port{
 				Name:     servers[0].Port.Name,
@@ -321,9 +317,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 }
 
 // builds a HTTP connection manager for servers of type HTTP or HTTPS (mode: simple/mutual)
-func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
-	node *model.Proxy, server *networking.Server, routeName string,
-	sdsPath string, proxyConfig *meshconfig.ProxyConfig) *filterChainOpts {
+func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *model.Proxy, server *networking.Server,
+	routeName string, sdsPath string, proxyConfig *meshconfig.ProxyConfig) *filterChainOpts {
 
 	serverProto := protocol.Parse(server.Port.Protocol)
 
@@ -343,45 +338,18 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 		}
 	}
 
-	// Are we processing plaintext servers or HTTPS servers?
-	// If plain text, we have to combine all servers into a single listener
+	var sniHosts []string
+	var tlsContext *tls.DownstreamTlsContext
 	if serverProto.IsHTTP() {
-		return &filterChainOpts{
-			// This works because we validate that only HTTPS servers can have same port but still different port names
-			// and that no two non-HTTPS servers can be on same port or share port names.
-			// Validation is done per gateway and also during merging
-			sniHosts:   nil,
-			tlsContext: nil,
-			httpOpts: &httpListenerOpts{
-				rds:              routeName,
-				useRemoteAddress: true,
-				connectionManager: &hcm.HttpConnectionManager{
-					XffNumTrustedHops: xffNumTrustedHops,
-					// Forward client cert if connection is mTLS
-					ForwardClientCertDetails: forwardClientCertDetails,
-					SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-						Subject: proto.BoolTrue,
-						Cert:    true,
-						Uri:     true,
-						Dns:     true,
-					},
-					ServerName:          EnvoyServerName,
-					HttpProtocolOptions: httpProtoOpts,
-				},
-				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
-			},
-		}
+		// We know that this is a HTTPS server because this function is called only for ports
+		// of type HTTP/HTTPS where HTTPS server's TLS mode is not passthrough and not nil.
+		sniHosts = getSNIHostsForServer(server)
+		tlsContext = buildGatewayListenerTLSContext(server, sdsPath, node.Metadata)
 	}
 
-	// Build a filter chain for the HTTPS server
-	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
-	// where HTTPS server's TLS mode is not passthrough and not nil
 	return &filterChainOpts{
-		// This works because we validate that only HTTPS servers can have same port but still different port names
-		// and that no two non-HTTPS servers can be on same port or share port names.
-		// Validation is done per gateway and also during merging
-		sniHosts:   getSNIHostsForServer(server),
-		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata),
+		sniHosts:   sniHosts,
+		tlsContext: tlsContext,
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
@@ -398,6 +366,8 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				ServerName:          EnvoyServerName,
 				HttpProtocolOptions: httpProtoOpts,
 			},
+			addGRPCWebFilter: serverProto == protocol.GRPCWeb,
+			statPrefix:       server.Name,
 		},
 	}
 }
