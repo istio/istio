@@ -228,7 +228,7 @@ func compareConfResult(testWorkRootDir, result, expected string, t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to read file %v, err: %v", expected, err)
 		}
-		tempFail := mktemp(testWorkRootDir, filepath.Base(result)+".fail.XXXX", t)
+		tempFail := mktemp(testWorkRootDir, filepath.Base(result)+"-fail-", t)
 		t.Errorf("FAIL: result doesn't match expected: %v v. %v", result, expected)
 		cp(result, tempFail+"/"+"failResult", t)
 		cmd := exec.Command("diff", result, expected)
@@ -343,11 +343,11 @@ func RunInstallCNITest(testNum int, preConfFile, resultFileName, delayedConfFile
 	wd := pwd(t)
 	testWorkRootDir := env("TEST_WORK_ROOTDIR", "/tmp")
 
-	tempCNIConfDir := mktemp(testWorkRootDir, "cni-confXXXXX", t)
+	tempCNIConfDir := mktemp(testWorkRootDir, "cni-conf-", t)
 	defer rm(tempCNIConfDir, t)
-	tempCNIBinDir := mktemp(testWorkRootDir, "cni-binXXXXX", t)
+	tempCNIBinDir := mktemp(testWorkRootDir, "cni-bin-", t)
 	defer rm(tempCNIBinDir, t)
-	tempK8sSvcAcctDir := mktemp(testWorkRootDir, "kube-svcacctXXXXX", t)
+	tempK8sSvcAcctDir := mktemp(testWorkRootDir, "kube-svcacct-", t)
 	defer rm(tempK8sSvcAcctDir, t)
 
 	t.Logf("conf-dir=%v; bin-dir=%v; k8s-serviceaccount=%v", tempCNIConfDir,
