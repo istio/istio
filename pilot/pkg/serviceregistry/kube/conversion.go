@@ -153,7 +153,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 	return istioService
 }
 
-func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*model.ServiceInstance {
+func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []*model.ServiceInstance {
 	if k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
