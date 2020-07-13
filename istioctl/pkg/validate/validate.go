@@ -186,7 +186,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			// and ask operator code to check.
 			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
 			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by)
+			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
 			if err != nil {
 				return err
 			}
