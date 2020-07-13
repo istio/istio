@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
 	"net"
 	"net/http"
 	"strconv"
@@ -69,7 +70,11 @@ func (c *kubeComponent) getAddressInner(ns string, port int) (interface{}, bool,
 			return nil, false, err
 		}
 
-		scopes.Framework.Debugf("Querying ingress, pods:\n%v\n", pods)
+		names := make([]string, 0, len(pods.Items))
+		for _, p := range pods.Items {
+			names = append(names, p.Name)
+		}
+		scopes.Framework.Debugf("Querying ingress, pods:\n%v\n", names)
 		if len(pods.Items) == 0 {
 			return nil, false, fmt.Errorf("no ingress pod found")
 		}
