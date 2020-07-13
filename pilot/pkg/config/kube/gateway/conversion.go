@@ -57,23 +57,25 @@ type KubernetesResources struct {
 	Domain string
 }
 
-func (r *KubernetesResources) fetchHTTPRoutes(routes k8s.RouteBindingSelector) []*k8s.HTTPRouteSpec {
-	ls, err := metav1.LabelSelectorAsSelector(routes.RouteSelector)
+func (r *KubernetesResources) fetchHTTPRoutes(gatewayNamespace string, routes k8s.RouteBindingSelector) []*k8s.HTTPRouteSpec {
+	ls, err := metav1.LabelSelectorAsSelector(&routes.RouteSelector)
 	if err != nil {
 		log.Errorf("failed to create route selector: %v", err)
 		return nil
 	}
-	// TODO(https://github.com/kubernetes-sigs/service-apis/issues/197)
-	// Selecting namespaces is problematic
-	ns, err := metav1.LabelSelectorAsSelector(&routes.NamespaceSelector)
+	ns, err := metav1.LabelSelectorAsSelector(&routes.RouteNamespaces.NamespaceSelector)
 	if err != nil {
 		log.Errorf("failed to create namespace selector: %v", err)
 		return nil
 	}
 	result := []*k8s.HTTPRouteSpec{}
 	for _, http := range r.HTTPRoute {
-		if routes.RouteSelector == nil || ls.Matches(klabels.Set(http.Labels)) {
-			if !ns.Empty() {
+		if ls.Matches(klabels.Set(http.Labels)) {
+			if routes.RouteNamespaces.OnlySameNamespace {
+				if gatewayNamespace != http.Namespace {
+					continue
+				}
+			} else if !ns.Empty() {
 				namespace := r.Namespaces[http.Namespace]
 				if namespace == nil {
 					log.Errorf("missing namespace %v for route %v, skipping", http.Namespace, http.Name)
@@ -300,7 +302,7 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[*k8s.HTTPRouteS
 
 			// TODO support TCP Route
 			// TODO support VirtualService
-			for _, http := range r.fetchHTTPRoutes(l.Routes) {
+			for _, http := range r.fetchHTTPRoutes(obj.Namespace, l.Routes) {
 				routeToGateway[http] = append(routeToGateway[http], obj.Namespace+"/"+name)
 			}
 		}

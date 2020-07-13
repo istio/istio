@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
+	controllerRuntime "sigs.k8s.io/controller-runtime/pkg/client"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
@@ -43,7 +44,7 @@ var _ kube.ExtendedClient = MockClient{}
 
 // MockClient for tests that rely on kube.Client.
 type MockClient struct {
-	*kubernetes.Clientset
+	kubernetes.Interface
 	RestClient *rest.RESTClient
 	// Results is a map of podName to the results of the expected test on the pod
 	Results          map[string][]byte
@@ -51,6 +52,10 @@ type MockClient struct {
 	RevisionValue    string
 	ConfigValue      *rest.Config
 	IstioVersions    *version.MeshInfo
+}
+
+func (c MockClient) Controller() controllerRuntime.Client {
+	panic("implement me")
 }
 
 func (c MockClient) Istio() istioclient.Interface {
@@ -90,7 +95,7 @@ func (c MockClient) RunAndWait(stop <-chan struct{}) {
 }
 
 func (c MockClient) Kube() kubernetes.Interface {
-	return c.Clientset
+	return c.Interface
 }
 
 func (c MockClient) DynamicClient() dynamic.Interface {

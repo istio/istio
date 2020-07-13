@@ -47,6 +47,7 @@ usage() {
   error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app=pilot -l istio=galley"'
   error '  -n, --namespace          if set, dump logs only for pods in the given namespaces e.g. "-n default -n istio-system"'
   error '  --error-if-nasty-logs    if present, exit with 255 if any logs'
+  error '  --add-full-secrets       also dump Secrets, not just the Secret names'
   error '                               contain errors'
   exit 1
 }
@@ -78,6 +79,10 @@ parse_args() {
         local should_check_logs_for_errors=true
         shift # Shift past flag.
         ;;
+      --add-full-secrets)
+        local full_secret="-o yaml"
+        shift # Shift past flag.
+        ;;
       -m|--max-bytes)
         max_bytes="${2}"
         shift 2
@@ -98,8 +103,9 @@ parse_args() {
 
   readonly OUT_DIR="${out_dir:-istio-dump}"
   readonly SHOULD_ARCHIVE="${should_archive:-false}"
-  readonly QUIET="${quiet:-false}"
+  readonly QUIET="${quiet:-"false"}"
   readonly SHOULD_CHECK_LOGS_FOR_ERRORS="${should_check_logs_for_errors:-false}"
+  readonly FULLSECRETS="${full_secret}"
   readonly LOG_DIR="${OUT_DIR}/logs"
   readonly RESOURCES_FILE="${OUT_DIR}/resources.yaml"
   readonly ISTIO_RESOURCES_FILE="${OUT_DIR}/istio-resources.yaml"
@@ -246,9 +252,13 @@ dump_kubernetes_resources() {
 
   mkdir -p "${OUT_DIR}"
   # Only works in Kubernetes 1.8.0 and above.
-  kubectl get --all-namespaces --export \
-      all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,secrets,events \
+  kubectl get --all-namespaces \
+      all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events \
       -o yaml > "${RESOURCES_FILE}"
+
+  echo -e "---\nkind: Secret\n---\n" >> "${RESOURCES_FILE}"
+  kubectl get --all-namespaces \
+      secrets "${FULLSECRETS}" >> "${RESOURCES_FILE}"
 }
 
 dump_istio_custom_resource_definitions() {

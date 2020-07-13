@@ -34,12 +34,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
+
+	"istio.io/istio/istioctl/pkg/multicluster"
+	"istio.io/istio/operator/cmd/mesh"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
@@ -391,14 +394,6 @@ spec:
 }
 
 func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) (err error) {
-	// Create an istioctl to configure this cluster.
-	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
-		Cluster: cluster,
-	})
-	if err != nil {
-		return err
-	}
-
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return err
@@ -408,32 +403,36 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		defaultsIOPFile = filepath.Join(env.IstioSrc, defaultsIOPFile)
 	}
 
-	installSettings := []string{
-		"-f", defaultsIOPFile,
-		"-f", iopFile,
-		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
-		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+	installFiles := []string{
+		defaultsIOPFile,
+		iopFile,
 	}
+
+	setOverlay := []string{
+		"installPackagePath=" + filepath.Join(env.IstioSrc, "manifests"),
+		"values.global.imagePullPolicy=" + s.PullPolicy,
+	}
+
 	// Include all user-specified values.
 	for k, v := range cfg.Values {
-		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
+		setOverlay = append(setOverlay, fmt.Sprintf("values.%s=%s", k, v))
 	}
 
 	if c.environment.IsMulticluster() {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
-		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
+		setOverlay = append(setOverlay, "values.global.multiCluster.clusterName="+cluster.Name())
 
 		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
-				"--set", "values.global.network="+networkName)
+			setOverlay = append(setOverlay, "values.global.meshID="+meshID,
+				"values.global.network="+networkName)
 		}
 
 		if c.environment.IsControlPlaneCluster(cluster) {
 			// Expose Istiod through ingress to allow remote clusters to connect
-			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
+			setOverlay = append(setOverlay, "values.global.meshExpansion.enabled=true")
 		} else {
-			installSettings = append(installSettings, "--set", "profile=remote")
+			setOverlay = append(setOverlay, "profile=remote")
 			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
 			if err != nil {
 				return fmt.Errorf("failed getting control plane cluster for cluster %s: %v", cluster.Name(), err)
@@ -446,22 +445,22 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			}, retry.Timeout(1*time.Minute)); err != nil {
 				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
 			}
-			installSettings = append(installSettings,
-				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
+			setOverlay = append(setOverlay,
+				"values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
 				// Use the local Istiod for CA
-				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
+				"values.global.caAddress="+"istiod.istio-system.svc:15012")
 
 			if isCentralIstio(c.environment, cfg) {
-				installSettings = append(installSettings,
-					"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
-					"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+				setOverlay = append(setOverlay,
+					fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
+					fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
 
 				// base must be installed first in order to create istio-reader-service-account, otherwise create-remote-secret command will fail
-				baseSettings := make([]string, len(installSettings))
-				_ = copy(baseSettings, installSettings)
-				baseSettings = append(baseSettings,
-					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote-base.yaml"))
-				if err := applyManifest(c, baseSettings, istioCtl, cluster.Name()); err != nil {
+				baseInstallFiles := make([]string, len(installFiles))
+				_ = copy(baseInstallFiles, installFiles)
+				baseInstallFiles = append(baseInstallFiles,
+					filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote-base.yaml"))
+				if err := applyManifest(c.ctx, baseInstallFiles, setOverlay, cluster); err != nil {
 					return fmt.Errorf("failed to deploy centralIstiod base for cluster %v: %v", cluster.Name(), err)
 				}
 				// remote ingress gateway will not start unless the create-remote-secret command has run and created the istiod-ca-cert configmap
@@ -471,7 +470,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			}
 		}
 	}
-	return applyManifest(c, installSettings, istioCtl, cluster.Name())
+	return applyManifest(c.ctx, installFiles, setOverlay, cluster)
 }
 
 func isCentralIstio(env *kube.Environment, cfg Config) bool {
@@ -481,24 +480,33 @@ func isCentralIstio(env *kube.Environment, cfg Config) bool {
 	return false
 }
 
-func applyManifest(c *operatorComponent, installSettings []string, istioCtl istioctl.Instance, clusterName string) error {
+func applyManifest(ctx resource.Context, inFiles, setOverlay []string, cluster resource.Cluster) error {
+	// Generate the manifest.
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, scopes.Framework)
+	manifests, _, err := mesh.GenManifests(inFiles, setOverlay, false, cluster.RESTConfig(), l)
+	if err != nil {
+		return fmt.Errorf("failed generating manifest for cluster %s: %v", cluster.Name(), err)
+	}
+
 	// Save the manifest generate output so we can later cleanup
-	genCmd := []string{"manifest", "generate"}
-	genCmd = append(genCmd, installSettings...)
-	out, _, err := istioCtl.Invoke(genCmd)
+	dir, err := ctx.CreateTmpDirectory("manifest-" + cluster.Name())
 	if err != nil {
 		return err
 	}
-	c.saveInstallManifest(clusterName, out)
-
-	// Actually run the manifest apply command
-	cmd := []string{
-		"manifest", "apply",
-		"--skip-confirmation",
+	if err := mesh.RenderToDir(manifests, dir, false, l); err != nil {
+		return fmt.Errorf("failed writing manifest for cluster %s: %v", cluster.Name(), err)
 	}
-	cmd = append(cmd, installSettings...)
-	scopes.Framework.Infof("Running istio control plane on cluster %s %v", clusterName, cmd)
-	if _, _, err := istioCtl.Invoke(cmd); err != nil {
+
+	scopes.Framework.Infof("Running istio control plane on cluster %s", cluster.Name())
+	err = mesh.ApplyManifests(mesh.ApplyManifestsOptions{
+		Client:      cluster,
+		InFilenames: inFiles,
+		SetOverlay:  setOverlay,
+		Force:       false,
+		DryRun:      false,
+		WaitTimeout: 300 * time.Second,
+	}, l)
+	if err != nil {
 		return fmt.Errorf("manifest apply failed: %v", err)
 	}
 	return nil
@@ -558,7 +566,7 @@ func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment,
 func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
 	cluster resource.Cluster) error {
 	// Create a secret.
-	secret, err := createRemoteSecret(ctx, cluster, cfg)
+	secret, err := createRemoteSecret(cluster, cfg)
 	if err != nil {
 		return fmt.Errorf("failed creating remote secret for cluster %s: %v", cluster.Name(), err)
 	}
@@ -568,25 +576,21 @@ func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.E
 	return nil
 }
 
-func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Config) (string, error) {
-	istioCtl, err := istioctl.New(ctx, istioctl.Config{
-		Cluster: cluster,
-	})
-	if err != nil {
-		return "", err
-	}
-	cmd := []string{
-		"x", "create-remote-secret",
-		"--name", cluster.Name(),
-		"--namespace", cfg.SystemNamespace,
-	}
+func createRemoteSecret(cluster resource.Cluster, cfg Config) (string, error) {
+	scopes.Framework.Infof("Creating remote secret for cluster %s in namespace %s", cluster.Name(),
+		cfg.SystemNamespace)
 
-	scopes.Framework.Infof("Creating remote secret for cluster cluster %s %v", cluster.Name(), cmd)
-	out, _, err := istioCtl.Invoke(cmd)
+	remoteSecret, err := multicluster.CreateRemoteSecret(cluster.Name(), cfg.SystemNamespace,
+		multicluster.DefaultServiceAccountName, multicluster.RemoteSecretAuthTypeBearerToken,
+		"", nil, cluster)
 	if err != nil {
 		return "", fmt.Errorf("create remote secret failed for cluster %s: %v", cluster.Name(), err)
 	}
-	return out, nil
+	encoded, err := multicluster.EncodeRemoteSecret(remoteSecret)
+	if err != nil {
+		return "", fmt.Errorf("encoding remote secret failed for cluster %s: %v", cluster.Name(), err)
+	}
+	return encoded, nil
 }
 
 func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {

@@ -1003,28 +1003,24 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 		},
 	}
 
-	path := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata")
-	files, err := ioutil.ReadDir(path)
+	file, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml"))
 	if err != nil {
 		b.Fatalf("failed to read telemetry v2 Envoy Filters")
 	}
-	if len(files) != 2 {
-		// Cheap attempt to make sure someone notices this test exists if they make changes to the folder and break things.
-		b.Fatalf("Expected to find 2 EnvoyFilters for telemetry v2.")
-	}
 	var configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch
-	for _, patchFile := range files {
-		f, err := ioutil.ReadFile(filepath.Join(path, patchFile.Name()))
-		if err != nil {
-			b.Fatalf("failed to read file %v", patchFile)
+
+	configs, _, err := crd.ParseInputs(string(file))
+	if err != nil {
+		b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
+	}
+	for _, c := range configs {
+		if c.GroupVersionKind != gvk.EnvoyFilter {
+			continue
 		}
-		configs, _, err := crd.ParseInputs(string(f))
-		if err != nil {
-			b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
-		}
-		for _, c := range configs {
-			configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
-		}
+		configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
+	}
+	if len(configPatches) == 0 {
+		b.Fatalf("found no patches, failed to read telemetry config?")
 	}
 
 	sidecarProxy := &model.Proxy{

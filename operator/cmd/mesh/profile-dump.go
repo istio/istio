@@ -129,8 +129,11 @@ func profileDump(args []string, rootArgs *rootArgs, pdArgs *profileDumpArgs, l c
 	if len(args) == 1 {
 		setFlags = append(setFlags, "profile="+args[0])
 	}
-
-	y, _, err := GenerateConfig(pdArgs.inFilenames, setFlags, true, nil, l)
+	y, _, err := GenerateConfig(GenerateConfigOptions{
+		InFilenames: pdArgs.inFilenames,
+		SetOverlay:  setFlags,
+		Force:       true,
+	}, l)
 	if err != nil {
 		return err
 	}
