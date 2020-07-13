@@ -76,8 +76,12 @@ func Run(cfg *config.Config) (err error) {
 			return
 		}
 
-		files.cniConfigFilepath, err = createCNIConfigFile(cfg, saToken)
+		files.cniConfigFilepath, err = createCNIConfigFile(ctx, cfg, saToken)
 		if err != nil {
+			if err == context.Canceled {
+				// Error was caused by interrupt/termination signal
+				err = nil
+			}
 			return
 		}
 

@@ -79,7 +79,7 @@ func getCNIConfigVars(cfg *config.Config) cniConfigVars {
 	}
 }
 
-func createCNIConfigFile(cfg *config.Config, saToken string) (string, error) {
+func createCNIConfigFile(ctx context.Context, cfg *config.Config, saToken string) (string, error) {
 	cniConfig, err := readCNIConfigTemplate(getCNIConfigTemplate(cfg))
 	if err != nil {
 		return "", err
@@ -87,7 +87,7 @@ func createCNIConfigFile(cfg *config.Config, saToken string) (string, error) {
 
 	cniConfig = replaceCNIConfigVars(cniConfig, getCNIConfigVars(cfg), saToken)
 
-	return writeCNIConfig(cniConfig, getPluginConfig(cfg))
+	return writeCNIConfig(ctx, cniConfig, getPluginConfig(cfg))
 }
 
 func readCNIConfigTemplate(template cniConfigTemplate) ([]byte, error) {
@@ -127,8 +127,7 @@ func replaceCNIConfigVars(cniConfig []byte, vars cniConfigVars, saToken string) 
 	return []byte(cniConfigStr)
 }
 
-func writeCNIConfig(cniConfig []byte, cfg pluginConfig) (string, error) {
-	ctx := context.Background()
+func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (string, error) {
 	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg)
 	if err != nil {
 		return "", err

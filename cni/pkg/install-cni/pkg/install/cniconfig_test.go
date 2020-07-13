@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"os"
 	"path/filepath"
 	"testing"
@@ -197,13 +198,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			}()
 
 			// Create existing config files if specified in test case
-			for _, f := range c.existingConfFiles {
-				data, err := ioutil.ReadFile(filepath.Join("testdata", f))
-				err = ioutil.WriteFile(filepath.Join(tempDir, f), data, 0644)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
+			copyExistingConfFiles(t, tempDir, c.existingConfFiles...)
 
 			cfg := pluginConfig{
 				mountedCNINetDir: tempDir,
@@ -332,5 +327,171 @@ func TestInsertCNIConfig(t *testing.T) {
 			goldenConfig := testutils.ReadFile(goldenFilepath, t)
 			testutils.CompareBytes(output, goldenConfig, goldenFilepath, t)
 		})
+	}
+}
+
+const (
+	// For testing purposes, set kubeconfigFilename equivalent to the path in the test files and use __KUBECONFIG_FILENAME__
+	// CreateCNIConfigFile joins the MountedCNINetDir and KubeconfigFilename if __KUBECONFIG_FILEPATH__ was used
+	kubeconfigFilename   = "/path/to/kubeconfig"
+	cniNetworkConfigFile = "testdata/istio-cni.conf.template"
+	cniNetworkConfig     = `{
+  "cniVersion": "0.3.1",
+  "name": "istio-cni",
+  "type": "istio-cni",
+  "log_level": "__LOG_LEVEL__",
+  "kubernetes": {
+      "kubeconfig": "__KUBECONFIG_FILENAME__",
+      "cni_bin_dir": "/path/cni/bin"
+  }
+}
+`
+)
+
+func TestCreateCNIConfigFile(t *testing.T) {
+	cases := []struct {
+		name              string
+		chainedCNIPlugin  bool
+		specifiedConfName string
+		expectedConfName  string
+		goldenConfName    string
+		existingConfFiles []string
+	}{
+		{
+			name:              "unspecified existing CNI config file (existing .conf to conflist)",
+			chainedCNIPlugin:  true,
+			expectedConfName:  "bridge.conflist",
+			goldenConfName:    "bridge.conf.golden",
+			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+		},
+		{
+			name:             "unspecified CNI config file never created",
+			chainedCNIPlugin: true,
+		},
+		{
+			name:              "specified existing CNI config file",
+			chainedCNIPlugin:  true,
+			specifiedConfName: "list.conflist",
+			expectedConfName:  "list.conflist",
+			goldenConfName:    "list.conflist.golden",
+			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+		},
+		{
+			name:              "specified existing CNI config file (specified .conf to .conflist)",
+			chainedCNIPlugin:  true,
+			specifiedConfName: "list.conf",
+			expectedConfName:  "list.conflist",
+			goldenConfName:    "list.conflist.golden",
+			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+		},
+		{
+			name:              "specified existing CNI config file (existing .conf to .conflist)",
+			chainedCNIPlugin:  true,
+			specifiedConfName: "bridge.conflist",
+			expectedConfName:  "bridge.conflist",
+			goldenConfName:    "bridge.conf.golden",
+			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+		},
+		{
+			name:              "specified CNI config file never created",
+			chainedCNIPlugin:  true,
+			specifiedConfName: "never-created.conf",
+			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+		},
+		{
+			name:             "standalone CNI plugin unspecified CNI config file",
+			expectedConfName: "YYY-istio-cni.conf",
+			goldenConfName:   "istio-cni.conf",
+		},
+		{
+			name:              "standalone CNI plugin specified CNI config file",
+			specifiedConfName: "specific-name.conf",
+			expectedConfName:  "specific-name.conf",
+			goldenConfName:    "istio-cni.conf",
+		},
+	}
+
+	for i, c := range cases {
+		cfgFile := config.Config{
+			CNIConfName:          c.specifiedConfName,
+			ChainedCNIPlugin:     c.chainedCNIPlugin,
+			CNINetworkConfigFile: cniNetworkConfigFile,
+			LogLevel:             "debug",
+			KubeconfigFilename:   kubeconfigFilename,
+		}
+
+		cfg := config.Config{
+			CNIConfName:        c.specifiedConfName,
+			ChainedCNIPlugin:   c.chainedCNIPlugin,
+			CNINetworkConfig:   cniNetworkConfig,
+			LogLevel:           "debug",
+			KubeconfigFilename: kubeconfigFilename,
+		}
+		test := func(t *testing.T, cfg config.Config) func(t *testing.T) {
+			return func(t *testing.T) {
+				// Create temp directory for files
+				tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if err := os.RemoveAll(tempDir); err != nil {
+						t.Fatal(err)
+					}
+				}()
+
+				// Create existing config files if specified in test case
+				copyExistingConfFiles(t, tempDir, c.existingConfFiles...)
+
+				cfg.MountedCNINetDir = tempDir
+
+				var expectedFilepath string
+				if len(c.expectedConfName) > 0 {
+					expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
+				}
+
+				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+				resultFilepath, err := createCNIConfigFile(ctx, &cfg, "")
+				if err != nil {
+					assert.Empty(t, resultFilepath)
+					if err == context.DeadlineExceeded {
+						if len(c.expectedConfName) > 0 {
+							t.Fatalf("timed out waiting for expected %s", expectedFilepath)
+						}
+						// Successful test for never-created config file
+						return
+					}
+					t.Fatal(err)
+				}
+
+				assert.NotEmpty(t, resultFilepath)
+
+				if resultFilepath != expectedFilepath {
+					if len(expectedFilepath) > 0 {
+						t.Fatalf("expected %s, got %s", expectedFilepath, resultFilepath)
+					}
+					t.Fatalf("did not expect to retrieve a CNI config file %s", resultFilepath)
+				}
+
+				resultConfig := testutils.ReadFile(resultFilepath, t)
+
+				goldenFilepath := filepath.Join("testdata", c.goldenConfName)
+				goldenConfig := testutils.ReadFile(goldenFilepath, t)
+				testutils.CompareBytes(resultConfig, goldenConfig, goldenFilepath, t)
+			}
+		}
+		t.Run("network-config-file "+c.name, test(t, cfgFile))
+		t.Run(c.name, test(t, cfg))
+	}
+}
+
+func copyExistingConfFiles(t *testing.T, targetDir string, confFiles ...string) {
+	t.Helper()
+	for _, f := range confFiles {
+		data, err := ioutil.ReadFile(filepath.Join("testdata", f))
+		err = ioutil.WriteFile(filepath.Join(targetDir, f), data, 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
