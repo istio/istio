@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/pkg/kube/secretcontroller"
@@ -38,8 +39,8 @@ func cloneCluster(in *Cluster) *Cluster {
 	return &Cluster{
 		ClusterDesc: in.ClusterDesc,
 		Context:     in.Context,
-		Name:        in.Name,
-		Installed:   in.Installed,
+		clusterName: in.clusterName,
+		installed:   in.installed,
 	}
 }
 
@@ -82,7 +83,7 @@ func makeUniqueKubeNamespace(c *Cluster) *v1.Namespace {
 	return &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kube-system",
-			UID:  types.UID(c.Name),
+			UID:  types.UID(c.clusterName),
 		},
 	}
 }
@@ -95,9 +96,9 @@ func makeCluster(id int) *Cluster {
 			ServiceAccountReader: DefaultServiceAccountName,
 			DisableRegistryJoin:  false,
 		},
-		Context:   fmt.Sprintf("context%v", id),
-		Name:      fmt.Sprintf("clusterName%v", id),
-		Installed: true,
+		Context:     fmt.Sprintf("context%v", id),
+		clusterName: fmt.Sprintf("clusterName%v", id),
+		installed:   true,
 	}
 }
 
@@ -123,7 +124,7 @@ func makeKubeconfig(c *Cluster, token, caCert []byte) []byte {
 	_ = kubeconfigTemplate.Execute(&out, map[string]string{
 		"CAData":      base64.StdEncoding.EncodeToString(caCert),
 		"Server":      makeServerName(c),
-		"ClusterName": c.Name,
+		"ClusterName": c.clusterName,
 		"Token":       string(token),
 	})
 	kubeconfig := out.Bytes()
@@ -133,17 +134,17 @@ func makeKubeconfig(c *Cluster, token, caCert []byte) []byte {
 func makeRemoteSecret(c *Cluster, kubeconfig []byte) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      remoteSecretNameFromClusterName(c.Name),
+			Name:      remoteSecretNameFromClusterName(c.clusterName),
 			Namespace: defaultIstioNamespace,
 			Annotations: map[string]string{
-				clusterNameAnnotationKey: c.Name,
+				clusterNameAnnotationKey: c.clusterName,
 			},
 			Labels: map[string]string{
 				secretcontroller.MultiClusterSecretLabel: "true",
 			},
 		},
 		Data: map[string][]byte{
-			c.Name: kubeconfig,
+			c.clusterName: kubeconfig,
 		},
 	}
 }
@@ -196,7 +197,7 @@ func init() {
 	}
 
 	cluster0IstioNotInstalled = cloneCluster(clusters[0])
-	cluster0IstioNotInstalled.Installed = false
+	cluster0IstioNotInstalled.installed = false
 
 	cluster1DisableRegistryJoin = cloneCluster(clusters[1])
 	cluster1DisableRegistryJoin.DisableRegistryJoin = true
@@ -249,18 +250,20 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 
 	g := NewWithT(t)
 
-	poller := newFakePoller()
-	printer := newFakePrinter()
-	mesh := NewMesh(&MeshDesc{MeshID: "MyMeshID"}, testCase.clusters[0], testCase.clusters...)
+	env := newFakeEnvironmentOrDie(t, testCase.config)
+	mesh := NewMesh(&MeshDesc{MeshID: "MyMeshID"}, testCase.clusters...)
 
+	fakeClients := make(map[string]*fake.Clientset, len(testCase.clusters))
 	for _, cluster := range testCase.clusters {
 		// create fake client with initial set of objections
-		cluster.Client = newFakeKubeClient(makeServerName(cluster), testCase.initObjs[cluster.Name]...)
+		client := fake.NewSimpleClientset(testCase.initObjs[cluster.clusterName]...)
+		fakeClients[cluster.clusterName] = client
+		cluster.client = client
 
-		mesh.AddCluster(cluster)
+		mesh.addCluster(cluster)
 	}
 
-	err := Apply(mesh, poller, printer)
+	err := apply(mesh, env)
 	if testCase.wantErr {
 		g.Expect(err).To(HaveOccurred())
 	} else {
@@ -269,10 +272,12 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 
 	// verify test results
 	for _, cluster := range testCase.clusters {
-		t.Run(fmt.Sprintf("cluster %v", cluster.Name), func(tt *testing.T) {
+		t.Run(fmt.Sprintf("cluster %v", cluster.clusterName), func(tt *testing.T) {
 			tt.Helper()
 
-			secretList, err := cluster.CoreV1().Secrets(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
+			fakeClient := fakeClients[cluster.clusterName]
+
+			secretList, err := fakeClient.CoreV1().Secrets(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
 
 			gotSecrets := make([]*v1.Secret, 0, len(secretList.Items))
@@ -280,15 +285,15 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 				gotSecrets = append(gotSecrets, simulateWriteOnlyKubeApiserverBehavior(&secret))
 			}
 
-			wantSecrets := testCase.wantSecrets[cluster.Name]
+			wantSecrets := testCase.wantSecrets[cluster.clusterName]
 			if diff := cmp.Diff(wantSecrets, gotSecrets, cmpopts.SortSlices(lessSecret)); diff != "" {
 				tt.Errorf("\n got %v\nwant %v\ndiff %v",
-					gotSecrets, testCase.wantSecrets[cluster.Name], diff)
+					gotSecrets, testCase.wantSecrets[cluster.clusterName], diff)
 			}
 
-			wantActions := testCase.wantActions[cluster.Name]
+			wantActions := testCase.wantActions[cluster.clusterName]
 			gotActions := make(map[string]int)
-			for _, a := range fakeClientset(cluster).Actions() {
+			for _, a := range fakeClient.Actions() {
 				gotActions[action(a.GetVerb(), a.GetResource().Resource)]++
 			}
 
@@ -305,32 +310,35 @@ func TestApply_InitialSuccess(t *testing.T) {
 		clusters: clusters[:],
 		config:   apiConfig,
 		initObjs: map[string][]runtime.Object{
-			clusters[0].Name: {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0]},
-			clusters[1].Name: {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1]},
-			clusters[2].Name: {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
+			clusters[0].clusterName: {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0]},
+			clusters[1].clusterName: {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1]},
+			clusters[2].clusterName: {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
 		},
 		wantSecrets: map[string][]*v1.Secret{
-			clusters[0].Name: {remoteSecretClusters[1], remoteSecretClusters[2], pilotTokenSecrets[0]},
-			clusters[1].Name: {remoteSecretClusters[0], remoteSecretClusters[2], pilotTokenSecrets[1]},
-			clusters[2].Name: {remoteSecretClusters[0], remoteSecretClusters[1], pilotTokenSecrets[2]},
+			clusters[0].clusterName: {remoteSecretClusters[1], remoteSecretClusters[2], pilotTokenSecrets[0]},
+			clusters[1].clusterName: {remoteSecretClusters[0], remoteSecretClusters[2], pilotTokenSecrets[1]},
+			clusters[2].clusterName: {remoteSecretClusters[0], remoteSecretClusters[1], pilotTokenSecrets[2]},
 		},
 		wantActions: map[string]map[string]int{
-			clusters[0].Name: {
+			clusters[0].clusterName: {
 				action("get", "secrets"):         3,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      2,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
-			clusters[1].Name: {
+			clusters[1].clusterName: {
 				action("get", "secrets"):         3,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      2,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
-			clusters[2].Name: {
+			clusters[2].clusterName: {
 				action("get", "secrets"):         3,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      2,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
 		},
@@ -344,15 +352,16 @@ func TestApply_SingleClusterMesh(t *testing.T) {
 		clusters: clusters[0:1],
 		config:   apiConfig,
 		initObjs: map[string][]runtime.Object{
-			clusters[0].Name: {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0]},
+			clusters[0].clusterName: {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0]},
 		},
 		wantSecrets: map[string][]*v1.Secret{
-			clusters[0].Name: {pilotTokenSecrets[0]},
+			clusters[0].clusterName: {pilotTokenSecrets[0]},
 		},
 		wantActions: map[string]map[string]int{
-			clusters[0].Name: {
+			clusters[0].clusterName: {
 				action("get", "secrets"):         1,
 				action("list", "secrets"):        2,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
 		},
@@ -366,29 +375,31 @@ func TestApply_IstioNotInstalledInOneCluster(t *testing.T) {
 		clusters: []*Cluster{cluster0IstioNotInstalled, clusters[1], clusters[2]},
 		config:   apiConfig,
 		initObjs: map[string][]runtime.Object{
-			cluster0IstioNotInstalled.Name: {kubeSystemNamespaces[0]},
-			clusters[1].Name:               {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1]},
-			clusters[2].Name:               {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
+			cluster0IstioNotInstalled.clusterName: {kubeSystemNamespaces[0]},
+			clusters[1].clusterName:               {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1]},
+			clusters[2].clusterName:               {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
 		},
 		wantSecrets: map[string][]*v1.Secret{
-			cluster0IstioNotInstalled.Name: {},
-			clusters[1].Name:               {remoteSecretClusters[2], pilotTokenSecrets[1]},
-			clusters[2].Name:               {remoteSecretClusters[1], pilotTokenSecrets[2]},
+			cluster0IstioNotInstalled.clusterName: {},
+			clusters[1].clusterName:               {remoteSecretClusters[2], pilotTokenSecrets[1]},
+			clusters[2].clusterName:               {remoteSecretClusters[1], pilotTokenSecrets[2]},
 		},
 		wantActions: map[string]map[string]int{
-			cluster0IstioNotInstalled.Name: {
+			cluster0IstioNotInstalled.clusterName: {
 				action("list", "secrets"): 1,
 			},
-			clusters[1].Name: {
+			clusters[1].clusterName: {
 				action("get", "secrets"):         2,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      1,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
-			clusters[2].Name: {
+			clusters[2].clusterName: {
 				action("get", "secrets"):         2,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      1,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
 		},
@@ -402,31 +413,34 @@ func TestApply_DisableRegistryInOneCluster(t *testing.T) {
 		clusters: []*Cluster{clusters[0], cluster1DisableRegistryJoin, clusters[2]},
 		config:   apiConfig,
 		initObjs: map[string][]runtime.Object{
-			clusters[0].Name:                 {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0]},
-			cluster1DisableRegistryJoin.Name: {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1]},
-			clusters[2].Name:                 {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
+			clusters[0].clusterName:                 {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0]},
+			cluster1DisableRegistryJoin.clusterName: {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1]},
+			clusters[2].clusterName:                 {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
 		},
 		wantSecrets: map[string][]*v1.Secret{
-			clusters[0].Name:                 {remoteSecretClusters[2], pilotTokenSecrets[0]},
-			cluster1DisableRegistryJoin.Name: {pilotTokenSecrets[1]},
-			clusters[2].Name:                 {remoteSecretClusters[0], pilotTokenSecrets[2]},
+			clusters[0].clusterName:                 {remoteSecretClusters[2], pilotTokenSecrets[0]},
+			cluster1DisableRegistryJoin.clusterName: {pilotTokenSecrets[1]},
+			clusters[2].clusterName:                 {remoteSecretClusters[0], pilotTokenSecrets[2]},
 		},
 		wantActions: map[string]map[string]int{
-			clusters[0].Name: {
+			clusters[0].clusterName: {
 				action("get", "secrets"):         2,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      1,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
-			clusters[1].Name: {
+			clusters[1].clusterName: {
 				action("list", "secrets"):        2,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 				action("get", "secrets"):         1,
 			},
-			clusters[2].Name: {
+			clusters[2].clusterName: {
 				action("get", "secrets"):         2,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      1,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
 		},
@@ -441,32 +455,35 @@ func TestApply_JoinClusterToExistingMesh(t *testing.T) {
 		clusters: clusters[:],
 		config:   apiConfig,
 		initObjs: map[string][]runtime.Object{
-			clusters[0].Name: {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0], remoteSecretClusters[1]},
-			clusters[1].Name: {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1], remoteSecretClusters[0]},
-			clusters[2].Name: {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
+			clusters[0].clusterName: {pilotServiceAccount, pilotTokenSecrets[0], kubeSystemNamespaces[0], remoteSecretClusters[1]},
+			clusters[1].clusterName: {pilotServiceAccount, pilotTokenSecrets[1], kubeSystemNamespaces[1], remoteSecretClusters[0]},
+			clusters[2].clusterName: {pilotServiceAccount, pilotTokenSecrets[2], kubeSystemNamespaces[2]},
 		},
 		wantSecrets: map[string][]*v1.Secret{
-			clusters[0].Name: {remoteSecretClusters[1], remoteSecretClusters[2], pilotTokenSecrets[0]},
-			clusters[1].Name: {remoteSecretClusters[0], remoteSecretClusters[2], pilotTokenSecrets[1]},
-			clusters[2].Name: {remoteSecretClusters[0], remoteSecretClusters[1], pilotTokenSecrets[2]},
+			clusters[0].clusterName: {remoteSecretClusters[1], remoteSecretClusters[2], pilotTokenSecrets[0]},
+			clusters[1].clusterName: {remoteSecretClusters[0], remoteSecretClusters[2], pilotTokenSecrets[1]},
+			clusters[2].clusterName: {remoteSecretClusters[0], remoteSecretClusters[1], pilotTokenSecrets[2]},
 		},
 		wantActions: map[string]map[string]int{
-			clusters[0].Name: {
+			clusters[0].clusterName: {
 				action("get", "secrets"):         3,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      1,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
-			clusters[1].Name: {
+			clusters[1].clusterName: {
 				action("get", "secrets"):         3,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      1,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
-			clusters[2].Name: {
+			clusters[2].clusterName: {
 				action("get", "secrets"):         3,
 				action("list", "secrets"):        2,
 				action("create", "secrets"):      2,
+				action("get", "namespaces"):      1,
 				action("get", "serviceaccounts"): 1,
 			},
 		},
