@@ -423,6 +423,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -457,6 +458,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
