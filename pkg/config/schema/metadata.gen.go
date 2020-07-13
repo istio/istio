@@ -78,20 +78,24 @@ collections:
   - name: "istio/config/v1alpha2/adapters"
     kind: "adapter"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/config/v1alpha2/httpapispecs"
     kind: "HTTPAPISpec"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/config/v1alpha2/httpapispecbindings"
     kind: "HTTPAPISpecBinding"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/config/v1alpha2/templates"
     kind: "template"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
@@ -149,18 +153,22 @@ collections:
   - name: "istio/policy/v1beta1/attributemanifests"
     kind: "attributemanifest"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/policy/v1beta1/instances"
     kind: "instance"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/policy/v1beta1/handlers"
     kind: "handler"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/policy/v1beta1/rules"
     kind: "rule"
     group: "config.istio.io"
+    deprecated: true
 
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"

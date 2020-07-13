@@ -1195,4 +1195,16 @@ var (
 			MustAdd(K8SServiceApisV1Alpha1Tcproutes).
 			MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 			Build()
+
+	// Deprecated contains only collections used by that will soon be used by nothing.
+	Deprecated = collection.NewSchemasBuilder().
+			MustAdd(IstioConfigV1Alpha2Adapters).
+			MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
+			MustAdd(IstioConfigV1Alpha2Httpapispecs).
+			MustAdd(IstioConfigV1Alpha2Templates).
+			MustAdd(IstioPolicyV1Beta1Attributemanifests).
+			MustAdd(IstioPolicyV1Beta1Handlers).
+			MustAdd(IstioPolicyV1Beta1Instances).
+			MustAdd(IstioPolicyV1Beta1Rules).
+			Build()
 )
