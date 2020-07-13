@@ -37,8 +37,6 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	pkgversion "istio.io/istio/operator/pkg/version"
-	"istio.io/istio/pkg/kube"
-
 	"istio.io/pkg/log"
 )
 
@@ -130,17 +128,13 @@ func UpgradeCmd() *cobra.Command {
 // upgrade is the main function for Upgrade command
 func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Create a kube client from args.kubeConfigPath and  args.context
-	client, err := k8sClient(args.kubeConfigPath, args.context)
+	kubeClient, err := NewClient(args.kubeConfigPath, args.context)
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
 	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(GenerateConfigOptions{
-		InFilenames: args.inFilenames,
-		SetOverlay:  setFlags,
-		Force:       args.force,
-	}, l)
+	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -160,13 +154,13 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	istioNamespace := iop.Namespace(targetIOPS)
 
 	// Read the current Istio version from the the cluster
-	currentVersion, err := retrieveControlPlaneVersion(client, istioNamespace, l)
+	currentVersion, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
 	if err != nil && !args.force {
 		return fmt.Errorf("failed to read the current Istio version, error: %v", err)
 	}
 
 	// Check if the upgrade currentVersion -> targetVersion is supported
-	err = checkSupportedVersions(client, currentVersion)
+	err = checkSupportedVersions(kubeClient, currentVersion)
 	if err != nil && !args.force {
 		return fmt.Errorf("upgrade version check failed: %v -> %v. Error: %v",
 			currentVersion, targetVersion, err)
@@ -210,14 +204,8 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(ApplyManifestsOptions{
-		Client:      nil,
-		InFilenames: args.inFilenames,
-		SetOverlay:  applyFlagAliases(args.set, args.manifestsPath, ""),
-		Force:       args.force,
-		DryRun:      rootArgs.dryRun,
-		WaitTimeout: args.readinessTimeout,
-	}, l)
+	err = ApplyManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
+		args.kubeConfigPath, args.context, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
@@ -225,13 +213,13 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if !rootArgs.dryRun {
 		// Waits for the upgrade to complete by periodically comparing the each
 		// component version to the target version.
-		err = waitUpgradeComplete(client, istioNamespace, targetVersion, l)
+		err = waitUpgradeComplete(kubeClient, istioNamespace, targetVersion, l)
 		if err != nil {
 			return fmt.Errorf("failed to wait for the upgrade to complete. Error: %v", err)
 		}
 
 		// Read the upgraded Istio version from the the cluster
-		upgradeVer, err := retrieveControlPlaneVersion(client, istioNamespace, l)
+		upgradeVer, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
 		if err != nil {
 			return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
 		}
@@ -275,7 +263,7 @@ func waitForConfirmation(skipConfirmation bool, l clog.Logger) {
 
 var SupportedIstioVersions, _ = goversion.NewConstraint(">=1.6.0, <1.8")
 
-func checkSupportedVersions(client kube.Client, currentVersion string) error {
+func checkSupportedVersions(kubeClient *Client, currentVersion string) error {
 	curGoVersion, err := goversion.NewVersion(currentVersion)
 	if err != nil {
 		return fmt.Errorf("failed to parse the current version %q: %v", currentVersion, err)
@@ -285,12 +273,12 @@ func checkSupportedVersions(client kube.Client, currentVersion string) error {
 		return fmt.Errorf("upgrade is currently not supported from version: %v", currentVersion)
 	}
 
-	return CheckUnsupportedAlphaSecurityCRD(client)
+	return kubeClient.CheckUnsupportedAlphaSecurityCRD()
 }
 
 // retrieveControlPlaneVersion retrieves the version number from the Istio control plane
-func retrieveControlPlaneVersion(client kube.Client, istioNamespace string, l clog.Logger) (string, error) {
-	cv, e := GetIstioVersions(client.REST(), istioNamespace)
+func retrieveControlPlaneVersion(kubeClient ExecClient, istioNamespace string, l clog.Logger) (string, error) {
+	cv, e := kubeClient.GetIstioVersions(istioNamespace)
 	if e != nil {
 		return "", fmt.Errorf("failed to retrieve Istio control plane version, error: %v", e)
 	}
@@ -313,10 +301,10 @@ func retrieveControlPlaneVersion(client kube.Client, istioNamespace string, l cl
 
 // waitUpgradeComplete waits for the upgrade to complete by periodically comparing the current component version
 // to the target version.
-func waitUpgradeComplete(client kube.Client, istioNamespace string, targetVer string, l clog.Logger) error {
+func waitUpgradeComplete(kubeClient ExecClient, istioNamespace string, targetVer string, l clog.Logger) error {
 	for i := 1; i <= upgradeWaitCheckVerMaxAttempts; i++ {
 		sleepSeconds(upgradeWaitSecCheckVerPerLoop)
-		cv, e := GetIstioVersions(client.REST(), istioNamespace)
+		cv, e := kubeClient.GetIstioVersions(istioNamespace)
 		if e != nil {
 			l.LogAndPrintf("Failed to retrieve Istio control plane version, error: %v", e)
 			continue
@@ -371,6 +359,12 @@ func identicalVersions(cv []ComponentVersion) bool {
 	return true
 }
 
+// Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
+type Client struct {
+	Config *rest.Config
+	*rest.RESTClient
+}
+
 // ComponentVersion is a pair of component name and version
 type ComponentVersion struct {
 	Component string
@@ -383,9 +377,30 @@ func (cv ComponentVersion) String() string {
 		cv.Component, cv.Pod.GetName(), cv.Version)
 }
 
+// ExecClient is an interface for remote execution
+type ExecClient interface {
+	GetIstioVersions(namespace string) ([]ComponentVersion, error)
+	GetPods(namespace string, params map[string]string) (*v1.PodList, error)
+	PodsForSelector(namespace, labelSelector string) (*v1.PodList, error)
+	ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error)
+}
+
+// NewClient is the constructor for the client wrapper
+func NewClient(kubeconfig, configContext string) (*Client, error) {
+	config, err := defaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config, restClient}, nil
+}
+
 // GetIstioVersions gets the version for each Istio component
-func GetIstioVersions(client rest.Interface, namespace string) ([]ComponentVersion, error) {
-	pods, err := GetPods(client, namespace, map[string]string{
+func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, error) {
+	pods, err := client.GetPods(namespace, map[string]string{
 		"labelSelector": "istio",
 		"fieldSelector": "status.phase=Running",
 	})
@@ -451,8 +466,18 @@ func parseTag(image string) (string, error) {
 	}
 }
 
+func (client *Client) PodsForSelector(namespace, labelSelector string) (*v1.PodList, error) {
+	pods, err := client.GetPods(namespace, map[string]string{
+		"labelSelector": labelSelector,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve pods, error: %v", err)
+	}
+	return pods, nil
+}
+
 // GetPods retrieves the pod objects for Istio deployments
-func GetPods(client rest.Interface, namespace string, params map[string]string) (*v1.PodList, error) {
+func (client *Client) GetPods(namespace string, params map[string]string) (*v1.PodList, error) {
 	req := client.Get().
 		Resource("pods").
 		Namespace(namespace)
@@ -471,8 +496,17 @@ func GetPods(client rest.Interface, namespace string, params map[string]string) 
 	return list, nil
 }
 
-func CheckUnsupportedAlphaSecurityCRD(client kube.Client) error {
-	c, err := client_v1beta1.NewForConfig(client.RESTConfig())
+func (client *Client) ConfigMapForSelector(namespace, labelSelector string) (*v1.ConfigMapList, error) {
+	cmGet := client.Get().Resource("configmaps").Namespace(namespace).Param("labelSelector", labelSelector)
+	obj, err := cmGet.Do(context.TODO()).Get()
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving configmap: %v", err)
+	}
+	return obj.(*v1.ConfigMapList), nil
+}
+
+func (client *Client) CheckUnsupportedAlphaSecurityCRD() error {
+	c, err := client_v1beta1.NewForConfig(client.Config)
 	if err != nil {
 		return err
 	}
@@ -506,7 +540,7 @@ func CheckUnsupportedAlphaSecurityCRD(client kube.Client) error {
 		}
 
 		parts := strings.Split(crd, ".")
-		cmd := client.REST().Get().AbsPath("apis", strings.Join(parts[1:], "."), "v1alpha1", parts[0])
+		cmd := client.Get().AbsPath("apis", strings.Join(parts[1:], "."), "v1alpha1", parts[0])
 		obj, err := cmd.DoRaw(context.TODO())
 		if err != nil {
 			log.Errorf("failed to get resources for crd %s: %v", crd, err)

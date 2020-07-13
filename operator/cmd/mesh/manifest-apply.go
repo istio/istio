@@ -22,8 +22,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -31,7 +29,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -62,21 +60,6 @@ type manifestApplyArgs struct {
 	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
-}
-
-func (args manifestApplyArgs) toOptions(rootArgs *rootArgs) (ApplyManifestsOptions, error) {
-	client, err := k8sClient(args.kubeConfigPath, args.context)
-	if err != nil {
-		return ApplyManifestsOptions{}, err
-	}
-	return ApplyManifestsOptions{
-		Client:      client,
-		InFilenames: args.inFilenames,
-		SetOverlay:  applyFlagAliases(args.set, args.manifestsPath, args.revision),
-		Force:       args.force,
-		DryRun:      rootArgs.dryRun,
-		WaitTimeout: args.readinessTimeout,
-	}, nil
 }
 
 func addManifestApplyFlags(cmd *cobra.Command, args *manifestApplyArgs) {
@@ -161,40 +144,26 @@ func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, maArgs *manifestApplyAr
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-
-	opts, err := maArgs.toOptions(rootArgs)
-	if err != nil {
-		return err
-	}
-
-	if err := ApplyManifests(opts, l); err != nil {
+	if err := ApplyManifests(applyFlagAliases(maArgs.set, maArgs.manifestsPath, maArgs.revision), maArgs.inFilenames, maArgs.force, rootArgs.dryRun,
+		maArgs.kubeConfigPath, maArgs.context, maArgs.readinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to apply manifests: %v", err)
 	}
 
 	return nil
 }
 
-// ApplyManifestOptions options for the apply manifests command.
-type ApplyManifestsOptions struct {
-	Client      kube.Client
-	InFilenames []string
-	SetOverlay  []string
-	Force       bool
-	DryRun      bool
-	WaitTimeout time.Duration
-}
-
 // ApplyManifests generates manifests from the given input files and --set flag overlays and applies them to the
 // cluster. See GenManifests for more description of the manifest generation process.
 //  force   validation warnings are written to logger but command is not aborted
 //  dryRun  all operations are done but nothing is written
-func ApplyManifests(opts ApplyManifestsOptions, l clog.Logger) error {
-	_, iops, err := GenerateConfig(GenerateConfigOptions{
-		InFilenames: opts.InFilenames,
-		SetOverlay:  opts.SetOverlay,
-		Force:       opts.Force,
-		KubeConfig:  opts.Client.RESTConfig(),
-	}, l)
+func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRun bool,
+	kubeConfigPath string, context string, waitTimeout time.Duration, l clog.Logger) error {
+
+	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
+	if err != nil {
+		return err
+	}
+	_, iops, err := GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err
 	}
@@ -208,20 +177,15 @@ func ApplyManifests(opts ApplyManifestsOptions, l clog.Logger) error {
 		return err
 	}
 
-	if err := createNamespace(opts.Client.Kube(), iop.Namespace); err != nil {
+	if err := createNamespace(clientset, iop.Namespace); err != nil {
 		return err
 	}
 
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	helmOpts := &helmreconciler.Options{
-		DryRun:      opts.DryRun,
-		Log:         l,
-		WaitTimeout: opts.WaitTimeout,
-		ProgressLog: progress.NewLog(),
-		Force:       opts.Force,
-	}
-	reconciler, err := helmreconciler.NewHelmReconciler(opts.Client.Controller(), opts.Client.RESTConfig(), iop, helmOpts)
+	opts := &helmreconciler.Options{DryRun: dryRun, Log: l, WaitTimeout: waitTimeout, ProgressLog: progress.NewLog(),
+		Force: force}
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return err
 	}
@@ -233,7 +197,7 @@ func ApplyManifests(opts ApplyManifestsOptions, l clog.Logger) error {
 		return fmt.Errorf("errors occurred during operation")
 	}
 
-	helmOpts.ProgressLog.SetState(progress.StateComplete)
+	opts.ProgressLog.SetState(progress.StateComplete)
 
 	// Save state to cluster in IstioOperator CR.
 	iopStr, err := translate.IOPStoIOPstr(iops, crName, iopv1alpha1.Namespace(iops))

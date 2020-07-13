@@ -650,10 +650,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
-	_, iops, err := GenerateConfig(GenerateConfigOptions{
-		SetOverlay: []string{"installPackagePath=" + string(liveCharts)},
-		Force:      true,
-	}, l)
+	_, iops, err := GenerateConfig(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
