@@ -1,0 +1,136 @@
+{{- define "mesh" }}
+    {{- if .Values.global.remotePolicyAddress }}
+    {{- if .Values.global.createRemoteSvcEndpoints }}
+    mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
+    {{- else }}
+    mixerCheckServer: {{ .Values.global.remotePolicyAddress }}:15004
+    {{- end }}
+    {{- end }}
+    {{- if .Values.global.remoteTelemetryAddress }}
+    {{- if .Values.global.createRemoteSvcEndpoints }}
+    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
+    {{- else }}
+    mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
+    {{- end }}
+    {{- else }}
+    {{- if .Values.mixer.policy.enabled }}
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
+    {{- else }}
+    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
+    {{- end }}
+    {{- end }}
+    {{- if and .Values.telemetry.v1.enabled .Values.telemetry.enabled }}
+    {{- if .Values.global.controlPlaneSecurityEnabled }}
+    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
+    {{- else }}
+    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
+    # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
+    sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
+    {{- end }}
+    {{- if .Values.telemetry.v2.enabled }}
+    disableMixerHttpReports: true
+    {{- else }}
+    disableMixerHttpReports: false
+    {{- end }}
+    # The trust domain corresponds to the trust root of a system.
+    # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
+    trustDomain: {{ .Values.global.trustDomain | quote }}
+
+    {{- if .Values.global.useMCP }}
+    configSources:
+    {{- if .Values.pilot.configSource.subscribedResources }}
+      subscribedResources:
+    {{- range .Values.pilot.configSource.subscribedResources }}
+        - {{ . }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
+    defaultConfig:
+      tracing:
+      {{- if eq .Values.global.proxy.tracer "lightstep" }}
+        lightstep:
+          # Address of the LightStep Satellite pool
+          address: {{ .Values.global.tracer.lightstep.address }}
+          # Access Token used to communicate with the Satellite pool
+          accessToken: {{ .Values.global.tracer.lightstep.accessToken }}
+      {{- else if eq .Values.global.proxy.tracer "zipkin" }}
+        zipkin:
+          # Address of the Zipkin collector
+        {{- if .Values.global.tracer.zipkin.address }}
+          address: {{ .Values.global.tracer.zipkin.address }}
+        {{- else }}
+          address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
+        {{- end }}
+      {{- else if eq .Values.global.proxy.tracer "datadog" }}
+        datadog:
+          # Address of the Datadog Agent
+          address: {{ .Values.global.tracer.datadog.address }}
+      {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
+        stackdriver:
+          # enables trace output to stdout.
+        {{- if $.Values.global.tracer.stackdriver.debug }}
+          debug: {{ $.Values.global.tracer.stackdriver.debug }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          # The global default max number of attributes per span.
+          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          # The global default max number of annotation events per span.
+          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+        {{- end }}
+        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          # The global default max number of message events per span.
+          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+        {{- end }}
+      {{- end }}
+
+      {{- if .Values.global.remotePilotAddress }}
+      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+      {{- else }}
+      discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
+      {{- end }}
+{{- end }}
+
+{{/* We take the mesh config above, defined with individual values.yaml, and merge with .Values.meshConfig */}}
+{{/* The intent here is that meshConfig.foo becomes the API, rather than re-inventing the API in values.yaml */}}
+{{- $originalMesh := include "mesh" . | fromYaml }}
+{{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
+
+{{- if not .Values.global.centralIstiod }}
+{{- if .Values.pilot.configMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    release: {{ .Release.Name }}
+data:
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+  {{- if .Values.global.meshNetworks }}
+    networks:
+{{ toYaml .Values.global.meshNetworks | trim | indent 6 }}
+  {{- else }}
+    networks: {}
+  {{- end }}
+
+  mesh: |-
+{{- if .Values.meshConfig }}
+{{ $mesh | toYaml | indent 4 }}
+{{- else }}
+{{- include "mesh" . }}
+{{- end }}
+---
+{{- end }}
+{{- end }}
