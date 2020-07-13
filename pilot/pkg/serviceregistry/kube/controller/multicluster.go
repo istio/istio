@@ -130,8 +130,8 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
 
-	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`
-	// because the endpoints update will call `XDSUpdater.EDSUpdate`
+	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
+	// because when endpoints update `XDSUpdater.EDSUpdate` has already been called.
 	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
 
 	go kubectl.Run(stopCh)
