@@ -15,11 +15,7 @@
 package controller
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"net"
-	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -28,8 +24,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -240,7 +234,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
-	registerHandlers(c.serviceInformer, c.queue, "Services", reflect.DeepEqual, c.onServiceEvent)
+	registerHandlers(c.serviceInformer, c.queue, "Services", nil, c.onServiceEvent)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -252,7 +246,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
-	registerHandlers(c.nodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
+	registerHandlers(c.nodeInformer, c.queue, "Nodes", nil, c.onNodeEvent)
 
 	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods(), func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
@@ -268,7 +262,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return c.endpoints.onEvent(item, model.EventUpdate)
 		})
 	})
-	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
+	registerHandlers(c.pods.informer, c.queue, "Pods", nil, c.pods.onEvent)
 
 	return c
 }
@@ -281,18 +275,7 @@ func (c *Controller) Cluster() string {
 	return c.clusterID
 }
 
-func (c *Controller) checkReadyForEvents() error {
-	if !c.HasSynced() {
-		return errors.New("waiting till full synchronization")
-	}
-	return nil
-}
-
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
-	if err := c.checkReadyForEvents(); err != nil {
-		return err
-	}
-
 	svc, ok := curr.(*v1.Service)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
@@ -347,22 +330,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	return nil
 }
 
-func getNodeSelectorsForService(svc *v1.Service) labels.Instance {
-	if nodeSelector := svc.Annotations[kube.NodeSelectorAnnotation]; nodeSelector != "" {
-		var nodeSelectorKV map[string]string
-		if err := json.Unmarshal([]byte(nodeSelector), &nodeSelectorKV); err != nil {
-			log.Debugf("failed to unmarshal node selector annotation value for service %s.%s: %v",
-				svc.Name, svc.Namespace, err)
-		}
-		return nodeSelectorKV
-	}
-	return nil
-}
-
 func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
-	if err := c.checkReadyForEvents(); err != nil {
-		return err
-	}
 	node, ok := obj.(*v1.Node)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -414,15 +382,6 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func nodeEquals(a, b kubernetesNode) bool {
-	return a.address == b.address && a.labels.Equals(b.labels)
-}
-
-func isNodePortGatewayService(svc *v1.Service) bool {
-	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
-	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
-}
-
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
 	equalsFunc func(old, cur interface{}) bool, handler func(interface{}, model.Event) error) {
 
@@ -436,7 +395,15 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				if !equalsFunc(old, cur) {
+				oldObj := old.(metav1.Object)
+				newObj := cur.(metav1.Object)
+				if oldObj.GetResourceVersion() == newObj.GetResourceVersion() {
+					return
+				}
+				// only call handler when:
+				// 1. no equalsFunc specified
+				// 2. object changed
+				if equalsFunc != nil || !equalsFunc(old, cur) {
 					incrementEvent(otype, "update")
 					q.Push(func() error {
 						return handler(cur, model.EventUpdate)
@@ -454,43 +421,6 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 		})
 }
 
-func portsEqual(a, b []v1.EndpointPort) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i].Name != b[i].Name || a[i].Port != b[i].Port || a[i].Protocol != b[i].Protocol ||
-			ptrValueOrEmpty(a[i].AppProtocol) != ptrValueOrEmpty(b[i].AppProtocol) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func addressesEqual(a, b []v1.EndpointAddress) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i].IP != b[i].IP || a[i].Hostname != b[i].Hostname ||
-			ptrValueOrEmpty(a[i].NodeName) != ptrValueOrEmpty(b[i].NodeName) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func ptrValueOrEmpty(ptr *string) string {
-	if ptr != nil {
-		return *ptr
-	}
-	return ""
-}
-
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
 	if !c.serviceInformer.HasSynced() ||
@@ -505,8 +435,8 @@ func (c *Controller) HasSynced() bool {
 // Run all controllers until a signal is received
 func (c *Controller) Run(stop <-chan struct{}) {
 	if c.networksWatcher != nil {
-		c.networksWatcher.AddNetworksHandler(c.initNetworkLookup)
-		c.initNetworkLookup()
+		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
+		c.reloadNetworkLookup()
 	}
 
 	go func() {
@@ -538,7 +468,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		out = append(out, svc)
 	}
 	c.RUnlock()
-	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
+	sort.Slice(out, func(i, j int) bool { return out[i].CreationTime.Before(out[j].CreationTime) })
 
 	return out, nil
 }
@@ -937,27 +867,6 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
-	allServices, err := s.Services(pod.Namespace).List(klabels.Everything())
-	if err != nil {
-		return nil, err
-	}
-
-	var services []*v1.Service
-	for _, service := range allServices {
-		if service.Spec.Selector == nil {
-			// services with nil selectors match nothing, not everything.
-			continue
-		}
-		selector := klabels.Set(service.Spec.Selector).AsSelectorPreValidated()
-		if selector.Matches(klabels.Set(pod.Labels)) {
-			services = append(services, service)
-		}
-	}
-
-	return services, nil
-}
-
 // getProxyServiceInstancesFromMetadata retrieves ServiceInstances using proxy Metadata rather than
 // from the Pod. This allows retrieving Instances immediately, regardless of delays in Kubernetes.
 // If the proxy doesn't have enough metadata, an error is returned
@@ -1048,26 +957,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	return out, nil
 }
 
-// findPortFromMetadata resolves the TargetPort of a Service Port, by reading the Pod spec.
-func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int, error) {
-	target := svcPort.TargetPort
-
-	switch target.Type {
-	case intstr.String:
-		name := target.StrVal
-		for _, port := range podPorts {
-			if port.Name == name {
-				return port.ContainerPort, nil
-			}
-		}
-	case intstr.Int:
-		// For a direct reference we can just return the port number
-		return target.IntValue(), nil
-	}
-
-	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
-}
-
 func (c *Controller) getProxyServiceInstancesByPod(pod *v1.Pod, service *v1.Service, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
@@ -1154,102 +1043,4 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
-}
-
-// namedRangerEntry for holding network's CIDR and name
-type namedRangerEntry struct {
-	name    string
-	network net.IPNet
-}
-
-// returns the IPNet for the network
-func (n namedRangerEntry) Network() net.IPNet {
-	return n.network
-}
-
-// initNetworkLookup will read the mesh networks configuration from the environment
-// and initialize CIDR rangers for an efficient network lookup when needed
-func (c *Controller) initNetworkLookup() {
-	meshNetworks := c.networksWatcher.Networks()
-	if meshNetworks == nil || len(meshNetworks.Networks) == 0 {
-		return
-	}
-
-	c.ranger = cidranger.NewPCTrieRanger()
-
-	for n, v := range meshNetworks.Networks {
-		for _, ep := range v.Endpoints {
-			if ep.GetFromCidr() != "" {
-				_, network, err := net.ParseCIDR(ep.GetFromCidr())
-				if err != nil {
-					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), n)
-					continue
-				}
-				rangerEntry := namedRangerEntry{
-					name:    n,
-					network: *network,
-				}
-				_ = c.ranger.Insert(rangerEntry)
-			}
-			if ep.GetFromRegistry() != "" && ep.GetFromRegistry() == c.clusterID {
-				c.networkForRegistry = n
-			}
-		}
-	}
-}
-
-// return the mesh network for the endpoint IP. Empty string if not found.
-func (c *Controller) endpointNetwork(endpointIP string) string {
-	// If networkForRegistry is set then all endpoints discovered by this registry
-	// belong to the configured network so simply return it
-	if len(c.networkForRegistry) != 0 {
-		return c.networkForRegistry
-	}
-
-	// Try to determine the network by checking whether the endpoint IP belongs
-	// to any of the configure networks' CIDR ranges
-	if c.ranger == nil {
-		return ""
-	}
-	entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
-	if err != nil {
-		log.Errora(err)
-		return ""
-	}
-	if len(entries) == 0 {
-		return ""
-	}
-	if len(entries) > 1 {
-		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
-	}
-
-	return (entries[0].(namedRangerEntry)).name
-}
-
-// Forked from Kubernetes k8s.io/kubernetes/pkg/api/v1/pod
-// FindPort locates the container port for the given pod and portName.  If the
-// targetPort is a number, use that.  If the targetPort is a string, look that
-// string up in all named ports in all containers in the target pod.  If no
-// match is found, fail.
-func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
-	portName := svcPort.TargetPort
-	switch portName.Type {
-	case intstr.String:
-		name := portName.StrVal
-		for _, container := range pod.Spec.Containers {
-			for _, port := range container.Ports {
-				if port.Name == name && port.Protocol == svcPort.Protocol {
-					return int(port.ContainerPort), nil
-				}
-			}
-		}
-	case intstr.Int:
-		return portName.IntValue(), nil
-	}
-
-	return 0, fmt.Errorf("no suitable port for manifest: %s", pod.UID)
-}
-
-func createUID(podName, namespace string) string {
-	return "kubernetes://" + podName + "." + namespace
 }
