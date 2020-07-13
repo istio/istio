@@ -18,8 +18,6 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/client-go/rest"
-
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
@@ -115,14 +113,7 @@ func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
 	out := make([]istioKube.ExtendedClient, 0, len(kubeConfigs))
 	for _, cfg := range kubeConfigs {
 		if len(cfg) > 0 {
-			restCfg, err := istioKube.DefaultRestConfig(cfg, "", func(config *rest.Config) {
-				config.QPS = 50
-				config.Burst = 100
-			})
-			if err != nil {
-				return nil, err
-			}
-			a, err := istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(restCfg), "")
+			a, err := istioKube.NewExtendedClient(istioKube.BuildClientCmd(cfg, ""), "")
 			if err != nil {
 				return nil, fmt.Errorf("client setup: %v", err)
 			}

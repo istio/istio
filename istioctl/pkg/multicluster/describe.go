@@ -34,20 +34,21 @@ var (
 type remoteSecretStatus string
 
 const (
-	rsStatusNotFound          remoteSecretStatus = "notFound"
-	rsStatusConfigMissing     remoteSecretStatus = "configMissing"
-	rsStatusConfigDecodeError remoteSecretStatus = "configDecodeError"
-	rsStatusConfigInvalid     remoteSecretStatus = "configInvalid"
-	rsStatusServerNotFound    remoteSecretStatus = "serverNotFound"
-	rsStatusOk                remoteSecretStatus = "ok"
+	rsStatusNotFound           remoteSecretStatus = "notFound"
+	rsStatusConfigMissing      remoteSecretStatus = "configMissing"
+	rsStatusConfigDecodeError  remoteSecretStatus = "configDecodeError"
+	rsStatusConfigInvalid      remoteSecretStatus = "configInvalid"
+	rsStatusServerNotFound     remoteSecretStatus = "serverNotFound"
+	seStatusServerAddrMismatch remoteSecretStatus = "serverAddrMismatch"
+	rsStatusOk                 remoteSecretStatus = "ok"
 )
 
-func secretStateAndServer(srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
-	remoteSecret, ok := srs[c.Name]
+func secretStateAndServer(env Environment, srs remoteSecrets, c *Cluster) (remoteSecretStatus, string) {
+	remoteSecret, ok := srs[c.clusterName]
 	if !ok {
 		return rsStatusNotFound, ""
 	}
-	key := c.Name
+	key := c.clusterName
 	kubeconfig, ok := remoteSecret.Data[key]
 	if !ok {
 		return rsStatusConfigMissing, ""
@@ -65,13 +66,20 @@ func secretStateAndServer(srs remoteSecrets, c *Cluster) (remoteSecretStatus, st
 		return rsStatusServerNotFound, ""
 	}
 
+	server := cluster.Server
+	if configCluster, ok := env.GetConfig().Clusters[c.Context]; ok {
+		if server != configCluster.Server {
+			return seStatusServerAddrMismatch, fmt.Sprintf("%v (%v from local kubeconfig)", server, configCluster.Server)
+		}
+	}
+
 	return rsStatusOk, cluster.Server
 }
 
-func describeCACerts(printer Printer, c *Cluster, indent string) {
-	secrets := c.readCACerts(printer)
+func describeCACerts(env Environment, c *Cluster, indent string) {
+	secrets := c.readCACerts(env)
 
-	tw := tabwriter.NewWriter(printer.Stdout(), 0, 8, 2, '\t', 0)
+	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
 	_, _ = fmt.Fprintf(tw, "%vNAME\tISSUER\tSUBJECT\tNOTAFTER\n", indent)
 
 	for _, info := range []struct {
@@ -95,22 +103,22 @@ func describeCACerts(printer Printer, c *Cluster, indent string) {
 	_ = tw.Flush()
 }
 
-func describeRemoteSecrets(printer Printer, mesh *Mesh, c *Cluster, indent string) {
-	serviceRegistrySecrets := c.readRemoteSecrets(printer)
+func describeRemoteSecrets(env Environment, mesh *Mesh, c *Cluster, indent string) {
+	serviceRegistrySecrets := c.readRemoteSecrets(env)
 
-	tw := tabwriter.NewWriter(printer.Stdout(), 0, 8, 2, '\t', 0)
+	tw := tabwriter.NewWriter(env.Stdout(), 0, 8, 2, '\t', 0)
 	_, _ = fmt.Fprintf(tw, "%vCONTEXT\tUID\tREGISTERED\tMASTER\t\n", indent)
 	for _, other := range mesh.SortedClusters() {
-		if other.Name == c.Name {
+		if other.clusterName == c.clusterName {
 			continue
 		}
 
-		secretState, server := secretStateAndServer(serviceRegistrySecrets, other)
+		secretState, server := secretStateAndServer(env, serviceRegistrySecrets, other)
 
 		_, _ = fmt.Fprintf(tw, "%v%v\t%v\t%v\t%v\n",
 			indent,
 			other.Context,
-			other.Name,
+			other.clusterName,
 			secretState,
 			server,
 		)
@@ -118,61 +126,74 @@ func describeRemoteSecrets(printer Printer, mesh *Mesh, c *Cluster, indent strin
 	_ = tw.Flush()
 }
 
-func describeIngressGateways(printer Printer, c *Cluster, indent string) { // nolint: interfacer
+func describeIngressGateways(env Environment, c *Cluster, indent string) { // nolint: interfacer
 	gateways := c.readIngressGateways()
 
-	printer.Printf("%vgateways: ", indent)
+	env.Printf("%vgateways: ", indent)
 	if len(gateways) == 0 {
-		printer.Printf("<none>")
+		env.Printf("<none>")
 	} else {
 		for i, gateway := range gateways {
-			printer.Printf("%v", gateway)
+			env.Printf("%v", gateway)
 			if i < len(gateways)-1 {
-				printer.Printf(", ")
+				env.Printf(", ")
 			}
 		}
 	}
-	printer.Printf("\n")
+	env.Printf("\n")
 }
 
-func describeCluster(printer Printer, mesh *Mesh, c *Cluster) error {
-	printer.Printf("%v Context=%v clusterName=%v network=%v istio=%v %v\n",
+func describeCluster(env Environment, mesh *Mesh, c *Cluster) error {
+	env.Printf("%v Context=%v clusterName=%v network=%v istio=%v %v\n",
 		strings.Repeat("-", 10),
 		c.Context,
-		c.Name,
+		c.clusterName,
 		c.Network,
-		c.Installed,
+		c.installed,
 		strings.Repeat("-", 10))
 
 	indent := strings.Repeat(" ", 4)
 
-	printer.Printf("\n")
-	describeCACerts(printer, c, indent)
+	env.Printf("\n")
+	describeCACerts(env, c, indent)
 
-	printer.Printf("\n")
-	describeRemoteSecrets(printer, mesh, c, indent)
+	env.Printf("\n")
+	describeRemoteSecrets(env, mesh, c, indent)
 
-	printer.Printf("\n")
-	describeIngressGateways(printer, c, indent)
+	env.Printf("\n")
+	describeIngressGateways(env, c, indent)
 
 	// TODO verify all clustersByContext have common trust
 
 	return nil
 }
 
-// Describe status of the multi-cluster mesh's control plane.
-func Describe(all bool, mesh *Mesh, printer Printer) error {
-	if all {
-		for _, cluster := range mesh.SortedClusters() {
-			if err := describeCluster(printer, mesh, cluster); err != nil {
-				printer.Errorf("could not describe cluster %v: %v\n", cluster, err)
-			}
-			printer.Printf("%v\n", clusterDisplaySeparator)
-		}
-		return nil
+func Describe(opt describeOptions, env Environment) error {
+	mesh, err := meshFromFileDesc(opt.filename, env)
+	if err != nil {
+		return err
 	}
 
-	return describeCluster(printer, mesh, mesh.Subject())
+	if opt.all {
+		for _, cluster := range mesh.SortedClusters() {
+			if err := describeCluster(env, mesh, cluster); err != nil {
+				env.Errorf("could not describe cluster %v: %v\n", cluster, err)
+			}
+			env.Printf("%v\n", clusterDisplaySeparator)
+		}
+	} else {
+		context := opt.Context
+		if context == "" {
+			context = env.GetConfig().CurrentContext
+		}
+		cluster, ok := mesh.clustersByContext[context]
+		if !ok {
+			return fmt.Errorf("cluster %v not found", context)
+		}
+		return describeCluster(env, mesh, cluster)
+	}
+
+	return nil
 }
 
 type describeOptions struct {
@@ -204,21 +225,11 @@ func NewDescribeCommand() *cobra.Command {
 			if err := opt.prepare(c.Flags()); err != nil {
 				return err
 			}
-
-			printer := NewPrinterFromCobra(c)
-			clientFactory := NewClientFactory()
-
-			kubeContext, err := contextOrDefault(opt.Kubeconfig, opt.Context)
+			env, err := NewEnvironmentFromCobra(opt.Kubeconfig, opt.Context, c)
 			if err != nil {
 				return err
 			}
-
-			mesh, err := meshFromFileDesc(opt.filename, opt.Kubeconfig, kubeContext, clientFactory, printer)
-			if err != nil {
-				return err
-			}
-
-			return Describe(opt.all, mesh, printer)
+			return Describe(opt, env)
 		},
 	}
 	opt.addFlags(c.PersistentFlags())

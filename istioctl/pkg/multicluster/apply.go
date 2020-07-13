@@ -31,7 +31,7 @@ import (
 )
 
 func deleteSecret(cluster *Cluster, s *v1.Secret) error {
-	return cluster.CoreV1().Secrets(cluster.Namespace).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
+	return cluster.client.CoreV1().Secrets(cluster.Namespace).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
 }
 
 // update current state to match desired state.
@@ -58,20 +58,19 @@ func updateRemoteSecret(prev, curr *v1.Secret) (changed bool) {
 	return changed
 }
 
-func applySecret(poller Poller, cluster *Cluster, curr *v1.Secret) error {
-	err := poller.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
-		prev, err := cluster.CoreV1().Secrets(cluster.Namespace).Get(context.TODO(), curr.Name, metav1.GetOptions{})
+func applySecret(env Environment, cluster *Cluster, curr *v1.Secret) error {
+	err := env.Poll(500*time.Millisecond, 5*time.Second, func() (bool, error) {
+		prev, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Get(context.TODO(), curr.Name, metav1.GetOptions{})
 		if err == nil {
 			if changed := updateRemoteSecret(prev, curr); changed {
-				if _, err := cluster.CoreV1().Secrets(cluster.Namespace).Update(context.TODO(),
-					prev, metav1.UpdateOptions{}); err != nil {
+				if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Update(context.TODO(), prev, metav1.UpdateOptions{}); err != nil {
 					return false, err
 				}
 			}
 			return true, nil
 		}
 
-		if _, err := cluster.CoreV1().Secrets(cluster.Namespace).Create(context.TODO(), curr, metav1.CreateOptions{}); err != nil {
+		if _, err := cluster.client.CoreV1().Secrets(cluster.Namespace).Create(context.TODO(), curr, metav1.CreateOptions{}); err != nil {
 			return false, err
 		}
 		return true, nil
@@ -79,8 +78,7 @@ func applySecret(poller Poller, cluster *Cluster, curr *v1.Secret) error {
 	return err
 }
 
-// Apply updates clusters in a multi-cluster mesh based on mesh topology.
-func Apply(mesh *Mesh, poller Poller, printer Printer) error {
+func apply(mesh *Mesh, env Environment) error {
 	var errs *multierror.Error
 
 	currentSecretsByUID := make(map[string]*v1.Secret)
@@ -89,44 +87,51 @@ func Apply(mesh *Mesh, poller Poller, printer Printer) error {
 	sortedClusters := mesh.SortedClusters()
 	for _, cluster := range sortedClusters {
 		// skip clusters without Istio installed
-		if !cluster.Installed {
-			printer.Printf("not joining cluster %v, Istio control plane not found\n", cluster)
+		if !cluster.installed {
+			env.Printf("not joining cluster %v, Istio control plane not found\n", cluster)
 			continue
 		}
 
-		// TODO add auth provider option (e.g. gcp)
-		secret, err := CreateRemoteSecret(cluster.Name, cluster.Namespace, cluster.ServiceAccountReader,
-			RemoteSecretAuthTypeBearerToken, "", nil, cluster)
+		opt := RemoteSecretOptions{
+			KubeOptions: KubeOptions{
+				Context:   cluster.Context,
+				Namespace: cluster.Namespace,
+			},
+			ServiceAccountName: cluster.ServiceAccountReader,
+			AuthType:           RemoteSecretAuthTypeBearerToken,
+			// TODO add auth provider option (e.g. gcp)
+		}
+		secret, err := createRemoteSecret(opt, cluster.client, env)
 		if err != nil {
 			err := fmt.Errorf("not joining cluster %v, could not creating remote secret: %v", cluster.Context, err)
 			errs = multierror.Append(errs, err)
 			continue
 		}
 
-		currentSecretsByUID[cluster.Name] = secret
+		currentSecretsByUID[cluster.clusterName] = secret
 
 		// build the list of currentSecretsByUID to potentially prune
-		existingSecretsByUID[cluster.Name] = cluster.readRemoteSecrets(printer)
+		existingSecretsByUID[cluster.clusterName] = cluster.readRemoteSecrets(env)
 	}
 
 	joined := make(map[string]bool)
 
 	for _, first := range sortedClusters {
-		if first.DisableRegistryJoin || !first.Installed {
+		if first.DisableRegistryJoin || !first.installed {
 			continue
 		}
 
 		for _, second := range sortedClusters {
-			if first.Name == second.Name {
+			if first.clusterName == second.clusterName {
 				continue
 			}
 
-			if second.DisableRegistryJoin || !second.Installed {
+			if second.DisableRegistryJoin || !second.installed {
 				continue
 			}
 
 			// skip pairs we've already joined
-			id0, id1 := first.Name, second.Name
+			id0, id1 := first.clusterName, second.clusterName
 			if strings.Compare(id0, id1) > 0 {
 				id1, id0 = id0, id1
 			}
@@ -136,7 +141,7 @@ func Apply(mesh *Mesh, poller Poller, printer Printer) error {
 			}
 			joined[hash] = true
 
-			printer.Printf("(re)joining %v and %v\n", first, second)
+			env.Printf("(re)joining %v and %v\n", first, second)
 
 			// pairwise join
 			for _, s := range []struct {
@@ -146,15 +151,15 @@ func Apply(mesh *Mesh, poller Poller, printer Printer) error {
 				{first, second},
 				{second, first},
 			} {
-				remoteSecret, ok := currentSecretsByUID[s.remote.Name]
+				remoteSecret, ok := currentSecretsByUID[s.remote.clusterName]
 				if !ok {
 					continue
 				}
 
-				if err := applySecret(poller, s.local, remoteSecret); err != nil {
-					printer.Errorf("%v failed: %v\n", s.local, err)
+				if err := applySecret(env, s.local, remoteSecret); err != nil {
+					env.Errorf("%v failed: %v\n", s.local, err)
 				}
-				delete(existingSecretsByUID[s.local.Name], s.remote.Name)
+				delete(existingSecretsByUID[s.local.clusterName], s.remote.clusterName)
 			}
 		}
 	}
@@ -162,11 +167,11 @@ func Apply(mesh *Mesh, poller Poller, printer Printer) error {
 	// existingSecretsByUID any leftover currentSecretsByUID
 	for uid, secrets := range existingSecretsByUID {
 		for _, secret := range secrets {
-			cluster := mesh.GetCluster(uid)
+			cluster := mesh.clustersByClusterName[uid]
 			fmt.Printf("Pruning %v from %v\n", secret.Name, cluster)
 			if err := deleteSecret(cluster, secret); err != nil {
 				err := fmt.Errorf("failed to prune secret %v from cluster %v: %v", secret.Name, cluster, err)
-				printer.Errorf(err.Error())
+				env.Errorf(err.Error())
 				errs = multierror.Append(errs, err)
 				continue
 			}
@@ -200,21 +205,15 @@ func NewApplyCommand() *cobra.Command {
 			if err := opt.prepare(c.Flags()); err != nil {
 				return err
 			}
-
-			poller := NewPoller()
-			printer := NewPrinterFromCobra(c)
-			clientFactory := NewClientFactory()
-
-			kubeContext, err := contextOrDefault(opt.Kubeconfig, opt.Context)
+			env, err := NewEnvironmentFromCobra(opt.Kubeconfig, opt.Context, c)
 			if err != nil {
 				return err
 			}
-
-			mesh, err := meshFromFileDesc(opt.filename, opt.Kubeconfig, kubeContext, clientFactory, printer)
+			mesh, err := meshFromFileDesc(opt.filename, env)
 			if err != nil {
 				return err
 			}
-			return Apply(mesh, poller, printer)
+			return apply(mesh, env)
 		},
 	}
 	opt.addFlags(c.PersistentFlags())
