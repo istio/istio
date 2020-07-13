@@ -30,7 +30,9 @@ import (
 	istioversion "istio.io/pkg/version"
 )
 
-// RequestAndProcessXds merges XDS responses from 1 central or 1..N local XDS servers
+// RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
+// Deprecated This method makes multiple responses appear to come from a single control plane;
+// consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
 // nolint: lll
 func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (*xdsapi.DiscoveryResponse, error) {
 
@@ -40,7 +42,7 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 	}
 
 	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
-	responses, err := queryEachShard(dr, istioNamespace, kubeClient, centralOpts)
+	responses, err := queryEachShard(true, dr, istioNamespace, kubeClient, centralOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +50,7 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 }
 
 // nolint: lll
-func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
+func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "istio=pilot"
@@ -85,6 +87,9 @@ func queryEachShard(dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClie
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
 		responses = append(responses, response)
+		if !all && len(responses) > 0 {
+			break
+		}
 	}
 	return responses, nil
 }
@@ -113,9 +118,21 @@ func makeSan(istioNamespace, revision string) string {
 	return fmt.Sprintf("istiod-%s.%s.svc", revision, istioNamespace)
 }
 
-// AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N local XDS servers
+// AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // nolint: lll
 func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	return multiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, kubeClient)
+}
+
+// FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
+// stopping after the first response that returns any resources.
+// nolint: lll
+func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	return multiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, kubeClient)
+}
+
+// nolint: lll
+func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
 
 	// If Central Istiod case, just call it
 	if centralOpts.Xds != "" {
@@ -129,7 +146,7 @@ func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioption
 	}
 
 	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
-	responses, err := queryEachShard(dr, istioNamespace, kubeClient, centralOpts)
+	responses, err := queryEachShard(all, dr, istioNamespace, kubeClient, centralOpts)
 	if err != nil {
 		return nil, err
 	}

@@ -15,9 +15,6 @@
 package xds
 
 import (
-	"net/url"
-	"strings"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
@@ -156,19 +153,7 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	res := []*any.Any{}
 
-	// Look for ?query parameters.  We don't use url.Parse() because we have no scheme
-	typeURL := w.TypeUrl
-	var qparams url.Values
-	if qIndex := strings.Index(w.TypeUrl, "?"); qIndex >= 0 {
-		typeURL = w.TypeUrl[:qIndex]
-		var err error
-		qparams, err = url.ParseQuery(w.TypeUrl[qIndex+1:])
-		if err != nil {
-			adsLog.Infof("Invalid TypeUrl query params: %q", w.TypeUrl)
-		}
-	}
-
-	switch typeURL {
+	switch w.TypeUrl {
 	case TypeURLConnections:
 		sg.Server.adsClientsMutex.RLock()
 		// Create a temp map to avoid locking the add/remove
@@ -179,16 +164,23 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	case TypeDebugSyncronization:
 		res = sg.debugSyncz()
 	case TypeDebugConfigDump:
-		proxyID := qparams.Get("proxyID")
-		if proxyID == "" {
-			adsLog.Info("Config Dump w/o proxyID query parameter")
+		if len(w.ResourceNames) == 0 {
+			adsLog.Info("Config Dump w/o proxyID resource name")
 			break
 		}
-		res = sg.debugConfigDump(proxyID)
+		res = sg.debugConfigDump(w.ResourceNames[0])
 	default:
 		adsLog.Infof("Unknown TypeUrl: %q", w.TypeUrl)
 	}
 	return res
+}
+
+// isSidecar ad-hoc method to see if connection represents a sidecar
+func isSidecar(con *Connection) bool {
+	return con != nil &&
+		con.node != nil &&
+		con.node.Metadata != nil &&
+		con.node.Metadata.ProxyConfig != nil
 }
 
 func (sg *InternalGen) debugSyncz() []*any.Any {
@@ -198,7 +190,7 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 	for _, con := range sg.Server.adsClients {
 		con.mu.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
-		if con.node != nil && con.node.Metadata != nil && con.node.Metadata.ProxyConfig != nil {
+		if isSidecar(con) {
 			xdsConfigs := []*status.PerXdsConfig{}
 			for stype, watchedResource := range con.node.Active {
 				pxc := &status.PerXdsConfig{
@@ -213,8 +205,6 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
 				case pilot_xds_v3.ClusterShortType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
-				default:
-					adsLog.Warnf("Unknown watchedResource type: %q", stype)
 				}
 				xdsConfigs = append(xdsConfigs, pxc)
 			}

@@ -123,16 +123,17 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				path := "config_dump"
 				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
 				if err != nil {
-					return err
+					return fmt.Errorf("could not contact sidecar: %w", err)
 				}
 
 				xdsRequest := xdsapi.DiscoveryRequest{
+					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
 					Node: &envoy_corev3.Node{
 						Id: "debug~0.0.0.0~istioctl~cluster.local",
 					},
-					TypeUrl: fmt.Sprintf("%s?proxyID=%s.%s", pilotxds.TypeDebugConfigDump, podName, ns),
+					TypeUrl: pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
 				if err != nil {
 					return err
 				}
