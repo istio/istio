@@ -666,7 +666,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				var err error
 				if SupportRotationWithCert {
 					// it user set it to SupportRotationWithCert True rotate the cert using old valid cert without token
-					ns, err = sc.generateSecret(context.Background(), EmptyToken ,connKey, now, false)
+					ns, err = sc.generateSecret(context.Background(), EmptyToken, connKey, now, false)
 				} else {
 					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now, true)
 				}
