@@ -245,7 +245,14 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 			instances = append(instances, convertInstances(curr, updatedSvcs)...)
 		}
 		if len(unchangedSvcs) > 0 {
-			instances = append(instances, convertInstances(curr, unchangedSvcs)...)
+			currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
+			oldServiceEntry := old.Spec.(*networking.ServiceEntry)
+			// Non DNS service entries are sent via EDS. So we should compare and update if such endpoints change.
+			if currentServiceEntry.Resolution != networking.ServiceEntry_DNS {
+				if !reflect.DeepEqual(currentServiceEntry.Endpoints, oldServiceEntry.Endpoints) {
+					instances = append(instances, convertInstances(curr, unchangedSvcs)...)
+				}
+			}
 		}
 		s.edsUpdate(instances)
 
