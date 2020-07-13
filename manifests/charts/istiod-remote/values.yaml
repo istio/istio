@@ -119,3 +119,7 @@ pilot:
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
+global:
+
+  # One central istiod controls all remote clusters: disabled by default
+  centralIstiod: false
