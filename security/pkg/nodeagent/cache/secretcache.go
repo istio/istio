@@ -291,7 +291,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
-		ns, err := sc.generateSecret(ctx, token, connKey, time.Now())
+		ns, err := sc.generateSecret(ctx, token, connKey, time.Now(), true)
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
 				logPrefix, err)
@@ -665,9 +665,10 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				var ns *model.SecretItem
 				var err error
 				if SupportRotationWithCert {
-					ns, err = sc.generateSecretUsingCaClientWithoutToken(context.Background(), connKey, now)
+					// it user set it to SupportRotationWithCert True rotate the cert using old valid cert without token
+					ns, err = sc.generateSecret(context.Background(), EmptyToken ,connKey, now, false)
 				} else {
-					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now)
+					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now, true)
 				}
 				if err != nil {
 					cacheLog.Errorf("%s failed to rotate secret: %v", logPrefix, err)
@@ -954,7 +955,7 @@ func (sc *SecretCache) generateSecretUsingCaClientWithoutToken(ctx context.Conte
 	}, nil
 }
 
-func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
+func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time, withToken bool) (*model.SecretItem, error) {
 	// If node agent works as ingress gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
@@ -997,7 +998,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
 	timeBeforeCSR := time.Now()
-	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true)
+	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true, withToken)
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
 	if err != nil {
@@ -1080,7 +1081,7 @@ func (sc *SecretCache) isTokenExpired(secret *model.SecretItem) bool {
 // sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
-	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
+	providedExchangedToken string, connKey ConnKey, isCSR bool, withToken bool) ([]string, error) {
 
 	if sc.configOptions.InitialBackoffInMilliSec > 0 {
 		sc.randMutex.Lock()
@@ -1107,8 +1108,13 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		var httpRespCode int
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
-			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()), true)
+			if withToken {
+				certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+					ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()), true)
+			} else {
+				certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+					ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()), false)
+			}
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.Plugins[0]
@@ -1216,7 +1222,7 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 		return "", fmt.Errorf("found more than one plugin")
 	}
 	exchangedTokens, err := sc.sendRetriableRequest(ctx, nil, k8sJwtToken,
-		ConnKey{ConnectionID: "", ResourceName: ""}, false)
+		ConnKey{ConnectionID: "", ResourceName: ""}, false, true)
 	if err != nil || len(exchangedTokens) == 0 {
 		cacheLog.Errorf("Failed to exchange token for %s: %v", logPrefix, err)
 		return "", err
