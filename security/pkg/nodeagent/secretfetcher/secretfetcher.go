@@ -505,7 +505,3 @@ func (sf *SecretFetcher) AddSecret(obj interface{}) {
 func (sf *SecretFetcher) DeleteSecret(obj interface{}) {
 	sf.scrtDeleted(obj)
 }
-
-func (sf *SecretFetcher) ResetClientConnectionForCertRotation(isRotate bool) error {
-	return sf.CaClient.Reconnect(isRotate)
-}
