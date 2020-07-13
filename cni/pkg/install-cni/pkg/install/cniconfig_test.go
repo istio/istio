@@ -33,7 +33,9 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		_ = os.RemoveAll(tempDir)
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Fatal(err)
+		}
 	}()
 
 	cases := []struct {
@@ -141,14 +143,14 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			chainedCNIPlugin:  true,
 			specifiedConfName: "list.conflist",
 			expectedConfName:  "list.conflist",
-			existingConfFiles: []string{"bride.conf", "list.conflist"},
+			existingConfFiles: []string{"bridge.conf", "list.conflist"},
 		},
 		{
 			name:              "specified existing CNI config file (.conf to .conflist)",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "list.conf",
 			expectedConfName:  "list.conflist",
-			existingConfFiles: []string{"bride.conf", "list.conflist"},
+			existingConfFiles: []string{"bridge.conf", "list.conflist"},
 		},
 		{
 			name:              "specified existing CNI config file (.conflist to .conf)",
@@ -189,8 +191,11 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer func() {
-				_ = os.RemoveAll(tempDir)
+				if err := os.RemoveAll(tempDir); err != nil {
+					t.Fatal(err)
+				}
 			}()
+
 			// Create existing config files if specified in test case
 			for _, f := range c.existingConfFiles {
 				data, err := ioutil.ReadFile(filepath.Join("testdata", f))
@@ -235,14 +240,14 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			parent, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			resultChan, errChan := make(chan string), make(chan error)
-			go func(t *testing.T, resultChan chan string, errChan chan error, ctx context.Context, cfg pluginConfig) {
+			go func(resultChan chan string, errChan chan error, ctx context.Context, cfg pluginConfig) {
 				result, err := getCNIConfigFilepath(ctx, cfg)
 				if err != nil {
 					errChan <- err
 					return
 				}
 				resultChan <- result
-			}(t, resultChan, errChan, parent, cfg)
+			}(resultChan, errChan, parent, cfg)
 
 			select {
 			case result := <-resultChan:
@@ -298,16 +303,16 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 
 func TestInsertCNIConfig(t *testing.T) {
 	cases := []struct {
-		name   string
-		inFile string
+		name       string
+		inFilename string
 	}{
 		{
-			name:   "regular network file",
-			inFile: "bridge.conf",
+			name:       "regular network file",
+			inFilename: "bridge.conf",
 		},
 		{
-			name:   "list network file",
-			inFile: "list.conflist",
+			name:       "list network file",
+			inFilename: "list.conflist",
 		},
 	}
 
@@ -315,17 +320,17 @@ func TestInsertCNIConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			existingConfFilename := "testdata/" + c.inFile
-			existingConf := testutils.ReadFile(existingConfFilename, t)
+			existingConfFilepath := "testdata/" + c.inFilename
+			existingConf := testutils.ReadFile(existingConfFilepath, t)
 
 			output, err := insertCNIConfig(istioConf, existingConf)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			goldenFilename := existingConfFilename + ".golden"
-			golden := testutils.ReadFile(goldenFilename, t)
-			testutils.CompareBytes(output, golden, goldenFilename, t)
+			goldenFilepath := existingConfFilepath + ".golden"
+			goldenConfig := testutils.ReadFile(goldenFilepath, t)
+			testutils.CompareBytes(output, goldenConfig, goldenFilepath, t)
 		})
 	}
 }
