@@ -338,18 +338,43 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		}
 	}
 
-	var sniHosts []string
-	var tlsContext *tls.DownstreamTlsContext
 	if serverProto.IsHTTP() {
-		// We know that this is a HTTPS server because this function is called only for ports
-		// of type HTTP/HTTPS where HTTPS server's TLS mode is not passthrough and not nil.
-		sniHosts = getSNIHostsForServer(server)
-		tlsContext = buildGatewayListenerTLSContext(server, sdsPath, node.Metadata)
+		return &filterChainOpts{
+			// This works because we validate that only HTTPS servers can have same port but still different port names
+			// and that no two non-HTTPS servers can be on same port or share port names.
+			// Validation is done per gateway and also during merging
+			sniHosts:   nil,
+			tlsContext: nil,
+			httpOpts: &httpListenerOpts{
+				rds:              routeName,
+				useRemoteAddress: true,
+				connectionManager: &hcm.HttpConnectionManager{
+					XffNumTrustedHops: xffNumTrustedHops,
+					// Forward client cert if connection is mTLS
+					ForwardClientCertDetails: forwardClientCertDetails,
+					SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+						Subject: proto.BoolTrue,
+						Cert:    true,
+						Uri:     true,
+						Dns:     true,
+					},
+					ServerName:          EnvoyServerName,
+					HttpProtocolOptions: httpProtoOpts,
+				},
+				addGRPCWebFilter: serverProto == protocol.GRPCWeb,
+			},
+		}
 	}
 
+	// Build a filter chain for the HTTPS server
+	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
+	// where HTTPS server's TLS mode is not passthrough and not nil
 	return &filterChainOpts{
-		sniHosts:   sniHosts,
-		tlsContext: tlsContext,
+		// This works because we validate that only HTTPS servers can have same port but still different port names
+		// and that no two non-HTTPS servers can be on same port or share port names.
+		// Validation is done per gateway and also during merging
+		sniHosts:   getSNIHostsForServer(server),
+		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
 			useRemoteAddress: true,
