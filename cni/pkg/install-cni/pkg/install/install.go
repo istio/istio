@@ -27,7 +27,9 @@ import (
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"istio.io/pkg/log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 )
 
 type configFiles struct {
@@ -38,6 +40,15 @@ type configFiles struct {
 // Run starts the installation process with given configuration
 func Run(cfg *config.Config) (err error) {
 	var files configFiles
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func(cfg *config.Config, sigChan chan os.Signal, cancel context.CancelFunc) {
+		sig := <-sigChan
+		log.Infof("Exit signal received: %s", sig)
+		cancel()
+	}(cfg, sigChan, cancel)
 
 	defer func() {
 		if cleanErr := cleanup(cfg, files); cleanErr != nil {
@@ -77,7 +88,6 @@ func Run(cfg *config.Config) (err error) {
 		// Otherwise, keep container alive
 
 		// Create file watcher before checking for installation
-		ctx := context.Background()
 		var watcher *fsnotify.Watcher
 		var fileModified chan bool
 		var errChan chan error
@@ -92,7 +102,18 @@ func Run(cfg *config.Config) (err error) {
 				break
 			}
 			// Valid configuration; Wait for modifications before checking again
-			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
+			if waitErr := util.WaitForFileMod(ctx, fileModified, errChan); waitErr != nil {
+				if waitErr != context.Canceled {
+					// Error was not caused by interrupt/termination signal
+					err = waitErr
+				}
+				if closeErr := watcher.Close(); closeErr != nil {
+					if err != nil {
+						err = errors.Wrap(err, closeErr.Error())
+					} else {
+						err = closeErr
+					}
+				}
 				return
 			}
 		}
