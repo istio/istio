@@ -82,18 +82,12 @@ func TestUninstallByRevision(t *testing.T) {
 					resources := strings.ToLower(gvk.Kind) + "s"
 					gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
 					ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-					usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
-					if len(usList.Items) != 0 {
-						var stalelist []string
-						for _, item := range usList.Items {
-							stalelist = append(stalelist, item.GroupVersionKind().String())
-						}
-						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s",
-							strings.Join(stalelist, " "))
+					if err := checkResourcesNotInCluster(cs, gvr, ls); err != nil {
+						return err
 					}
 				}
 				return nil
-			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*30))
+			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*60))
 		})
 }
 
@@ -139,17 +133,50 @@ spec:
 					resources := strings.ToLower(obj.Kind) + "s"
 					gvr := schema.GroupVersionResource{Group: obj.Group, Version: obj.Version(), Resource: resources}
 					ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
-					usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
-					if len(usList.Items) != 0 {
-						var stalelist []string
-						for _, item := range usList.Items {
-							stalelist = append(stalelist, item.GroupVersionKind().String())
-						}
-						return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s",
-							strings.Join(stalelist, " "))
+					if err := checkResourcesNotInCluster(cs, gvr, ls); err != nil {
+						return err
 					}
 				}
 				return nil
-			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*30))
+			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*60))
 		})
+}
+
+func TestUninstallPurge(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.istioctl.uninstall").
+		Run(func(ctx framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			uninstallCmd := []string{
+				"x", "uninstall",
+				"--purge", "--skip-confirmation",
+			}
+			istioCtl.InvokeOrFail(t, uninstallCmd)
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+
+			retry.UntilSuccessOrFail(t, func() error {
+				for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.AllClusterResources...) {
+					resources := strings.ToLower(gvk.Kind) + "s"
+					gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
+					if err := checkResourcesNotInCluster(cs, gvr, helmreconciler.IstioComponentLabelStr); err != nil {
+						return err
+					}
+				}
+				return nil
+			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*60))
+		})
+}
+
+func checkResourcesNotInCluster(cs kube.Cluster, gvr schema.GroupVersionResource, ls string) error {
+	usList, _ := cs.Dynamic().Resource(gvr).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: ls})
+	if len(usList.Items) != 0 {
+		var stalelist []string
+		for _, item := range usList.Items {
+			stalelist = append(stalelist, item.GroupVersionKind().String())
+		}
+		return fmt.Errorf("resources expected to be pruned but still exist in the cluster: %s",
+			strings.Join(stalelist, " "))
+	}
+	return nil
 }

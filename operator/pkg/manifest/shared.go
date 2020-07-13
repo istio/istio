@@ -78,7 +78,6 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 	return manifests, mergedIOPS, nil
 }
 
-
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP/IOP files at inFilenames.
 // 2. Profile overlay, if non-default overlay is selected. This also comes either from compiled in or path specified in IOP contained in inFilenames.

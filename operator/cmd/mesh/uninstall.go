@@ -21,9 +21,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	proxyinfo "istio.io/istio/pkg/proxy"
@@ -64,7 +67,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace of Istio Control Plane.")
-	cmd.PersistentFlags().StringVarP(&args.filename, "fileName", "f", "",
+	cmd.PersistentFlags().StringVarP(&args.filename, "filename", "f", "",
 		"The filename of the IstioOperator CR.")
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
@@ -74,12 +77,21 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 	rootArgs := &rootArgs{}
 	uiArgs := &uninstallArgs{}
 	uicmd := &cobra.Command{
-		Use:   "uninstall --revision foo",
+		Use:   "uninstall --revision foo or uninstall --filename iop.yaml",
 		Short: "uninstall the control plane by revision",
 		Long:  "The uninstall command uninstall the control plane by revision or IstioOperator CR",
+		Example: `  # uninstall by revision label foo
+  istioctl uninstall --revision foo
+
+  # uninstall by iop file
+  istioctl uninstall -f iop.yaml
+  
+  # uninstall all istio resources
+  istioctl uninstall --purge
+`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if uiArgs.revision == "" && uiArgs.filename == "" {
-				return fmt.Errorf("at least one of the --revision or --filename flags must be set")
+			if uiArgs.revision == "" && uiArgs.filename == "" && !uiArgs.purge {
+				return fmt.Errorf("at least one of the --revision, --filename or --purge flags must be set")
 			}
 			if len(args) > 0 {
 				return fmt.Errorf("istioctl uninstall does not take arguments")
@@ -99,14 +111,14 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	restConfig, _, clt, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
+	client, err := k8sClient(uiArgs.kubeConfigPath, uiArgs.context)
 	if err != nil {
 		return err
 	}
 
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: rootArgs.dryRun, Log: l, ProgressLog: progress.NewLog()}
-	h, err := helmreconciler.NewHelmReconciler(clt, restConfig, nil, opts)
+	h, err := helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), nil, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}
@@ -114,7 +126,16 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	// If only revision flag is set, we would prune resources by the revision label.
 	// Otherwise we would merge the revision flag and the filename flag and delete resources by generated manifests.
 	if uiArgs.filename == "" {
-		objectsList, tp, err := h.GetPrunedResourcesByRevision(uiArgs.revision, uiArgs.purge)
+		emptyiops := &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: uiArgs.revision}
+		iop, err := translate.IOPStoIOP(emptyiops, "empty", iopv1alpha1.Namespace(emptyiops))
+		if err != nil {
+			return err
+		}
+		h, err := helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), iop, opts)
+		if err != nil {
+			return fmt.Errorf("failed to create reconciler: %v", err)
+		}
+		objectsList, tp, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge)
 		if err != nil {
 			return err
 		}
@@ -122,16 +143,16 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 			return fmt.Errorf("failed to do preuninstall check: %v", err)
 		}
 
-		if err := h.DeleteControlPlaneByRevision(uiArgs.revision, objectsList, uiArgs.purge); err != nil {
-			return fmt.Errorf("failed to prune control plane resources by revision: %v", err)
+		if err := h.DeleteObjectsList(objectsList); err != nil {
+			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 		}
+		opts.ProgressLog.SetState(progress.StateComplete)
+		return nil
 	}
-	manifestMap, iops, err := manifest.GenManifests([]string{uiArgs.filename}, applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
+	manifestMap, iops, err := manifest.GenManifests([]string{uiArgs.filename},
+		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, client.RESTConfig(), l)
 	if err != nil {
 		return err
-	}
-	if iops == nil {
-		return fmt.Errorf("istioOperatorSpec is nil")
 	}
 	if err := preCheckWarnings(cmd, rootArgs, uiArgs, iops.Revision, nil, l); err != nil {
 		return fmt.Errorf("failed to do preuninstall check: %v", err)
@@ -166,7 +187,7 @@ func preCheckWarnings(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallA
 			" and will not function correctly.. ",
 			uiArgs.revision, strings.Join(pids, " \n"))
 	}
-	if uiArgs.skipConfirmation || rootArgs.dryRun {
+	if uiArgs.skipConfirmation {
 		l.LogAndPrint(message)
 		return nil
 	}

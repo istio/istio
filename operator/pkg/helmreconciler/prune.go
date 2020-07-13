@@ -74,7 +74,8 @@ var (
 	NonNamespacedCPResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
 	}
-	AllClusterResources = append(NonNamespacedCPResources,
+	// AllClusterResources orders all cluster scope resources types which should be deleted, including CRD.
+	AllClusterResources = append(NonNamespacedResources,
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr})
 )
 
@@ -112,49 +113,59 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision 
 			fmt.Errorf("there are proxies still pointing to the pruned control plane: %s",
 				strings.Join(pids, " "))
 	}
-	uslist, _, err := h.GetPrunedResourcesByRevision(revision, false)
+	uslist, _, err := h.GetPrunedResources(revision, false)
 	if err != nil {
 		return errStatus, err
 	}
-	if err := h.DeleteControlPlaneByRevision(revision, uslist, false); err != nil {
+	if err := h.DeleteObjectsList(uslist); err != nil {
 		return errStatus, err
 	}
 	return &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_HEALTHY}, nil
 }
 
-// DeleteControlPlaneByRevision removed resources that are in the slice of UnstructuredList and match with specific control plane revision.
-func (h *HelmReconciler) DeleteControlPlaneByRevision(revision string, objectsList []*unstructured.UnstructuredList, purge bool) error {
-	labels := map[string]string{}
-	if !purge {
-		labels = map[string]string{
-			label.IstioRev: revision,
-		}
-	}
+// DeleteObjectsList removed resources that are in the slice of UnstructuredList.
+func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.UnstructuredList) error {
+	var errs util.Errors
 	for _, objects := range objectsList {
-		if !purge {
-			if err := h.deleteResources(nil, labels, string(name.PilotComponentName), objects, false); err != nil {
-				return fmt.Errorf("failed to prune resources: %v", err)
+		for _, o := range objects.Items {
+			obj := object.NewK8sObject(&o, nil, nil)
+			oh := obj.Hash()
+			if h.opts.DryRun {
+				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", oh)
+				continue
 			}
-		} else {
-			if err := h.deleteResources(nil, labels, "", objects, true); err != nil {
-				return fmt.Errorf("failed to prune resources: %v", err)
+
+			err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+			if err != nil {
+				if !strings.Contains(err.Error(), "not found") {
+					errs = util.AppendErr(errs, err)
+				} else {
+					// do not return error if resources are not found
+					h.opts.Log.LogAndPrintf("object: %s is not being deleted: %v", obj.Hash(), err)
+				}
 			}
+			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
 	}
-	return nil
+	cache.FlushObjectCaches()
+
+	return errs.ToError()
 }
 
-// GetPrunedResourcesByRevision get the list of resources to be removed when we prune by revision.
-func (h *HelmReconciler) GetPrunedResourcesByRevision(revision string, purge bool) ([]*unstructured.UnstructuredList, []string, error) {
+// GetPrunedResources get the list of resources to be removed
+// 1. if purge is false, we list the resources by matching revision and component labels.
+// 2. if purge is true, we list the resources by component labels only.
+// UnstructuredList of objects and corresponding hash of format: Kind/Namespace/Name would be returned
+func (h *HelmReconciler) GetPrunedResources(revision string, purge bool) ([]*unstructured.UnstructuredList, []string, error) {
 	var resources []string
 	var usList []*unstructured.UnstructuredList
 	labels := map[string]string{
 		label.IstioRev: revision,
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	gvkList := AllClusterResources
-	if !purge {
-		gvkList = append(NamespacedResources, NonNamespacedCPResources...)
+	gvkList := append(NamespacedResources, NonNamespacedCPResources...)
+	if purge {
+		gvkList = append(NamespacedResources, AllClusterResources...)
 	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
@@ -163,8 +174,15 @@ func (h *HelmReconciler) GetPrunedResourcesByRevision(revision string, purge boo
 		if err != nil {
 			return usList, resources, err
 		}
-		selector = selector.Add(*componentRequirement)
-		if err := h.client.List(context.TODO(), objects, client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		if !purge {
+			err = h.client.List(context.TODO(), objects,
+				client.MatchingLabelsSelector{Selector: selector.Add(*componentRequirement)})
+		} else {
+			s := klabels.NewSelector()
+			err = h.client.List(context.TODO(), objects, client.InNamespace(istioDefaultNamespace),
+				client.MatchingLabelsSelector{Selector: s.Add(*componentRequirement)})
+		}
+		if err != nil {
 			// we only want to retrieve resources clusters
 			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
@@ -177,41 +195,39 @@ func (h *HelmReconciler) GetPrunedResourcesByRevision(revision string, purge boo
 	return usList, resources, nil
 }
 
-// DeleteControlPlaneByManifests removed resources by manifests and revision.
+// DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
+// If purge option is set to true, all manifests would be removed regardless of labels match.
 func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.ManifestMap, revision string, purge bool) error {
-	labels := map[string]string{}
-	manifests := manifestMap.String()
-	// if not purge, we should only remove the control plane resources with matching label
-	if !purge {
-		labels = map[string]string{
-			label.IstioRev:   revision,
-			operatorLabelStr: operatorReconcileStr,
-		}
-		manifests = strings.Join(manifestMap[name.PilotComponentName], "---")
+	labels := map[string]string{
+		label.IstioRev:   revision,
+		operatorLabelStr: operatorReconcileStr,
 	}
-	objects, err := object.ParseK8sObjectsFromYAMLManifest(manifests)
-	if err != nil {
-		return fmt.Errorf("failed parse k8s objects from yaml: %v", err)
-	}
-	unstructuredObjects := unstructured.UnstructuredList{}
-	for _, obj := range objects {
-		obju := obj.UnstructuredObject()
-		if err := util.SetLabel(obju, operatorLabelStr, operatorReconcileStr); err != nil {
-			return fmt.Errorf("failed to apply labels: %v", err)
+	for cn, mf := range manifestMap.Consolidated() {
+		objects, err := object.ParseK8sObjectsFromYAMLManifest(mf)
+		if err != nil {
+			return fmt.Errorf("failed to parse k8s objects from yaml: %v", err)
 		}
-		if err := util.SetLabel(obju, IstioComponentLabelStr, string(name.PilotComponentName)); err != nil {
-			return fmt.Errorf("failed to apply labels: %v", err)
+		if objects == nil {
+			continue
 		}
-		unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
-	}
-	if !purge {
-		if err := h.deleteResources(nil, labels, string(name.PilotComponentName), &unstructuredObjects, false); err != nil {
-			return fmt.Errorf("failed to prune control plane resources: %v", err)
+		unstructuredObjects := unstructured.UnstructuredList{}
+		for _, obj := range objects {
+			if h.opts.DryRun {
+				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", obj.Hash())
+				continue
+			}
+			obju := obj.UnstructuredObject()
+			if err := util.SetLabel(obju, operatorLabelStr, operatorReconcileStr); err != nil {
+				return fmt.Errorf("failed to apply labels: %v", err)
+			}
+			if err := util.SetLabel(obju, IstioComponentLabelStr, cn); err != nil {
+				return fmt.Errorf("failed to apply labels: %v", err)
+			}
+			unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
 		}
-		return nil
-	}
-	if err := h.deleteResources(nil, labels, "", &unstructuredObjects, true); err != nil {
-		return fmt.Errorf("failed to prune control plane resources: %v", err)
+		if err := h.deleteResources(nil, labels, cn, &unstructuredObjects, purge); err != nil {
+			return fmt.Errorf("failed to delete resources: %v", err)
+		}
 	}
 	return nil
 }

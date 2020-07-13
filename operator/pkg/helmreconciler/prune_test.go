@@ -53,13 +53,14 @@ func TestHelmReconciler_DeleteControlPlaneByRevision(t *testing.T) {
 			t.Fatal(err)
 		}
 		iop.Spec.Revision = testRevision
+		iop.Spec.InstallPackagePath = filepath.Join(env.IstioSrc, "manifests")
 
 		h := &HelmReconciler{client: cl, opts: &Options{ProgressLog: progress.NewLog(), Log: clog.NewDefaultLogger()}, iop: iop}
 		manifestMap, err := h.RenderCharts()
 		if err != nil {
-			t.Fatalf("failed to render manfiest: %v", err)
+			t.Fatalf("failed to render manifest: %v", err)
 		}
-		applyResourcesIntoCluster(t, h)
+		applyResourcesIntoCluster(t, h, manifestMap)
 		if err := h.DeleteControlPlaneByManifests(manifestMap, testRevision, false); err != nil {
 			t.Fatalf("HelmReconciler.DeleteControlPlaneByManifests() error = %v", err)
 		}
@@ -83,21 +84,7 @@ func TestHelmReconciler_DeleteControlPlaneByRevision(t *testing.T) {
 	})
 }
 
-func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler) {
-	df := filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml")
-	iopStr, err := ioutil.ReadFile(df)
-	if err != nil {
-		t.Fatal(err)
-	}
-	iop := &v1alpha1.IstioOperator{}
-	if err := util.UnmarshalWithJSONPB(string(iopStr), iop, false); err != nil {
-		t.Fatal(err)
-	}
-	iop.Spec.Revision = testRevision
-	manifestMap, err := h.RenderCharts()
-	if err != nil {
-		t.Fatalf("failed to render manfiest: %v", err)
-	}
+func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler, manifestMap name.ManifestMap) {
 	for cn, ms := range manifestMap.Consolidated() {
 		objects, err := object.ParseK8sObjectsFromYAMLManifest(ms)
 		if err != nil {

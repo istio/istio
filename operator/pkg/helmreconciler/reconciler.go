@@ -346,11 +346,10 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 	for k, v := range coreLabels {
 		labels[k] = v
 	}
-	revision := coreLabels[label.IstioRev]
-	if revision == "" && h.iop != nil {
+	revision := ""
+	if h.iop != nil {
 		revision = h.iop.Spec.Revision
 	}
-
 	// Only pilot component uses revisions
 	if componentName == string(name.PilotComponentName) {
 		if revision == "" {
