@@ -404,6 +404,13 @@ func (a *ADSC) Run() error {
 	a.stream = edsstr
 	a.sendNodeMeta = true
 
+	// Send the initial requests
+	for _, r := range a.cfg.Watch {
+		_ = a.Send(&discovery.DiscoveryRequest{
+			TypeUrl: r,
+		})
+	}
+
 	go a.handleRecv()
 	return nil
 }
