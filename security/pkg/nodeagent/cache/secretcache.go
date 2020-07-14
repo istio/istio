@@ -1035,7 +1035,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
 			if !withToken {
-				// if token is not included in the
+				// if CSR request is without token, set the token to empty
 				exchangedToken = ""
 			}
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
