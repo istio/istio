@@ -27,18 +27,18 @@ import (
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+
+	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
-
-	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
-	"istio.io/pkg/env"
+
 	"istio.io/pkg/log"
 )
 
@@ -61,26 +61,6 @@ import (
 // Or disable the jwt validation while debugging SDS problems.
 
 var (
-	caProviderEnv = env.RegisterStringVar(caProvider, "Citadel", "").Get()
-	// TODO: default to same as discovery address
-	caEndpointEnv = env.RegisterStringVar(caEndpoint, "", "").Get()
-
-	pluginNamesEnv      = env.RegisterStringVar(pluginNames, "", "").Get()
-	enableGatewaySDSEnv = env.RegisterBoolVar(enableGatewaySDS, false, "").Get()
-
-	trustDomainEnv = env.RegisterStringVar(trustDomain, "", "").Get()
-	secretTTLEnv   = env.RegisterDurationVar(secretTTL, 24*time.Hour,
-		"The cert lifetime requested by istio agent").Get()
-	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar(secretRotationGracePeriodRatio, 0.5,
-		"The grace period ratio for the cert rotation, by default 0.5.").Get()
-	secretRotationIntervalEnv = env.RegisterDurationVar(secretRotationInterval, 5*time.Minute,
-		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
-	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar(staledConnectionRecycleInterval, 5*time.Minute,
-		"The ticker to detect and close stale connections").Get()
-	initialBackoffInMilliSecEnv = env.RegisterIntVar(initialBackoffInMilliSec, 0, "").Get()
-	pkcs8KeysEnv                = env.RegisterBoolVar(pkcs8Key, false, "Whether to generate PKCS#8 private keys").Get()
-	eccSigAlgEnv                = env.RegisterStringVar(eccSigAlg, "", "The type of ECC signature algorithm to use when generating private keys").Get()
-
 	// Location of K8S CA root.
 	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
@@ -89,68 +69,13 @@ var (
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
 	// handle secrets mounted from non-citadel CAs.
 	CitadelCACertPath = "./var/run/secrets/istio"
-
-	fileMountedCertsEnv = env.RegisterBoolVar(fileMountedCerts, false, "").Get()
-)
-
-const (
-	// name of authentication provider.
-	caProvider = "CA_PROVIDER"
-
-	// CA endpoint.
-	caEndpoint = "CA_ADDR"
-
-	// names of authentication provider's plugins.
-	pluginNames = "PLUGINS"
-
-	// The trust domain corresponds to the trust root of a system.
-	// Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-	trustDomain = "TRUST_DOMAIN"
-
-	// The gateway SDS mode allows node agent to provision credentials to gateway
-	// proxy by watching kubernetes secrets.
-	enableGatewaySDS = "ENABLE_INGRESS_GATEWAY_SDS"
-
-	// The environmental variable name for secret TTL, node agent decides whether a secret
-	// is expired if time.now - secret.createtime >= secretTTL.
-	// example value format like "90m"
-	secretTTL = "SECRET_TTL"
-
-	// The environmental variable name for grace period ratio that secret is re-generated before
-	// its expiration.
-	// Example value format like "0.5"
-	secretRotationGracePeriodRatio = "SECRET_GRACE_PERIOD_RATIO"
-
-	// The environmental variable name for the interval to check and rotate the key and certs.
-	// Example value format like "20m"
-	secretRotationInterval = "SECRET_ROTATION_CHECK_INTERVAL"
-
-	// The environmental variable name for staled connection recycle job running interval.
-	// example value format like "5m"
-	staledConnectionRecycleInterval = "STALED_CONNECTION_RECYCLE_RUN_INTERVAL"
-
-	// The environmental variable name for the initial backoff in milliseconds.
-	// example value format like "10"
-	initialBackoffInMilliSec = "INITIAL_BACKOFF_MSEC"
-
-	pkcs8Key = "PKCS8_KEY"
-
-	// The type of Elliptical Signature algorithm to use
-	// when generating private keys. Currently only ECDSA is supported.
-	eccSigAlg = "ECC_SIGNATURE_ALGORITHM"
-
-	// Indicates whether proxy uses file mounted certificates.
-	fileMountedCerts = "FILE_MOUNTED_CERTS"
 )
 
 var (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "./etc/istio/proxy/SDS"
 
-	workloadSdsCacheOptions cache.Options
-	gatewaySdsCacheOptions  cache.Options
-	serverOptions           sds.Options
-	gatewaySecretChan       chan struct{}
+	gatewaySecretChan chan struct{}
 )
 
 // Agent contains the configuration of the agent, based on the injected
@@ -179,13 +104,10 @@ type Agent struct {
 
 	// WorkloadSecrets is the interface used to get secrets. The SDS agent
 	// is calling this.
-	WorkloadSecrets cache.SecretManager
+	WorkloadSecrets security.SecretManager
 
 	// If set, this is the Citadel client, used to retrieve certificates.
-	CitadelClient caClientInterface.Client
-
-	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
-	CAEndpoint string
+	CitadelClient security.Client
 
 	// FileMountedCerts indicates whether the proxy is using file mounted certs.
 	FileMountedCerts bool
@@ -208,7 +130,8 @@ type Agent struct {
 
 	xdsServer *xds.SimpleServer
 
-	cfg *AgentConfig
+	cfg     *AgentConfig
+	secOpts *security.Options
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -216,27 +139,6 @@ type Agent struct {
 // Eventually most non-test settings should graduate to ProxyConfig
 // Please don't add 100 parameters to the NewAgent function (or any other)!
 type AgentConfig struct {
-	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
-	// Determines the root CA file to use for connecting to CA gRPC:
-	// - istiod
-	// - kubernetes
-	// - custom -
-	PilotCertProvider string
-
-	// OutputKeyCertToDir is the directory for output the key and certificate
-	OutputKeyCertToDir string
-
-	// Location of JWTPath to connect to CA. If empty, SDS is not possible.
-	// If set SDS will be used.
-	JWTPath string
-
-	// ClusterID is the cluster where the agent resides.
-	// Normally initialized from ISTIO_META_CLUSTER_ID - after a tortuous journey it
-	// makes its way into the ClusterID metadata of Citadel gRPC request to create the cert.
-	// Didn't find much doc - but I suspect used for 'central cluster' use cases - so should
-	// match the cluster name set in the MC setup.
-	ClusterID string
-
 	// LocalXDSAddr is the address of the XDS proxy. If not set, the env variable XDS_LOCAL will be used.
 	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
 	// Set for tests to 127.0.0.1:0.
@@ -251,22 +153,21 @@ type AgentConfig struct {
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 //
-func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
-	a := &Agent{
+func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.Options) *Agent {
+	sa := &Agent{
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
+		secOpts:     sopts,
+	}
+
+	// Fix the defaults - mainly for tests ( main uses env )
+	if sopts.RecycleInterval.Seconds() == 0 {
+		sopts.RecycleInterval = 5 * time.Minute
 	}
 
 	discAddr := proxyConfig.DiscoveryAddress
 
-	a.SDSAddress = "unix:" + LocalSDS
-
-	// If a workload is using file mounted certs, we do not to have to process CA related configuration.
-	if !shouldProvisionCertificates() {
-		log.Info("Workload is using file mounted certificates. Skipping setting CA related configuration")
-		a.FileMountedCerts = true
-		return a
-	}
+	sa.SDSAddress = "unix:" + LocalSDS
 
 	_, discPort, err := net.SplitHostPort(discAddr)
 	if err != nil {
@@ -279,9 +180,9 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 	//   the short lived certs.
 	// - if a JWTPath token exists, will be included in the request.
 
-	if _, err := os.Stat(a.cfg.JWTPath); err != nil {
-		log.Warna("Missing JWT token ", a.cfg.JWTPath)
-		a.cfg.JWTPath = ""
+	if _, err := os.Stat(sa.secOpts.JWTPath); err != nil {
+		log.Warna("Missing JWT token ", sa.secOpts.JWTPath)
+		sa.secOpts.JWTPath = ""
 	}
 	// If original /etc/certs or a separate 'provisioning certs' (VM) are present,
 	// add them to the tlsContext. If server asks for them and they exist - will be provided.
@@ -290,10 +191,10 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 		certDir = citadel.ProvCert
 	}
 	if _, err := os.Stat(certDir + "/key.pem"); err == nil {
-		a.CertsPath = certDir
+		sa.CertsPath = certDir
 	}
-	if a.CertsPath != "" {
-		log.Warna("Using existing certificate ", a.CertsPath)
+	if sa.CertsPath != "" {
+		log.Warna("Using existing certificate ", sa.CertsPath)
 	}
 
 	// If the root-cert is in the old location, use it.
@@ -301,27 +202,37 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 		CitadelCACertPath = certDir
 	}
 
-	a.CAEndpoint = caEndpointEnv
-	if caEndpointEnv == "" {
+	if sa.secOpts.CAEndpoint == "" {
 		// if not set, we will fallback to the discovery address
-		a.CAEndpoint = discAddr
+		sa.secOpts.CAEndpoint = discAddr
 	}
 
 	// TODO: tls should be required in all cases except ":15010" port - it is mainly for debugging/tests.
 	if proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
-		a.RequireCerts = true
+		sa.RequireCerts = true
 	}
 
 	// Istiod uses a fixed, defined port for K8S-signed certificates.
 	// TODO do not special case port 15012
 	if discPort == "15012" {
-		a.RequireCerts = true
+		sa.RequireCerts = true
+	}
+
+	// Next to the envoy config, writeable dir (mounted as mem)
+	sa.secOpts.WorkloadUDSPath = LocalSDS
+	sa.secOpts.CertsDir = sa.CertsPath
+	sa.secOpts.TLSEnabled = sa.RequireCerts
+	// If proxy is using file mounted certs, JWT token is not needed.
+	if sa.secOpts.FileMountedCerts {
+		sa.secOpts.UseLocalJWT = false
+	} else {
+		sa.secOpts.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
 	}
 
 	// Init the XDS proxy part of the agent.
-	a.initXDS()
+	sa.initXDS()
 
-	return a
+	return sa
 }
 
 // Simplified SDS setup. This is called if and only if user has explicitly mounted a K8S JWT token, and is not
@@ -336,46 +247,27 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig) *Agent {
 //
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
 func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
-	applyEnvVars()
-
-	gatewaySdsCacheOptions = workloadSdsCacheOptions
-
-	// Next to the envoy config, writeable dir (mounted as mem)
-	serverOptions.WorkloadUDSPath = LocalSDS
-	serverOptions.CertsDir = sa.CertsPath
-	serverOptions.JWTPath = sa.cfg.JWTPath
-	serverOptions.OutputKeyCertToDir = sa.cfg.OutputKeyCertToDir
-	serverOptions.CAEndpoint = sa.CAEndpoint
-	serverOptions.TLSEnabled = sa.RequireCerts
-	serverOptions.ClusterID = sa.cfg.ClusterID
-	serverOptions.FileMountedCerts = sa.FileMountedCerts
-	// If proxy is using file mounted certs, JWT token is not needed.
-	if sa.FileMountedCerts {
-		serverOptions.UseLocalJWT = false
-	} else {
-		serverOptions.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
-	}
 
 	// TODO: remove the caching, workload has a single cert
 	if sa.WorkloadSecrets == nil {
-		workloadSecretCache, _ := sa.newSecretCache(serverOptions)
-		sa.WorkloadSecrets = workloadSecretCache
+		sa.WorkloadSecrets, _ = sa.newWorkloadSecretCache()
 	}
 
 	var gatewaySecretCache *cache.SecretCache
 	if !isSidecar {
 		if gatewaySdsExists() {
 			log.Infof("Starting gateway SDS")
-			serverOptions.EnableGatewaySDS = true
+			sa.secOpts.EnableGatewaySDS = true
 			// TODO: what is the setting for ingress ?
-			serverOptions.GatewayUDSPath = strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
-			gatewaySecretCache = newGatewaySecretCache(podNamespace)
+			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
+			gatewaySecretCache = sa.newSecretCache(podNamespace)
 		} else {
 			log.Infof("Skipping gateway SDS")
+			sa.secOpts.EnableGatewaySDS = false
 		}
 	}
 
-	server, err := sds.NewServer(serverOptions, sa.WorkloadSecrets, gatewaySecretCache)
+	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets, gatewaySecretCache)
 	if err != nil {
 		return nil, err
 	}
@@ -396,8 +288,8 @@ func gatewaySdsExists() bool {
 	return !os.IsNotExist(err)
 }
 
-// newSecretCache creates the cache for workload secrets and/or gateway secrets.
-func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
+// newWorkloadSecretCache creates the cache for workload secrets and/or gateway secrets.
+func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCache, caClient security.Client) {
 	fetcher := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
@@ -406,24 +298,26 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 
 	var err error
 
-	workloadSdsCacheOptions.Plugins = sds.NewPlugins(serverOptions.PluginNames)
-	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, workloadSdsCacheOptions)
+	if sa.secOpts.TokenExchangers == nil {
+		sa.secOpts.TokenExchangers = sds.NewPlugins(sa.secOpts.PluginNames)
+	}
+	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, sa.secOpts)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if !shouldProvisionCertificates() {
+	if sa.secOpts.FileMountedCerts {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
 		return
 	}
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-	log.Infof("serverOptions.CAEndpoint == %v", serverOptions.CAEndpoint)
-	if (serverOptions.CAProviderName == "GoogleCA" || strings.Contains(serverOptions.CAEndpoint, "googleapis.com")) &&
+	log.Infof("sa.serverOptions.CAEndpoint == %v", sa.secOpts.CAEndpoint)
+	if (sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com")) &&
 		stsclient.GKEClusterURL != "" {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
-		caClient, err = gca.NewGoogleCAClient(serverOptions.CAEndpoint, true)
-		serverOptions.PluginNames = []string{"GoogleTokenExchange"}
+		caClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
+		sa.secOpts.PluginNames = []string{"GoogleTokenExchange"}
 	} else {
 		// Determine the default CA.
 		// If /etc/certs exists - it means Citadel is used (possibly in a mode to only provision the root-cert, not keys)
@@ -435,29 +329,29 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 		tls := true
 		certReadErr := false
 
-		if serverOptions.CAEndpoint == "" {
-			// When serverOptions.CAEndpoint is nil, the default CA endpoint
+		if sa.secOpts.CAEndpoint == "" {
+			// When sa.serverOptions.CAEndpoint is nil, the default CA endpoint
 			// will be a hardcoded default value (e.g., the namespace will be hardcoded
 			// as istio-system).
 			log.Info("Istio Agent uses default istiod CA")
-			serverOptions.CAEndpoint = "istiod.istio-system.svc:15012"
+			sa.secOpts.CAEndpoint = "istiod.istio-system.svc:15012"
 
-			if sa.cfg.PilotCertProvider == "istiod" {
+			if sa.secOpts.PilotCertProvider == "istiod" {
 				log.Info("istiod uses self-issued certificate")
 				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 					certReadErr = true
 				} else {
 					log.Infof("the CA cert of istiod is: %v", string(rootCert))
 				}
-			} else if sa.cfg.PilotCertProvider == "kubernetes" {
+			} else if sa.secOpts.PilotCertProvider == "kubernetes" {
 				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 				if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
 					certReadErr = true
 				}
-			} else if sa.cfg.PilotCertProvider == "custom" {
+			} else if sa.secOpts.PilotCertProvider == "custom" {
 				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-					cache.DefaultRootCertFilePath)
-				if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
+					security.DefaultRootCertFilePath)
+				if rootCert, err = ioutil.ReadFile(security.DefaultRootCertFilePath); err != nil {
 					certReadErr = true
 				}
 			} else {
@@ -467,36 +361,36 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 				rootCert = nil
 				// for debugging only
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
-				serverOptions.CAEndpoint = "istiod.istio-system.svc:15010"
+				sa.secOpts.CAEndpoint = "istiod.istio-system.svc:15010"
 				tls = false
 			}
 		} else {
 			// Explicitly configured CA
-			log.Infoa("Using user-configured CA ", serverOptions.CAEndpoint)
-			if strings.HasSuffix(serverOptions.CAEndpoint, ":15010") {
+			log.Infoa("Using user-configured CA ", sa.secOpts.CAEndpoint)
+			if strings.HasSuffix(sa.secOpts.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
-			} else if serverOptions.TLSEnabled {
-				if sa.cfg.PilotCertProvider == "istiod" {
+			} else if sa.secOpts.TLSEnabled {
+				if sa.secOpts.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
 					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
 						certReadErr = true
 					} else {
 						log.Infof("the CA cert of istiod is: %v", string(rootCert))
 					}
-				} else if sa.cfg.PilotCertProvider == "kubernetes" {
+				} else if sa.secOpts.PilotCertProvider == "kubernetes" {
 					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
 					if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
 						certReadErr = true
 					}
-				} else if sa.cfg.PilotCertProvider == "custom" {
+				} else if sa.secOpts.PilotCertProvider == "custom" {
 					log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-						cache.DefaultRootCertFilePath)
-					if rootCert, err = ioutil.ReadFile(cache.DefaultRootCertFilePath); err != nil {
+						security.DefaultRootCertFilePath)
+					if rootCert, err = ioutil.ReadFile(security.DefaultRootCertFilePath); err != nil {
 						certReadErr = true
 					}
 				} else {
-					log.Errorf("unknown cert provider %v", sa.cfg.PilotCertProvider)
+					log.Errorf("unknown cert provider %v", sa.secOpts.PilotCertProvider)
 					certReadErr = true
 				}
 				if certReadErr {
@@ -521,7 +415,7 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID)
+		caClient, err = citadel.NewCitadelClient(sa.secOpts.CAEndpoint, tls, rootCert, sa.secOpts.ClusterID)
 		if err == nil {
 			sa.CitadelClient = caClient
 		}
@@ -534,66 +428,28 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache 
 	fetcher.UseCaClient = true
 	fetcher.CaClient = caClient
 
-	workloadSdsCacheOptions.TrustDomain = serverOptions.TrustDomain
-	workloadSdsCacheOptions.Pkcs8Keys = serverOptions.Pkcs8Keys
-	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
-
 	return
 }
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
-func newGatewaySecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
+func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
 	gSecretFetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
+	// TODO: use the common init !
 	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
-	if shouldProvisionCertificates() {
-		cs, err := kube.CreateClientset("", "")
-
-		if err != nil {
-			log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
-			os.Exit(1)
-		}
-		gSecretFetcher.FallbackSecretName = "gateway-fallback"
-
-		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
-
-		gatewaySecretChan = make(chan struct{})
-		gSecretFetcher.Run(gatewaySecretChan)
+	cs, err := kube.CreateClientset("", "")
+	if err != nil {
+		log.Errorf("failed to create secretFetcher for gateway proxy: %v", err)
+		os.Exit(1)
 	}
-	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, gatewaySdsCacheOptions)
+
+	gSecretFetcher.FallbackSecretName = "gateway-fallback"
+
+	gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
+
+	gatewaySecretChan = make(chan struct{})
+	gSecretFetcher.Run(gatewaySecretChan)
+	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
-}
-
-func applyEnvVars() {
-	serverOptions.PluginNames = strings.Split(pluginNamesEnv, ",")
-
-	serverOptions.EnableWorkloadSDS = true
-
-	serverOptions.EnableGatewaySDS = enableGatewaySDSEnv
-
-	serverOptions.CAProviderName = caProviderEnv
-
-	// TODO: extract from ProxyConfig
-	serverOptions.TrustDomain = trustDomainEnv
-	serverOptions.Pkcs8Keys = pkcs8KeysEnv
-	serverOptions.ECCSigAlg = eccSigAlgEnv
-	serverOptions.RecycleInterval = staledConnectionRecycleIntervalEnv
-	workloadSdsCacheOptions.ECCSigAlg = eccSigAlgEnv
-	workloadSdsCacheOptions.SecretTTL = secretTTLEnv
-	workloadSdsCacheOptions.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
-	workloadSdsCacheOptions.RotationInterval = secretRotationIntervalEnv
-	workloadSdsCacheOptions.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
-	// Disable the secret eviction for istio agent.
-	workloadSdsCacheOptions.EvictionDuration = 0
-	if citadel.ProvCert != "" {
-		workloadSdsCacheOptions.AlwaysValidTokenFlag = true
-	}
-	workloadSdsCacheOptions.OutputKeyCertToDir = serverOptions.OutputKeyCertToDir
-}
-
-// shouldProvisionCertificates returns true if certs needs to be provisioned for the workload/gateway.
-// Returns flase, when proxy uses file mounted certificates i.e. FILE_MOUNTED_CERTS is true.
-func shouldProvisionCertificates() bool {
-	return !fileMountedCertsEnv
 }

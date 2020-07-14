@@ -33,6 +33,8 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	ca2 "istio.io/istio/pkg/security"
+
 	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"golang.org/x/net/context"
@@ -43,7 +45,6 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -62,7 +63,7 @@ var (
 )
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
@@ -74,7 +75,7 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
 		GatewayUDSPath:    "",
@@ -85,7 +86,7 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	wst := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(arg, wst, nil)
+	server, err := NewServer(&arg, wst, nil)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -102,7 +103,7 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 }
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  true,
 		EnableWorkloadSDS: false,
 		RecycleInterval:   30 * time.Second,
@@ -113,7 +114,7 @@ func TestStreamSecretsForGatewaySds(t *testing.T) {
 }
 
 func TestStreamSecretsForBothSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  true,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
@@ -124,7 +125,7 @@ func TestStreamSecretsForBothSds(t *testing.T) {
 }
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
@@ -135,7 +136,7 @@ func TestFetchSecretsForWorkloadSds(t *testing.T) {
 }
 
 func TestFetchSecretsForGatewaySds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  true,
 		EnableWorkloadSDS: false,
 		RecycleInterval:   30 * time.Second,
@@ -146,7 +147,7 @@ func TestFetchSecretsForGatewaySds(t *testing.T) {
 }
 
 func TestFetchSecretsForBothSds(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  true,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
@@ -157,7 +158,7 @@ func TestFetchSecretsForBothSds(t *testing.T) {
 }
 
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
@@ -169,8 +170,8 @@ func TestStreamSecretsInvalidResourceName(t *testing.T) {
 
 type secretCallback func(string, *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
 
-func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourceNames bool) {
-	var wst, gst cache.SecretManager
+func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidResourceNames bool) {
+	var wst, gst ca2.SecretManager
 	if arg.EnableWorkloadSDS {
 		wst = &mockSecretStore{
 			checkToken: true,
@@ -186,7 +187,7 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 		gst = nil
 	}
 
-	server, err := NewServer(arg, wst, gst)
+	server, err := NewServer(&arg, wst, gst)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -295,7 +296,7 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
-	arg := Options{
+	arg := ca2.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
@@ -304,7 +305,7 @@ func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	st := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(arg, st, nil)
+	server, err := NewServer(&arg, st, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
@@ -805,8 +806,8 @@ func (s *Setup) verifyTotalPushes(expected int64) {
 	}
 }
 
-func (s *Setup) generatePushSecret(conID, token string) *model.SecretItem {
-	pushSecret := &model.SecretItem{
+func (s *Setup) generatePushSecret(conID, token string) *ca2.SecretItem {
+	pushSecret := &ca2.SecretItem{
 		CertificateChain: fakePushCertificateChain,
 		PrivateKey:       fakePushPrivateKey,
 		ResourceName:     testResourceName,
@@ -952,7 +953,7 @@ func (ms *mockSecretStore) SecretCacheMiss() int {
 	return ms.secretCacheMiss
 }
 
-func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*model.SecretItem, error) {
+func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*ca2.SecretItem, error) {
 	if ms.checkToken && token != fakeToken1 && token != fakeToken2 {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
@@ -962,7 +963,7 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 		ResourceName: resourceName,
 	}
 	if resourceName == testResourceName {
-		s := &model.SecretItem{
+		s := &ca2.SecretItem{
 			CertificateChain: fakeCertificateChain,
 			PrivateKey:       fakePrivateKey,
 			ResourceName:     testResourceName,
@@ -975,7 +976,7 @@ func (ms *mockSecretStore) GenerateSecret(ctx context.Context, conID, resourceNa
 	}
 
 	if resourceName == cache.RootCertReqResourceName || strings.HasPrefix(resourceName, "file-root:") {
-		s := &model.SecretItem{
+		s := &ca2.SecretItem{
 			RootCert:     fakeRootCert,
 			ResourceName: cache.RootCertReqResourceName,
 			Version:      time.Now().Format("01-02 15:04:05.000"),
@@ -1002,7 +1003,7 @@ func (ms *mockSecretStore) SecretExist(conID, spiffeID, token, version string) b
 		ms.secretCacheMiss++
 		return false
 	}
-	cs := val.(*model.SecretItem)
+	cs := val.(*ca2.SecretItem)
 	fmt.Println("key is: ", key, ". Token: ", cs.Token)
 	if spiffeID != cs.ResourceName {
 		fmt.Printf("resource name not match: %s vs %s\n", spiffeID, cs.ResourceName)
@@ -1048,7 +1049,7 @@ func TestDebugEndpoints(t *testing.T) {
 
 	for _, tc := range tests {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
-		arg := Options{
+		arg := ca2.Options{
 			EnableGatewaySDS:  false,
 			EnableWorkloadSDS: true,
 			RecycleInterval:   30 * time.Second,
@@ -1061,7 +1062,7 @@ func TestDebugEndpoints(t *testing.T) {
 		sdsClients = map[cache.ConnKey]*sdsConnection{}
 		sdsClientsMutex.Unlock()
 
-		server, err := NewServer(arg, st, nil)
+		server, err := NewServer(&arg, st, nil)
 		if err != nil {
 			t.Fatalf("failed to start grpc server for sds: %v", err)
 		}
