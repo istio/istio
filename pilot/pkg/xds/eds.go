@@ -606,8 +606,6 @@ func buildLocalityLbEndpointsFromShards(
 		push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
 	}
 
-	updateEdsStats(locEps, clusterName)
-
 	return locEps
 }
 
@@ -616,13 +614,4 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 	return &endpoint.ClusterLoadAssignment{
 		ClusterName: clusterName,
 	}
-}
-
-func updateEdsStats(locEps []*endpoint.LocalityLbEndpoints, cluster string) {
-	edsInstances.With(clusterTag.Value(cluster)).Record(float64(len(locEps)))
-	epc := 0
-	for _, locLbEps := range locEps {
-		epc += len(locLbEps.GetLbEndpoints())
-	}
-	edsAllLocalityEndpoints.With(clusterTag.Value(cluster)).Record(float64(epc))
 }
