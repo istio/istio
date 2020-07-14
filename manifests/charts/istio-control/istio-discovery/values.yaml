@@ -410,12 +410,12 @@ global:
     # If set, newly injected sidecars will have core dumps enabled.
     enableCoreDump: false
 
-    # istio ingress capture whitelist
+    # istio ingress capture allowlist
     # examples:
     #     Redirect only selected ports:            --includeInboundPorts="80,8080"
     excludeInboundPorts: ""
 
-    # istio egress capture whitelist
+    # istio egress capture allowlist
     # https://istio.io/docs/tasks/traffic-management/egress.html#calling-external-services-directly
     # example: includeIPRanges: "172.30.0.0/16,172.20.0.0/16"
     # would only capture egress traffic on those two IP Ranges, all other outbound traffic would

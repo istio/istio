@@ -26,6 +26,8 @@ import (
 	"google.golang.org/grpc"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
 
+	"istio.io/istio/pkg/security"
+
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -154,7 +156,7 @@ func (e *Env) StartProxy(t *testing.T) {
 
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
-	serverOptions := sds.Options{
+	serverOptions := &security.Options{
 		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
 		UseLocalJWT:       true,
 		JWTPath:           proxyTokenPath,
@@ -180,9 +182,9 @@ func (e *Env) StartSDSServer(t *testing.T) {
 	e.SDSServer = sdsServer
 }
 
-func (e *Env) cacheOptions(t *testing.T) cache.Options {
+func (e *Env) cacheOptions(t *testing.T) *security.Options {
 	// Default options does not rotate cert until cert expires after 1 hour.
-	opt := cache.Options{
+	opt := &security.Options{
 		SecretTTL:                      1 * time.Hour,
 		TrustDomain:                    spiffe.GetTrustDomain(),
 		RotationInterval:               5 * time.Minute,

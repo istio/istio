@@ -35,6 +35,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
@@ -84,7 +85,7 @@ type Config struct {
 	CertDir string
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets cache.SecretManager
+	Secrets security.SecretManager
 
 	// For getting the certificate, using same code as SDS server.
 	// Either the JWTPath or the certs must be present.
@@ -111,6 +112,9 @@ type Config struct {
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler ResponseHandler
+
+	// TODO: remove the duplication - all security settings belong here.
+	SecOpts *security.Options
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools

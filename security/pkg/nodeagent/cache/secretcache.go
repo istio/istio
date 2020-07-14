@@ -28,13 +28,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
-	"istio.io/istio/security/pkg/nodeagent/model"
-	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -78,58 +77,10 @@ const (
 	// notifySecretRetrievalTimeout is the timeout for another round of secret retrieval. This is to make sure to
 	// unblock the secret watch main thread in case those child threads got stuck due to any reason.
 	notifySecretRetrievalTimeout = 30 * time.Second
-
-	// The well-known path for an existing certificate chain file
-	defaultCertChainFilePath = "./etc/certs/cert-chain.pem"
-
-	// The well-known path for an existing key file
-	defaultKeyFilePath = "./etc/certs/key.pem"
-
-	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
-	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 )
 
 type k8sJwtPayload struct {
 	Sub string `json:"sub"`
-}
-
-// Options provides all of the configuration parameters for secret cache.
-type Options struct {
-	// secret TTL.
-	SecretTTL time.Duration
-
-	// The initial backoff time in millisecond to avoid the thundering herd problem.
-	InitialBackoffInMilliSec int64
-
-	// secret should be rotated if:
-	// time.Now.After(<secret ExpireTime> - <secret TTL> * SecretRotationGracePeriodRatio)
-	SecretRotationGracePeriodRatio float64
-
-	// Key rotation job running interval.
-	RotationInterval time.Duration
-
-	// Cached secret will be removed from cache if (time.now - secretItem.CreatedTime >= evictionDuration), this prevents cache growing indefinitely.
-	EvictionDuration time.Duration
-
-	// TrustDomain corresponds to the trust root of a system.
-	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-	TrustDomain string
-
-	// authentication provider specific plugins.
-	Plugins []plugin.Plugin
-
-	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
-
-	// Whether to generate PKCS#8 private keys.
-	Pkcs8Keys bool
-
-	// OutputKeyCertToDir is the directory for output the key and certificate
-	OutputKeyCertToDir string
-
-	// The type of Elliptical Signature algorithm to use
-	// when generating private keys. Currently only ECDSA is supported.
-	ECCSigAlg string
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -138,7 +89,7 @@ type SecretManager interface {
 	// Current implementation constructs the SAN based on the token's 'sub'
 	// claim, expected to be in the K8S format. No other JWTs are currently supported
 	// due to client logic. If JWT is missing/invalid, the resourceName is used.
-	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error)
+	GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*security.SecretItem, error)
 
 	// ShouldWaitForGatewaySecret indicates whether a valid gateway secret is expected.
 	ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool
@@ -169,7 +120,7 @@ type SecretCache struct {
 	fetcher        *secretfetcher.SecretFetcher
 
 	// configOptions includes all configurable params for the cache.
-	configOptions Options
+	configOptions *security.Options
 
 	// How may times that key rotation job has detected normal key/cert change happened, used in unit test.
 	secretChangedCount uint64
@@ -178,7 +129,7 @@ type SecretCache struct {
 	rootCertChangedCount uint64
 
 	// callback function to invoke when detecting secret change.
-	notifyCallback func(connKey ConnKey, secret *model.SecretItem) error
+	notifyCallback func(connKey ConnKey, secret *security.SecretItem) error
 
 	// close channel.
 	closing chan bool
@@ -203,11 +154,13 @@ type SecretCache struct {
 	// unique certs being watched with file watcher.
 	fileCerts map[string]map[ConnKey]struct{}
 	certMutex *sync.RWMutex
+
+	secOpts *security.Options
 }
 
 // NewSecretCache creates a new secret cache.
 func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
-	notifyCb func(ConnKey, *model.SecretItem) error, options Options) *SecretCache {
+	notifyCb func(ConnKey, *security.SecretItem) error, options *security.Options) *SecretCache {
 	ret := &SecretCache{
 		fetcher:               fetcher,
 		closing:               make(chan bool),
@@ -215,12 +168,13 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		rootCertMutex:         &sync.RWMutex{},
 		configOptions:         options,
 		randMutex:             &sync.Mutex{},
-		existingCertChainFile: defaultCertChainFilePath,
-		existingKeyFile:       defaultKeyFilePath,
-		existingRootCertFile:  DefaultRootCertFilePath,
+		existingCertChainFile: security.DefaultCertChainFilePath,
+		existingKeyFile:       security.DefaultKeyFilePath,
+		existingRootCertFile:  security.DefaultRootCertFilePath,
 		certWatcher:           newFileWatcher(),
 		fileCerts:             make(map[string]map[ConnKey]struct{}),
 		certMutex:             &sync.RWMutex{},
+		secOpts:               options,
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -255,7 +209,7 @@ func (sc *SecretCache) setRootCert(rootCert []byte, rootCertExpr time.Time) {
 // GenerateSecret generates new secret and cache the secret, this function is called by SDS.StreamSecrets
 // and SDS.FetchSecret. Since credential passing from client may change, regenerate secret every time
 // instead of reading from cache.
-func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*model.SecretItem, error) {
+func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourceName, token string) (*security.SecretItem, error) {
 	connKey := ConnKey{
 		ConnectionID: connectionID,
 		ResourceName: resourceName,
@@ -266,7 +220,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	// When there are existing root certificates, or private key and certificate under
 	// a well known path, they are used in the SDS response.
 	var err error
-	var ns *model.SecretItem
+	var ns *security.SecretItem
 
 	// First try to generate secret from file.
 	sdsFromFile, ns, err := sc.generateFileSecret(connKey, token)
@@ -317,7 +271,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 	}
 
 	t := time.Now()
-	ns = &model.SecretItem{
+	ns = &security.SecretItem{
 		ResourceName: resourceName,
 		RootCert:     rootCert,
 		ExpireTime:   rootCertExpr,
@@ -399,7 +353,7 @@ func (sc *SecretCache) SecretExist(connectionID, resourceName, token, version st
 		return false
 	}
 
-	secret := val.(model.SecretItem)
+	secret := val.(security.SecretItem)
 	return secret.ResourceName == resourceName && secret.Token == token && secret.Version == version
 }
 
@@ -420,7 +374,7 @@ func (sc *SecretCache) ShouldWaitForGatewaySecret(connectionID, resourceName, to
 	// notify the gateway and push the secret to via connect ID.
 	if _, found := sc.secrets.Load(connKey); !found {
 		t := time.Now()
-		dummySecret := &model.SecretItem{
+		dummySecret := &security.SecretItem{
 			ResourceName: resourceName,
 			Token:        token,
 			CreatedTime:  t,
@@ -454,7 +408,7 @@ func (sc *SecretCache) DeleteSecret(connectionID, resourceName string) {
 	sc.secrets.Delete(connKey)
 }
 
-func (sc *SecretCache) callbackWithTimeout(connKey ConnKey, secret *model.SecretItem) {
+func (sc *SecretCache) callbackWithTimeout(connKey ConnKey, secret *security.SecretItem) {
 	c := make(chan struct{})
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	go func() {
@@ -522,19 +476,19 @@ func (sc *SecretCache) DeleteK8sSecret(secretName string) {
 
 // UpdateK8sSecret updates all entries that match secretName. This is called when a K8s secret
 // for gateway is updated.
-func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
+func (sc *SecretCache) UpdateK8sSecret(secretName string, ns security.SecretItem) {
 	var secretMap sync.Map
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		connKey := k.(ConnKey)
-		oldSecret := v.(model.SecretItem)
+		oldSecret := v.(security.SecretItem)
 		if connKey.ResourceName == secretName {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				var newSecret *model.SecretItem
+				var newSecret *security.SecretItem
 				if strings.HasSuffix(secretName, secretfetcher.GatewaySdsCaSuffix) {
-					newSecret = &model.SecretItem{
+					newSecret = &security.SecretItem{
 						ResourceName: secretName,
 						RootCert:     ns.RootCert,
 						ExpireTime:   ns.ExpireTime,
@@ -543,7 +497,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 						Version:      ns.Version,
 					}
 				} else {
-					newSecret = &model.SecretItem{
+					newSecret = &security.SecretItem{
 						CertificateChain: ns.CertificateChain,
 						ExpireTime:       ns.ExpireTime,
 						PrivateKey:       ns.PrivateKey,
@@ -568,7 +522,7 @@ func (sc *SecretCache) UpdateK8sSecret(secretName string, ns model.SecretItem) {
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
-		secret := v.(*model.SecretItem)
+		secret := v.(*security.SecretItem)
 		sc.secrets.Store(key, *secret)
 		return true
 	})
@@ -586,7 +540,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 	wg := sync.WaitGroup{}
 	sc.secrets.Range(func(k interface{}, v interface{}) bool {
 		connKey := k.(ConnKey)
-		secret := v.(model.SecretItem)
+		secret := v.(security.SecretItem)
 		logPrefix := cacheLogPrefix(connKey.ResourceName)
 
 		// only rotate root cert if updateRootFlag is set to true.
@@ -598,7 +552,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			atomic.AddUint64(&sc.rootCertChangedCount, 1)
 			now := time.Now()
 			rootCert, rootCertExpr := sc.getRootCert()
-			ns := &model.SecretItem{
+			ns := &security.SecretItem{
 				ResourceName: connKey.ResourceName,
 				RootCert:     rootCert,
 				ExpireTime:   rootCertExpr,
@@ -673,21 +627,21 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 	secretMap.Range(func(k interface{}, v interface{}) bool {
 		key := k.(ConnKey)
-		secret := v.(*model.SecretItem)
+		secret := v.(*security.SecretItem)
 		sc.secrets.Store(key, *secret)
 		return true
 	})
 }
 
 // generateGatewaySecret returns secret for gateway proxy.
-func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, now time.Time) (*model.SecretItem, error) {
+func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, now time.Time) (*security.SecretItem, error) {
 	secretItem, exist := sc.fetcher.FindGatewaySecret(connKey.ResourceName)
 	if !exist {
 		return nil, fmt.Errorf("cannot find secret for gateway SDS request %+v", connKey)
 	}
 
 	if strings.HasSuffix(connKey.ResourceName, secretfetcher.GatewaySdsCaSuffix) {
-		return &model.SecretItem{
+		return &security.SecretItem{
 			ResourceName: connKey.ResourceName,
 			RootCert:     secretItem.RootCert,
 			ExpireTime:   secretItem.ExpireTime,
@@ -696,7 +650,7 @@ func (sc *SecretCache) generateGatewaySecret(token string, connKey ConnKey, now 
 			Version:      now.String(),
 		}, nil
 	}
-	return &model.SecretItem{
+	return &security.SecretItem{
 		CertificateChain: secretItem.CertificateChain,
 		ExpireTime:       secretItem.ExpireTime,
 		PrivateKey:       secretItem.PrivateKey,
@@ -733,7 +687,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 }
 
 // Generate a root certificate item from the passed in rootCertPath
-func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*model.SecretItem, error) {
+func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*security.SecretItem, error) {
 	rootCert, err := readFileWithTimeout(rootCertPath)
 	if err != nil {
 		return nil, err
@@ -748,7 +702,7 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 
 	// Set the rootCert
 	sc.setRootCert(rootCert, certExpireTime)
-	return &model.SecretItem{
+	return &security.SecretItem{
 		ResourceName: connKey.ResourceName,
 		RootCert:     rootCert,
 		ExpireTime:   certExpireTime,
@@ -759,7 +713,7 @@ func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token stri
 }
 
 // Generate a key and certificate item from the existing key certificate files from the passed in file paths.
-func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*model.SecretItem, error) {
+func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, token string, connKey ConnKey) (*security.SecretItem, error) {
 	certChain, err := readFileWithTimeout(certChainPath)
 	if err != nil {
 		return nil, err
@@ -776,7 +730,7 @@ func (sc *SecretCache) generateKeyCertFromExistingFiles(certChainPath, keyPath, 
 		return nil, fmt.Errorf("failed to extract expiration time in the certificate loaded from file: %v", err)
 	}
 
-	return &model.SecretItem{
+	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
 		ResourceName:     connKey.ResourceName,
@@ -805,7 +759,7 @@ func readFileWithTimeout(path string) ([]byte, error) {
 	}
 }
 
-func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, *model.SecretItem, error) {
+func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, *security.SecretItem, error) {
 	resourceName := connKey.ResourceName
 	logPrefix := cacheLogPrefix(resourceName)
 
@@ -813,7 +767,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	// a well known path, they are used in the SDS response.
 	sdsFromFile := false
 	var err error
-	var sitem *model.SecretItem
+	var sitem *security.SecretItem
 
 	switch {
 	// Default root certificate.
@@ -861,7 +815,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	return sdsFromFile, nil, nil
 }
 
-func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*model.SecretItem, error) {
+func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*security.SecretItem, error) {
 	// If node agent works as gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
@@ -949,7 +903,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		sc.rotate(true /*updateRootFlag*/)
 	}
 
-	return &model.SecretItem{
+	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
 		ResourceName:     connKey.ResourceName,
@@ -960,7 +914,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	}, nil
 }
 
-func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
+func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	// secret should be rotated before it expired.
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
@@ -970,7 +924,7 @@ func (sc *SecretCache) shouldRotate(secret *model.SecretItem) bool {
 	return rotate
 }
 
-func (sc *SecretCache) isTokenExpired(secret *model.SecretItem) bool {
+func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
 	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
 	if sc.configOptions.AlwaysValidTokenFlag {
 		return false
@@ -1018,7 +972,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
-			p := sc.configOptions.Plugins[0]
+			p := sc.configOptions.TokenExchangers[0]
 			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
 		}
 		cacheLog.Debugf("%s", requestErrorString)
@@ -1061,11 +1015,11 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string, connKey ConnKey) (string, error) {
 	logPrefix := cacheLogPrefix(connKey.ResourceName)
 	cacheLog.Debugf("Start token exchange process for %s", logPrefix)
-	if sc.configOptions.Plugins == nil || len(sc.configOptions.Plugins) == 0 {
+	if sc.configOptions.TokenExchangers == nil || len(sc.configOptions.TokenExchangers) == 0 {
 		cacheLog.Debugf("Return k8s token for %s", logPrefix)
 		return k8sJwtToken, nil
 	}
-	if len(sc.configOptions.Plugins) > 1 {
+	if len(sc.configOptions.TokenExchangers) > 1 {
 		cacheLog.Errorf("Found more than one plugin for %s", logPrefix)
 		return "", fmt.Errorf("found more than one plugin")
 	}

@@ -105,7 +105,7 @@ func constructConfig() *config.Config {
 		RunValidation:           viper.GetBool(constants.RunValidation),
 	}
 
-	// TODO: Make this more configurable, maybe with a whitelist of users to be captured for output instead of a blacklist.
+	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
 	if cfg.ProxyUID == "" {
 		usr, err := user.Lookup(envoyUserVar.Get())
 		var userID string
