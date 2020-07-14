@@ -63,8 +63,7 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
-	// TODO remove max program size once all envoys have unlimited default
-	// nolint: staticcheck
+	// TODO: remove deprecatedRegexEngine once all envoys have unlimited default.
 	deprecatedRegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
@@ -735,7 +734,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	case *networking.StringMatch_Regex:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &matcher.RegexMatcher{
-				EngineType: regexEngine,
+				EngineType: regexMatcher(node),
 				Regex:      m.Regex,
 			},
 		}
@@ -756,7 +755,7 @@ func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*mat
 		case *networking.StringMatch_Regex:
 			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexEngine,
+					EngineType: regexMatcher(node),
 					Regex:      m.Regex,
 				},
 			},
