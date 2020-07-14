@@ -60,7 +60,9 @@ func TestEgressGatewayTls(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			internalClient, externalServer, appNamespace, _ := setupEcho(t, ctx)
+			internalClient, externalServer, appNamespace, serviceNamespace := setupEcho(t, ctx)
+			// Set up Host Namespace
+			host := "server." + serviceNamespace.Name() + ".svc.cluster.local"
 
 			testCases := map[string]struct {
 				destinationRuleMode string
@@ -130,7 +132,7 @@ func TestEgressGatewayTls(t *testing.T) {
 
 			for name, tc := range testCases {
 				t.Run(name, func(t *testing.T) {
-					bufDestinationRule := createDestinationRule(t, appNamespace, tc.destinationRuleMode, tc.fakeRootCert)
+					bufDestinationRule := createDestinationRule(t, serviceNamespace, tc.destinationRuleMode, tc.fakeRootCert)
 
 					ctx.Config().ApplyYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
@@ -140,7 +142,7 @@ func TestEgressGatewayTls(t *testing.T) {
 							Target:   externalServer,
 							PortName: "http",
 							Headers: map[string][]string{
-								"Host": {"some-external-site.com"},
+								"Host": {host},
 							},
 						})
 						if err != nil {
@@ -218,7 +220,7 @@ spec:
 `
 )
 
-func createDestinationRule(t *testing.T, appsNamespace namespace.Instance,
+func createDestinationRule(t *testing.T, serviceNamespace namespace.Instance,
 	destinationRuleMode string, fakeRootCert bool) bytes.Buffer {
 	var destinationRuleToParse string
 	var rootCertPathToUse string
@@ -240,7 +242,7 @@ func createDestinationRule(t *testing.T, appsNamespace namespace.Instance,
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name(),
+	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": serviceNamespace.Name(),
 		"Mode": destinationRuleMode, "RootCertPath": rootCertPathToUse}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
@@ -275,7 +277,7 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		}).
 		With(&externalServer, echo.Config{
 			Service:   "server",
-			Namespace: appsNamespace,
+			Namespace: serviceNamespace,
 			Ports: []echo.Port{
 				{
 					// Plain HTTP port only used to route request to egress gateway
@@ -310,11 +312,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		}).
 		BuildOrFail(t)
 
-	// Create a sidecarScope to only allow traffic to service namespace so that the traffic only goes
-	// through the egress gateway set up in service namespace. This way client cannot directly call our server
-	// in the same namespace("app") and is forced to route traffic to egress gateway
-	createSidecarScope(t, ctx, appsNamespace, serviceNamespace)
-
 	// Apply Egress Gateway for service namespace to originate external traffic
 	createGateway(t, ctx, appsNamespace, serviceNamespace)
 
@@ -323,41 +320,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 	}
 
 	return internalClient, externalServer, appsNamespace, serviceNamespace
-}
-
-const (
-	SidecarScope = `
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: restrict-to-service-entry-namespace
-spec:
-  egress:
-  - hosts:
-    - "{{.ImportNamespace}}/*"
-    - "istio-system/*"
-  outboundTrafficPolicy:
-    mode: ALLOW_ANY
-`
-)
-
-// We want to test "external" traffic. To do this without actually hitting an external endpoint,
-// we can import only the service namespace, so the apps are not known
-// If some service(client) in appNamespace wants to call another service in appNamespace(server) it cannot
-// directly call it as sidecarScope only allows traffic to serviceNamespace
-func createSidecarScope(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
-	tmpl, err := template.New("SidecarScope").Parse(SidecarScope)
-	if err != nil {
-		t.Errorf("failed to create template: %v", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"ImportNamespace": serviceNamespace.Name()}); err != nil {
-		t.Errorf("failed to create template: %v", err)
-	}
-	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
-		t.Errorf("failed to apply sidecar scope: %v", err)
-	}
 }
 
 const (
@@ -375,7 +337,24 @@ spec:
         name: http-port-for-tls-origination
         protocol: HTTP
       hosts:
-        - some-external-site.com
+        - server.{{.ServerNamespace}}.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: egressgateway-for-server
+spec:
+  host: istio-egressgateway.istio-system.svc.cluster.local
+  subsets:
+  - name: nginx
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+      portLevelSettings:
+      - port:
+          number: 80
+        tls:
+          sni: server.{{.ServerNamespace}}.svc.cluster.local
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -383,7 +362,7 @@ metadata:
   name: route-via-egressgateway
 spec:
   hosts:
-    - some-external-site.com
+    - server.{{.ServerNamespace}}.svc.cluster.local
   gateways:
     - istio-egressgateway
     - mesh
@@ -404,7 +383,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: server.{{.AppNamespace}}.svc.cluster.local
+            host: server.{{.ServerNamespace}}.svc.cluster.local
             port:
               number: 443
           weight: 100
@@ -415,11 +394,6 @@ spec:
 `
 )
 
-// We want to test "external" traffic. To do this without actually hitting an external endpoint,
-// we can import only the service namespace, so the apps are not known.
-// If some service(client) in appNamespace wants to call another service in appNamespace(server) it cannot
-// directly call it as sidecarscope only allows traffic to serviceNamespace, Gateway in serviceNamespace
-// then comes into action and receives this "outgoing" traffic to only route it back into appNamespace(server)
 func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
 	tmpl, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
@@ -427,10 +401,10 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"AppNamespace": appsNamespace.Name()}); err != nil {
+	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(serviceNamespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
 	}
 }
