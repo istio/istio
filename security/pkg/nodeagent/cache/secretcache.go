@@ -1039,7 +1039,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 				exchangedToken = ""
 			}
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-				ctx, reqID, csrPEM, "", int64(sc.configOptions.SecretTTL.Seconds()))
+				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.Plugins[0]
