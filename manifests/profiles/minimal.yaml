@@ -8,3 +8,13 @@ spec:
   addonComponents:
     prometheus:
       enabled: false
+
+  values:
+    telemetry:
+      enabled: false
+      v1:
+        enabled: false
+      v2:
+        enabled: false
+        prometheus:
+          enabled: false    
