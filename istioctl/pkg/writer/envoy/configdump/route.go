@@ -19,18 +19,22 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
+	envoy_config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
+	pilot_util "istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // RouteFilter is used to pass filter information into route based config writer print functions
 type RouteFilter struct {
-	Name string
+	Name    string
+	Verbose bool
 }
 
 // Verify returns true if the passed route matches the filter fields
@@ -48,13 +52,83 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 		return err
 	}
 	fmt.Fprintln(c.Stdout, "NOTE: This output only contains routes loaded via RDS.")
-	fmt.Fprintln(w, "NAME\tVIRTUAL HOSTS")
+	if filter.Verbose {
+		fmt.Fprintln(w, "NAME\tDOMAINS\tMATCH\tVIRTUAL SERVICE")
+	} else {
+		fmt.Fprintln(w, "NAME\tVIRTUAL HOSTS")
+	}
 	for _, route := range routes {
 		if filter.Verify(route) {
-			fmt.Fprintf(w, "%v\t%v\n", route.Name, len(route.GetVirtualHosts()))
+			if filter.Verbose {
+				for _, vhosts := range route.GetVirtualHosts() {
+					for _, r := range vhosts.Routes {
+						if !isPassthrough(r.GetAction()) {
+							fmt.Fprintf(w, "%v\t%s\t%s\t%s\n",
+								route.Name,
+								describeRouteDomains(vhosts.GetDomains()),
+								describeMatch(r.GetMatch()),
+								describeManagement(r.GetMetadata()))
+						}
+					}
+				}
+			} else {
+				fmt.Fprintf(w, "%v\t%v\n", route.Name, len(route.GetVirtualHosts()))
+			}
 		}
 	}
 	return w.Flush()
+}
+
+func describeRouteDomains(domains []string) string {
+	if len(domains) == 0 {
+		return ""
+	}
+	if len(domains) == 1 {
+		return domains[0]
+	}
+
+	// Return the shortest non-numeric domain.  Count of domains seems uninteresting.
+	candidate := domains[0]
+	for _, domain := range domains {
+		if len(domain) == 0 {
+			continue
+		}
+		firstChar := domain[0]
+		if firstChar >= '1' && firstChar <= '9' {
+			continue
+		}
+		if len(domain) < len(candidate) {
+			candidate = domain
+		}
+	}
+
+	return candidate
+}
+
+func describeManagement(metadata *envoy_config_core_v3.Metadata) string {
+	if metadata == nil {
+		return ""
+	}
+	istioMetadata, ok := metadata.FilterMetadata[pilot_util.IstioMetadataKey]
+	if !ok {
+		return ""
+	}
+	config, ok := istioMetadata.Fields["config"]
+	if !ok {
+		return ""
+	}
+	return renderConfig(config.GetStringValue())
+}
+
+func renderConfig(configPath string) string {
+	if strings.HasPrefix(configPath, "/apis/networking.istio.io/v1alpha3/namespaces/") {
+		pieces := strings.Split(configPath, "/")
+		if len(pieces) != 8 {
+			return ""
+		}
+		return fmt.Sprintf("%s.%s", pieces[7], pieces[5])
+	}
+	return "<unknown>"
 }
 
 // PrintRouteDump prints the relevant routes in the config dump to the ConfigWriter stdout
@@ -134,4 +208,16 @@ func (c *ConfigWriter) retrieveSortedRouteSlice() ([]*route.RouteConfiguration, 
 		return iName < jName
 	})
 	return routes, nil
+}
+
+func isPassthrough(action interface{}) bool {
+	a, ok := action.(*route.Route_Route)
+	if !ok {
+		return false
+	}
+	cl, ok := a.Route.ClusterSpecifier.(*route.RouteAction_Cluster)
+	if !ok {
+		return false
+	}
+	return cl.Cluster == "PassthroughCluster"
 }
