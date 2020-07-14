@@ -139,7 +139,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		nc := NewNamespaceController(m.fetchCaRoot, options, clients.Kube())
 		go nc.Run(stopCh)
 		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clients.Kube(), stopCh)
-		valicationWebhookController := webhooks.CreateValidationWebhookController(clients.Kube(), clients.Dynamic(), webhookConfigName,
+		valicationWebhookController := webhooks.CreateValidationWebhookController(clients, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
 		if valicationWebhookController != nil {
 			go valicationWebhookController.Start(stopCh)
