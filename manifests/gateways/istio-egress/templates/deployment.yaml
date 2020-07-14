@@ -168,12 +168,20 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
+{{- if or .Values.global.istiod.enabled $gateway.sds.enabled }}
+          - name: "ISTIO_META_USER_SDS"
+            value: "true"
+{{- if .Values.global.istiod.enabled }}
           - name: CA_ADDR
           {{- if .Values.global.caAddress }}
             value: {{ .Values.global.caAddress }}
+          {{- else if .Values.global.configNamespace }}
+            value: istio-pilot.{{ .Values.global.configNamespace }}.svc:15012
           {{- else }}
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+            value: istio-pilot.istio-system.svc:15012
           {{- end }}
+{{- end }}
+{{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
