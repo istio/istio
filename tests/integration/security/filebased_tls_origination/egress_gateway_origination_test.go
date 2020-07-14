@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"path"
 	"reflect"
 	"testing"
@@ -60,7 +61,7 @@ func TestEgressGatewayTls(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			ctx.RequireOrSkip(environment.Kube)
 
-			internalClient, externalServer, appNamespace, serviceNamespace := setupEcho(t, ctx)
+			internalClient, externalServer, _, serviceNamespace := setupEcho(t, ctx)
 			// Set up Host Namespace
 			host := "server." + serviceNamespace.Name() + ".svc.cluster.local"
 
@@ -134,8 +135,12 @@ func TestEgressGatewayTls(t *testing.T) {
 				t.Run(name, func(t *testing.T) {
 					bufDestinationRule := createDestinationRule(t, serviceNamespace, tc.destinationRuleMode, tc.fakeRootCert)
 
-					ctx.Config().ApplyYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
-					defer ctx.Config().DeleteYAMLOrFail(ctx, appNamespace.Name(), bufDestinationRule.String())
+					istioCfg := istio.DefaultConfigOrFail(t, ctx)
+					systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+
+
+					ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
+					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
