@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -48,6 +49,9 @@ type MergedGateway struct {
 	// Inverse of ServersByRouteName. Returning this as part of merge result allows to keep route name generation logic
 	// encapsulated within the model and, as a side effect, to avoid generating route names twice.
 	RouteNamesByServer map[*networking.Server]string
+
+	// SNIHostsByServer maps server to SNI Hosts so that recomputation is avoided on listener generation.
+	SNIHostsByServer map[*networking.Server][]string
 }
 
 var (
@@ -82,6 +86,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	routeNamesByServer := make(map[*networking.Server]string)
 	gatewayNameForServer := make(map[*networking.Server]string)
 	tlsHostsByPort := map[uint32]map[string]struct{}{} // port -> host -> exists
+	sniHostsByServer := make(map[*networking.Server][]string)
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, gatewayConfig := range gateways {
@@ -105,6 +110,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
 			p := protocol.Parse(s.Port.Protocol)
 
+			sniHostsByServer[s] = GetSNIHostsForServer(s)
 			if s.Tls != nil {
 				// Envoy will reject config that has multiple filter chain matches with the same matching rules
 				// To avoid this, we need to make sure we don't have duplicated hosts, which will become
@@ -210,11 +216,37 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		GatewayNameForServer: gatewayNameForServer,
 		ServersByRouteName:   serversByRouteName,
 		RouteNamesByServer:   routeNamesByServer,
+		SNIHostsByServer:     sniHostsByServer,
 	}
 }
 
 func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 	return (current.IsHTTP() || current == p) && p.IsHTTP()
+}
+
+func GetSNIHostsForServer(server *networking.Server) []string {
+	if server.Tls == nil {
+		return nil
+	}
+	// sanitize the server hosts as it could contain hosts of form ns/host
+	sniHosts := make(map[string]bool)
+	for _, h := range server.Hosts {
+		if strings.Contains(h, "/") {
+			parts := strings.Split(h, "/")
+			h = parts[1]
+		}
+		// do not add hosts, that have already been added
+		if !sniHosts[h] {
+			sniHosts[h] = true
+		}
+	}
+	sniHostsSlice := make([]string, 0, len(sniHosts))
+	for host := range sniHosts {
+		sniHostsSlice = append(sniHostsSlice, host)
+	}
+	sort.Strings(sniHostsSlice)
+
+	return sniHostsSlice
 }
 
 // checkDuplicates returns all of the hosts provided that are already known

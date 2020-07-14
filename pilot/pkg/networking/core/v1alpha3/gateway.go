@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -374,7 +373,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		// This works because we validate that only HTTPS servers can have same port but still different port names
 		// and that no two non-HTTPS servers can be on same port or share port names.
 		// Validation is done per gateway and also during merging
-		sniHosts:   getSNIHostsForServer(server),
+		sniHosts:   node.MergedGateway.SNIHostsByServer[server],
 		tlsContext: buildGatewayListenerTLSContext(server, sdsPath, node.Metadata, node.RequestedTypes.LDS),
 		httpOpts: &httpListenerOpts{
 			rds:              routeName,
@@ -521,7 +520,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 			push, server, gatewayName); len(filters) > 0 {
 			return []*filterChainOpts{
 				{
-					sniHosts:       getSNIHostsForServer(server),
+					sniHosts:       node.MergedGateway.SNIHostsByServer[server],
 					tlsContext:     buildGatewayListenerTLSContext(server, push.Mesh.SdsUdsPath, node.Metadata, requestedType),
 					networkFilters: filters,
 				},
@@ -597,7 +596,7 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		// auto passthrough does not require virtual services. It sets up envoy.filters.network.sni_cluster filter
 		filterChains = append(filterChains, &filterChainOpts{
-			sniHosts:       getSNIHostsForServer(server),
+			sniHosts:       node.MergedGateway.SNIHostsByServer[server],
 			tlsContext:     nil, // NO TLS context because this is passthrough
 			networkFilters: buildOutboundAutoPassthroughFilterStack(push, node, port),
 		})
@@ -716,31 +715,6 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 		}
 	}
 	return false
-}
-
-func getSNIHostsForServer(server *networking.Server) []string {
-	if server.Tls == nil {
-		return nil
-	}
-	// sanitize the server hosts as it could contain hosts of form ns/host
-	sniHosts := make(map[string]bool)
-	for _, h := range server.Hosts {
-		if strings.Contains(h, "/") {
-			parts := strings.Split(h, "/")
-			h = parts[1]
-		}
-		// do not add hosts, that have already been added
-		if !sniHosts[h] {
-			sniHosts[h] = true
-		}
-	}
-	sniHostsSlice := make([]string, 0, len(sniHosts))
-	for host := range sniHosts {
-		sniHostsSlice = append(sniHostsSlice, host)
-	}
-	sort.Strings(sniHostsSlice)
-
-	return sniHostsSlice
 }
 
 func buildGatewayVirtualHostDomains(hostname string) []string {
