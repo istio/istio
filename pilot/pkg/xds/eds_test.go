@@ -92,20 +92,12 @@ func TestEds(t *testing.T) {
 	t.Run("Push", func(t *testing.T) {
 		edsUpdates(server, adscConn, t)
 	})
-	// Test using 0.8 request, without per/route mixer. Typically this is
-	// 30% faster than 1.0 config style. Keeping the test to track fixes and
-	// verify we fix the regression.
-	t.Run("MultipleRequest08", func(t *testing.T) {
-		// TODO: bump back up to 50 - regression in master
-		multipleRequest(server, false, 20, 5, 20*time.Second,
-			map[string]string{}, t)
-	})
 	t.Run("MultipleRequest", func(t *testing.T) {
 		multipleRequest(server, false, 20, 5, 20*time.Second, nil, t)
 	})
 	// 5 pushes for 100 clients, using EDS incremental only.
 	t.Run("MultipleRequestIncremental", func(t *testing.T) {
-		multipleRequest(server, true, 50, 5, 20*time.Second, nil, t)
+		multipleRequest(server, true, 20, 5, 20*time.Second, nil, t)
 	})
 	t.Run("CDSSave", func(t *testing.T) {
 		// Moved from cds_test, using new client
