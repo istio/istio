@@ -288,7 +288,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
 
-	defaultWorkloadCertTTL := 30 * time.Minute
+	defaultWorkloadCertTTL := 99999 * time.Hour
 	maxWorkloadCertTTL := time.Hour
 
 	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
@@ -297,6 +297,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
 
+	t0 := time.Now()
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
 		t.Errorf("Got error while creating plugged-cert CA: %v", err)
@@ -317,6 +318,19 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	}
 	if !comparePem(rootCertBytes, rootCertFile) {
 		t.Errorf("Failed to verify loading of root cert pem.")
+	}
+
+	certChain, err := util.ParsePemEncodedCertificate(certChainBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse cert chain pem.")
+	}
+	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens
+	delta := certChain.NotAfter.Sub(t0.Add(ca.defaultCertTTL))
+	if delta >= time.Second*2 {
+		t.Errorf("Invalid default cert TTL, should be the same as cert chain: %v VS (expected) %v",
+			t0.Add(ca.defaultCertTTL),
+			certChain.NotAfter)
 	}
 }
 

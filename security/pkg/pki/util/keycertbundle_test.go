@@ -15,6 +15,7 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -480,6 +481,80 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 			sec := expiryTimestamp - float64(tc.time.Unix())
 			if sec != tc.ttl {
 				t.Fatalf("expected ttl %v, got %v", tc.ttl, sec)
+			}
+		})
+	}
+}
+
+func TestTimeBeforeCertExpires(t *testing.T) {
+	t0 := time.Now()
+	certTTL := time.Second * 60
+	rootCertBytes, _, err := GenCertKeyFromOptions(CertOptions{
+		Host:         "citadel.testing.istio.io",
+		Org:          "MyOrg",
+		NotBefore:    t0,
+		IsCA:         true,
+		IsSelfSigned: true,
+		TTL:          certTTL,
+		RSAKeySize:   2048,
+	})
+	if err != nil {
+		t.Errorf("failed to gen root cert for Citadel self signed cert %v", err)
+	}
+
+	testCases := []struct {
+		name         string
+		cert         []byte
+		expectedTime time.Duration
+		timeNow      time.Time
+		expectedErr  error
+	}{
+		{
+			name:         "TTL left should be equal to cert TTL",
+			cert:         rootCertBytes,
+			timeNow:      t0,
+			expectedTime: certTTL,
+		},
+		{
+			name:         "TTL left should be ca cert ttl minus 5 seconds",
+			cert:         rootCertBytes,
+			timeNow:      t0.Add(5 * time.Second),
+			expectedTime: 55 * time.Second,
+		},
+		{
+			name:         "TTL left should be negative because already got expired",
+			cert:         rootCertBytes,
+			timeNow:      t0.Add(120 * time.Second),
+			expectedTime: -60 * time.Second,
+		},
+		{
+			name:        "no cert, so it should return an error",
+			cert:        nil,
+			timeNow:     t0,
+			expectedErr: fmt.Errorf("no certificate found"),
+		},
+		{
+			name:        "invalid cert",
+			cert:        []byte("invalid cert"),
+			timeNow:     t0,
+			expectedErr: fmt.Errorf("failed to extract cert expiration timestamp: failed to parse the cert: invalid PEM encoded certificate"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			time, err := TimeBeforeCertExpires(tc.cert, tc.timeNow)
+			if err != nil {
+				if tc.expectedErr == nil {
+					t.Fatalf("Unexpected error: %v", err)
+				} else if strings.Compare(err.Error(), tc.expectedErr.Error()) != 0 {
+					t.Errorf("expected error: %v got %v", err, tc.expectedErr)
+				}
+				return
+			}
+
+			if time != tc.expectedTime {
+				t.Fatalf("expected time %v, got %v", tc.expectedTime, time)
 			}
 		})
 	}

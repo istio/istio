@@ -197,7 +197,8 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesExclude NetworkRange, ipv6RangesInclude NetworkRange) {
 	var table string
 	// Create a new chain for to hit tunnel port directly.
-	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport", iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
+		iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
@@ -370,7 +371,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
-	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport", iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
+		iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
 
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
