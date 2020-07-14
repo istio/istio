@@ -16,6 +16,8 @@ package kube
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/util/retry"
+	"net"
 	"strconv"
 	"text/template"
 
@@ -342,7 +344,12 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 		if err != nil {
 			return "", "", err
 		}
-		addr, err := istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
+		var addr net.TCPAddr
+		err = retry.UntilSuccess(func() error {
+			var err error
+			addr, err = istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
+			return err
+		})
 		if err != nil {
 			return "", "", err
 		}
