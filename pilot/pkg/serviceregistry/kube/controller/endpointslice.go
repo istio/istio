@@ -54,6 +54,10 @@ func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceIn
 	return out
 }
 
+func (esc *endpointSliceController) getInformer() cache.SharedIndexInformer {
+	return esc.informer
+}
+
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
 	if err := esc.c.checkReadyForEvents(); err != nil {
 		return err
@@ -143,8 +147,19 @@ func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, p
 	return out
 }
 
+func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
+	slice := endpoint.(*discoveryv1alpha1.EndpointSlice)
+	key := kube.KeyFunc(slice.Name, slice.Namespace)
+	for _, e := range slice.Endpoints {
+		for _, a := range e.Addresses {
+			esc.c.pods.dropNeedsUpdate(key, a)
+		}
+	}
+}
+
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
 	slice := es.(*discoveryv1alpha1.EndpointSlice)
+	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	endpoints := make([]*model.IstioEndpoint, 0)
 	for _, e := range slice.Endpoints {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
@@ -154,20 +169,26 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 		for _, a := range e.Addresses {
 			pod := esc.c.pods.getPodByIP(a)
 			if pod == nil {
-				// This can not happen in usual case
+				// This means, the endpoint event has arrived before pod event. This might happen because
+				// PodCache is eventually consistent.
 				if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
-					pod = esc.c.pods.getPod(e.TargetRef.Name, e.TargetRef.Namespace)
-					if pod == nil {
+					// There is a small chance getInformer may have the pod, but it hasn't made its way to the PodCache yet
+					// This is due to the shared queue. Try the getInformer store first
+					podFromInformer, f, err := esc.c.pods.informer.GetStore().GetByKey(key)
+					if err != nil || !f {
 						// If pod is still not available, this an unusual case.
 						endpointsWithNoPods.Increment()
 						log.Errorf("Endpoint without pod %s %s.%s", a, host, slice.Namespace)
 						if esc.c.metrics != nil {
 							esc.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, a)
 						}
+						// Tell pod cache we want to get an update when this pod arrives
+						esc.c.pods.recordNeedsUpdate(key, a)
 						continue
+					} else {
+						pod = podFromInformer.(*v1.Pod)
 					}
 				}
-				// For service without selector, maybe there are no related pods
 			}
 
 			builder := esc.newEndpointBuilder(pod, e)
