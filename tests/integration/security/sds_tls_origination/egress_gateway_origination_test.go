@@ -5,6 +5,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,58 +24,83 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			ctx.RequireOrSkip(environment.Kube)
 
 			var (
-				credName = "tls-credential"
+				credName     = "tls-credential-cacert"
+				fakeCredName = "fake-tls-credential-cacert"
 			)
 
-			var CredentialA = sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.ClientCertA,
-				PrivateKey: sdstlsutil.ClientKeyA,
-				CaCert:     sdstlsutil.RootCertA,
+			var credentialA = sdstlsutil.TLSCredential{
+				CaCert: sdstlsutil.RootCertA,
 			}
-
+			var fakeCredentialA = sdstlsutil.TLSCredential{
+				CaCert: sdstlsutil.FakeRootCertA,
+			}
+			// Add kubernetes secret to provision key/cert for gateway.
+			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "SIMPLE", credentialA, false)
+			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credName})
 
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "MUTUAL", CredentialA, false)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credName})
+			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "SIMPLE", fakeCredentialA, false)
+			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, &p)
 
-			credName = "tls-credential"
+			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
 
-			bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "MUTUAL", credName)
+			testCases := map[string]struct {
+				response        []string
+				credentialToUse string
+				gateway         bool
+			}{
+				"Simple TLS with Correct Root Cert": {
+					response:        []string{response.StatusCodeOK},
+					credentialToUse: strings.TrimSuffix(credName, "-cacert"),
+					gateway:         true,
+				},
+				"Simple TLS with Fake Root Cert": {
+					response:        []string{response.StatusCodeUnavailable},
+					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
+					gateway:         false,
+				},
+			}
 
-			// Get namespace for gateway pod.
-			istioCfg := istio.DefaultConfigOrFail(t, ctx)
-			systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+			for name, tc := range testCases {
+				t.Run(name, func(t *testing.T) {
+					bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "SIMPLE", tc.credentialToUse)
 
-			ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
-			defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+					// Get namespace for gateway pod.
+					istioCfg := istio.DefaultConfigOrFail(t, ctx)
+					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
-			retry.UntilSuccessOrFail(t, func() error {
-				resp, err := internalClient.Call(echo.CallOptions{
-					Target:   externalServer,
-					PortName: "http",
-					Headers: map[string][]string{
-						"Host": {host},
-					},
+					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := internalClient.Call(echo.CallOptions{
+							Target:   externalServer,
+							PortName: "http",
+							Headers: map[string][]string{
+								"Host": {host},
+							},
+						})
+						if err != nil {
+							return fmt.Errorf("request failed: %v", err)
+						}
+						codes := make([]string, 0, len(resp))
+						for _, r := range resp {
+							codes = append(codes, r.Code)
+						}
+						if !reflect.DeepEqual(codes, tc.response) {
+							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+						}
+						for _, r := range resp {
+							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+							}
+						}
+						return nil
+					}, retry.Delay(time.Second), retry.Timeout(5*time.Second))
 				})
-				if err != nil {
-					return fmt.Errorf("request failed: %v", err)
-				}
-				codes := make([]string, 0, len(resp))
-				for _, r := range resp {
-					codes = append(codes, r.Code)
-				}
-				if !reflect.DeepEqual(codes, []string{response.StatusCodeOK}) {
-					return fmt.Errorf("got codes %q, expected %q", codes, []string{response.StatusCodeOK})
-				}
-				for _, r := range resp {
-					if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; !f {
-						return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
-					}
-				}
-				return nil
-			}, retry.Delay(time.Second), retry.Timeout(5*time.Second))
+			}
 		})
 }
