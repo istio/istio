@@ -189,13 +189,14 @@ function setup_kind_clusters() {
     CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$IDX]}"
     CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
-    cat <<EOF > "${CLUSTER_YAML}"
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
+    if [ ! -f "${CLUSTER_YAML}" ]; then
+      cp ./prow/config/trustworthy-jwt.yaml $CLUSTER_YAML
+      cat <<EOF >> "${CLUSTER_YAML}"
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
+    fi
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
