@@ -63,7 +63,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
-	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all istio related sources")
+	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace of Istio Control Plane.")
@@ -77,17 +77,17 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 	rootArgs := &rootArgs{}
 	uiArgs := &uninstallArgs{}
 	uicmd := &cobra.Command{
-		Use:   "uninstall --revision foo or uninstall --filename iop.yaml",
-		Short: "uninstall the control plane by revision",
-		Long:  "The uninstall command uninstall the control plane by revision or IstioOperator CR",
-		Example: `  # uninstall by revision label foo
-  istioctl uninstall --revision foo
+		Use:   "uninstall",
+		Short: "Uninstall Istio from a cluster",
+		Long:  "The uninstall command uninstalls Istio from a cluster",
+		Example: `  # Uninstall a single control plane by revision
+  istioctl x uninstall --revision foo
 
-  # uninstall by iop file
-  istioctl uninstall -f iop.yaml
+  # Uninstall by iop file
+  istioctl x uninstall -f iop.yaml
   
-  # uninstall all istio resources
-  istioctl uninstall --purge
+  # Uninstall all Istio resources
+  istioctl x uninstall --purge
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if uiArgs.revision == "" && uiArgs.filename == "" && !uiArgs.purge {
@@ -118,10 +118,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: rootArgs.dryRun, Log: l, ProgressLog: progress.NewLog()}
-	h, err := helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), nil, opts)
-	if err != nil {
-		return fmt.Errorf("failed to create reconciler: %v", err)
-	}
+	var h *helmreconciler.HelmReconciler
 
 	// If only revision flag is set, we would prune resources by the revision label.
 	// Otherwise we would merge the revision flag and the filename flag and delete resources by generated manifests.
@@ -139,14 +136,14 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		if err := preCheckWarnings(cmd, rootArgs, uiArgs, uiArgs.revision, tp, l); err != nil {
+		if err := preCheckWarnings(cmd, uiArgs, uiArgs.revision, tp, l); err != nil {
 			return fmt.Errorf("failed to do preuninstall check: %v", err)
 		}
 
 		if err := h.DeleteObjectsList(objectsList); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 		}
-		opts.ProgressLog.SetState(progress.StateComplete)
+		opts.ProgressLog.SetState(progress.StateUninstallComplete)
 		return nil
 	}
 	manifestMap, iops, err := manifest.GenManifests([]string{uiArgs.filename},
@@ -154,38 +151,46 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
-	if err := preCheckWarnings(cmd, rootArgs, uiArgs, iops.Revision, nil, l); err != nil {
+	if err := preCheckWarnings(cmd, uiArgs, iops.Revision, nil, l); err != nil {
 		return fmt.Errorf("failed to do preuninstall check: %v", err)
+	}
+	h, err = helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), nil, opts)
+	if err != nil {
+		return fmt.Errorf("failed to create reconciler: %v", err)
 	}
 	if err := h.DeleteControlPlaneByManifests(manifestMap, iops.Revision, uiArgs.purge); err != nil {
 		return fmt.Errorf("failed to delete control plane by manifests: %v", err)
 	}
-	opts.ProgressLog.SetState(progress.StateComplete)
+	opts.ProgressLog.SetState(progress.StateUninstallComplete)
 	return nil
 }
 
 // preCheckWarnings checks possible breaking changes and issue warnings to users, it checks the following:
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
-func preCheckWarnings(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs,
+func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 	rev string, resourcesList []string, l *clog.ConsoleLogger) error {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
-		return err
+		l.LogAndError(err.Error())
 	}
-	needConfirmation := false
-	var message string
-	if resourcesList != nil {
+	needConfirmation, message := false, ""
+	if uiArgs.purge {
 		needConfirmation = true
-		message += fmt.Sprintf("To be pruned resources from the cluster: %s\n",
-			strings.Join(resourcesList, ","))
-	}
-	if len(pids) != 0 {
-		needConfirmation = true
-		message += fmt.Sprintf("There are still proxies pointing to the control plane revision %s:\n%s."+
-			" If you proceed with the uninstall, these proxies will become detached from any control plane"+
-			" and will not function correctly.. ",
-			uiArgs.revision, strings.Join(pids, " \n"))
+		message += "All Istio resources will be pruned from the cluster\n"
+	} else {
+		if resourcesList != nil {
+			needConfirmation = true
+			message += fmt.Sprintf("The following resources will be pruned from the cluster: %s\n",
+				strings.Join(resourcesList, ", "))
+		}
+		if len(pids) != 0 {
+			needConfirmation = true
+			message += fmt.Sprintf("There are still proxies pointing to the control plane revision %s:\n%s."+
+				" If you proceed with the uninstall, these proxies will become detached from any control plane"+
+				" and will not function correctly. ",
+				uiArgs.revision, strings.Join(pids, " \n"))
+		}
 	}
 	if uiArgs.skipConfirmation {
 		l.LogAndPrint(message)

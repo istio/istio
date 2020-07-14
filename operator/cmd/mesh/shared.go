@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -222,7 +223,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
+	_, mergedIOPS, err := manifest.GenerateConfig([]string{filePath}, nil, false, nil, l)
 	if err != nil {
 		return "", "", err
 	}

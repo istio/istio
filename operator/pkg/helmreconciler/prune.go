@@ -35,10 +35,6 @@ import (
 	"istio.io/istio/pkg/proxy"
 )
 
-const (
-	istioDefaultNamespace = "istio-system"
-)
-
 var (
 	// NamespacedResources orders non cluster scope resources types which should be deleted, first to last
 	NamespacedResources = []schema.GroupVersionKind{
@@ -99,7 +95,7 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 // It returns the install status and any error encountered.
 func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision string) (*v1alpha1.InstallStatus, error) {
 	if ns == "" {
-		ns = istioDefaultNamespace
+		ns = name.IstioDefaultNamespace
 	}
 	errStatus := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ERROR}
 	pids, err := proxy.GetIDsFromProxyInfo("", "", revision, ns)
@@ -141,22 +137,23 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 					errs = util.AppendErr(errs, err)
 				} else {
 					// do not return error if resources are not found
-					h.opts.Log.LogAndPrintf("object: %s is not being deleted: %v", obj.Hash(), err)
+					h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exists",
+						obj.Hash())
 				}
 			}
 			h.opts.Log.LogAndPrintf("  Removed %s.", oh)
 		}
 	}
-	cache.FlushObjectCaches()
 
 	return errs.ToError()
 }
 
 // GetPrunedResources get the list of resources to be removed
-// 1. if purge is false, we list the resources by matching revision and component labels.
-// 2. if purge is true, we list the resources by component labels only.
-// UnstructuredList of objects and corresponding hash of format: Kind/Namespace/Name would be returned
-func (h *HelmReconciler) GetPrunedResources(revision string, purge bool) ([]*unstructured.UnstructuredList, []string, error) {
+// 1. if includeClusterResources is false, we list the namespaced resources by matching revision and component labels.
+// 2. if includeClusterResources is true, we list the namespaced and cluster resources by component labels only.
+// UnstructuredList of objects and corresponding list of name kind hash of k8sObjects would be returned
+func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool) (
+	[]*unstructured.UnstructuredList, []string, error) {
 	var resources []string
 	var usList []*unstructured.UnstructuredList
 	labels := map[string]string{
@@ -164,7 +161,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, purge bool) ([]*uns
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	gvkList := append(NamespacedResources, NonNamespacedCPResources...)
-	if purge {
+	if includeClusterResources {
 		gvkList = append(NamespacedResources, AllClusterResources...)
 	}
 	for _, gvk := range gvkList {
@@ -174,22 +171,20 @@ func (h *HelmReconciler) GetPrunedResources(revision string, purge bool) ([]*uns
 		if err != nil {
 			return usList, resources, err
 		}
-		if !purge {
+		if !includeClusterResources {
 			err = h.client.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{Selector: selector.Add(*componentRequirement)})
 		} else {
 			s := klabels.NewSelector()
-			err = h.client.List(context.TODO(), objects, client.InNamespace(istioDefaultNamespace),
+			err = h.client.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{Selector: s.Add(*componentRequirement)})
 		}
 		if err != nil {
-			// we only want to retrieve resources clusters
-			scope.Warnf("retrieving resources to prune type %s: %s not found", gvk.String(), err)
 			continue
 		}
 		usList = append(usList, objects)
 		for _, o := range objects.Items {
-			resources = append(resources, object.NewK8sObject(&o, nil, nil).Hash())
+			resources = append(resources, object.NewK8sObject(&o, nil, nil).HashNameKind())
 		}
 	}
 	return usList, resources, nil
@@ -305,7 +300,7 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 				errs = util.AppendErr(errs, err)
 			} else {
 				// do not return error if resources are not found
-				h.opts.Log.LogAndPrintf("object: %s is not being deleted: %v", obj.Hash(), err)
+				h.opts.Log.LogAndPrintf("object: %s is not being deleted because it no longer exist", obj.Hash())
 			}
 		}
 		if !all {

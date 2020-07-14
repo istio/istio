@@ -30,6 +30,7 @@ type sidecarSyncStatus struct {
 	xds.SyncStatus
 }
 
+// GetProxyInfo retrieves infos of proxies that connect to the Istio control plane of specific revision.
 func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*[]istioVersion.ProxyInfo, error) {
 	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 	if err != nil {
