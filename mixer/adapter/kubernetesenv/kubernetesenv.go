@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/kubernetesenv/config/config.proto -x "-n kubernetesenv"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/kubernetesenv/config/config.proto -x "-n kubernetesenv -d example"
 //go:generate $REPO_ROOT/bin/mixer_codegen.sh -t mixer/adapter/kubernetesenv/template/template.proto
 
 // Package kubernetesenv provides functionality to adapt mixer behavior to the

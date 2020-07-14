@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/memquota/config/config.proto -x "-n memquota -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/memquota/config/config.proto -x "-n memquota -t quota -d example"
 
 // Package memquota provides a simple in-memory quota implementation. It's
 // trivial to set up, but it has various limitations:

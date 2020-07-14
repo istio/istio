@@ -6,9 +6,10 @@ metadata:
   name: keyval
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: false
   templates:
-  - keyval
+    - keyval
   config: CsgCCh5taXhlci90ZXN0L2tleXZhbC9jb25maWcucHJvdG8SBmtleXZhbCJzCgZQYXJhbXMSLwoFdGFibGUYASADKAsyGS5rZXl2YWwuUGFyYW1zLlRhYmxlRW50cnlSBXRhYmxlGjgKClRhYmxlRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AUqgAQoGEgQAAAgBCggKAQwSAwAAEgoICgECEgMCCA4KIAoCBAASBAUACAEaFCBBZGFwdGVyIHBhcmFtZXRlcnMKCgoKAwQAARIDBQgOChsKBAQAAgASAwcCIBoOIExvb2t1cCB0YWJsZQoKDQoFBAACAAQSBAcCBRAKDAoFBAACAAYSAwcCFQoMCgUEAAIAARIDBxYbCgwKBQQAAgADEgMHHh9iBnByb3RvMw==
 ---
+

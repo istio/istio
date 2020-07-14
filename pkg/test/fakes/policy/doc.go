@@ -13,6 +13,6 @@
 // limitations under the License.
 
 // nolint
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a pkg/test/fakes/policy/config.proto -x "-s=false -n policybackend -t checknothing -t keyval"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a pkg/test/fakes/policy/config.proto -x "-s=false -n policybackend -t checknothing -t keyval -d example"
 
 package policy

@@ -1,22 +1,72 @@
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: istiooperators.install.istio.io
+  labels:
+    release: istio
 spec:
   group: install.istio.io
-  versions:
-    - name: v1alpha1
-      served: true
-      storage: true
-  scope: Namespaced
-  subresources:
-    status: {}
   names:
     kind: IstioOperator
-    listKind: IstioOperatorList
     plural: istiooperators
     singular: istiooperator
     shortNames:
-    - iop
-...
+      - iop
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - description: Istio control plane revision
+          jsonPath: .spec.revision
+          name: Revision
+          type: string
+        - description: IOP current state
+          jsonPath: .status.status
+          type: string
+          name: Status
+        - jsonPath: .metadata.creationTimestamp
+          description:
+            "CreationTimestamp is a timestamp representing the server time when
+            this object was created. It is not guaranteed to be set in happens-before order
+            across separate operations. Clients may not set this value. It is represented
+            in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+            lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata"
+          name: Age
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          properties:
+            apiVersion:
+              description:
+                "APIVersion defines the versioned schema of this representation
+                of an object. Servers should convert recognized schemas to the latest
+                internal value, and may reject unrecognized values.
+                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#resources"
+              type: string
+            kind:
+              description:
+                "Kind is a string value representing the REST resource this
+                object represents. Servers may infer this from the endpoint the client
+                submits requests to. Cannot be updated. In CamelCase.
+                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+              type: string
+            spec:
+              description:
+                "Specification of the desired state of the istio control plane resource.
+                More info: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+            status:
+              description:
+                "Status describes each of istio control plane component status at the current time.
+                0 means NONE, 1 means UPDATING, 2 means HEALTHY, 3 means ERROR, 4 means RECONCILING.
+                More info: https://github.com/istio/api/blob/master/operator/v1alpha1/istio.operator.v1alpha1.pb.html &
+                https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#spec-and-status"
+              x-kubernetes-preserve-unknown-fields: true
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}

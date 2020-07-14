@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/prometheus/config/config.proto -x "-n prometheus -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/prometheus/config/config.proto -x "-n prometheus -t metric -d example"
 
 // Package prometheus publishes metric values collected by Mixer for
 // ingestion by prometheus.

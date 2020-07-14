@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -c $REPO_ROOT/mixer/test/keyval/config.proto_descriptor -o $REPO_ROOT/mixer/test/keyval -s=false -n keyval -t keyval
+# mixgen adapter -c $REPO_ROOT/mixer/test/keyval/config.proto_descriptor -o $REPO_ROOT/mixer/test/keyval -s=false -n keyval -t keyval -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: keyval
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: false
   templates:
   - keyval

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml
+//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml -d example
 
 package spybackend
 

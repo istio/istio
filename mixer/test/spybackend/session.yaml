@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml
+# mixgen adapter -n spybackend-session -s=true -t metric -t quota -t listentry -o session.yaml -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: spybackend-session
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: true
   templates:
   - metric
