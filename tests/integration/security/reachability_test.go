@@ -53,7 +53,7 @@ func TestReachability(t *testing.T) {
 						}
 
 						// If one of the two endpoints is naked, expect failure.
-						return rctx.IsNaked(src) || rctx.IsNaked(opts.Target)
+						return !rctx.IsNaked(src) && !rctx.IsNaked(opts.Target)
 					},
 				},
 				{
@@ -74,7 +74,7 @@ func TestReachability(t *testing.T) {
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
 						// Exclude calls from naked->VM.
-						return !(src == rctx.Naked && opts.Target == rctx.VM)
+						return !(rctx.IsNaked(src) && opts.Target == rctx.VM)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						return true
@@ -145,7 +145,7 @@ func TestReachability(t *testing.T) {
 						// Exclude calls from naked->VM since naked has no Envoy
 						// so k8s is responsible for DNS resolution
 						// However, no endpoint exists for VM in k8s, so calls from naked->VM will fail
-						if src == rctx.Naked && opts.Target == rctx.VM {
+						if rctx.IsNaked(src) && opts.Target == rctx.VM {
 							return false
 						}
 

@@ -1009,7 +1009,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTLS, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
+			gotTLS, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy,
+				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTLS)
 			}
@@ -2113,7 +2114,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_ORIGINAL_DST,
 			tls:                        tlsSettings,
-			expectTransportSocket:      false,
+			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 		},
 	}
