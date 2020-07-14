@@ -66,9 +66,13 @@ func listCommand() *cobra.Command {
 
 func runList(writer io.Writer) error {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	fmt.Fprintf(w, "FLAG\tVALUE\n")
+	fmt.Fprintf(w, "FLAG\tOVERRIDE\tVALUE\n")
 	for _, flag := range settableFlags {
-		fmt.Fprintf(w, "%s\t%s\n", flag, viper.GetString(flag))
+		var override string
+		if viper.InConfig(flag) {
+			override = viper.GetString(flag)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%v\n", flag, override, viper.GetString(flag))
 	}
 	return w.Flush()
 }
