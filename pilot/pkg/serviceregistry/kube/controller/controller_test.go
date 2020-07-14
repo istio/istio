@@ -1671,7 +1671,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			assertEndpointsEvent("172.0.1.1")
 			fx.Clear()
 
-			// Create the endpoint, then later add the pod. Should eventually get an update for
+			// Create the endpoint, then later add the pod. Should eventually get an update for the endpoint
 			addEndpoint("svc", "172.0.1.1", "172.0.1.2")
 			assertEndpointsEvent("172.0.1.1")
 			fx.Clear()

@@ -201,7 +201,7 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 			pod := e.c.pods.getPodByIP(ea.IP)
 			if pod == nil {
 				// This means, the endpoint event has arrived before pod event. This might happen because
-				// PodCache is eventually consistent. We should try to get the pod from kube-api server.
+				// PodCache is eventually consistent.
 				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
 					// There is a small chance getInformer may have the pod, but it hasn't made its way to the PodCache yet
 					// This is due to the shared queue. Try the getInformer store first

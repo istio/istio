@@ -160,6 +160,7 @@ func (pc *PodCache) recordNeedsUpdate(key, ip string) {
 	} else {
 		pc.needResync[ip].Insert(key)
 	}
+	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
 func (pc *PodCache) proxyUpdates(ip string) {
@@ -206,4 +207,5 @@ func (pc *PodCache) dropNeedsUpdate(key string, ip string) {
 	if len(pc.needResync[ip]) == 0 {
 		delete(pc.needResync, ip)
 	}
+	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }

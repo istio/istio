@@ -74,14 +74,22 @@ var (
 		monitoring.WithLabels(typeTag, eventTag),
 	)
 
+	// This is deprecated in favor of `pilot_k8s_endpoints_pending_pod`, which is a gauge indicating the number of
+	// currently missing pods. This helps distinguish transient errors from permanent ones
 	endpointsWithNoPods = monitoring.NewSum(
 		"pilot_k8s_endpoints_with_no_pods",
 		"Endpoints that does not have any corresponding pods.")
+
+	endpointsPendingPodUpdate = monitoring.NewGauge(
+		"pilot_k8s_endpoints_pending_pod",
+		"Number of endpoints that do not currently have any corresponding pods.",
+	)
 )
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
 	monitoring.MustRegister(endpointsWithNoPods)
+	monitoring.MustRegister(endpointsPendingPodUpdate)
 }
 
 func incrementEvent(kind, event string) {
