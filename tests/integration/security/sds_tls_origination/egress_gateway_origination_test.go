@@ -1,14 +1,11 @@
 package sdstlsorigination
 
 import (
-	"bytes"
 	"fmt"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	"reflect"
 	"testing"
-	"text/template"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -26,7 +23,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			ctx.RequireOrSkip(environment.Kube)
 
 			var (
-				credName = "tls-credential-cacert"
+				credName = "tls-credential"
 			)
 
 			var CredentialA = sdstlsutil.TLSCredential{
@@ -37,18 +34,15 @@ func TestSimpleTlsOrigination(t *testing.T) {
 
 
 			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "SIMPLE", CredentialA, false)
+			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "MUTUAL", CredentialA, false)
 			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credName})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, &p)
 
-			// enforce mTLS
-			// createStrictMtls(t, ctx, serverNamespace)
-
 			credName = "tls-credential"
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
 
-			bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "SIMPLE", credName)
+			bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "MUTUAL", credName)
 
 			// Get namespace for gateway pod.
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
@@ -83,43 +77,4 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				return nil
 			}, retry.Delay(time.Second), retry.Timeout(5*time.Second))
 		})
-}
-
-const (
-	PeerAuthentication = `
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: "default"
-spec:
-  mtls:
-    mode: PERMISSIVE
----
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: default
-  namespace: {{.ServerNamespace}}
-spec:
-  selector:
-    matchLabels:
-      app: server
-  mtls:
-    mode: STRICT
-`
-)
-
-func createStrictMtls(t *testing.T, ctx resource.Context, serverNamespace namespace.Instance) {
-	tmpl, err := template.New("PeerAuthentication").Parse(PeerAuthentication)
-	if err != nil {
-		t.Errorf("failed to create template: %v", err)
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
-		t.Errorf("failed to create template: %v", err)
-	}
-	if err := ctx.Config().ApplyYAML(serverNamespace.Name(), buf.String()); err != nil {
-		t.Errorf("failed to apply sidecar scope: %v", err)
-	}
 }
