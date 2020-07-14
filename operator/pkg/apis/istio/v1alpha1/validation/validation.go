@@ -89,6 +89,7 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
 		{"Values.global.proxy.concurrency", "meshConfig.defaultConfig.concurrency", uint32(0)},
 		{"Values.global.proxy.envoyAccessLogService", "meshConfig.defaultConfig.envoyAccessLogService", nil},
+		{"Values.global.proxy.envoyAccessLogService.enabled", "meshConfig.enableEnvoyAccessLogService", nil},
 		{"Values.global.proxy.envoyMetricsService", "meshConfig.defaultConfig.envoyMetricsService", nil},
 		{"Values.global.proxy.protocolDetectionTimeout", "meshConfig.protocolDetectionTimeout", ""},
 		{"Values.pilot.ingress", "meshConfig.ingressService, meshConfig.ingressControllerMode, and meshConfig.ingressClass", nil},

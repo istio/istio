@@ -43,6 +43,12 @@ var (
 	)
 )
 
+func init() {
+	monitoring.MustRegister(k8sEvents)
+	monitoring.MustRegister(k8sErrors)
+	monitoring.MustRegister(k8sTotalErrors)
+}
+
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }

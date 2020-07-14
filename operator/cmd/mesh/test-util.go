@@ -230,6 +230,55 @@ func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual interface{}) st
 	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
+// HavePathValueMatchRegex matches map[string]interface{} tree against a PathValue.
+func HavePathValueMatchRegex(expected interface{}) types.GomegaMatcher {
+	return &HavePathValueMatchRegexMatcher{
+		expected: expected,
+	}
+}
+
+// HavePathValueMatchRegexMatcher is a matcher type for HavePathValueMatchRegex.
+type HavePathValueMatchRegexMatcher struct {
+	expected interface{}
+}
+
+// Match implements the Matcher interface.
+func (m *HavePathValueMatchRegexMatcher) Match(actual interface{}) (bool, error) {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
+	if err != nil || !f {
+		return false, err
+	}
+	if reflect.TypeOf(got.Node).Kind() != reflect.String || reflect.TypeOf(pv.value).Kind() != reflect.String {
+		return false, fmt.Errorf("comparison types must both be string: got %v(%T), want %v(%T)", got.Node, got.Node, pv.value, pv.value)
+	}
+	gotS := got.Node.(string)
+	wantS := pv.value.(string)
+	ok, err := regexp.MatchString(wantS, gotS)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, fmt.Errorf("values don't match: got %v, want %v", got.Node, pv.value)
+	}
+	return true, nil
+}
+
+// FailureMessage implements the Matcher interface.
+func (m *HavePathValueMatchRegexMatcher) FailureMessage(actual interface{}) string {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+}
+
+// NegatedFailureMessage implements the Matcher interface.
+func (m *HavePathValueMatchRegexMatcher) NegatedFailureMessage(actual interface{}) string {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+}
+
 // HavePathValueContain matches map[string]interface{} tree against a PathValue.
 func HavePathValueContain(expected interface{}) types.GomegaMatcher {
 	return &HavePathValueContainMatcher{

@@ -25,7 +25,7 @@ docker: docker.all
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
-docker.app_sidecar_debian_10 docker.test_policybackend docker.mixer docker.mixer_codegen \
+docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 docker.test_policybackend docker.mixer docker.mixer_codegen \
 docker.istioctl docker.operator docker.install-cni
 
 # Echo docker directory and the template to pass image name and version to for VM testing
@@ -64,12 +64,12 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 # The file must be named 'envoy', depends on the release.
-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
+${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 ifdef DEBUG_IMAGE
-	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 else
-	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 endif
 
 # The file must be named 'envoy_bootstrap.json' because Dockerfile.proxyv2 hard-codes this.
@@ -81,11 +81,11 @@ $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
-docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
+docker.proxyv2: BUILD_PRE=&& chmod 755 ${SIDECAR} pilot-agent
+docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} --build-arg SIDECAR=${SIDECAR}
 docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
 docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/${SIDECAR}
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
@@ -162,6 +162,17 @@ docker.app_sidecar_debian_10: pkg/test/echo/docker/echo-start.sh
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/client
 docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
+	$(DOCKER_RULE)
+
+# Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar_centos_8: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_centos_8: tools/packaging/common/envoy_bootstrap.json
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/release/istio-sidecar.rpm
+docker.app_sidecar_centos_8: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_centos_8: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
 	$(DOCKER_RULE)
 
 # Test policy backend for mixer integration

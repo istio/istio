@@ -355,7 +355,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
-		ControlPlaneAuthPolicy: 1,
+		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
 	}
 
@@ -1475,6 +1475,137 @@ func TestValidateTlsOptions(t *testing.T) {
 				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
 			}
 		})
+	}
+}
+
+func TestValidateTLS(t *testing.T) {
+	testCases := []struct {
+		name  string
+		tls   *networking.ClientTLSSettings
+		valid bool
+	}{
+		{
+			name: "SIMPLE: Credential Name set correctly",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "some credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: true,
+		},
+		{
+			name: "SIMPLE CredentialName set with ClientCertificate specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CredentialName set with PrivateKey specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "key",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CredentialName set with CACertficiates specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "ca",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: Credential Name set correctly",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "some credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL CredentialName set with ClientCertificate specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName set with PrivateKey specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "key",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName set with CACertficiates specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "ca",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate and Key specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "cert",
+				PrivateKey:        "key",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate specified and Key missing",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate missing and Key specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "",
+				PrivateKey:        "key",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		if got := validateTLS(tc.tls); (got == nil) != tc.valid {
+			t.Errorf("ValidateTLS(%q) => got valid=%v, want valid=%v",
+				tc.name, got == nil, tc.valid)
+		}
 	}
 }
 

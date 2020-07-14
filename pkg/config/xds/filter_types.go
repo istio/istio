@@ -12,8 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate sh -c "echo 'package xds\n\nimport (' > filter_types.gen.go"
-//go:generate sh -c "go list github.com/envoyproxy/go-control-plane/... | grep 'v[2-9]' | xargs -n1 -I{} echo -e '\t_ \"{}\"' >> filter_types.gen.go"
+//go:generate sh -c "echo '// Copyright Istio Authors' > filter_types.gen.go"
+//go:generate sh -c "echo '//' >> filter_types.gen.go"
+//go:generate sh -c "echo '// Licensed under the Apache License, Version 2.0 (the \"License\");' >> filter_types.gen.go"
+//go:generate sh -c "echo '// you may not use this file except in compliance with the License.' >> filter_types.gen.go"
+//go:generate sh -c "echo '// You may obtain a copy of the License at' >> filter_types.gen.go"
+//go:generate sh -c "echo '//' >> filter_types.gen.go"
+//go:generate sh -c "echo '//     http://www.apache.org/licenses/LICENSE-2.0' >> filter_types.gen.go"
+//go:generate sh -c "echo '//' >> filter_types.gen.go"
+//go:generate sh -c "echo '// Unless required by applicable law or agreed to in writing, software' >> filter_types.gen.go"
+//go:generate sh -c "echo '// distributed under the License is distributed on an \"AS IS\" BASIS,' >> filter_types.gen.go"
+//go:generate sh -c "echo '// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.' >> filter_types.gen.go"
+//go:generate sh -c "echo '// See the License for the specific language governing permissions and' >> filter_types.gen.go"
+//go:generate sh -c "echo '// limitations under the License.\n' >> filter_types.gen.go"
+//go:generate sh -c "echo '//  GENERATED FILE -- DO NOT EDIT\n' >> filter_types.gen.go"
+//go:generate sh -c "echo 'package xds\n\nimport (' >> filter_types.gen.go"
+//go:generate sh -c "go list github.com/envoyproxy/go-control-plane/... | grep 'v[2-9]' | xargs -n1 -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
+//go:generate sh -c "echo '\n\t// Istio-specific Envoy filters' >> filter_types.gen.go"
+//go:generate sh -c "go list istio.io/istio/pkg/envoy/config/filter/... | grep 'v[2-9]' | xargs -n1 -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
 //go:generate sh -c "echo ')' >> filter_types.gen.go"
 package xds
 

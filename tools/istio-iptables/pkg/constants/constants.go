@@ -76,6 +76,7 @@ const (
 	LocalOutboundPortsExclude = "istio-local-outbound-ports-exclude"
 	EnvoyPort                 = "envoy-port"
 	InboundCapturePort        = "inbound-capture-port"
+	InboundTunnelPort         = "inbound-tunnel-port"
 	ProxyUID                  = "proxy-uid"
 	ProxyGID                  = "proxy-gid"
 	KubeVirtInterfaces        = "kube-virt-interfaces"

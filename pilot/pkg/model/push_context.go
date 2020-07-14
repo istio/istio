@@ -629,7 +629,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		// Currently we assume that there will be only one sidecar config for a namespace.
 		var defaultSidecar *SidecarScope
 		for _, wrapper := range sidecars {
-			if wrapper.Config != nil {
+			if wrapper.Config != nil && wrapper.Config.Spec != nil {
 				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
 				// if there is no workload selector, the config applies to all workloads
 				// if there is a workload selector, check for matching workload labels

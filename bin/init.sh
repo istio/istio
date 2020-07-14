@@ -75,18 +75,18 @@ function download_envoy_if_necessary () {
     pushd "$(dirname "$2")"
 
     # Download and extract the binary to the output directory.
-    echo "Downloading Envoy: ${DOWNLOAD_COMMAND} $1 to $2"
+    echo "Downloading ${SIDECAR}: ${DOWNLOAD_COMMAND} $1 to $2"
     time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
 
     # Copy the extracted binary to the output location
-    cp usr/local/bin/envoy "$2"
+    cp usr/local/bin/"${SIDECAR}" "$2"
 
     # Remove the extracted binary.
     rm -rf usr
 
     # Make a copy named just "envoy" in the same directory (overwrite if necessary).
-    echo "Copying $2 to $(dirname "$2")/envoy"
-    cp -f "$2" "$(dirname "$2")/envoy"
+    echo "Copying $2 to $(dirname "$2")/${SIDECAR}"
+    cp -f "$2" "$(dirname "$2")/${SIDECAR}"
     popd
   fi
 }
@@ -146,7 +146,7 @@ ISTIO_ENVOY_LINUX_DEBUG_DIR=${ISTIO_ENVOY_LINUX_DEBUG_DIR:-"${OUT_DIR}/linux_amd
 ISTIO_ENVOY_LINUX_DEBUG_NAME=${ISTIO_ENVOY_LINUX_DEBUG_NAME:-"envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}"}
 ISTIO_ENVOY_LINUX_DEBUG_PATH=${ISTIO_ENVOY_LINUX_DEBUG_PATH:-"${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}"}
 ISTIO_ENVOY_LINUX_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR:-"${OUT_DIR}/linux_amd64/release"}
-ISTIO_ENVOY_LINUX_RELEASE_NAME=${ISTIO_ENVOY_LINUX_RELEASE_NAME:-"envoy-${ISTIO_ENVOY_LINUX_VERSION}"}
+ISTIO_ENVOY_LINUX_RELEASE_NAME=${ISTIO_ENVOY_LINUX_RELEASE_NAME:-"${SIDECAR}-${ISTIO_ENVOY_LINUX_VERSION}"}
 ISTIO_ENVOY_LINUX_RELEASE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH:-"${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}"}
 
 # Envoy macOS vars. Normally set by the makefile.
@@ -217,11 +217,11 @@ do
 done
 
 # Copy native envoy binary to ISTIO_OUT
-echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/envoy"
-cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/envoy"
+echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/${SIDECAR}"
+cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/${SIDECAR}"
 
 # Copy the envoy binary to ISTIO_OUT_LINUX if the local OS is not Linux
 if [[ "$GOOS_LOCAL" != "linux" ]]; then
-   echo "Copying ${ISTIO_ENVOY_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/envoy"
-  cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/envoy"
+   echo "Copying ${ISTIO_ENVOY_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/${SIDECAR}"
+  cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/${SIDECAR}"
 fi

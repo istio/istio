@@ -101,6 +101,7 @@ func TestNewServer(t *testing.T) {
 		name           string
 		domain         string
 		expectedDomain string
+		secureGRPCport string
 	}{
 		{
 			name:           "default domain",
@@ -111,6 +112,12 @@ func TestNewServer(t *testing.T) {
 			name:           "override domain",
 			domain:         "mydomain.com",
 			expectedDomain: "mydomain.com",
+		},
+		{
+			name:           "override default secured grpc port",
+			domain:         "",
+			expectedDomain: constants.DefaultKubernetesDomain,
+			secureGRPCport: ":31128",
 		},
 	}
 
@@ -132,6 +139,7 @@ func TestNewServer(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
+					SecureGRPCAddr: c.secureGRPCport,
 				}
 				p.RegistryOptions = RegistryOptions{
 					KubeOptions: kubecontroller.Options{
