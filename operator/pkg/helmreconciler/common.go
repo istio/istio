@@ -44,17 +44,15 @@ const (
 )
 
 var (
+	// TestMode sets the controller into test mode. Used for unit tests to bypass things like waiting on resources.
+	TestMode = false
+
 	scope = log.RegisterScope("installer", "installer", 0)
 )
 
 func init() {
 	// Tree representation and wait channels are an inversion of ComponentDependencies and are constructed from it.
 	buildInstallTree()
-	for _, parent := range ComponentDependencies {
-		for _, child := range parent {
-			DependencyWaitCh[child] = make(chan struct{}, 1)
-		}
-	}
 }
 
 // ComponentTree represents a tree of component dependencies.
@@ -81,9 +79,6 @@ var (
 	// InstallTree is a top down hierarchy tree of dependencies where children must wait for the parent to complete
 	// before starting installation.
 	InstallTree = make(ComponentTree)
-	// DependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
-	// DependencyWaitCh[ch1]...DependencyWaitCh[chN] when it's completely installed.
-	DependencyWaitCh = make(map[name.ComponentName]chan struct{})
 )
 
 // buildInstallTree builds a tree from buildInstallTree where parents are the root of each subtree.
