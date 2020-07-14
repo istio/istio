@@ -587,17 +587,17 @@ func TestCleanProxyConfig(t *testing.T) {
 		{
 			"default",
 			mesh.DefaultProxyConfig(),
-			`{"controlPlaneAuthPolicy":"MUTUAL_TLS"}`,
+			`{}`,
 		},
 		{
 			"explicit default",
 			explicit,
-			`{"controlPlaneAuthPolicy":"MUTUAL_TLS"}`,
+			`{}`,
 		},
 		{
 			"overrides",
 			overrides,
-			`{"configPath":"/foo/bar","drainDuration":"7s","controlPlaneAuthPolicy":"MUTUAL_TLS","proxyMetadata":{"foo":"barr"}}`,
+			`{"configPath":"/foo/bar","drainDuration":"7s","proxyMetadata":{"foo":"barr"}}`,
 		},
 	}
 	for _, tt := range cases {

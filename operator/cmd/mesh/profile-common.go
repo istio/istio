@@ -47,18 +47,18 @@ import (
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
-func GenerateConfig(inFilenames, setOverlay []string, force bool, kubeConfig *rest.Config,
+func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeConfig *rest.Config,
 	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	if err := validateSetFlags(setOverlay); err != nil {
+	if err := validateSetFlags(setFlags); err != nil {
 		return "", nil, err
 	}
 
-	fy, profile, err := readYamlProfile(inFilenames, setOverlay, force, l)
+	fy, profile, err := readYamlProfile(inFilenames, setFlags, force, l)
 	if err != nil {
 		return "", nil, err
 	}
 
-	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlay, force, kubeConfig, l)
+	iopsString, iops, err := genIOPSFromProfile(profile, fy, setFlags, force, kubeConfig, l)
 	if err != nil {
 		return "", nil, err
 	}

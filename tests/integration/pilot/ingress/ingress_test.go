@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -36,7 +35,6 @@ import (
 
 var (
 	i    istio.Instance
-	p    pilot.Instance
 	ingr ingress.Instance
 )
 
@@ -61,9 +59,6 @@ func TestMain(m *testing.M) {
 			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
 			if ingr, err = ingress.New(ctx, ingress.Config{
 				Istio: i,
 			}); err != nil {
@@ -88,7 +83,6 @@ func TestGateway(t *testing.T) {
 					Service:   "server",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
 					Ports: []echo.Port{
 						{
 							Name:     "http",
@@ -179,7 +173,6 @@ func TestIngress(t *testing.T) {
 					Service:   "server",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
 					Ports: []echo.Port{
 						{
 							Name:     "http-test-port",

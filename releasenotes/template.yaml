@@ -1,3 +1,5 @@
+apiVersion: release-notes/v1
+
 # This YAML file describes the format for specifying a release notes entry for Istio.
 # This should be filled in for all user facing changes.
 

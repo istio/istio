@@ -71,7 +71,6 @@ spec:
 	cfg := echo.Config{
 		Namespace: ns,
 		Service:   name,
-		Pilot:     p,
 		Ports: []echo.Port{{
 			Name:         "http-8080",
 			Protocol:     protocol.HTTP,

@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/rest"
-	controllerRuntime "sigs.k8s.io/controller-runtime/pkg/client"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
@@ -52,10 +51,6 @@ type MockClient struct {
 	RevisionValue    string
 	ConfigValue      *rest.Config
 	IstioVersions    *version.MeshInfo
-}
-
-func (c MockClient) Controller() controllerRuntime.Client {
-	panic("implement me")
 }
 
 func (c MockClient) Istio() istioclient.Interface {

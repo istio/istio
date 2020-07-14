@@ -100,7 +100,7 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
 			p := protocol.Parse(s.Port.Protocol)
 
-			sniHostsByServer[s] = getSNIHostsForServer(s)
+			sniHostsByServer[s] = GetSNIHostsForServer(s)
 			if s.Tls != nil {
 				// Envoy will reject config that has multiple filter chain matches with the same matching rules
 				// To avoid this, we need to make sure we don't have duplicated hosts, which will become
@@ -214,7 +214,7 @@ func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 	return (current.IsHTTP() || current == p) && p.IsHTTP()
 }
 
-func getSNIHostsForServer(server *networking.Server) []string {
+func GetSNIHostsForServer(server *networking.Server) []string {
 	if server.Tls == nil {
 		return nil
 	}
