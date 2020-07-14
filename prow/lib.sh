@@ -190,7 +190,7 @@ function setup_kind_clusters() {
     CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
     if [ ! -f "${CLUSTER_YAML}" ]; then
-      cp ./prow/config/trustworthy-jwt.yaml $CLUSTER_YAML
+      cp ./prow/config/trustworthy-jwt.yaml "${CLUSTER_YAML}"
       cat <<EOF >> "${CLUSTER_YAML}"
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
