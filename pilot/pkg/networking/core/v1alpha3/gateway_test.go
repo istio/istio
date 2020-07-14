@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -103,6 +104,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -125,6 +127,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -191,6 +194,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -232,6 +236,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -342,6 +347,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -369,6 +375,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -411,6 +418,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -438,6 +446,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -480,6 +489,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -507,6 +517,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -545,7 +556,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true})
+		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true}, v3.ListenerType)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting:\n %v but got:\n %v", tc.name, tc.result, ret)
 		}

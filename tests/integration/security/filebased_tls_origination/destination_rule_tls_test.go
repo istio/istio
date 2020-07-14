@@ -76,7 +76,6 @@ spec:
 					Service:   "client",
 					Namespace: ns,
 					Ports:     []echo.Port{},
-					Pilot:     p,
 					Subsets: []echo.SubsetConfig{{
 						Version: "v1",
 						// Set up custom annotations to mount the certs. We will re-use the configmap created by "server"
@@ -110,7 +109,6 @@ spec:
 							TLS:          true,
 						},
 					},
-					Pilot: p,
 					// Set up TLS certs on the server. This will make the server listen with these credentials.
 					TLSSettings: &common.TLSSettings{
 						RootCert:   mustReadFile(t, "root-cert.pem"),

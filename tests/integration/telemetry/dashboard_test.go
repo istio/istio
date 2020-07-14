@@ -303,7 +303,6 @@ func setupDashboardTest(t framework.TestContext) {
 		NewBuilderOrFail(t, t).
 		With(&instance, echo.Config{
 			Service:   "server",
-			Pilot:     p,
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports: []echo.Port{
