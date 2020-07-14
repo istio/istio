@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/consul"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -49,10 +48,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		switch serviceRegistry {
 		case serviceregistry.Kubernetes:
 			if err := s.initKubeRegistry(serviceControllers, args); err != nil {
-				return err
-			}
-		case serviceregistry.Consul:
-			if err := s.initConsulRegistry(serviceControllers, args); err != nil {
 				return err
 			}
 		case serviceregistry.Mock:
@@ -100,17 +95,6 @@ func (s *Server) initKubeRegistry(serviceControllers *aggregate.Controller, args
 	s.kubeRegistry = kubeRegistry
 	serviceControllers.AddRegistry(kubeRegistry)
 	return
-}
-
-func (s *Server) initConsulRegistry(serviceControllers *aggregate.Controller, args *PilotArgs) error {
-	log.Infof("Consul url: %v", args.RegistryOptions.ConsulServerAddr)
-	controller, err := consul.NewController(args.RegistryOptions.ConsulServerAddr, "")
-	if err != nil {
-		return fmt.Errorf("failed to create Consul controller: %v", err)
-	}
-	serviceControllers.AddRegistry(controller)
-
-	return nil
 }
 
 func (s *Server) initMockRegistry(serviceControllers *aggregate.Controller) {

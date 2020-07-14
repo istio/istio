@@ -164,7 +164,7 @@ type processedDestRules struct {
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
 // Pilot uses multiple registries - for example each K8S cluster is a registry
-// instance, as well as consul. Each registry is responsible for tracking a set
+// instance. Each registry is responsible for tracking a set
 // of endpoints associated with mesh services, and calling the EDSUpdate on changes.
 // A registry may group endpoints for a service in smaller subsets - for example by
 // deployment, or to deal with very large number of endpoints for a service. We want
