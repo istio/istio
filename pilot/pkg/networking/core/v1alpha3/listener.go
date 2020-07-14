@@ -2545,14 +2545,6 @@ func isMatchAllFilterChain(fc *listener.FilterChain) bool {
 	return filterChainMatchEmpty(fc.FilterChainMatch)
 }
 
-func isFallthroughFilterChain(fc *listener.FilterChain) bool {
-	if fc.Metadata != nil && fc.Metadata.FilterMetadata != nil &&
-		fc.Metadata.FilterMetadata[PilotMetaKey] != nil && fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] != nil {
-		return fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"].GetBoolValue()
-	}
-	return false
-}
-
 func removeListenerFilterTimeout(listeners []*listener.Listener) {
 	for _, l := range listeners {
 		// Remove listener filter timeout for
