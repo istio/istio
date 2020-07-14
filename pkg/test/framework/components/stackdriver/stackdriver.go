@@ -15,12 +15,12 @@
 package stackdriver
 
 import (
-	edgespb "cloud.google.com/go/meshtelemetry/v1alpha1"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 
 	"istio.io/istio/pkg/test"
+	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 

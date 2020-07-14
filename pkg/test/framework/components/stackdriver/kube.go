@@ -21,20 +21,20 @@ import (
 	"net/http"
 	"time"
 
-	istioKube "istio.io/istio/pkg/kube"
-	environ "istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
-	testKube "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/scopes"
-
-	edgespb "cloud.google.com/go/meshtelemetry/v1alpha1"
-	"github.com/golang/protobuf/jsonpb"
+	jsonpb "github.com/golang/protobuf/jsonpb"
 	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 	kubeApiCore "k8s.io/api/core/v1"
+
+	istioKube "istio.io/istio/pkg/kube"
+	environ "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
+	"istio.io/istio/pkg/test/framework/resource"
+	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 const (

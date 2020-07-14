@@ -23,7 +23,8 @@ import (
 	"testing"
 	"time"
 
-	edgespb "cloud.google.com/go/meshtelemetry/v1alpha1"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoring "google.golang.org/genproto/googleapis/monitoring/v3"
 
@@ -34,13 +35,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
+	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 )
 
 const (
