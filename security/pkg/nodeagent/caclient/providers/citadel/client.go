@@ -63,7 +63,7 @@ type citadelClient struct {
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string, isRotate bool) (caClientInterface.Client, error) {
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (caClientInterface.Client, error) {
 	c := &citadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
@@ -71,7 +71,8 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		clusterID:     clusterID,
 	}
 
-	conn, err := c.buildConnection(isRotate)
+	conn, err := c.buildConnection(false)
+	conn.ResetConnectBackoff()
 	if err != nil {
 		return nil, err
 	}
@@ -82,13 +83,13 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 
 // CSR Sign calls Citadel to sign a CSR.
 func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
-	certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error) {
+	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
 
-	if withToken {
+	if token != "" {
 		// add Bearer prefix, which is required by Citadel.
 		token = bearerTokenPrefix + token
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))

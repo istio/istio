@@ -94,8 +94,6 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// CSR empty token, will be applied when the CSR request doesn't contain a token
-	EmptyToken = ""
 )
 
 type k8sJwtPayload struct {
@@ -647,7 +645,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 					return true
 				}
 			} else if sc.isTokenExpired(&secret) {
-				cacheLog.Infof("%s token expired", logPrefix)
+				cacheLog.Errorf("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				// requiring the client to send another SDS request.
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
@@ -666,7 +664,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				var err error
 				if UseRotationWithCert {
 					// it user set it to SupportRotationWithCert True rotate the cert using old valid cert without token
-					ns, err = sc.generateSecret(context.Background(), EmptyToken, connKey, now, false)
+					ns, err = sc.generateSecret(context.Background(), "", connKey, now, false)
 				} else {
 					ns, err = sc.generateSecret(context.Background(), secret.Token, connKey, now, true)
 				}
@@ -1037,13 +1035,12 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		var httpRespCode int
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
-			if withToken {
-				certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-					ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()), true)
-			} else {
-				certChainPEM, err = sc.fetcher.CaClient.CSRSign(
-					ctx, reqID, csrPEM, EmptyToken, int64(sc.configOptions.SecretTTL.Seconds()), false)
+			if !withToken {
+				// if token is not included in the
+				exchangedToken = ""
 			}
+			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
+				ctx, reqID, csrPEM, "", int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.Plugins[0]

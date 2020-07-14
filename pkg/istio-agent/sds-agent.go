@@ -358,7 +358,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 	// TODO: remove the caching, workload has a single cert
 	if sa.WorkloadSecrets == nil {
-		workloadSecretCache, _ := sa.newSecretCache(serverOptions, false)
+		workloadSecretCache, _ := sa.newSecretCache(serverOptions)
 		sa.WorkloadSecrets = workloadSecretCache
 	}
 
@@ -397,7 +397,7 @@ func gatewaySdsExists() bool {
 }
 
 // newSecretCache creates the cache for workload secrets and/or gateway secrets.
-func (sa *Agent) newSecretCache(serverOptions sds.Options, isRotate bool) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
+func (sa *Agent) newSecretCache(serverOptions sds.Options) (workloadSecretCache *cache.SecretCache, caClient caClientInterface.Client) {
 	fetcher := &secretfetcher.SecretFetcher{}
 
 	// TODO: get the MC public keys from pilot.
@@ -522,7 +522,7 @@ func (sa *Agent) newSecretCache(serverOptions sds.Options, isRotate bool) (workl
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID, isRotate)
+		caClient, err = citadel.NewCitadelClient(serverOptions.CAEndpoint, tls, rootCert, serverOptions.ClusterID)
 		if err == nil {
 			sa.CitadelClient = caClient
 		}

@@ -20,13 +20,11 @@ import (
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
 type Client interface {
-	// if withToken set to true the CSR request will attach the token , otherwise it will not
 	CSRSign(ctx context.Context, reqID string, csrPEM []byte, subjectID string,
-		certValidTTLInSec int64, withToken bool) ([]string /*PEM-encoded certificate chain*/, error)
-	/* if the isRotate is set to True, which means it is reconnected special for rotate cert case
-		then it will reconnect using cert located in environment variable PROV_CERT file path
-	 otherwise it is used for start and restart case then client will use the cert located in environment variable
-	 OUTPUT_CERTS file path
-	*/
+		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
+	// if the isRotate is set to True, which means it is reconnected special for rotate cert case
+	// then it will reconnect using cert located in environment variable PROV_CERT file path
+	// otherwise it is used for start and restart case then client will use the cert located in environment variable
+	// OUTPUT_CERTS file path
 	Reconnect(isRotate bool) error
 }
