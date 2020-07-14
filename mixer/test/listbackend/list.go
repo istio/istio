@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n listbackend-nosession -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml
+//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n listbackend-nosession -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml -d example
 
 package listbackend
 

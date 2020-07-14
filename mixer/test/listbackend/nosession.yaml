@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -n listbackend-nosession -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml
+# mixgen adapter -n listbackend-nosession -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -s=false -t listentry -o nosession.yaml -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: listbackend-nosession
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: false
   templates:
   - listentry

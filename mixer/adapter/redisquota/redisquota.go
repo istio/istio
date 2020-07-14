@@ -17,7 +17,7 @@
 //
 //
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/redisquota/config/config.proto -x "-n redisquota -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/redisquota/config/config.proto -x "-n redisquota -t quota -d example"
 package redisquota // import "istio.io/istio/mixer/adapter/redisquota"
 
 import (
