@@ -385,7 +385,7 @@ func convertWorkloadEntryToForeignInstances(namespace string,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
-		PortMap: we.Ports,
+		PortMap:   we.Ports,
 		Namespace: namespace,
 	}
 }

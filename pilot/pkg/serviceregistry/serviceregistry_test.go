@@ -22,11 +22,12 @@ import (
 	"testing"
 	"time"
 
-	networking "istio.io/api/networking/v1alpha3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+
+	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -70,7 +71,7 @@ func (fx *FakeXdsUpdater) SvcUpdate(_, hostname string, namespace string, _ mode
 	fx.Events <- Event{kind: "svcupdate", host: hostname, namespace: namespace}
 }
 
-func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceEntryStore, model.ConfigStoreCache, kubernetes.Interface, chan Event) {
+func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceEntryStore, model.ConfigStoreCache, kubernetes.Interface) {
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
@@ -98,11 +99,11 @@ func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceE
 	go kc.Run(stop)
 	go wc.Run(stop)
 
-	return kc, wc, configController, client.Kube(), eventch
+	return kc, wc, configController, client.Kube()
 }
 
-// TestWorkloadInstances is effectively an intergration test of composing the Kubernetes service registry with the
-// exteneral service registry, which have cross-references by workload instancs.
+// TestWorkloadInstances is effectively an integration test of composing the Kubernetes service registry with the
+// external service registry, which have cross-references by workload instances.
 func TestWorkloadInstances(t *testing.T) {
 	port := &networking.Port{
 		Name:     "http",
@@ -175,7 +176,7 @@ func TestWorkloadInstances(t *testing.T) {
 	}
 
 	t.Run("Kubernetes only", func(t *testing.T) {
-		kc, _, _, kube, _ := setupTest(t)
+		kc, _, _, kube := setupTest(t)
 		makeService(t, kube, service)
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
@@ -190,7 +191,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("External only", func(t *testing.T) {
-		_, wc, store, _, _ := setupTest(t)
+		_, wc, store, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, workloadEntry)
 
@@ -204,7 +205,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry", func(t *testing.T) {
-		kc, _, store, kube, _ := setupTest(t)
+		kc, _, store, kube := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, workloadEntry)
 
@@ -219,7 +220,7 @@ func TestWorkloadInstances(t *testing.T) {
 
 	t.Run("Service selects WorkloadEntry with targetPort name", func(t *testing.T) {
 		t.Skip("TODO: implement https://github.com/istio/api/pull/1477")
-		kc, _, store, kube, _ := setupTest(t)
+		kc, _, store, kube := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "service",
@@ -262,7 +263,7 @@ func TestWorkloadInstances(t *testing.T) {
 
 	t.Run("Service selects WorkloadEntry with targetPort number", func(t *testing.T) {
 		t.Skip("TODO: implement https://github.com/istio/api/pull/1477")
-		kc, _, store, kube, _ := setupTest(t)
+		kc, _, store, kube := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "service",
@@ -301,7 +302,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("ServiceEntry selects Pod", func(t *testing.T) {
-		_, wc, store, kube, _ := setupTest(t)
+		_, wc, store, kube := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makePod(t, kube, pod)
 
@@ -323,7 +324,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("All directions", func(t *testing.T) {
-		kc, wc, store, kube, _ := setupTest(t)
+		kc, wc, store, kube := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, serviceEntry)
 
@@ -351,7 +352,7 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("All directions with deletion", func(t *testing.T) {
-		kc, wc, store, kube, _ := setupTest(t)
+		kc, wc, store, kube := setupTest(t)
 		makeService(t, kube, service)
 		makeIstioObject(t, store, serviceEntry)
 
@@ -391,6 +392,7 @@ type ServiceInstanceResponse struct {
 	Port       uint32
 }
 
+// nolint: unparam
 func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *model.Service, port int, expected []ServiceInstanceResponse) {
 	t.Helper()
 	svc.Attributes.ServiceRegistry = string(sd.Provider())
