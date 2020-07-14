@@ -17,4 +17,4 @@ spec:
       v2:
         enabled: false
         prometheus:
-          enabled: false    
+          enabled: false
