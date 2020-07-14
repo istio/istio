@@ -35,6 +35,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
@@ -84,7 +85,7 @@ type Config struct {
 	CertDir string
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets cache.SecretManager
+	Secrets security.SecretManager
 
 	// For getting the certificate, using same code as SDS server.
 	// Either the JWTPath or the certs must be present.
@@ -111,6 +112,9 @@ type Config struct {
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler ResponseHandler
+
+	// TODO: remove the duplication - all security settings belong here.
+	SecOpts *security.Options
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -373,8 +377,6 @@ func (a *ADSC) Close() {
 
 // Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
-
-	// TODO: pass version info, nonce properly
 	var err error
 	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
 		tlsCfg, err := a.tlsConfig()
@@ -500,57 +502,30 @@ func (a *ADSC) handleRecv() {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case v2.ListenerType:
+			case v2.ListenerType, v3.ListenerType:
 				{
 					ll := &listener.Listener{}
 					_ = proto.Unmarshal(valBytes, ll)
 					listeners = append(listeners, ll)
 				}
-			case v3.ListenerType:
-				{
-					ll := &listener.Listener{}
-					_ = proto.Unmarshal(valBytes, ll)
-					listeners = append(listeners, ll)
-				}
-			case v2.ClusterType:
+			case v2.ClusterType, v3.ClusterType:
 				{
 					cl := &cluster.Cluster{}
 					_ = proto.Unmarshal(valBytes, cl)
 					clusters = append(clusters, cl)
 				}
-
-			case v3.ClusterType:
-				{
-					cl := &cluster.Cluster{}
-					_ = proto.Unmarshal(valBytes, cl)
-					clusters = append(clusters, cl)
-				}
-
-			case v3.EndpointType:
+			case v2.EndpointType, v3.EndpointType:
 				{
 					el := &endpoint.ClusterLoadAssignment{}
 					_ = proto.Unmarshal(valBytes, el)
 					eds = append(eds, el)
 				}
-			case v2.EndpointType:
-				{
-					el := &endpoint.ClusterLoadAssignment{}
-					_ = proto.Unmarshal(valBytes, el)
-					eds = append(eds, el)
-				}
-			case v3.RouteType:
+			case v2.RouteType, v3.RouteType:
 				{
 					rl := &route.RouteConfiguration{}
 					_ = proto.Unmarshal(valBytes, rl)
 					routes = append(routes, rl)
 				}
-			case v2.RouteType:
-				{
-					rl := &route.RouteConfiguration{}
-					_ = proto.Unmarshal(valBytes, rl)
-					routes = append(routes, rl)
-				}
-
 			default:
 				err = a.handleMCP(gvk, rsc, valBytes)
 				if err != nil {
@@ -566,11 +541,10 @@ func (a *ADSC) handleRecv() {
 
 		a.mutex.Lock()
 		if len(gvk) == 3 {
-			gt := resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			a.sync[gt.String()] = time.Now()
 		}
 		a.Received[msg.TypeUrl] = msg
-		// TODO: add hook to inject nacks
 		a.ack(msg)
 		a.mutex.Unlock()
 
@@ -843,9 +817,8 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&discovery.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       ListenerType,
+			Node:    a.node(),
+			TypeUrl: ListenerType,
 		})
 	}
 
@@ -996,9 +969,8 @@ func (a *ADSC) EndpointsJSON() string {
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       v3.ClusterType,
+		Node:    a.node(),
+		TypeUrl: v3.ClusterType,
 	})
 }
 
@@ -1040,8 +1012,16 @@ func (a *ADSC) WaitConfigSync(max time.Duration) bool {
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
+	ex := a.Received[typeurl]
+	version := ""
+	nonce := ""
+	if ex != nil {
+		version = ex.VersionInfo
+		nonce = ex.Nonce
+	}
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: "",
+		ResponseNonce: nonce,
+		VersionInfo:   version,
 		Node:          a.node(),
 		TypeUrl:       typeurl,
 		ResourceNames: rsc,
@@ -1049,11 +1029,20 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 }
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
+	stype := v3.GetShortType(msg.TypeUrl)
+	var resources []string
+	// TODO: Send routes also in future.
+	if stype == v3.EndpointShortType {
+		for c := range a.edsClusters {
+			resources = append(resources, c)
+		}
+	}
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
 		Node:          a.node(),
 		VersionInfo:   msg.VersionInfo,
+		ResourceNames: resources,
 	})
 }
 
@@ -1120,7 +1109,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 		return err
 	}
-	val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+	val.GroupVersionKind = resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 	if cfg == nil {
 		_, err = a.Store.Create(*val)

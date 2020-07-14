@@ -854,16 +854,17 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 		Sni:               "custom.foo.com",
 	}
 	tests := []struct {
-		name            string
-		tls             *networking.ClientTLSSettings
-		sans            []string
-		sni             string
-		proxy           *model.Proxy
-		autoMTLSEnabled bool
-		meshExternal    bool
-		serviceMTLSMode model.MutualTLSMode
-		want            *networking.ClientTLSSettings
-		wantCtxType     mtlsContextType
+		name                 string
+		tls                  *networking.ClientTLSSettings
+		sans                 []string
+		sni                  string
+		proxy                *model.Proxy
+		autoMTLSEnabled      bool
+		meshExternal         bool
+		serviceMTLSMode      model.MutualTLSMode
+		clusterDiscoveryType cluster.Cluster_DiscoveryType
+		want                 *networking.ClientTLSSettings
+		wantCtxType          mtlsContextType
 	}{
 		{
 			"Destination rule TLS sni and SAN override",
@@ -871,7 +872,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown,
+			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
 			tlsSettings,
 			userSupplied,
 		},
@@ -888,7 +889,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown,
+			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
 			&networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -909,7 +910,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			false, false, model.MTLSUnknown,
+			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
 			&networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    "/custom/root.pem",
@@ -926,7 +927,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSStrict,
+			true, false, model.MTLSStrict, cluster.Cluster_EDS,
 			&networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -943,7 +944,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSPermissive,
+			true, false, model.MTLSPermissive, cluster.Cluster_EDS,
 			&networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 				CaCertificates:    constants.DefaultRootCert,
@@ -960,7 +961,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSDisable,
+			true, false, model.MTLSDisable, cluster.Cluster_EDS,
 			nil,
 			userSupplied,
 		},
@@ -970,7 +971,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSUnknown,
+			true, false, model.MTLSUnknown, cluster.Cluster_EDS,
 			nil,
 			userSupplied,
 		},
@@ -980,7 +981,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, true, model.MTLSUnknown,
+			true, true, model.MTLSUnknown, cluster.Cluster_EDS,
 			nil,
 			userSupplied,
 		},
@@ -990,7 +991,17 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			[]string{"spiffe://foo/serviceaccount/1"},
 			"foo.com",
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSDisable,
+			false, false, model.MTLSDisable, cluster.Cluster_EDS,
+			nil,
+			userSupplied,
+		},
+		{
+			"Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`",
+			nil,
+			[]string{"spiffe://foo/serviceaccount/1"},
+			"foo.com",
+			&model.Proxy{Metadata: &model.NodeMetadata{}},
+			true, false, model.MTLSPermissive, cluster.Cluster_ORIGINAL_DST,
 			nil,
 			userSupplied,
 		},
@@ -998,7 +1009,8 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTLS, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
+			gotTLS, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy,
+				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTLS)
 			}

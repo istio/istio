@@ -268,12 +268,14 @@ data:
         - "--skip-rule-apply"
         {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-      {{- if .Values.global.proxy_init.resources }}
+      {{- if .ProxyConfig.ProxyMetadata }}
         env:
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
+      {{- end }}
+      {{- if .Values.global.proxy_init.resources }}
         resources:
           {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
       {{- else }}
@@ -774,6 +776,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: spec.serviceAccountName
+          - name: KUBECONFIG
+            value: /var/run/secrets/remote/config
           - name: PILOT_TRACE_SAMPLING
             value: "1"
           - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
@@ -812,6 +816,9 @@ spec:
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
+          - name: istio-kubeconfig
+            mountPath: /var/run/secrets/remote
+            readOnly: true
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
@@ -832,6 +839,10 @@ spec:
       - name: cacerts
         secret:
           secretName: cacerts
+          optional: true
+      - name: istio-kubeconfig
+        secret:
+          secretName: istio-kubeconfig
           optional: true
       # Optional - image should have
       - name: inject

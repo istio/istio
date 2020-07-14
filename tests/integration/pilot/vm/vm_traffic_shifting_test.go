@@ -72,13 +72,11 @@ func TestTrafficShifting(t *testing.T) {
 					Service:   "client",
 					Namespace: ns,
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				With(&vm, echo.Config{
 					Service:    "vm",
 					Namespace:  ns,
 					Ports:      ports,
-					Pilot:      p,
 					DeployAsVM: true,
 					VMImage:    DefaultVMImage,
 				}).
@@ -89,7 +87,6 @@ func TestTrafficShifting(t *testing.T) {
 					Service:    "vm",
 					Namespace:  ns,
 					Ports:      ports,
-					Pilot:      p,
 					DeployAsVM: false,
 					Version:    "v2",
 					Subsets: []echo.SubsetConfig{

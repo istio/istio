@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
@@ -45,6 +46,7 @@ func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
 					InitialFetchTimeout: features.InitialFetchTimeout,
+					ResourceApiVersion:  core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType: core.ApiConfigSource_GRPC,
@@ -79,7 +81,7 @@ func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
 
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfigWithCustomUds(c.serviceAccount, c.sdsUdsPath); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+			if got := ConstructSdsSecretConfigWithCustomUds(c.serviceAccount, c.sdsUdsPath, v3.ListenerType); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfigWithCustomUds: got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
@@ -101,6 +103,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
 					InitialFetchTimeout: features.InitialFetchTimeout,
+					ResourceApiVersion:  core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
 							ApiType: core.ApiConfigSource_GRPC,
@@ -132,7 +135,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+			if got := ConstructSdsSecretConfig(c.serviceAccount, c.sdsUdsPath, v3.ListenerType); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfig: got(%#v), want(%#v)\n", got, c.expected)
 			}
 		})
@@ -217,6 +220,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						Name: "default",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -239,6 +243,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -274,6 +279,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						Name: "file-cert:serverCertChain~serverKey",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -296,6 +302,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 							Name: "file-root:servrRootCert",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -387,7 +394,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{})
+			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{}, v3.ListenerType)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
@@ -416,6 +423,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -450,6 +458,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -499,6 +508,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -524,6 +534,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -559,6 +570,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
 							InitialFetchTimeout: features.InitialFetchTimeout,
+							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType: core.ApiConfigSource_GRPC,
@@ -586,6 +598,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -612,10 +625,10 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyCustomSDSToServerCommonTLSContext(tlsContext, test.tlsOpts, test.sdsUdsPath)
+			ApplyCustomSDSToServerCommonTLSContext(tlsContext, test.tlsOpts, test.sdsUdsPath, v3.ListenerType)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
-				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
+				t.Errorf("got\n%v\n want\n%v", spew.Sdump(tlsContext), spew.Sdump(test.expected))
 			}
 		})
 	}

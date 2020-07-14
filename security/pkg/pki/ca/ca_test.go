@@ -283,7 +283,6 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 }
 
 func TestCreatePluggedCertCA(t *testing.T) {
-	t0 := time.Now()
 	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
 	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
@@ -298,6 +297,7 @@ func TestCreatePluggedCertCA(t *testing.T) {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
 
+	t0 := time.Now()
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
 		t.Errorf("Got error while creating plugged-cert CA: %v", err)
@@ -322,12 +322,12 @@ func TestCreatePluggedCertCA(t *testing.T) {
 
 	certChain, err := util.ParsePemEncodedCertificate(certChainBytes)
 	if err != nil {
-		t.Errorf("Failed to parse cert chain pem.")
+		t.Fatalf("Failed to parse cert chain pem.")
 	}
-
 	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
 	// however citatel won't rotate if that happens
-	if certChain.NotAfter.Unix() != t0.Add(ca.defaultCertTTL).Unix() {
+	delta := certChain.NotAfter.Sub(t0.Add(ca.defaultCertTTL))
+	if delta >= time.Second*2 {
 		t.Errorf("Invalid default cert TTL, should be the same as cert chain: %v VS (expected) %v",
 			t0.Add(ca.defaultCertTTL),
 			certChain.NotAfter)

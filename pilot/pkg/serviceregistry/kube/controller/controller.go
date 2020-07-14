@@ -74,14 +74,23 @@ var (
 		monitoring.WithLabels(typeTag, eventTag),
 	)
 
+	// nolint: gocritic
+	// This is deprecated in favor of `pilot_k8s_endpoints_pending_pod`, which is a gauge indicating the number of
+	// currently missing pods. This helps distinguish transient errors from permanent ones
 	endpointsWithNoPods = monitoring.NewSum(
 		"pilot_k8s_endpoints_with_no_pods",
 		"Endpoints that does not have any corresponding pods.")
+
+	endpointsPendingPodUpdate = monitoring.NewGauge(
+		"pilot_k8s_endpoints_pending_pod",
+		"Number of endpoints that do not currently have any corresponding pods.",
+	)
 )
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
 	monitoring.MustRegister(endpointsWithNoPods)
+	monitoring.MustRegister(endpointsPendingPodUpdate)
 }
 
 func incrementEvent(kind, event string) {
@@ -244,7 +253,16 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
-	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods())
+	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods(), func(key string) {
+		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
+		if err != nil || !exists {
+			log.Debugf("Endpoint %v lookup failed, skipping stale endpoint", key)
+			return
+		}
+		c.queue.Push(func() error {
+			return c.endpoints.onEvent(item, model.EventUpdate)
+		})
+	})
 	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
 
 	return c

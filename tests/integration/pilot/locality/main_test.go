@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -158,7 +157,6 @@ var (
 	expectAllTrafficToB = map[string]int{"b": sendCount}
 
 	ist istio.Instance
-	p   pilot.Instance
 	r   *rand.Rand
 )
 
@@ -188,9 +186,6 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
 			r = rand.New(rand.NewSource(time.Now().UnixNano()))
 			return nil
 		}).
@@ -212,7 +207,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				InstancePort: 8090,
 			},
 		},
-		Pilot: p,
 	}
 }
 

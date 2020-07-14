@@ -29,11 +29,11 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/security"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
-	"istio.io/istio/security/pkg/nodeagent/model"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -81,7 +81,7 @@ var (
 type SecretFetcher struct {
 	// If UseCaClient is true, use caClient to send CSR to CA.
 	UseCaClient bool
-	CaClient    caClientInterface.Client
+	CaClient    security.Client
 
 	// Controller and store for secret objects.
 	scrtController cache.Controller
@@ -91,11 +91,11 @@ type SecretFetcher struct {
 	secrets sync.Map
 
 	// Add all entries containing secretName in SecretCache. Called when K8S secret is added.
-	AddCache func(secretName string, ns model.SecretItem)
+	AddCache func(secretName string, ns security.SecretItem)
 	// Delete all entries containing secretName in SecretCache. Called when K8S secret is deleted.
 	DeleteCache func(secretName string)
 	// Update all entries containing secretName in SecretCache. Called when K8S secret is updated.
-	UpdateCache func(secretName string, ns model.SecretItem)
+	UpdateCache func(secretName string, ns security.SecretItem)
 
 	// FallbackSecretName stores the name of fallback secret which is set at env variable
 	// INGRESS_GATEWAY_FALLBACK_SECRET. If INGRESS_GATEWAY_FALLBACK_SECRET is empty, then use
@@ -207,7 +207,7 @@ func extractCACert(scrt *v1.Secret, fromCompoundSecret bool) (caCert []byte, exi
 // Otherwise the Secret can hold a server cert/key pair in `tls.crt`/`tls.key`,
 // or a server cert/key pair in `cert`/`key` and an optional client CA cert in
 // `-cacert`. A Secret with server cert/key and client CA cert is considered as a compound secret.
-func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, clientCAItem *model.SecretItem, isCAOnlySecret bool) {
+func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, clientCAItem *security.SecretItem, isCAOnlySecret bool) {
 	resourceName := scrt.GetName()
 	isCAOnlySecret = strings.HasSuffix(resourceName, GatewaySdsCaSuffix)
 
@@ -225,7 +225,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 			return nil, nil, isCAOnlySecret
 		}
 
-		certificateAuthorityNewSecret := &model.SecretItem{
+		certificateAuthorityNewSecret := &security.SecretItem{
 			ResourceName:                  resourceName,
 			CreatedTime:                   t,
 			Version:                       t.String(),
@@ -249,7 +249,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 			"certificate that fails to parse: %v", resourceName, err)
 		return nil, nil, isCAOnlySecret
 	}
-	newSecret := &model.SecretItem{
+	newSecret := &security.SecretItem{
 		ResourceName:     resourceName,
 		CreatedTime:      t,
 		Version:          t.String(),
@@ -267,7 +267,7 @@ func extractK8sSecretIntoSecretItem(scrt *v1.Secret, t time.Time) (serverItem, c
 				"certificate that fails to parse: %v", resourceName, err)
 			return nil, nil, isCAOnlySecret
 		}
-		certificateAuthorityNewSecret := &model.SecretItem{
+		certificateAuthorityNewSecret := &security.SecretItem{
 			ResourceName:                  resourceName + GatewaySdsCaSuffix,
 			CreatedTime:                   t,
 			Version:                       t.String(),
@@ -347,7 +347,7 @@ func (sf *SecretFetcher) scrtDeleted(obj interface{}) {
 	rootSecret, exists := sf.secrets.Load(rootCertResourceName)
 	// If there is a root cert secret with the same resource name and it's owned
 	// by the compound K8S secret, delete it now.
-	if exists && rootSecret.(model.SecretItem).RootCertOwnedByCompoundSecret {
+	if exists && rootSecret.(security.SecretItem).RootCertOwnedByCompoundSecret {
 		// If there is root cert secret with the same resource name, delete that secret now.
 		sf.secrets.Delete(rootCertResourceName)
 		secretFetcherLog.Infof("secret %s is deleted", rootCertResourceName)
@@ -412,7 +412,7 @@ func (sf *SecretFetcher) scrtUpdated(oldObj, newObj interface{}) {
 
 // updateSecretInCache updates secret in cache, and pushes to client when new certs
 // are reloaded from secret.
-func (sf *SecretFetcher) updateSecretInCache(oldScrt, newScrt *model.SecretItem) {
+func (sf *SecretFetcher) updateSecretInCache(oldScrt, newScrt *security.SecretItem) {
 	if oldScrt != nil {
 		sf.secrets.Delete(oldScrt.ResourceName)
 	}
@@ -429,7 +429,7 @@ func (sf *SecretFetcher) updateSecretInCache(oldScrt, newScrt *model.SecretItem)
 }
 
 // shouldUpdateSecret indicates whether secret update is required to reload new secret.
-func shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem) bool {
+func shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt *security.SecretItem) bool {
 	if newScrt == nil && newCaScrt == nil {
 		return false
 	}
@@ -458,7 +458,7 @@ func shouldUpdateSecret(oldScrt, oldCaScrt, newScrt, newCaScrt *model.SecretItem
 // FindGatewaySecret returns the secret whose name matches the key, or empty secret if no
 // secret is present. The ok result indicates whether secret was found.
 // If there is a fallback secret named FallbackSecretName, return the fall back secret.
-func (sf *SecretFetcher) FindGatewaySecret(key string) (secret model.SecretItem, ok bool) {
+func (sf *SecretFetcher) FindGatewaySecret(key string) (secret security.SecretItem, ok bool) {
 	secretFetcherLog.Debugf("SecretFetcher search for secret %s", key)
 	val, exist := sf.secrets.Load(key)
 	secretFetcherLog.Debugf("load secret %s from secret fetcher: %v", key, exist)
@@ -485,13 +485,13 @@ func (sf *SecretFetcher) FindGatewaySecret(key string) (secret model.SecretItem,
 		fallbackVal, fallbackExist := sf.secrets.Load(sf.FallbackSecretName)
 		if fallbackExist {
 			secretFetcherLog.Debugf("Return fallback secret %s for gateway secret %s", sf.FallbackSecretName, key)
-			return fallbackVal.(model.SecretItem), true
+			return fallbackVal.(security.SecretItem), true
 		}
 
 		secretFetcherLog.Errorf("cannot find secret %s and cannot find fallback secret %s", key, sf.FallbackSecretName)
-		return model.SecretItem{}, false
+		return security.SecretItem{}, false
 	}
-	e := val.(model.SecretItem)
+	e := val.(security.SecretItem)
 	secretFetcherLog.Debugf("SecretFetcher return secret %s", key)
 	return e, true
 }

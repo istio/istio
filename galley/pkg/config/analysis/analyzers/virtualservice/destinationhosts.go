@@ -75,6 +75,16 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 		}
 		checkServiceEntryPorts(ctx, r, d, s)
 	}
+
+	for _, d := range getHTTPMirrorDestinations(vs) {
+		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.GetHost(), serviceEntryHosts)
+		if s == nil {
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+				msg.NewReferencedResourceNotFound(r, "mirror host", d.GetHost()))
+			continue
+		}
+		checkServiceEntryPorts(ctx, r, d, s)
+	}
 }
 
 func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {

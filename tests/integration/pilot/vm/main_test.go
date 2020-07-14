@@ -21,13 +21,10 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	i  istio.Instance
-	p  pilot.Instance
 	ns namespace.Instance
 )
 
@@ -44,11 +41,5 @@ values:
     meshExpansion:
       enabled: true`
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 }

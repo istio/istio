@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -43,15 +44,21 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
+	// map of IP to endpoint names
+	needResync     map[string]sets.Set
+	endpointUpdate func(string)
+
 	c *Controller
 }
 
-func newPodCache(c *Controller, informer coreinformers.PodInformer) *PodCache {
+func newPodCache(c *Controller, informer coreinformers.PodInformer, endpointUpdate func(string)) *PodCache {
 	out := &PodCache{
-		informer: informer.Informer(),
-		c:        c,
-		podsByIP: make(map[string]string),
-		IPByPods: make(map[string]string),
+		informer:       informer.Informer(),
+		c:              c,
+		podsByIP:       make(map[string]string),
+		IPByPods:       make(map[string]string),
+		needResync:     make(map[string]sets.Set),
+		endpointUpdate: endpointUpdate,
 	}
 
 	return out
@@ -80,7 +87,6 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	// via UpdateStatus.
 
 	if len(ip) > 0 {
-		log.Debugf("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
 		case model.EventAdd:
@@ -136,7 +142,25 @@ func (pc *PodCache) update(ip, key string) {
 	pc.podsByIP[ip] = key
 	pc.IPByPods[key] = ip
 
+	if endpointsToUpdate, f := pc.needResync[ip]; f {
+		delete(pc.needResync, ip)
+		for ep := range endpointsToUpdate {
+			pc.endpointUpdate(ep)
+		}
+	}
+
 	pc.proxyUpdates(ip)
+}
+
+func (pc *PodCache) recordNeedsUpdate(key, ip string) {
+	pc.Lock()
+	defer pc.Unlock()
+	if _, f := pc.needResync[ip]; !f {
+		pc.needResync[ip] = sets.NewSet(key)
+	} else {
+		pc.needResync[ip].Insert(key)
+	}
+	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
 func (pc *PodCache) proxyUpdates(ip string) {
@@ -174,4 +198,14 @@ func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
 		return nil
 	}
 	return pod
+}
+
+func (pc *PodCache) dropNeedsUpdate(key string, ip string) {
+	pc.Lock()
+	defer pc.Unlock()
+	delete(pc.needResync[ip], key)
+	if len(pc.needResync[ip]) == 0 {
+		delete(pc.needResync, ip)
+	}
+	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }

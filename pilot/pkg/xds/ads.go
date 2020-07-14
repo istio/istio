@@ -368,11 +368,6 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, edsReject, discReq) {
 		return nil
 	}
-	// TODO(ramaraochavali): This special handling is not needed for EDS. But tests are failing without this.
-	// Need to investigate if there is a bug in adsc.
-	if discReq.ResourceNames == nil && discReq.ResponseNonce != "" {
-		return nil
-	}
 	con.node.Active[v3.EndpointShortType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
