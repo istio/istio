@@ -74,6 +74,7 @@ var (
 		monitoring.WithLabels(typeTag, eventTag),
 	)
 
+	// nolint: gocritic
 	// This is deprecated in favor of `pilot_k8s_endpoints_pending_pod`, which is a gauge indicating the number of
 	// currently missing pods. This helps distinguish transient errors from permanent ones
 	endpointsWithNoPods = monitoring.NewSum(
