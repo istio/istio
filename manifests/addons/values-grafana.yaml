@@ -1,0 +1,68 @@
+# Avoid creating a bunch of RBAC rules for features we are not enabling
+rbac:
+  create: false
+  pspEnabled: false
+
+# Disable test pods
+testFramework:
+  enabled: false
+
+# For istioctl dashboard, we will look for this label
+podLabels:
+  app: grafana
+
+# Demo only, so we will have no authentication
+admin:
+  existingSecret: true
+env:
+  GF_SECURITY_ADMIN_USER: "-"
+  GF_SECURITY_ADMIN_PASSWORD: "-"
+  GF_AUTH_BASIC_ENABLED: "false"
+  GF_AUTH_ANONYMOUS_ENABLED: "true"
+  GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+
+# Expose on port 3000 to match the Istio docs
+service:
+  port: 3000
+
+image:
+  tag: 7.0.2
+
+# Set up out dashboards
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: 'istio'
+        orgId: 1
+        folder: 'istio'
+        type: file
+        disableDeletion: false
+        options:
+          path: /var/lib/grafana/dashboards/istio
+      - name: 'istio-services'
+        orgId: 1
+        folder: 'istio'
+        type: file
+        disableDeletion: false
+        options:
+          path: /var/lib/grafana/dashboards/istio-services
+
+dashboardsConfigMaps:
+  istio: "istio-grafana-dashboards"
+  istio-services: "istio-services-grafana-dashboards"
+
+# Configure the prometheus data source. We expect prometheus:9090 in the same namespace
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        orgId: 1
+        url: http://prometheus:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          timeInterval: 5s
+        editable: true

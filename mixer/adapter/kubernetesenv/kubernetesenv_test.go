@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/mixer/adapter/kubernetesenv/config"
 	kubernetes_apa_tmpl "istio.io/istio/mixer/adapter/kubernetesenv/template"
@@ -514,18 +513,6 @@ func verifyControllers(t *testing.T, b *builder, expectedControllerCount int, ti
 		defer b.Unlock()
 		return len(b.controllers) == expectedControllerCount
 	})
-}
-
-func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
-	return &clientcmdapi.Config{}, nil
-}
-
-func mockValidateClientConfig(_ clientcmdapi.Config) error {
-	return nil
-}
-
-func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
-	return fake.NewSimpleClientset(), nil
 }
 
 // Kubernetes Runtime Object for Tests

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -449,7 +449,8 @@ func TestReadSignedCertificate(t *testing.T) {
 
 		// 4. Read the signed certificate
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
-		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName, certReadInterval, maxNumCertRead, wc.k8sCaCertFile)
+		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName,
+			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile)
 
 		if tc.expectFail {
 			if err == nil {

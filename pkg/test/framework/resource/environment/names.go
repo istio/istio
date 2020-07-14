@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
 package environment
 
 const (
-	// Native environment name
-	Native Name = "native"
 	// Kube environment name
 	Kube Name = "kube"
 )
@@ -32,12 +30,11 @@ func (n Name) String() string {
 // environmentNames of supported environments
 func Names() []Name {
 	return []Name{
-		Native,
 		Kube,
 	}
 }
 
 // DefaultName is the name of the default environment
 func DefaultName() Name {
-	return Native
+	return Kube
 }

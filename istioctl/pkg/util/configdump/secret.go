@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ func (w *Wrapper) GetSecretConfigDump() (*adminapi.SecretsConfigDump, error) {
 		return nil, err
 	}
 	secretDump := &adminapi.SecretsConfigDump{}
-	err = ptypes.UnmarshalAny(&secretDumpAny, secretDump)
+	err = ptypes.UnmarshalAny(secretDumpAny, secretDump)
 	if err != nil {
 		return nil, err
 	}

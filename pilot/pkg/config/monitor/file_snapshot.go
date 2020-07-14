@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,14 +40,16 @@ var (
 // config and filter criteria for which of those configs will be parsed.
 type FileSnapshot struct {
 	root             string
+	domainSuffix     string
 	configTypeFilter map[resource.GroupVersionKind]bool
 }
 
 // NewFileSnapshot returns a snapshotter.
 // If no types are provided in the descriptor, all Istio types will be allowed.
-func NewFileSnapshot(root string, schemas collection.Schemas) *FileSnapshot {
+func NewFileSnapshot(root string, schemas collection.Schemas, domainSuffix string) *FileSnapshot {
 	snapshot := &FileSnapshot{
 		root:             root,
+		domainSuffix:     domainSuffix,
 		configTypeFilter: make(map[resource.GroupVersionKind]bool),
 	}
 
@@ -81,7 +83,7 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 			log.Warnf("Failed to read %s: %v", path, err)
 			return err
 		}
-		configs, err := parseInputs(data)
+		configs, err := parseInputs(data, f.domainSuffix)
 		if err != nil {
 			log.Warnf("Failed to parse %s: %v", path, err)
 			return err
@@ -89,7 +91,7 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 
 		// Filter any unsupported types before appending to the result.
 		for _, cfg := range configs {
-			if !f.configTypeFilter[cfg.GroupVersionKind()] {
+			if !f.configTypeFilter[cfg.GroupVersionKind] {
 				continue
 			}
 			result = append(result, cfg)
@@ -106,18 +108,19 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 }
 
 // parseInputs is identical to crd.ParseInputs, except that it returns an array of config pointers.
-func parseInputs(data []byte) ([]*model.Config, error) {
+func parseInputs(data []byte, domainSuffix string) ([]*model.Config, error) {
 	configs, _, err := crd.ParseInputs(string(data))
 
 	// Convert to an array of pointers.
 	refs := make([]*model.Config, len(configs))
 	for i := range configs {
 		refs[i] = &configs[i]
+		refs[i].Domain = domainSuffix
 	}
 	return refs, err
 }
 
-// byKey is an array of config objects that is capable or sorting by Namespace, Type, and Name.
+// byKey is an array of config objects that is capable or sorting by Namespace, GroupVersionKind, and Name.
 type byKey []*model.Config
 
 func (rs byKey) Len() int {

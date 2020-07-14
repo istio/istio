@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,27 +15,40 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	svc "sigs.k8s.io/service-apis/api/v1alpha1"
+	svc "sigs.k8s.io/service-apis/apis/v1alpha1"
 
+	"istio.io/pkg/ledger"
+
+	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/pkg/ledger"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 var (
-	vsType      = collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
-	gatewayType = collections.IstioNetworkingV1Alpha3Gateways.Resource()
+	errUnsupportedOp   = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
+	errUnsupportedType = fmt.Errorf("unsupported type: this operation only supports gateway & virtual service resource type")
+	_                  = svc.HTTPRoute{}
+	_                  = svc.GatewayClass{}
 )
 
 type controller struct {
 	client kubernetes.Interface
 	cache  model.ConfigStoreCache
+	domain string
+}
+
+func NewController(client kubernetes.Interface, c model.ConfigStoreCache, options controller2.Options) model.ConfigStoreCache {
+	return &controller{client, c, options.DomainSuffix}
 }
 
 func (c *controller) GetLedger() ledger.Ledger {
@@ -54,15 +67,12 @@ func (c *controller) Schemas() collection.Schemas {
 }
 
 func (c controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
-	panic("implement me")
+	panic("get is not supported")
 }
 
-var _ = svc.HTTPRoute{}
-var _ = svc.GatewayClass{}
-
 func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
-	if typ != gatewayType.GroupVersionKind() && typ != vsType.GroupVersionKind() {
-		return nil, errUnsupportedOp
+	if typ != gvk.Gateway && typ != gvk.VirtualService {
+		return nil, errUnsupportedType
 	}
 
 	gatewayClass, err := c.cache.List(collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(), namespace)
@@ -86,27 +96,33 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		return nil, fmt.Errorf("failed to list type TrafficSplit: %v", err)
 	}
 
+	nsl, err := c.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list type Namespaces: %v", err)
+	}
+	namespaces := map[string]*corev1.Namespace{}
+	for _, ns := range nsl.Items {
+		namespaces[ns.Name] = &ns
+	}
 	input := &KubernetesResources{
 		GatewayClass: gatewayClass,
 		Gateway:      gateway,
 		HTTPRoute:    httpRoute,
 		TCPRoute:     tcpRoute,
 		TrafficSplit: trafficSplit,
+		Namespaces:   namespaces,
+		Domain:       c.domain,
 	}
 	output := convertResources(input)
 
 	switch typ {
-	case gatewayType.GroupVersionKind():
+	case gvk.Gateway:
 		return output.Gateway, nil
-	case vsType.GroupVersionKind():
+	case gvk.VirtualService:
 		return output.VirtualService, nil
 	}
 	return nil, errUnsupportedOp
 }
-
-var (
-	errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
-)
 
 func (c controller) Create(config model.Config) (revision string, err error) {
 	return "", errUnsupportedOp
@@ -139,8 +155,4 @@ func (c controller) Run(stop <-chan struct{}) {
 
 func (c controller) HasSynced() bool {
 	return c.cache.HasSynced()
-}
-
-func NewController(client kubernetes.Interface, c model.ConfigStoreCache) model.ConfigStoreCache {
-	return &controller{client, c}
 }

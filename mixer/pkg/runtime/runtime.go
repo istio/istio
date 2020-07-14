@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@ type Runtime struct {
 
 	*probe.Probe
 
+	namespaces []string
+
 	stateLock            sync.Mutex
 	shutdown             chan struct{}
 	waitQuiesceListening sync.WaitGroup
@@ -67,7 +69,8 @@ func New(
 	defaultConfigNamespace string,
 	executorPool *pool.GoroutinePool,
 	handlerPool *pool.GoroutinePool,
-	enableTracing bool) *Runtime {
+	enableTracing bool,
+	namespaces []string) *Runtime {
 
 	// Ignoring the errors for bad configuration that has already made it to the store.
 	// during snapshot creation the bad configuration errors are already logged.
@@ -81,6 +84,7 @@ func New(
 		handlerPool:            handlerPool,
 		Probe:                  probe.NewProbe(),
 		store:                  s,
+		namespaces:             namespaces,
 	}
 
 	// Make sure we have a stable state.
@@ -156,7 +160,7 @@ func (c *Runtime) processNewConfig() {
 
 	oldHandlers := c.handlers
 
-	newHandlers := handler.NewTable(oldHandlers, newSnapshot, c.handlerPool)
+	newHandlers := handler.NewTable(oldHandlers, newSnapshot, c.handlerPool, c.namespaces)
 
 	newRoutes := routing.BuildTable(
 		newHandlers, newSnapshot, c.defaultConfigNamespace, log.DebugEnabled())

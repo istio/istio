@@ -19,7 +19,7 @@ spec:
     {{- range $key, $val := $gateway.ports }}
     -
       {{- range $pkey, $pval := $val }}
-      {{ $pkey}}: {{ $pval }}
+      {{ $pkey }}: {{ $pval }}
       {{- end }}
     {{- end }}
 ---

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ package ca
 import (
 	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,13 +28,13 @@ import (
 
 	"istio.io/istio/security/pkg/cmd"
 
-	"istio.io/istio/security/pkg/k8s/configmap"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
 )
 
 const (
@@ -58,6 +58,9 @@ const (
 
 	// The size of a private key for a self-signed Istio CA.
 	caKeySize = 2048
+
+	// The standard key size to use when generating an RSA private key
+	rsaKeySize = 2048
 )
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
@@ -123,6 +126,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			CheckInterval:      rootCertCheckInverval,
 			caCertTTL:          caCertTTL,
 			retryInterval:      cmd.ReadSigningCertRetryInterval,
+			retryMax:           cmd.ReadSigningCertRetryMax,
 			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
 			caStorageNamespace: namespace,
 			dualUse:            dualUse,
@@ -176,23 +180,44 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		}
 		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
 	}
-
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
-		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
-	} else {
-		pkiCaLog.Infof("The Citadel's public key is successfully written into configmap istio-security in namespace %s.", namespace)
-	}
 	return caOpts, nil
 }
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
-	defaultCertTTL, maxCertTTL time.Duration, namespace string, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
+	defaultCertTTL, maxCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         pluggedCertCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
 	}
+	if _, err := os.Stat(signingKeyFile); err != nil {
+		// self generating for testing or local, non-k8s run
+		options := util.CertOptions{
+			TTL:          3650 * 24 * time.Hour, // TODO: pass the flag here as well (or pass MeshConfig )
+			Org:          "cluster.local",       // TODO: pass trustDomain ( or better - pass MeshConfig )
+			IsCA:         true,
+			IsSelfSigned: true,
+			RSAKeySize:   caKeySize,
+			IsDualUse:    true, // hardcoded to true for K8S as well
+		}
+		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
+		if ckErr != nil {
+			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
+		}
+
+		rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
+
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
+			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+		}
+
+		return caOpts, nil
+	}
+
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
@@ -217,13 +242,6 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
-	crt := caOpts.KeyCertBundle.GetCertChainPem()
-	if len(crt) == 0 {
-		crt = caOpts.KeyCertBundle.GetRootCertPem()
-	}
-	if err = updateCertInConfigmap(namespace, client, crt); err != nil {
-		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
-	}
 	return caOpts, nil
 }
 
@@ -320,17 +338,18 @@ func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
 }
 
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
-	certEncoded := base64.StdEncoding.EncodeToString(cert)
-	cmc := configmap.NewController(namespace, client)
-	return cmc.InsertCATLSRootCert(certEncoded)
-}
-
 // GenKeyCert() generates a certificate signed by the CA and
 // returns the certificate chain and the private key.
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
 	opts := util.CertOptions{
-		RSAKeySize: 2048,
+		RSAKeySize: rsaKeySize,
+	}
+
+	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
+	// cause intermediate CAs using RSA to be generated)
+	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
+	if util.IsSupportedECPrivateKey(signingKey) {
+		opts.ECSigAlg = util.EcdsaSigAlg
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)

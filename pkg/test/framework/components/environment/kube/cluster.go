@@ -18,18 +18,18 @@ import (
 	"bytes"
 	"fmt"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
 )
 
 var _ resource.Cluster = Cluster{}
 
-// Cluster for a Kubernetes cluster. Provides access via a kube.Accessor.
+// Cluster for a Kubernetes cluster. Provides access via a kube.Client.
 type Cluster struct {
-	*kube.Accessor
-	filename            string
-	index               resource.ClusterIndex
-	controlPlaneCluster bool
+	kube.ExtendedClient
+	filename    string
+	networkName string
+	index       resource.ClusterIndex
 }
 
 func (c Cluster) String() string {
@@ -37,14 +37,19 @@ func (c Cluster) String() string {
 
 	_, _ = fmt.Fprintf(buf, "Index:               %d\n", c.index)
 	_, _ = fmt.Fprintf(buf, "Filename:            %s\n", c.filename)
-	_, _ = fmt.Fprintf(buf, "ControlPlaneCluster: %t\n", c.controlPlaneCluster)
 
 	return buf.String()
 }
 
+// TODO(nmittler): Remove the need for this by changing operator to use provided kube clients directly.
 // Filename of the kubeconfig file for this cluster.
 func (c Cluster) Filename() string {
 	return c.filename
+}
+
+// NetworkName the cluster is on
+func (c Cluster) NetworkName() string {
+	return c.networkName
 }
 
 // Name provides the name this cluster used by Istio.
@@ -55,18 +60,4 @@ func (c Cluster) Name() string {
 // Index of this cluster within the Environment.
 func (c Cluster) Index() resource.ClusterIndex {
 	return c.index
-}
-
-// IsControlPlaneCluster indicates whether this cluster contains an instance of the Istio control plane.
-func (c Cluster) IsControlPlaneCluster() bool {
-	return c.controlPlaneCluster
-}
-
-// ClusterOrDefault gets the given cluster as a kube Cluster if available. Otherwise
-// defaults to the first Cluster in the Environment.
-func ClusterOrDefault(c resource.Cluster, e resource.Environment) Cluster {
-	if c == nil {
-		return e.(*Environment).KubeClusters[0]
-	}
-	return c.(Cluster)
 }

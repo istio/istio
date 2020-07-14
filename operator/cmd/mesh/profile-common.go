@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -30,13 +31,10 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/operator/version"
-	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
-
-var scope = log.RegisterScope("installer", "installer", 0)
 
 // GenerateConfig creates an IstioOperatorSpec from the following sources, overlaid sequentially:
 // 1. Compiled in base, or optionally base from paths pointing to one or multiple ICP/IOP files at inFilenames.
@@ -49,28 +47,34 @@ var scope = log.RegisterScope("installer", "installer", 0)
 // Otherwise it will be the compiled in profile YAMLs.
 // In step 3, the remaining fields in the same user overlay are applied on the resulting profile base.
 // The force flag causes validation errors not to abort but only emit log/console warnings.
-func GenerateConfig(inFilenames []string, setOverlayYAML string, force bool, kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	fy, profile, err := readYamlProfle(inFilenames, setOverlayYAML, force, l)
+func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeConfig *rest.Config,
+	l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+	if err := validateSetFlags(setFlags); err != nil {
+		return "", nil, err
+	}
+
+	fy, profile, err := readYamlProfile(inFilenames, setFlags, force, l)
 	if err != nil {
 		return "", nil, err
 	}
 
-	iopsString, iops, err := genIOPSFromProfile(profile, fy, setOverlayYAML, force, kubeConfig, l)
+	iopsString, iops, err := genIOPSFromProfile(profile, fy, setFlags, force, kubeConfig, l)
 	if err != nil {
 		return "", nil, err
 	}
 
-	errs, warning := validation.ValidateConfig(false, iops.Values, iops)
+	errs, warning := validation.ValidateConfig(false, iops)
 	if warning != "" {
-		l.logAndError(warning)
+		l.LogAndError(warning)
 	}
+
 	if errs.ToError() != nil {
-		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", err)
+		return "", nil, fmt.Errorf("generated config failed semantic validation: %v", errs)
 	}
 	return iopsString, iops, nil
 }
 
-func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *Logger) (string, string, error) {
+func readYamlProfile(inFilenames []string, setFlags []string, force bool, l clog.Logger) (string, string, error) {
 	profile := name.DefaultProfileName
 	// Get the overlay YAML from the list of files passed in. Also get the profile from the overlay files.
 	fy, fp, err := parseYAMLFiles(inFilenames, force, l)
@@ -81,7 +85,7 @@ func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *
 		profile = fp
 	}
 	// The profile coming from --set flag has the highest precedence.
-	psf := profileFromSetOverlay(setOverlayYAML)
+	psf := getValueForSetFlag(setFlags, "profile")
 	if psf != "" {
 		profile = psf
 	}
@@ -90,7 +94,7 @@ func readYamlProfle(inFilenames []string, setOverlayYAML string, force bool, l *
 
 // parseYAMLFiles parses the given slice of filenames containing YAML and merges them into a single IstioOperator
 // format YAML strings. It returns the overlay YAML, the profile name and error result.
-func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML string, profile string, err error) {
+func parseYAMLFiles(inFilenames []string, force bool, l clog.Logger) (overlayYAML string, profile string, err error) {
 	if inFilenames == nil {
 		return "", "", nil
 	}
@@ -107,7 +111,7 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 		if !force {
 			return "", "", fmt.Errorf("validation errors (use --force to override): \n%s", err)
 		}
-		l.logAndErrorf("Validation errors (continuing because of --force):\n%s", err)
+		l.LogAndErrorf("Validation errors (continuing because of --force):\n%s", err)
 	}
 	if fileOverlayIOP.Spec != nil && fileOverlayIOP.Spec.Profile != "" {
 		if profile != "" && profile != fileOverlayIOP.Spec.Profile {
@@ -118,31 +122,18 @@ func parseYAMLFiles(inFilenames []string, force bool, l *Logger) (overlayYAML st
 	return y, profile, nil
 }
 
-// profileFromSetOverlay takes a YAML string and if it contains a key called "profile" in the root, it returns the key
-// value.
-func profileFromSetOverlay(yml string) string {
-	s, err := tpath.GetConfigSubtree(yml, "spec.profile")
-	if err != nil {
-		return ""
-	}
-	s = strings.TrimSpace(s)
-	if s == "{}" {
-		return ""
-	}
-	return s
-}
-
 // genIOPSFromProfile generates an IstioOperatorSpec from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperatorSpec string and struct.
-func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, skipValidation bool,
-	kubeConfig *rest.Config, l *Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
-	userOverlayYAML, err := util.OverlayYAML(fileOverlayYAML, setOverlayYAML)
-	if err != nil {
-		return "", nil, fmt.Errorf("could not merge file and --set YAMLs: %s", err)
-	}
-	installPackagePath, err := getInstallPackagePath(userOverlayYAML)
+func genIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation bool,
+	kubeConfig *rest.Config, l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
+
+	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
 	if err != nil {
 		return "", nil, err
+	}
+	if sfp := getValueForSetFlag(setFlags, "installPackagePath"); sfp != "" {
+		// set flag installPackagePath has the highest precedence, if set.
+		installPackagePath = sfp
 	}
 
 	// If installPackagePath is a URL, fetch and extract it and continue with the local filesystem path instead.
@@ -170,24 +161,27 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		if err != nil {
 			return "", nil, err
 		}
-		scope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
+		installerScope.Infof("Applying Cluster specific settings: %v", kubeOverrides)
 		outYAML, err = util.OverlayYAML(outYAML, kubeOverrides)
 		if err != nil {
 			return "", nil, err
 		}
 	}
-	mvs := version.OperatorBinaryVersion.MinorVersion
-	t, err := translate.NewReverseTranslator(mvs)
+
+	// Combine file and --set overlays and translate any K8s settings in values to IOP format. Users should not set
+	// these but we have to support this path until it's deprecated.
+	overlayYAML, err := overlaySetFlagValues(fileOverlayYAML, setFlags)
 	if err != nil {
-		return "", nil, fmt.Errorf("error creating values.yaml translator: %s", err)
+		return "", nil, err
 	}
-	userOverlayYAML, err = t.TranslateK8SfromValueToIOP(userOverlayYAML)
+	t := translate.NewReverseTranslator()
+	overlayYAML, err = t.TranslateK8SfromValueToIOP(overlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
 
-	// Merge user file and --set overlays.
-	outYAML, err = util.OverlayYAML(outYAML, userOverlayYAML)
+	// Merge user file and --set flags.
+	outYAML, err = util.OverlayYAML(outYAML, overlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
@@ -196,7 +190,7 @@ func genIOPSFromProfile(profileOrPath, fileOverlayYAML, setOverlayYAML string, s
 		return "", nil, err
 	}
 	// If enablement came from user values overlay (file or --set), translate into addonComponents paths and overlay that.
-	outYAML, err = translate.OverlayValuesEnablement(outYAML, fileOverlayYAML, setOverlayYAML)
+	outYAML, err = translate.OverlayValuesEnablement(outYAML, overlayYAML, overlayYAML)
 	if err != nil {
 		return "", nil, err
 	}
@@ -264,13 +258,13 @@ func overlayHubAndTag(yml string) (string, error) {
 	return out, nil
 }
 
-func getClusterSpecificValues(config *rest.Config, force bool, l *Logger) (string, error) {
+func getClusterSpecificValues(config *rest.Config, force bool, l clog.Logger) (string, error) {
 	overlays := []string{}
 
 	jwt, err := getJwtTypeOverlay(config, l)
 	if err != nil {
 		if force {
-			l.logAndPrint(err)
+			l.LogAndPrint(err)
 		} else {
 			return "", err
 		}
@@ -282,14 +276,14 @@ func getClusterSpecificValues(config *rest.Config, force bool, l *Logger) (strin
 
 }
 
-func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
+func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
 	jwtPolicy, err := util.DetectSupportedJWTPolicy(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
 	if jwtPolicy == util.FirstPartyJWT {
 		// nolint: lll
-		l.logAndPrint("Detected that your cluster does not support third party JWT authentication. " +
+		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
 			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
 	}
 	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
@@ -298,13 +292,13 @@ func getJwtTypeOverlay(config *rest.Config, l *Logger) (string, error) {
 // unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
-func unmarshalAndValidateIOPS(iopsYAML string, force bool, l *Logger) (*v1alpha1.IstioOperatorSpec, error) {
+func unmarshalAndValidateIOPS(iopsYAML string, force bool, l clog.Logger) (*v1alpha1.IstioOperatorSpec, error) {
 	iops := &v1alpha1.IstioOperatorSpec{}
 	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
 		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {
-		l.logAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
@@ -320,4 +314,71 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 		return "", nil
 	}
 	return iop.Spec.InstallPackagePath, nil
+}
+
+// validateSetFlags validates that setFlags all have path=value format.
+func validateSetFlags(setFlags []string) error {
+	for _, sf := range setFlags {
+		pv := strings.Split(sf, "=")
+		if len(pv) != 2 {
+			return fmt.Errorf("set flag %s has incorrect format, must be path=value", sf)
+		}
+	}
+	return nil
+}
+
+// overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
+func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
+	iop := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(iopYAML), &iop); err != nil {
+		return "", err
+	}
+	// Unmarshal returns nil for empty manifests but we need something to insert into.
+	if iop == nil {
+		iop = make(map[string]interface{})
+	}
+
+	for _, sf := range setFlags {
+		p, v := getPV(sf)
+		p = strings.TrimPrefix(p, "spec.")
+		inc, _, err := tpath.GetPathContext(iop, util.PathFromString("spec."+p), true)
+		if err != nil {
+			return "", err
+		}
+		// input value type is always string, transform it to correct type before setting.
+		if err := tpath.WritePathContext(inc, util.ParseValue(v), false); err != nil {
+			return "", err
+		}
+	}
+
+	out, err := yaml.Marshal(iop)
+	if err != nil {
+		return "", err
+	}
+
+	return string(out), nil
+}
+
+// getValueForSetFlag parses the passed set flags which have format key=value and if any set the given path,
+// returns the corresponding value, otherwise returns the empty string. setFlags must have valid format.
+func getValueForSetFlag(setFlags []string, path string) string {
+	ret := ""
+	for _, sf := range setFlags {
+		p, v := getPV(sf)
+		if p == path {
+			ret = v
+		}
+		// if set multiple times, return last set value
+	}
+	return ret
+}
+
+// getPV returns the path and value components for the given set flag string, which must be in path=value format.
+func getPV(setFlag string) (path string, value string) {
+	pv := strings.Split(setFlag, "=")
+	if len(pv) != 2 {
+		return setFlag, ""
+	}
+	path, value = strings.TrimSpace(pv[0]), strings.TrimSpace(pv[1])
+	return
 }

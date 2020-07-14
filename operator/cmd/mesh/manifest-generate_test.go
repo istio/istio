@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,9 @@
 package mesh
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -29,8 +27,10 @@ import (
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
 	"istio.io/istio/pkg/test/env"
@@ -38,21 +38,25 @@ import (
 )
 
 const (
-	istioTestVersion = "istio-1.5.0"
+	istioTestVersion = "istio-1.6.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
-	testDataSubdir   = "cmd/mesh/testdata/manifest-generate"
 )
 
 // chartSourceType defines where charts used in the test come from.
-type chartSourceType int
+type chartSourceType string
 
-const (
+var (
+	operatorRootDir = filepath.Join(env.IstioSrc, "operator")
+
+	// testDataDir contains the directory for manifest-generate test data
+	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
+
 	// Snapshot charts are in testdata/manifest-generate/data-snapshot
-	snapshotCharts chartSourceType = iota
+	snapshotCharts = chartSourceType(filepath.Join(testDataDir, "data-snapshot"))
 	// Compiled in charts come from assets.gen.go
-	compiledInCharts
+	compiledInCharts chartSourceType = "COMPILED"
 	// Live charts come from manifests/
-	liveCharts
+	liveCharts = chartSourceType(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath))
 )
 
 type testGroup []struct {
@@ -72,27 +76,7 @@ type testGroup []struct {
 	chartSource                 chartSourceType
 }
 
-// TestMain is required to create a local release package in /tmp from manifests and operator/data in the format that
-// istioctl expects.
-func TestMain(m *testing.M) {
-	var err error
-	operatorRootDir = filepath.Join(env.IstioSrc, "operator")
-	manifestsDir = filepath.Join(operatorRootDir, "manifests")
-	liveReleaseDir, err = createLocalReleaseCharts()
-	defer os.RemoveAll(liveReleaseDir)
-	if err != nil {
-		panic(err)
-	}
-	liveInstallPackageDir = filepath.Join(liveReleaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	snapshotInstallPackageDir = filepath.Join(operatorRootDir, testDataSubdir, "data-snapshot")
-
-	flag.Parse()
-	code := m.Run()
-	os.Exit(code)
-}
-
 func TestManifestGeneratePrometheus(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	g := NewGomegaWithT(t)
 	_, objs, err := generateManifest("prometheus", "", liveCharts)
 	if err != nil {
@@ -110,7 +94,6 @@ func TestManifestGeneratePrometheus(t *testing.T) {
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	g := NewGomegaWithT(t)
 	m, _, err := generateManifest("component_hub_tag", "", liveCharts)
 	if err != nil {
@@ -130,7 +113,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		},
 		{
 			deploymentName: "grafana",
-			want:           "grafana/grafana:6.5.2",
+			want:           "grafana/grafana:1.2.3",
 		},
 		{
 			deploymentName: "istio-ingressgateway",
@@ -144,7 +127,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		},
 		{
 			deploymentName: "kiali",
-			want:           "docker.io/testing/kiali:v1.15",
+			want:           "docker.io/testing/kiali:v1.18",
 		},
 	}
 
@@ -159,22 +142,18 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 }
 
 func TestManifestGenerateGateways(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	g := NewGomegaWithT(t)
 	m, _, err := generateManifest("gateways", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	objs := parseObjectSetFromManifest(t, m)
-	g.Expect(objs.kind(hpaStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(pdbStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(serviceStr).size()).Should(Equal(3))
-
-	// Two namespaces so two sets of these.
-	// istio-ingressgateway and user-ingressgateway share these as they are in the same namespace (istio-system).
-	g.Expect(objs.kind(roleStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(roleBindingStr).size()).Should(Equal(2))
-	g.Expect(objs.kind(saStr).size()).Should(Equal(2))
+	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(3))
+	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(3))
 
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 	d := dobj.Unstructured()
@@ -200,13 +179,52 @@ func TestManifestGenerateGateways(t *testing.T) {
 	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
 	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
 
-	for _, o := range objs.kind(hpaStr).objSlice {
+	for _, o := range objs.kind(name.HPAStr).objSlice {
 		ou := o.Unstructured()
 		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
 		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
 	}
 
 	checkRoleBindingsReferenceRoles(g, objs)
+}
+
+func TestManifestGenerateIstiodRemote(t *testing.T) {
+	g := NewGomegaWithT(t)
+	m, _, err := generateManifest("istiod_remote", "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objs := parseObjectSetFromManifest(t, m)
+
+	// check core CRDs exists
+	g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+
+	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+	g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
+
+	mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
+	g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject/cluster/remote0/net/network2"}))
+	g.Expect(mwc).Should(HavePathValueContain(PathValue{"webhooks.[0].namespaceSelector.matchLabels", toMap("istio-injection:enabled")}))
+
+	vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
+	g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
+
+	ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
+	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
+	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+	checkClusterRoleBindingsReferenceRoles(g, objs)
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
@@ -224,6 +242,8 @@ func TestManifestGenerateFlags(t *testing.T) {
 		{
 			desc:       "gateways",
 			diffIgnore: "ConfigMap:*:istio",
+			flags: "-s components.ingressGateways.[0].k8s.resources.requests.cpu=999m " +
+				"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m",
 		},
 		{
 			desc:       "gateways_override_default",
@@ -291,7 +311,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istiod",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ClusterRoleBinding::istio-reader-istio-system",
 		},
 		// TODO https://github.com/istio/istio/issues/22347 this is broken for overriding things to default value
 		// This can be seen from REGISTRY_ONLY not applying
@@ -357,7 +377,6 @@ func TestManifestGenerateHelmValues(t *testing.T) {
 }
 
 func TestManifestGenerateOrdered(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	// Since this is testing the special case of stable YAML output order, it
 	// does not use the established test group pattern
 	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
@@ -375,9 +394,24 @@ func TestManifestGenerateOrdered(t *testing.T) {
 		t.Errorf("stable_manifest: Manifest generation is not producing stable text output.")
 	}
 }
+func TestManifestGenerateFlagAliases(t *testing.T) {
+	inPath := filepath.Join(testDataDir, "input/all_on.yaml")
+	gotSet, err := runManifestGenerate([]string{inPath}, "--set revision=foo", snapshotCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotAlias, err := runManifestGenerate([]string{inPath}, "--revision=foo --manifests="+filepath.Join(testDataDir, "data-snapshot"), compiledInCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gotAlias != gotSet {
+		t.Errorf("Flag aliases not producing same output: with --set: \n\n%s\n\nWith alias:\n\n%s\nDiff:\n\n%s\n",
+			gotSet, gotAlias, util.YAMLDiff(gotSet, gotAlias))
+	}
+}
 
 func TestMultiICPSFiles(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
 	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
 	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts)
@@ -402,7 +436,6 @@ func TestMultiICPSFiles(t *testing.T) {
 }
 
 func TestBareSpec(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	inPathBase := filepath.Join(testDataDir, "input/bare_spec.yaml")
 	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
 	if err != nil {
@@ -410,14 +443,29 @@ func TestBareSpec(t *testing.T) {
 	}
 }
 
+func TestBareValues(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/bare_values.yaml")
+	// As long as the generate doesn't panic, we pass it.  bare_values.yaml doesn't
+	// overlay well because JSON doesn't handle null values, and our charts
+	// don't expect values to be blown away.
+	_, _ = runManifestGenerate([]string{inPathBase}, "", liveCharts)
+}
+
+func TestBogusControlPlaneSec(t *testing.T) {
+	inPathBase := filepath.Join(testDataDir, "input/bogus_cps.yaml")
+	_, err := runManifestGenerate([]string{inPathBase}, "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestInstallPackagePath(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	serverDir, err := ioutil.TempDir(os.TempDir(), "istio-test-server-*")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(serverDir)
-	if err := tgz.Create(liveReleaseDir, filepath.Join(serverDir, testTGZFilename)); err != nil {
+	if err := tgz.Create(string(liveCharts), filepath.Join(serverDir, testTGZFilename)); err != nil {
 		t.Fatal(err)
 	}
 	srv := httpserver.NewServer(serverDir)
@@ -427,13 +475,13 @@ func TestInstallPackagePath(t *testing.T) {
 			// manifest generation.
 			desc:       "install_package_path",
 			diffSelect: "Deployment:*:istiod",
-			flags:      "--set installPackagePath=" + liveInstallPackageDir,
+			flags:      "--set installPackagePath=" + string(liveCharts),
 		},
 		{
 			// Specify both charts and profile from local filesystem.
 			desc:       "install_package_path",
 			diffSelect: "Deployment:*:istiod",
-			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", liveInstallPackageDir, liveInstallPackageDir),
+			flags:      fmt.Sprintf("--set installPackagePath=%s --set profile=%s/profiles/default.yaml", string(liveCharts), string(liveCharts)),
 		},
 		{
 			// --force is needed for version mismatch.
@@ -461,9 +509,35 @@ func TestTrailingWhitespace(t *testing.T) {
 	}
 }
 
+func validateReferentialIntegrity(t *testing.T, objs object.K8sObjects, cname string, deploymentSelector map[string]string) {
+	t.Run(cname, func(t *testing.T) {
+		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
+		service := mustFindObject(t, objs, cname, name.ServiceStr)
+		pdb := mustFindObject(t, objs, cname, name.PDBStr)
+		hpa := mustFindObject(t, objs, cname, name.HPAStr)
+		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
+		// Check all selectors align
+		mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
+		mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
+		mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
+		if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); cname != hpaName {
+			t.Fatalf("HPA does not match deployment: %v != %v", cname, hpaName)
+		}
+
+		serviceAccountName := mustGetPath(t, deployment, "spec.template.spec.serviceAccountName").(string)
+		mustFindObject(t, objs, serviceAccountName, name.SAStr)
+
+		// Check we aren't changing immutable fields. This only matters for in place upgrade (non revision)
+		// This one is not a selector, it must be an exact match
+		if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector, sel) {
+			t.Fatalf("Depployment selectors are immutable, but changed since 1.5. Was %v, now is %v", deploymentSelector, sel)
+		}
+	})
+}
+
 // This test enforces that objects that reference other objects do so properly, such as Service selecting deployment
 func TestConfigSelectors(t *testing.T) {
-	got, err := runManifestGenerate([]string{}, "", liveCharts)
+	got, err := runManifestGenerate([]string{}, "--set values.gateways.istio-egressgateway.enabled=true", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,79 +554,74 @@ func TestConfigSelectors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// First we fetch all the objects for our default install
-	name := "istiod"
-	deployment := mustFindObject(t, objs, name, deploymentStr)
-	service := mustFindObject(t, objs, name, serviceStr)
-	pdb := mustFindObject(t, objs, name, pdbStr)
-	hpa := mustFindObject(t, objs, name, hpaStr)
-	podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
-	// Check all selectors align
-	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels)
-	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels)
-	mustSelect(t, mustGetLabels(t, deployment, "spec.selector.matchLabels"), podLabels)
-	if hpaName := mustGetPath(t, hpa, "spec.scaleTargetRef.name"); name != hpaName {
-		t.Fatalf("HPA does not match deployment: %v != %v", name, hpaName)
-	}
-
-	// Next we fetch all the objects for a revision install
-	nameRev := "istiod-canary"
-	deploymentRev := mustFindObject(t, objsRev, nameRev, deploymentStr)
-	serviceRev := mustFindObject(t, objsRev, nameRev, serviceStr)
-	pdbRev := mustFindObject(t, objsRev, nameRev, pdbStr)
-	hpaRev := mustFindObject(t, objsRev, nameRev, hpaStr)
-	podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
-	// Check all selectors align for revision
-	mustSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabelsRev)
-	mustSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabelsRev)
-	mustSelect(t, mustGetLabels(t, deploymentRev, "spec.selector.matchLabels"), podLabelsRev)
-	if hpaName := mustGetPath(t, hpaRev, "spec.scaleTargetRef.name"); nameRev != hpaName {
-		t.Fatalf("HPA does not match deployment: %v != %v", nameRev, hpaName)
-	}
-
-	// Make sure default and revisions do not cross
-	mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels)
-	mustNotSelect(t, mustGetLabels(t, service, "spec.selector"), podLabelsRev)
-	mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels)
-	mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
-
-	// Check selection of previous versions . This only matters for in place upgrade (non revision)
-	podLabels15 := map[string]string{
-		"app":   "istiod",
+	istiod15Selector := map[string]string{
 		"istio": "pilot",
 	}
-	mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels15)
-	mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels15)
-	mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels15)
-	mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels15)
+	istiodCanary16Selector := map[string]string{
+		"app":          "istiod",
+		"istio.io/rev": "canary",
+	}
+	ingress15Selector := map[string]string{
+		"app":   "istio-ingressgateway",
+		"istio": "ingressgateway",
+	}
+	egress15Selector := map[string]string{
+		"app":   "istio-egressgateway",
+		"istio": "egressgateway",
+	}
 
-	// Check we aren't changing immutable fields. This only matters for in place upgrade (non revision)
-	// This one is not a selector, it must be an exact match
-	deploymentSelector15 := map[string]string{
-		"istio": "pilot",
-	}
-	if sel := mustGetLabels(t, deployment, "spec.selector.matchLabels"); !reflect.DeepEqual(deploymentSelector15, sel) {
-		t.Fatalf("Depployment selectors are immutable, but changed since 1.5. Was %v, now is %v", deploymentSelector15, sel)
-	}
+	// Validate references within the same deployment
+	validateReferentialIntegrity(t, objs, "istiod", istiod15Selector)
+	validateReferentialIntegrity(t, objs, "istio-ingressgateway", ingress15Selector)
+	validateReferentialIntegrity(t, objs, "istio-egressgateway", egress15Selector)
+	validateReferentialIntegrity(t, objsRev, "istiod-canary", istiodCanary16Selector)
+
+	t.Run("cross revision", func(t *testing.T) {
+		// Istiod revisions have complicated cross revision implications. We should assert these are correct
+		// First we fetch all the objects for our default install
+		cname := "istiod"
+		deployment := mustFindObject(t, objs, cname, name.DeploymentStr)
+		service := mustFindObject(t, objs, cname, name.ServiceStr)
+		pdb := mustFindObject(t, objs, cname, name.PDBStr)
+		podLabels := mustGetLabels(t, deployment, "spec.template.metadata.labels")
+
+		// Next we fetch all the objects for a revision install
+		nameRev := "istiod-canary"
+		deploymentRev := mustFindObject(t, objsRev, nameRev, name.DeploymentStr)
+		serviceRev := mustFindObject(t, objsRev, nameRev, name.ServiceStr)
+		pdbRev := mustFindObject(t, objsRev, nameRev, name.PDBStr)
+		podLabelsRev := mustGetLabels(t, deploymentRev, "spec.template.metadata.labels")
+
+		// Make sure default and revisions do not cross
+		mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels)
+		mustNotSelect(t, mustGetLabels(t, service, "spec.selector"), podLabelsRev)
+		mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels)
+		mustNotSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabelsRev)
+
+		// Check selection of previous versions . This only matters for in place upgrade (non revision)
+		podLabels15 := map[string]string{
+			"app":   "istiod",
+			"istio": "pilot",
+		}
+		mustSelect(t, mustGetLabels(t, service, "spec.selector"), podLabels15)
+		mustNotSelect(t, mustGetLabels(t, serviceRev, "spec.selector"), podLabels15)
+		mustSelect(t, mustGetLabels(t, pdb, "spec.selector.matchLabels"), podLabels15)
+		mustNotSelect(t, mustGetLabels(t, pdbRev, "spec.selector.matchLabels"), podLabels15)
+	})
 }
 
 // TestLDFlags checks whether building mesh command with
 // -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
 func TestLDFlags(t *testing.T) {
-	testDataDir = filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate")
 	tmpHub, tmpTag := version.DockerInfo.Hub, version.DockerInfo.Tag
 	defer func() {
 		version.DockerInfo.Hub, version.DockerInfo.Tag = tmpHub, tmpTag
 	}()
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
-	l := NewLogger(true, os.Stdout, os.Stderr)
-	ysf, err := yamlFromSetFlags([]string{"installPackagePath=" + liveInstallPackageDir}, false, l)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, iops, err := GenerateConfig(nil, ysf, true, nil, l)
+	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
+	_, iops, err := GenerateConfig(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -562,7 +631,6 @@ func TestLDFlags(t *testing.T) {
 }
 
 func runTestGroup(t *testing.T, tests testGroup) {
-	testDataDir = filepath.Join(operatorRootDir, testDataSubdir)
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
@@ -637,32 +705,21 @@ func runManifestGenerate(filenames []string, flags string, chartSource chartSour
 	if flags != "" {
 		args += " " + flags
 	}
-	switch chartSource {
-	case snapshotCharts:
-		args += " --set installPackagePath=" + filepath.Join(testDataDir, "data-snapshot")
-	case liveCharts:
-		args += " --set installPackagePath=" + liveInstallPackageDir
-	case compiledInCharts:
+	switch {
+	case chartSource == compiledInCharts:
+		// For compiled in charts, pass no flag
+	case len(chartSource) > 0:
+		args += " --set installPackagePath=" + string(chartSource)
 	default:
+		// We default to using snapshot directory
+		args += " --set installPackagePath=" + string(snapshotCharts)
 	}
 	return runCommand(args)
 }
 
-func createLocalReleaseCharts() (string, error) {
-	releaseDir, err := ioutil.TempDir(os.TempDir(), "istio-test-release-*")
-	if err != nil {
-		return "", err
-	}
-	releaseSubDir := filepath.Join(releaseDir, istioTestVersion, helm.OperatorSubdirFilePath)
-	cmd := exec.Command("../../scripts/create_release_charts.sh", "-o", releaseSubDir)
-	if stdo, err := cmd.Output(); err != nil {
-		return "", fmt.Errorf("%s: \n%s", err, string(stdo))
-	}
-	return releaseDir, nil
-}
-
+// nolint: unparam
 func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
-	inPath := filepath.Join(operatorRootDir, "cmd/mesh/testdata/manifest-generate/input", inFile+".yaml")
+	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource)
 	if err != nil {
 		return "", nil, fmt.Errorf("error %s: %s", err, manifest)

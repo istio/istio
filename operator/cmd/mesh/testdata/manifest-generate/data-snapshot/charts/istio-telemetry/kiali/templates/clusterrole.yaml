@@ -48,7 +48,6 @@ rules:
     - config.istio.io
     - networking.istio.io
     - authentication.istio.io
-    - rbac.istio.io
     - security.istio.io
     resources: ["*"]
     verbs:
@@ -115,7 +114,6 @@ rules:
     - config.istio.io
     - networking.istio.io
     - authentication.istio.io
-    - rbac.istio.io
     - security.istio.io
     resources: ["*"]
     verbs:

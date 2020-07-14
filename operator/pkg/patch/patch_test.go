@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -196,6 +196,29 @@ a:
     d: n3
 `,
 		},
+		{
+			desc:  "AppendToListEntry",
+			path:  `a.b.[name:n2].list.[3]`,
+			value: `v4`,
+			want: `
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: istio-citadel
+  namespace: istio-system
+a:
+  b:
+  - name: n1
+    value: v1
+  - list:
+    - v1
+    - v2
+    - v3_regex
+    - v4
+    name: n2
+  c:
+`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
@@ -205,7 +228,6 @@ a:
 			if err != nil {
 				t.Fatalf("unmarshalWithJSONPB(%s): got error %s for string:\n%s\n", tt.desc, err, oh)
 			}
-			fmt.Printf("Good header: \n%s\n", oh)
 			got, err := YAMLManifestPatch(base, "istio-system", rc.Overlays)
 			if gotErr, wantErr := errToString(err), tt.wantErr; gotErr != wantErr {
 				t.Fatalf("YAMLManifestPatch(%s): gotErr:%s, wantErr:%s", tt.desc, gotErr, wantErr)

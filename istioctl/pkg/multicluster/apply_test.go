@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,17 +61,17 @@ clusters:
 - cluster:
     certificate-authority-data: {{ .CAData }}
     server: {{ .Server }}
-  name: {{ .Context }}
+  name: {{ .ClusterName }}
 contexts:
 - context:
-    cluster: {{ .Context }}
-    user: {{ .Context }}
-  name: {{ .Context }}
-current-context: {{ .Context }}
+    cluster: {{ .ClusterName }}
+    user: {{ .ClusterName }}
+  name: {{ .ClusterName }}
+current-context: {{ .ClusterName }}
 kind: Config
 preferences: {}
 users:
-- name: {{ .Context }}
+- name: {{ .ClusterName }}
   user:
     token: {{ .Token }}
 `
@@ -119,17 +119,16 @@ func makeServerName(c *Cluster) string {
 	return fmt.Sprintf("server-%v", c.Context)
 }
 
-func makeKubeconfig(c *Cluster, token, caCert []byte) (string, []byte) {
+func makeKubeconfig(c *Cluster, token, caCert []byte) []byte {
 	var out bytes.Buffer
 	_ = kubeconfigTemplate.Execute(&out, map[string]string{
-		"CAData":  base64.StdEncoding.EncodeToString(caCert),
-		"Server":  makeServerName(c),
-		"Context": c.Context,
-		"Token":   string(token),
+		"CAData":      base64.StdEncoding.EncodeToString(caCert),
+		"Server":      makeServerName(c),
+		"ClusterName": c.clusterName,
+		"Token":       string(token),
 	})
 	kubeconfig := out.Bytes()
-	kubeconfigBase64 := base64.StdEncoding.EncodeToString(kubeconfig)
-	return kubeconfigBase64, kubeconfig
+	return kubeconfig
 }
 
 func makeRemoteSecret(c *Cluster, kubeconfig []byte) *v1.Secret {
@@ -138,7 +137,7 @@ func makeRemoteSecret(c *Cluster, kubeconfig []byte) *v1.Secret {
 			Name:      remoteSecretNameFromClusterName(c.clusterName),
 			Namespace: defaultIstioNamespace,
 			Annotations: map[string]string{
-				clusterContextAnnotationKey: c.Context,
+				clusterNameAnnotationKey: c.clusterName,
 			},
 			Labels: map[string]string{
 				secretcontroller.MultiClusterSecretLabel: "true",
@@ -164,8 +163,6 @@ var (
 	clusters             [numFakeClusters]*Cluster
 	kubeSystemNamespaces [numFakeClusters]*v1.Namespace
 	remoteSecretClusters [numFakeClusters]*v1.Secret
-	base64Kubeconfigs    [numFakeClusters]string
-	kubeconfigs          [numFakeClusters][]byte
 	tokens               [numFakeClusters][]byte
 	caDatas              [numFakeClusters][]byte
 	pilotTokenSecrets    [numFakeClusters]*v1.Secret
@@ -187,8 +184,8 @@ func init() {
 		kubeSystemNamespaces[i] = makeUniqueKubeNamespace(clusters[i])
 		tokens[i] = makeToken(clusters[i])
 		caDatas[i] = makeCAData(clusters[i])
-		base64Kubeconfigs[i], kubeconfigs[i] = makeKubeconfig(clusters[i], tokens[i], caDatas[i])
-		remoteSecretClusters[i] = makeRemoteSecret(clusters[i], kubeconfigs[i])
+		kubeconfig := makeKubeconfig(clusters[i], tokens[i], caDatas[i])
+		remoteSecretClusters[i] = makeRemoteSecret(clusters[i], kubeconfig)
 		pilotTokenSecrets[i] = makeTokenSecret(tokens[i], caDatas[i])
 
 		apiConfig.Contexts[clusters[i].Context] = &api.Context{
@@ -275,7 +272,7 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 
 	// verify test results
 	for _, cluster := range testCase.clusters {
-		t.Run(fmt.Sprintf("cluster %v", cluster.Context), func(tt *testing.T) {
+		t.Run(fmt.Sprintf("cluster %v", cluster.clusterName), func(tt *testing.T) {
 			tt.Helper()
 
 			fakeClient := fakeClients[cluster.clusterName]
@@ -288,7 +285,8 @@ func runApplyTest(t *testing.T, testCase *applyTestCase) {
 				gotSecrets = append(gotSecrets, simulateWriteOnlyKubeApiserverBehavior(&secret))
 			}
 
-			if diff := cmp.Diff(testCase.wantSecrets[cluster.clusterName], gotSecrets, cmpopts.SortSlices(lessSecret)); diff != "" {
+			wantSecrets := testCase.wantSecrets[cluster.clusterName]
+			if diff := cmp.Diff(wantSecrets, gotSecrets, cmpopts.SortSlices(lessSecret)); diff != "" {
 				tt.Errorf("\n got %v\nwant %v\ndiff %v",
 					gotSecrets, testCase.wantSecrets[cluster.clusterName], diff)
 			}

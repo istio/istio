@@ -1,5 +1,0 @@
-isolated: true
-environments:
-  - kube
-labels:
-  - postsubmit

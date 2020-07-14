@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ import (
 	"errors"
 	"fmt"
 
-	xdsAPI "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	httpConn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -40,11 +40,11 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *typ
 	var obj proto.Message
 	switch applyTo {
 	case networking.EnvoyFilter_CLUSTER:
-		obj = &xdsAPI.Cluster{}
+		obj = &cluster.Cluster{}
 	case networking.EnvoyFilter_LISTENER:
-		obj = &xdsAPI.Listener{}
+		obj = &listener.Listener{}
 	case networking.EnvoyFilter_ROUTE_CONFIGURATION:
-		obj = &xdsAPI.RouteConfiguration{}
+		obj = &route.RouteConfiguration{}
 	case networking.EnvoyFilter_FILTER_CHAIN:
 		obj = &listener.FilterChain{}
 	case networking.EnvoyFilter_HTTP_FILTER:
@@ -75,5 +75,6 @@ func GogoStructToMessage(pbst *types.Struct, out proto.Message) error {
 		return err
 	}
 
-	return jsonpb.Unmarshal(buf, out)
+	// Ignore unknown fields as they may be sending versions of the proto we are not internally using
+	return (&jsonpb.Unmarshaler{AllowUnknownFields: true}).Unmarshal(buf, out)
 }

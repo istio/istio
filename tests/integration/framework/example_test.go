@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package framework
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/tests/integration/framework/mycomponent"
 
 	"istio.io/istio/pkg/test/framework"
@@ -50,10 +49,6 @@ func mysetup(c resource.Context) error {
 	return nil
 }
 
-func setupNative(_ resource.Context) error {
-	return nil
-}
-
 func setupKube(_ resource.Context) error {
 	return nil
 }
@@ -79,7 +74,6 @@ func TestStyle2(t *testing.T) {
 	// You can specify additional constraints using the more verbose form
 	framework.NewTest(t).
 		Label(label.Postsubmit).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 
 			// This tests will run only on Kube environment as Presubmit. Note that the suite level requirements will

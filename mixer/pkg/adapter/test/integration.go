@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ type (
 		// `getState`, passed to `RunTest`, returns.
 		AdapterState interface{} `json:"AdapterState"`
 		// Returns represents the return data from calls to Mixer
-		Returns []Return `json:"Returns"`
+		Returns []*Return `json:"Returns"`
 	}
 	// Return represents the return data from a call to Mixer
 	Return struct {
@@ -121,7 +121,7 @@ type (
 		// Quota is the response from a check call to Mixer
 		Quota map[string]adapter.QuotaResult `json:"Quota"`
 		// Error is the error from call to Mixer
-		Error spb.Status `json:"Error"`
+		Error *spb.Status `json:"Error"`
 	}
 )
 
@@ -232,7 +232,7 @@ func RunTest(
 
 	wg.Add(len(scenario.ParallelCalls))
 
-	got := Result{Returns: make([]Return, len(scenario.ParallelCalls))}
+	got := Result{Returns: make([]*Return, len(scenario.ParallelCalls))}
 	for i, call := range scenario.ParallelCalls {
 		if scenario.SingleThreaded {
 			execute(call, client, got.Returns, i, &wg)
@@ -296,8 +296,8 @@ func RunTest(
 	}
 }
 
-func execute(c Call, client istio_mixer_v1.MixerClient, returns []Return, i int, wg *sync.WaitGroup) {
-	ret := Return{}
+func execute(c Call, client istio_mixer_v1.MixerClient, returns []*Return, i int, wg *sync.WaitGroup) {
+	ret := &Return{}
 	switch c.CallKind {
 	case CHECK:
 		req := istio_mixer_v1.CheckRequest{
@@ -394,13 +394,16 @@ func getAttrBag(attrs map[string]interface{}) istio_mixer_v1.CompressedAttribute
 	return attrProto
 }
 
-func errToStatus(err error) spb.Status {
-	var statusResp spb.Status
+func errToStatus(err error) *spb.Status {
+	if err == nil {
+		return nil
+	}
+	var statusResp *spb.Status
 	if s, ok := status.FromError(err); ok {
 		if s == nil {
-			statusResp = spb.Status{Code: int32(codes.OK)}
+			statusResp = &spb.Status{Code: int32(codes.OK)}
 		} else {
-			statusResp = *s.Proto()
+			statusResp = s.Proto()
 		}
 	}
 	return statusResp

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,15 @@ import (
 	"testing"
 	"time"
 
+	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/golang/protobuf/jsonpb"
+
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+
+	// Import all XDS config types
+	_ "istio.io/istio/pkg/config/xds"
 
 	mixerpb "istio.io/api/mixer/v1"
 
@@ -537,4 +545,34 @@ func (s *TestSetup) DrainMixerAllChannels() {
 			<-s.mixer.quota.ch
 		}
 	}()
+}
+
+// go-control-plane requires v2 XDS types, when we are using v3 internally
+// nolint: interfacer
+func CastRouteToV2(r *route.RouteConfiguration) *v2.RouteConfiguration {
+	s, err := (&jsonpb.Marshaler{OrigName: true}).MarshalToString(r)
+	if err != nil {
+		panic(err.Error())
+	}
+	v2route := &v2.RouteConfiguration{}
+	err = jsonpb.UnmarshalString(s, v2route)
+	if err != nil {
+		panic(err.Error())
+	}
+	return v2route
+}
+
+// go-control-plane requires v2 XDS types, when we are using v3 internally
+// nolint: interfacer
+func CastListenerToV2(r *listener.Listener) *v2.Listener {
+	s, err := (&jsonpb.Marshaler{OrigName: true}).MarshalToString(r)
+	if err != nil {
+		panic(err.Error())
+	}
+	v2Listener := &v2.Listener{}
+	err = jsonpb.UnmarshalString(s, v2Listener)
+	if err != nil {
+		panic(err.Error())
+	}
+	return v2Listener
 }

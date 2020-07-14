@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,13 +15,15 @@
 package pilot
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 
 	"github.com/hashicorp/go-multierror"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -39,7 +41,7 @@ var (
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -50,8 +52,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	ns := icfg.ConfigNamespace
 
-	fetchFn := c.cluster.NewSinglePodFetch(ns, "istio=pilot")
-	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := testKube.NewSinglePodFetch(c.cluster, ns, "istio=pilot")
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}()
 
 	// Start port-forwarding for pilot.
-	c.forwarder, err = c.cluster.NewPortForwarder(pod, 0, port)
+	c.forwarder, err = c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
 	if err != nil {
 		return nil, err
 	}
@@ -96,19 +98,14 @@ type kubeComponent struct {
 
 	*client
 
-	forwarder testKube.PortForwarder
+	forwarder istioKube.PortForwarder
 
-	cluster kube.Cluster
+	cluster resource.Cluster
 }
 
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
 }
-
-//func (c *kubeComponent) Start(ctx resource.Context) (err error) {
-//
-//
-//}
 
 // Close stops the kube pilot server.
 func (c *kubeComponent) Close() (err error) {
@@ -118,14 +115,14 @@ func (c *kubeComponent) Close() (err error) {
 	}
 
 	if c.forwarder != nil {
-		err = multierror.Append(err, c.forwarder.Close()).ErrorOrNil()
+		c.forwarder.Close()
 		c.forwarder = nil
 	}
 	return
 }
 
 func (c *kubeComponent) getGrpcPort(ns string) (uint16, error) {
-	svc, err := c.cluster.GetService(ns, pilotService)
+	svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), pilotService, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
 	}

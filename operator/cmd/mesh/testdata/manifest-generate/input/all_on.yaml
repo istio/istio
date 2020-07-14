@@ -10,8 +10,6 @@ spec:
       enabled: true
     telemetry:
       enabled: true
-    proxy:
-      enabled: true
     cni:
       enabled: false
     ingressGateways:

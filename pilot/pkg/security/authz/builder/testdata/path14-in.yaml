@@ -1,0 +1,15 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-1
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - to:
+        - operation:
+            paths: ["/exact", "/prefix/*", "*/suffix", "*"]
+            notPaths: ["/not-exact", "/not-prefix/*", "*/not-suffix", "*"]

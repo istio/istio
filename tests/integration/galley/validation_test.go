@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework"
@@ -50,7 +49,7 @@ func (t testData) load() (string, error) {
 	return string(by), nil
 }
 
-func loadTestData(t *testing.T) []testData {
+func loadTestData(t framework.TestContext) []testData {
 	entries, err := validation.AssetDir("dataset")
 	if err != nil {
 		t.Fatalf("Error loading test data: %v", err)
@@ -68,10 +67,10 @@ func loadTestData(t *testing.T) []testData {
 func TestValidation(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
-		RequiresEnvironment(environment.Kube).
+
 		Run(func(ctx framework.TestContext) {
 
-			dataset := loadTestData(t)
+			dataset := loadTestData(ctx)
 
 			denied := func(err error) bool {
 				if err == nil {
@@ -87,49 +86,47 @@ func TestValidation(t *testing.T) {
 			}
 
 			for _, d := range dataset {
-				t.Run(string(d), func(t *testing.T) {
+				ctx.NewSubTest(string(d)).Run(func(ctx framework.TestContext) {
 					if d.isSkipped() {
-						t.SkipNow()
+						ctx.SkipNow()
 						return
 					}
 
-					fctx := framework.NewContext(t)
-					defer fctx.Done()
-
 					ym, err := d.load()
 					if err != nil {
-						t.Fatalf("Unable to load test data: %v", err)
+						ctx.Fatalf("Unable to load test data: %v", err)
 					}
 
-					ns := namespace.NewOrFail(t, fctx, namespace.Config{
+					ns := namespace.NewOrFail(t, ctx, namespace.Config{
 						Prefix: "validation",
 					})
 
-					_, err = cluster.ApplyContentsDryRun(ns.Name(), ym)
+					applyFiles := ctx.WriteYAMLOrFail(ctx, "apply", ym)
+					err = cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
 
 					switch {
 					case err != nil && d.isValid():
 						if denied(err) {
-							t.Fatalf("got unexpected for valid config: %v", err)
+							ctx.Fatalf("got unexpected for valid config: %v", err)
 						} else {
-							t.Fatalf("got unexpected unknown error for valid config: %v", err)
+							ctx.Fatalf("got unexpected unknown error for valid config: %v", err)
 						}
 					case err == nil && !d.isValid():
-						t.Fatalf("got unexpected success for invalid config")
+						ctx.Fatalf("got unexpected success for invalid config")
 					case err != nil && !d.isValid():
 						if !denied(err) {
-							t.Fatalf("config request denied for wrong reason: %v", err)
+							ctx.Fatalf("config request denied for wrong reason: %v", err)
 						}
 					}
 
-					_, wetRunErr := cluster.ApplyContents(ns.Name(), ym)
-					defer func() { _ = cluster.DeleteContents(ns.Name(), ym) }()
+					wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
+					defer func() { _ = cluster.DeleteYAMLFiles(ns.Name(), applyFiles...) }()
 
 					if err != nil && wetRunErr == nil {
-						t.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
+						ctx.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
 					}
 					if err == nil && wetRunErr != nil {
-						t.Fatalf("wet run returned no errors, but dry run returned: %v", err)
+						ctx.Fatalf("wet run returned no errors, but dry run returned: %v", err)
 					}
 				})
 			}
@@ -180,18 +177,18 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 			}
 			// These CRDs are validated outside of Istio
 			for _, gvk := range []string{
-				"networking.x.k8s.io/v1alpha1/Gateway",
-				"networking.x.k8s.io/v1alpha1/GatewayClass",
-				"networking.x.k8s.io/v1alpha1/HTTPRoute",
-				"networking.x.k8s.io/v1alpha1/TcpRoute",
-				"networking.x.k8s.io/v1alpha1/TrafficSplit",
+				"networking.x-k8s.io/v1alpha1/Gateway",
+				"networking.x-k8s.io/v1alpha1/GatewayClass",
+				"networking.x-k8s.io/v1alpha1/HTTPRoute",
+				"networking.x-k8s.io/v1alpha1/TcpRoute",
+				"networking.x-k8s.io/v1alpha1/TrafficSplit",
 			} {
 				delete(recognized, gvk)
 			}
 
 			testedValid := make(map[string]struct{})
 			testedInvalid := make(map[string]struct{})
-			for _, te := range loadTestData(t) {
+			for _, te := range loadTestData(ctx) {
 				yamlBatch, err := te.load()
 				yamlParts := yml.SplitString(yamlBatch)
 				for _, yamlPart := range yamlParts {

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,65 +13,3 @@
 // limitations under the License.
 
 package compare
-
-import (
-	"bytes"
-	"io/ioutil"
-	"testing"
-
-	"istio.io/istio/tests/util"
-)
-
-func TestComparator_ClusterDiff(t *testing.T) {
-	tests := []struct {
-		name            string
-		envoy           []byte
-		pilot           map[string][]byte
-		wantClusterDump bool
-		wantDiff        string
-	}{
-		{
-			name:     "prints a diff",
-			envoy:    loadDiffEnvoyDump(),
-			pilot:    map[string][]byte{"pilot": loadPilotDump()},
-			wantDiff: "testdata/clusterdiff.txt",
-		},
-		{
-			name:     "Prints match",
-			envoy:    loadEnvoyDump(),
-			pilot:    map[string][]byte{"pilot": loadPilotDump()},
-			wantDiff: "",
-		},
-		{
-			name:            "prints match if envoy/pilot has no cluster dump",
-			envoy:           loadEnvoyDump(),
-			pilot:           map[string][]byte{"pilot": loadPilotDump()},
-			wantClusterDump: false,
-			wantDiff:        "",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := &bytes.Buffer{}
-			c, err := NewComparator(got, tt.pilot, tt.envoy)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if tt.wantClusterDump {
-				c.envoy.Configs = nil
-				c.pilot.Configs = nil
-			}
-			if err := c.ClusterDiff(); err != nil {
-				t.Fatal(err)
-			}
-			if tt.wantDiff != "" {
-				want, _ := ioutil.ReadFile(tt.wantDiff)
-				if err := util.Compare(got.Bytes(), want); err != nil {
-					t.Error(err.Error())
-				}
-			} else if got.String() != "Clusters Match\n" {
-				t.Errorf("wanted match but got a diff")
-			}
-		})
-	}
-}

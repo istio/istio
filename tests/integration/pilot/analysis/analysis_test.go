@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,15 @@
 package analysis
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	status2 "istio.io/istio/pilot/pkg/status"
 
 	"istio.io/istio/pkg/test/framework/features"
 
@@ -29,19 +35,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
-		NotImplementedYet(features.UsabilityObservabilityStatusDefaultExists)
+		NotImplementedYet(features.Usability_Observability_Status_DefaultExists)
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.UsabilityObservabilityStatus).
+		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		Run(func(ctx framework.TestContext) {
@@ -52,7 +57,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Labels:   nil,
 			})
 			// Apply bad config (referencing invalid host)
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -63,15 +68,15 @@ spec:
   - reviews
   http:
   - route:
-    - destination:
+    - destination: 
         host: reviews
 `)
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectStatus(t, ctx, ns, true)
-			})
+			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -95,11 +100,13 @@ spec:
 }
 
 func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
-	x, err := kube.ClusterOrDefault(nil, ctx.Environment()).GetUnstructured(schema.GroupVersionResource{
+	c := resource.ClusterOrDefault(nil, ctx.Environment())
+	gvr := schema.GroupVersionResource{
 		Group:    "networking.istio.io",
 		Version:  "v1alpha3",
 		Resource: "virtualservices",
-	}, ns.Name(), "reviews")
+	}
+	x, err := c.Dynamic().Resource(gvr).Namespace(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("unexpected test failure: can't get bogus virtualservice: %v", err)
 	}
@@ -107,9 +114,29 @@ func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, has
 	if hasError && x.Object["status"] == nil {
 		return fmt.Errorf("object is missing expected status field.  Actual object is: %v", x)
 	}
-	status := fmt.Sprintf("%v", x.Object["status"])
-	if strings.Contains(status, msg.ReferencedResourceNotFound.Code()) != hasError {
-		return fmt.Errorf("expected error=%v, but got %v", hasError, status)
+	statusString := fmt.Sprintf("%v", x.Object["status"])
+	if strings.Contains(statusString, msg.ReferencedResourceNotFound.Code()) != hasError {
+		return fmt.Errorf("expected error=%v, but got %v", hasError, statusString)
+	}
+
+	status, err := status2.GetTypedStatus(x.Object["status"])
+	if err != nil {
+		return fmt.Errorf("unable to cast status field '%s'to istiostatus:, %v", statusString, err)
+	}
+	if len(status.Conditions) < 1 {
+		return fmt.Errorf("expected conditions to exist, but got %v", status)
+	}
+	found := false
+	for _, condition := range status.Conditions {
+		if condition.Type == status2.Reconciled {
+			found = true
+			if condition.Status != metav1.ConditionTrue {
+				return fmt.Errorf("expected Reconciled to be true but was %v", condition.Status)
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("expected Reconciled condition to exist, but got %v", status.Conditions)
 	}
 	return nil
 }

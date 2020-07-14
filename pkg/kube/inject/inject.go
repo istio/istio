@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,18 +30,23 @@ import (
 	"strings"
 	"text/template"
 
-	"istio.io/istio/pkg/config/mesh"
-
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
+	"istio.io/api/label"
+
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
@@ -89,8 +94,18 @@ var (
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
 		annotation.SidecarTrafficKubevirtInterfaces.Name:          alwaysValidFunc,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
+		annotation.ProxyConfig.Name:                               validateProxyConfig,
+		"k8s.v1.cni.cncf.io/networks":                             alwaysValidFunc,
 	}
 )
+
+func validateProxyConfig(value string) error {
+	config := mesh.DefaultProxyConfig()
+	if err := gogoprotomarshal.ApplyYAML(value, &config); err != nil {
+		return fmt.Errorf("failed to convert to apply proxy config: %v", err)
+	}
+	return validation.ValidateProxyConfig(&config)
+}
 
 func validateAnnotations(annotations map[string]string) (err error) {
 	for name, value := range annotations {
@@ -297,7 +312,7 @@ func validateBool(value string) error {
 
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta) bool { // nolint: lll
 	// Skip injection when host networking is enabled. The problem is
-	// that the iptable changes are assumed to be within the pod when,
+	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
 	// often results in routing failures within a node which can
 	// affect the network provider within the cluster causing
@@ -428,7 +443,7 @@ func flippedContains(needle, haystack string) bool {
 
 // InjectionData renders sidecarTemplate with valuesConfig.
 func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
-	metadata *metav1.ObjectMeta, proxyConfig *meshconfig.ProxyConfig, meshConfig *meshconfig.MeshConfig) (
+	metadata *metav1.ObjectMeta, meshConfig *meshconfig.MeshConfig, path string) (
 	*SidecarInjectionSpec, string, error) {
 
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
@@ -449,12 +464,19 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
+	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
+		var merr error
+		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
+		if merr != nil {
+			return nil, "", merr
+		}
+	}
 	data := SidecarTemplateData{
 		TypeMeta:       typeMetadata,
 		DeploymentMeta: deploymentMetadata,
 		ObjectMeta:     metadata,
 		Spec:           spec,
-		ProxyConfig:    proxyConfig,
+		ProxyConfig:    meshConfig.GetDefaultConfig(),
 		MeshConfig:     meshConfig,
 		Values:         values,
 	}
@@ -516,6 +538,9 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 
 	// set sidecar --concurrency
 	applyConcurrency(sic.Containers)
+
+	// overwrite cluster name and network if needed
+	overwriteClusterInfo(sic.Containers, path)
 
 	status := &SidecarInjectionStatus{Version: version}
 	for _, c := range sic.InitContainers {
@@ -724,8 +749,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		deploymentMetadata,
 		podSpec,
 		metadata,
-		meshconfig.DefaultConfig,
-		meshconfig)
+		meshconfig,
+		"")
 	if err != nil {
 		return nil, err
 	}
@@ -736,6 +761,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
 	podSpec.DNSConfig = spec.DNSConfig
+
+	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, spec.ImagePullSecrets...)
 
 	// Modify application containers' HTTP probe after appending injected containers.
 	// Because we need to extract istio-proxy's statusPort.
@@ -769,9 +796,9 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	}
 	// This function, IntoObject(), is only used on the 'istioctl kube-kubeinject' path, which
 	// doesn't use Pilot bootstrap variables.
-	metadata.Labels[model.RevisionLabel] = revision
-	if status != "" && metadata.Labels[model.TLSModeLabelName] == "" {
-		metadata.Labels[model.TLSModeLabelName] = model.IstioMutualTLSModeLabel
+	metadata.Labels[label.IstioRev] = revision
+	if status != "" && metadata.Labels[label.TLSMode] == "" {
+		metadata.Labels[label.TLSMode] = model.IstioMutualTLSModeLabel
 	}
 
 	return out, nil
@@ -830,7 +857,7 @@ func structToJSON(v interface{}) string {
 }
 
 func protoToJSON(v proto.Message) string {
-	v = cleanMeshConfig(v)
+	v = cleanProxyConfig(v)
 	if v == nil {
 		return "{}"
 	}
@@ -845,7 +872,15 @@ func protoToJSON(v proto.Message) string {
 	return ba
 }
 
-func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
+// Rather than dump the entire proxy config, we remove fields that are default
+// This makes the pod spec much smaller
+// This is not comprehensive code, but nothing will break if this misses some fields
+func cleanProxyConfig(msg proto.Message) proto.Message {
+	originalProxyConfig, ok := msg.(*meshconfig.ProxyConfig)
+	if !ok || originalProxyConfig == nil {
+		return msg
+	}
+	pc := *originalProxyConfig
 	defaults := mesh.DefaultProxyConfig()
 	if pc.ConfigPath == defaults.ConfigPath {
 		pc.ConfigPath = ""
@@ -859,6 +894,9 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if reflect.DeepEqual(pc.DrainDuration, defaults.DrainDuration) {
 		pc.DrainDuration = nil
 	}
+	if reflect.DeepEqual(pc.TerminationDrainDuration, defaults.TerminationDrainDuration) {
+		pc.TerminationDrainDuration = nil
+	}
 	if reflect.DeepEqual(pc.ParentShutdownDuration, defaults.ParentShutdownDuration) {
 		pc.ParentShutdownDuration = nil
 	}
@@ -871,6 +909,9 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if reflect.DeepEqual(pc.EnvoyAccessLogService, defaults.EnvoyAccessLogService) {
 		pc.EnvoyAccessLogService = nil
 	}
+	if reflect.DeepEqual(pc.Tracing, defaults.Tracing) {
+		pc.Tracing = nil
+	}
 	if pc.ProxyAdminPort == defaults.ProxyAdminPort {
 		pc.ProxyAdminPort = 0
 	}
@@ -880,105 +921,10 @@ func cleanProxyConfig(pc meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if pc.StatusPort == defaults.StatusPort {
 		pc.StatusPort = 0
 	}
-	return &pc
-}
-
-// Rather than dump the entire proxy config, we remove fields that are default
-// This makes the pod spec much smaller
-// This is not comprehensive code, but nothing will break if this misses some fields
-func cleanMeshConfig(v proto.Message) proto.Message {
-	mc, ok := v.(*meshconfig.MeshConfig)
-	if !ok || mc == nil {
-		return v
+	if reflect.DeepEqual(pc.Concurrency, defaults.Concurrency) {
+		pc.Concurrency = nil
 	}
-
-	cpy := *mc
-
-	defaults := mesh.DefaultMeshConfig()
-	if reflect.DeepEqual(cpy.DefaultConfig, defaults.DefaultConfig) {
-		cpy.DefaultConfig = nil
-	} else if cpy.DefaultConfig != nil {
-		cpy.DefaultConfig = cleanProxyConfig(*cpy.DefaultConfig)
-	}
-	if cpy.DisablePolicyChecks == defaults.DisablePolicyChecks {
-		cpy.DisablePolicyChecks = false
-	}
-	if cpy.DisableMixerHttpReports == defaults.DisableMixerHttpReports {
-		cpy.DisableMixerHttpReports = false
-	}
-	if cpy.EnableTracing == defaults.EnableTracing {
-		cpy.EnableTracing = false
-	}
-	if cpy.ProxyListenPort == defaults.ProxyListenPort {
-		cpy.ProxyListenPort = 0
-	}
-	if cpy.ReportBatchMaxEntries == defaults.ReportBatchMaxEntries {
-		cpy.ReportBatchMaxEntries = 0
-	}
-	if reflect.DeepEqual(cpy.ConnectTimeout, defaults.ConnectTimeout) {
-		cpy.ConnectTimeout = nil
-	}
-	if reflect.DeepEqual(cpy.DnsRefreshRate, defaults.DnsRefreshRate) {
-		cpy.DnsRefreshRate = nil
-	}
-	if reflect.DeepEqual(cpy.ProtocolDetectionTimeout, defaults.ProtocolDetectionTimeout) {
-		cpy.ProtocolDetectionTimeout = nil
-	}
-	if reflect.DeepEqual(cpy.DefaultServiceExportTo, defaults.DefaultServiceExportTo) {
-		cpy.DefaultServiceExportTo = nil
-	}
-	if reflect.DeepEqual(cpy.DefaultVirtualServiceExportTo, defaults.DefaultVirtualServiceExportTo) {
-		cpy.DefaultVirtualServiceExportTo = nil
-	}
-	if reflect.DeepEqual(cpy.DefaultDestinationRuleExportTo, defaults.DefaultDestinationRuleExportTo) {
-		cpy.DefaultDestinationRuleExportTo = nil
-	}
-	if reflect.DeepEqual(cpy.EnableAutoMtls, defaults.EnableAutoMtls) {
-		cpy.EnableAutoMtls = nil
-	}
-	if reflect.DeepEqual(cpy.TrustDomainAliases, defaults.TrustDomainAliases) {
-		cpy.TrustDomainAliases = nil
-	}
-	if reflect.DeepEqual(cpy.OutboundTrafficPolicy, defaults.OutboundTrafficPolicy) {
-		cpy.OutboundTrafficPolicy = nil
-	}
-	if reflect.DeepEqual(cpy.Certificates, defaults.Certificates) {
-		cpy.Certificates = nil
-	}
-	if reflect.DeepEqual(cpy.LocalityLbSetting, defaults.LocalityLbSetting) {
-		cpy.LocalityLbSetting = nil
-	}
-	if reflect.DeepEqual(cpy.ReportBatchMaxTime, defaults.ReportBatchMaxTime) {
-		cpy.ReportBatchMaxTime = nil
-	}
-	if reflect.DeepEqual(cpy.ThriftConfig, defaults.ThriftConfig) {
-		cpy.ThriftConfig = nil
-	}
-	if cpy.IngressService == defaults.IngressService {
-		cpy.IngressService = ""
-	}
-	if cpy.IngressClass == defaults.IngressClass {
-		cpy.IngressClass = ""
-	}
-	if cpy.AccessLogFile == defaults.AccessLogFile {
-		cpy.AccessLogFile = ""
-	}
-	if cpy.RootNamespace == defaults.RootNamespace {
-		cpy.RootNamespace = ""
-	}
-	if cpy.TrustDomain == defaults.TrustDomain {
-		cpy.TrustDomain = ""
-	}
-	if cpy.SdsUdsPath == defaults.SdsUdsPath {
-		cpy.SdsUdsPath = ""
-	}
-	if cpy.IngressControllerMode == defaults.IngressControllerMode {
-		cpy.IngressControllerMode = meshconfig.MeshConfig_UNSPECIFIED
-	}
-	if reflect.DeepEqual(cpy.ClusterLocalNamespaces, defaults.ClusterLocalNamespaces) {
-		cpy.ClusterLocalNamespaces = nil
-	}
-	return &cpy
+	return proto.Message(&pc)
 }
 
 func toJSON(m map[string]string) string {
@@ -1115,4 +1061,40 @@ func rewriteCniPodSpec(annotations map[string]string, spec *SidecarInjectionSpec
 			annotations[k] = spec.PodRedirectAnnot[k]
 		}
 	}
+}
+
+// overwriteClusterInfo updates cluster name and network from url path
+// This is needed when webconfig config runs on a different cluster than webhook
+func overwriteClusterInfo(containers []corev1.Container, path string) {
+	res := strings.Split(path, "/")
+	if len(res) >= 5 {
+		// if len is less than 5, not enough length for /cluster/X/net/Y
+		clusterName, clusterNetwork := "", ""
+		clusterName = res[len(res)-3]
+		clusterNetwork = res[len(res)-1]
+
+		log.Debugf("Updating cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
+
+		for i, c := range containers {
+			if c.Name == ProxyContainerName {
+				updateClusterInfo(&containers[i], clusterName, clusterNetwork)
+			}
+		}
+	}
+
+}
+
+func updateClusterInfo(container *corev1.Container, clusterName, clusterNetwork string) {
+	envVars := make([]corev1.EnvVar, 0)
+	for _, env := range container.Env {
+		if env.Name != "ISTIO_META_CLUSTER_ID" && env.Name != "ISTIO_META_NETWORK" {
+			envVars = append(envVars, env)
+		}
+	}
+
+	log.Debugf("Appending env ISTIO_META_CLUSTER_ID: %s and ISTIO_META_NETWORK: %s\n", clusterName, clusterNetwork)
+	envVars = append(envVars,
+		corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName, ValueFrom: nil},
+		corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork, ValueFrom: nil})
+	container.Env = envVars
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,18 +17,19 @@ package builder
 import (
 	"fmt"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/rbac/v2"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/rbac/v2"
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 )
 
 var (
@@ -37,23 +38,25 @@ var (
 
 // Builder builds Istio authorization policy to Envoy RBAC filter.
 type Builder struct {
-	trustDomainBundle trustdomain.Bundle
-	denyPolicies      []model.AuthorizationPolicyConfig
-	allowPolicies     []model.AuthorizationPolicyConfig
+	trustDomainBundle  trustdomain.Bundle
+	denyPolicies       []model.AuthorizationPolicy
+	allowPolicies      []model.AuthorizationPolicy
+	isIstioVersionGE15 bool
 }
 
 // New returns a new builder for the given workload with the authorization policy.
 // Returns nil if none of the authorization policies are enabled for the workload.
 func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, namespace string,
-	policies *model.AuthorizationPolicies) *Builder {
+	policies *model.AuthorizationPolicies, isIstioVersionGE15 bool) *Builder {
 	denyPolicies, allowPolicies := policies.ListAuthorizationPolicies(namespace, workload)
 	if len(denyPolicies) == 0 && len(allowPolicies) == 0 {
 		return nil
 	}
 	return &Builder{
-		trustDomainBundle: trustDomainBundle,
-		denyPolicies:      denyPolicies,
-		allowPolicies:     allowPolicies,
+		trustDomainBundle:  trustDomainBundle,
+		denyPolicies:       denyPolicies,
+		allowPolicies:      allowPolicies,
+		isIstioVersionGE15: isIstioVersionGE15,
 	}
 }
 
@@ -62,11 +65,11 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 	var filters []*httppb.HttpFilter
 
 	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
-		false /* forTCP */, true /* forDeny */); denyConfig != nil {
+		false /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
 		filters = append(filters, createHTTPFilter(denyConfig))
 	}
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		false /* forTCP */, false /* forDeny */); allowConfig != nil {
+		false /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createHTTPFilter(allowConfig))
 	}
 
@@ -78,18 +81,18 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 	var filters []*tcppb.Filter
 
 	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
-		true /* forTCP */, true /* forDeny */); denyConfig != nil {
+		true /* forTCP */, true /* forDeny */, b.isIstioVersionGE15); denyConfig != nil {
 		filters = append(filters, createTCPFilter(denyConfig))
 	}
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
-		true /* forTCP */, false /* forDeny */); allowConfig != nil {
+		true /* forTCP */, false /* forDeny */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createTCPFilter(allowConfig))
 	}
 
 	return filters
 }
 
-func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bundle, forTCP, forDeny bool) *rbachttppb.RBAC {
+func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle, forTCP, forDeny, isIstioVersionGE15 bool) *rbachttppb.RBAC {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -102,13 +105,13 @@ func build(policies []model.AuthorizationPolicyConfig, tdBundle trustdomain.Bund
 		rules.Action = rbacpb.RBAC_DENY
 	}
 	for _, policy := range policies {
-		for i, rule := range policy.AuthorizationPolicy.Rules {
+		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", policy.Namespace, policy.Name, i)
 			if rule == nil {
 				authzLog.Errorf("skipped nil rule %s", name)
 				continue
 			}
-			m, err := authzmodel.New(rule)
+			m, err := authzmodel.New(rule, isIstioVersionGE15)
 			if err != nil {
 				authzLog.Errorf("skipped rule %s: %v", name, err)
 				continue

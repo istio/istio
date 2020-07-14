@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 func defaultExitFn(_ int) {}
@@ -51,6 +50,15 @@ func cleanupRT() {
 	rt = nil
 }
 
+// Create a bogus environment for testing. This can be removed when "environments" are removed
+func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getSettingsFunc) *suiteImpl {
+	s := newSuite(testID, fn, osExit, getSettingsFn)
+	s.envFactory = func(ctx resource.Context) (resource.Environment, error) {
+		return resource.FakeEnvironment{}, nil
+	}
+	return s
+}
+
 func TestSuite_Basic(t *testing.T) {
 	defer cleanupRT()
 	g := NewGomegaWithT(t)
@@ -67,7 +75,7 @@ func TestSuite_Basic(t *testing.T) {
 		exitCode = code
 	}
 
-	s := newSuite("tid", runFn, exitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, exitFn, defaultSettingsFn)
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())
@@ -90,7 +98,7 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 	s.Label(label.CustomSetup)
 	s.Run()
 
@@ -114,51 +122,8 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 	s.Label(label.CustomSetup)
-	s.Run()
-
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-}
-
-func TestSuite_RequireEnvironment(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.RequireEnvironment(environment.Kube)
-	s.Run()
-
-	g.Expect(runSkipped).To(BeTrue())
-}
-
-func TestSuite_RequireEnvironment_Match(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-	s.RequireEnvironment(environment.Native)
 	s.Run()
 
 	g.Expect(runCalled).To(BeTrue())
@@ -251,9 +216,9 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 			}
 
 			settings := resource.DefaultSettings()
-			settings.EnvironmentFactory = newFakeEnvironmentFactory(c.actual)
 
-			s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+			s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+			s.envFactory = newFakeEnvironmentFactory(c.actual)
 			s.RequireMinClusters(c.min)
 			s.RequireMaxClusters(c.max)
 			s.Run()
@@ -280,7 +245,7 @@ func TestSuite_Setup(t *testing.T) {
 		return 0
 	}
 
-	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -304,7 +269,7 @@ func TestSuite_SetupFail(t *testing.T) {
 		return 0
 	}
 
-	s := newSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+	s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -330,7 +295,7 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 	settings := resource.DefaultSettings()
 	settings.CIMode = true
 
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
+	s := newTestSuite("tid", runFn, defaultExitFn, settingsFn(settings))
 
 	var setupCalled bool
 	s.Setup(func(c resource.Context) error {
@@ -341,64 +306,6 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 
 	g.Expect(setupCalled).To(BeTrue())
 	g.Expect(runCalled).To(BeFalse())
-}
-
-func TestSuite_SetupOnEnv(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-
-	var setupCalled bool
-	s.SetupOnEnv(environment.Native, func(c resource.Context) error {
-		setupCalled = true
-		return nil
-	})
-	s.Run()
-
-	g.Expect(setupCalled).To(BeTrue())
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-}
-
-func TestSuite_SetupOnEnv_Mismatch(t *testing.T) {
-	defer cleanupRT()
-	g := NewGomegaWithT(t)
-
-	var runCalled bool
-	var runSkipped bool
-	runFn := func(ctx *suiteContext) int {
-		runCalled = true
-		runSkipped = ctx.skipped
-		return 0
-	}
-
-	settings := resource.DefaultSettings()
-	settings.Environment = environment.Native.String()
-
-	s := newSuite("tid", runFn, defaultExitFn, settingsFn(settings))
-
-	var setupCalled bool
-	s.SetupOnEnv(environment.Kube, func(c resource.Context) error {
-		setupCalled = true
-		return nil
-	})
-	s.Run()
-
-	g.Expect(setupCalled).To(BeFalse())
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
 }
 
 func TestSuite_DoubleInit_Error(t *testing.T) {
@@ -434,9 +341,9 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 		errCode2 = errCode
 	}
 
-	s := newSuite("tid1", runFn1, exitFn1, defaultSettingsFn)
+	s := newTestSuite("tid1", runFn1, exitFn1, defaultSettingsFn)
 
-	s2 := newSuite("tid2", runFn2, exitFn2, defaultSettingsFn)
+	s2 := newTestSuite("tid2", runFn2, exitFn2, defaultSettingsFn)
 
 	go s.Run()
 	waitForRun1.Wait()
@@ -450,63 +357,104 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 	g.Expect(errCode2).NotTo(Equal(0))
 }
 
+func TestSuite_GetResource(t *testing.T) {
+	defer cleanupRT()
+
+	act := func(refPtr interface{}, trackedResource resource.Resource) error {
+		var err error
+		runFn := func(ctx *suiteContext) int {
+			err = ctx.GetResource(refPtr)
+			return 0
+		}
+		s := newTestSuite("tid", runFn, defaultExitFn, defaultSettingsFn)
+		s.Setup(func(c resource.Context) error {
+			c.TrackResource(trackedResource)
+			return nil
+		})
+		s.Run()
+		return err
+	}
+
+	t.Run("struct reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		var ref *resource.FakeResource
+		tracked := &resource.FakeResource{IDValue: "1"}
+		// notice that we pass **fakeCluster:
+		// GetResource requires *T where T implements resource.Resource.
+		// *fakeCluster implements it but fakeCluster does not.
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(tracked).To(Equal(ref))
+	})
+	t.Run("interface reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		var ref OtherInterface
+		tracked := &resource.FakeResource{IDValue: "1"}
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(tracked).To(Equal(ref))
+	})
+	t.Run("slice reference", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		existing := &resource.FakeResource{IDValue: "1"}
+		tracked := &resource.FakeResource{IDValue: "2"}
+		ref := []OtherInterface{existing}
+		err := act(&ref, tracked)
+		g.Expect(err).To(BeNil())
+		g.Expect(ref).To(HaveLen(2))
+		g.Expect(existing).To(Equal(ref[0]))
+		g.Expect(tracked).To(Equal(ref[1]))
+	})
+	t.Run("non pointer ref", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		err := act(resource.FakeResource{}, &resource.FakeResource{})
+		g.Expect(err).NotTo(BeNil())
+	})
+}
+
+func TestDeriveSuiteName(t *testing.T) {
+	cases := []struct {
+		caller   string
+		expected string
+	}{
+		{
+			caller:   "/home/me/go/src/istio.io/istio/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/home/me/go/src/istio.io/istio.io/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/home/me/go/src/istio.io/istio/tests/integration/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/work/some/path/mytest.go",
+			expected: "some_path",
+		},
+		{
+			caller:   "/work/tests/integration/some/path/mytest.go",
+			expected: "some_path",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.caller, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			actual := deriveSuiteName(c.caller)
+			g.Expect(actual).To(Equal(c.expected))
+		})
+	}
+}
+
 func newFakeEnvironmentFactory(numClusters int) resource.EnvironmentFactory {
-	e := fakeEnvironment{numClusters: numClusters}
-	return func(name string, ctx resource.Context) (resource.Environment, error) {
+	e := resource.FakeEnvironment{NumClusters: numClusters}
+	return func(ctx resource.Context) (resource.Environment, error) {
 		return e, nil
 	}
 }
 
-var _ resource.Environment = fakeEnvironment{}
-
-type fakeEnvironment struct {
-	numClusters int
-}
-
-func (f fakeEnvironment) IsMulticluster() bool {
-	return f.numClusters > 1
-}
-
-func (f fakeEnvironment) ID() resource.ID {
-	return fakeID("fake")
-}
-
-func (f fakeEnvironment) EnvironmentName() environment.Name {
-	return "fake"
-}
-
-func (f fakeEnvironment) Clusters() []resource.Cluster {
-	out := make([]resource.Cluster, f.numClusters)
-	for i := 0; i < f.numClusters; i++ {
-		out[i] = fakeCluster{index: i}
-	}
-	return out
-}
-
-func (f fakeEnvironment) Case(environment.Name, func()) {
-	panic("not implemented")
-}
-
-type fakeID string
-
-func (id fakeID) String() string {
-	return string(id)
-}
-
-var _ resource.Cluster = fakeCluster{}
-
-type fakeCluster struct {
-	index int
-}
-
-func (f fakeCluster) Index() resource.ClusterIndex {
-	return resource.ClusterIndex(f.index)
-}
-
-func (f fakeCluster) IsControlPlaneCluster() bool {
-	panic("not implemented")
-}
-
-func (f fakeCluster) String() string {
-	return fmt.Sprintf("fake_cluster_%d", f.index)
+type OtherInterface interface {
+	GetOtherValue() string
 }

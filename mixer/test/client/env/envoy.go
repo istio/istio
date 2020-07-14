@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,6 +98,9 @@ func startEnvoy(e envoy.Instance) error {
 // stopEnvoy stops the envoy process
 func stopEnvoy(e envoy.Instance) error {
 	log.Printf("stop envoy ...\n")
+	if e == nil {
+		return nil
+	}
 	err := e.ShutdownAndWait().WithTimeout(waitTimeout).Do()
 	if err == context.DeadlineExceeded {
 		return e.KillAndWait().WithTimeout(waitTimeout).Do()

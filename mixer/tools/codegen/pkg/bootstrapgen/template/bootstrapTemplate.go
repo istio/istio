@@ -1,4 +1,4 @@
-// Copyright 2016 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ package template
 
 // BootstrapTemplate defines the template used to generate code that glues Mixer with generated template interfaces.
 // nolint:lll
-var BootstrapTemplate = `// Copyright 2017 Istio Authors
+var BootstrapTemplate = `// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

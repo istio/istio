@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,18 +15,20 @@
 package galley
 
 import (
+	"context"
 	"testing"
+
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	"istio.io/istio/pkg/test/kube"
 )
 
 func TestNamespace(t *testing.T) {
 	var namespaceName string
 	var noCleanup bool
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			noCleanup = ctx.Settings().NoCleanup
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -35,11 +37,11 @@ func TestNamespace(t *testing.T) {
 			})
 			namespaceName = ns.Name()
 
-			if !cluster.NamespaceExists(ns.Name()) {
+			if !kube.NamespaceExists(cluster, ns.Name()) {
 				t.Fatalf("The namespace %q should have existed.", ns.Name())
 			}
 
-			n, err := cluster.GetNamespace(ns.Name())
+			n, err := cluster.CoreV1().Namespaces().Get(context.TODO(), ns.Name(), kubeApiMeta.GetOptions{})
 			if err != nil {
 				t.Fatalf("Error getting the namespace(%q): %v", ns.Name(), err)
 			}
@@ -50,9 +52,9 @@ func TestNamespace(t *testing.T) {
 			}
 		})
 
-	if !noCleanup {
+	if !noCleanup && cluster != nil {
 		// Check after run to see that the namespace is gone.
-		if err := cluster.WaitForNamespaceDeletion(namespaceName); err != nil {
+		if err := kube.WaitForNamespaceDeletion(cluster, namespaceName); err != nil {
 			t.Fatalf("WaitiForNamespaceDeletion failed: %v", err)
 		}
 	}

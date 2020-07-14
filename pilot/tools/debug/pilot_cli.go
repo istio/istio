@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,9 +62,8 @@ import (
 	"strings"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core1 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,7 +71,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	"istio.io/pkg/env"
@@ -161,39 +160,39 @@ func (p PodInfo) makeNodeID() string {
 func configTypeToTypeURL(configType string) string {
 	switch configType {
 	case "lds":
-		return v2.ListenerType
+		return v3.ListenerType
 	case "cds":
-		return v2.ClusterType
+		return v3.ClusterType
 	case "rds":
-		return v2.RouteType
+		return v3.RouteType
 	case "eds":
-		return v2.EndpointType
+		return v3.EndpointType
 	default:
 		panic(fmt.Sprintf("Unknown type %s", configType))
 	}
 }
 
-func (p PodInfo) makeRequest(configType string) *xdsapi.DiscoveryRequest {
-	return &xdsapi.DiscoveryRequest{
-		Node: &core1.Node{
+func (p PodInfo) makeRequest(configType string) *discovery.DiscoveryRequest {
+	return &discovery.DiscoveryRequest{
+		Node: &core.Node{
 			Id: p.makeNodeID(),
 		},
 		TypeUrl: configTypeToTypeURL(configType)}
 }
 
-func (p PodInfo) appendResources(req *xdsapi.DiscoveryRequest, resources []string) *xdsapi.DiscoveryRequest {
+func (p PodInfo) appendResources(req *discovery.DiscoveryRequest, resources []string) *discovery.DiscoveryRequest {
 	req.ResourceNames = resources
 	return req
 }
 
-func (p PodInfo) getXdsResponse(pilotURL string, req *xdsapi.DiscoveryRequest) (*xdsapi.DiscoveryResponse, error) {
+func (p PodInfo) getXdsResponse(pilotURL string, req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	conn, err := grpc.Dial(pilotURL, grpc.WithInsecure())
 	if err != nil {
 		panic(err.Error())
 	}
 	defer func() { _ = conn.Close() }()
 
-	adsClient := ads.NewAggregatedDiscoveryServiceClient(conn)
+	adsClient := discovery.NewAggregatedDiscoveryServiceClient(conn)
 	stream, err := adsClient.StreamAggregatedResources(context.Background())
 	if err != nil {
 		panic(err.Error())
@@ -293,7 +292,7 @@ func main() {
 	}()
 	pod := NewPodInfo(*proxyTag, resolveKubeConfigPath(*kubeConfig), *proxyType)
 
-	var resp *xdsapi.DiscoveryResponse
+	var resp *discovery.DiscoveryResponse
 	switch *configType {
 	case "lds", "cds":
 		resp, err = pod.getXdsResponse(pilot, pod.makeRequest(*configType))

@@ -1,8 +1,0 @@
-apiVersion: authentication.istio.io/v1alpha1
-kind: MeshPolicy
-metadata:
-  name: "boo"
-spec:
-  peers:
-    - mtls:
-        mode: PERMISSIVE

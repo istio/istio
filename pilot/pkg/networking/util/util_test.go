@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,13 @@ import (
 	"testing"
 	"time"
 
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -37,17 +38,49 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config/schema/collections"
 	proto2 "istio.io/istio/pkg/proto"
 )
 
-func TestCloneLbEndpoint(t *testing.T) {
-	ep := &endpoint.LbEndpoint{
-		LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+var testCla = &endpoint.ClusterLoadAssignment{
+	ClusterName: "cluster",
+	Endpoints: []*endpoint.LocalityLbEndpoints{{
+		Locality: &core.Locality{Region: "foo", Zone: "bar"},
+		LbEndpoints: []*endpoint.LbEndpoint{
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+			{
+				HostIdentifier:      &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{Hostname: "foo", Address: BuildAddress("1.1.1.1", 80)}},
+				LoadBalancingWeight: &wrappers.UInt32Value{Value: 100},
+			},
+		},
+		LoadBalancingWeight: &wrappers.UInt32Value{Value: 50},
+		Priority:            2,
+	}},
+}
+
+func BenchmarkCloneClusterLoadAssignment(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		cpy := CloneClusterLoadAssignment(testCla)
+		_ = cpy
 	}
-	cloned := CloneLbEndpoint(ep)
-	cloned.LoadBalancingWeight.Value = 200
-	if ep.LoadBalancingWeight.GetValue() != 100 {
-		t.Errorf("original LbEndpoint is mutated")
+}
+
+func TestCloneClusterLoadAssignment(t *testing.T) {
+	cloned := CloneClusterLoadAssignment(testCla)
+	cloned2 := CloneClusterLoadAssignment(testCla)
+	if !cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
+	}
+	cloned.ClusterName = "foo"
+	cloned.Endpoints[0].LbEndpoints[0].LoadBalancingWeight.Value = 5
+	if cmp.Equal(testCla, cloned, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the different from %v", testCla, cloned)
+	}
+	if !cmp.Equal(testCla, cloned2, protocmp.Transform()) {
+		t.Fatalf("expected %v to be the same as %v", testCla, cloned)
 	}
 }
 
@@ -323,12 +356,10 @@ func TestBuildConfigInfoMetadata(t *testing.T) {
 		{
 			"destination-rule",
 			model.ConfigMeta{
-				Group:     "networking.istio.io",
-				Version:   "v1alpha3",
-				Name:      "svcA",
-				Namespace: "default",
-				Domain:    "svc.cluster.local",
-				Type:      "destination-rule",
+				Name:             "svcA",
+				Namespace:        "default",
+				Domain:           "svc.cluster.local",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			},
 			&core.Metadata{
 				FilterMetadata: map[string]*structpb.Struct{
@@ -409,63 +440,10 @@ func TestAddSubsetToMetadata(t *testing.T) {
 	for _, v := range cases {
 		t.Run(v.name, func(tt *testing.T) {
 			got := AddSubsetToMetadata(v.in, v.subset)
-			if diff, equal := messagediff.PrettyDiff(got, v.want); !equal {
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
 				tt.Errorf("AddSubsetToMetadata(%v, %s) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", v.in, v.subset, got, v.want, diff)
 			}
 		})
-	}
-}
-
-func TestCloneCluster(t *testing.T) {
-	cluster := buildFakeCluster()
-	clone := CloneCluster(cluster)
-	cluster.LoadAssignment.Endpoints[0].LoadBalancingWeight.Value = 10
-	cluster.LoadAssignment.Endpoints[0].Priority = 8
-	cluster.LoadAssignment.Endpoints[0].LbEndpoints = nil
-
-	if clone.LoadAssignment.Endpoints[0].LoadBalancingWeight.GetValue() == 10 {
-		t.Errorf("LoadBalancingWeight mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].Priority == 8 {
-		t.Errorf("Priority mutated")
-	}
-	if clone.LoadAssignment.Endpoints[0].LbEndpoints == nil {
-		t.Errorf("LbEndpoints mutated")
-	}
-}
-
-func buildFakeCluster() *v2.Cluster {
-	return &v2.Cluster{
-		Name: "outbound|8080||test.example.org",
-		LoadAssignment: &v2.ClusterLoadAssignment{
-			ClusterName: "outbound|8080||test.example.org",
-			Endpoints: []*endpoint.LocalityLbEndpoints{
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone1",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-				{
-					Locality: &core.Locality{
-						Region:  "region1",
-						Zone:    "zone1",
-						SubZone: "subzone2",
-					},
-					LbEndpoints: []*endpoint.LbEndpoint{},
-					LoadBalancingWeight: &wrappers.UInt32Value{
-						Value: 1,
-					},
-					Priority: 0,
-				},
-			},
-		},
 	}
 }
 
@@ -516,7 +494,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 	newTimeout := ptypes.DurationProto(5 * time.Minute)
 	userHCM := &http_conn.HttpConnectionManager{
 		AddUserAgent:      proto2.BoolTrue,
-		IdleTimeout:       newTimeout,
 		StreamIdleTimeout: newTimeout,
 		UseRemoteAddress:  proto2.BoolTrue,
 		XffNumTrustedHops: 5,
@@ -530,7 +507,6 @@ func TestMergeAnyWithStruct(t *testing.T) {
 
 	expectedHCM := proto.Clone(inHCM).(*http_conn.HttpConnectionManager)
 	expectedHCM.AddUserAgent = userHCM.AddUserAgent
-	expectedHCM.IdleTimeout = userHCM.IdleTimeout
 	expectedHCM.StreamIdleTimeout = userHCM.StreamIdleTimeout
 	expectedHCM.UseRemoteAddress = userHCM.UseRemoteAddress
 	expectedHCM.XffNumTrustedHops = userHCM.XffNumTrustedHops
@@ -549,8 +525,8 @@ func TestMergeAnyWithStruct(t *testing.T) {
 		t.Errorf("Failed to unmarshall outAny to outHCM: %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedHCM, &outHCM) {
-		t.Errorf("Merged HCM does not match the expected output")
+	if diff := cmp.Diff(expectedHCM, &outHCM, protocmp.Transform()); diff != "" {
+		t.Errorf("Merged HCM does not match the expected output: %v", diff)
 	}
 }
 

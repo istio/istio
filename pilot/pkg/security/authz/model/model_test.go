@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	authzpb "istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -78,7 +79,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := New(tc.rule)
+			got, err := New(tc.rule, true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -213,7 +214,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m, err := New(tc.rule)
+			m, err := New(tc.rule, true)
 			if err != nil {
 				t.Fatal(err)
 			}

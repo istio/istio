@@ -7,17 +7,15 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
-USER 1337:1337
-
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static@sha256:23aa732bba4c8618c0d97c26a72a32997363d591807b0d4c31b0bbc8a774bddf as distroless
-WORKDIR /
+FROM docker.io/istio/distroless:${BASE_VERSION} as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
-FROM ${BASE_DISTRIBUTION}
 
 COPY mixs /usr/local/bin/
+
+USER 1337:1337
 
 ENTRYPOINT ["/usr/local/bin/mixs", "server"]
 

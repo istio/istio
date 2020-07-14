@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,15 +20,12 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/tmpl"
 	util "istio.io/istio/tests/integration/mixer"
 )
@@ -36,7 +33,6 @@ import (
 var (
 	ist        istio.Instance
 	bookinfoNs namespace.Instance
-	g          galley.Instance
 	ing        ingress.Instance
 	prom       prometheus.Instance
 )
@@ -49,7 +45,6 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 		NewTest(t).
 		// TODO(https://github.com/istio/istio/issues/14819)
 		Label(label.Flaky).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			label := "source_workload"
 			labelValue := "istio-ingressgateway"
@@ -61,7 +56,6 @@ func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
 func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("SetupAndPrometheus").
 				Run(func(ctx framework.TestContext) {
@@ -69,25 +63,19 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 					labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
 					testMetric(t, ctx, label, labelValue)
 				})
-
-			ctx.NewSubTest("IstioctlPrometheusConnection").
-				Run(func(ctx framework.TestContext) {
-					workload := "productpage-v1"
-					testIstioctl(t, ctx, workload)
-				})
 		})
 }
 
 func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValue string) { // nolint:interfacer
 	t.Helper()
-	g.ApplyConfigOrFail(
+	ctx.Config().ApplyYAMLOrFail(
 		t,
-		bookinfoNs,
+		bookinfoNs.Name(),
 		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
-	defer g.DeleteConfigOrFail(t,
-		bookinfoNs,
+	defer ctx.Config().DeleteYAMLOrFail(t,
+		bookinfoNs.Name(),
 		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
 
@@ -147,20 +135,21 @@ func TestTcpMetric(t *testing.T) {
 		NewTest(t).
 		// TODO(https://github.com/istio/istio/issues/18105)
 		Label(label.Flaky).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
-			_ = bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB})
+			undeploy1 := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
+			undeploy2 := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB})
+			defer undeploy1()
+			defer undeploy2()
 
-			g.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
-				bookinfoNs,
+				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
-			defer g.DeleteConfigOrFail(
+			defer ctx.Config().DeleteYAMLOrFail(
 				t,
-				bookinfoNs,
+				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
@@ -190,16 +179,15 @@ func TestTcpMetric(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_telemetry_metrics", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
-  prometheus:
+  prometheus:	
     enabled: true
-  global:
+  meshConfig:
     disablePolicyChecks: false
   telemetry:
     v1:
@@ -227,18 +215,13 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err := bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookInfo}); err != nil {
 		return err
 	}
-	g, err = galley.New(ctx, galley.Config{})
-	if err != nil {
-		return err
-	}
-	if _, err = mixer.New(ctx, mixer.Config{Galley: g}); err != nil {
-		return err
-	}
 	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
 	if err != nil {
 		return err
 	}
-	prom, err = prometheus.New(ctx, prometheus.Config{})
+	prom, err = prometheus.New(ctx, prometheus.Config{
+		SkipDeploy: true, // Use istioctl prometheus; sample prometheus does not support mixer.
+	})
 	if err != nil {
 		return err
 	}
@@ -246,7 +229,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = g.ApplyConfig(bookinfoNs, yamlText)
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(), yamlText)
 	if err != nil {
 		return err
 	}

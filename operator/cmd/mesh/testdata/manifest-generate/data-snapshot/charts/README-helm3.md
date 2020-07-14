@@ -11,7 +11,7 @@ We have few charts:
   It is possible to customize the namespace, but not recommended.
 
 ```shell script
- helm3 install  istio-base manifests/base
+ helm3 install  istio-base manifests/charts/base
 ```
 
 - 'istiod' installs a revision of istiod.  You can install it multiple times, with different revision.
@@ -19,27 +19,27 @@ TODO: get rid of global.yaml, anything still used should be in values.yaml for i
 TODO: remove the need to pass -n istio-system
 
 ```shell script
- helm3 install -n istio-system istio-16 manifests/istio-control/istio-discovery \
-    -f manifests/global.yaml
+ helm3 install -n istio-system istio-16 manifests/charts/istio-control/istio-discovery \
+    -f manifests/charts/global.yaml
 
- helm3 install -n istio-system istio-canary manifests/istio-control/istio-discovery \
-    -f manifests/global.yaml  --set revision=canary --set clusterResources=false
+ helm3 install -n istio-system istio-canary manifests/charts/istio-control/istio-discovery \
+    -f manifests/charts/global.yaml  --set revision=canary --set clusterResources=false
 
- helm3 install -n istio-system istio-mytest manifests/istio-control/istio-discovery \
-    -f manifests/global.yaml  --set revision=mytest --set clusterResources=false
+ helm3 install -n istio-system istio-mytest manifests/charts/istio-control/istio-discovery \
+    -f manifests/charts/global.yaml  --set revision=mytest --set clusterResources=false
 ```
 
 - 'ingress' to install a Gateway
 
-Helm3 requires namespaces to be created explicitly, currently we don't support insalling multiple gateways in same
+Helm3 requires namespaces to be created explicitly, currently we don't support installing multiple gateways in same
 namespace - nor is it a good practice. Ingress secrets and access should be separated from control plane.
 
 ```shell script
-    helm3 install -n istio-system istio-ingress manifests/gateways/istio-ingress -f manifests/global.yaml
+    helm3 install -n istio-system istio-ingress manifests/charts/gateways/istio-ingress -f manifests/charts/global.yaml
 
     kubectl create ns istio-ingress-canary
-    helm3 install -n istio-ingress-canary istio-ingress-canary manifests/gateways/istio-ingress \
-      -f manifests/global.yaml --set revision=canary
+    helm3 install -n istio-ingress-canary istio-ingress-canary manifests/charts/gateways/istio-ingress \
+      -f manifests/charts/global.yaml --set revision=canary
 ```
 
 ## Namespaces

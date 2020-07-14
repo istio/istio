@@ -1,0 +1,13 @@
+{
+  "xds_servers": [
+    {
+    "server_uri": "localhost:14057"
+    }
+  ],
+  "node": {
+    "id": "sidecar~10.0.0.1~foo.ns~ns.cluster.local",
+    "metadata": {
+      "GENERATOR": "grpc"
+    }
+  }
+}

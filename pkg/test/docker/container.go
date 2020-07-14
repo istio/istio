@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
+
+	"istio.io/istio/pkg/test/scopes"
 
 	"github.com/docker/docker/api/types"
 	dockerContainer "github.com/docker/docker/api/types/container"
@@ -28,8 +31,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pkg/test/scopes"
 )
 
 type ContainerPort int
@@ -38,8 +39,8 @@ type PortMap map[ContainerPort]HostPort
 
 func (m PortMap) toNatPortMap() nat.PortMap {
 	out := make(nat.PortMap)
-	for k, v := range m {
-		out[toNatPort(k)] = []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: strconv.Itoa(int(v))}}
+	for k := range m {
+		out[toNatPort(k)] = []nat.PortBinding{{HostIP: "127.0.0.1"}}
 	}
 	return out
 }
@@ -80,7 +81,7 @@ func NewContainer(dockerClient *client.Client, config ContainerConfig) (*Contain
 	}
 	networkName := config.Network.Name
 
-	scopes.CI.Infof("Creating Docker container for image %s in network %s", config.Image, networkName)
+	scopes.Framework.Infof("Creating Docker container for image %s in network %s", config.Image, networkName)
 	exposedPorts := make(nat.PortSet)
 	for k := range config.PortMap {
 		exposedPorts[toNatPort(k)] = struct{}{}
@@ -135,7 +136,15 @@ func NewContainer(dockerClient *client.Client, config ContainerConfig) (*Contain
 
 	c.IPAddress = iresp.NetworkSettings.Networks[networkName].IPAddress
 
-	scopes.CI.Infof("Docker container %s (image=%s) created in network %s", resp.ID, config.Image, networkName)
+	// Fill in the port map with the actual allocated ports
+	for port, bind := range iresp.NetworkSettings.Ports {
+		hp, err := strconv.Atoi(bind[0].HostPort)
+		if err != nil {
+			return nil, err
+		}
+		config.PortMap[ContainerPort(port.Int())] = HostPort(hp)
+	}
+	scopes.Framework.Infof("Docker container %s (image=%s) created in network %s", resp.ID, config.Image, networkName)
 	return c, nil
 }
 
@@ -219,8 +228,11 @@ func (c *Container) Logs() (string, error) {
 
 // Close stops and removes this container.
 func (c *Container) Close() error {
-	scopes.CI.Infof("Closing Docker container %s", c.id)
-	err := c.dockerClient.ContainerStop(context.Background(), c.id, nil)
+	scopes.Framework.Infof("Closing Docker container %s", c.id)
+	// docker stop will send SIGTERM to the root process. In our case, this is the echo process not Istio
+	// To avoid 10s shutdown on every container, we set the time out to 0s instead.
+	instant := time.Duration(0)
+	err := c.dockerClient.ContainerStop(context.Background(), c.id, &instant)
 	return multierror.Append(err, c.dockerClient.ContainerRemove(context.Background(), c.id, types.ContainerRemoveOptions{})).ErrorOrNil()
 }
 

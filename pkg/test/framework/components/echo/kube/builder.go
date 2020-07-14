@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
@@ -91,13 +92,14 @@ func (b *builder) newInstances() ([]echo.Instance, error) {
 func (b *builder) initializeInstances(instances []echo.Instance) error {
 	// Wait to receive the k8s Endpoints for each Echo Instance.
 	wg := sync.WaitGroup{}
-	instanceEndpoints := make([]*kubeCore.Endpoints, len(instances))
+	instancePods := make([][]kubeCore.Pod, len(instances))
 	aggregateErrMux := &sync.Mutex{}
 	var aggregateErr error
 	for i, inst := range instances {
 		wg.Add(1)
 
 		instanceIndex := i
+		inst := inst
 		serviceName := inst.Config().Service
 		serviceNamespace := inst.Config().Namespace.Name()
 		timeout := inst.Config().ReadinessTimeout
@@ -106,17 +108,20 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 		// Run the waits in parallel.
 		go func() {
 			defer wg.Done()
-
-			// Wait until all the endpoints are ready for this service
-			_, endpoints, err := cluster.WaitUntilServiceEndpointsAreReady(
-				serviceNamespace, serviceName, retry.Timeout(timeout))
+			selector := "app"
+			if inst.Config().DeployAsVM {
+				selector = "istio.io/test-vm"
+			}
+			// Wait until all the pods are ready for this service
+			fetch := kube.NewPodMustFetch(cluster, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
+			pods, err := kube.WaitUntilPodsAreReady(fetch, retry.Timeout(timeout))
 			if err != nil {
 				aggregateErrMux.Lock()
 				aggregateErr = multierror.Append(aggregateErr, err)
 				aggregateErrMux.Unlock()
 				return
 			}
-			instanceEndpoints[instanceIndex] = endpoints
+			instancePods[instanceIndex] = pods
 		}()
 	}
 
@@ -128,7 +133,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 
 	// Initialize the workloads for each instance.
 	for i, inst := range instances {
-		if err := inst.(*instance).initialize(instanceEndpoints[i]); err != nil {
+		if err := inst.(*instance).initialize(instancePods[i]); err != nil {
 			return fmt.Errorf("initialize %v: %v", inst.ID(), err)
 		}
 	}

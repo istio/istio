@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ func ToJSONMap(msg proto.Message) (map[string]interface{}, error) {
 	return data, nil
 }
 
-// ApplyJSON unmarshals a JSON string into a proto message.
+// ApplyJSON unmarshals a JSON string into a proto message. Unknown fields are allowed
 func ApplyJSON(js string, pb proto.Message) error {
 	reader := strings.NewReader(js)
 	m := jsonpb.Unmarshaler{}
@@ -83,6 +83,13 @@ func ApplyJSON(js string, pb proto.Message) error {
 	return nil
 }
 
+// ApplyJSONStrict unmarshals a JSON string into a proto message.
+func ApplyJSONStrict(js string, pb proto.Message) error {
+	reader := strings.NewReader(js)
+	m := jsonpb.Unmarshaler{}
+	return m.Unmarshal(reader, pb)
+}
+
 // ApplyYAML unmarshals a YAML string into a proto message.
 // Unknown fields are allowed.
 func ApplyYAML(yml string, pb proto.Message) error {
@@ -91,4 +98,14 @@ func ApplyYAML(yml string, pb proto.Message) error {
 		return err
 	}
 	return ApplyJSON(string(js), pb)
+}
+
+// ApplyYAML unmarshals a YAML string into a proto message.
+// Unknown fields are notallowed.
+func ApplyYAMLStrict(yml string, pb proto.Message) error {
+	js, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return err
+	}
+	return ApplyJSONStrict(string(js), pb)
 }

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,13 @@
 package networking
 
 import (
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -44,7 +42,7 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
+func ModelProtocolToListenerProtocol(p protocol.Instance,
 	trafficDirection core.TrafficDirection) ListenerProtocol {
 	// If protocol sniffing is not enabled, the default value is TCP
 	if p == protocol.Unsupported {
@@ -88,7 +86,7 @@ type FilterChain struct {
 	// FilterChainMatch is the match used to select the filter chain.
 	FilterChainMatch *listener.FilterChainMatch
 	// TLSContext is the TLS settings for this filter chains.
-	TLSContext *auth.DownstreamTlsContext
+	TLSContext *tls.DownstreamTlsContext
 	// ListenerFilters are the filters needed for the whole listener, not particular to this
 	// filter chain.
 	ListenerFilters []*listener.ListenerFilter
@@ -111,7 +109,7 @@ type FilterChain struct {
 // chain in unpredictable ways.
 type MutableObjects struct {
 	// Listener is the listener being built. Must be initialized before Plugin methods are called.
-	Listener *xdsapi.Listener
+	Listener *listener.Listener
 
 	// FilterChains is the set of filter chains that will be attached to Listener.
 	FilterChains []FilterChain

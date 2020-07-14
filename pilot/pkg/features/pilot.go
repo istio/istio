@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,11 +26,6 @@ import (
 )
 
 var (
-	// CertDir is the default location for mTLS certificates used by pilot.
-	// Defaults to /etc/certs, matching k8s template. Can be used if you run pilot
-	// as a regular user on a VM or test environment.
-	CertDir = env.RegisterStringVar("PILOT_CERT_DIR", "", "").Get()
-
 	MaxConcurrentStreams = env.RegisterIntVar(
 		"ISTIO_GPRC_MAXSTREAMS",
 		100000,
@@ -87,11 +82,6 @@ var (
 			" EDS pushes may be delayed, but there will be fewer pushes. By default this is enabled",
 	)
 
-	// BaseDir is the base directory for locating configs.
-	// File based certificates are located under $BaseDir/etc/certs/. If not set, the original 1.0 locations will
-	// be used, "/"
-	BaseDir = "BASE"
-
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	//
 	// Alpha in 1.1, may become the default or be turned into a Sidecar API or mesh setting. Only applies to namespaces
@@ -117,7 +107,7 @@ var (
 		return ptypes.DurationProto(timeout)
 	}()
 
-	terminationDrainDurationVar = env.RegisterIntVar(
+	TerminationDrainDuration = env.RegisterIntVar(
 		"TERMINATION_DRAIN_DURATION_SECONDS",
 		5,
 		"The amount of time allowed for connections to complete on pilot-agent shutdown. "+
@@ -125,9 +115,6 @@ var (
 			"preventing any new connections and allowing existing connections to complete. It then "+
 			"sleeps for the TerminationDrainDuration and then kills any remaining active Envoy processes.",
 	)
-	TerminationDrainDuration = func() time.Duration {
-		return time.Second * time.Duration(terminationDrainDurationVar.Get())
-	}
 
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
@@ -251,18 +238,35 @@ var (
 			"Istio Resources",
 	).Get()
 
-	// IstiodService controls the istiod address - used for injection and as default value injected into pods
-	// if istiod is used. The name must be part of the DNS certificate served by pilot/istiod. The '.svc' is
-	// imposed by K8S - that's how the names for webhooks are defined, based on webhook service (which will be
-	// istio-pilot or istiod) plus namespace and .svc.
-	// The 15010 port is used with plain text, 15011 with Spiffe certs - we need a different port for DNS cert.
-	IstiodService = env.RegisterStringVar("ISTIOD_ADDR", "",
-		"Service name of istiod. If empty the istiod listener, certs will be disabled.")
+	EnableStatus = env.RegisterBoolVar(
+		"PILOT_ENABLE_STATUS",
+		false,
+		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
+	).Get()
+
+	StatusQPS = env.RegisterFloatVar(
+		"PILOT_STATUS_QPS",
+		100,
+		"If status is enabled, controls the QPS with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
+	).Get()
+
+	StatusBurst = env.RegisterIntVar(
+		"PILOT_STATUS_BURST",
+		500,
+		"If status is enabled, controls the Burst rate with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
+	).Get()
+
+	// IstiodServiceCustomHost allow user to bring a custom address for istiod server
+	// for examples: istiod.mycompany.com
+	IstiodServiceCustomHost = env.RegisterStringVar("ISTIOD_CUSTOM_HOST", "",
+		"Custom host name of istiod that istiod signs the server cert.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.")
 
-	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 
 	// Default request timeout for virtual services if a timeout is not configured in virtual service. It defaults to zero
@@ -289,7 +293,7 @@ var (
 	).Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
-		"Defines the cluster and service registry that this Istiod instance is belongs to")
+		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
 
 	EnableIncrementalMCP = env.RegisterBoolVar(
 		"PILOT_ENABLE_INCREMENTAL_MCP",
@@ -297,4 +301,31 @@ var (
 		"If enabled, pilot will set the incremental flag of the options in the mcp controller "+
 			"to true, and then galley may push data incrementally, it depends on whether the "+
 			"resource supports incremental. By default, this is false.").Get()
+
+	CentralIstioD = env.RegisterBoolVar("CENTRAL_ISTIOD", false,
+		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
+
+	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
+		"If this is set to false, will not create CA server in istiod.").Get()
+
+	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
+		"If true, will authenticate XDS clients.").Get()
+
+	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
+		"If enabled, service entries with selectors will select pods from the cluster. "+
+			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+	EnableK8SServiceSelectWorkloadEntries = env.RegisterBoolVar("PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES", true,
+		"If enabled, Kubernetes services with selectors will select workload entries with matching labels. "+
+			"It is safe to disable it if you are quite sure you don't need this feature").Get()
+	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
+		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+
+	SpiffeBundleEndpoints = env.RegisterStringVar("SPIFFE_BUNDLE_ENDPOINTS", "",
+		"The SPIFFE bundle trust domain to endpoint mappings. Istiod retrieves the root certificate from each SPIFFE "+
+			"bundle endpoint and uses it to verify client certifiates from that trust domain. The endpoint must be "+
+			"compliant to the SPIFFE Bundle Endpoint standard. For details, please refer to "+
+			"https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md . "+
+			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
+			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
+			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
 )

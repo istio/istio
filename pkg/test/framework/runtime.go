@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ func (i *runtime) suiteContext() *suiteContext {
 }
 
 // newRootContext creates and returns a new testContext with no parent.
-func (i *runtime) newRootContext(test *Test, goTest *testing.T, labels label.Set) *testContext {
+func (i *runtime) newRootContext(test *testImpl, goTest *testing.T, labels label.Set) *testContext {
 	return newTestContext(test, goTest, i.context, nil, labels)
 }
 

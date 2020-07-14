@@ -33,15 +33,6 @@ webhooks:
           - CREATE
           - UPDATE
         apiGroups:
-          - rbac.istio.io
-        apiVersions:
-          - "*"
-        resources:
-          - "*"
-      - operations:
-          - CREATE
-          - UPDATE
-        apiGroups:
           - security.istio.io
         apiVersions:
           - "*"

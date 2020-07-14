@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,33 +24,13 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/metadata"
-	metafake "k8s.io/client-go/metadata/fake"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pkg/kube"
 )
 
 const secretNamespace string = "istio-system"
-
-func mockLoadKubeConfig(_ []byte) (*clientcmdapi.Config, error) {
-	return &clientcmdapi.Config{}, nil
-}
-
-func mockValidateClientConfig(_ clientcmdapi.Config) error {
-	return nil
-}
-
-func mockCreateInterfaceFromClusterConfig(_ *clientcmdapi.Config) (kubernetes.Interface, error) {
-	return fake.NewSimpleClientset(), nil
-}
-
-func mockCreateMetadataInterfaceFromClusterConfig(_ *clientcmdapi.Config) (metadata.Interface, error) {
-	scheme := runtime.NewScheme()
-	metav1.AddMetaToScheme(scheme)
-	return metafake.NewSimpleMetadataClient(scheme), nil
-}
 
 func makeSecret(secret, clusterID string, kubeconfig []byte) *v1.Secret {
 	return &v1.Secret{
@@ -74,14 +54,14 @@ var (
 	deleted string
 )
 
-func addCallback(_ kubernetes.Interface, _ metadata.Interface, id string) error {
+func addCallback(_ kube.Client, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	added = id
 	return nil
 }
 
-func updateCallback(_ kubernetes.Interface, _ metadata.Interface, id string) error {
+func updateCallback(_ kube.Client, id string) error {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = id
@@ -101,13 +81,9 @@ func resetCallbackData() {
 }
 
 func Test_SecretController(t *testing.T) {
-	g := NewWithT(t)
-
-	LoadKubeConfig = mockLoadKubeConfig
-	ValidateClientConfig = mockValidateClientConfig
-	CreateInterfaceFromClusterConfig = mockCreateInterfaceFromClusterConfig
-	CreateMetadataInterfaceFromClusterConfig = mockCreateMetadataInterfaceFromClusterConfig
-
+	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	clientset := fake.NewSimpleClientset()
 
 	var (
@@ -138,9 +114,9 @@ func Test_SecretController(t *testing.T) {
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
-	g.Expect(
-		StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace)).
-		Should(Succeed())
+	stopCh := make(chan struct{})
+	c := StartSecretController(clientset, addCallback, updateCallback, deleteCallback, secretNamespace)
+	cache.WaitForCacheSync(stopCh, c.informer.HasSynced)
 
 	for i, step := range steps {
 		resetCallbackData()

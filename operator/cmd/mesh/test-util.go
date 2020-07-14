@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,20 +27,11 @@ import (
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
+	name2 "istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test"
-)
-
-const (
-	deploymentStr  = "Deployment"
-	roleStr        = "Role"
-	roleBindingStr = "RoleBinding"
-	serviceStr     = "Service"
-	hpaStr         = "HorizontalPodAutoscaler"
-	pdbStr         = "PodDisruptionBudget"
-	saStr          = "ServiceAccount"
 )
 
 // PathValue is a path/value type.
@@ -54,6 +45,14 @@ func (pv *PathValue) String() string {
 	return fmt.Sprintf("%s:%v", pv.path, pv.value)
 }
 
+// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
+type objectSet struct {
+	objSlice object.K8sObjects
+	objMap   map[string]*object.K8sObject
+	keySlice []string
+}
+
+// parseObjectSetFromManifest parses an objectSet from the given manifest.
 func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
 	ret := &objectSet{}
 	var err error
@@ -65,13 +64,6 @@ func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
 		ret.append(o)
 	}
 	return ret
-}
-
-// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
-type objectSet struct {
-	objSlice object.K8sObjects
-	objMap   map[string]*object.K8sObject
-	keySlice []string
 }
 
 // append appends an object to o.
@@ -140,21 +132,28 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 
 // mustGetService returns the service with the given name or fails if it's not found in objs.
 func mustGetService(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
-	obj := objs.kind(serviceStr).nameEquals(name)
+	obj := objs.kind(name2.ServiceStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetDeployment returns the deployment with the given name or fails if it's not found in objs.
 func mustGetDeployment(g *gomega.WithT, objs *objectSet, deploymentName string) *object.K8sObject {
-	obj := objs.kind(deploymentStr).nameEquals(deploymentName)
+	obj := objs.kind(name2.DeploymentStr).nameEquals(deploymentName)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
+// mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
+func mustGetClusterRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
+	obj := objs.kind(name2.ClusterRoleStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
 func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
-	obj := objs.kind(roleStr).nameEquals(name)
+	obj := objs.kind(name2.RoleStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
@@ -165,6 +164,27 @@ func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containe
 	container := obj.Container(containerName)
 	g.Expect(container).Should(gomega.Not(gomega.BeNil()))
 	return container
+}
+
+// mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
+func mustGetEndpoint(g *gomega.WithT, objs *objectSet, endpointName string) *object.K8sObject {
+	obj := objs.kind(name2.EndpointStr).nameEquals(endpointName)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
+// mustGetMutatingWebhookConfiguration returns the mutatingWebhookConfiguration with the given name or fails if it's not found in objs.
+func mustGetMutatingWebhookConfiguration(g *gomega.WithT, objs *objectSet, mutatingWebhookConfigurationName string) *object.K8sObject {
+	obj := objs.kind(name2.MutatingWebhookConfigurationStr).nameEquals(mutatingWebhookConfigurationName)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
+}
+
+// mustGetValidatingWebhookConfiguration returns the validatingWebhookConfiguration with the given name or fails if it's not found in objs.
+func mustGetValidatingWebhookConfiguration(g *gomega.WithT, objs *objectSet, validatingWebhookConfigurationName string) *object.K8sObject {
+	obj := objs.kind(name2.ValidatingWebhookConfigurationStr).nameEquals(validatingWebhookConfigurationName)
+	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	return obj
 }
 
 // HavePathValueEqual matches map[string]interface{} tree against a PathValue.
@@ -295,7 +315,7 @@ func mustGetLabels(t test.Failer, obj object.K8sObject, path string) map[string]
 
 func mustGetPath(t test.Failer, obj object.K8sObject, path string) interface{} {
 	t.Helper()
-	got, f, err := tpath.GetFromTreePath(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
+	got, f, err := tpath.Find(obj.UnstructuredObject().UnstructuredContent(), util.PathFromString(path))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,6 +353,7 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) 
 	return got.Node
 }
 
+// objectHashesOrdered returns a slice of the hashes of objs, retaining the original ordering.
 func objectHashesOrdered(objs object.K8sObjects) []string {
 	var out []string
 	for _, o := range objs {
@@ -373,6 +394,21 @@ func toMap(s string) map[string]interface{} {
 	return out
 }
 
+// endpointSubsetAddressVal returns a map having subset address type for an endpint.
+func endpointSubsetAddressVal(hostname, ip, nodeName string) map[string]interface{} {
+	out := make(map[string]interface{})
+	if hostname != "" {
+		out["hostname"] = hostname
+	}
+	if ip != "" {
+		out["ip"] = ip
+	}
+	if nodeName != "" {
+		out["nodeName"] = nodeName
+	}
+	return out
+}
+
 // portVal returns a map having service port type. A value of -1 for port or targetPort leaves those keys unset.
 func portVal(name string, port, targetPort int64) map[string]interface{} {
 	out := make(map[string]interface{})
@@ -390,9 +426,18 @@ func portVal(name string, port, targetPort int64) map[string]interface{} {
 
 // checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
 func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
-	for _, o := range objs.kind(roleBindingStr).objSlice {
+	for _, o := range objs.kind(name2.RoleBindingStr).objSlice {
 		ou := o.Unstructured()
 		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
 		mustGetRole(g, objs, rrname.(string))
+	}
+}
+
+// checkClusterRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
+func checkClusterRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
+	for _, o := range objs.kind(name2.ClusterRoleBindingStr).objSlice {
+		ou := o.Unstructured()
+		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
+		mustGetClusterRole(g, objs, rrname.(string))
 	}
 }

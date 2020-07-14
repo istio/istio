@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,23 +18,28 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+
+	"time"
+
 	"istio.io/pkg/ledger"
 )
 
 type FakeStore struct {
-	store map[resource.GroupVersionKind]map[string][]Config
+	store  map[resource.GroupVersionKind]map[string][]Config
+	ledger ledger.Ledger
 }
 
 func NewFakeStore() *FakeStore {
 	f := FakeStore{
-		store: make(map[resource.GroupVersionKind]map[string][]Config),
+		store:  make(map[resource.GroupVersionKind]map[string][]Config),
+		ledger: ledger.Make(time.Minute),
 	}
 	return &f
 }
 
 var _ ConfigStore = (*FakeStore)(nil)
 
-func (*FakeStore) Schemas() collection.Schemas {
+func (s *FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 
@@ -56,12 +61,12 @@ func (s *FakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Con
 }
 
 func (s *FakeStore) Create(config Config) (revision string, err error) {
-	configs := s.store[config.GroupVersionKind()]
+	configs := s.store[config.GroupVersionKind]
 	if configs == nil {
 		configs = make(map[string][]Config)
 	}
 	configs[config.Namespace] = append(configs[config.Namespace], config)
-	s.store[config.GroupVersionKind()] = configs
+	s.store[config.GroupVersionKind] = configs
 	return "", nil
 }
 
@@ -69,17 +74,18 @@ func (*FakeStore) Update(config Config) (newRevision string, err error) { return
 
 func (*FakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
 
-func (*FakeStore) Version() string {
-	return "not implemented"
+func (s *FakeStore) Version() string {
+	return s.ledger.RootHash()
 }
-func (*FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return "not implemented", nil
+func (s *FakeStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
+	return s.ledger.GetPreviousValue(version, key)
 }
 
 func (s *FakeStore) GetLedger() ledger.Ledger {
-	panic("implement me")
+	return s.ledger
 }
 
-func (s *FakeStore) SetLedger(ledger.Ledger) error {
-	panic("implement me")
+func (s *FakeStore) SetLedger(l ledger.Ledger) error {
+	s.ledger = l
+	return nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic/fake"
@@ -40,7 +41,7 @@ func TestBasicStartStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -53,8 +54,8 @@ func TestDoubleStart(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	defer c.Stop()
 
 	c.Report(diag.Messages{})
@@ -67,7 +68,7 @@ func TestDoubleStop(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	g.Consistently(cl.Actions).Should(BeEmpty())
 	c.Stop()
@@ -80,7 +81,7 @@ func TestNoReconcilation(t *testing.T) {
 	c := NewController(subfield)
 	k, cl := setupClient()
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", "s1")
 	defer c.Stop()
 
@@ -104,7 +105,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.UpdateResourceStatus(basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
 	c.Report(diag.Messages{})
 	defer c.Stop()
@@ -132,7 +133,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
 		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
@@ -163,7 +164,7 @@ func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
 
 	k, cl := setupClientWithReactors(r, nil)
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	c.Report(diag.Messages{})
 	c.UpdateResourceStatus(
 		basicmeta.K8SCollection1.Name(), resource.NewFullName("foo", "bar"), "v1", s)
@@ -204,7 +205,7 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -244,7 +245,7 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -280,7 +281,7 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -315,7 +316,7 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()
@@ -347,7 +348,7 @@ func TestBasicReconcilation_VersionMismatch(t *testing.T) {
 		},
 	}
 
-	c.Start(rt.NewProvider(k, 0), basicmeta.MustGet().KubeCollections().All())
+	c.Start(rt.NewProvider(k, metav1.NamespaceAll, 0), basicmeta.MustGet().KubeCollections().All())
 	m := msg.NewInternalError(&e, "foo")
 	c.Report(diag.Messages{m})
 	defer c.Stop()

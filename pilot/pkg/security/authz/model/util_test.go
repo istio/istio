@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,42 +18,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestStringMatch(t *testing.T) {
-	testCases := []struct {
-		Name   string
-		S      string
-		List   []string
-		Expect bool
-	}{
-		{
-			Name: "exact match", S: "product page", List: []string{"review page", "product page"},
-			Expect: true,
-		},
-		{
-			Name: "wild character match", S: "product page", List: []string{"review page", "*"},
-			Expect: true,
-		},
-		{
-			Name: "prefix match", S: "product page", List: []string{"review page", "product*"},
-			Expect: true,
-		},
-		{
-			Name: "suffix match", S: "product page", List: []string{"review page", "*page"},
-			Expect: true,
-		},
-		{
-			Name: "not matched", S: "product page", List: []string{"review page", "xyz product page"},
-			Expect: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		if actual := stringMatch(tc.S, tc.List); actual != tc.Expect {
-			t.Errorf("%s: expecting: %v, but got: %v", tc.Name, tc.Expect, actual)
-		}
-	}
-}
 
 func TestConvertToPort(t *testing.T) {
 	testCases := []struct {
@@ -98,60 +62,6 @@ func TestConvertToPort(t *testing.T) {
 	}
 }
 
-func TestConvertPortsToString(t *testing.T) {
-	testCases := []struct {
-		Name   string
-		V      []int32
-		Expect []string
-		Err    string
-	}{
-		{
-			Name:   "valid ports",
-			V:      []int32{80, 3000, 443},
-			Expect: []string{"80", "3000", "443"},
-		},
-		{
-			Name:   "valid port",
-			V:      []int32{9080},
-			Expect: []string{"9080"},
-		},
-	}
-
-	for _, tc := range testCases {
-		actual := convertPortsToString(tc.V)
-		for i := range tc.Expect {
-			if tc.Expect[i] != actual[i] {
-				t.Errorf("%s: expecting %s, but got %s", tc.Name, tc.Expect, actual)
-			}
-		}
-	}
-}
-
-func TestIsKeyBinary(t *testing.T) {
-	cases := []struct {
-		s      string
-		expect bool
-	}{
-		{s: "a[b]", expect: true},
-		{s: "a", expect: false},
-		{s: "a.b", expect: false},
-		{s: "a.b[c]", expect: true},
-		{s: "a.b[c.d]", expect: true},
-		{s: "[a]", expect: false},
-		{s: "[a", expect: false},
-		{s: "a]", expect: false},
-		{s: "a[]", expect: false},
-		{s: "a.b[c.d]e", expect: false},
-		{s: "a.b[[c.d]]", expect: true},
-	}
-
-	for _, c := range cases {
-		if isKeyBinary(c.s) != c.expect {
-			t.Errorf("isKeyBinary returned incorrect result for key: %s", c.s)
-		}
-	}
-}
-
 func TestExtractNameInBrackets(t *testing.T) {
 	cases := []struct {
 		s      string
@@ -173,26 +83,6 @@ func TestExtractNameInBrackets(t *testing.T) {
 		}
 		if c.err != (err != nil) {
 			t.Errorf("unexpected error: %v", err)
-		}
-	}
-}
-
-func TestExtractActualServiceAccount(t *testing.T) {
-	cases := []struct {
-		in     string
-		expect string
-	}{
-		{in: "service-account", expect: "service-account"},
-		{in: "spiffe://xyz.com/sa/test-sa/ns/default", expect: "test-sa"},
-		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa/ns/default", expect: "test-sa"},
-		{in: "spiffe://xyz.com/sa/test-sa/", expect: "test-sa"},
-		{in: "spiffe://xyz.com/wa/blabla/sa/test-sa", expect: "test-sa"},
-	}
-
-	for _, c := range cases {
-		actual := extractActualServiceAccount(c.in)
-		if actual != c.expect {
-			t.Errorf("%s: expecting %s, but got %s", c.in, c.expect, actual)
 		}
 	}
 }

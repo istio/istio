@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,16 +52,6 @@ type ClusterDesc struct {
 func (m *Mesh) addCluster(c *Cluster) {
 	m.clustersByContext[c.Context] = c
 	m.clustersByClusterName[c.clusterName] = c
-}
-
-func (m *Mesh) ClusterByClusterName(name string) (*Cluster, bool) {
-	c, ok := m.clustersByClusterName[name]
-	return c, ok
-}
-
-func (m *Mesh) ClusterByContext(context string) (*Cluster, bool) {
-	c, ok := m.clustersByContext[context]
-	return c, ok
 }
 
 func (m *Mesh) SortedClusters() []*Cluster {

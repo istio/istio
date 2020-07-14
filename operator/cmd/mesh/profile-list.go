@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,22 +22,35 @@ import (
 	"istio.io/istio/operator/pkg/helm"
 )
 
-func profileListCmd(rootArgs *rootArgs) *cobra.Command {
+type profileListArgs struct {
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
+}
+
+func addProfileListFlags(cmd *cobra.Command, args *profileListArgs) {
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+}
+
+func profileListCmd(rootArgs *rootArgs, plArgs *profileListArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "Lists available Istio configuration profiles",
 		Long:  "The list subcommand lists the available Istio configuration profiles.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return profileList(rootArgs)
+			return profileList(rootArgs, plArgs)
 		}}
 
 }
 
 // profileList list all the builtin profiles.
-func profileList(args *rootArgs) error {
+func profileList(args *rootArgs, plArgs *profileListArgs) error {
 	initLogsOrExit(args)
-	profiles := helm.ListBuiltinProfiles()
+	profiles, err := helm.ListProfiles(plArgs.manifestsPath)
+	if err != nil {
+		return err
+	}
 	if len(profiles) == 0 {
 		fmt.Println("No profiles available.")
 	} else {

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,4 +60,19 @@ func (s Set) UnsortedList() []string {
 func (s Set) Contains(item string) bool {
 	_, ok := s[item]
 	return ok
+}
+
+// Equals checks whether the given set is equal to the current set.
+func (s Set) Equals(other Set) bool {
+	if len(s) != len(other) {
+		return false
+	}
+
+	for key := range s {
+		if _, exists := other[key]; !exists {
+			return false
+		}
+	}
+
+	return true
 }

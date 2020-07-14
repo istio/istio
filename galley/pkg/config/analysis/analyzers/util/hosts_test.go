@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,4 +81,25 @@ func TestScopedFqdn_GetScopeAndFqdn(t *testing.T) {
 	ns, fqdn = ScopedFqdn("foo/*.xyz.abc").GetScopeAndFqdn()
 	g.Expect(ns).To(Equal("foo"))
 	g.Expect(fqdn).To(Equal("*.xyz.abc"))
+}
+
+func TestScopedFqdn_InScopeOf(t *testing.T) {
+	var tests = []struct {
+		ScFqdn    ScopedFqdn
+		Namespace string
+		Want      bool
+	}{
+		{"*/reviews.bookinfo.svc.cluster.local", "bookinfo", true},
+		{"*/reviews.bookinfo.svc.cluster.local", "foo", true},
+		{"./reviews.bookinfo.svc.cluster.local", "bookinfo", true},
+		{"./reviews.bookinfo.svc.cluster.local", "foo", false},
+		{"bookinfo/reviews.bookinfo.svc.cluster.local", "bookinfo", true},
+		{"bookinfo/reviews.bookinfo.svc.cluster.local", "foo", false},
+	}
+
+	for _, test := range tests {
+		if test.ScFqdn.InScopeOf(test.Namespace) != test.Want {
+			t.Errorf("%s is in the scope of %s: %t. It should be %t", test.ScFqdn, test.Namespace, !test.Want, test.Want)
+		}
+	}
 }

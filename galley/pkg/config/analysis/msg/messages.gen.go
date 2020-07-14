@@ -109,13 +109,17 @@ var (
 	// Description: A namespace has both new and legacy injection labels
 	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'")
 
-	// NamespaceInvalidInjectorRevision defines a diag.MessageType for message "NamespaceInvalidInjectorRevision".
-	// Description: A namespace is labeled to inject from unknown control plane.
-	NamespaceInvalidInjectorRevision = diag.NewMessageType(diag.Warning, "IST0124", "The namespace is labeled to inject from %q but that namespace doesn't exist. Run 'kubectl label namespace %s istio.io/rev=<revision>' where <revision> is one of %s")
-
 	// InvalidAnnotation defines a diag.MessageType for message "InvalidAnnotation".
 	// Description: An Istio annotation that is not valid
 	InvalidAnnotation = diag.NewMessageType(diag.Warning, "IST0125", "Invalid annotation %s: %s")
+
+	// UnknownMeshNetworksServiceRegistry defines a diag.MessageType for message "UnknownMeshNetworksServiceRegistry".
+	// Description: A service registry in Mesh Networks is unknown
+	UnknownMeshNetworksServiceRegistry = diag.NewMessageType(diag.Error, "IST0126", "Unknown service registry %s in network %s")
+
+	// NoMatchingWorkloadsFound defines a diag.MessageType for message "NoMatchingWorkloadsFound".
+	// Description: There aren't workloads matching the resource labels
+	NoMatchingWorkloadsFound = diag.NewMessageType(diag.Warning, "IST0127", "No matching workloads for this resource with the following labels: %s")
 )
 
 // All returns a list of all known message types.
@@ -146,8 +150,9 @@ func All() []*diag.MessageType {
 		MeshPolicyResourceIsDeprecated,
 		InvalidRegexp,
 		NamespaceMultipleInjectionLabels,
-		NamespaceInvalidInjectorRevision,
 		InvalidAnnotation,
+		UnknownMeshNetworksServiceRegistry,
+		NoMatchingWorkloadsFound,
 	}
 }
 
@@ -398,17 +403,6 @@ func NewNamespaceMultipleInjectionLabels(r *resource.Instance, namespace string,
 	)
 }
 
-// NewNamespaceInvalidInjectorRevision returns a new diag.Message based on NamespaceInvalidInjectorRevision.
-func NewNamespaceInvalidInjectorRevision(r *resource.Instance, unknownrevision string, namespace string, revisions string) diag.Message {
-	return diag.NewMessage(
-		NamespaceInvalidInjectorRevision,
-		r,
-		unknownrevision,
-		namespace,
-		revisions,
-	)
-}
-
 // NewInvalidAnnotation returns a new diag.Message based on InvalidAnnotation.
 func NewInvalidAnnotation(r *resource.Instance, annotation string, problem string) diag.Message {
 	return diag.NewMessage(
@@ -416,5 +410,24 @@ func NewInvalidAnnotation(r *resource.Instance, annotation string, problem strin
 		r,
 		annotation,
 		problem,
+	)
+}
+
+// NewUnknownMeshNetworksServiceRegistry returns a new diag.Message based on UnknownMeshNetworksServiceRegistry.
+func NewUnknownMeshNetworksServiceRegistry(r *resource.Instance, serviceregistry string, network string) diag.Message {
+	return diag.NewMessage(
+		UnknownMeshNetworksServiceRegistry,
+		r,
+		serviceregistry,
+		network,
+	)
+}
+
+// NewNoMatchingWorkloadsFound returns a new diag.Message based on NoMatchingWorkloadsFound.
+func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Message {
+	return diag.NewMessage(
+		NoMatchingWorkloadsFound,
+		r,
+		labels,
 	)
 }

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,14 +20,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"istio.io/istio/security/pkg/nodeagent/cache/mock"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/pkg/filewatcher"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +39,8 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 var (
@@ -536,7 +541,7 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 
 	fetcher.AddSecret(k8sTestTLSFallbackSecret)
 	for _, c := range cases {
-		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "") {
+		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "", false) {
 			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
 		}
 		// Verify that fallback secret is returned
@@ -601,7 +606,7 @@ func TestGatewayAgentGenerateSecretUsingFallbackSecret(t *testing.T) {
 		}
 		// When secret is deleted, node agent should not wait for ingress gateway secret.
 		fetcher.DeleteSecret(c.addSecret)
-		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "") {
+		if sc.ShouldWaitForIngressGatewaySecret(c.connID, c.expectedFbSecret.secret.ResourceName, "", false) {
 			t.Fatal("When fallback secret is enabled, node agent should not wait for gateway secret")
 		}
 	}
@@ -646,6 +651,21 @@ func createSecretCache() *SecretCache {
 		EvictionDuration: 0,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
+}
+
+// Validate that file mounted certs do not wait for ingress secret.
+func TestShouldWaitForIngressGatewaySecretForFileMountedCerts(t *testing.T) {
+	fetcher := &secretfetcher.SecretFetcher{
+		UseCaClient: false,
+	}
+	opt := Options{
+		RotationInterval: 100 * time.Millisecond,
+		EvictionDuration: 0,
+	}
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	if sc.ShouldWaitForIngressGatewaySecret("", "", "", true) {
+		t.Fatalf("Expected not to wait for ingress gateway secret for file mounted certs, but got true")
+	}
 }
 
 // TestGatewayAgentDeleteSecret verifies that ingress gateway agent deletes secret cache correctly.
@@ -862,7 +882,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := Options{
-		RotationInterval: 100 * time.Millisecond,
+		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 	}
 
@@ -870,10 +890,31 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		UseCaClient: true,
 		CaClient:    fakeCACli,
 	}
-	sc := NewSecretCache(fetcher, notifyCb, opt)
+
+	var wgAddedWatch sync.WaitGroup
+	var notifyEvent sync.WaitGroup
+
+	addedWatchProbe := func(_ string, _ bool) { wgAddedWatch.Done() }
+
+	var closed bool
+	notifyCallback := func(_ ConnKey, _ *model.SecretItem) error {
+		if !closed {
+			notifyEvent.Done()
+		}
+		return nil
+	}
+
+	// Supply a fake watcher so that we can watch file events.
+	var fakeWatcher *filewatcher.FakeWatcher
+	newFileWatcher, fakeWatcher = filewatcher.NewFakeWatcher(addedWatchProbe)
+
+	sc := NewSecretCache(fetcher, notifyCallback, opt)
 	defer func() {
+		closed = true
 		sc.Close()
+		newFileWatcher = filewatcher.NewWatcher
 	}()
+
 	rootCertPath := "./testdata/root-cert.pem"
 	keyPath := "./testdata/key.pem"
 	certChainPath := "./testdata/cert-chain.pem"
@@ -895,7 +936,15 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 
 	conID := "proxy1-id"
 	ctx := context.Background()
+
+	wgAddedWatch.Add(1) // Watch should be added for cert file.
+	notifyEvent.Add(1)  // Nofify should be called once.
+
 	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
+
+	wgAddedWatch.Wait()
+	notifyEvent.Wait()
+
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -909,7 +958,14 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Errorf("Secret verification failed: %v", err)
 	}
 
+	wgAddedWatch.Add(1) // Watch should be added for root file.
+	notifyEvent.Add(1)  // Notify should be called once.
+
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
+
+	wgAddedWatch.Wait()
+	notifyEvent.Wait()
+
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
 	}
@@ -941,6 +997,194 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	}
 	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
 		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+	}
+
+	// Inject a file write event and validate that Notify is called.
+	notifyEvent.Add(1)
+	fakeWatcher.InjectEvent(certChainPath, fsnotify.Event{
+		Name: certChainPath,
+		Op:   fsnotify.Write,
+	})
+	notifyEvent.Wait()
+}
+
+// TestWorkloadAgentGenerateSecretFromFileOverSds tests generating secrets from existing files on a
+// secretcache instance, specified over SDS.
+func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
+	fetcher := &secretfetcher.SecretFetcher{}
+
+	opt := Options{
+		RotationInterval: 200 * time.Millisecond,
+		EvictionDuration: 0,
+	}
+
+	var wgAddedWatch sync.WaitGroup
+	var notifyEvent sync.WaitGroup
+	var closed bool
+
+	addedWatchProbe := func(_ string, _ bool) { wgAddedWatch.Done() }
+
+	notifyCallback := func(_ ConnKey, _ *model.SecretItem) error {
+		if !closed {
+			notifyEvent.Done()
+		}
+		return nil
+	}
+
+	// Supply a fake watcher so that we can watch file events.
+	var fakeWatcher *filewatcher.FakeWatcher
+	newFileWatcher, fakeWatcher = filewatcher.NewFakeWatcher(addedWatchProbe)
+
+	sc := NewSecretCache(fetcher, notifyCallback, opt)
+	defer func() {
+		closed = true
+		sc.Close()
+		newFileWatcher = filewatcher.NewWatcher
+	}()
+	rootCertPath, _ := filepath.Abs("./testdata/root-cert.pem")
+	keyPath, _ := filepath.Abs("./testdata/key.pem")
+	certChainPath, _ := filepath.Abs("./testdata/cert-chain.pem")
+	certchain, err := ioutil.ReadFile(certChainPath)
+	if err != nil {
+		t.Fatalf("Error reading the cert chain file: %v", err)
+	}
+	privateKey, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		t.Fatalf("Error reading the private key file: %v", err)
+	}
+	rootCert, err := ioutil.ReadFile(rootCertPath)
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+
+	resource := fmt.Sprintf("file-cert:%s~%s", certChainPath, keyPath)
+	conID := "proxy1-id"
+	ctx := context.Background()
+
+	// Since we do not have rotation enabled, we do not get secret notification.
+	wgAddedWatch.Add(1) // Watch should be added for cert file.
+
+	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
+
+	wgAddedWatch.Wait()
+
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, resource, "jwtToken1", gotSecret.Version), true)
+	expectedSecret := &model.SecretItem{
+		ResourceName:     resource,
+		CertificateChain: certchain,
+		PrivateKey:       privateKey,
+	}
+	if err := verifySecret(gotSecret, expectedSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	rootResource := "file-root:" + rootCertPath
+
+	wgAddedWatch.Add(1) // Watch should be added for root file.
+
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, rootResource, "jwtToken1")
+
+	wgAddedWatch.Wait()
+
+	if err != nil {
+		t.Fatalf("Failed to get secrets: %v", err)
+	}
+	checkBool(t, "SecretExist", sc.SecretExist(conID, rootResource, "jwtToken1", gotSecretRoot.Version), true)
+	if got, want := atomic.LoadUint64(&sc.rootCertChangedCount), uint64(0); got != want {
+		t.Errorf("rootCertChangedCount: got: %v, want: %v", got, want)
+	}
+
+	rootExpiration, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(rootCert)
+	if err != nil {
+		t.Fatalf("Failed to get the expiration time from the existing root file")
+	}
+	expectedSecret = &model.SecretItem{
+		ResourceName: rootResource,
+		RootCert:     rootCert,
+		ExpireTime:   rootExpiration,
+	}
+	if err := verifyRootCASecret(gotSecretRoot, expectedSecret); err != nil {
+		t.Errorf("Secret verification failed: %v", err)
+	}
+
+	key := ConnKey{
+		ConnectionID: conID,
+		ResourceName: resource,
+	}
+	cachedSecret, found := sc.secrets.Load(key)
+	if !found {
+		t.Errorf("Failed to find secret for proxy %q from secret store: %v", conID, err)
+	}
+	if !reflect.DeepEqual(*gotSecret, cachedSecret) {
+		t.Errorf("Secret key: got %+v, want %+v", *gotSecret, cachedSecret)
+	}
+
+	// Inject a file write event and validate that Notify is called.
+	notifyEvent.Add(1)
+	fakeWatcher.InjectEvent(certChainPath, fsnotify.Event{
+		Name: certChainPath,
+		Op:   fsnotify.Write,
+	})
+	notifyEvent.Wait()
+}
+
+func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) {
+	fetcher := &secretfetcher.SecretFetcher{}
+	originalTimeout := totalTimeout
+	totalTimeout = time.Second * 1
+	defer func() {
+		totalTimeout = originalTimeout
+	}()
+
+	opt := Options{
+		RotationInterval: 1 * time.Millisecond,
+		EvictionDuration: 0,
+	}
+
+	sc := NewSecretCache(fetcher, notifyCb, opt)
+	defer func() {
+		sc.Close()
+	}()
+	rootCertPath, _ := filepath.Abs("./testdata/root-cert-bogus.pem")
+	keyPath, _ := filepath.Abs("./testdata/key-bogus.pem")
+	certChainPath, _ := filepath.Abs("./testdata/cert-chain-bogus.pem")
+
+	resource := fmt.Sprintf("file-cert:%s~%s", certChainPath, keyPath)
+	conID := "proxy1-id"
+	ctx := context.Background()
+
+	gotSecret, err := sc.GenerateSecret(ctx, conID, resource, "jwtToken1")
+
+	if err == nil {
+		t.Fatalf("expected to get error")
+	}
+
+	if gotSecret != nil {
+		t.Fatalf("Expected to get nil secret but got %v", gotSecret)
+	}
+
+	rootResource := "file-root:" + rootCertPath
+	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, rootResource, "jwtToken1")
+
+	if err == nil {
+		t.Fatalf("Expected to get error, but did not get")
+	}
+	if !strings.Contains(err.Error(), "no such file or directory") {
+		t.Fatalf("Expected file not found error, but got %v", err)
+	}
+	if gotSecretRoot != nil {
+		t.Fatalf("Expected to get nil secret but got %v", gotSecret)
+	}
+	length := 0
+	sc.secrets.Range(func(k interface{}, v interface{}) bool {
+		length++
+		return true
+	})
+	if length > 0 {
+		t.Fatalf("Expected zero secrets in cache, but got %v", length)
 	}
 }
 

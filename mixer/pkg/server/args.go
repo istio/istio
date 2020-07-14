@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"fmt"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/config/store"
@@ -111,6 +113,9 @@ type Args struct {
 	// Whether or not to establish watches for template-specific CRDs
 	UseTemplateCRDs bool
 
+	// Namespaces the controller watches
+	WatchedNamespaces string
+
 	LoadSheddingOptions loadshedding.Options
 }
 
@@ -135,6 +140,7 @@ func DefaultArgs() *Args {
 		NumCheckCacheEntries:   5000 * 5 * 60, // 5000 QPS with average TTL of 5 minutes
 		UseAdapterCRDs:         true,
 		UseTemplateCRDs:        true,
+		WatchedNamespaces:      metav1.NamespaceAll,
 		LoadSheddingOptions:    loadshedding.DefaultOptions(),
 	}
 }
@@ -187,6 +193,7 @@ func (a *Args) String() string {
 	fmt.Fprintln(buf, "CACertificateFile: ", a.CredentialOptions.CACertificateFile)
 	fmt.Fprintln(buf, "ConfigDefaultNamespace: ", a.ConfigDefaultNamespace)
 	fmt.Fprintln(buf, "ConfigWaitTimeout: ", a.ConfigWaitTimeout)
+	fmt.Fprintln(buf, "WatchedNamespaces: ", a.WatchedNamespaces)
 	fmt.Fprintf(buf, "LoggingOptions: %#v\n", *a.LoggingOptions)
 	fmt.Fprintf(buf, "TracingOptions: %#v\n", *a.TracingOptions)
 	fmt.Fprintf(buf, "IntrospectionOptions: %#v\n", *a.IntrospectionOptions)

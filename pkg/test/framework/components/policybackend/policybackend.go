@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -71,9 +71,6 @@ type Config struct {
 // New returns a new instance of policybackend.Instance.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
 	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Native, func() {
-		i, err = newNative(ctx)
-	})
 	ctx.Environment().Case(environment.Kube, func() {
 		i, err = newKube(ctx, c)
 	})

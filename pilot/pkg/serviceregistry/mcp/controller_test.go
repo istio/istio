@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -37,12 +37,6 @@ import (
 )
 
 var (
-	gatewayGvk                  = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()
-	serviceEntryGvk             = collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind()
-	virtualServiceGvk           = collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind()
-	authenticationPolicyGvk     = collections.IstioAuthenticationV1Alpha1Policies.Resource().GroupVersionKind()
-	authenticationMeshPolicyGvk = collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().GroupVersionKind()
-
 	gateway = &networking.Gateway{
 		Servers: []*networking.Server{
 			{
@@ -79,21 +73,6 @@ var (
 				},
 				Hosts: []string{"foo.example.com"},
 			},
-		},
-	}
-
-	authnPolicy0 = &authn.Policy{
-		Targets: []*authn.TargetSelector{{
-			Name: "service-foo",
-		}},
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{}},
-		},
-	}
-
-	authnPolicy1 = &authn.Policy{
-		Peers: []*authn.PeerAuthenticationMethod{{
-			Params: &authn.PeerAuthenticationMethod_Mtls{}},
 		},
 	}
 
@@ -143,7 +122,7 @@ func TestOptions(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(serviceEntryGvk, "")
+	c, err := controller.List(gvk.ServiceEntry, "")
 	g.Expect(c).ToNot(BeNil())
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(c[0].Domain).To(Equal(testControllerOptions.DomainSuffix))
@@ -177,7 +156,7 @@ func TestListCorrectTypeNoData(t *testing.T) {
 	g := NewGomegaWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
-	c, err := controller.List(virtualServiceGvk,
+	c, err := controller.List(gvk.VirtualService,
 		"some-phony-name-space.com")
 	g.Expect(c).To(BeNil())
 	g.Expect(err).ToNot(HaveOccurred())
@@ -204,12 +183,12 @@ func TestListAllNameSpace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "")
+	c, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(3))
 
 	for _, conf := range c {
-		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind).To(Equal(gvk.Gateway))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
 			g.Expect(conf.Namespace).To(Equal("namespace1"))
@@ -243,12 +222,12 @@ func TestListSpecificNameSpace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "namespace1")
+	c, err := controller.List(gvk.Gateway, "namespace1")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(2))
 
 	for _, conf := range c {
-		g.Expect(conf.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(conf.GroupVersionKind).To(Equal(gvk.Gateway))
 		g.Expect(conf.Namespace).To(Equal("namespace1"))
 		if conf.Name == "some-gateway1" {
 			g.Expect(conf.Spec).To(Equal(message))
@@ -308,11 +287,11 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 		err = controller.Apply(change)
 		g.Expect(err).ToNot(HaveOccurred())
 
-		c, err := controller.List(gatewayGvk, "")
+		c, err := controller.List(gvk.Gateway, "")
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(len(c)).To(Equal(1))
 		g.Expect(c[0].Name).To(Equal("some-gateway"))
-		g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 		g.Expect(c[0].Spec).To(Equal(message))
 		g.Expect(c[0].Spec).To(ContainSubstring(fmt.Sprintf("number:%d", port)))
 	}
@@ -336,11 +315,11 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "istio-namespace")
+	c, err := controller.List(gvk.Gateway, "istio-namespace")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
@@ -360,11 +339,11 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	c, err := controller.List(gatewayGvk, "")
+	c, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 	g.Expect(c[0].Spec).To(Equal(message))
 }
 
@@ -386,11 +365,11 @@ func TestApplyChangeNoObjects(t *testing.T) {
 
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
-	c, err := controller.List(gatewayGvk, "")
+	c, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(1))
 	g.Expect(c[0].Name).To(Equal("some-gateway"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(gatewayGvk))
+	g.Expect(c[0].GroupVersionKind).To(Equal(gvk.Gateway))
 	g.Expect(c[0].Spec).To(Equal(message))
 
 	change = convertToChange([]proto.Message{},
@@ -400,7 +379,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
-	c, err = controller.List(gatewayGvk, "")
+	c, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(len(c)).To(Equal(0))
 }
@@ -428,98 +407,6 @@ func TestApplyConfigUpdate(t *testing.T) {
 	g.Expect(event).To(Equal("ConfigUpdate"))
 }
 
-func TestApplyClusterScopedAuthPolicy(t *testing.T) {
-	g := NewGomegaWithT(t)
-	controller := mcp.NewController(testControllerOptions)
-
-	message0 := convertToResource(g,
-		collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto(),
-		authnPolicy0)
-
-	message1 := convertToResource(g,
-		collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Proto(),
-		authnPolicy1)
-
-	change := convertToChange(
-		[]proto.Message{message0},
-		[]string{"bar-namespace/foo"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Policies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto()))
-
-	err := controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	change = convertToChange(
-		[]proto.Message{message1},
-		[]string{"default"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	c, err := controller.List(authenticationPolicyGvk, "bar-namespace")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("foo"))
-	g.Expect(c[0].Namespace).To(Equal("bar-namespace"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message0))
-
-	c, err = controller.List(authenticationMeshPolicyGvk, "")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("default"))
-	g.Expect(c[0].Namespace).To(Equal(""))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationMeshPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message1))
-
-	// verify the namespace scoped resource can be deleted
-	change = convertToChange(
-		[]proto.Message{message1},
-		[]string{"default"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Policies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	c, err = controller.List(authenticationMeshPolicyGvk, "")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("default"))
-	g.Expect(c[0].Namespace).To(Equal(""))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationMeshPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message1))
-
-	// verify the namespace scoped resource can be added and mesh-scoped resource removed
-	change = convertToChange(
-		[]proto.Message{message0},
-		[]string{"bar-namespace/foo"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Policies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Policies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	change = convertToChange(
-		[]proto.Message{},
-		[]string{"default"},
-		setCollection(collections.IstioAuthenticationV1Alpha1Meshpolicies.Name().String()),
-		setTypeURL(collections.IstioAuthenticationV1Alpha1Meshpolicies.Resource().Proto()))
-
-	err = controller.Apply(change)
-	g.Expect(err).ToNot(HaveOccurred())
-
-	c, err = controller.List(authenticationPolicyGvk, "bar-namespace")
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(len(c)).To(Equal(1))
-	g.Expect(c[0].Name).To(Equal("foo"))
-	g.Expect(c[0].Namespace).To(Equal("bar-namespace"))
-	g.Expect(c[0].GroupVersionKind()).To(Equal(authenticationPolicyGvk))
-	g.Expect(c[0].Spec).To(Equal(message0))
-}
-
 func TestInvalidResource(t *testing.T) {
 	g := NewGomegaWithT(t)
 	controller := mcp.NewController(testControllerOptions)
@@ -538,7 +425,7 @@ func TestInvalidResource(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(0))
 }
@@ -562,7 +449,7 @@ func TestInvalidResource_BadTimestamp(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(0))
 }
@@ -579,7 +466,7 @@ func TestEventHandler(t *testing.T) {
 		model.EventUpdate: {},
 		model.EventDelete: {},
 	}
-	controller.RegisterEventHandler(serviceEntryGvk, func(_, m model.Config, e model.Event) {
+	controller.RegisterEventHandler(gvk.ServiceEntry, func(_, m model.Config, e model.Event) {
 		gotEvents[e][makeName(m.Namespace, m.Name)] = m
 	})
 
@@ -611,9 +498,7 @@ func TestEventHandler(t *testing.T) {
 	makeServiceEntryModel := func(name, host, version string) model.Config {
 		return model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:              serviceEntryGvk.Kind,
-				Group:             serviceEntryGvk.Group,
-				Version:           serviceEntryGvk.Version,
+				GroupVersionKind:  gvk.ServiceEntry,
 				Name:              name,
 				Namespace:         "default",
 				Domain:            "cluster.local",
@@ -870,7 +755,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(1))
 	g.Expect(entries[0].Name).To(Equal("test-gateway"))
@@ -888,7 +773,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err = controller.List(gatewayGvk, "")
+	entries, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(2))
 
@@ -896,7 +781,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	g.Expect(update).To(Equal("ConfigUpdate"))
 
 	for _, gw := range entries {
-		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind).To(Equal(gvk.Gateway))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))
@@ -915,7 +800,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err = controller.List(gatewayGvk, "")
+	entries, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(1))
 	g.Expect(entries[0].Name).To(Equal("test-gateway2"))
@@ -943,7 +828,7 @@ func TestApplyIncrementalChange(t *testing.T) {
 	err := controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err := controller.List(gatewayGvk, "")
+	entries, err := controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(1))
 	g.Expect(entries[0].Name).To(Equal("test-gateway"))
@@ -961,12 +846,12 @@ func TestApplyIncrementalChange(t *testing.T) {
 	err = controller.Apply(change)
 	g.Expect(err).ToNot(HaveOccurred())
 
-	entries, err = controller.List(gatewayGvk, "")
+	entries, err = controller.List(gvk.Gateway, "")
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(entries).To(HaveLen(2))
 
 	for _, gw := range entries {
-		g.Expect(gw.GroupVersionKind()).To(Equal(gatewayGvk))
+		g.Expect(gw.GroupVersionKind).To(Equal(gvk.Gateway))
 		switch gw.Name {
 		case "test-gateway":
 			g.Expect(gw.Spec).To(Equal(message))

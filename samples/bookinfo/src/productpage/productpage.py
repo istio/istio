@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -382,4 +382,6 @@ if __name__ == '__main__':
 
     p = int(sys.argv[1])
     logging.info("start at port %s" % (p))
-    app.run(host='::', port=p, debug=True, threaded=True)
+    # Python does not work on an IPv6 only host
+    # https://bugs.python.org/issue10414
+    app.run(host='0.0.0.0', port=p, debug=True, threaded=True)

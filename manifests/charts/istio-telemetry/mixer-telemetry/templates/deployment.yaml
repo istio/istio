@@ -230,8 +230,6 @@ spec:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        - name: "ISTIO_META_USER_SDS"
-          value: "true"
         - name: CA_ADDR
       {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,16 +26,16 @@ import (
 	"istio.io/istio/operator/pkg/util"
 )
 
-// IstioOperator is an installation of an Istio control plane.
-type IstioOperator struct {
+// IstioControlPlane is an installation of an Istio control plane.
+type IstioControlPlane struct {
 	// components is a slice of components that are part of the feature.
 	components []component.IstioComponent
 	started    bool
 }
 
-// NewIstioOperator creates a new IstioOperator and returns a pointer to it.
-func NewIstioOperator(installSpec *v1alpha1.IstioOperatorSpec, translator *translate.Translator) (*IstioOperator, error) {
-	out := &IstioOperator{}
+// NewIstioControlPlane creates a new IstioControlPlane and returns a pointer to it.
+func NewIstioControlPlane(installSpec *v1alpha1.IstioOperatorSpec, translator *translate.Translator) (*IstioControlPlane, error) {
+	out := &IstioControlPlane{}
 	opts := &component.Options{
 		InstallSpec: installSpec,
 		Translator:  translator,
@@ -94,7 +94,7 @@ func defaultIfEmpty(val, dflt string) string {
 }
 
 // Run starts the Istio control plane.
-func (i *IstioOperator) Run() error {
+func (i *IstioControlPlane) Run() error {
 	for _, c := range i.components {
 		if err := c.Run(); err != nil {
 			return err
@@ -105,7 +105,7 @@ func (i *IstioOperator) Run() error {
 }
 
 // RenderManifest returns a manifest rendered against
-func (i *IstioOperator) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
+func (i *IstioControlPlane) RenderManifest() (manifests name.ManifestMap, errsOut util.Errors) {
 	if !i.started {
 		return nil, util.NewErrs(fmt.Errorf("istioControlPlane must be Run before calling RenderManifest"))
 	}
@@ -120,4 +120,29 @@ func (i *IstioOperator) RenderManifest() (manifests name.ManifestMap, errsOut ut
 		return nil, errsOut
 	}
 	return
+}
+
+// componentsEqual reports whether the given components are equal to those in i.
+func (i *IstioControlPlane) componentsEqual(components []component.IstioComponent) bool {
+	if i.components == nil && components == nil {
+		return true
+	}
+	if len(i.components) != len(components) {
+		return false
+	}
+	for c := 0; c < len(i.components); c++ {
+		if i.components[c].ComponentName() != components[c].ComponentName() {
+			return false
+		}
+		if i.components[c].Namespace() != components[c].Namespace() {
+			return false
+		}
+		if i.components[c].Enabled() != components[c].Enabled() {
+			return false
+		}
+		if i.components[c].ResourceName() != components[c].ResourceName() {
+			return false
+		}
+	}
+	return true
 }

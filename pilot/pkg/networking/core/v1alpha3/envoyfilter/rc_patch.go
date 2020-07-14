@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,21 +18,21 @@ import (
 	"strconv"
 	"strings"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	"github.com/gogo/protobuf/proto"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/pkg/log"
 )
 
 func ApplyRouteConfigurationPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	push *model.PushContext,
-	routeConfiguration *xdsapi.RouteConfiguration) (out *xdsapi.RouteConfiguration) {
+	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(func() {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
@@ -63,7 +63,7 @@ func ApplyRouteConfigurationPatches(
 
 func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *xdsapi.RouteConfiguration) {
+	routeConfiguration *route.RouteConfiguration) {
 
 	virtualHostsRemoved := false
 	// first do removes/merges
@@ -96,7 +96,7 @@ func doVirtualHostListOperation(patchContext networking.EnvoyFilter_PatchContext
 
 func doVirtualHostOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, virtualHostRemoved *bool) {
 
 	for _, cp := range patches[networking.EnvoyFilter_VIRTUAL_HOST] {
 		if commonConditionMatch(patchContext, cp) &&
@@ -118,7 +118,7 @@ func doVirtualHostOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost) {
 
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
@@ -152,7 +152,7 @@ func doHTTPRouteListOperation(patchContext networking.EnvoyFilter_PatchContext,
 
 func doHTTPRouteOperation(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
-	routeConfiguration *xdsapi.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
+	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool) {
 	for _, cp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		if commonConditionMatch(patchContext, cp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, cp) &&
@@ -172,7 +172,7 @@ func doHTTPRouteOperation(patchContext networking.EnvoyFilter_PatchContext,
 	}
 }
 
-func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, rc *xdsapi.RouteConfiguration,
+func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, rc *route.RouteConfiguration,
 	cp *model.EnvoyFilterConfigPatchWrapper) bool {
 	cMatch := cp.Match.GetRouteConfiguration()
 	if cMatch == nil {

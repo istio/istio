@@ -44,7 +44,7 @@ static_resources:
                 api_type: GRPC
                 grpc_services:
                 - envoy_grpc:
-                    cluster_name: sds-grpc        
+                    cluster_name: sds-grpc
   - name: sds-grpc
     type: STATIC
     http2_protocol_options: {}
@@ -110,5 +110,15 @@ static_resources:
                   grpc_services:
                     - envoy_grpc:
                         cluster_name: "sds-grpc"
-                  refresh_delay: 60s            
+                  refresh_delay: 60s
+          combined_validation_context:
+            default_validation_context: {}
+            validation_context_sds_secret_config:
+              name: ROOTCA
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                  - envoy_grpc:
+                      cluster_name: sds-grpc
           

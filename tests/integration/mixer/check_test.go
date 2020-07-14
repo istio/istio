@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -19,10 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/mixer"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/policybackend"
@@ -32,12 +29,8 @@ import (
 func TestCheck_Allow(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			gal := galley.NewOrFail(t, ctx, galley.Config{})
-			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
-				Galley: gal,
-			})
+			mxr := mixer.NewOrFail(t, ctx, mixer.Config{})
 			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -45,9 +38,9 @@ func TestCheck_Allow(t *testing.T) {
 				Inject: true,
 			})
 
-			gal.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
-				ns,
+				ns.Name(),
 				testCheckConfig,
 				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 
@@ -79,21 +72,17 @@ func TestCheck_Allow(t *testing.T) {
 func TestCheck_Deny(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			gal := galley.NewOrFail(t, ctx, galley.Config{})
-			mxr := mixer.NewOrFail(t, ctx, mixer.Config{
-				Galley: gal,
-			})
+			mxr := mixer.NewOrFail(t, ctx, mixer.Config{})
 			be := policybackend.NewOrFail(t, ctx, policybackend.Config{})
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "testcheck-deny",
 			})
 
-			gal.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
-				ns,
+				ns.Name(),
 				testCheckConfig,
 				be.CreateConfigSnippet("handler1", ns.Name(), policybackend.InProcess))
 

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/types"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	tpb "istio.io/api/mixer/adapter/model/v1beta1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -561,7 +563,7 @@ func buildTableWithTemplatesAndAdapters(templates map[string]*template.Info, ada
 	globalConfig := data.JoinConfigs(globalConfigs...)
 
 	s, _ := config.GetSnapshotForTest(templates, adapters, serviceConfig, globalConfig)
-	ht := handler.NewTable(handler.Empty(), s, nil)
+	ht := handler.NewTable(handler.Empty(), s, nil, []string{metav1.NamespaceAll})
 
 	return BuildTable(ht, s, "istio-system", debugInfo), s
 }

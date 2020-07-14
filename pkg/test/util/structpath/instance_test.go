@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ package structpath_test
 import (
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pkg/test/util/structpath"
 )
 
 func TestContainSubstring(t *testing.T) {
-	testResponse := &xdsapi.DiscoveryResponse{
+	testResponse := &discovery.DiscoveryResponse{
 		VersionInfo: "2019-07-16T10:54:41-07:00/1",
 		TypeUrl:     "some.Random.Type.URL",
 	}

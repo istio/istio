@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package bootstrap
 
 import (
-	"path/filepath"
 	"strings"
 
 	"k8s.io/client-go/dynamic"
@@ -23,9 +22,7 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
@@ -46,17 +43,13 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	if s.kubeClient == nil {
 		return nil
 	}
-	if features.IstiodService.Get() == "" {
-		return nil
-	}
 
+	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
 		MixerValidator: validate.NewDefaultValidator(false),
 		Schemas:        collections.Istio,
-		DomainSuffix:   args.Config.ControllerOptions.DomainSuffix,
-		CertFile:       filepath.Join(dnsCertDir, "cert-chain.pem"),
-		KeyFile:        filepath.Join(dnsCertDir, "key.pem"),
+		DomainSuffix:   args.RegistryOptions.KubeOptions.DomainSuffix,
 		Mux:            s.httpsMux,
 	}
 	whServer, err := server.New(params)
@@ -70,35 +63,22 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	})
 
 	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
-		var dynamicInterface dynamic.Interface
-		if s.kubeClient == nil || s.kubeConfig == nil {
-			iface, err := kube.NewInterfacesFromConfigFile(args.Config.KubeConfig)
-			if err != nil {
-				return err
-			}
-			client, err := iface.KubeClient()
-			if err != nil {
-				return err
-			}
-			s.kubeClient = client
-			dynamicInterface, err = iface.DynamicInterface()
-			if err != nil {
-				return err
-			}
-		} else {
-			dynamicInterface, err = dynamic.NewForConfig(s.kubeConfig)
-			if err != nil {
-				return err
-			}
+		dynamicInterface, err := dynamic.NewForConfig(s.kubeRestConfig)
+		if err != nil {
+			return err
 		}
 
 		if webhookConfigName == validationWebhookConfigNameTemplate {
 			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
 		}
 
+		caBundlePath := s.caBundlePath
+		if hasCustomTLSCerts(args.ServerOptions.TLSOptions) {
+			caBundlePath = args.ServerOptions.TLSOptions.CaCertFile
+		}
 		o := controller.Options{
 			WatchedNamespace:  args.Namespace,
-			CAPath:            s.caBundlePath,
+			CAPath:            caBundlePath,
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}

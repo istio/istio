@@ -1,7 +1,0 @@
-apiVersion: "authentication.istio.io/v1alpha1"
-kind: "Policy"
-metadata:
-  name: invalid-authentication-policy
-spec:
-  targets:
-  - name: "bad.target"

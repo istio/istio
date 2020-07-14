@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,7 +77,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Namespace:           ns,
 			Ports:               ports,
 			Subsets:             []echo.SubsetConfig{{}},
-			Galley:              g,
 			Pilot:               p,
 			IncludeInboundPorts: "*",
 		}).
@@ -86,7 +85,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Namespace:           ns,
 			Subsets:             []echo.SubsetConfig{{}},
 			Ports:               ports,
-			Galley:              g,
 			Pilot:               p,
 			IncludeInboundPorts: "*",
 		}).
@@ -96,7 +94,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 				Namespace: ns,
 				Subsets:   []echo.SubsetConfig{{}},
 				Ports:     ports,
-				Galley:    g,
 				Pilot:     p,
 			}).
 		With(&inoutUnitedApp1, echo.Config{
@@ -104,7 +101,6 @@ func doTest(t *testing.T, ctx framework.TestContext) {
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports:     ports,
-			Galley:    g,
 			Pilot:     p,
 		}).
 		BuildOrFail(ctx)

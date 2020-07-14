@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,28 +18,21 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestKubeInject(t *testing.T) {
-	mesh.TestMode = true
 	cases := []testCase{
 		{ // case 0
-			configs:        []model.Config{},
 			args:           strings.Split("kube-inject", " "),
 			expectedRegexp: regexp.MustCompile(`filename not specified \(see --filename or -f\)`),
 			wantException:  true,
 		},
 		{ // case 1
-			configs:        []model.Config{},
 			args:           strings.Split("kube-inject -f missing.yaml", " "),
 			expectedRegexp: regexp.MustCompile(`open missing.yaml: no such file or directory`),
 			wantException:  true,
 		},
 		{ // case 2
-			configs: []model.Config{},
 			args: strings.Split(
 				"kube-inject --meshConfigFile testdata/mesh-config.yaml"+
 					" --injectConfigFile testdata/inject-config.yaml -f testdata/deployment/hello.yaml"+
