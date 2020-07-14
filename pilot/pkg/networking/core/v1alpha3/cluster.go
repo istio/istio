@@ -936,7 +936,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 	c := opts.cluster
 	proxy := opts.proxy
 
-	tlsContext := &auth.UpstreamTlsContext{}
+	var tlsContext *auth.UpstreamTlsContext
 
 	switch tls.Mode {
 	case networking.ClientTLSSettings_DISABLE:

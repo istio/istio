@@ -22,6 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -2485,6 +2488,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -2507,6 +2511,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -2605,6 +2610,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -2669,6 +2675,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -2735,6 +2742,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3020,6 +3028,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -3085,6 +3094,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -3107,6 +3117,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3420,12 +3431,14 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node, tc.certValidationContext)
-		if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
-			t.Errorf("test case %s: expecting:\n err=%v but got err=%v", tc.name, tc.result.err, err)
-		} else if !reflect.DeepEqual(tc.result.tlsContext, ret) {
-			t.Errorf("test case %s: expecting:\n %v but got:\n %v", tc.name, tc.result.tlsContext, ret)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node, tc.certValidationContext)
+			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
+				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
+			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
+				t.Errorf("got diff: `%v", diff)
+			}
+		})
 	}
 }
 
