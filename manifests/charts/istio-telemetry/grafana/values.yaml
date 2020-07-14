@@ -3,7 +3,7 @@ grafana:
   replicaCount: 1
   image:
     repository: grafana/grafana
-    tag: 7.0.3
+    tag: 7.0.5
   persist: false
   storageClassName: ""
   accessMode: ReadWriteMany

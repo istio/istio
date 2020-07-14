@@ -93,6 +93,8 @@ export TEST_ENV=kind
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
 
+# We run a local-registry in a docker container that KinD nodes pull from
+# These values are must match what is in config/trustworthy-jwt.yaml
 export KIND_REGISTRY_NAME="kind-registry"
 export KIND_REGISTRY_PORT="5000"
 export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"

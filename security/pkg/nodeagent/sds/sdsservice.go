@@ -31,6 +31,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/util"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -42,7 +43,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/pkg/log"
 )
 
@@ -91,7 +91,7 @@ type sdsConnection struct {
 	stream xds.DiscoveryStream
 
 	// The secret associated with the proxy.
-	secret *model.SecretItem
+	secret *security.SecretItem
 
 	// Mutex to protect read/write to this connection
 	// TODO(JimmyCYJ): Move all read/write into member function with lock protection to avoid race condition.
@@ -114,7 +114,7 @@ type sdsConnection struct {
 }
 
 type sdsservice struct {
-	st cache.SecretManager
+	st security.SecretManager
 
 	ticker         *time.Ticker
 	tickerInterval time.Duration
@@ -153,8 +153,9 @@ type Debug struct {
 }
 
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
-func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT, fileMountedCertsOnly bool,
-	recycleInterval time.Duration, jwtPath, outputKeyCertToDir string) *sdsservice {
+func newSDSService(st security.SecretManager,
+	secOpt *security.Options,
+	skipTokenVerification bool) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -162,12 +163,12 @@ func newSDSService(st cache.SecretManager, skipTokenVerification, localJWT, file
 	ret := &sdsservice{
 		st:                   st,
 		skipToken:            skipTokenVerification,
-		fileMountedCertsOnly: fileMountedCertsOnly,
-		tickerInterval:       recycleInterval,
+		fileMountedCertsOnly: secOpt.FileMountedCerts,
+		tickerInterval:       secOpt.RecycleInterval,
 		closing:              make(chan bool),
-		localJWT:             localJWT,
-		jwtPath:              jwtPath,
-		outputKeyCertToDir:   outputKeyCertToDir,
+		localJWT:             secOpt.UseLocalJWT,
+		jwtPath:              secOpt.JWTPath,
+		outputKeyCertToDir:   secOpt.OutputKeyCertToDir,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -326,19 +327,19 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
 				discReq.ErrorDetail)
 
-			// In ingress gateway agent mode, if the first SDS request is received but Ingress gateway secret which is
+			// In gateway agent mode, if the first SDS request is received but gateway secret which is
 			// provisioned as kubernetes secret is not ready, wait for secret before sending SDS response.
 			// If a kubernetes secret was deleted by operator, wait for a new kubernetes secret before sending SDS response.
 			// If workload uses file mounted certs i.e. "FILE_MOUNTED_CERTS" is set to true, workdload loads certificates from
-			// mounted certificate paths and it does not depend on the presence of ingress gateway secret so
+			// mounted certificate paths and it does not depend on the presence of gateway secret so
 			// we should skip waiting for it in that mode.
 			// File mounted certs for gateways is used in scenarios where an existing PKI infrastuctures delivers certificates
 			// to pods/VMs via files.
-			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
-				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
+			if s.st.ShouldWaitForGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
+				sdsServiceLog.Warnf("%s waiting for gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
 				continue
 			} else {
-				sdsServiceLog.Infof("Skipping waiting for ingress gateway secret")
+				sdsServiceLog.Infof("Skipping waiting for gateway secret")
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
@@ -472,7 +473,7 @@ func clearStaledClients() {
 
 // NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
-func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
+func NotifyProxy(connKey cache.ConnKey, secret *security.SecretItem) error {
 	conIDresourceNamePrefix := sdsLogPrefix(connKey.ResourceName)
 	sdsClientsMutex.Lock()
 	conn := sdsClients[connKey]
@@ -621,7 +622,7 @@ func pushSDS(con *sdsConnection) error {
 	return nil
 }
 
-func sdsDiscoveryResponse(s *model.SecretItem, resourceName, typeURL string) (*discovery.DiscoveryResponse, error) {
+func sdsDiscoveryResponse(s *security.SecretItem, resourceName, typeURL string) (*discovery.DiscoveryResponse, error) {
 	resp := &discovery.DiscoveryResponse{
 		TypeUrl: typeURL,
 	}

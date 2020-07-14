@@ -26,6 +26,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	coreV1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -44,6 +45,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -1219,7 +1221,12 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 		}},
 	}
 	if _, err := controller.client.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metaV1.CreateOptions{}); err != nil {
-		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
+		if errors.IsAlreadyExists(err) {
+			_, err = controller.client.CoreV1().Endpoints(namespace).Update(context.TODO(), endpoint, metaV1.UpdateOptions{})
+		}
+		if err != nil {
+			t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
+		}
 	}
 
 	// Create endpoint slice as well
@@ -1240,12 +1247,22 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 		Endpoints: []discoveryv1alpha1.Endpoint{
 			{
 				Addresses: ips,
+				TargetRef: &coreV1.ObjectReference{
+					Kind:      "Pod",
+					Name:      name,
+					Namespace: namespace,
+				},
 			},
 		},
 		Ports: esps,
 	}
 	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metaV1.CreateOptions{}); err != nil {
-		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
+		if errors.IsAlreadyExists(err) {
+			_, err = controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{})
+		}
+		if err != nil {
+			t.Fatalf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
+		}
 	}
 }
 
@@ -1583,58 +1600,123 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			controller, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: mode})
 			// Setup kube caches
 			defer controller.Stop()
-			pod1 := generatePod("172.0.1.1", "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
-			pod2 := generatePod("172.0.1.2", "pod2", "nsA", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
-
-			pods := []*coreV1.Pod{pod1, pod2}
-			nodes := []*coreV1.Node{
-				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}),
-				generateNode("node2", map[string]string{NodeZoneLabel: "zone2", NodeRegionLabel: "region2", IstioSubzoneLabel: "subzone2"}),
-			}
-			addNodes(t, controller, nodes...)
-			addPods(t, controller, pods...)
-			for _, pod := range pods {
+			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}))
+			// Setup help functions to make the test more explicit
+			addPod := func(name, ip string) {
+				pod := generatePod(ip, name, "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+				addPods(t, controller, pod)
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
 				}
 				// pod first time occur will trigger proxy push
 				if ev := fx.Wait("proxy"); ev == nil {
-					t.Fatal("Timeout creating service")
+					t.Fatal("Timeout creating pod")
 				}
 			}
-			// create service
-			createService(controller, "pod1", "nsA", nil,
-				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-			if ev := fx.Wait("service"); ev == nil {
-				t.Fatal("Timeout creating service")
+			deletePod := func(name, ip string) {
+				if err := controller.client.CoreV1().Pods("nsA").Delete(context.TODO(), name, metaV1.DeleteOptions{}); err != nil {
+					t.Fatal(err)
+				}
+				retry.UntilSuccessOrFail(t, func() error {
+					controller.pods.RLock()
+					defer controller.pods.RUnlock()
+					if _, ok := controller.pods.podsByIP[ip]; ok {
+						return fmt.Errorf("pod still present")
+					}
+					return nil
+				}, retry.Timeout(time.Second))
+			}
+			addService := func(name string) {
+				// create service
+				createService(controller, name, "nsA", nil,
+					[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+				if ev := fx.Wait("service"); ev == nil {
+					t.Fatal("Timeout creating service")
+				}
+
+			}
+			addEndpoint := func(svcName string, ips ...string) {
+				createEndpoints(controller, svcName, "nsA", []string{"tcp-port"}, ips, t)
+			}
+			assertEndpointsEvent := func(expected ...string) {
+				t.Helper()
+				ev := fx.Wait("eds")
+				if ev == nil {
+					t.Fatalf("Timeout incremental eds")
+				}
+				ips := []string{}
+				for _, e := range ev.Endpoints {
+					ips = append(ips, e.Address)
+				}
+				if !reflect.DeepEqual(expected, ips) {
+					t.Fatalf("expected ips %v, got %v", expected, ips)
+				}
+			}
+			assertPendingResync := func(expected int) {
+				t.Helper()
+				retry.UntilSuccessOrFail(t, func() error {
+					controller.pods.RLock()
+					defer controller.pods.RUnlock()
+					if len(controller.pods.needResync) != expected {
+						return fmt.Errorf("expected %d pods needing resync, got %d", expected, len(controller.pods.needResync))
+					}
+					return nil
+				}, retry.Timeout(time.Second))
 			}
 
-			// Create Endpoints for pod1 and validate that EDS is triggered.
-			pod1Ips := []string{"172.0.1.1"}
-			portNames := []string{"tcp-port"}
-			createEndpoints(controller, "pod1", "nsA", portNames, pod1Ips, t)
-			if ev := fx.Wait("eds"); ev == nil {
-				t.Fatalf("Timeout incremental eds")
+			// standard ordering
+			addService("svc")
+			addPod("pod1", "172.0.1.1")
+			addEndpoint("svc", "172.0.1.1")
+			assertEndpointsEvent("172.0.1.1")
+			fx.Clear()
+
+			// Create the endpoint, then later add the pod. Should eventually get an update for the endpoint
+			addEndpoint("svc", "172.0.1.1", "172.0.1.2")
+			assertEndpointsEvent("172.0.1.1")
+			fx.Clear()
+			addPod("pod2", "172.0.1.2")
+			assertEndpointsEvent("172.0.1.1", "172.0.1.2")
+
+			// Delete a pod before the endpoint
+			addEndpoint("svc", "172.0.1.1")
+			deletePod("pod2", "172.0.1.2")
+			assertEndpointsEvent("172.0.1.1")
+			fx.Clear()
+
+			// add another service
+			addService("other")
+			// Add endpoints for the new service, and the old one. Both should be missing the last IP
+			addEndpoint("other", "172.0.1.1", "172.0.1.2")
+			addEndpoint("svc", "172.0.1.1", "172.0.1.2")
+			assertEndpointsEvent("172.0.1.1")
+			assertEndpointsEvent("172.0.1.1")
+			fx.Clear()
+			// Add the pod, expect the endpoints update for both
+			addPod("pod2", "172.0.1.2")
+			assertEndpointsEvent("172.0.1.1", "172.0.1.2")
+			assertEndpointsEvent("172.0.1.1", "172.0.1.2")
+
+			// Check for memory leaks
+			assertPendingResync(0)
+			addEndpoint("svc", "172.0.1.1", "172.0.1.2", "172.0.1.3")
+			// This is really an implementation detail here - but checking to sanity check our test
+			assertPendingResync(1)
+			// Remove the endpoint again, with no pod events in between. Should have no memory leaks
+			addEndpoint("svc", "172.0.1.1", "172.0.1.2")
+			// TODO this case would leak
+			//assertPendingResync(0)
+
+			// completely remove the endpoint
+			addEndpoint("svc", "172.0.1.1", "172.0.1.2", "172.0.1.3")
+			assertPendingResync(1)
+			if err := controller.client.CoreV1().Endpoints("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
+				t.Fatal(err)
 			}
-
-			// Now delete pod2, from PodCache and send Endpoints. This simulates the case that endpoint comes
-			// when PodCache does not yet have entry for the pod.
-			_ = controller.pods.onEvent(pod2, model.EventDelete)
-
-			// create service
-			createService(controller, "pod2", "nsA", nil,
-				[]int32{8080}, map[string]string{"app": "prod-app"}, t)
-			if ev := fx.Wait("service"); ev == nil {
-				t.Fatal("Timeout creating service")
+			if err := controller.client.DiscoveryV1alpha1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
+				t.Fatal(err)
 			}
-
-			pod2Ips := []string{"172.0.1.2"}
-			createEndpoints(controller, "pod2", "nsA", portNames, pod2Ips, t)
-
-			// Validate that EDS is triggered with endpoints.
-			if ev := fx.Wait("eds"); ev == nil {
-				t.Fatalf("Timeout incremental eds")
-			}
+			assertPendingResync(0)
 		})
 	}
 }

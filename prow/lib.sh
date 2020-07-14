@@ -79,7 +79,7 @@ function build_images() {
   targets+="docker.app docker.app_sidecar_ubuntu_bionic docker.test_policybackend "
   if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
     targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
-    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 "
+    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 "
   fi
   targets+="docker.mixer "
   targets+="docker.operator "
@@ -150,20 +150,13 @@ function setup_kind_cluster() {
       CONFIG=./prow/config/trustworthy-jwt.yaml
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
+      grep 'ipFamily: ipv6' "${CONFIG}" || \
       cat <<EOF >> "${CONFIG}"
 networking:
   ipFamily: ipv6
 EOF
     fi
   fi
-
-  # Make kind nodes pull images using the in-container address and port for images in localhost:$KIND_REGISTRY_PORT/*
-  cat <<EOF >> "${CONFIG}"
-containerdConfigPatches:
-  - |-
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
-        endpoint = ["http://${KIND_REGISTRY_NAME}:5000"]
-EOF
 
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
@@ -196,13 +189,14 @@ function setup_kind_clusters() {
     CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$IDX]}"
     CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
-    cat <<EOF > "${CLUSTER_YAML}"
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
+    if [ ! -f "${CLUSTER_YAML}" ]; then
+      cp ./prow/config/trustworthy-jwt.yaml "${CLUSTER_YAML}"
+      cat <<EOF >> "${CLUSTER_YAML}"
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
+    fi
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 

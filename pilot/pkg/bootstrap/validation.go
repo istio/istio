@@ -17,8 +17,6 @@ package bootstrap
 import (
 	"strings"
 
-	"k8s.io/client-go/dynamic"
-
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
@@ -62,12 +60,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	})
 
-	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
-		dynamicInterface, err := dynamic.NewForConfig(s.kubeRestConfig)
-		if err != nil {
-			return err
-		}
-
+	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" && s.kubeClient != nil {
 		if webhookConfigName == validationWebhookConfigNameTemplate {
 			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
 		}
@@ -82,16 +75,23 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}
-		whController, err := controller.New(o, s.kubeClient, dynamicInterface)
-		if err != nil {
-			return err
-		}
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					whController, err := controller.New(o, s.kubeClient)
+					if err != nil {
+						log.Errorf("failed to start validation controller")
+						return
+					}
 					log.Infof("Starting validation controller")
-					whController.Start(stop)
+					// Start informers again. This fixes the case where informers for namespace do not start,
+					// as we create them only after acquiring the leader lock
+					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
+					// basically lazy loading the informer, if we stop it when we lose the lock we will never
+					// recreate it again.
+					s.kubeClient.RunAndWait(stop)
+					whController.Start(leaderStop)
 				}).
 				Run(stop)
 			return nil

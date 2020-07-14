@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -103,6 +104,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -125,6 +127,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -191,6 +194,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -198,7 +202,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.IngressGatewaySdsUdsPath,
+														TargetUri:  model.GatewaySdsUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -232,6 +236,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -239,7 +244,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.IngressGatewaySdsUdsPath,
+														TargetUri:  model.GatewaySdsUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -342,6 +347,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -349,7 +355,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.IngressGatewaySdsUdsPath,
+														TargetUri:  model.GatewaySdsUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -369,6 +375,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -376,7 +383,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.IngressGatewaySdsUdsPath,
+															TargetUri:  model.GatewaySdsUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -411,6 +418,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -418,7 +426,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.IngressGatewaySdsUdsPath,
+														TargetUri:  model.GatewaySdsUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -438,6 +446,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -445,7 +454,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.IngressGatewaySdsUdsPath,
+															TargetUri:  model.GatewaySdsUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -480,6 +489,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "ingress-sds-resource-name",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: features.InitialFetchTimeout,
+								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -487,7 +497,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.IngressGatewaySdsUdsPath,
+														TargetUri:  model.GatewaySdsUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -507,6 +517,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ingress-sds-resource-name-cacert",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: features.InitialFetchTimeout,
+									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
@@ -514,7 +525,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.IngressGatewaySdsUdsPath,
+															TargetUri:  model.GatewaySdsUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -545,7 +556,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true})
+		ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true}, v3.ListenerType)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting:\n %v but got:\n %v", tc.name, tc.result, ret)
 		}
@@ -885,10 +896,83 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "HTTPS Protocol with server name",
+			node: &pilot_model.Proxy{Metadata: &pilot_model.NodeMetadata{}},
+			server: &networking.Server{
+				Name: "server1",
+				Port: &networking.Port{
+					Protocol: "HTTPS",
+				},
+				Hosts: []string{"example.org"},
+				Tls: &networking.ServerTLSSettings{
+					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+			routeName: "some-route",
+			proxyConfig: &meshconfig.ProxyConfig{
+				GatewayTopology: &meshconfig.Topology{
+					NumTrustedProxies:        3,
+					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+				},
+			},
+			result: &filterChainOpts{
+				sniHosts: []string{"example.org"},
+				tlsContext: &auth.DownstreamTlsContext{
+					RequireClientCertificate: proto.BoolTrue,
+					CommonTlsContext: &auth.CommonTlsContext{
+						TlsCertificates: []*auth.TlsCertificate{
+							{
+								CertificateChain: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/cert-chain.pem",
+									},
+								},
+								PrivateKey: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/key.pem",
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+							ValidationContext: &auth.CertificateValidationContext{
+								TrustedCa: &core.DataSource{
+									Specifier: &core.DataSource_Filename{
+										Filename: "/etc/certs/root-cert.pem",
+									},
+								},
+							},
+						},
+						AlpnProtocols: []string{"h2", "http/1.1"},
+					},
+				},
+				httpOpts: &httpListenerOpts{
+					rds:              "some-route",
+					useRemoteAddress: true,
+					connectionManager: &hcm.HttpConnectionManager{
+						XffNumTrustedHops:        3,
+						ForwardClientCertDetails: hcm.HttpConnectionManager_FORWARD_ONLY,
+						SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+							Subject: proto.BoolTrue,
+							Cert:    true,
+							Uri:     true,
+							Dns:     true,
+						},
+						ServerName:          EnvoyServerName,
+						HttpProtocolOptions: &core.Http1ProtocolOptions{},
+					},
+					statPrefix: "server1",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		cgi := NewConfigGenerator([]plugin.Plugin{})
+		tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
+			tc.server: pilot_model.GetSNIHostsForServer(tc.server),
+		}}
 		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "", tc.proxyConfig)
 		if !reflect.DeepEqual(tc.result, ret) {
 			t.Errorf("test case %s: expecting %+v but got %+v", tc.name, tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
@@ -1157,7 +1241,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
-		builder := configgen.buildGatewayListeners(&proxyGateway, env.PushContext, &ListenerBuilder{})
+		builder := configgen.buildGatewayListeners(&ListenerBuilder{node: &proxyGateway, push: env.PushContext})
 		var listeners []string
 		for _, l := range builder.gatewayListeners {
 			if err := l.Validate(); err != nil {

@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -303,8 +302,6 @@ func RunExternalRequest(cases []*TestCase, prometheus prometheus.Instance, mode 
 }
 
 func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Instance, echo.Instance) {
-	p := pilot.NewOrFail(t, ctx, pilot.Config{})
-
 	appsNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",
 		Inject: true,
@@ -320,13 +317,11 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 			Service:   "client",
 			Namespace: appsNamespace,
 			Subsets:   []echo.SubsetConfig{{}},
-			Pilot:     p,
 		}).
 		With(&dest, echo.Config{
 			Service:   "destination",
 			Namespace: appsNamespace,
 			Subsets:   []echo.SubsetConfig{{Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false)}},
-			Pilot:     p,
 			Ports: []echo.Port{
 				{
 					// Plain HTTP port, will match no listeners and fall through

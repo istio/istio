@@ -442,7 +442,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(push, builder)
 	case model.Router:
-		builder = configgen.buildGatewayListeners(node, push, builder)
+		builder = configgen.buildGatewayListeners(builder)
 	}
 
 	builder.patchListeners()
@@ -737,7 +737,7 @@ allChainsLabel:
 		allChains = append(allChains, allChains...)
 		if tlsInspectorEnabled {
 			allChains = append(allChains, istionetworking.FilterChain{})
-			if util.IsTCPMetadataExchangeEnabled(node) {
+			if features.EnableTCPMetadataExchange {
 				filterChainMatchOption = inboundPermissiveFilterChainMatchWithMxcOptions
 			} else {
 				filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
@@ -2294,7 +2294,10 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			// Add the TCP filters first.. and then the HTTP connection manager
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
-			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
+			// If statPrefix has been set before calling this method, respect that.
+			if len(opt.httpOpts.statPrefix) == 0 {
+				opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
+			}
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,

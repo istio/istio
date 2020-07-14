@@ -265,6 +265,12 @@ func IsIstioVersionGE15(node *model.Proxy) bool {
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
 }
 
+// IsIstioVersionGE17 checks whether the given Istio version is greater than or equals 1.7.
+func IsIstioVersionGE17(node *model.Proxy) bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 7, Patch: -1}) >= 0
+}
+
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
 }
@@ -275,11 +281,6 @@ func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
 
 func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
-// IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
-func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.

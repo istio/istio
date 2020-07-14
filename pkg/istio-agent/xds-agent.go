@@ -26,8 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	envoyv2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-
-	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/istio/pkg/security"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
@@ -90,7 +89,7 @@ func (sa *Agent) initXDS() {
 	g[v3.ClusterType] = p
 
 	// GrpcServer server over UDS, shared by SDS and XDS
-	serverOptions.GrpcServer = grpc.NewServer()
+	sa.secOpts.GrpcServer = grpc.NewServer()
 
 	var err error
 	sa.localListener, err = net.Listen("tcp", sa.cfg.LocalXDSAddr)
@@ -108,7 +107,7 @@ func (sa *Agent) initXDS() {
 // If 'RequireCerts' is set, will attempt to get certificates. Will then attempt to connect to
 // the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the
 // local XDS proxy and return.
-func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.SecretManager) error {
+func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager) error {
 	if sa.cfg.LocalXDSAddr == "" {
 		return nil
 	}
@@ -128,7 +127,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 	}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
-		cfg.JWTPath = sa.cfg.JWTPath
+		cfg.JWTPath = sa.secOpts.JWTPath
 	}
 	ads, err := adsc.New(proxyConfig, cfg)
 	if err != nil {
