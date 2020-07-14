@@ -310,7 +310,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	subsetLabels := push.SubsetToLabels(proxy, subsetName, hostname)
 
 	push.Mutex.Lock()
-	svc := proxy.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+	svc := proxy.SidecarScope.ServiceForHostname(hostname)
 	push.Mutex.Unlock()
 	if svc == nil {
 		// Shouldn't happen here
@@ -472,21 +472,12 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
 // which is needed to access the traffic policy from the destination rule.
-func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name, clusterPort int) (*networkingapi.DestinationRule, *model.Port) {
-	for _, service := range push.Services(proxy) {
-		if service.Hostname == hostname {
-			cfg := push.DestinationRule(proxy, service)
-			if cfg == nil {
-				continue
-			}
-			for _, p := range service.Ports {
-				if p.Port == clusterPort {
-					return cfg.Spec.(*networkingapi.DestinationRule), p
-				}
-			}
-		}
+func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name) *networkingapi.DestinationRule {
+	cfg := push.DestinationRule(proxy, proxy.SidecarScope.ServiceForHostname(hostname))
+	if cfg != nil {
+		return cfg.Spec.(*networkingapi.DestinationRule)
 	}
-	return nil, nil
+	return nil
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
@@ -494,11 +485,11 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
 
-	destinationRule, port := getDestinationRule(push, proxy, hostname, portNumber)
-	if destinationRule == nil || port == nil {
+	destinationRule := getDestinationRule(push, proxy, hostname)
+	if destinationRule == nil {
 		return false, nil
 	}
-
+	port := &model.Port{Port: portNumber}
 	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
 	lbSettings = loadBalancerSettings
 	if outlierDetection != nil {

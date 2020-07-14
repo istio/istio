@@ -475,6 +475,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 		push := &model.PushContext{
 			ServiceByHostnameAndNamespace: c.serviceByHostnameAndNamespace,
 		}
+		c.node.SetSidecarScope(c.push)
 		in := plugin.InputParams{
 			Push: c.push,
 			Node: c.node,
