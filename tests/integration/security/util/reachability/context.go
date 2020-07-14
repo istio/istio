@@ -61,14 +61,15 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx          framework.TestContext
-	g            galley.Instance
-	p            pilot.Instance
-	Namespace    namespace.Instance
-	A, B         echo.Instance
-	Multiversion echo.Instance
-	Headless     echo.Instance
-	Naked        echo.Instance
+	ctx           framework.TestContext
+	g             galley.Instance
+	p             pilot.Instance
+	Namespace     namespace.Instance
+	A, B          echo.Instance
+	Multiversion  echo.Instance
+	Headless      echo.Instance
+	Naked         echo.Instance
+	HeadlessNaked echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
@@ -78,7 +79,7 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 		Inject: true,
 	})
 
-	var a, b, multiVersion, headless, naked echo.Instance
+	var a, b, multiVersion, headless, naked, headlessNaked echo.Instance
 	cfg := util.EchoConfig("multiversion", ns, false, nil, g, p)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
@@ -98,18 +99,21 @@ func CreateContext(ctx framework.TestContext, g galley.Instance, p pilot.Instanc
 		With(&headless, util.EchoConfig("headless", ns, true, nil, g, p)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
 			SetBool(echo.SidecarInject, false), g, p)).
+		With(&headlessNaked, util.EchoConfig("headless-naked", ns, true, echo.NewAnnotations().
+			SetBool(echo.SidecarInject, false), g, p)).
 		BuildOrFail(ctx)
 
 	return Context{
-		ctx:          ctx,
-		g:            g,
-		p:            p,
-		Namespace:    ns,
-		A:            a,
-		B:            b,
-		Multiversion: multiVersion,
-		Headless:     headless,
-		Naked:        naked,
+		ctx:           ctx,
+		g:             g,
+		p:             p,
+		Namespace:     ns,
+		A:             a,
+		B:             b,
+		Multiversion:  multiVersion,
+		Headless:      headless,
+		Naked:         naked,
+		HeadlessNaked: headlessNaked,
 	}
 }
 
@@ -162,8 +166,8 @@ func (rc *Context) Run(testCases []TestCase) {
 			time.Sleep(10 * time.Second)
 			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 
-			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked} {
+			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked, rc.HeadlessNaked} {
+				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.HeadlessNaked} {
 					copts := &callOptions
 					// If test case specified service call options, use that instead.
 					if c.CallOpts != nil {
@@ -208,4 +212,12 @@ func (rc *Context) Run(testCases []TestCase) {
 			}
 		})
 	}
+}
+
+func (rc *Context) IsNaked(i echo.Instance) bool {
+	return i == rc.HeadlessNaked || i == rc.Naked
+}
+
+func (rc *Context) IsHeadless(i echo.Instance) bool {
+	return i == rc.HeadlessNaked || i == rc.Headless
 }
