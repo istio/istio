@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -31,7 +30,7 @@ import (
 const mcReachabilitySvcPerCluster = 3
 
 // ReachabilityTest tests that services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
+func ReachabilityTest(t *testing.T, ns namespace.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(feature).
@@ -51,7 +50,7 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instan
 							var instance echo.Instance
 							ref := &instance
 							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-							builder = builder.With(ref, newEchoConfig(svcName, ns, cluster, pilots))
+							builder = builder.With(ref, newEchoConfig(svcName, ns, cluster))
 							services[cluster.Index()] = append(services[cluster.Index()], ref)
 						}
 					}

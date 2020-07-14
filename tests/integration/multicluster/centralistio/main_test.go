@@ -100,9 +100,9 @@ values:
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots, "installation.multicluster.central-istiod")
+	multicluster.ReachabilityTest(t, mcReachabilityNS, "installation.multicluster.central-istiod")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots, "installation.multicluster.central-istiod")
+	multicluster.ClusterLocalTest(t, clusterLocalNS, "installation.multicluster.central-istiod")
 }
