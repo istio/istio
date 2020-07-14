@@ -33,10 +33,14 @@ import (
 type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
+	getInformer() cache.SharedIndexInformer
+	onEvent(curr interface{}, event model.Event) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
+	// forgetEndpoint does internal bookkeeping on a deleted endpoint
+	forgetEndpoint(endpoint interface{})
 	getServiceInfo(ep interface{}) (host.Name, string, string)
 }
 
@@ -56,7 +60,6 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 
 // processEndpointEvent triggers the config update.
 func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep interface{}) error {
-	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
 	if features.EnableHeadlessService {
 		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
 			// if the service is headless service, trigger a full push.
@@ -96,6 +99,8 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	var endpoints []*model.IstioEndpoint
 	if event != model.EventDelete {
 		endpoints = epc.buildIstioEndpoints(ep, host)
+	} else {
+		epc.forgetEndpoint(ep)
 	}
 	fep := c.collectAllForeignEndpoints(svc)
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
