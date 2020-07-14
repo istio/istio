@@ -88,12 +88,12 @@ func TestCitadelClient(t *testing.T) {
 		// The goroutine starting the server may not be ready, results in flakiness.
 		time.Sleep(1 * time.Second)
 
-		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "", false)
+		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "")
 		if err != nil {
 			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 		}
 
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1, true)
+		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, fakeToken, 1)
 		if err != nil {
 			if err.Error() != tc.expectedErr {
 				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
