@@ -2,13 +2,13 @@
 # unexpected drop of code coverage. And this supplements the packages specified
 # in codecov.skip.
 #
-# This is useful to temporarily whitelist the packages that have either non
+# This is useful to temporarily allowlist the packages that have either non
 # deterministic code path. (E.g. test may retry on failure. Some paths may not
 # be exercised when there is no error, but are hit when there is an error
 # before the test retries.)
 #
 # Ideally this file should contain only istio.io=x as the default. All other
-# whitelisted packages or files should eventually be removed when the tests
+# allowlisted packages or files should eventually be removed when the tests
 # are made deteministic.
 #
 # Format:
