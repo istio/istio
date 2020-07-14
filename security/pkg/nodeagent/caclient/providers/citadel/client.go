@@ -72,7 +72,6 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 	}
 
 	conn, err := c.buildConnection(false)
-	conn.ResetConnectBackoff()
 	if err != nil {
 		return nil, err
 	}
