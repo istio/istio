@@ -2061,7 +2061,7 @@ func TestOnInboundFilterChainWhenSpecifiedStrictTLS(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies).InboundFilterChain(
-				authn.StrictTlsModeValue{},
+				authn.StrictTLSModeValue{},
 				"", // sdsUdsPath,
 				testNode,
 				networking.ListenerProtocolHTTP,

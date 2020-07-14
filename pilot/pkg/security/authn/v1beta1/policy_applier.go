@@ -79,7 +79,7 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, tlsModeGetter authn.TlsModeGetter, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, tlsModeGetter authn.TLSModeGetter, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if proxyType != model.SidecarProxy {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
 		return config
@@ -149,7 +149,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, tlsModeGetter authn.TlsModeGetter) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, tlsModeGetter authn.TLSModeGetter) *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with peer authentication, if applicable.
@@ -167,7 +167,7 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, tlsModeGett
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(tlsModeGetter authn.TlsModeGetter, sdsUdsPath string, node *model.Proxy,
+func (a *v1beta1PolicyApplier) InboundFilterChain(tlsModeGetter authn.TLSModeGetter, sdsUdsPath string, node *model.Proxy,
 	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
 	effectiveMTLSMode := tlsModeGetter.Get(a)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%v in %s mode", node.ID, tlsModeGetter, effectiveMTLSMode)

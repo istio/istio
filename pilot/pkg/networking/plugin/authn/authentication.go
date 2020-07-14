@@ -38,7 +38,7 @@ func NewPlugin() plugin.Plugin {
 
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
-	var tlsGetter authn.TlsModeGetter = authn.StrictTlsModeValue{}
+	var tlsGetter authn.TLSModeGetter = authn.StrictTLSModeValue{}
 	if in.ServiceInstance != nil {
 		tlsGetter = authn.NewTlsPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
 	}
@@ -75,7 +75,7 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
-	var tlsGetter authn.TlsModeGetter = authn.StrictTlsModeValue{}
+	var tlsGetter authn.TLSModeGetter = authn.StrictTLSModeValue{}
 	if in.ServiceInstance != nil {
 		tlsGetter = authn.NewTlsPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
 	}

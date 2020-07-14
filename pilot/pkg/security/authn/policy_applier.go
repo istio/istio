@@ -21,25 +21,25 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 )
 
-type TlsModeGetter interface {
+type TLSModeGetter interface {
 	Get(PolicyApplier) model.MutualTLSMode
 }
 
-type TlsPortNumber struct {
+type TLSPortNumber struct {
 	port uint32
 }
 
-func (p TlsPortNumber) Get(a PolicyApplier) model.MutualTLSMode {
+func (p TLSPortNumber) Get(a PolicyApplier) model.MutualTLSMode {
 	return a.GetMutualTLSMode(p.port)
 }
-func NewTlsPortNumber(p uint32) TlsPortNumber {
-	return TlsPortNumber{p}
+func NewTlsPortNumber(p uint32) TLSPortNumber {
+	return TLSPortNumber{p}
 }
 
-type StrictTlsModeValue struct {
+type StrictTLSModeValue struct {
 }
 
-func (v StrictTlsModeValue) Get(PolicyApplier) model.MutualTLSMode {
+func (v StrictTLSModeValue) Get(PolicyApplier) model.MutualTLSMode {
 	return model.MTLSStrict
 }
 
@@ -48,7 +48,7 @@ func (v StrictTlsModeValue) Get(PolicyApplier) model.MutualTLSMode {
 type PolicyApplier interface {
 	// InboundFilterChain returns inbound filter chain(s) for the given endpoint (aka workload) port to
 	// enforce the underlying authentication policy.
-	InboundFilterChain(tlsModeGetter TlsModeGetter, sdsUdsPath string, node *model.Proxy,
+	InboundFilterChain(tlsModeGetter TLSModeGetter, sdsUdsPath string, node *model.Proxy,
 		listenerProtocol networking.ListenerProtocol) []networking.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
@@ -57,7 +57,7 @@ type PolicyApplier interface {
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(proxyType model.NodeType, tlsModeGetter TlsModeGetter) *http_conn.HttpFilter
+	AuthNFilter(proxyType model.NodeType, tlsModeGetter TLSModeGetter) *http_conn.HttpFilter
 
 	// Return the MutualTLSMode given the endpoint port.
 	GetMutualTLSMode(endpointPort uint32) model.MutualTLSMode
