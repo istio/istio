@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/config/labels"
 )
@@ -37,9 +38,13 @@ func NewPlugin() plugin.Plugin {
 
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
+	var tlsGetter authn.TlsModeGetter = authn.StrictTlsModeValue{}
+	if in.ServiceInstance != nil {
+		tlsGetter = authn.NewTlsPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
+	}
 	return factory.NewPolicyApplier(in.Push,
 		in.ServiceInstance, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
+		tlsGetter, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -70,13 +75,17 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
+	var tlsGetter authn.TlsModeGetter = authn.StrictTlsModeValue{}
+	if in.ServiceInstance != nil {
+		tlsGetter = authn.NewTlsPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
+	}
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := applier.AuthNFilter(in.Node.Type, in.ServiceInstance.Endpoint.EndpointPort); filter != nil {
+			if filter := applier.AuthNFilter(in.Node.Type, tlsGetter); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}
@@ -116,5 +125,5 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
 	applier := factory.NewPolicyApplier(in.Push, nil /* ServiceInstance */, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	// Pass 0 for endpointPort so that it never matches any port-level policy.
-	return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
+	return applier.InboundFilterChain(authn.NewTlsPortNumber(0), in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
 }

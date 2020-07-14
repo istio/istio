@@ -79,7 +79,7 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, tlsModeGetter authn.TlsModeGetter, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if proxyType != model.SidecarProxy {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
 		return config
@@ -91,7 +91,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	p := config.Policy
 	p.Peers = []*authn_alpha.PeerAuthenticationMethod{}
 
-	effectiveMTLSMode := a.getMutualTLSModeForPort(port)
+	effectiveMTLSMode := tlsModeGetter.Get(a)
 	if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
 		mode := authn_alpha.MutualTls_PERMISSIVE
 		if effectiveMTLSMode == model.MTLSStrict {
@@ -149,11 +149,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, tlsModeGetter authn.TlsModeGetter) *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with peer authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, filterConfigProto)
+	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, tlsModeGetter, filterConfigProto)
 	// Override the config with request authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
 
@@ -167,10 +167,10 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
+func (a *v1beta1PolicyApplier) InboundFilterChain(tlsModeGetter authn.TlsModeGetter, sdsUdsPath string, node *model.Proxy,
 	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
-	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
-	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
+	effectiveMTLSMode := tlsModeGetter.Get(a)
+	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%v in %s mode", node.ID, tlsModeGetter, effectiveMTLSMode)
 	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol)
 }
 
@@ -332,7 +332,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 	}
 }
 
-func (a *v1beta1PolicyApplier) getMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
+func (a *v1beta1PolicyApplier) GetMutualTLSMode(endpointPort uint32) model.MutualTLSMode {
 	if a.consolidatedPeerPolicy == nil {
 		return model.MTLSPermissive
 	}

@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/security/authn"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
 	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
@@ -1201,7 +1202,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			if c.isGateway {
 				proxyType = model.Router
 			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, 80)
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, authn.NewTlsPortNumber(80))
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}
@@ -1447,7 +1448,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies).InboundFilterChain(
-				8080,
+				authn.NewTlsPortNumber(8080),
 				tc.sdsUdsPath,
 				testNode,
 				networking.ListenerProtocolAuto,
@@ -2001,6 +2002,72 @@ func TestGetMutualTLSMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getMutualTLSMode(&tt.in); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getMutualTLSMode() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Verify that StrictTlsModeValue could generate mTLS context.
+func TestOnInboundFilterChainWhenSpecifiedStrictTLS(t *testing.T) {
+	tlsContext := &tls.DownstreamTlsContext{
+		CommonTlsContext: &tls.CommonTlsContext{
+			TlsCertificates: []*tls.TlsCertificate{
+				{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/cert-chain.pem",
+						},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/key.pem",
+						},
+					},
+				},
+			},
+			ValidationContextType: &tls.CommonTlsContext_ValidationContext{
+				ValidationContext: &tls.CertificateValidationContext{
+					TrustedCa: &core.DataSource{
+						Specifier: &core.DataSource_Filename{
+							Filename: "/etc/certs/root-cert.pem",
+						},
+					},
+				},
+			},
+			AlpnProtocols: []string{"h2", "http/1.1"},
+		},
+		RequireClientCertificate: protovalue.BoolTrue,
+	}
+	expectedStrict := []networking.FilterChain{
+		{
+			TLSContext: tlsContext,
+		},
+	}
+	cases := []struct {
+		name         string
+		peerPolicies []*model.Config
+		expected     []networking.FilterChain
+	}{
+		{
+			name:         "Specify Strict Mtls",
+			peerPolicies: nil,
+			expected:     expectedStrict,
+		},
+	}
+
+	testNode := &model.Proxy{
+		Metadata: &model.NodeMetadata{},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies).InboundFilterChain(
+				authn.StrictTlsModeValue{},
+				"", // sdsUdsPath,
+				testNode,
+				networking.ListenerProtocolHTTP,
+			)
+			if !reflect.DeepEqual(got, tc.expected) {
+				t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)
 			}
 		})
 	}

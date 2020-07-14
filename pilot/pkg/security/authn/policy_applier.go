@@ -21,12 +21,34 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 )
 
+type TlsModeGetter interface {
+	Get(PolicyApplier) model.MutualTLSMode
+}
+
+type TlsPortNumber struct {
+	port uint32
+}
+
+func (p TlsPortNumber) Get(a PolicyApplier) model.MutualTLSMode {
+	return a.GetMutualTLSMode(p.port)
+}
+func NewTlsPortNumber(p uint32) TlsPortNumber {
+	return TlsPortNumber{p}
+}
+
+type StrictTlsModeValue struct {
+}
+
+func (v StrictTlsModeValue) Get(PolicyApplier) model.MutualTLSMode {
+	return model.MTLSStrict
+}
+
 // PolicyApplier is the interface provides essential functionalities to help config Envoy (xDS) to enforce
 // authentication policy. Each version of authentication policy will implement this interface.
 type PolicyApplier interface {
 	// InboundFilterChain returns inbound filter chain(s) for the given endpoint (aka workload) port to
 	// enforce the underlying authentication policy.
-	InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
+	InboundFilterChain(tlsModeGetter TlsModeGetter, sdsUdsPath string, node *model.Proxy,
 		listenerProtocol networking.ListenerProtocol) []networking.FilterChain
 
 	// AuthNFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
@@ -35,5 +57,8 @@ type PolicyApplier interface {
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.
-	AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter
+	AuthNFilter(proxyType model.NodeType, tlsModeGetter TlsModeGetter) *http_conn.HttpFilter
+
+	// Return the MutualTLSMode given the endpoint port.
+	GetMutualTLSMode(endpointPort uint32) model.MutualTLSMode
 }
