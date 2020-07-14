@@ -6690,6 +6690,7 @@ spec:
                 params:
                   description: Depends on adapter implementation.
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
               type: object
             status:
               type: object
@@ -6752,6 +6753,7 @@ spec:
                 params:
                   description: Depends on referenced template.
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
                 template:
                   description:
                     The name of the template this instance creates instances

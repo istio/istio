@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -c $REPO_ROOT/mixer/adapter/redisquota/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/redisquota/config -n redisquota -t quota
+# mixgen adapter -c $REPO_ROOT/mixer/adapter/redisquota/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/redisquota/config -n redisquota -t quota -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: redisquota
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: true
   templates:
   - quota
