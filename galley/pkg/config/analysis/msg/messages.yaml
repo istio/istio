@@ -188,7 +188,7 @@ messages:
     code: IST0116
     level: Warning
     description: "The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols."
-    template: "This deployment is associated with multiple services using port %d but different protocols: %v"
+    template: "This deployment %s is associated with multiple services using port %d but different protocols: %v"
     args:
       - name: deployment
         type: string
