@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/util/retry"
 	"net"
 	"strconv"
 	"text/template"
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
