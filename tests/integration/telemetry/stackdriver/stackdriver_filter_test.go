@@ -132,6 +132,7 @@ meshConfig:
 	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
+	cfg.Values["pilot.traceSampling"] = "100"
 	cfg.Values["telemetry.v2.stackdriver.configOverride"] = `{"enable_mesh_edges_reporting": true,"meshEdgesReportingDuration":"5s"}`
 }
 
@@ -228,8 +229,6 @@ func sendTraffic(t *testing.T) error {
 
 	// an HTTP request with forced tracing
 	hdr := http.Header{}
-	hdr.Add("x-envoy-force-trace", "true")
-	hdr.Add("X-B3-Sampled", "1")
 	httpOpts := echo.CallOptions{
 		Target:   srv,
 		PortName: "http",
