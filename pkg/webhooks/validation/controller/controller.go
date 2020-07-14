@@ -40,7 +40,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers"
+	"k8s.io/client-go/informers/admissionregistration/v1beta1"
+	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -48,9 +49,9 @@ import (
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
@@ -75,16 +76,6 @@ type Options struct {
 
 	// RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
 	RemoteWebhookConfig bool
-}
-
-func DefaultArgs() Options {
-	return Options{
-		WatchedNamespace:    "istio-system",
-		CAPath:              constants.DefaultRootCert,
-		WebhookConfigName:   "istio-galley",
-		ServiceName:         "istio-galley",
-		RemoteWebhookConfig: false,
-	}
 }
 
 // Validate the options that exposed to end users
@@ -119,11 +110,13 @@ func (o Options) String() string {
 type readFileFunc func(filename string) ([]byte, error)
 
 type Controller struct {
-	o                             Options
-	client                        kubernetes.Interface
-	dynamicResourceInterface      dynamic.ResourceInterface
+	o                        Options
+	client                   kubernetes.Interface
+	dynamicResourceInterface dynamic.ResourceInterface
+	endpointsInformer        v1.EndpointsInformer
+	webhookInformer          v1beta1.ValidatingWebhookConfigurationInformer
+
 	queue                         workqueue.RateLimitingInterface
-	sharedInformers               informers.SharedInformerFactory
 	endpointReadyOnce             bool
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
@@ -228,14 +221,13 @@ var (
 	}
 )
 
-func New(o Options, client kubernetes.Interface, dface dynamic.Interface) (*Controller, error) {
-	return newController(o, client, dface, filewatcher.NewWatcher, ioutil.ReadFile, nil)
+func New(o Options, client kube.Client) (*Controller, error) {
+	return newController(o, client, filewatcher.NewWatcher, ioutil.ReadFile, nil)
 }
 
 func newController(
 	o Options,
-	client kubernetes.Interface,
-	dface dynamic.Interface,
+	client kube.Client,
 	newFileWatcher filewatcher.NewFileWatcherFunc,
 	readFile readFileFunc,
 	reconcileDone func(),
@@ -245,7 +237,7 @@ func newController(
 		return nil, err
 	}
 
-	dynamicResourceInterface := dface.Resource(istioGatewayGVK).Namespace(o.WatchedNamespace)
+	dynamicResourceInterface := client.Dynamic().Resource(istioGatewayGVK).Namespace(o.WatchedNamespace)
 
 	c := &Controller{
 		o:                        o,
@@ -257,15 +249,12 @@ func newController(
 		reconcileDone:            reconcileDone,
 	}
 
-	c.sharedInformers = informers.NewSharedInformerFactoryWithOptions(client, o.ResyncPeriod,
-		informers.WithNamespace(o.WatchedNamespace))
-
-	webhookInformer := c.sharedInformers.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer()
-	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
+	c.webhookInformer = client.KubeInformer().Admissionregistration().V1beta1().ValidatingWebhookConfigurations()
+	c.webhookInformer.Informer().AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
 
 	if !o.RemoteWebhookConfig {
-		endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
-		endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+		c.endpointsInformer = client.KubeInformer().Core().V1().Endpoints()
+		c.endpointsInformer.Informer().AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
 	}
 
 	return c, nil
@@ -274,10 +263,13 @@ func newController(
 func (c *Controller) Start(stop <-chan struct{}) {
 	c.stopCh = stop
 	go c.startFileWatcher(stop)
-	go c.sharedInformers.Start(stop)
-
-	for _, ready := range c.sharedInformers.WaitForCacheSync(stop) {
-		if !ready {
+	if !cache.WaitForCacheSync(stop, c.webhookInformer.Informer().HasSynced) {
+		log.Errorf("failed to wait for cache sync")
+		return
+	}
+	if c.endpointsInformer != nil {
+		if !cache.WaitForCacheSync(stop, c.endpointsInformer.Informer().HasSynced) {
+			log.Errorf("failed to wait for cache sync")
 			return
 		}
 	}
@@ -402,8 +394,7 @@ func (c *Controller) readyForFailClose() (bool, error) {
 }
 
 func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
-	endpoint, err := c.sharedInformers.Core().V1().
-		Endpoints().Lister().Endpoints(c.o.WatchedNamespace).Get(c.o.ServiceName)
+	endpoint, err := c.endpointsInformer.Lister().Endpoints(c.o.WatchedNamespace).Get(c.o.ServiceName)
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
 			return false, "resource not found", nil
@@ -462,8 +453,7 @@ func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
-	current, err := c.sharedInformers.Admissionregistration().V1beta1().
-		ValidatingWebhookConfigurations().Lister().Get(c.o.WebhookConfigName)
+	current, err := c.webhookInformer.Lister().Get(c.o.WebhookConfigName)
 
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
