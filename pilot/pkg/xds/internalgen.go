@@ -15,6 +15,8 @@
 package xds
 
 import (
+	"fmt"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
@@ -165,12 +167,15 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		res = sg.debugSyncz()
 	case TypeDebugConfigDump:
 		if len(w.ResourceNames) == 0 {
-			adsLog.Info("Config Dump w/o proxyID resource name")
+			log.Infof("istio.io/debug/config_dump without ResourceName")
 			break
 		}
-		res = sg.debugConfigDump(w.ResourceNames[0])
-	default:
-		adsLog.Infof("Unknown TypeUrl: %q", w.TypeUrl)
+		var err error
+		res, err = sg.debugConfigDump(w.ResourceNames[0])
+		if err != nil {
+			log.Infof("istio.io/debug/config_dump failed: %v", err)
+			break
+		}
 	}
 	return res
 }
@@ -186,15 +191,25 @@ func isSidecar(con *Connection) bool {
 func (sg *InternalGen) debugSyncz() []*any.Any {
 	res := []*any.Any{}
 
+	stypes := []string{
+		pilot_xds_v3.ListenerShortType,
+		pilot_xds_v3.RouteShortType,
+		pilot_xds_v3.EndpointShortType,
+		pilot_xds_v3.ClusterShortType,
+	}
+
 	sg.Server.adsClientsMutex.RLock()
 	for _, con := range sg.Server.adsClients {
 		con.mu.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
 		if isSidecar(con) {
 			xdsConfigs := []*status.PerXdsConfig{}
-			for stype, watchedResource := range con.node.Active {
-				pxc := &status.PerXdsConfig{
-					Status: debugSyncStatus(watchedResource),
+			for _, stype := range stypes {
+				pxc := &status.PerXdsConfig{}
+				if watchedResource, ok := con.node.Active[stype]; ok {
+					pxc.Status = debugSyncStatus(watchedResource)
+				} else {
+					pxc.Status = status.ConfigStatus_NOT_SENT
 				}
 				switch stype {
 				case pilot_xds_v3.ListenerShortType:
@@ -234,22 +249,20 @@ func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
 	return status.ConfigStatus_STALE
 }
 
-func (sg *InternalGen) debugConfigDump(proxyID string) []*any.Any {
+func (sg *InternalGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
 	conn := sg.Server.getProxyConnection(proxyID)
 	if conn == nil {
 		// Return no configuration.  Legacy Istio 1.6 /debug/config_dump
 		// returned http.StatusNotFound, but we do not consider it an error.
-		adsLog.Infof("Config Dump could not find connection for proxyID %q", proxyID)
-		return []*any.Any{}
+		return []*any.Any{}, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 
 	dump, err := sg.Server.configDump(conn)
 	if err != nil {
 		// Return no configuration.  Legacy Istio 1.6 /debug/config_dump
 		// returned http.StatusInternalServerError, but we do not consider it an error.
-		adsLog.Infof("Config Dump could not dump connection for proxyID %q", proxyID)
-		return []*any.Any{}
+		return []*any.Any{}, err
 	}
 
-	return dump.Configs
+	return dump.Configs, nil
 }
