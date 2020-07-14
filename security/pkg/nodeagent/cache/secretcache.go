@@ -93,7 +93,6 @@ const (
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
-
 )
 
 type k8sJwtPayload struct {
