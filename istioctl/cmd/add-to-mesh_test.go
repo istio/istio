@@ -254,7 +254,8 @@ func verifyAddToMeshOutput(t *testing.T, c testcase) {
 	crdFactory = mockDynamicClientGenerator(c.dynamicConfigs)
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 	if c.namespace != "" {
 		namespace = c.namespace
 	}

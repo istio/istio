@@ -255,7 +255,7 @@ To add a new component, you'll first need to create a top-level folder for your 
 [components folder](https://github.com/istio/istio/tree/master/pkg/test/framework/components).
 
 ```console
-$ cd ${ISTIO}/tests/integration
+$ cd ${ISTIO}/pkg/test/framework/components
 $ mkdir mycomponent
 ```
 

@@ -16,7 +16,6 @@ package install
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,16 +34,17 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/operator/cmd/mesh"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
 )
 
 var (
-	verifyInstallCmd *cobra.Command
 	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
@@ -54,11 +54,14 @@ var (
 
 func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter genericclioptions.RESTClientGetter,
-	writer io.Writer, opts clioptions.ControlPlaneOptions) error {
+	writer io.Writer, opts clioptions.ControlPlaneOptions, manifestsPath string) error {
 
 	iop, err := operatorFromCluster(istioNamespaceFlag, opts.Revision, restClientGetter)
 	if err != nil {
 		return fmt.Errorf("could not load IstioOperator from cluster: %v.  Use --filename", err)
+	}
+	if manifestsPath != "" {
+		iop.Spec.InstallPackagePath = manifestsPath
 	}
 	crdCount, istioDeploymentCount, err := verifyPostInstallIstioOperator(enableVerbose,
 		istioNamespaceFlag,
@@ -180,12 +183,8 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			// and ask operator code to unmarshal.
 
 			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-			by, err := json.Marshal(un)
-			if err != nil {
-				return err
-			}
-
-			iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+			by := util.ToYAML(un)
+			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
 				return err
 			}
@@ -247,8 +246,9 @@ func NewVerifyCommand() *cobra.Command {
 		enableVerbose  bool
 		istioNamespace string
 		opts           clioptions.ControlPlaneOptions
+		manifestsPath  string
 	)
-	verifyInstallCmd = &cobra.Command{
+	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
 		Short: "Verifies Istio Installation Status or performs pre-check for the cluster before Istio installation",
 		Long: `
@@ -281,7 +281,7 @@ func NewVerifyCommand() *cobra.Command {
 			// If the user did not specify a file, compare install to in-cluster IOP
 			if len(fileNameFlags.ToOptions().Filenames) == 0 {
 				return verifyInstallIOPrevision(enableVerbose, istioNamespace, kubeConfigFlags,
-					c.OutOrStderr(), opts)
+					c.OutOrStderr(), opts, manifestsPath)
 			}
 			// When the user specifies a file, compare against it.
 			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,
@@ -296,6 +296,7 @@ func NewVerifyCommand() *cobra.Command {
 	fileNameFlags.AddFlags(flags)
 	verifyInstallCmd.Flags().BoolVar(&enableVerbose, "enableVerbose", true,
 		"Enable verbose output")
+	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
 	opts.AttachControlPlaneFlags(verifyInstallCmd)
 	return verifyInstallCmd
 }
@@ -420,12 +421,8 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 	}
 	for _, un := range ul.Items {
 		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-		by, err := json.Marshal(un.Object)
-		if err != nil {
-			return nil, err
-		}
-
-		iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+		by := util.ToYAML(un.Object)
+		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
 			return nil, err
 		}
@@ -447,12 +444,8 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	retval := make([]*v1alpha1.IstioOperator, 0)
 	for _, un := range ul.Items {
 		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-		by, err := json.Marshal(un.Object)
-		if err != nil {
-			return nil, err
-		}
-
-		iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+		by := util.ToYAML(un.Object)
+		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
 			return nil, err
 		}

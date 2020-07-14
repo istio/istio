@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -40,7 +39,7 @@ import (
 )
 
 const (
-	sendCount = 100
+	sendCount = 50
 
 	deploymentYAML = `
 apiVersion: networking.istio.io/v1alpha3
@@ -158,7 +157,6 @@ var (
 	expectAllTrafficToB = map[string]int{"b": sendCount}
 
 	ist istio.Instance
-	p   pilot.Instance
 	r   *rand.Rand
 )
 
@@ -183,14 +181,11 @@ func init() {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("locality_prioritized_failover_loadbalancing", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, nil)).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
 			r = rand.New(rand.NewSource(time.Now().UnixNano()))
 			return nil
 		}).
@@ -212,7 +207,6 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 				InstancePort: 8090,
 			},
 		},
-		Pilot: p,
 	}
 }
 
@@ -235,12 +229,12 @@ func deploy(t test.Failer, ctx resource.Context, ns namespace.Instance, se servi
 	if err := deploymentTemplate.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), buf.String())
 	buf.Reset()
 	if err := tmpl.Execute(&buf, se); err != nil {
 		t.Fatal(err)
 	}
-	ctx.ApplyConfigOrFail(t, ns.Name(), buf.String())
+	ctx.Config().ApplyYAMLOrFail(t, ns.Name(), buf.String())
 
 	err := WaitUntilRoute(from, se.Host)
 	if err != nil {
@@ -308,7 +302,7 @@ func sendTraffic(from echo.Instance, host string, expected map[string]int) error
 	}
 	for svc, reqs := range got {
 		expect := expected[svc]
-		if !almostEquals(reqs, expect, 5) {
+		if !almostEquals(reqs, expect, 3) {
 			return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
 		}
 	}

@@ -1,0 +1,51 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: proxy-service-instance
+spec:
+  hosts:
+  - example.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 7070
+    name: tcp
+    protocol: TCP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 9090
+    name: auto
+    protocol: ""
+  resolution: STATIC
+  endpoints:
+  - address: 1.1.1.1
+---
+# Set up .Services number of services. Each will have 4 ports (one for each protocol)
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-{{$i}}
+spec:
+  hosts:
+  - random-{{$i}}.host.example
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 7070
+    name: tcp
+    protocol: TCP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 9090
+    name: auto
+  resolution: STATIC
+  endpoints:
+  - address: 1.2.3.4
+---
+{{- end }}

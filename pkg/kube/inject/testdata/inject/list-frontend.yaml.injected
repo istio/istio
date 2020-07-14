@@ -69,8 +69,6 @@ items:
             value: third-party-jwt
           - name: PILOT_CERT_PROVIDER
             value: istiod
-          - name: CA_ADDR
-            value: istiod.istio-system.svc:15012
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -101,7 +99,7 @@ items:
                 fieldPath: metadata.labels['service.istio.io/canonical-revision']
           - name: PROXY_CONFIG
             value: |
-              {}
+              {"proxyMetadata":{"DNS_AGENT":""}}
           - name: ISTIO_META_POD_PORTS
             value: |-
               [
@@ -121,6 +119,7 @@ items:
             value: kubernetes://apis/apps/v1/namespaces/default/deployments/frontend
           - name: ISTIO_META_MESH_ID
             value: cluster.local
+          - name: DNS_AGENT
           - name: ISTIO_KUBE_APP_PROBERS
             value: '{}'
           image: gcr.io/istio-testing/proxyv2:latest
@@ -184,13 +183,15 @@ items:
           - '*'
           - -d
           - 15090,15021,15020
+          env:
+          - name: DNS_AGENT
           image: gcr.io/istio-testing/proxyv2:latest
           imagePullPolicy: Always
           name: istio-init
           resources:
             limits:
-              cpu: 100m
-              memory: 50Mi
+              cpu: "2"
+              memory: 1Gi
             requests:
               cpu: 10m
               memory: 10Mi

@@ -104,8 +104,8 @@ spec:
 			}
 			for _, tt := range cases {
 				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
-					ctx.ApplyConfigOrFail(ctx, ns.Name(), tt.vs)
-					defer ctx.DeleteConfigOrFail(ctx, ns.Name(), tt.vs)
+					ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), tt.vs)
+					defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), tt.vs)
 					retry.UntilSuccessOrFail(ctx, func() error {
 						resp, err := client.Call(echo.CallOptions{
 							Target:   server,

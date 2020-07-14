@@ -15,7 +15,6 @@
 package validate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -42,6 +41,8 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/util"
 	operator_validate "istio.io/istio/operator/pkg/validate"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +83,11 @@ Example resource specifications include:
 	serviceProtocolUDP = "UDP"
 )
 
+const (
+	// RequirementsURL specifies deployment requirements for pod and services
+	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
+)
+
 type validator struct {
 	mixerValidator mixerstore.BackendValidator
 }
@@ -104,7 +110,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	}
 	// TODO(jasonwzm) remove this when multi-version is supported. v1beta1 shares the same
 	// schema as v1lalpha3. Fake conversion and validate against v1alpha3.
-	if gvk.Group == "networking.istio.io" && gvk.Version == "v1beta1" {
+	if gvk.Group == name.NetworkingAPIGroupName && gvk.Version == "v1beta1" {
 		gvk.Version = "v1alpha3"
 	}
 	schema, exists := collections.Pilot.FindByGroupVersionKind(gvk)
@@ -145,13 +151,13 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	if un.IsList() {
 		_ = un.EachListItem(func(item runtime.Object) error {
 			castItem := item.(*unstructured.Unstructured)
-			if castItem.GetKind() == "Service" {
+			if castItem.GetKind() == name.ServiceStr {
 				err := v.validateServicePortPrefix(istioNamespace, castItem)
 				if err != nil {
 					errs = multierror.Append(errs, err)
 				}
 			}
-			if castItem.GetKind() == "Deployment" {
+			if castItem.GetKind() == name.DeploymentStr {
 				v.validateDeploymentLabel(istioNamespace, castItem)
 			}
 			return nil
@@ -161,11 +167,11 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 	if errs != nil {
 		return errs
 	}
-	if un.GetKind() == "Service" {
+	if un.GetKind() == name.ServiceStr {
 		return v.validateServicePortPrefix(istioNamespace, un)
 	}
 
-	if un.GetKind() == "Deployment" {
+	if un.GetKind() == name.DeploymentStr {
 		v.validateDeploymentLabel(istioNamespace, un)
 		return nil
 	}
@@ -175,22 +181,15 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			if err := checkFields(un); err != nil {
 				return err
 			}
-
 			// IstioOperator isn't part of pkg/config/schema/collections,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to check.
-
 			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
-			by, err := json.Marshal(un)
+			by := util.ToYAML(un)
+			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
 			if err != nil {
 				return err
 			}
-
-			iop, err := operator_istio.UnmarshalIstioOperator(string(by))
-			if err != nil {
-				return err
-			}
-
 			return operator_validate.CheckIstioOperator(iop, true)
 		}
 	}
@@ -216,14 +215,12 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 			}
 			if p["name"] == nil {
 				errs = multierror.Append(errs, fmt.Errorf("service %q has an unnamed port. This is not recommended,"+
-					" see https://istio.io/docs/setup/kubernetes/prepare/requirements/", fmt.Sprintf("%s/%s/:",
-					un.GetName(), un.GetNamespace())))
+					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
 				continue
 			}
 			if servicePortPrefixed(p["name"].(string)) {
 				errs = multierror.Append(errs, fmt.Errorf("service %q port %q does not follow the Istio naming convention."+
-					" See https://istio.io/docs/setup/kubernetes/prepare/requirements/", fmt.Sprintf("%s/%s/:",
-					un.GetName(), un.GetNamespace()), p["name"].(string)))
+					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
 			}
 		}
 	}
@@ -241,8 +238,7 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
 			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
-				" See https://istio.io/docs/setup/kubernetes/prepare/requirements/ \n", fmt.Sprintf("%s/%s:",
-				un.GetName(), un.GetNamespace()), l)
+				" See "+RequirementsURL, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
 }
@@ -384,6 +380,7 @@ func servicePortPrefixed(n string) bool {
 	p := protocol.Parse(n)
 	return p == protocol.Unsupported
 }
+
 func handleNamespace(istioNamespace string) string {
 	if istioNamespace == "" {
 		istioNamespace = controller.IstioNamespace
@@ -400,9 +397,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Resource().Kind(),
-			Group:             schema.Resource().Group(),
-			Version:           schema.Resource().Version(),
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),
 			Domain:            domain,
@@ -421,7 +416,7 @@ func fromSchemaAndYAML(schema collection.Schema, yml string) (proto.Message, err
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyYAML(yml, pb); err != nil {
+	if err = gogoprotomarshal.ApplyYAMLStrict(yml, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil

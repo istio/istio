@@ -4,7 +4,21 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_stackdriver","customConfigFile":"envoy_bootstrap_v2.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"stackdriver":{"debug":true,"maxNumberOfAnnotations":"201","maxNumberOfMessageEvents":"201"}}},"SDS":"true"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PLATFORM_METADATA":{"gcp_project":"my-sd-project"},"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_stackdriver","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"stackdriver":{"debug":true,"maxNumberOfAnnotations":"201","maxNumberOfMessageEvents":"201"}}},"SDS":"true","STS_PORT":"15463"}
+  },
+  "layered_runtime": {
+      "layers": [
+          {
+              "name": "deprecation",
+              "static_layer": {
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+              }
+          },
+          {
+              "name": "admin",
+              "admin_layer": {}
+          }
+      ]
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -472,6 +486,36 @@
       "stackdriver_exporter_enabled": true,
       "stackdriver_project_id": "my-sd-project",
       
+      "stackdriver_grpc_service": {
+        "google_grpc": {
+          "target_uri": "cloudtrace.googleapis.com",
+          "stat_prefix": "oc_stackdriver_tracer",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "/etc/ssl/certs/ca-certificates.crt"
+              }
+            }
+          },
+          "call_credentials": [{
+            "sts_service": {
+              "token_exchange_service_uri": "http://localhost:15463/token",
+              "subject_token_path": "/var/run/secrets/tokens/istio-token",
+              "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              "scope": "https://www.googleapis.com/auth/cloud-platform"
+            }
+          }]
+        },
+        "initial_metadata": [
+        
+          {
+            "key": "x-goog-user-project",
+            "value": "my-sd-project"
+          }
+        
+        ]
+      },
+      
       "stdout_exporter_enabled": true,
       "incoming_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
       "outgoing_trace_context": ["CLOUD_TRACE_CONTEXT", "TRACE_CONTEXT", "GRPC_TRACE_BIN", "B3"],
@@ -482,7 +526,7 @@
         "max_number_of_annotations": 201,
         "max_number_of_attributes": 200,
         "max_number_of_message_events": 201,
-        "max_number_of_links": 200,
+        "max_number_of_links": 200
        }
      }
   }}
@@ -492,7 +536,7 @@
   ,
   "cluster_manager": {
     "outlier_detection": {
-      "event_log_path": /dev/stdout
+      "event_log_path": "/dev/stdout"
     }
   }
   

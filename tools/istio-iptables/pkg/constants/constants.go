@@ -43,6 +43,7 @@ var BuiltInChainsMap = map[string]struct{}{
 // Constants used for generating iptables commands
 const (
 	TCP = "tcp"
+	UDP = "udp"
 
 	TPROXY   = "TPROXY"
 	RETURN   = "RETURN"
@@ -75,6 +76,7 @@ const (
 	LocalOutboundPortsExclude = "istio-local-outbound-ports-exclude"
 	EnvoyPort                 = "envoy-port"
 	InboundCapturePort        = "inbound-capture-port"
+	InboundTunnelPort         = "inbound-tunnel-port"
 	ProxyUID                  = "proxy-uid"
 	ProxyGID                  = "proxy-gid"
 	KubeVirtInterfaces        = "kube-virt-interfaces"
@@ -121,4 +123,10 @@ const (
 
 const (
 	ValidationErrorCode = 126
+)
+
+// DNS ports
+const (
+	EnvoyDNSListenerPort      = "15013"
+	IstioAgentDNSListenerPort = "15053"
 )

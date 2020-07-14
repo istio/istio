@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
@@ -64,28 +65,28 @@ var (
 	// Ideally this would also contain Istio CRDs, but there is a race condition here - we cannot watch
 	// a type that does not yet exist.
 	watchedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "extensions", Version: "v1beta1", Kind: "Ingress"},
-		{Group: "", Version: "v1", Kind: "Service"},
-		// {Group: "", Version: "v1", Kind: "Endpoints"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-		{Group: "", Version: "v1", Kind: "Pod"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: "Role"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
+		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
+		{Group: "apps", Version: "v1", Kind: name.StatefulSetStr},
+		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
+		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
+		{Group: "extensions", Version: "v1beta1", Kind: name.IngressStr},
+		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		// {Group: "", Version: "v1", Kind: name.EndpointStr},
+		{Group: "", Version: "v1", Kind: name.CMStr},
+		{Group: "", Version: "v1", Kind: name.PVCStr},
+		{Group: "", Version: "v1", Kind: name.PodStr},
+		{Group: "", Version: "v1", Kind: name.SecretStr},
+		{Group: "", Version: "v1", Kind: name.SAStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
+		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
 
 	ownedResourcePredicates = predicate.Funcs{

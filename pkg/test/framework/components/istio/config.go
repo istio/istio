@@ -132,7 +132,7 @@ type Config struct {
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
 	data := ""
 	if iopYaml != "" {
-		data = Indent(c.ControlPlaneValues, "  ")
+		data = Indent(iopYaml, "  ")
 	}
 
 	s, err := image.SettingsFromCommandLine()

@@ -104,6 +104,16 @@ func (s *scope) get(ref interface{}) error {
 		}
 	}
 
+	if s.parent != nil {
+		// either didn't find the value or need to continue filling the slice
+		return s.parent.get(ref)
+	}
+
+	if refVal.Kind() != reflect.Slice {
+		// didn't find the non-slice value
+		return fmt.Errorf("no %v in context", targetT)
+	}
+
 	return nil
 }
 

@@ -34,21 +34,10 @@ func TestStatsFilter(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("stats_filter_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
+		Setup(istio.Setup(common.GetIstioInstance(), nil)).
 		Setup(common.TestSetup).
 		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// disable mixer telemetry and enable telemetry v2
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
-	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
 }

@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
@@ -65,14 +64,23 @@ func deploy(ctx resource.Context, cfg Config) (undeployFunc func(), err error) {
 		}
 	}()
 
-	cluster := kube.ClusterOrDefault(nil, ctx.Environment())
+	cluster := resource.ClusterOrDefault(nil, ctx.Environment())
 
-	d := kube2.NewYamlContentDeployment(ns.Name(), string(by), cluster.Accessor)
-	if err = d.Deploy(true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5)); err != nil {
+	if err := ctx.Config(cluster).ApplyYAML(ns.Name(), string(by)); err != nil {
+		return nil, err
+	}
+
+	if _, err := kube2.WaitUntilPodsAreReady(kube2.NewPodFetch(cluster, ns.Name(), "")); err != nil {
+		scopes.Framework.Errorf("Wait for BookInfo failed: %v", err)
 		return nil, err
 	}
 
 	return func() {
-		_ = d.Delete(true, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
+		if err := ctx.Config(cluster).DeleteYAML(ns.Name(), string(by)); err == nil {
+			if e := kube2.WaitForNamespaceDeletion(cluster, ns.Name(),
+				retry.Timeout(time.Minute*5), retry.Delay(time.Second*5)); e != nil {
+				scopes.Framework.Warnf("Error waiting for BookInfo deletion: %v", e)
+			}
+		}
 	}, nil
 }

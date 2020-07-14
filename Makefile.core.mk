@@ -22,7 +22,7 @@ SHELL := /bin/bash -o pipefail
 VERSION ?= 1.7-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.7-dev.1
+BASE_VERSION ?= 1.7-dev.4
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
@@ -138,6 +138,9 @@ endif
 
 export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
 
+# Use envoy as the sidecar by default
+export SIDECAR ?= envoy
+
 # OS-neutral vars. These currently only work for linux.
 export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
@@ -152,7 +155,7 @@ export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
 export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
 export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
-export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
 
 # Envoy macOS vars.
@@ -181,7 +184,7 @@ ifeq ($(USE_LOCAL_PROXY),1)
 endif
 
 # Allow user-override envoy bootstrap config path.
-export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap_v2.json
+export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH})
 
 GO_VERSION_REQUIRED:=1.10
@@ -231,7 +234,7 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy and webassembly plugins
-${ISTIO_OUT}/envoy: init
+${ISTIO_OUT}/${SIDECAR}: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
 ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
@@ -279,7 +282,9 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
-  ./operator/cmd/operator
+  ./operator/cmd/operator \
+  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair \
+  ./tools/istio-iptables
 
 # List of binaries included in releases
 RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
@@ -344,7 +349,7 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-gen: go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
+gen: mod-download-go go-gen mirror-licenses format update-crds operator-proto sync-configs-from-istiod gen-kustomize update-golden ## Update all generated code.
 
 check-no-modify:
 	@bin/check_no_modify.sh
@@ -355,6 +360,8 @@ gen-check: check-no-modify gen check-clean-repo
 sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.7.yaml manifests/charts/istiod-remote/templates/
 
 # Generate kustomize templates.
 gen-kustomize:
@@ -425,124 +432,24 @@ ${ISTIO_BIN}/go-junit-report:
 	@echo "go-junit-report not found. Installing it now..."
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
-with_junit_report: | $(JUNIT_REPORT)
-	$(MAKE) -e $(TARGET) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+# This is just an alias for racetest now
+test: racetest
 
-# Run coverage tests
-ifeq ($(WHAT),)
-       TEST_OBJ = common-test pilot-test mixer-test security-test galley-test istioctl-test operator-test
-else
-       TEST_OBJ = selected-pkg-test
-endif
-test: | $(JUNIT_REPORT)
-	KUBECONFIG="$${KUBECONFIG:-$${REPO_ROOT}/tests/util/kubeconfig}" \
-	$(MAKE) -e -f Makefile.core.mk --keep-going $(TEST_OBJ) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
-
-# TODO: remove the racetest targets and just have *-test targets that call race
-
-.PHONY: pilot-test
-pilot-test: pilot-racetest
-
-.PHONY: istioctl-test
-istioctl-test: istioctl-racetest
-
-.PHONY: operator-test
-operator-test:
-	go test ${GOBUILDFLAGS} ${T} ./operator/...
-
-.PHONY: mixer-test
-mixer-test: mixer-racetest
-
-.PHONY: galley-test
-galley-test: galley-racetest
-
-.PHONY: security-test
-security-test: security-racetest
-
-.PHONY: common-test
-common-test: common-racetest
-
-.PHONY: selected-pkg-test
-selected-pkg-test:
-	find ${WHAT} -name "*_test.go" | xargs -I {} dirname {} | uniq | xargs -I {} go test ${GOBUILDFLAGS} ${T} -race ./{}
-
-#-----------------------------------------------------------------------------
-# Target: coverage
-#-----------------------------------------------------------------------------
-
-.PHONY: coverage
-
-# Run coverage tests
-coverage: pilot-coverage mixer-coverage security-coverage galley-coverage common-coverage istioctl-coverage
-
-coverage-diff:
-	./bin/codecov_diff.sh
-
-.PHONY: pilot-coverage
-pilot-coverage:
-	bin/codecov.sh pilot
-
-.PHONY: istioctl-coverage
-istioctl-coverage:
-	bin/codecov.sh istioctl
-
-.PHONY: mixer-coverage
-mixer-coverage:
-	bin/codecov.sh mixer
-
-.PHONY: galley-coverage
-galley-coverage:
-	bin/codecov.sh galley
-
-.PHONY: security-coverage
-security-coverage:
-	bin/codecov.sh security/pkg
-	bin/codecov.sh security/cmd
-
-.PHONY: common-coverage
-common-coverage:
-	bin/codecov.sh pkg
-
-#-----------------------------------------------------------------------------
-# Target: go test -race
-#-----------------------------------------------------------------------------
+TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/...
+# For now, keep a minimal subset. This can be expanded in the future, especially after mixer removal, which has some expensive tests that may OOM.
+BENCH_TAREGTS ?= ./pilot/...
 
 .PHONY: racetest
-
-RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest
-
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
-	$(MAKE) -e -f Makefile.core.mk --keep-going $(RACE_TESTS) \
-	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
-.PHONY: pilot-racetest
-pilot-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./pilot/...
+.PHONY: benchtest
+benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
+	prow/benchtest.sh run $(BENCH_TAREGTS)
+	prow/benchtest.sh compare
 
-.PHONY: istioctl-racetest
-istioctl-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./istioctl/...
-
-.PHONY: operator-racetest
-operator-racetest:
-	RACE_TEST=true go test ${GOBUILDFLAGS} ${T} -race ./operator/...
-
-.PHONY: mixer-racetest
-mixer-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./mixer/...
-
-.PHONY: galley-racetest
-galley-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./galley/...
-
-.PHONY: security-racetest
-security-racetest:
-	go test ${GOBUILDFLAGS} ${T} -race ./security/pkg/... ./security/cmd/...
-
-.PHONY: common-racetest
-common-racetest: ${BUILD_DEPS}
-	go test ${GOBUILDFLAGS} ${T} -race ./pkg/... ./tests/common/... ./tools/istio-iptables/...
+report-benchtest:
+	prow/benchtest.sh report
 
 #-----------------------------------------------------------------------------
 # Target: clean

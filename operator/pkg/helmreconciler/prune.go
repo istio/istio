@@ -33,33 +33,33 @@ import (
 var (
 	// ordered by which types should be deleted, first to last
 	namespacedResources = []schema.GroupVersionKind{
-		{Group: "autoscaling", Version: "v2beta1", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1beta1", Kind: "PodDisruptionBudget"},
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "DaemonSet"},
-		{Group: "", Version: "v1", Kind: "Service"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-		{Group: "", Version: "v1", Kind: "Pod"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"},
-		{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"},
-		{Group: "security.istio.io", Version: "v1beta1", Kind: "PeerAuthentication"},
+		{Group: "autoscaling", Version: "v2beta1", Kind: name.HPAStr},
+		{Group: "policy", Version: "v1beta1", Kind: name.PDBStr},
+		{Group: "apps", Version: "v1", Kind: name.DeploymentStr},
+		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
+		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		{Group: "", Version: "v1", Kind: name.CMStr},
+		{Group: "", Version: "v1", Kind: name.PVCStr},
+		{Group: "", Version: "v1", Kind: name.PodStr},
+		{Group: "", Version: "v1", Kind: name.SecretStr},
+		{Group: "", Version: "v1", Kind: name.SAStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.DestinationRuleStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.EnvoyFilterStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.GatewayStr},
+		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.VirtualServiceStr},
+		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
 	}
 
 	// ordered by which types should be deleted, first to last
 	nonNamespacedResources = []schema.GroupVersionKind{
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "MutatingWebhookConfiguration"},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: "ValidatingWebhookConfiguration"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
+		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 		// Cannot currently prune CRDs because this will also wipe out user config.
-		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"},
+		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
 )
 
@@ -113,7 +113,7 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 	return errs.ToError()
 }
 
-// Delete removes all resources associated with componentName.
+// DeleteComponent Delete removes all resources associated with componentName.
 func (h *HelmReconciler) DeleteComponent(componentName string) error {
 	return h.runForAllTypes(func(labels map[string]string, objects *unstructured.UnstructuredList) error {
 		return h.pruneUnlistedResources(map[string]bool{}, labels, componentName, objects, false)

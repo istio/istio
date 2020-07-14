@@ -23,6 +23,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,7 +31,7 @@ import (
 )
 
 func TestConvertResources(t *testing.T) {
-	cases := []string{"simple", "mismatch"}
+	cases := []string{"simple", "mismatch", "tls"}
 	for _, tt := range cases {
 		t.Run(tt, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt))
@@ -58,10 +59,10 @@ func splitOutput(configs []model.Config) IstioResources {
 		VirtualService: []model.Config{},
 	}
 	for _, c := range configs {
-		switch c.GroupVersionKind() {
-		case gatewayType.GroupVersionKind():
+		switch c.GroupVersionKind {
+		case gvk.Gateway:
 			out.Gateway = append(out.Gateway, c)
-		case vsType.GroupVersionKind():
+		case gvk.VirtualService:
 			out.VirtualService = append(out.VirtualService, c)
 		}
 	}
@@ -71,16 +72,16 @@ func splitOutput(configs []model.Config) IstioResources {
 func splitInput(configs []model.Config) *KubernetesResources {
 	out := &KubernetesResources{}
 	for _, c := range configs {
-		switch c.Type {
-		case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().Kind():
+		switch c.GroupVersionKind {
+		case collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():
 			out.GatewayClass = append(out.GatewayClass, c)
-		case collections.K8SServiceApisV1Alpha1Gateways.Resource().Kind():
+		case collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind():
 			out.Gateway = append(out.Gateway, c)
-		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().Kind():
+		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
 			out.HTTPRoute = append(out.HTTPRoute, c)
-		case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().Kind():
+		case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
 			out.TCPRoute = append(out.TCPRoute, c)
-		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().Kind():
+		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
 			out.TrafficSplit = append(out.TrafficSplit, c)
 		}
 	}
@@ -107,9 +108,9 @@ func marshalYaml(t *testing.T, cl []model.Config) []byte {
 	result := []byte{}
 	separator := []byte("---\n")
 	for _, config := range cl {
-		s, exists := collections.All.FindByGroupVersionKind(config.GroupVersionKind())
+		s, exists := collections.All.FindByGroupVersionKind(config.GroupVersionKind)
 		if !exists {
-			t.Fatalf("Unknown kind %v for %v", config.GroupVersionKind(), config.Name)
+			t.Fatalf("Unknown kind %v for %v", config.GroupVersionKind, config.Name)
 		}
 		obj, err := crd.ConvertConfig(s, config)
 		if err != nil {

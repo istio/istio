@@ -101,7 +101,7 @@ func NewWatcher(fileWatcher filewatcher.FileWatcher, filename string) (Watcher, 
 	return w, nil
 }
 
-// Config returns the latest mesh config.
+// Mesh returns the latest mesh config.
 func (w *watcher) Mesh() *meshconfig.MeshConfig {
 	return (*meshconfig.MeshConfig)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.mesh))))
 }

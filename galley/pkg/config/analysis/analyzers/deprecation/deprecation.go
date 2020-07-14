@@ -39,6 +39,7 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks for deprecated Istio types and fields",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			collections.IstioNetworkingV1Alpha3Sidecars.Name(),
 		},
 	}
 }
@@ -49,6 +50,45 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeVirtualService(r, ctx)
 		return true
 	})
+	ctx.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
+		fa.analyzeSidecar(r, ctx)
+		return true
+	})
+}
+
+func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context) {
+
+	sc := r.Message.(*v1alpha3.Sidecar)
+
+	if sc.Localhost != nil {
+		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+			msg.NewDeprecated(r, ignoredMessage("Localhost")))
+	}
+
+	for _, ingress := range sc.Ingress {
+		if ingress != nil {
+			if ingress.LocalhostClientTls != nil {
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+					msg.NewDeprecated(r, ignoredMessage("Ingress.LocalhostClientTLS")))
+			}
+		}
+	}
+
+	for _, egress := range sc.Egress {
+		if egress != nil {
+			if egress.LocalhostServerTls != nil {
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+					msg.NewDeprecated(r, ignoredMessage("Egress.LocalhostServerTLS")))
+			}
+		}
+	}
+
+	if sc.OutboundTrafficPolicy != nil {
+		if sc.OutboundTrafficPolicy.EgressProxy != nil {
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+				msg.NewDeprecated(r, ignoredMessage("OutboundTrafficPolicy.EgressProxy")))
+		}
+	}
 }
 
 func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context) {
@@ -69,4 +109,8 @@ func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.C
 
 func replacedMessage(deprecated, replacement string) string {
 	return fmt.Sprintf("%s is deprecated; use %s", deprecated, replacement)
+}
+
+func ignoredMessage(field string) string {
+	return fmt.Sprintf("%s ignored", field)
 }

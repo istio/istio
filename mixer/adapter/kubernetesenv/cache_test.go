@@ -16,6 +16,7 @@ package kubernetesenv
 
 import (
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,6 +62,51 @@ func TestClusterInfoCache_Pod(t *testing.T) {
 				tt.Errorf("GetPod() => (_, %t), wanted (_, %t)", got, v.want)
 			}
 		})
+	}
+}
+
+func TestClusterInfoCache_MultiplePods(t *testing.T) {
+	clientset := fake.NewSimpleClientset(
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:         "foo",
+				Name:              "bar",
+				CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+			},
+			Status: v1.PodStatus{PodIP: "10.1.10.3", Phase: v1.PodSucceeded},
+		},
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:         "baz",
+				Name:              "quux",
+				CreationTimestamp: metav1.Now(),
+			},
+			Status: v1.PodStatus{PodIP: "10.1.10.3", Phase: v1.PodRunning},
+		},
+		&v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:         "alpha",
+				Name:              "beta",
+				CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+			},
+			Status: v1.PodStatus{PodIP: "10.1.10.3", Phase: v1.PodSucceeded},
+		},
+	)
+
+	stopCh := make(chan struct{})
+	c := newCacheController(clientset, 0, test.NewEnv(t), stopCh)
+	defer close(stopCh)
+	go c.Run(stopCh)
+	if !cache.WaitForCacheSync(stopCh, c.HasSynced) {
+		t.Fatal("Failed to sync")
+	}
+
+	pod, found := c.Pod("10.1.10.3")
+	if !found {
+		t.Errorf("Expected the pod to be found")
+	}
+	if pod.Namespace != "baz" && pod.Name != "quux" {
+		t.Errorf("Expected pod baz/quux to be returned, found %s/%s", pod.Namespace, pod.Name)
 	}
 }
 

@@ -29,7 +29,11 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
     - "-d"
+  {{- if excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}
     - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+  {{- else }}
+  - "15090,15021"
+  {{- end }}
     {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") -}}
     - "-q"
     - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
@@ -47,12 +51,14 @@ template: |
     - "--skip-rule-apply"
     {{ end -}}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-  {{- if .Values.global.proxy_init.resources }}
+  {{- if .ProxyConfig.ProxyMetadata }}
     env:
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
+  {{- end }}
+  {{- if .Values.global.proxy_init.resources }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
   {{- else }}

@@ -389,7 +389,7 @@ func istioctlWithStderr(t *testing.T, i istioctl.Instance, ns string, useKube bo
 
 func applyFileOrFail(t *testing.T, ns, filename string) {
 	t.Helper()
-	if err := cluster.Apply(ns, filename); err != nil {
+	if err := cluster.ApplyYAMLFiles(ns, filename); err != nil {
 		t.Fatal(err)
 	}
 }

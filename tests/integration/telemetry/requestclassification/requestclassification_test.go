@@ -21,7 +21,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("request_classification_test", m).Run()
+	framework.NewSuite(m).Run()
 }
 
 func TestRequestClassification(t *testing.T) {

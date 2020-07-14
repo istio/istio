@@ -68,13 +68,13 @@ func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 
 func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValue string) { // nolint:interfacer
 	t.Helper()
-	ctx.ApplyConfigOrFail(
+	ctx.Config().ApplyYAMLOrFail(
 		t,
 		bookinfoNs.Name(),
 		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 	)
-	defer ctx.DeleteConfigOrFail(t,
+	defer ctx.Config().DeleteYAMLOrFail(t,
 		bookinfoNs.Name(),
 		bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 		bookinfo.NetworkingVirtualServiceAllV1.LoadWithNamespaceOrFail(t, bookinfoNs.Name()))
@@ -141,13 +141,13 @@ func TestTcpMetric(t *testing.T) {
 			defer undeploy1()
 			defer undeploy2()
 
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
-			defer ctx.DeleteConfigOrFail(
+			defer ctx.Config().DeleteYAMLOrFail(
 				t,
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
@@ -179,7 +179,7 @@ func TestTcpMetric(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mixer_telemetry_metrics", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
@@ -229,7 +229,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = ctx.ApplyConfig(bookinfoNs.Name(), yamlText)
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(), yamlText)
 	if err != nil {
 		return err
 	}

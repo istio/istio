@@ -4,6 +4,7 @@
 /Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
 /bin/                                                            @istio/wg-test-and-release-maintainers
 /cmd/istiod/                                                     @istio/wg-environments-maintainers
+/cni/                                                            @istio/wg-networking-maintainers
 /common/                                                         @istio/wg-test-and-release-maintainers
 /common-protos/                                                  @istio/wg-test-and-release-maintainers
 /galley/                                                         @istio/wg-networking-maintainers
@@ -39,6 +40,7 @@ Makefile*                                                        @istio/wg-test-
 /pkg/webhooks/                                                   @istio/wg-environments-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
+/releasenotes/                                                   @istio/wg-test-and-release-maintainers @istio/release-managers
 /samples/                                                        @istio/wg-docs-maintainers
 /samples/addons                                                  @istio/wg-policies-and-telemetry-maintainers @istio/wg-environments-maintainers
 /security/                                                       @istio/wg-security-maintainers
@@ -53,6 +55,6 @@ Makefile*                                                        @istio/wg-test-
 /tests/integration/security/                                     @istio/wg-security-maintainers
 /tests/integration/istioctl/                                     @istio/wg-user-experience-maintainers
 /tools/                                                          @istio/wg-test-and-release-maintainers
-/tools/packaging/common/envoy_bootstrap_v2.json                  @istio/wg-networking-maintainers
+/tools/packaging/common/envoy_bootstrap.json                  @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
 /tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers

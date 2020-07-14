@@ -74,3 +74,5 @@ kiali:
     enabled: false
     cert_file: /kiali-cert/cert-chain.pem
     private_key_file: /kiali-cert/key.pem
+
+revision: ""

@@ -39,7 +39,7 @@ func TestNilRetryShouldReturnDefault(t *testing.T) {
 
 	policy := retry.ConvertPolicy(route.Retries)
 	g.Expect(policy).To(Not(BeNil()))
-	g.Expect(*policy).To(Equal(*retry.DefaultPolicy()))
+	g.Expect(policy).To(Equal(retry.DefaultPolicy()))
 }
 
 func TestZeroAttemptsShouldReturnNilPolicy(t *testing.T) {

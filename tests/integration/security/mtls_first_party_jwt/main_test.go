@@ -31,7 +31,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mtls_first_party_jwt", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig)).

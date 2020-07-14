@@ -87,8 +87,8 @@ func (m *configstoreMonitor) Run(stop <-chan struct{}) {
 }
 
 func (m *configstoreMonitor) processConfigEvent(ce ConfigEvent) {
-	if _, exists := m.handlers[ce.config.GroupVersionKind()]; !exists {
-		log.Warnf("Config Type %s does not exist in config store", ce.config.Type)
+	if _, exists := m.handlers[ce.config.GroupVersionKind]; !exists {
+		log.Warnf("Config GroupVersionKind %s does not exist in config store", ce.config.GroupVersionKind)
 		return
 	}
 	m.applyHandlers(ce.old, ce.config, ce.event)
@@ -99,7 +99,7 @@ func (m *configstoreMonitor) AppendEventHandler(typ resource.GroupVersionKind, h
 }
 
 func (m *configstoreMonitor) applyHandlers(old model.Config, config model.Config, e model.Event) {
-	for _, f := range m.handlers[config.GroupVersionKind()] {
+	for _, f := range m.handlers[config.GroupVersionKind] {
 		f(old, config, e)
 	}
 }

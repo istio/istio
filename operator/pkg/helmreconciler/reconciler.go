@@ -374,7 +374,7 @@ func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.Join([]string{crName, crNamespace, componentName}, "-"), nil
+	return strings.Join([]string{crName, crNamespace, componentName, h.restConfig.Host}, "-"), nil
 }
 
 // getCRNamespace returns the namespace of the CR associated with h.

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -57,8 +58,8 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
-	// IngressGatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	IngressGatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
+	// GatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
+	GatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
@@ -74,7 +75,7 @@ const (
 )
 
 // ConstructSdsSecretConfigWithCustomUds constructs SDS secret configuration for ingress gateway.
-func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath, requestedType string) *tls.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
@@ -84,7 +85,7 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecr
 		StatPrefix: SDSStatPrefix,
 	}
 
-	return &tls.SdsSecretConfig{
+	cfg := &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -102,15 +103,21 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecr
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
+
+	if requestedType == v3.ClusterType || requestedType == v3.ListenerType {
+		// For v3 clusters/listeners, send v3 secrets
+		cfg.SdsConfig.ResourceApiVersion = core.ApiVersion_V3
+	}
+	return cfg
 }
 
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfig(name, sdsUdsPath, requestedType string) *tls.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
 
-	return &tls.SdsSecretConfig{
+	cfg := &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -128,6 +135,11 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *tls.SdsSecretConfig {
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
+	if requestedType == v3.ClusterType || requestedType == v3.ListenerType {
+		// For v3 clusters/listeners, send v3 secrets
+		cfg.SdsConfig.ResourceApiVersion = core.ApiVersion_V3
+	}
+	return cfg
 }
 
 // ConstructValidationContext constructs ValidationContext in CommonTLSContext.
@@ -150,7 +162,7 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string, resourceType string) {
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
@@ -167,11 +179,11 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
-					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath),
+					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath, resourceType),
 			},
 		}
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath),
+			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath, resourceType),
 		}
 	} else {
 		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
@@ -201,12 +213,35 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 	}
 }
 
-// ApplyCustomSDSToCommonTLSContext applies the customized sds to CommonTlsContext
+// ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
+// Used for building upstream TLS context for egress gateway's TLS/mTLS origination
+func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ClientTLSSettings, sdsUdsPath, requestedType string) {
+	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
+		// create SDS config for gateway to fetch key/cert from agent.
+		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+			ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath, requestedType),
+		}
+	}
+	// create SDS config for gateway to fetch certificate validation context
+	// at gateway agent.
+	defaultValidationContext := &tls.CertificateValidationContext{
+		MatchSubjectAltNames: util.StringToExactMatch(tlsOpts.SubjectAltNames),
+	}
+	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+			DefaultValidationContext: defaultValidationContext,
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
+				tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath, requestedType),
+		},
+	}
+}
+
+// ApplyCustomSDSToServerCommonTLSContext applies the customized sds to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
+func ApplyCustomSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath, requestedType string) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+		ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath, requestedType),
 	}
 	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
@@ -220,7 +255,7 @@ func ApplyCustomSDSToCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts 
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext: defaultValidationContext,
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
-					tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath),
+					tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath, requestedType),
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {
@@ -281,10 +316,9 @@ func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMet
 		headerKey:     headerKey,
 	}
 	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
-		marshalAny := v.(any.Any)
-		return &marshalAny
+		return v.(*any.Any)
 	}
 	any, _ := ptypes.MarshalAny(fbMetadata)
-	fileBasedMetadataConfigAnyMap.Store(key, *any)
+	fileBasedMetadataConfigAnyMap.Store(key, any)
 	return any
 }

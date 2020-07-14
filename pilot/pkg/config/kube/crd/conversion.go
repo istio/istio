@@ -90,9 +90,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Resource().Kind(),
-			Group:             schema.Resource().Group(),
-			Version:           schema.Resource().Version(),
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
 			Domain:            domain,

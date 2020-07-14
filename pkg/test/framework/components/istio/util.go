@@ -22,9 +22,8 @@ import (
 
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kubeenv "istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/resource"
 
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -50,10 +49,10 @@ var (
 	discoveryPort  = 15012
 )
 
-func waitForValidationWebhook(accessor kube.Accessor, cfg Config) error {
+func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
 	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
 	defer func() {
-		e := accessor.DeleteContents("", dummyValidationRule)
+		e := ctx.Config(cluster).DeleteYAML("", dummyValidationRule)
 		if e != nil {
 			scopes.Framework.Warnf("error deleting dummy rule for waiting the validation webhook: %v", e)
 		}
@@ -61,7 +60,7 @@ func waitForValidationWebhook(accessor kube.Accessor, cfg Config) error {
 
 	scopes.Framework.Info("Creating dummy rule to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
-		_, err := accessor.ApplyContents("", dummyValidationRule)
+		err := ctx.Config(cluster).ApplyYAML("", dummyValidationRule)
 		if err == nil {
 			return nil
 		}
@@ -70,7 +69,7 @@ func waitForValidationWebhook(accessor kube.Accessor, cfg Config) error {
 	}, retry.Timeout(time.Minute))
 }
 
-func GetRemoteDiscoveryAddress(namespace string, cluster kubeenv.Cluster, useNodePort bool) (net.TCPAddr, error) {
+func GetRemoteDiscoveryAddress(namespace string, cluster resource.Cluster, useNodePort bool) (net.TCPAddr, error) {
 	svc, err := cluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
 	if err != nil {
 		return net.TCPAddr{}, err
@@ -79,14 +78,14 @@ func GetRemoteDiscoveryAddress(namespace string, cluster kubeenv.Cluster, useNod
 	// if useNodePort is set, we look for the node port service. This is generally used on kind or k8s without a LB
 	// and that do not have metallb installed
 	if useNodePort {
-		pods, err := cluster.GetPods(namespace, "istio=ingressgateway")
+		pods, err := cluster.PodsForSelector(context.TODO(), namespace, "istio=ingressgateway")
 		if err != nil {
 			return net.TCPAddr{}, err
 		}
-		if len(pods) == 0 {
+		if len(pods.Items) == 0 {
 			return net.TCPAddr{}, fmt.Errorf("no ingress pod found")
 		}
-		ip := pods[0].Status.HostIP
+		ip := pods.Items[0].Status.HostIP
 		if ip == "" {
 			return net.TCPAddr{}, fmt.Errorf("no Host IP available on the ingress node yet")
 		}

@@ -59,7 +59,7 @@ spec:
         env:
         - name: NEW_VAR
           value: new_value
-        image: docker.io/prom/prometheus:v2.15.1
+        image: docker.io/prom/prometheus:v2.18.1
         livenessProbe:
           httpGet:
             path: /-/healthy

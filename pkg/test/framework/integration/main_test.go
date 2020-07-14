@@ -18,8 +18,9 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("framework_test", m).Run()
+	framework.NewSuite(m).EnvironmentFactory(resource.NilEnvironmentFactory).Run()
 }

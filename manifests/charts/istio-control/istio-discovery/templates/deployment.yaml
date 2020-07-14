@@ -97,8 +97,8 @@ spec:
             httpGet:
               path: /ready
               port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 1
+            periodSeconds: 3
             timeoutSeconds: 5
           env:
           - name: REVISION

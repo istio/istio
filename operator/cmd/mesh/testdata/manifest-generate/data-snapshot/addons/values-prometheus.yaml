@@ -13,7 +13,7 @@ server:
   # Use port 9090 to match Istio documentation
   service:
     servicePort: 9090
-
+  readinessProbeInitialDelay: 0
   # Speed up scraping a bit from the default
   global:
     scrape_interval: 15s

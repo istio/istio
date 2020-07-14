@@ -1,0 +1,16 @@
+{{- if .Values.global.defaultPodDisruptionBudget.enabled }}
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: istiocoredns
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiocoredns
+    release: {{ .Release.Name }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: istiocoredns
+      release: {{ .Release.Name }}
+{{- end }}

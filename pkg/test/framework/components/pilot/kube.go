@@ -23,7 +23,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -41,7 +41,7 @@ var (
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
 	}
 	c.id = ctx.TrackResource(c)
 
@@ -52,8 +52,8 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	ns := icfg.ConfigNamespace
 
-	fetchFn := testKube.NewSinglePodFetch(c.cluster.Accessor, ns, "istio=pilot")
-	pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
+	fetchFn := testKube.NewSinglePodFetch(c.cluster, ns, "istio=pilot")
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}()
 
 	// Start port-forwarding for pilot.
-	c.forwarder, err = c.cluster.NewPortForwarder(pod, 0, port)
+	c.forwarder, err = c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
 	if err != nil {
 		return nil, err
 	}
@@ -98,9 +98,9 @@ type kubeComponent struct {
 
 	*client
 
-	forwarder testKube.PortForwarder
+	forwarder istioKube.PortForwarder
 
-	cluster kube.Cluster
+	cluster resource.Cluster
 }
 
 func (c *kubeComponent) ID() resource.ID {
@@ -115,7 +115,7 @@ func (c *kubeComponent) Close() (err error) {
 	}
 
 	if c.forwarder != nil {
-		err = multierror.Append(err, c.forwarder.Close()).ErrorOrNil()
+		c.forwarder.Close()
 		c.forwarder = nil
 	}
 	return

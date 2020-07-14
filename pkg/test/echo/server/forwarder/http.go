@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strings"
 
+	"golang.org/x/net/http2"
+
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 )
@@ -39,8 +41,13 @@ func (c *httpProtocol) setHost(r *http.Request, host string) {
 	if r.URL.Scheme == "https" {
 		// Set SNI value to be same as the request Host
 		// For use with SNI routing tests
-		httpTransport := c.client.Transport.(*http.Transport)
-		httpTransport.TLSClientConfig.ServerName = host
+		httpTransport, ok := c.client.Transport.(*http.Transport)
+		if ok {
+			httpTransport.TLSClientConfig.ServerName = host
+		} else {
+			httpTransport := c.client.Transport.(*http2.Transport)
+			httpTransport.TLSClientConfig.ServerName = host
+		}
 	}
 }
 

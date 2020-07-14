@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 	//   is used for data plane to control plane TLS authentication.
 	// - Secure naming information is respected in the mTLS handshake.
 	framework.
-		NewSuite("mtlscert_pluginca_securenaming_test", m).
+		NewSuite(m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
 
 		RequireSingleCluster().

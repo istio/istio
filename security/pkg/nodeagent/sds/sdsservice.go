@@ -30,7 +30,7 @@ import (
 	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/security/pkg/nodeagent/util"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -88,7 +88,7 @@ type sdsConnection struct {
 	pushChannel chan *sdsEvent
 
 	// SDS streams implement this interface.
-	stream v2.DiscoveryStream
+	stream xds.DiscoveryStream
 
 	// The secret associated with the proxy.
 	secret *model.SecretItem
@@ -279,7 +279,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			// Reset SDS push time for new SDS push.
 			con.sdsPushTime = time.Time{}
 			con.mutex.Unlock()
-			defer recycleConnection(conID, resourceName)
+
+			defer releaseResourcePerConn(s, conID, resourceName)
 
 			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			if s.localJWT {
@@ -325,19 +326,19 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 				"error details %s\n", conIDresourceNamePrefix, discReq.Node.Id, firstRequestFlag, discReq.VersionInfo,
 				discReq.ErrorDetail)
 
-			// In ingress gateway agent mode, if the first SDS request is received but Ingress gateway secret which is
+			// In gateway agent mode, if the first SDS request is received but gateway secret which is
 			// provisioned as kubernetes secret is not ready, wait for secret before sending SDS response.
 			// If a kubernetes secret was deleted by operator, wait for a new kubernetes secret before sending SDS response.
 			// If workload uses file mounted certs i.e. "FILE_MOUNTED_CERTS" is set to true, workdload loads certificates from
-			// mounted certificate paths and it does not depend on the presence of ingress gateway secret so
+			// mounted certificate paths and it does not depend on the presence of gateway secret so
 			// we should skip waiting for it in that mode.
 			// File mounted certs for gateways is used in scenarios where an existing PKI infrastuctures delivers certificates
 			// to pods/VMs via files.
-			if s.st.ShouldWaitForIngressGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
-				sdsServiceLog.Warnf("%s waiting for ingress gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
+			if s.st.ShouldWaitForGatewaySecret(conID, resourceName, token, s.fileMountedCertsOnly) {
+				sdsServiceLog.Warnf("%s waiting for gateway secret for proxy %q\n", conIDresourceNamePrefix, discReq.Node.Id)
 				continue
 			} else {
-				sdsServiceLog.Infof("Skipping waiting for ingress gateway secret")
+				sdsServiceLog.Infof("Skipping waiting for gateway secret")
 			}
 
 			secret, err := s.st.GenerateSecret(ctx, conID, resourceName, token)
@@ -354,10 +355,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
-
-			// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
-			// and cause some confusing logs like 'fails to notify because connection isn't found'.
-			defer s.st.DeleteSecret(conID, resourceName)
 
 			con.mutex.Lock()
 			con.secret = secret
@@ -379,11 +376,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			sdsServiceLog.Debugf("%s received push channel request for proxy %q", conIDresourceNamePrefix, proxyID)
 
 			if secret == nil {
-				defer func() {
-					recycleConnection(conID, resourceName)
-					s.st.DeleteSecret(conID, resourceName)
-				}()
-
+				defer releaseResourcePerConn(s, conID, resourceName)
 				// Secret is nil indicates close streaming to proxy, so that proxy
 				// could connect again with updated token.
 				// When nodeagent stops stream by sending envoy error response, it's Ok not to remove secret
@@ -496,6 +489,13 @@ func NotifyProxy(connKey cache.ConnKey, secret *model.SecretItem) error {
 
 	conn.pushChannel <- &sdsEvent{}
 	return nil
+}
+
+func releaseResourcePerConn(s *sdsservice, conID, resourceName string) {
+	recycleConnection(conID, resourceName)
+	// Remove the secret from cache, otherwise refresh job will process this item(if envoy fails to reconnect)
+	// and cause some confusing logs like 'fails to notify because connection isn't found'.
+	s.st.DeleteSecret(conID, resourceName)
 }
 
 func recycleConnection(conID, resourceName string) {
@@ -674,7 +674,7 @@ func sdsDiscoveryResponse(s *model.SecretItem, resourceName, typeURL string) (*d
 	return resp, nil
 }
 
-func newSDSConnection(stream v2.DiscoveryStream) *sdsConnection {
+func newSDSConnection(stream xds.DiscoveryStream) *sdsConnection {
 	return &sdsConnection{
 		pushChannel: make(chan *sdsEvent, 1),
 		Connect:     time.Now(),

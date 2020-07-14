@@ -40,8 +40,6 @@ func configureLogging(ciMode bool) error {
 
 	if ciMode {
 		o.SetOutputLevel(scopes.Framework.Name(), log.DebugLevel)
-	} else {
-		o.SetOutputLevel(scopes.Framework.Name(), log.NoneLevel)
 	}
 
 	return log.Configure(&o)

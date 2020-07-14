@@ -20,12 +20,21 @@ import (
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/proxy/envoy/filters"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/spiffe"
+)
+
+const (
+	// Service accounts for Mixer and Pilot, these are hardcoded values at setup time
+	PilotSvcAccName string = "istio-pilot-service-account"
+
+	MixerSvcAccName string = "istio-mixer-service-account"
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
@@ -38,7 +47,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	meta := node.Metadata
 	var alpnIstioMatch *listener.FilterChainMatch
 	var ctx *tls.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) &&
+	if features.EnableTCPMetadataExchange &&
 		(listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto) {
 		alpnIstioMatch = &listener.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMeshWithMxc,
@@ -72,7 +81,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
 	}
-	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/)
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/, node.RequestedTypes.LDS)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")
@@ -88,7 +97,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       ctx,
 				ListenerFilters: []*listener.ListenerFilter{
-					filters.TLSInspector,
+					xdsfilters.TLSInspector,
 				},
 			},
 			{
@@ -97,4 +106,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		}
 	}
 	return nil
+}
+
+// GetSAN returns the SAN used for passed in identity for mTLS.
+func GetSAN(ns string, identity string) string {
+
+	if ns != "" {
+		return spiffe.MustGenSpiffeURI(ns, identity)
+	}
+	return spiffe.GenCustomSpiffe(identity)
 }

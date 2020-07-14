@@ -19,20 +19,21 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -45,8 +46,8 @@ type manifestGenerateArgs struct {
 	set []string
 	// force proceeds even if there are validation errors
 	force bool
-	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
-	charts string
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
 }
@@ -56,7 +57,8 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path.")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
-	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
@@ -96,14 +98,18 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.charts, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
 
 	if mgArgs.outFilename == "" {
-		for _, m := range orderedManifests(manifests) {
-			l.Print(m + "\n")
+		ordered, err := orderedManifests(manifests)
+		if err != nil {
+			return fmt.Errorf("failed to order manifests: %v", err)
+		}
+		for _, m := range ordered {
+			l.Print(m + object.YAMLSeparator)
 		}
 	} else {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
@@ -149,17 +155,29 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 	return manifests, mergedIOPS, nil
 }
 
-// orderedManifests generates a list of manifests from the given map sorted by the map keys.
-func orderedManifests(mm name.ManifestMap) []string {
-	var keys, out []string
-	for k := range mm {
-		keys = append(keys, string(k))
+// orderedManifests generates a list of manifests from the given map sorted by the default object order
+// This allows
+func orderedManifests(mm name.ManifestMap) ([]string, error) {
+	var rawOutput []string
+	var output []string
+	for _, mfs := range mm {
+		rawOutput = append(rawOutput, mfs...)
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		out = append(out, strings.Join(mm[name.ComponentName(k)], helm.YAMLSeparator))
+	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
+	if err != nil {
+		return nil, err
 	}
-	return out
+	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
+	objects.Sort(object.DefaultObjectOrder())
+	for _, obj := range objects {
+		yml, err := obj.YAML()
+		if err != nil {
+			return nil, err
+		}
+		output = append(output, string(yml))
+	}
+
+	return output, nil
 }
 
 // RenderToDir writes manifests to a local filesystem directory tree.

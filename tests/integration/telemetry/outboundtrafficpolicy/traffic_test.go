@@ -30,7 +30,7 @@ var (
 
 func TestMain(m *testing.M) {
 	var ist istio.Instance
-	framework.NewSuite("outbound_traffic_policy", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, setupConfig)).
@@ -45,13 +45,7 @@ func setupConfig(cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:
-  - enabled: true
-values:
-  telemetry:
-    v1:
-      enabled: false
-    v2:
-      enabled: true`
+  - enabled: true`
 }
 
 func setupPrometheus(ctx resource.Context) (err error) {

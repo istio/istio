@@ -62,7 +62,7 @@ func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
 		return nil, err
 	}
 	clusterDump := &adminapi.ClustersConfigDump{}
-	err = ptypes.UnmarshalAny(&clusterDumpAny, clusterDump)
+	err = ptypes.UnmarshalAny(clusterDumpAny, clusterDump)
 	if err != nil {
 		return nil, err
 	}

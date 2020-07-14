@@ -20,38 +20,32 @@ import (
 
 	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/bootstrap/auth"
 )
 
+// nolint: lll
 func TestTlsContextConvert(t *testing.T) {
 	tests := []struct {
 		desc         string
 		tls          *networkingAPI.ClientTLSSettings
 		sni          string
-		meta         *model.NodeMetadata
-		expectTLSCtx *auth.UpstreamTLSContext
+		meta         *model.BootstrapNodeMetadata
+		expectTLSCtx string
 	}{
 		{
 			desc:         "no-tls",
 			tls:          &networkingAPI.ClientTLSSettings{},
 			sni:          "",
-			meta:         &model.NodeMetadata{},
-			expectTLSCtx: nil,
+			meta:         &model.BootstrapNodeMetadata{},
+			expectTLSCtx: "null",
 		},
 		{
 			desc: "tls-simple-no-cert",
 			tls: &networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_SIMPLE,
 			},
-			sni:  "",
-			meta: &model.NodeMetadata{},
-			expectTLSCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					ValidationContext: nil,
-					AlpnProtocols:     util.ALPNH2Only,
-				},
-			},
+			sni:          "",
+			meta:         &model.BootstrapNodeMetadata{},
+			expectTLSCtx: "{\"common_tls_context\":{\"ValidationContextType\":{\"CombinedValidationContext\":{\"default_validation_context\":{}}},\"alpn_protocols\":[\"h2\"]}}",
 		},
 		{
 			desc: "tls-simple-cert-cli",
@@ -60,19 +54,9 @@ func TestTlsContextConvert(t *testing.T) {
 				CaCertificates: "foo.pem",
 				Sni:            "foo",
 			},
-			sni:  "",
-			meta: &model.NodeMetadata{},
-			expectTLSCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &auth.DataSource{
-							Filename: "foo.pem",
-						},
-					},
-					AlpnProtocols: []string{"h2"},
-				},
-				Sni: "foo",
-			},
+			sni:          "",
+			meta:         &model.BootstrapNodeMetadata{},
+			expectTLSCtx: `{"common_tls_context":{"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:foo.pem","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}}},"alpn_protocols":["h2"]}}`,
 		},
 		{
 			desc: "tls-simple-cert-cli-meta",
@@ -82,27 +66,20 @@ func TestTlsContextConvert(t *testing.T) {
 				Sni:            "foo",
 			},
 			sni: "",
-			meta: &model.NodeMetadata{
-				TLSClientRootCert: "/foo/bar/baz.pem",
-			},
-			expectTLSCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &auth.DataSource{
-							Filename: "/foo/bar/baz.pem",
-						},
-					},
-					AlpnProtocols: []string{"h2"},
+			meta: &model.BootstrapNodeMetadata{
+				NodeMetadata: model.NodeMetadata{
+					TLSClientRootCert: "/foo/bar/baz.pem",
 				},
-				Sni: "foo",
 			},
+			expectTLSCtx: `{"common_tls_context":{"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/foo/bar/baz.pem","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}}},"alpn_protocols":["h2"]}}`,
 		},
 		{
 			desc: "tls-cli-mutual-missing-certs",
+			meta: &model.BootstrapNodeMetadata{},
 			tls: &networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_MUTUAL,
 			},
-			expectTLSCtx: nil,
+			expectTLSCtx: `{"common_tls_context":{"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{}}},"alpn_protocols":["h2"]}}`,
 		},
 		{
 			desc: "tls-cli-mutual",
@@ -112,124 +89,24 @@ func TestTlsContextConvert(t *testing.T) {
 				PrivateKey:        "im-private-foo",
 				Sni:               "bar",
 			},
-			sni:  "",
-			meta: &model.NodeMetadata{},
-			expectTLSCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					TLSCertificates: []*auth.TLSCertificate{
-						{
-							CertificateChain: &auth.DataSource{
-								Filename: "foo",
-							},
-							PrivateKey: &auth.DataSource{
-								Filename: "im-private-foo",
-							},
-						},
-					},
-					AlpnProtocols: []string{"h2"},
-				},
-				Sni: "bar",
-			},
+			sni:          "",
+			meta:         &model.BootstrapNodeMetadata{},
+			expectTLSCtx: `{"common_tls_context":{"tls_certificate_sds_secret_configs":[{"name":"file-cert:foo~im-private-foo","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}],"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{}}},"alpn_protocols":["h2"]}}`,
 		},
 		{
 			desc: "tls-istio-mutual-no-certs",
 			tls: &networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			},
-			sni:  "i-should-be-sni",
-			meta: &model.NodeMetadata{},
-			expectTLSCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					TLSCertificates: []*auth.TLSCertificate{
-						{
-							CertificateChain: &auth.DataSource{
-								Filename: "/etc/certs/root-cert.pem",
-							},
-							PrivateKey: &auth.DataSource{
-								Filename: "/etc/certs/key.pem",
-							},
-						},
-					},
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &auth.DataSource{
-							Filename: "/etc/certs/cert-chain.pem",
-						},
-					},
-					AlpnProtocols: []string{"istio", "h2"},
-				},
-				Sni: "i-should-be-sni",
-			},
-		},
-		{
-			desc: "tls-istio-mutual-provide-certs",
-			tls: &networkingAPI.ClientTLSSettings{
-				Mode:              networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
-				ClientCertificate: "foo.pem",
-				PrivateKey:        "bar.pem",
-			},
-			sni:  "i-should-be-sni",
-			meta: &model.NodeMetadata{},
-			expectTLSCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					TLSCertificates: []*auth.TLSCertificate{
-						{
-							CertificateChain: &auth.DataSource{
-								Filename: "foo.pem",
-							},
-							PrivateKey: &auth.DataSource{
-								Filename: "bar.pem",
-							},
-						},
-					},
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &auth.DataSource{
-							Filename: "/etc/certs/cert-chain.pem",
-						},
-					},
-					AlpnProtocols: []string{"istio", "h2"},
-				},
-				Sni: "i-should-be-sni",
-			},
-		},
-		{
-			desc: "tls-istio-mutual-meta-certs",
-			tls: &networkingAPI.ClientTLSSettings{
-				Mode:              networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
-				ClientCertificate: "foo.pem",
-				PrivateKey:        "bar.pem",
-			},
-			sni: "i-should-be-sni",
-			meta: &model.NodeMetadata{
-				TLSClientCertChain: "better-foo.pem",
-				TLSClientKey:       "better-bar.pem",
-			},
-			expectTLSCtx: &auth.UpstreamTLSContext{
-				CommonTLSContext: &auth.CommonTLSContext{
-					TLSCertificates: []*auth.TLSCertificate{
-						{
-							CertificateChain: &auth.DataSource{
-								Filename: "better-foo.pem",
-							},
-							PrivateKey: &auth.DataSource{
-								Filename: "better-bar.pem",
-							},
-						},
-					},
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &auth.DataSource{
-							Filename: "/etc/certs/cert-chain.pem",
-						},
-					},
-					AlpnProtocols: []string{"istio", "h2"},
-				},
-				Sni: "i-should-be-sni",
-			},
+			sni:          "i-should-be-sni",
+			meta:         &model.BootstrapNodeMetadata{},
+			expectTLSCtx: `{"common_tls_context":{"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}],"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}}},"alpn_protocols":["istio","h2"]},"sni":"i-should-be-sni"}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			if got := tlsContextConvert(tt.tls, tt.sni, tt.meta); !reflect.DeepEqual(tt.expectTLSCtx, got) {
+			if got := convertToJSON(tlsContextConvert(tt.tls, tt.sni, tt.meta)); !reflect.DeepEqual(tt.expectTLSCtx, got) {
 				t.Errorf("%s: expected TLS ctx %v got %v", tt.desc, tt.expectTLSCtx, got)
 			}
 		})

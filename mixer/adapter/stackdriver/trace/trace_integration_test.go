@@ -241,7 +241,7 @@ func TestReport(t *testing.T) {
            "RouteDirective": null
           },
           "Quota": null,
-          "Error": {}
+          "Error": null
          }
         ]
       }`,

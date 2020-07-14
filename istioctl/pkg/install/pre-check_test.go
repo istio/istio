@@ -152,7 +152,8 @@ func verifyOutput(t *testing.T, c testcase) {
 	clientFactory = mockPreCheckClient(c.config)
 	var out bytes.Buffer
 	precheckCmd := NewPrecheckCommand()
-	precheckCmd.SetOutput(&out)
+	precheckCmd.SetOut(&out)
+	precheckCmd.SetErr(&out)
 	fErr := precheckCmd.Execute()
 	output := out.String()
 	if c.expectedException {

@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,7 +29,9 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -62,11 +63,11 @@ var (
 
 func TestStreamSecretsForWorkloadSds(t *testing.T) {
 	arg := Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   "",
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
@@ -74,12 +75,12 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	arg := Options{
-		EnableWorkloadSDS:     true,
-		RecycleInterval:       30 * time.Second,
-		IngressGatewayUDSPath: "",
-		WorkloadUDSPath:       fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
-		FileMountedCerts:      true,
-		UseLocalJWT:           false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		FileMountedCerts:  true,
+		UseLocalJWT:       false,
 	}
 	wst := &mockSecretStore{
 		checkToken: false,
@@ -102,66 +103,66 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 
 func TestStreamSecretsForGatewaySds(t *testing.T) {
 	arg := Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       false,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         "",
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: false,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   "",
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestStreamSecretsForBothSds(t *testing.T) {
 	arg := Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, false)
 }
 
 func TestFetchSecretsForWorkloadSds(t *testing.T) {
 	arg := Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   "",
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestFetchSecretsForGatewaySds(t *testing.T) {
 	arg := Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       false,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         "",
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: false,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   "",
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestFetchSecretsForBothSds(t *testing.T) {
 	arg := Options{
-		EnableIngressGatewaySDS: true,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  true,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    fmt.Sprintf("/tmp/gateway_gotest%q.sock", string(uuid.NewUUID())),
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestFetch, false)
 }
 
 func TestStreamSecretsInvalidResourceName(t *testing.T) {
 	arg := Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         30 * time.Second,
-		IngressGatewayUDSPath:   "",
-		WorkloadUDSPath:         fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   30 * time.Second,
+		GatewayUDSPath:    "",
+		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%s.sock", string(uuid.NewUUID())),
 	}
 	testHelper(t, arg, sdsRequestStream, true)
 }
@@ -177,13 +178,14 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 	} else {
 		wst = nil
 	}
-	if arg.EnableIngressGatewaySDS {
+	if arg.EnableGatewaySDS {
 		gst = &mockSecretStore{
 			checkToken: false,
 		}
 	} else {
 		gst = nil
 	}
+
 	server, err := NewServer(arg, wst, gst)
 	defer server.Stop()
 	if err != nil {
@@ -204,8 +206,8 @@ func testHelper(t *testing.T, arg Options, cb secretCallback, testInvalidResourc
 		recycleConnection(getClientConID(proxyID), testResourceName)
 		recycleConnection(getClientConID(proxyID), "ROOTCA")
 	}
-	if arg.EnableIngressGatewaySDS {
-		sendRequestAndVerifyResponse(t, cb, arg.IngressGatewayUDSPath, proxyID, testInvalidResourceNames)
+	if arg.EnableGatewaySDS {
+		sendRequestAndVerifyResponse(t, cb, arg.GatewayUDSPath, proxyID, testInvalidResourceNames)
 		recycleConnection(getClientConID(proxyID), testResourceName)
 	}
 	// Check to make sure number of staled connections is 0.
@@ -294,10 +296,10 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	arg := Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         100 * time.Second,
-		WorkloadUDSPath:         socket,
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   100 * time.Second,
+		WorkloadUDSPath:   socket,
 	}
 	st := &mockSecretStore{
 		checkToken: false,
@@ -816,15 +818,15 @@ func (s *Setup) generatePushSecret(conID, token string) *model.SecretItem {
 }
 
 func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
-	var pb authapi.Secret
+	pb := &authapi.Secret{}
 	if resp == nil {
 		return fmt.Errorf("response is nil")
 	}
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	if err := ptypes.UnmarshalAny(resp.Resources[0], pb); err != nil {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 
-	expectedResponseSecret := authapi.Secret{
+	expectedResponseSecret := &authapi.Secret{
 		Name: testResourceName,
 		Type: &authapi.Secret_TlsCertificate{
 			TlsCertificate: &authapi.TlsCertificate{
@@ -841,7 +843,7 @@ func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		return fmt.Errorf("verification of SDS response failed: secret key: got %+v, want %+v",
 			pb, expectedResponseSecret)
 	}
@@ -849,12 +851,12 @@ func verifySDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []
 }
 
 func verifySDSSResponseForRootCert(t *testing.T, resp *discovery.DiscoveryResponse, expectedRootCert []byte) {
-	var pb authapi.Secret
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &pb); err != nil {
+	pb := &authapi.Secret{}
+	if err := ptypes.UnmarshalAny(resp.Resources[0], pb); err != nil {
 		t.Fatalf("UnmarshalAny SDS response failed: %v", err)
 	}
 
-	expectedResponseSecret := authapi.Secret{
+	expectedResponseSecret := &authapi.Secret{
 		Name: "ROOTCA",
 		Type: &authapi.Secret_ValidationContext{
 			ValidationContext: &authapi.CertificateValidationContext{
@@ -866,7 +868,7 @@ func verifySDSSResponseForRootCert(t *testing.T, resp *discovery.DiscoveryRespon
 			},
 		},
 	}
-	if !reflect.DeepEqual(pb, expectedResponseSecret) {
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
 		t.Errorf("secret key: got %+v, want %+v", pb, expectedResponseSecret)
 	}
 }
@@ -1030,7 +1032,7 @@ func (ms *mockSecretStore) DeleteSecret(conID, resourceName string) {
 	ms.secrets.Delete(key)
 }
 
-func (ms *mockSecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+func (ms *mockSecretStore) ShouldWaitForGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
 	return false
 }
 
@@ -1047,10 +1049,10 @@ func TestDebugEndpoints(t *testing.T) {
 	for _, tc := range tests {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
 		arg := Options{
-			EnableIngressGatewaySDS: false,
-			EnableWorkloadSDS:       true,
-			RecycleInterval:         30 * time.Second,
-			WorkloadUDSPath:         socket,
+			EnableGatewaySDS:  false,
+			EnableWorkloadSDS: true,
+			RecycleInterval:   30 * time.Second,
+			WorkloadUDSPath:   socket,
 		}
 		st := &mockSecretStore{
 			checkToken: true,

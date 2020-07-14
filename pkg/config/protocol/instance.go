@@ -123,7 +123,7 @@ func (i Instance) IsThrift() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (i Instance) IsTCP() bool {
 	switch i {
-	case TCP, HTTPS, TLS, Mongo, Redis, MySQL:
+	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Thrift:
 		return true
 	default:
 		return false

@@ -31,7 +31,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mtls_k8s_ca", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, setupConfig)).

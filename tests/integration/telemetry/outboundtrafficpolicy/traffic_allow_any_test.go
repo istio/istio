@@ -27,6 +27,18 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
 				ResponseCode:    []string{"200"},
+				Metadata:        map[string]string{"Proto": "HTTP/1.1"},
+			},
+		},
+		{
+			Name:     "HTTP H2 Traffic",
+			PortName: "http",
+			HTTP2:    true,
+			Expected: Expected{
+				Metric:          "istio_requests_total",
+				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="PassthroughCluster",response_code="200"})`,
+				ResponseCode:    []string{"200"},
+				Metadata:        map[string]string{"Proto": "HTTP/2.0"},
 			},
 		},
 		{
@@ -36,6 +48,7 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
 				ResponseCode:    []string{"200"},
+				Metadata:        map[string]string{"Proto": "HTTP/1.1"},
 			},
 		},
 		{
@@ -45,17 +58,61 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 				Metric:          "istio_tcp_connections_opened_total",
 				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
 				ResponseCode:    []string{"200"},
+				Metadata:        map[string]string{"Proto": "HTTP/1.1"},
+			},
+		},
+		{
+			Name:     "HTTPS H2 Traffic",
+			PortName: "https",
+			HTTP2:    true,
+			Expected: Expected{
+				Metric:          "istio_tcp_connections_opened_total",
+				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+				ResponseCode:    []string{"200"},
+				Metadata:        map[string]string{"Proto": "HTTP/2.0"},
+			},
+		},
+		{
+			Name:     "HTTPS H2 Traffic Conflict",
+			PortName: "https-conflict",
+			HTTP2:    true,
+			Expected: Expected{
+				Metric:          "istio_tcp_connections_opened_total",
+				PromQueryFormat: `sum(istio_tcp_connections_opened_total{reporter="source",destination_service_name="PassthroughCluster"})`,
+				ResponseCode:    []string{"200"},
+				Metadata:        map[string]string{"Proto": "HTTP/2.0"},
 			},
 		},
 		{
 			Name:     "HTTP Traffic Egress",
 			PortName: "http",
 			Host:     "some-external-site.com",
-			Gateway:  true,
 			Expected: Expected{
 				Metric:          "istio_requests_total",
 				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`, // nolint: lll
 				ResponseCode:    []string{"200"},
+				Metadata: map[string]string{
+					// We inject this header in the VirtualService
+					"Handled-By-Egress-Gateway": "true",
+				},
+			},
+		},
+		{
+			Name:     "HTTP H2 Traffic Egress",
+			PortName: "http",
+			HTTP2:    true,
+			Host:     "some-external-site.com",
+			Expected: Expected{
+				Metric:          "istio_requests_total",
+				PromQueryFormat: `sum(istio_requests_total{reporter="source",destination_service_name="istio-egressgateway.istio-system.svc.cluster.local",response_code="200"})`, // nolint: lll
+				ResponseCode:    []string{"200"},
+				Metadata: map[string]string{
+					// We inject this header in the VirtualService
+					"Handled-By-Egress-Gateway": "true",
+					// Even though we send h2 to the gateway, the gateway should send h1, as configured by the ServiceEntry
+					"Proto": "HTTP/1.1",
+					//"Proto": "HTTP/2.0",
+				},
 			},
 		},
 		// TODO add HTTPS through gateway
@@ -67,6 +124,8 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 				//Metric:          "istio_tcp_connections_closed_total",
 				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
 				ResponseCode: []string{"200"},
+				// TCP will add StatusCode field. We don't really have a better way to identify as TCP
+				Metadata: map[string]string{"StatusCode": "200"},
 			},
 		},
 		{
@@ -77,6 +136,8 @@ func TestOutboundTrafficPolicy_AllowAny(t *testing.T) {
 				//Metric:          "istio_tcp_connections_closed_total",
 				//PromQueryFormat: `sum(istio_tcp_connections_closed_total{reporter="source",destination_service_name="PassthroughCluster",source_workload="client-v1"})`,
 				ResponseCode: []string{"200"},
+				// TCP will add StatusCode field. We don't really have a better way to identify as TCP
+				Metadata: map[string]string{"StatusCode": "200"},
 			},
 		},
 	}

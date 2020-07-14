@@ -61,9 +61,9 @@ func TestAuthorization_mTLS(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns2, false, nil, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns2, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -94,8 +94,8 @@ func TestAuthorization_mTLS(t *testing.T) {
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-mtls.yaml.tmpl"))
 
-			ctx.ApplyConfigOrFail(t, ns.Name(), policies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), policies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
@@ -115,15 +115,15 @@ func TestAuthorization_JWT(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-jwt.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, ns.Name(), policies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), policies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -195,10 +195,10 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 			var a, bInNS1, cInNS1, cInNS2 echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns1, false, nil, p)).
-				With(&bInNS1, util.EchoConfig("b", ns1, false, nil, p)).
-				With(&cInNS1, util.EchoConfig("c", ns1, false, nil, p)).
-				With(&cInNS2, util.EchoConfig("c", ns2, false, nil, p)).
+				With(&a, util.EchoConfig("a", ns1, false, nil)).
+				With(&bInNS1, util.EchoConfig("b", ns1, false, nil)).
+				With(&cInNS1, util.EchoConfig("c", ns1, false, nil)).
+				With(&cInNS2, util.EchoConfig("c", ns2, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(namePrefix string, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -250,16 +250,16 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.ApplyConfigOrFail(t, ns.Name(), policy...)
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			policyNS1 := applyPolicy("testdata/authz/v1beta1-workload-ns1.yaml.tmpl", ns1)
-			defer ctx.DeleteConfigOrFail(t, ns1.Name(), policyNS1...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns1.Name(), policyNS1...)
 			policyNS2 := applyPolicy("testdata/authz/v1beta1-workload-ns2.yaml.tmpl", ns2)
-			defer ctx.DeleteConfigOrFail(t, ns2.Name(), policyNS2...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns2.Name(), policyNS2...)
 			policyNSRoot := applyPolicy("testdata/authz/v1beta1-workload-ns-root.yaml.tmpl", rootNS{})
-			defer ctx.DeleteConfigOrFail(t, rootNS{}.Name(), policyNSRoot...)
+			defer ctx.Config().DeleteYAMLOrFail(t, rootNS{}.Name(), policyNSRoot...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
@@ -276,9 +276,9 @@ func TestAuthorization_Deny(t *testing.T) {
 
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -321,14 +321,14 @@ func TestAuthorization_Deny(t *testing.T) {
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.ApplyConfigOrFail(t, ns.Name(), policy...)
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			policy := applyPolicy("testdata/authz/v1beta1-deny.yaml.tmpl", ns)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), policy...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 			policyNSRoot := applyPolicy("testdata/authz/v1beta1-deny-ns-root.yaml.tmpl", rootNS{})
-			defer ctx.DeleteConfigOrFail(t, rootNS{}.Name(), policyNSRoot...)
+			defer ctx.Config().DeleteYAMLOrFail(t, rootNS{}.Name(), policyNSRoot...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
@@ -358,20 +358,20 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				if ns != nil {
 					name = ns.Name()
 				}
-				ctx.ApplyConfigOrFail(t, name, policy...)
+				ctx.Config().ApplyYAMLOrFail(t, name, policy...)
 				return policy
 			}
 
 			policies := applyPolicy("testdata/authz/v1beta1-negative-match.yaml.tmpl", nil)
-			defer ctx.DeleteConfigOrFail(t, "", policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			var a, b, c, d, x echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, p)).
-				With(&x, util.EchoConfig("x", ns2, false, nil, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
+				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -439,15 +439,15 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 
 			applyPolicy := func(filename string) []string {
 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-				ctx.ApplyConfigOrFail(t, "", policy...)
+				ctx.Config().ApplyYAMLOrFail(t, "", policy...)
 				return policy
 			}
 			policies := applyPolicy("testdata/authz/v1beta1-ingress-gateway.yaml.tmpl")
-			defer ctx.DeleteConfigOrFail(t, "", policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			var b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
 			var ingr ingress.Instance
@@ -519,7 +519,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 
 			var a, b echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
@@ -531,7 +531,6 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							ServicePort: 8090,
 						},
 					},
-					Pilot: p,
 				}).
 				BuildOrFail(t)
 
@@ -541,8 +540,8 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-egress-gateway.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, "", policies...)
-			defer ctx.DeleteConfigOrFail(t, "", policies...)
+			ctx.Config().ApplyYAMLOrFail(t, "", policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			cases := []struct {
 				path string
@@ -612,8 +611,8 @@ func TestAuthorization_TCP(t *testing.T) {
 				"Namespace":  ns.Name(),
 				"Namespace2": ns2.Name(),
 			}, file.AsStringOrFail(t, "testdata/authz/v1beta1-tcp.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, "", policy...)
-			defer ctx.DeleteConfigOrFail(t, "", policy...)
+			ctx.Config().ApplyYAMLOrFail(t, "", policy...)
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policy...)
 
 			var a, b, c, d, e, x echo.Instance
 			ports := []echo.Port{
@@ -634,11 +633,10 @@ func TestAuthorization_TCP(t *testing.T) {
 				},
 			}
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&x, util.EchoConfig("x", ns2, false, nil, p)).
+				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
-					Pilot:          p,
 					Service:        "a",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -646,7 +644,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&b, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "b",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -654,7 +651,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&c, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "c",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -662,14 +658,12 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&d, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "d",
 					Ports:          ports,
 					ServiceAccount: true,
 				}).
 				With(&e, echo.Config{
 					Namespace:      ns,
-					Pilot:          p,
 					Service:        "e",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -753,8 +747,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 			portC := 8090
 			var a, b, c echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", nsA, false, nil, p)).
-				With(&b, util.EchoConfig("b", nsB, false, nil, p)).
+				With(&a, util.EchoConfig("a", nsA, false, nil)).
+				With(&b, util.EchoConfig("b", nsB, false, nil)).
 				With(&c, echo.Config{
 					Service:   "c",
 					Namespace: nsC,
@@ -766,7 +760,6 @@ func TestAuthorization_Conditions(t *testing.T) {
 							InstancePort: portC,
 						},
 					},
-					Pilot: p,
 				}).
 				BuildOrFail(t)
 
@@ -780,8 +773,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 				"PortC":      fmt.Sprintf("%d", portC),
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, "testdata/authz/v1beta1-conditions.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, "", policies...)
-			defer ctx.DeleteConfigOrFail(t, "", policies...)
+			ctx.Config().ApplyYAMLOrFail(t, "", policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			newTestCase := func(from echo.Instance, path string, headers map[string]string, expectAllowed bool) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
@@ -854,10 +847,10 @@ func TestAuthorization_GRPC(t *testing.T) {
 			})
 			var a, b, c, d echo.Instance
 			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, p)).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			cases := []rbacUtil.TestCase{
@@ -900,8 +893,8 @@ func TestAuthorization_GRPC(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, namespaceTmpl,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-grpc.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, ns.Name(), policies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), policies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
@@ -933,14 +926,12 @@ func TestAuthorization_Path(t *testing.T) {
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				BuildOrFail(t)
 
@@ -977,8 +968,8 @@ func TestAuthorization_Path(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, ns.Name(), policies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), policies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})

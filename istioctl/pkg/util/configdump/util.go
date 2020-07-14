@@ -32,15 +32,15 @@ const (
 )
 
 // getSection takes a TypeURL and returns the types.Any from the config dump corresponding to that URL
-func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (any.Any, error) {
-	var dumpAny any.Any
+func (w *Wrapper) getSection(sectionTypeURL configTypeURL) (*any.Any, error) {
+	var dumpAny *any.Any
 	for _, conf := range w.Configs {
 		if conf.TypeUrl == string(sectionTypeURL) {
-			dumpAny = *conf
+			dumpAny = conf
 		}
 	}
-	if dumpAny.TypeUrl == "" {
-		return any.Any{}, fmt.Errorf("config dump has no configuration type %s", sectionTypeURL)
+	if dumpAny == nil {
+		return nil, fmt.Errorf("config dump has no configuration type %s", sectionTypeURL)
 	}
 
 	return dumpAny, nil

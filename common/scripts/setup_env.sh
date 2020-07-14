@@ -59,7 +59,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-05-31T23-50-32
+  export IMAGE_VERSION=master-2020-07-13T16-10-49
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
@@ -96,13 +96,23 @@ container_kubeconfig=''
 
 # docker conditional host mount (needed for make docker push)
 if [[ -d "${HOME}/.docker" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.docker,destination=/config/.docker,readonly,consistency=delegated "
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.docker,destination=/config/.docker,readonly "
 fi
 
 # gcloud conditional host mount (needed for docker push with the gcloud auth configure-docker)
 if [[ -d "${HOME}/.config/gcloud" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly,consistency=delegated "
+  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly "
 fi
+
+# This function checks if the file exists. If it does, it creates a randomly named host location
+# for the file, adds it to the host KUBECONFIG, and creates a mount for it.
+add_KUBECONFIG_if_exists () {
+  if [[ -f "$1" ]]; then
+    kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
+    container_kubeconfig+="/home/${kubeconfig_random}:"
+    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${1},destination=/config/${kubeconfig_random},readonly "
+  fi
+}
 
 # This function is designed for maximum compatibility with various platforms. This runs on
 # any Mac or Linux platform with bash 4.2+. Please take care not to modify this function
@@ -119,23 +129,17 @@ TMPDIR=""
 if [[ "$1" =~ ([^:]*):(.*) ]]; then
   while true; do
     rematch=${BASH_REMATCH[1]}
-    kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
-    container_kubeconfig+="/home/${kubeconfig_random}:"
-    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${rematch},destination=/config/${kubeconfig_random},readonly,consistency=delegated "
+    add_KUBECONFIG_if_exists "$rematch"
     remainder="${BASH_REMATCH[2]}"
     if [[ ! "$remainder" =~ ([^:]*):(.*) ]]; then
       if [[ -n "$remainder" ]]; then
-        kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
-        container_kubeconfig+="/home/${kubeconfig_random}:"
-        CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${remainder},destination=/config/${kubeconfig_random},readonly,consistency=delegated "
+        add_KUBECONFIG_if_exists "$remainder"
         break
       fi
     fi
   done
 else
-  kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
-  container_kubeconfig+="/home/${kubeconfig_random}:"
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${1},destination=/config/${kubeconfig_random},readonly,consistency=delegated "
+  add_KUBECONFIG_if_exists "$1"
 fi
 }
 

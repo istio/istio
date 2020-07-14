@@ -30,7 +30,7 @@ var (
 
 func TestMain(m *testing.M) {
 	var ist istio.Instance
-	framework.NewSuite("outbound_traffic_policy_mixer", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&ist, setupConfig)).

@@ -41,9 +41,7 @@ func getFromStructPath(node interface{}, path util.Path) (interface{}, bool, err
 	val := reflect.ValueOf(node)
 	kind := reflect.TypeOf(node).Kind()
 	var structElems reflect.Value
-	if len(path) == 0 {
-		return nil, false, fmt.Errorf("getFromStructPath path %s, unsupported leaf type %T", path, node)
-	}
+
 	switch kind {
 	case reflect.Map:
 		if path[0] == "" {

@@ -23,53 +23,17 @@ import (
 
 	"github.com/gogo/protobuf/types"
 
-	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pilot/pkg/proxy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 )
-
-// getTLSCerts returns all file based certificates from mesh config
-// TODO(https://github.com/istio/istio/issues/21834) serve over SDS instead of files
-// This is used for static configuration in the bootstrap that needs certificates, currently this is
-// Envoy Metrics Service and ALS. In the future this could expand to others like tracing, which currently
-// are using other mechanisms to configure certs.
-func getTLSCerts(pc meshconfig.ProxyConfig) []string {
-	certs := []string{}
-	appendTLSCerts := func(rs *meshconfig.RemoteService) {
-		if rs.TlsSettings == nil {
-			return
-		}
-		if rs.TlsSettings.Mode == networking.ClientTLSSettings_DISABLE {
-			return
-		}
-		//append only if the elements are not null.
-		if rs.TlsSettings.CaCertificates != "" {
-			certs = append(certs, rs.TlsSettings.CaCertificates)
-		}
-		if rs.TlsSettings.ClientCertificate != "" {
-			certs = append(certs, rs.TlsSettings.ClientCertificate)
-		}
-		if rs.TlsSettings.PrivateKey != "" {
-			certs = append(certs, rs.TlsSettings.PrivateKey)
-		}
-	}
-	if pc.EnvoyMetricsService != nil {
-		appendTLSCerts(pc.EnvoyMetricsService)
-	}
-	if pc.EnvoyAccessLogService != nil {
-		appendTLSCerts(pc.EnvoyAccessLogService)
-	}
-	return certs
-}
 
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	annotations, err := readPodAnnotations()
@@ -97,7 +61,7 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	proxyConfig.ServiceCluster = serviceCluster
 	// resolve statsd address
 	if proxyConfig.StatsdUdpAddress != "" {
-		addr, err := proxy.ResolveAddr(proxyConfig.StatsdUdpAddress)
+		addr, err := network.ResolveAddr(proxyConfig.StatsdUdpAddress)
 		if err != nil {
 			// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
 			// (instead of crashing). Mixer is optional.

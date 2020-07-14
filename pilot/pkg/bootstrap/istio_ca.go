@@ -28,8 +28,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
-	"istio.io/istio/pkg/jwt"
-
 	"istio.io/istio/pilot/pkg/features"
 
 	"google.golang.org/grpc"
@@ -131,27 +129,16 @@ func (s *Server) EnableCA() bool {
 	if !features.EnableCAServer {
 		return false
 	}
+	// Log if we're using self-signed certs without K8S, in debug mode
 	if s.kubeClient == nil {
-		// No k8s - no self-signed certs.
-		// TODO: implement it using a local directory, for non-k8s env.
+		// Without K8S the user needs to have the private key in a local file.
+		// If that is missing - we'll generate an in-memory root for testing, and warn.
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		if _, err := os.Stat(signingKeyFile); err != nil {
-			log.Warnf("kubeclient is nil and %v not found; disable the K8S CA functionality", signingKeyFile)
-			return false
-		}
-		log.Info("Using local CA, no K8S Secrets")
-		return true
-	}
-	if _, err := ioutil.ReadFile(s.jwtPath); err != nil {
-		// for debug we may want to override this by setting trustedIssuer explicitly.
-		// If TOKEN_ISSUER is set, we ignore the lack of mounted JWT token, it means user is using
-		// an external OIDC provider to validate the tokens, and istiod lack of a JWT doesn't indicate a problem.
-		if features.JwtPolicy.Get() == jwt.PolicyThirdParty && trustedIssuer.Get() == "" {
-			log.Warnf("istiod running without access to K8S tokens (jwt path %v). CA will run to support VMs ",
-				s.jwtPath)
-			return true
+			log.Warnf("Will use in-memory root CA, no K8S access and no ca key file %s", signingKeyFile)
 		}
 	}
+
 	return true
 }
 
@@ -271,7 +258,7 @@ func (s *Server) initPublicKey() error {
 			// We have direct access to the self-signed
 			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
 
-			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			rootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
 				return err
 			}
@@ -284,7 +271,7 @@ func (s *Server) initPublicKey() error {
 						case <-stop:
 							return
 						case <-time.After(controller.NamespaceResyncPeriod):
-							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert
 								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
@@ -308,6 +295,10 @@ func (s *Server) initPublicKey() error {
 	return nil
 }
 
+// createIstioCA initializes the Istio CA signing functionality.
+// - for 'plugged in', uses ./etc/cacert directory, mounted from 'cacerts' secret in k8s.
+//   Inside, the key/cert are 'ca-key.pem' and 'ca-cert.pem'. The root cert signing the intermeidate is root-cert.pem,
+//   which may contain multiple roots. A 'cert-chain.pem' file has the full cert chain.
 func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
 	var err error
@@ -317,6 +308,8 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		maxCertTTL = SelfSignedCACertTTL.Get()
 	}
 
+	// In pods, this is the optional 'cacerts' Secret.
+	// TODO: also check for key.pem ( for interop )
 	signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 
 	// If not found, will default to ca-cert.pem. May contain multiple roots.
@@ -327,16 +320,8 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		rootCertFile = ""
 	}
 
-	if _, err := os.Stat(signingKeyFile); err != nil {
+	if _, err := os.Stat(signingKeyFile); err != nil && client != nil {
 		// The user-provided certs are missing - create a self-signed cert.
-		// If we are not in K8S - no CA
-		// TODO: generate self-signed files in the /etc/cacert for non-k8s
-		if client == nil {
-			// This is mainly used in testing.
-			log.Warna("Missing root CA key in non-k8s environment. Certificate signing and TLS will be off")
-			return nil, nil
-		}
-
 		log.Info("Use self-signed certificate as the CA certificate")
 		spiffe.SetTrustDomain(opts.TrustDomain)
 		// Abort after 20 minutes.
@@ -359,7 +344,11 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
 		}
 	} else {
-		log.Info("Use local CA certificate")
+		if err == nil {
+			log.Info("Use local CA certificate")
+		} else {
+			log.Info("Use local self-signed CA certificate")
+		}
 
 		// The cert corresponding to the key, self-signed or chain.
 		// rootCertFile will be added at the end, if present, to form 'rootCerts'.
@@ -369,7 +358,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxCertTTL, opts.Namespace, client)
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}

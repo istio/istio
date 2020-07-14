@@ -28,7 +28,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("mixer_test", m).
+	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		RequireSingleCluster().
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {

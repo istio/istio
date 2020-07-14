@@ -23,7 +23,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -356,7 +355,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
-		ControlPlaneAuthPolicy: 1,
+		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
 	}
 
@@ -1476,6 +1475,137 @@ func TestValidateTlsOptions(t *testing.T) {
 				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
 			}
 		})
+	}
+}
+
+func TestValidateTLS(t *testing.T) {
+	testCases := []struct {
+		name  string
+		tls   *networking.ClientTLSSettings
+		valid bool
+	}{
+		{
+			name: "SIMPLE: Credential Name set correctly",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "some credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: true,
+		},
+		{
+			name: "SIMPLE CredentialName set with ClientCertificate specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CredentialName set with PrivateKey specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "key",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CredentialName set with CACertficiates specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "ca",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: Credential Name set correctly",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "some credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL CredentialName set with ClientCertificate specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName set with PrivateKey specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "key",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName set with CACertficiates specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "ca",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate and Key specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "cert",
+				PrivateKey:        "key",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate specified and Key missing",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate missing and Key specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "",
+				PrivateKey:        "key",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		if got := validateTLS(tc.tls); (got == nil) != tc.valid {
+			t.Errorf("ValidateTLS(%q) => got valid=%v, want valid=%v",
+				tc.name, got == nil, tc.valid)
+		}
 	}
 }
 
@@ -3570,261 +3700,6 @@ func TestValidateServiceEntries(t *testing.T) {
 					got == nil, c.valid, got)
 			}
 		})
-	}
-}
-
-func TestValidateAuthenticationPolicy(t *testing.T) {
-	cases := []struct {
-		name       string
-		configName string
-		in         proto.Message
-		valid      bool
-	}{
-		{
-			name:       "empty policy with namespace-wide policy name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in:         &authn.Policy{},
-			valid:      true,
-		},
-		{
-			name:       "empty policy with non-default name",
-			configName: someName,
-			in:         &authn.Policy{},
-			valid:      false,
-		},
-		{
-			name:       "service-specific policy with namespace-wide name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: false,
-		},
-		{
-			name:       "Targets only policy",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Source mTLS",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Source JWT",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: true,
-		},
-		{
-			name:       "Bad JkwsURI",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Bad JkwsURI Port",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io:not-a-number/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Duplicate Jwt issuers",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				}},
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Just binding",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
-			},
-			valid: true,
-		},
-		{
-			name:       "Bad target name",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{
-					{
-						Name: "foo.bar",
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Good target name",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{
-					{
-						Name: "good-service-name",
-					},
-				},
-			},
-			valid: true,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(c.configName, someNamespace, c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
-func TestValidateAuthenticationMeshPolicy(t *testing.T) {
-	cases := []struct {
-		name       string
-		configName string
-		in         proto.Message
-		valid      bool
-	}{
-		{
-			name:       "good name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in:         &authn.Policy{},
-			valid:      true,
-		},
-		{
-			name:       "bad-name",
-			configName: someName,
-			in:         &authn.Policy{},
-			valid:      false,
-		},
-		{
-			name:       "has targets",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: false,
-		},
-		{
-			name:       "good",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "empty origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Origins: []*authn.OriginAuthenticationMethod{{}},
-			},
-			valid: false,
-		},
-		{
-			name:       "nil origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Origins: []*authn.OriginAuthenticationMethod{nil},
-			},
-			valid: false,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(c.configName, "", c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
-		}
 	}
 }
 

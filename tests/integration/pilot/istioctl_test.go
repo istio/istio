@@ -80,7 +80,7 @@ func TestWait(t *testing.T) {
 				Prefix: "default",
 				Inject: true,
 			})
-			ctx.ApplyConfigOrFail(t, ns.Name(), `
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -151,7 +151,7 @@ func TestDescribe(t *testing.T) {
 			})
 
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			ctx.ApplyConfigOrFail(t, ns.Name(), deployment)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).
@@ -361,7 +361,7 @@ func TestAuthZCheck(t *testing.T) {
 			})
 
 			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
-			ctx.ApplyConfigOrFail(t, ns.Name(), authPol)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), authPol)
 
 			var a echo.Instance
 			echoboot.NewBuilderOrFail(ctx, ctx).

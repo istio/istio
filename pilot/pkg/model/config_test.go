@@ -24,6 +24,7 @@ import (
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -383,7 +385,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {
+			gvk.QuotaSpecBinding: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Namespace: ns,
@@ -407,7 +409,7 @@ func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
 					},
 				},
 			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
+			gvk.QuotaSpec: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count",
@@ -489,7 +491,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {
+			gvk.ServiceEntry: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-1",
@@ -507,7 +509,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 					},
 				},
 			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
+			gvk.QuotaSpec: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-2",
@@ -567,7 +569,7 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {gw1, gw2, gw3},
+			gvk.Gateway: {gw1, gw2, gw3},
 		},
 	}
 	ii := model.MakeIstioStore(l)

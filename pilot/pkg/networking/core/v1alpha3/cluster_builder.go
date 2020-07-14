@@ -21,13 +21,15 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
 )
@@ -52,7 +54,7 @@ func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuil
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, c *cluster.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
+func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
 	proxyNetworkView map[string]bool) []*cluster.Cluster {
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
@@ -98,14 +100,14 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, c *cluster.Cl
 		} else {
 			subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 		}
-		// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
+		// clusters with discovery type STATIC, STRICT_DNS rely on cluster.LoadAssignment field.
 		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
 		if c.GetType() != cluster.Cluster_EDS {
 			if len(subset.Labels) != 0 {
-				lbEndpoints = buildLocalityLbEndpoints(proxy, cb.push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
+				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
 			} else {
-				lbEndpoints = buildLocalityLbEndpoints(proxy, cb.push, proxyNetworkView, service, port.Port, nil)
+				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, nil)
 			}
 		}
 
@@ -187,6 +189,74 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	return c
 }
 
+func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]bool, service *model.Service,
+	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
+	if service.Resolution != model.DNSLB {
+		return nil
+	}
+
+	instances, err := cb.push.InstancesByPort(service, port, labels)
+	if err != nil {
+		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
+		return nil
+	}
+
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := cb.push.IsClusterLocal(service)
+
+	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
+	for _, instance := range instances {
+		// Only send endpoints from the networks in the network view requested by the proxy.
+		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
+		// the default network assigned to endpoints that don't have an explicit network
+		if !proxyNetworkView[instance.Endpoint.Network] {
+			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
+			continue
+		}
+		// If the downstream service is configured as cluster-local, only include endpoints that
+		// reside in the same cluster.
+		if isClusterLocal && (cb.proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
+			continue
+		}
+		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
+		ep := &endpoint.LbEndpoint{
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+				Endpoint: &endpoint.Endpoint{
+					Address: addr,
+				},
+			},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+		}
+		if instance.Endpoint.LbWeight > 0 {
+			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
+		}
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, cb.push)
+		locality := instance.Endpoint.Locality.Label
+		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
+	}
+
+	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
+
+	for locality, eps := range lbEndpoints {
+		var weight uint32
+		for _, ep := range eps {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
+		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
+			Locality:    util.ConvertLocality(locality),
+			LbEndpoints: eps,
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: weight,
+			},
+		})
+	}
+
+	return localityLbEndpoints
+}
+
 // buildInboundPassthroughClusters builds passthrough clusters for inbound.
 func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
@@ -240,6 +310,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	applyConnectionPool(cb.push, cluster, passthroughSettings)

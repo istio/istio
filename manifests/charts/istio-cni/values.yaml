@@ -2,7 +2,7 @@ cni:
   hub: ""
   tag: ""
   image: install-cni
-  pullPolicy: Always
+  pullPolicy: ""
 
   logLevel: info
 
@@ -45,3 +45,24 @@ cni:
 
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
+
+global:
+  # Default hub for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Dev builds from prow are on gcr.io
+  hub: gcr.io/istio-testing
+
+  # Default tag for Istio images.
+  tag: latest
+
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
+  imagePullPolicy: ""
+
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
+  # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+  # - private-registry-key

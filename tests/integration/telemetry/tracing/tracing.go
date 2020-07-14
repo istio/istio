@@ -86,7 +86,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	err = ctx.ApplyConfig(
+	err = ctx.Config().ApplyYAML(
 		bookinfoNsInst.Name(),
 		bookingfoGatewayFile,
 		destinationRuleFile,

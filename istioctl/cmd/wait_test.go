@@ -25,11 +25,11 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/xds"
 )
 
 func TestWaitCmd(t *testing.T) {
-	cannedResponseObj := []v2.SyncedVersions{
+	cannedResponseObj := []xds.SyncedVersions{
 		{
 			ProxyID:         "foo",
 			ClusterVersion:  "1",

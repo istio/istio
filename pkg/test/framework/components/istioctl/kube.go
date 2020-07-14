@@ -34,7 +34,7 @@ type kubeComponent struct {
 func newKube(ctx resource.Context, config Config) Instance {
 	n := &kubeComponent{
 		config:  config,
-		cluster: kube.ClusterOrDefault(config.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(config.Cluster, ctx.Environment()).(kube.Cluster),
 	}
 	n.id = ctx.TrackResource(n)
 

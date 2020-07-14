@@ -15,10 +15,11 @@
 package matcher
 
 import (
-	"reflect"
 	"testing"
 
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestMetadataStringMatcher(t *testing.T) {
@@ -44,14 +45,14 @@ func TestMetadataStringMatcher(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(*actual, *expect) {
+	if !cmp.Equal(actual, expect, protocmp.Transform()) {
 		t.Errorf("want %s, got %s", expect.String(), actual.String())
 	}
 }
 
 func TestMetadataListMatcher(t *testing.T) {
-	getWant := func(regex string) matcherpb.MetadataMatcher {
-		return matcherpb.MetadataMatcher{
+	getWant := func(regex string) *matcherpb.MetadataMatcher {
+		return &matcherpb.MetadataMatcher{
 			Filter: "istio_authn",
 			Path: []*matcherpb.MetadataMatcher_PathSegment{
 				{
@@ -102,8 +103,8 @@ func TestMetadataListMatcher(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			want := getWant(tc.want)
-			actual := *MetadataListMatcher("istio_authn", []string{"key1", "key2"}, "*")
-			if !reflect.DeepEqual(want, actual) {
+			actual := MetadataListMatcher("istio_authn", []string{"key1", "key2"}, "*")
+			if !cmp.Equal(want, actual, protocmp.Transform()) {
 				t.Errorf("want %s, but got %s", want.String(), actual.String())
 			}
 		})

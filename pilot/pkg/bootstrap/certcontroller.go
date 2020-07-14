@@ -145,7 +145,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 		s.caBundlePath = defaultCACertPath
 	} else if features.PilotCertProvider.Get() == IstiodCAProvider {
 		log.Infof("Generating istiod-signed cert for %v", names)
-		certChain, keyPEM, err = s.ca.GenKeyCert(names, SelfSignedCACertTTL.Get())
+		certChain, keyPEM, err = s.CA.GenKeyCert(names, SelfSignedCACertTTL.Get())
 
 		signingKeyFile := path.Join(LocalCertDir.Get(), "ca-key.pem")
 		// check if signing key file exists the cert dir
@@ -160,7 +160,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 			// We have direct access to the self-signed
 			internalSelfSignedRootPath := path.Join(dnsCertDir, "self-signed-root.pem")
 
-			rootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+			rootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {
 				return err
 			}
@@ -172,7 +172,7 @@ func (s *Server) initDNSCerts(hostname, customHost, namespace string) error {
 						case <-stop:
 							return
 						case <-time.After(controller.NamespaceResyncPeriod):
-							newRootCert := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+							newRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 							if !bytes.Equal(rootCert, newRootCert) {
 								rootCert = newRootCert
 								if err = ioutil.WriteFile(internalSelfSignedRootPath, rootCert, 0600); err != nil {

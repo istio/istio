@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 
 	"istio.io/istio/pkg/config/constants"
@@ -32,11 +33,17 @@ const (
 	wildcardService   = host.Name("*")
 )
 
-var sidecarScopeKnownConfigTypes = map[resource.GroupVersionKind]struct{}{
-	ServiceEntryKind:    {},
-	VirtualServiceKind:  {},
-	DestinationRuleKind: {},
-}
+var (
+	sidecarScopeKnownConfigTypes = map[resource.GroupVersionKind]struct{}{
+		gvk.ServiceEntry:    {},
+		gvk.VirtualService:  {},
+		gvk.DestinationRule: {},
+	}
+
+	sidecarScopeNamespaceConfigTypes = map[resource.GroupVersionKind]struct{}{
+		gvk.Sidecar: {},
+	}
+)
 
 // SidecarScope is a wrapper over the Sidecar resource with some
 // preprocessed data to determine the list of services, virtualServices,
@@ -93,6 +100,12 @@ type SidecarScope struct {
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies map[ConfigKey]struct{}
+
+	// The namespace to treat as the administrative root namespace for
+	// Istio configuration.
+	//
+	// Changes to Sidecar resources in this namespace will trigger a push.
+	RootNamespace string
 }
 
 // IstioEgressListenerWrapper is a wrapper for
@@ -149,14 +162,17 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 	defaultEgressListener.services = ps.Services(&dummyNode)
 
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
-	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
+	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
+		Config: &Config{ConfigMeta: ConfigMeta{
+			Namespace: configNamespace,
+		}},
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name]*Config),
 		configDependencies: make(map[ConfigKey]struct{}),
+		RootNamespace:      ps.Mesh.RootNamespace,
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -167,7 +183,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			out.destinationRules[s.Hostname] = dr
 		}
 		out.AddConfigDependencies(ConfigKey{
-			Kind:      ServiceEntryKind,
+			Kind:      gvk.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
 		})
@@ -175,7 +191,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 
 	for _, dr := range out.destinationRules {
 		out.AddConfigDependencies(ConfigKey{
-			Kind:      DestinationRuleKind,
+			Kind:      gvk.DestinationRule,
 			Name:      dr.Name,
 			Namespace: dr.Namespace,
 		})
@@ -184,7 +200,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	for _, el := range out.EgressListeners {
 		for _, vs := range el.virtualServices {
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      VirtualServiceKind,
+				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
 			})
@@ -209,6 +225,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
 		configDependencies: make(map[ConfigKey]struct{}),
+		RootNamespace:      ps.Mesh.RootNamespace,
 	}
 
 	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0)
@@ -232,7 +249,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		if foundSvc, found := servicesAdded[s.Hostname]; !found {
 			servicesAdded[s.Hostname] = s
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(s.Hostname),
 				Namespace: s.Attributes.Namespace,
 			})
@@ -269,7 +286,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		for _, vs := range listener.virtualServices {
 			v := vs.Spec.(*networking.VirtualService)
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      VirtualServiceKind,
+				Kind:      gvk.VirtualService,
 				Name:      vs.Name,
 				Namespace: vs.Namespace,
 			})
@@ -313,7 +330,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 		if dr != nil {
 			out.destinationRules[s.Hostname] = dr
 			out.AddConfigDependencies(ConfigKey{
-				Kind:      DestinationRuleKind,
+				Kind:      gvk.DestinationRule,
 				Name:      dr.Name,
 				Namespace: dr.Namespace,
 			})
@@ -365,8 +382,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		ConfigNamespace: configNamespace,
 	}
 
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
-	out.virtualServices = out.selectVirtualServices(ps.VirtualServices(&dummyNode, meshGateway))
+	out.virtualServices = out.selectVirtualServices(ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway))
 	out.services = out.selectServices(ps.Services(&dummyNode), configNamespace)
 
 	return out
@@ -374,9 +390,11 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
 func (sc *SidecarScope) ServiceForHostname(hostname host.Name, serviceByHostname map[host.Name]map[string]*Service) *Service {
+	byHostname := serviceByHostname[hostname]
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
 	// so the selection must be undefined.
-	if sc == nil {
+	// As an optimization, if there is only 1 hostname we will return that one to avoid iterating over services.
+	if sc == nil || len(byHostname) == 1 {
 		for _, service := range serviceByHostname[hostname] {
 			return service
 		}
@@ -463,6 +481,12 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 	if sc == nil {
 		return true
 	}
+
+	// This kind of config will trigger a change if made in the root namespace or the same namespace
+	if _, f := sidecarScopeNamespaceConfigTypes[config.Kind]; f {
+		return config.Namespace == sc.RootNamespace || config.Namespace == sc.Config.Namespace
+	}
+
 	// This kind of config is unknown to sidecarScope.
 	if _, f := sidecarScopeKnownConfigTypes[config.Kind]; !f {
 		return true

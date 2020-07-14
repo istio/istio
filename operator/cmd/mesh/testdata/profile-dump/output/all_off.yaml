@@ -2,21 +2,7 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   addonComponents:
-    grafana:
-      enabled: false
-      k8s:
-        replicaCount: 1
     istiocoredns:
-      enabled: false
-    kiali:
-      enabled: false
-      k8s:
-        replicaCount: 1
-    prometheus:
-      enabled: true
-      k8s:
-        replicaCount: 1
-    tracing:
       enabled: false
   components:
     base:
@@ -106,6 +92,8 @@ spec:
             maxSurge: 100%
             maxUnavailable: 25%
       name: istio-ingressgateway
+    istiodRemote:
+      enabled: false
     pilot:
       enabled: false
       k8s:
@@ -194,12 +182,15 @@ spec:
   hub: gcr.io/istio-testing
 
   meshConfig:
+    defaultConfig:
+      proxyMetadata: {}
     enablePrometheusMerge: true
   profile: default
   tag: latest
   values:
     base:
       enableCRDTemplates: false
+      validationURL: ""
     clusterResources: true
     gateways:
       istio-egressgateway:
@@ -309,8 +300,8 @@ spec:
         image: proxyv2
         resources:
           limits:
-            cpu: 100m
-            memory: 50Mi
+            cpu: 2000m
+            memory: 1024Mi
           requests:
             cpu: 10m
             memory: 10Mi
@@ -355,7 +346,7 @@ spec:
       envSecrets: {}
       image:
         repository: grafana/grafana
-        tag: 6.5.2
+        tag: 7.0.3
       nodeSelector: {}
       persist: false
       podAntiAffinityLabelSelector: []
@@ -376,6 +367,8 @@ spec:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
+    istiodRemote:
+      injectionURL: ""
     kiali:
       contextPath: /kiali
       createDemoSecret: false
@@ -474,7 +467,7 @@ spec:
       scrapeInterval: 15s
       security:
         enabled: true
-      tag: v2.15.1
+      tag: v2.18.1
       tolerations: []
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
@@ -507,7 +500,7 @@ spec:
         persist: false
         spanStorageType: badger
         storageClassName: ""
-        tag: "1.16"
+        tag: "1.18"
       nodeSelector: {}
       opencensus:
         exporters:

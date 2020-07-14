@@ -76,7 +76,7 @@ func runProfileDump(profilePath, configPath string, chartSource chartSourceType,
 		cmd += " --config-path " + configPath
 	}
 	if len(chartSource) > 0 {
-		cmd += " --charts=" + string(chartSource)
+		cmd += " --manifests=" + string(chartSource)
 	}
 	if outfmt != "" {
 		cmd += " --output=" + outfmt

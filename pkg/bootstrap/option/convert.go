@@ -23,8 +23,11 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingAPI "istio.io/api/networking/v1alpha3"
@@ -32,9 +35,16 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/bootstrap/auth"
-	"istio.io/istio/pkg/config/constants"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/mesh"
 )
+
+//TransportSocket wraps UpstreamTLSContext
+type TransportSocket struct {
+	Name        string          `json:"name,omitempty"`
+	TypedConfig *pstruct.Struct `json:"typed_config,omitempty"`
+}
 
 func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_TcpKeepalive) convertFunc {
 	return func(*instance) (interface{}, error) {
@@ -57,7 +67,7 @@ func keepaliveConverter(value *networkingAPI.ConnectionPoolSettings_TCPSettings_
 	}
 }
 
-func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata, isH2 bool) convertFunc {
+func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.BootstrapNodeMetadata, isH2 bool) convertFunc {
 
 	return func(*instance) (interface{}, error) {
 		tlsContext := tlsContextConvert(tls, sniName, metadata)
@@ -65,93 +75,82 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 			return "", nil
 		}
 		if !isH2 {
-			tlsContext.CommonTLSContext.AlpnProtocols = nil
+			tlsContext.CommonTlsContext.AlpnProtocols = nil
 		}
-		tlsContext.Type = "type.googleapis.com/envoy.api.v2.auth.UpstreamTlsContext"
-		transportSocket := &auth.TransportSocket{
+		// This double conversion is to encode the typed config and get it out as struct
+		// so that convertToJSON properly encodes the structure. Since this is just for
+		// bootstrap generation this is better than having our custom structs.
+		tlsContextStruct, _ := conversion.MessageToStruct(util.MessageToAny(tlsContext))
+		transportSocket := &TransportSocket{
 			Name:        wellknown.TransportSocketTls,
-			TypedConfig: tlsContext,
+			TypedConfig: tlsContextStruct,
 		}
 		return convertToJSON(transportSocket), nil
 	}
 }
 
-func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.NodeMetadata) *auth.UpstreamTLSContext {
-	caCertificates := tls.CaCertificates
-	if caCertificates == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-		caCertificates = constants.DefaultCertChain
-	}
-	var certValidationContext *auth.CertificateValidationContext
-	var trustedCa *auth.DataSource
-	if len(caCertificates) != 0 {
-		trustedCa = &auth.DataSource{
-			Filename: model.GetOrDefault(metadata.TLSClientRootCert, caCertificates),
-		}
-	}
-	if trustedCa != nil || len(tls.SubjectAltNames) > 0 {
-		certValidationContext = &auth.CertificateValidationContext{
-			TrustedCa:            trustedCa,
-			VerifySubjectAltName: tls.SubjectAltNames,
-		}
+// TODO(ramaraochavali): Unify this code with cluster upstream TLS settings logic.
+func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, metadata *model.BootstrapNodeMetadata) *auth.UpstreamTlsContext {
+	tlsContext := &auth.UpstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{},
 	}
 
-	var tlsContext *auth.UpstreamTLSContext
+	// We always set v3, since we know this is a new proxy that supports v3
+	requestedType := v3.ClusterType
+
 	switch tls.Mode {
 	case networkingAPI.ClientTLSSettings_SIMPLE:
-		tlsContext = &auth.UpstreamTLSContext{
-			CommonTLSContext: &auth.CommonTLSContext{
-				ValidationContext: certValidationContext,
-			},
-			Sni: tls.Sni,
-		}
-		tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
-	case networkingAPI.ClientTLSSettings_MUTUAL, networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
-		clientCertificate := tls.ClientCertificate
-		if tls.ClientCertificate == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-			clientCertificate = constants.DefaultRootCert
-		}
-		privateKey := tls.PrivateKey
-		if tls.PrivateKey == "" && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-			privateKey = constants.DefaultKey
-		}
-		if clientCertificate == "" || privateKey == "" {
-			// TODO(nmittler): Should this be an error?
-			log.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty", sniName)
-			return nil
+		res := model.SdsCertificateConfig{
+			CaCertificatePath: model.GetOrDefault(metadata.TLSClientRootCert, tls.CaCertificates),
 		}
 
-		tlsContext = &auth.UpstreamTLSContext{
-			CommonTLSContext: &auth.CommonTLSContext{},
-			Sni:              tls.Sni,
-		}
-
-		tlsContext.CommonTLSContext.ValidationContext = certValidationContext
-		tlsContext.CommonTLSContext.TLSCertificates = []*auth.TLSCertificate{
-			{
-				CertificateChain: &auth.DataSource{
-					Filename: model.GetOrDefault(metadata.TLSClientCertChain, clientCertificate),
-				},
-				PrivateKey: &auth.DataSource{
-					Filename: model.GetOrDefault(metadata.TLSClientKey, privateKey),
-				},
+		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), mesh.DefaultSdsUdsPath, requestedType),
 			},
 		}
-		if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-			tlsContext.Sni = sniName
+		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+	case networkingAPI.ClientTLSSettings_MUTUAL:
+		res := model.SdsCertificateConfig{
+			CertificatePath:   model.GetOrDefault(metadata.TLSClientCertChain, tls.ClientCertificate),
+			PrivateKeyPath:    model.GetOrDefault(metadata.TLSClientKey, tls.PrivateKey),
+			CaCertificatePath: model.GetOrDefault(metadata.TLSClientRootCert, tls.CaCertificates),
 		}
-		if tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
-			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNInMeshH2
-		} else {
-			tlsContext.CommonTLSContext.AlpnProtocols = util.ALPNH2Only
+		if len(res.GetResourceName()) > 0 {
+			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), mesh.DefaultSdsUdsPath, requestedType))
 		}
+
+		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), mesh.DefaultSdsUdsPath, requestedType),
+			},
+		}
+		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
+		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, mesh.DefaultSdsUdsPath, requestedType))
+
+		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, mesh.DefaultSdsUdsPath, requestedType),
+			},
+		}
+		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 	default:
 		// No TLS.
 		return nil
 	}
+	if len(sniName) > 0 {
+		tlsContext.Sni = sniName
+	}
 	return tlsContext
 }
 
-func nodeMetadataConverter(metadata *model.NodeMetadata, rawMeta map[string]interface{}) convertFunc {
+func nodeMetadataConverter(metadata *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) convertFunc {
 	return func(*instance) (interface{}, error) {
 		marshalString, err := marshalMetadata(metadata, rawMeta)
 		if err != nil {
@@ -208,7 +207,7 @@ func convertToJSON(v interface{}) string {
 
 // marshalMetadata combines type metadata and untyped metadata and marshals to json
 // This allows passing arbitrary metadata to Envoy, while still supported typed metadata for known types
-func marshalMetadata(metadata *model.NodeMetadata, rawMeta map[string]interface{}) (string, error) {
+func marshalMetadata(metadata *model.BootstrapNodeMetadata, rawMeta map[string]interface{}) (string, error) {
 	b, err := json.Marshal(metadata)
 	if err != nil {
 		return "", err

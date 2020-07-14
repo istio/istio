@@ -42,14 +42,14 @@ type kubeComponent struct {
 	*client
 
 	env     *kube.Environment
-	cluster kube.Cluster
+	cluster resource.Cluster
 }
 
 // NewKubeComponent factory function for the component
 func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 	c := &kubeComponent{
 		env:     ctx.Environment().(*kube.Environment),
-		cluster: kube.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
+		cluster: resource.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
 	}
 
 	c.client = &client{
@@ -72,8 +72,8 @@ func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 		if serviceType == policyService {
 			ns = cfg.PolicyNamespace
 		}
-		fetchFn := kube2.NewSinglePodFetch(c.cluster.Accessor, ns, "istio=mixer", "istio-mixer-type="+serviceType)
-		pods, err := c.cluster.WaitUntilPodsAreReady(fetchFn)
+		fetchFn := kube2.NewSinglePodFetch(c.cluster, ns, "istio=mixer", "istio-mixer-type="+serviceType)
+		pods, err := kube2.WaitUntilPodsAreReady(fetchFn)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +87,7 @@ func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 		}
 		scopes.Framework.Debugf("extracted grpc port for service: %v", port)
 
-		forwarder, err := c.cluster.NewPortForwarder(pod, 0, port)
+		forwarder, err := c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
 		if err != nil {
 			return nil, err
 		}

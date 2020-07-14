@@ -162,6 +162,13 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -173,7 +180,7 @@ spec:
           name: istio-token
           readOnly: true
         - mountPath: /var/run/ingress_gateway
-          name: ingressgatewaysdsudspath
+          name: gatewaysdsudspath
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/ingressgateway-certs
@@ -183,13 +190,7 @@ spec:
           name: ingressgateway-ca-certs
           readOnly: true
       securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
         fsGroup: 1337
-        privileged: false
-        readOnlyRootFilesystem: true
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337
@@ -210,7 +211,7 @@ spec:
       - emptyDir: {}
         name: istio-envoy
       - emptyDir: {}
-        name: ingressgatewaysdsudspath
+        name: gatewaysdsudspath
       - name: istio-token
         projected:
           sources:

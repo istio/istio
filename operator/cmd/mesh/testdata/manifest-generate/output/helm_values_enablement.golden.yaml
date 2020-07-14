@@ -155,6 +155,13 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         volumeMounts:
         - mountPath: /etc/istio/proxy
           name: istio-envoy
@@ -174,13 +181,7 @@ spec:
           name: egressgateway-ca-certs
           readOnly: true
       securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
         fsGroup: 1337
-        privileged: false
-        readOnlyRootFilesystem: true
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337
@@ -225,11 +226,11 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: kiali
+  namespace: istio-system
   labels:
     app: kiali
     release: istio
-  name: kiali
-  namespace: istio-system
 spec:
   replicas: 1
   selector:
@@ -237,100 +238,100 @@ spec:
       app: kiali
   template:
     metadata:
-      annotations:
-        kiali.io/runtimes: go,kiali
-        prometheus.io/port: "9090"
-        prometheus.io/scrape: "true"
-        sidecar.istio.io/inject: "false"
+      name: kiali
       labels:
         app: kiali
         release: istio
-      name: kiali
+      annotations:
+        sidecar.istio.io/inject: "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        kiali.io/runtimes: go,kiali
     spec:
-      affinity:
+      serviceAccountName: kiali-service-account
+      containers:
+      - image: "quay.io/kiali/kiali:v1.18"
+        name: kiali
+        command:
+        - "/opt/kiali/kiali"
+        - "-config"
+        - "/kiali-configuration/config.yaml"
+        - "-v"
+        - "3"
+        readinessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme: 'HTTP'
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme: 'HTTP'
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        env:
+        - name: ACTIVE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: kiali-configuration
+          mountPath: "/kiali-configuration"
+        - name: kiali-cert
+          mountPath: "/kiali-cert"
+        - name: kiali-secret
+          mountPath: "/kiali-secret"
+        resources:
+          requests:
+            cpu: 10m
+      volumes:
+      - name: kiali-configuration
+        configMap:
+          name: kiali
+      - name: kiali-cert
+        secret:
+          secretName: istio.kiali-service-account
+          optional: true      
+      - name: kiali-secret
+        secret:
+          secretName: kiali
+          optional: true
+      affinity:      
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - ppc64le
-            weight: 2
-          - preference:
-              matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - s390x
-            weight: 2
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
               - key: kubernetes.io/arch
                 operator: In
                 values:
-                - amd64
-                - ppc64le
-                - s390x
-      containers:
-      - command:
-        - /opt/kiali/kiali
-        - -config
-        - /kiali-configuration/config.yaml
-        - -v
-        - "3"
-        env:
-        - name: ACTIVE_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: quay.io/kiali/kiali:v1.18
-        livenessProbe:
-          httpGet:
-            path: /kiali/healthz
-            port: 20001
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 30
-        name: kiali
-        readinessProbe:
-          httpGet:
-            path: /kiali/healthz
-            port: 20001
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 30
-        resources:
-          requests:
-            cpu: 10m
-        volumeMounts:
-        - mountPath: /kiali-configuration
-          name: kiali-configuration
-        - mountPath: /kiali-cert
-          name: kiali-cert
-        - mountPath: /kiali-secret
-          name: kiali-secret
-      serviceAccountName: kiali-service-account
-      volumes:
-      - configMap:
-          name: kiali
-        name: kiali-configuration
-      - name: kiali-cert
-        secret:
-          optional: true
-          secretName: istio.kiali-service-account
-      - name: kiali-secret
-        secret:
-          optional: true
-          secretName: kiali
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
 ---
 
 

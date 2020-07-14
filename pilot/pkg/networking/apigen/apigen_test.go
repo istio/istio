@@ -18,15 +18,16 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/apigen"
-	envoyv2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-	"istio.io/istio/pilot/pkg/proxy/envoy/xds"
+	"istio.io/istio/pilot/pkg/xds"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )
@@ -38,7 +39,7 @@ var (
 
 // Creates an in-process discovery server, using the same code as Istiod, but
 // backed by an in-memory config and endpoint store.
-func initDS() *xds.Server {
+func initDS() *xds.SimpleServer {
 	ds := xds.NewXDS()
 
 	sd := ds.DiscoveryServer.MemRegistry
@@ -58,8 +59,8 @@ func initDS() *xds.Server {
 func TestAPIGen(t *testing.T) {
 	ds := initDS()
 	ds.DiscoveryServer.Generators["api"] = &apigen.APIGenerator{}
-	epGen := &envoyv2.EdsGenerator{Server: ds.DiscoveryServer}
-	ds.DiscoveryServer.Generators["api/"+envoyv2.EndpointType] = epGen
+	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
+	ds.DiscoveryServer.Generators["api/"+v2.EndpointType] = epGen
 
 	err := ds.StartGRPC(grpcAddr)
 	if err != nil {
@@ -89,7 +90,7 @@ func TestAPIGen(t *testing.T) {
 
 		adscConn.WatchConfig()
 
-		_, err = adscConn.WaitVersion(10*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		_, err = adscConn.WaitVersion(10*time.Second, gvk.ServiceEntry.String(), "")
 		if err != nil {
 			t.Fatal("Failed to receive lds", err)
 		}
@@ -98,7 +99,7 @@ func TestAPIGen(t *testing.T) {
 		for _, se := range ses {
 			t.Log(se)
 		}
-		sec, _ := adscConn.Store.List(collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(), "")
+		sec, _ := adscConn.Store.List(gvk.EnvoyFilter, "")
 		for _, se := range sec {
 			t.Log(se)
 		}

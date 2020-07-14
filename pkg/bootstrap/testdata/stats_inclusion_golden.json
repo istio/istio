@@ -4,7 +4,21 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/stats_inclusion","customConfigFile":"envoy_bootstrap_v2.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","extraStatTags":["dlp_success"],"parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy"},"SDS":"true","sidecar.istio.io/extraStatTags":"dlp_status,dlp_error","sidecar.istio.io/statsInclusionRegexps":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/stats_inclusion","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","extraStatTags":["dlp_success"],"parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy"},"SDS":"true","sidecar.istio.io/extraStatTags":"dlp_status,dlp_error","sidecar.istio.io/statsInclusionRegexps":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"}
+  },
+  "layered_runtime": {
+      "layers": [
+          {
+              "name": "deprecation",
+              "static_layer": {
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+              }
+          },
+          {
+              "name": "admin",
+              "admin_layer": {}
+          }
+      ]
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -483,7 +497,7 @@
   ,
   "cluster_manager": {
     "outlier_detection": {
-      "event_log_path": /dev/stdout
+      "event_log_path": "/dev/stdout"
     }
   }
   

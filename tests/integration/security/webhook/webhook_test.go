@@ -32,7 +32,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("istioctl_webhook_test", m).
+		NewSuite(m).
 		Label(label.CustomSetup).
 		RequireSingleCluster().
 		// Deploy Istio

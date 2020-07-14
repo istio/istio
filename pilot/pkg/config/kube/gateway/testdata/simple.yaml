@@ -13,17 +13,16 @@ metadata:
 spec:
   class: istio
   listeners:
-  - name: primary
-    address:
-      type: NamedAddress
-      value: my.domain.example
+  - hostname:
+      match: Domain
+      name: domain.example
     port: 80
-    protocol: http
-  routes:
-    namespaceSelector: {}
-    routeSelector:
-      matchLabels:
-        selected: "yes"
+    protocol: HTTP
+    routes:
+      namespaceSelector: {}
+      routeSelector:
+        matchLabels:
+          selected: "yes"
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -34,12 +33,12 @@ metadata:
     selected: "yes"
 spec:
   hosts:
-  - hostname: "my.domain.example"
+  - hostnames: ["first.domain.example", "another.domain.example"]
     rules:
     - match:
         pathType: Prefix
         path: /get
-        header:
+        headers:
           my-header: some-value
       filter:
         headers:
@@ -52,6 +51,17 @@ spec:
             name: httpbin
             group: ""
             resource: ""
+  - hostnames: ["second.domain.example"]
+    rules:
+    - match:
+        pathType: Prefix
+        path: /second
+      action:
+        forwardTo:
+          targetRef:
+            name: httpbin-second
+            group: ""
+            resource: ""
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -62,7 +72,7 @@ metadata:
     selected: "nope"
 spec:
   hosts:
-  - hostname: "foo.bar"
+  - hostnames: ["should.not.select"]
     rules:
     - match:
         pathType: Prefix

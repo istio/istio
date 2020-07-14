@@ -250,7 +250,7 @@ func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string
 	if err := tmpl.Execute(&buf, config); err != nil {
 		t.Errorf("failed to create template: %v", err)
 	}
-	if err := ctx.ApplyConfig(namespace.Name(), buf.String()); err != nil {
+	if err := ctx.Config().ApplyYAML(namespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply config: %v. Config: %v", err, buf.String())
 	}
 }

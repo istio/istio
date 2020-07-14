@@ -30,7 +30,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	mpb "istio.io/api/mixer/v1"
 	mccpb "istio.io/api/mixer/v1/config/client"
@@ -965,6 +964,18 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 		return
 	}
 
+	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&
+		settings.CredentialName != "" {
+		if settings.ClientCertificate != "" || settings.CaCertificates != "" || settings.PrivateKey != "" {
+			errs = appendErrors(errs,
+				fmt.Errorf("cannot specify client certificates or CA certificate If credentialName is set"))
+		}
+
+		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
+		// remotely. ServerCertificate and CaCertificates fields are not required.
+		return
+	}
+
 	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
@@ -1318,7 +1329,7 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 func ValidateMixerAttributes(msg proto.Message) error {
 	in, ok := msg.(*mpb.Attributes)
 	if !ok {
-		return errors.New("cannot case to attributes")
+		return errors.New("cannot cast to attributes")
 	}
 	if in == nil || len(in.Attributes) == 0 {
 		return errors.New("list of attributes is nil/empty")
@@ -1371,7 +1382,7 @@ var ValidateHTTPAPISpec = registerValidateFunc("ValidateHTTPAPISpec",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.HTTPAPISpec)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpec")
+			return errors.New("cannot cast to HTTPAPISpec")
 		}
 		var errs error
 		// top-level list of attributes is optional
@@ -1425,7 +1436,7 @@ var ValidateHTTPAPISpecBinding = registerValidateFunc("ValidateHTTPAPISpecBindin
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.HTTPAPISpecBinding)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to HTTPAPISpecBinding")
 		}
 		var errs error
 		if len(in.Services) == 0 {
@@ -1455,7 +1466,7 @@ var ValidateQuotaSpec = registerValidateFunc("ValidateQuotaSpec",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.QuotaSpec)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to QuotaSpec")
 		}
 		var errs error
 		if len(in.Rules) == 0 {
@@ -1507,7 +1518,7 @@ var ValidateQuotaSpecBinding = registerValidateFunc("ValidateQuotaSpecBinding",
 	func(_, _ string, msg proto.Message) error {
 		in, ok := msg.(*mccpb.QuotaSpecBinding)
 		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
+			return errors.New("cannot cast to QuotaSpecBinding")
 		}
 		var errs error
 		if len(in.Services) == 0 {
@@ -1529,75 +1540,6 @@ var ValidateQuotaSpecBinding = registerValidateFunc("ValidateQuotaSpecBinding",
 				errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
 			}
 		}
-		return errs
-	})
-
-// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
-var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationPolicy",
-	func(name, namespace string, msg proto.Message) error {
-		// Empty namespace indicate policy is from cluster-scoped CRD.
-		clusterScoped := namespace == ""
-		in, ok := msg.(*authn.Policy)
-		if !ok {
-			return errors.New("cannot cast to AuthenticationPolicy")
-		}
-		var errs error
-
-		if !clusterScoped {
-			// nolint: staticcheck
-			if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
-					constants.DefaultAuthenticationPolicyName, name))
-			}
-			// nolint: staticcheck
-			if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
-			}
-			// nolint: staticcheck
-			for _, target := range in.Targets {
-				errs = appendErrors(errs, validateAuthNPolicyTarget(target))
-			}
-		} else {
-			if name != constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
-					constants.DefaultAuthenticationPolicyName, name))
-			}
-			// nolint: staticcheck
-			if len(in.Targets) > 0 {
-				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
-			}
-		}
-
-		jwtIssuers := make(map[string]bool)
-		for _, method := range in.Peers {
-			// nolint: staticcheck
-			if jwt := method.GetJwt(); jwt != nil {
-				if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
-					errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
-				} else {
-					jwtIssuers[jwt.Issuer] = true
-				}
-				errs = appendErrors(errs, validateJwt(jwt))
-			}
-		}
-		// nolint: staticcheck
-		for _, method := range in.Origins {
-			if method == nil {
-				errs = multierror.Append(errs, errors.New("origin cannot be empty"))
-				continue
-			}
-			if method.Jwt == nil {
-				errs = multierror.Append(errs, errors.New("jwt cannot be empty"))
-				continue
-			}
-			if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
-				errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
-			} else {
-				jwtIssuers[method.Jwt.Issuer] = true
-			}
-			errs = appendErrors(errs, validateJwt(method.Jwt))
-		}
-
 		return errs
 	})
 
@@ -1788,55 +1730,6 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 
 		return errs
 	})
-
-func validateJwt(jwt *authn.Jwt) (errs error) {
-	if jwt == nil {
-		return nil
-	}
-	if jwt.Issuer == "" {
-		errs = multierror.Append(errs, errors.New("issuer must be set"))
-	}
-	for _, audience := range jwt.Audiences {
-		if audience == "" {
-			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
-		}
-	}
-	if jwt.JwksUri != "" {
-		if _, err := security.ParseJwksURI(jwt.JwksUri); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	for _, location := range jwt.JwtHeaders {
-		if location == "" {
-			errs = multierror.Append(errs, errors.New("location header must be non-empty string"))
-		}
-	}
-
-	for _, location := range jwt.JwtParams {
-		if location == "" {
-			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
-		}
-	}
-	return
-}
-
-func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
-	if target == nil {
-		return
-	}
-
-	// AuthN policy target (host)name must be a shortname
-	if !labels.IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
-	}
-
-	for _, port := range target.Ports {
-		errs = appendErrors(errs, validateAuthNPortSelector(port))
-	}
-
-	return
-}
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
@@ -2365,23 +2258,6 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	number := int(selector.GetNumber())
 	errs = appendErrors(errs, ValidatePort(number))
 	return
-}
-
-func validateAuthNPortSelector(selector *authn.PortSelector) error {
-	if selector == nil {
-		return nil
-	}
-
-	// port selector is either a name or a number
-	name := selector.GetName()
-	number := int(selector.GetNumber())
-	if name == "" && number == 0 {
-		// an unset value is indistinguishable from a zero value, so return both errors
-		return appendErrors(validateSubsetName(name), ValidatePort(number))
-	} else if number != 0 {
-		return ValidatePort(number)
-	}
-	return validateSubsetName(name)
 }
 
 func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {

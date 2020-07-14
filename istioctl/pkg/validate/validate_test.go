@@ -586,7 +586,8 @@ $`),
 
 			// capture output to keep test logs clean
 			var out bytes.Buffer
-			validateCmd.SetOutput(&out)
+			validateCmd.SetOut(&out)
+			validateCmd.SetErr(&out)
 
 			err := validateCmd.Execute()
 			if (err != nil) != c.wantError {

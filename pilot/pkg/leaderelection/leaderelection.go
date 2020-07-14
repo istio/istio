@@ -34,8 +34,8 @@ const (
 	// This holds the legacy name to not conflict with older control plane deployments which are just
 	// doing the ingress syncing.
 	IngressController = "istio-leader"
-	// TODO: Fix it, this is used by two controllers with separate leader elections
-	StatusController = "istio-status-leader"
+	StatusController  = "istio-status-leader"
+	AnalyzeController = "istio-analyze-leader"
 )
 
 type LeaderElection struct {

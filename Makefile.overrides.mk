@@ -19,6 +19,7 @@
 # For more information see: https://github.com/istio/istio/pull/19322/
 
 BUILD_WITH_CONTAINER ?= 1
+CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp --net=host
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
 # create phony targets for the top-level items in the repo

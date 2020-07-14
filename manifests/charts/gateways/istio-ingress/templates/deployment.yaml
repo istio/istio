@@ -93,8 +93,10 @@ spec:
             {{- range $key, $val := $gateway.ports }}
             - containerPort: {{ $val.targetPort | default $val.port }}
             {{- end }}
+            {{- if $.Values.global.meshExpansion.enabled }}
             {{- range $key, $val := $gateway.meshExpansionPorts }}
             - containerPort: {{ $val.targetPort | default $val.port }}
+            {{- end }}
             {{- end }}
             - containerPort: 15090
               protocol: TCP
@@ -242,7 +244,7 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
 {{- end }}
-          - name: ingressgatewaysdsudspath
+          - name: gatewaysdsudspath
             mountPath: /var/run/ingress_gateway
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
@@ -256,6 +258,13 @@ spec:
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
             readOnly: true
+          {{- end }}
+          {{- range $gateway.configVolumes }}
+          {{- if .mountPath }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
           {{- end }}
 {{- if $gateway.additionalContainers }}
 {{ toYaml $gateway.additionalContainers | indent 8 }}
@@ -277,7 +286,7 @@ spec:
                 fieldPath: metadata.annotations
       - name: istio-envoy
         emptyDir: {}
-      - name: ingressgatewaysdsudspath
+      - name: gatewaysdsudspath
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token

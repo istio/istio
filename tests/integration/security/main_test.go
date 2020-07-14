@@ -31,7 +31,7 @@ var (
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("security", m).
+		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
@@ -50,6 +50,10 @@ func setupConfig(cfg *istio.Config) {
 	rootNamespace = cfg.SystemNamespace
 
 	cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true
 components:
   egressGateways:
   - enabled: true

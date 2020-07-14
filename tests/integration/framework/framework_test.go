@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 	// Start your call with framework.NewSuite, which creates a new framework.Suite instance that you can configure
 	// before starting tests.
 	framework.
-		NewSuite("framework_test", m).
+		NewSuite(m).
 
 		// Labels that apply to the whole suite can be specified here.
 		Label(label.CustomSetup).

@@ -17,7 +17,7 @@ package v1alpha1
 import (
 	"istio.io/api/operator/v1alpha1"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/gogo/protobuf/jsonpb"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 

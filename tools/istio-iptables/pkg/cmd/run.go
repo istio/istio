@@ -49,11 +49,22 @@ type NetworkRange struct {
 	HasLoopBackIP bool
 }
 
+func filterEmpty(strs []string) []string {
+	filtered := make([]string, 0, len(strs))
+	for _, s := range strs {
+		if s == "" {
+			continue
+		}
+		filtered = append(filtered, s)
+	}
+	return filtered
+}
+
 func split(s string) []string {
 	if s == "" {
 		return nil
 	}
-	return strings.Split(s, ",")
+	return filterEmpty(strings.Split(s, ","))
 }
 
 func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
@@ -185,6 +196,9 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 
 func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesExclude NetworkRange, ipv6RangesInclude NetworkRange) {
 	var table string
+	// Create a new chain for to hit tunnel port directly.
+	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
+		iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
@@ -341,6 +355,14 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		panic(err)
 	}
 
+	redirectDNS := false
+	dnsTargetPort := constants.EnvoyDNSListenerPort
+	if dnsCaptureByAgent.Get() != "" || dnsCaptureByEnvoy.Get() != "" {
+		redirectDNS = true
+		if dnsCaptureByAgent.Get() != "" {
+			dnsTargetPort = constants.IstioAgentDNSListenerPort
+		}
+	}
 	iptConfigurator.logConfig()
 
 	if iptConfigurator.cfg.EnableInboundIPv6 {
@@ -348,11 +370,22 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
 
+	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
+		iptConfigurator.cfg.InboundTunnelPort, "-j", constants.RETURN)
+
 	// Create a new chain for redirecting outbound traffic to the common Envoy port.
 	// In both chains, '-j RETURN' bypasses Envoy and '-j ISTIOREDIRECT'
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV4(
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
+	if redirectDNS {
+		iptConfigurator.iptables.AppendRuleV4(
+			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
+		iptConfigurator.iptables.AppendRuleV6(
+			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
+	}
+
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
 
@@ -363,8 +396,11 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	// TODO: change the default behavior to not intercept any output - user may use http_proxy or another
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
-	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic.
+	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic, and UDP dns (if enabled)
 	iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	if redirectDNS {
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.UDP, "--dport", "53", "-j", constants.ISTIOOUTPUT)
+	}
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if iptConfigurator.cfg.OutboundPortsExclude != "" {
 		for _, port := range split(iptConfigurator.cfg.OutboundPortsExclude) {
@@ -430,19 +466,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
 	}
 
-	if dnsVar.Get() != "" {
-		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
-			// TODO: add ip6 as well
-			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
-				iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
-			}
-		}
-		// TODO: also capture TCP 53
-		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-			"-p", "udp", "--dport", "53",
-			"-j", "REDIRECT", "--to-ports", "15013")
-	}
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
 		// mark outgoing packets from 127.0.0.1/32 with 1337, match it to policy routing entry setup for TPROXY mode
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.MANGLE,

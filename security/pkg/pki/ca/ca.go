@@ -17,10 +17,10 @@ package ca
 import (
 	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,13 +28,13 @@ import (
 
 	"istio.io/istio/security/pkg/cmd"
 
-	"istio.io/istio/security/pkg/k8s/configmap"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
+
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
 )
 
 const (
@@ -126,6 +126,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			CheckInterval:      rootCertCheckInverval,
 			caCertTTL:          caCertTTL,
 			retryInterval:      cmd.ReadSigningCertRetryInterval,
+			retryMax:           cmd.ReadSigningCertRetryMax,
 			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
 			caStorageNamespace: namespace,
 			dualUse:            dualUse,
@@ -179,23 +180,44 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		}
 		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
 	}
-
-	if err = updateCertInConfigmap(namespace, client, caOpts.KeyCertBundle.GetRootCertPem()); err != nil {
-		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
-	} else {
-		pkiCaLog.Infof("The Citadel's public key is successfully written into configmap istio-security in namespace %s.", namespace)
-	}
 	return caOpts, nil
 }
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
-	defaultCertTTL, maxCertTTL time.Duration, namespace string, client corev1.CoreV1Interface) (caOpts *IstioCAOptions, err error) {
+	defaultCertTTL, maxCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         pluggedCertCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
 	}
+	if _, err := os.Stat(signingKeyFile); err != nil {
+		// self generating for testing or local, non-k8s run
+		options := util.CertOptions{
+			TTL:          3650 * 24 * time.Hour, // TODO: pass the flag here as well (or pass MeshConfig )
+			Org:          "cluster.local",       // TODO: pass trustDomain ( or better - pass MeshConfig )
+			IsCA:         true,
+			IsSelfSigned: true,
+			RSAKeySize:   caKeySize,
+			IsDualUse:    true, // hardcoded to true for K8S as well
+		}
+		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
+		if ckErr != nil {
+			return nil, fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
+		}
+
+		rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to append root certificates (%v)", err)
+		}
+
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
+			return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+		}
+
+		return caOpts, nil
+	}
+
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
 		signingCertFile, signingKeyFile, certChainFile, rootCertFile); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
@@ -220,13 +242,6 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
-	crt := caOpts.KeyCertBundle.GetCertChainPem()
-	if len(crt) == 0 {
-		crt = caOpts.KeyCertBundle.GetRootCertPem()
-	}
-	if err = updateCertInConfigmap(namespace, client, crt); err != nil {
-		pkiCaLog.Errorf("Failed to write Citadel cert to configmap (%v). Node agents will not be able to connect.", err)
-	}
 	return caOpts, nil
 }
 
@@ -247,15 +262,24 @@ type IstioCA struct {
 // NewIstioCA returns a new IstioCA instance.
 func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	ca := &IstioCA{
-		defaultCertTTL: opts.DefaultCertTTL,
-		maxCertTTL:     opts.MaxCertTTL,
-		keyCertBundle:  opts.KeyCertBundle,
-		livenessProbe:  probe.NewProbe(),
+		maxCertTTL:    opts.MaxCertTTL,
+		keyCertBundle: opts.KeyCertBundle,
+		livenessProbe: probe.NewProbe(),
 	}
 
 	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
 		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
 	}
+
+	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens, this function will prevent that using cert chain TTL as
+	// the workload TTL
+	defaultCertTTL, err := ca.minTTL(opts.DefaultCertTTL)
+	if err != nil {
+		return ca, fmt.Errorf("failed to get default cert TTL %s", err.Error())
+	}
+	ca.defaultCertTTL = defaultCertTTL
+
 	return ca, nil
 }
 
@@ -323,12 +347,6 @@ func (ca *IstioCA) GetCAKeyCertBundle() util.KeyCertBundle {
 	return ca.keyCertBundle
 }
 
-func updateCertInConfigmap(namespace string, client corev1.CoreV1Interface, cert []byte) error {
-	certEncoded := base64.StdEncoding.EncodeToString(cert)
-	cmc := configmap.NewController(namespace, client)
-	return cmc.InsertCATLSRootCert(certEncoded)
-}
-
 // GenKeyCert() generates a certificate signed by the CA and
 // returns the certificate chain and the private key.
 func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte, []byte, error) {
@@ -354,4 +372,26 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration) ([]byte
 	}
 
 	return certPEM, privPEM, nil
+}
+
+func (ca *IstioCA) minTTL(defaultCertTTL time.Duration) (time.Duration, error) {
+	certChainPem := ca.keyCertBundle.GetCertChainPem()
+	if len(certChainPem) == 0 {
+		return defaultCertTTL, nil
+	}
+
+	certChainExpiration, err := util.TimeBeforeCertExpires(certChainPem, time.Now())
+	if err != nil {
+		return 0, fmt.Errorf("failed to get cert chain TTL %s", err.Error())
+	}
+
+	if certChainExpiration.Seconds() <= 0 {
+		return 0, fmt.Errorf("cert chain has expired")
+	}
+
+	if defaultCertTTL.Seconds() > certChainExpiration.Seconds() {
+		return certChainExpiration, nil
+	}
+
+	return defaultCertTTL, nil
 }

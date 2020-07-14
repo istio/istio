@@ -19,10 +19,9 @@ import (
 	"path"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"github.com/google/uuid"
+
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 const (
@@ -36,9 +35,6 @@ type Settings struct {
 	TestID string
 
 	RunID uuid.UUID
-
-	// Environment to run the tests in. By default, a local environment will be used.
-	Environment string
 
 	// Do not cleanup the resources after the test run.
 	NoCleanup bool
@@ -91,8 +87,7 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		Environment: environment.DefaultName().String(),
-		RunID:       uuid.New(),
+		RunID: uuid.New(),
 	}
 }
 
@@ -100,7 +95,6 @@ func DefaultSettings() *Settings {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("Environment:       %v\n", s.Environment)
 	result += fmt.Sprintf("TestID:            %s\n", s.TestID)
 	result += fmt.Sprintf("RunID:             %s\n", s.RunID.String())
 	result += fmt.Sprintf("NoCleanup:         %v\n", s.NoCleanup)

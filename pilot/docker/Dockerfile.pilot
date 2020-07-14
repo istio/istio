@@ -7,11 +7,8 @@ ARG BASE_VERSION=latest
 # The following section is used as base image if BASE_DISTRIBUTION=default
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
-USER 1337:1337
-
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM gcr.io/distroless/static-debian10@sha256:4433370ec2b3b97b338674b4de5ffaef8ce5a38d1c9c0cb82403304b8718cde9 as distroless
-WORKDIR /
+FROM docker.io/istio/distroless:${BASE_VERSION} as distroless
 
 # This will build the final image based on either default or distroless from above
 # hadolint ignore=DL3006
@@ -19,4 +16,7 @@ FROM ${BASE_DISTRIBUTION}
 
 COPY pilot-discovery /usr/local/bin/
 COPY cacert.pem /cacert.pem
+
+USER 1337:1337
+
 ENTRYPOINT ["/usr/local/bin/pilot-discovery"]

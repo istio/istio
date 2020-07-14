@@ -69,11 +69,11 @@ func fetchExtractInstallPackageHTTP(releaseTarURL string) (string, error) {
 	return uf.DestDir(), nil
 }
 
-// --charts is an alias for --set installPackagePath=
+// --manifests is an alias for --set installPackagePath=
 // --revision is an alias for --set revision=
-func applyFlagAliases(flags []string, charts, revision string) []string {
-	if charts != "" {
-		flags = append(flags, fmt.Sprintf("installPackagePath=%s", charts))
+func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
+	if manifestsPath != "" {
+		flags = append(flags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
 	}
 	if revision != "" {
 		flags = append(flags, fmt.Sprintf("revision=%s", revision))

@@ -47,15 +47,14 @@ func TestPassThroughFilterChain(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/pass-through-filter-chain.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, ns.Name(), policies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), policies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			newEchoConfig := func(service string) echo.Config {
 				return echo.Config{
 					Service:   service,
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
 					Ports: []echo.Port{
 						{
 							Name:     "grpc",

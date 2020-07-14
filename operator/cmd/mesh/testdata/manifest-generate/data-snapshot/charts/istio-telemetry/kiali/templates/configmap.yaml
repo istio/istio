@@ -33,7 +33,7 @@ data:
 {{- end }}
     external_services:
       istio:
-        url_service_version: http://istiod.{{ .Values.global.istioNamespace }}:15014/version
+        url_service_version: http://istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}:15014/version
       tracing:
         url: {{ .Values.kiali.dashboard.jaegerURL }}
         in_cluster_url: {{ .Values.kiali.dashboard.jaegerInClusterURL }}

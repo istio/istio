@@ -26,8 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
-
 	"istio.io/pkg/log"
 )
 
@@ -58,10 +56,10 @@ type federatedTokenResponse struct {
 }
 
 type accessTokenRequest struct {
-	Name      string            `json:"name"`
-	Delegates []string          `json:"delegates"` // nolint: structcheck, unused
-	Scope     []string          `json:"scope"`
-	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
+	Name      string        `json:"name"`
+	Delegates []string      `json:"delegates"` // nolint: structcheck, unused
+	Scope     []string      `json:"scope"`
+	LifeTime  time.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {

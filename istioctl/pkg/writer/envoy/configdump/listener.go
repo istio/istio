@@ -25,12 +25,12 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	envoy_extensions_filters_network_tcp_proxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 const (
@@ -254,7 +254,7 @@ func getFilterType(filters []*listener.Filter) string {
 			return "HTTP"
 		} else if filter.Name == TCPListener {
 			if !strings.Contains(string(filter.GetTypedConfig().GetValue()), util.BlackHoleCluster) {
-				tcpProxy := &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy{}
+				tcpProxy := &tcp.TcpProxy{}
 				// Allow Unmarshal to work even if Envoy and istioctl are different
 				filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
 				err := ptypes.UnmarshalAny(filter.GetTypedConfig(), tcpProxy)

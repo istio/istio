@@ -113,8 +113,8 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 				selector = "istio.io/test-vm"
 			}
 			// Wait until all the pods are ready for this service
-			fetch := kube.NewPodMustFetch(cluster.Accessor, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
-			pods, err := cluster.WaitUntilPodsAreReady(fetch, retry.Timeout(timeout))
+			fetch := kube.NewPodMustFetch(cluster, serviceNamespace, fmt.Sprintf("%s=%s", selector, serviceName))
+			pods, err := kube.WaitUntilPodsAreReady(fetch, retry.Timeout(timeout))
 			if err != nil {
 				aggregateErrMux.Lock()
 				aggregateErr = multierror.Append(aggregateErr, err)

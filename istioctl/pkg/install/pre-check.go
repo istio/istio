@@ -16,7 +16,6 @@ package install
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
@@ -471,12 +471,8 @@ func getIOPFromFile(filename string) (*operator_v1alpha1.IstioOperator, error) {
 	// and ask operator code to unmarshal.
 
 	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-	by, err := json.Marshal(un)
-	if err != nil {
-		return nil, err
-	}
-
-	iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+	by := util.ToYAML(un)
+	iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 	if err != nil {
 		return nil, err
 	}

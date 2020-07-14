@@ -52,14 +52,8 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
 {{- end }}
-      serviceAccountName: istio-ingressgateway-service-account
+      serviceAccountName: {{ $gateway.name | default "istio-ingressgateway" }}-service-account
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -129,6 +123,15 @@ spec:
         {{- end }}
         {{- if .Values.global.trustDomain }}
           - --trust-domain={{ .Values.global.trustDomain }}
+        {{- end }}
+        {{- if not $gateway.runAsRoot }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
         {{- end }}
           readinessProbe:
             failureThreshold: 30
@@ -209,6 +212,10 @@ spec:
           - name: {{ $key }}
             value: {{ $val }}
           {{- end }}
+          {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+          - name: {{ $key }}
+            value: "{{ $value }}"
+          {{- end }}
           {{ $network_set := index $gateway.env "ISTIO_META_NETWORK" }}
           {{- if and (not $network_set) .Values.global.network }}
           - name: ISTIO_META_NETWORK
@@ -235,7 +242,7 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
 {{- end }}
-          - name: ingressgatewaysdsudspath
+          - name: gatewaysdsudspath
             mountPath: /var/run/ingress_gateway
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
@@ -270,7 +277,7 @@ spec:
                 fieldPath: metadata.annotations
       - name: istio-envoy
         emptyDir: {}
-      - name: ingressgatewaysdsudspath
+      - name: gatewaysdsudspath
         emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token

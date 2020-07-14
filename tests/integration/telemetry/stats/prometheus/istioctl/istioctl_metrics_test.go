@@ -49,23 +49,12 @@ func TestIstioctlMetrics(t *testing.T) {
 // is added to istioctl experimental metrics and support for non-default
 // output formats is added.
 func TestMain(m *testing.M) {
-	framework.NewSuite("istioctl_metrics_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(http.GetIstioInstance(), setupConfig)).
+		Setup(istio.Setup(http.GetIstioInstance(), nil)).
 		Setup(http.TestSetup).
 		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// disable mixer telemetry and enable telemetry v2
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
-	cfg.Values["telemetry.v2.prometheus.enabled"] = "true"
 }
 
 func validateDefaultOutput(t *testing.T, ctx framework.TestContext, workload string) error { // nolint:interfacer

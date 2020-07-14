@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -36,7 +35,6 @@ import (
 
 var (
 	i    istio.Instance
-	p    pilot.Instance
 	ingr ingress.Instance
 )
 
@@ -45,14 +43,14 @@ var (
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("pilot_test", m).
+		NewSuite(m).
 		Label(label.CustomSetup).
 
 		// IngressClass is only present in 1.18+
 		RequireEnvironmentVersion("1.18").
 		RequireSingleCluster().
 		Setup(func(ctx resource.Context) (err error) {
-			if err := ctx.ApplyConfigDir("", "testdata"); err != nil {
+			if err := ctx.Config().ApplyYAMLDir("", "testdata"); err != nil {
 				return err
 			}
 			return nil
@@ -61,9 +59,6 @@ func TestMain(m *testing.M) {
 			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
 			if ingr, err = ingress.New(ctx, ingress.Config{
 				Istio: i,
 			}); err != nil {
@@ -88,7 +83,6 @@ func TestGateway(t *testing.T) {
 					Service:   "server",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
 					Ports: []echo.Port{
 						{
 							Name:     "http",
@@ -100,7 +94,7 @@ func TestGateway(t *testing.T) {
 				}).
 				BuildOrFail(t)
 			instance.Address()
-			if err := ctx.ApplyConfig(ns.Name(), `
+			if err := ctx.Config().ApplyYAML(ns.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -115,14 +109,13 @@ metadata:
 spec:
   class: istio
   listeners:
-  - name: primary
-    address:
-      type: NamedAddress
-      value: my.domain.example
+  - hostname:
+      match: Domain
+      name: domain.example
     port: 80
-    protocol: http
-  routes:
-    namespaceSelector: {}
+    protocol: HTTP
+    routes:
+      namespaceSelector: {}
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -130,7 +123,7 @@ metadata:
   name: http
 spec:
   hosts:
-  - hostname: "my.domain.example"
+  - hostnames: ["my.domain.example"]
     rules:
     - match:
         pathType: Prefix
@@ -180,10 +173,9 @@ func TestIngress(t *testing.T) {
 					Service:   "server",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
 					Ports: []echo.Port{
 						{
-							Name:     "http",
+							Name:     "http-test-port",
 							Protocol: protocol.HTTP,
 							// We use a port > 1024 to not require root
 							InstancePort: 8090,
@@ -202,7 +194,7 @@ func TestIngress(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB, false)
 			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
 
-			if err := ctx.ApplyConfig(ns.Name(), `
+			if err := ctx.Config().ApplyYAML(ns.Name(), `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:
@@ -223,7 +215,11 @@ spec:
   rules:
     - http:
         paths:
-          - path: /
+          - path: /test/namedport
+            backend:
+              serviceName: server
+              servicePort: http-test-port
+          - path: /test
             backend:
               serviceName: server
               servicePort: 80`,
@@ -240,7 +236,7 @@ spec:
 					name: "http",
 					call: ingress.CallOptions{
 						Host:     "server",
-						Path:     "/",
+						Path:     "/test",
 						CallType: ingress.PlainText,
 						Address:  ingr.HTTPAddress(),
 					},
@@ -250,7 +246,7 @@ spec:
 					name: "https-foo",
 					call: ingress.CallOptions{
 						Host:     "foo.example.com",
-						Path:     "/",
+						Path:     "/test",
 						CallType: ingress.TLS,
 						Address:  ingr.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialA.CaCert,
@@ -261,7 +257,18 @@ spec:
 					name: "https-bar",
 					call: ingress.CallOptions{
 						Host:     "bar.example.com",
-						Path:     "/",
+						Path:     "/test",
+						CallType: ingress.TLS,
+						Address:  ingr.HTTPSAddress(),
+						CaCert:   ingressutil.IngressCredentialB.CaCert,
+					},
+				},
+				{
+					// HTTPS call for bar with namedport route. CaCert matches the secret
+					name: "https-namedport",
+					call: ingress.CallOptions{
+						Host:     "bar.example.com",
+						Path:     "/test/namedport",
 						CallType: ingress.TLS,
 						Address:  ingr.HTTPSAddress(),
 						CaCert:   ingressutil.IngressCredentialB.CaCert,

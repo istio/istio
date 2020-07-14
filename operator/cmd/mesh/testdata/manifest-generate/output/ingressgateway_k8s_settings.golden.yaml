@@ -37,12 +37,6 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         fsGroup: 1337
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
       serviceAccountName: istio-ingressgateway-service-account
       containers:
         - name: istio-proxy
@@ -67,6 +61,13 @@ spec:
           - --serviceCluster
           - istio-ingressgateway
           - --trust-domain=cluster.local
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
           readinessProbe:
             failureThreshold: 30
             httpGet:
@@ -149,7 +150,7 @@ spec:
           - name: istio-token
             mountPath: /var/run/secrets/tokens
             readOnly: true
-          - name: ingressgatewaysdsudspath
+          - name: gatewaysdsudspath
             mountPath: /var/run/ingress_gateway
           - name: podinfo
             mountPath: /etc/istio/pod
@@ -174,7 +175,7 @@ spec:
                 fieldPath: metadata.annotations
       - name: istio-envoy
         emptyDir: {}
-      - name: ingressgatewaysdsudspath
+      - name: gatewaysdsudspath
         emptyDir: {}
       - name: istio-token
         projected:

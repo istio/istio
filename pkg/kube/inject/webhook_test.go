@@ -820,13 +820,13 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 	t.Helper()
 	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
 	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate, values := loadInjectionConfigMap(t, nil, "")
+	sidecarTemplate, values, _ := loadInjectionSettings(t, nil, "")
 	return createTestWebhook(t, sidecarTemplate, values)
 }
 
-// loadInjectionConfigMap will render the charts using the operator, with given yaml overrides.
+// loadInjectionSettings will render the charts using the operator, with given yaml overrides.
 // This allows us to fully simulate what will actually happen at run time.
-func loadInjectionConfigMap(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string) {
+func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string, meshConfig *meshconfig.MeshConfig) {
 	t.Helper()
 	// add --set installPackagePath=<path to charts snapshot>
 	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir())
@@ -860,20 +860,38 @@ func loadInjectionConfigMap(t testing.TB, setFlags []string, inFilePath string) 
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				values, ok := data["values"].(string)
+				values, ok = data["values"].(string)
 				if !ok {
 					t.Fatalf("failed to config %v", data)
 				}
-				injectConfig := &Config{}
-				if err := yaml.Unmarshal([]byte(config), injectConfig); err != nil {
+				template = &Config{}
+				if err := yaml.Unmarshal([]byte(config), template); err != nil {
 					t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 				}
-				return injectConfig, values
+				if meshConfig != nil {
+					return template, values, meshConfig
+				}
+			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
+				data, ok := out.Object["data"].(map[string]interface{})
+				if !ok {
+					t.Fatalf("failed to convert %v", out)
+				}
+				meshdata, ok := data["mesh"].(string)
+				if !ok {
+					t.Fatalf("failed to get meshconfig %v", data)
+				}
+				meshConfig, err = mesh.ApplyMeshConfig(meshdata, mesh.DefaultMeshConfig())
+				if err != nil {
+					t.Fatalf("failed to unmarshal meshconfig: %v", err)
+				}
+				if template != nil {
+					return template, values, meshConfig
+				}
 			}
 		}
 	}
 	t.Fatal("could not find injection template")
-	return nil, ""
+	return nil, "", nil
 }
 
 func splitYamlFile(yamlFile string, t *testing.T) [][]byte {
@@ -890,7 +908,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
-		t.Skip("Found no injectable parts")
+		t.Fatalf("Found no injectable parts")
 	}
 	return byteParts
 }
@@ -1145,7 +1163,7 @@ func createWebhook(t testing.TB, cfg *Config) (*Webhook, func()) {
 		cleanup()
 		t.Fatalf("Could not marshal test injection config: %v", err)
 	}
-	_, values := loadInjectionConfigMap(t, nil, "")
+	_, values, _ := loadInjectionSettings(t, nil, "")
 	var (
 		configFile     = filepath.Join(dir, "config-file.yaml")
 		valuesFile     = filepath.Join(dir, "values-file.yaml")
@@ -1416,7 +1434,7 @@ func testSideCarInjectorMetrics(t *testing.T, wh *Webhook) {
 }
 
 func BenchmarkInjectServe(b *testing.B) {
-	sidecarTemplate, _ := loadInjectionConfigMap(b, nil, "")
+	sidecarTemplate, _, _ := loadInjectionSettings(b, nil, "")
 	wh, cleanup := createWebhook(b, sidecarTemplate)
 	defer cleanup()
 

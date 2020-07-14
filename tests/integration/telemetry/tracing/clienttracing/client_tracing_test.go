@@ -67,7 +67,7 @@ func TestClientTracing(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	framework.NewSuite("client_tracing_test", m).
+	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(tracing.GetIstioInstance(), setupConfig)).

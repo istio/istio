@@ -84,8 +84,8 @@ func TestDistribute(t *testing.T) {
 
 			if err := retry.UntilSuccess(func() error {
 				e := sendTraffic(a, fakeHostname, map[string]int{
-					"b": 20,
-					"c": 80,
+					"b": 10,
+					"c": 40,
 				})
 				scopes.Framework.Errorf("%v: ", e)
 				return e
@@ -112,9 +112,9 @@ func TestDistribute(t *testing.T) {
 
 			if err := retry.UntilSuccess(func() error {
 				e := sendTraffic(a, fakeHostname, map[string]int{
-					"a": 33,
-					"b": 33,
-					"c": 33,
+					"a": 17,
+					"b": 17,
+					"c": 17,
 				})
 				scopes.Framework.Errorf("%v: ", e)
 				return e
