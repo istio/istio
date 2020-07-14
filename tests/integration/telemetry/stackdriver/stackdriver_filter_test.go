@@ -50,6 +50,8 @@ const (
 	serverLogEntry               = "testdata/server_access_log.json.tmpl"
 	trafficAssertionTmpl         = "testdata/traffic_assertion.json.tmpl"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
+
+	projectsPrefix = "projects/test-project"
 )
 
 var (
@@ -306,8 +308,10 @@ func validateEdges(t *testing.T) error {
 	for _, edge := range edges {
 		edge.Destination.Uid = ""
 		edge.Destination.ClusterName = ""
+		edge.Destination.Location = ""
 		edge.Source.Uid = ""
 		edge.Source.ClusterName = ""
+		edge.Source.Location = ""
 		t.Logf("edge: %v", edge)
 		if proto.Equal(edge, &wantEdge) {
 			return nil
@@ -348,11 +352,11 @@ func validateTraces(t *testing.T) error {
 	}
 	for _, trace := range traces {
 		t.Logf("trace: %v\n", trace)
-		if trace.ProjectId != "projects/test-project" {
+		if trace.ProjectId != projectsPrefix {
 			continue
 		}
 		for _, span := range trace.Spans {
-			if !strings.HasPrefix(span.Name, "projects/test-project") {
+			if !strings.HasPrefix(span.Name, projectsPrefix) {
 				continue
 			}
 			if got, ok := span.Labels["span"]; ok && got == wantSpanLabel {
