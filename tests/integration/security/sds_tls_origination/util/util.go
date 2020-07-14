@@ -184,7 +184,7 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 // is applied to only allow egress traffic to service namespace such that when client to server calls are made
 // we are able to simulate "external" traffic by going outside this namespace. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func SetupEcho(t *testing.T, ctx resource.Context, p *pilot.Instance) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
+func SetupEcho(t *testing.T, ctx resource.Context, p pilot.Instance) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	clientNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "client",
 		Inject: true,
@@ -199,7 +199,7 @@ func SetupEcho(t *testing.T, ctx resource.Context, p *pilot.Instance) (echo.Inst
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: clientNamespace,
-			Pilot:     *p,
+			Pilot:     p,
 			Ports:     []echo.Port{},
 			Subsets: []echo.SubsetConfig{{
 				Version: "v1",
@@ -225,7 +225,7 @@ func SetupEcho(t *testing.T, ctx resource.Context, p *pilot.Instance) (echo.Inst
 					TLS:          true,
 				},
 			},
-			Pilot: *p,
+			Pilot: p,
 			// Set up TLS certs on the server. This will make the server listen with these credentials.
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image
