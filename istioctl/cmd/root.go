@@ -96,7 +96,7 @@ func ConfigAndEnvProcessing() error {
 	if IstioConfig != defaultIstioctlConfig {
 		// Warn if user incorrectly customized $ISTIOCONFIG
 		if _, err := os.Stat(IstioConfig); os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Warning: Configuration file %q does not exist\n", IstioConfig)
+			return fmt.Errorf("configuration file %q does not exist (check ISTIOCONFIG)", IstioConfig)
 		}
 	}
 	configPath := filepath.Dir(IstioConfig)

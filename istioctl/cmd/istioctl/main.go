@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	// import all known client auth plugins
@@ -24,7 +25,11 @@ import (
 )
 
 func main() {
-	_ = cmd.ConfigAndEnvProcessing() // Using ~/.istioctl/config.yaml is optional
+	if err := cmd.ConfigAndEnvProcessing(); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not initialize: %v\n", err)
+		exitCode := cmd.GetExitCode(err)
+		os.Exit(exitCode)
+	}
 
 	rootCmd := cmd.GetRootCmd(os.Args[1:])
 
