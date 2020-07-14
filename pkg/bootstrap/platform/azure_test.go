@@ -65,7 +65,7 @@ func TestAzureMetadata(t *testing.T) {
 	}{
 		{"ignore empty response", "", map[string]string{}},
 		{"parse fields", MockMetadata,
-			map[string]string{"Department": "IT", "Environment": "Prod", "Role": "WorkerRole",
+			map[string]string{"azure_Department": "IT", "azure_Environment": "Prod", "azure_Role": "WorkerRole",
 				AzureName: "negasonic", AzureLocation: "centralus", AzureVMID: "13f56399-bd52-4150-9748-7190aae1ff21"}},
 	}
 
