@@ -318,7 +318,7 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		virtualHost := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(virtualHost.Routes); j++ {
-			virtualHost.Routes[j] = modifyOutboundRouteConfig(in.Push, in, virtualHost.Name, virtualHost.Routes[j])
+			virtualHost.Routes[j] = modifyOutboundRouteConfig(in, virtualHost.Name, virtualHost.Routes[j])
 		}
 		routeConfiguration.VirtualHosts[i] = virtualHost
 	}
@@ -492,7 +492,7 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attr
 	})
 }
 
-func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
+func modifyOutboundRouteConfig(in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
 	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Push.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{

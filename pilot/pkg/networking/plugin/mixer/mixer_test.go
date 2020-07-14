@@ -480,7 +480,7 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 			Push: c.push,
 			Node: c.node,
 		}
-		tc := modifyOutboundRouteConfig(push, &in, "", c.httpRoute)
+		tc := modifyOutboundRouteConfig(&in, "", c.httpRoute)
 
 		mixerSvcConfigAny := tc.TypedPerFilterConfig["mixer"]
 		mixerSvcConfig := &mccpb.ServiceConfig{}
