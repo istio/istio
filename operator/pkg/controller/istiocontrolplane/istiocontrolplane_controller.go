@@ -39,9 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
-
 	"istio.io/istio/operator/pkg/apis/istio"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -52,6 +49,8 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (
@@ -72,6 +71,7 @@ var (
 		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
 		{Group: "extensions", Version: "v1beta1", Kind: name.IngressStr},
 		{Group: "", Version: "v1", Kind: name.ServiceStr},
+		// Endpoints should not be pruned because these are generated and not in the manifest.
 		// {Group: "", Version: "v1", Kind: name.EndpointStr},
 		{Group: "", Version: "v1", Kind: name.CMStr},
 		{Group: "", Version: "v1", Kind: name.PVCStr},
@@ -152,6 +152,15 @@ var (
 		},
 	}
 )
+
+// NewReconcileIstioOperator creates a new ReconcileIstioOperator and returns a ptr to it.
+func NewReconcileIstioOperator(client client.Client, config *rest.Config, scheme *runtime.Scheme) *ReconcileIstioOperator {
+	return &ReconcileIstioOperator{
+		client: client,
+		config: config,
+		scheme: scheme,
+	}
+}
 
 // ReconcileIstioOperator reconciles a IstioOperator object
 type ReconcileIstioOperator struct {

@@ -57,7 +57,7 @@ type deployment struct {
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface,
 	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
-	if dryRun {
+	if dryRun || TestMode {
 		return nil
 	}
 

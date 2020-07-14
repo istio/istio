@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"istio.io/api/operator/v1alpha1"
-
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/tpath"
@@ -125,14 +124,12 @@ var (
 		CNIComponentName,
 		IstiodRemoteComponentName,
 	}
-	allComponentNamesMap = map[ComponentName]bool{
-		IstioBaseComponentName:    true,
-		PilotComponentName:        true,
-		PolicyComponentName:       true,
-		TelemetryComponentName:    true,
-		CNIComponentName:          true,
-		IstiodRemoteComponentName: true,
-	}
+
+	// AllComponentNames is a list of all Istio components.
+	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName, AddonComponentName,
+		IstioOperatorComponentName, IstioOperatorCustomResourceName)
+
+	allCoreComponentNamesMap = map[ComponentName]bool{}
 
 	// BundledAddonComponentNamesMap is a map of component names of addons which have helm charts bundled with Istio
 	// and have built in path definitions beyond standard addons coming from external charts.
@@ -172,6 +169,12 @@ type Manifest struct {
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
 
+func init() {
+	for _, c := range AllCoreComponentNames {
+		allCoreComponentNamesMap[c] = true
+	}
+}
+
 // Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
 // manifest.
 func (mm ManifestMap) Consolidated() map[string]string {
@@ -204,7 +207,7 @@ func (mm ManifestMap) String() string {
 
 // IsCoreComponent reports whether cn is a core component.
 func (cn ComponentName) IsCoreComponent() bool {
-	return allComponentNamesMap[cn]
+	return allCoreComponentNamesMap[cn]
 }
 
 // IsGateway reports whether cn is a gateway component.
