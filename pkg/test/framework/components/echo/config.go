@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -32,9 +31,6 @@ type Config struct {
 
 	// Domain of the echo Instance. If not provided, a default will be selected.
 	Domain string
-
-	// Pilot component reference (may be required, depending on the environment/configuration).
-	Pilot pilot.Instance
 
 	// Service indicates the service name of the Echo application.
 	Service string

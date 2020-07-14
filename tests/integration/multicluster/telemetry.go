@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -31,7 +30,7 @@ import (
 
 // TelemetryTest validates that source and destination labels are collected
 // for multicluster traffic.
-func TelemetryTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
+func TelemetryTest(t *testing.T, ns namespace.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(feature).
@@ -45,7 +44,7 @@ func TelemetryTest(t *testing.T, ns namespace.Instance, pilots []pilot.Instance,
 						var instance echo.Instance
 						ref := &instance
 						svcName := fmt.Sprintf("echo-%d", cluster.Index())
-						builder = builder.With(ref, newEchoConfig(svcName, ns, cluster, pilots))
+						builder = builder.With(ref, newEchoConfig(svcName, ns, cluster))
 						services[cluster.Index()] = append(services[cluster.Index()], ref)
 					}
 					builder.BuildOrFail(ctx)

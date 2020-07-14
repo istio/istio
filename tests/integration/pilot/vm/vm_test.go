@@ -97,7 +97,6 @@ spec:
 					Service:   clusterServiceHostname,
 					Namespace: ns,
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				BuildOrFail(t)
 
@@ -106,7 +105,6 @@ spec:
 					Service:   headlessServiceHostname,
 					Namespace: ns,
 					Ports:     ports,
-					Pilot:     p,
 					Headless:  true,
 				}).
 				BuildOrFail(t)
@@ -119,7 +117,6 @@ spec:
 						Service:    fmt.Sprintf("vm-%v", i),
 						Namespace:  ns,
 						Ports:      ports,
-						Pilot:      p,
 						DeployAsVM: true,
 						VMImage:    vmImage,
 					}).
