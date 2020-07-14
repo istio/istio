@@ -32,7 +32,7 @@ type TLSPortNumber struct {
 func (p TLSPortNumber) Get(a PolicyApplier) model.MutualTLSMode {
 	return a.GetMutualTLSMode(p.port)
 }
-func NewTlsPortNumber(p uint32) TLSPortNumber {
+func NewTLSPortNumber(p uint32) TLSPortNumber {
 	return TLSPortNumber{p}
 }
 

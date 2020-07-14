@@ -40,7 +40,7 @@ func NewPlugin() plugin.Plugin {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	var tlsGetter authn.TLSModeGetter = authn.StrictTLSModeValue{}
 	if in.ServiceInstance != nil {
-		tlsGetter = authn.NewTlsPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
+		tlsGetter = authn.NewTLSPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
 	}
 	return factory.NewPolicyApplier(in.Push,
 		in.ServiceInstance, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
@@ -77,7 +77,7 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 	}
 	var tlsGetter authn.TLSModeGetter = authn.StrictTLSModeValue{}
 	if in.ServiceInstance != nil {
-		tlsGetter = authn.NewTlsPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
+		tlsGetter = authn.NewTLSPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
 	}
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
@@ -125,5 +125,5 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
 	applier := factory.NewPolicyApplier(in.Push, nil /* ServiceInstance */, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	// Pass 0 for endpointPort so that it never matches any port-level policy.
-	return applier.InboundFilterChain(authn.NewTlsPortNumber(0), in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
+	return applier.InboundFilterChain(authn.NewTLSPortNumber(0), in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
 }

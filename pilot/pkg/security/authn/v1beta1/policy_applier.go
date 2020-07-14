@@ -79,7 +79,8 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, tlsModeGetter authn.TLSModeGetter, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, tlsModeGetter authn.TLSModeGetter,
+	config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if proxyType != model.SidecarProxy {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
 		return config

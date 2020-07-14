@@ -1202,7 +1202,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			if c.isGateway {
 				proxyType = model.Router
 			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, authn.NewTlsPortNumber(80))
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, authn.NewTLSPortNumber(80))
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}
@@ -1448,7 +1448,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := NewPolicyApplier("root-namespace", nil, tc.peerPolicies).InboundFilterChain(
-				authn.NewTlsPortNumber(8080),
+				authn.NewTLSPortNumber(8080),
 				tc.sdsUdsPath,
 				testNode,
 				networking.ListenerProtocolAuto,
