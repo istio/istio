@@ -27,7 +27,7 @@ import (
 	"net/http"
 	"time"
 
-	"istio.io/istio/security/pkg/nodeagent/plugin"
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -53,13 +53,13 @@ type federatedTokenResponse struct {
 	ExpiresIn       int64  `json:"expires_in"` // Expiration time in seconds
 }
 
-// Plugin for google securetoken api interaction.
+// TokenExchanger for google securetoken api interaction.
 type Plugin struct {
 	hTTPClient *http.Client
 }
 
 // NewPlugin returns an instance of secure token service client plugin
-func NewPlugin() plugin.Plugin {
+func NewPlugin() security.TokenExchanger {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		stsClientLog.Errorf("Failed to get SystemCertPool: %v", err)

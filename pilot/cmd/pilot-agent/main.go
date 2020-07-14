@@ -20,12 +20,15 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
+
+	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pkg/dns"
 
@@ -104,6 +107,37 @@ var (
 		"",
 		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
 	).Get()
+
+	caProviderEnv = env.RegisterStringVar("CA_PROVIDER", "Citadel", "name of authentication provider").Get()
+	// TODO: default to same as discovery address
+	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffee certificate provider. Defaults to discoveryAddress").Get()
+
+	// TODO: this is a horribly named env, it's really TOKEN_EXCHANGE_PLUGINS - but to avoid breaking
+	// it's left unchanged. It may not be needed because we autodetect.
+	pluginNamesEnv = env.RegisterStringVar("PLUGINS", "", "Token exchange plugins").Get()
+
+	// This is also disabled by presence of the SDS socket directory
+	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
+		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
+
+	// TODO: This is already present in ProxyConfig !!!
+	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
+		"The trust domain for spiffe certificates").Get()
+
+	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
+		"The cert lifetime requested by istio agent").Get()
+
+	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
+		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+	secretRotationIntervalEnv = env.RegisterDurationVar("SECRET_ROTATION_CHECK_INTERVAL", 5*time.Minute,
+		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar("STALED_CONNECTION_RECYCLE_RUN_INTERVAL", 5*time.Minute,
+		"The ticker to detect and close stale connections").Get()
+	initialBackoffInMilliSecEnv = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", 0, "").Get()
+	pkcs8KeysEnv                = env.RegisterBoolVar("PKCS8_KEY", false,
+		"Whether to generate PKCS#8 private keys").Get()
+	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
+	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -212,12 +246,39 @@ var (
 				log.Info("Using existing certs")
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
+			secOpts := &security.Options{
 				PilotCertProvider:  pilotCertProvider,
-				JWTPath:            jwtPath,
 				OutputKeyCertToDir: outputKeyCertToDir,
+				JWTPath:            jwtPath,
 				ClusterID:          clusterIDVar.Get(),
-			})
+				FileMountedCerts:   fileMountedCertsEnv,
+				CAEndpoint:         caEndpointEnv,
+			}
+			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
+
+			secOpts.EnableWorkloadSDS = true
+
+			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
+			secOpts.CAProviderName = caProviderEnv
+
+			// TODO: extract from ProxyConfig
+			secOpts.TrustDomain = trustDomainEnv
+			secOpts.Pkcs8Keys = pkcs8KeysEnv
+			secOpts.ECCSigAlg = eccSigAlgEnv
+			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
+			secOpts.ECCSigAlg = eccSigAlgEnv
+			secOpts.SecretTTL = secretTTLEnv
+			secOpts.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
+			secOpts.RotationInterval = secretRotationIntervalEnv
+			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
+			// Disable the secret eviction for istio agent.
+			secOpts.EvictionDuration = 0
+			if citadel.ProvCert != "" {
+				secOpts.AlwaysValidTokenFlag = true
+			}
+
+			sa := istio_agent.NewAgent(&proxyConfig,
+				&istio_agent.AgentConfig{}, secOpts)
 
 			// Connection to Istiod secure port
 			if sa.RequireCerts {

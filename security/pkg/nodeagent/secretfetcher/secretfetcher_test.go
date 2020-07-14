@@ -22,7 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/security/pkg/nodeagent/model"
+	"istio.io/istio/pkg/security"
+
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -286,7 +287,7 @@ oCvHkuhGyVKRT4Ddff4gfbvMPlls
 
 type expectedSecret struct {
 	exist  bool
-	secret *model.SecretItem
+	secret *security.SecretItem
 }
 
 // TestSecretFetcher verifies that secret fetcher is able to add kubernetes secret into local store,
@@ -295,7 +296,7 @@ func TestSecretFetcher(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
 		UseCaClient: false,
 		DeleteCache: func(secretName string) {},
-		UpdateCache: func(secretName string, ns model.SecretItem) {},
+		UpdateCache: func(secretName string, ns security.SecretItem) {},
 		// Set fallback secret name but no such secret is created.
 		FallbackSecretName: "gateway-fallback",
 	}
@@ -315,7 +316,7 @@ func TestSecretFetcher(t *testing.T) {
 	expectedAddedSecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainA,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -324,7 +325,7 @@ func TestSecretFetcher(t *testing.T) {
 		},
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertA,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
@@ -338,11 +339,11 @@ func TestSecretFetcher(t *testing.T) {
 	expectedDeletedSecrets := []expectedSecret{
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameA},
+			secret: &security.SecretItem{ResourceName: k8sSecretNameA},
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameA + GatewaySdsCaSuffix},
+			secret: &security.SecretItem{ResourceName: k8sSecretNameA + GatewaySdsCaSuffix},
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestGenericSecretA, expectedDeletedSecrets)
@@ -358,7 +359,7 @@ func TestSecretFetcher(t *testing.T) {
 	expectedUpdateSecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -367,7 +368,7 @@ func TestSecretFetcher(t *testing.T) {
 		},
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
@@ -384,7 +385,7 @@ func TestSecretFetcher(t *testing.T) {
 	expectedAddedCASecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sCASecretNameE,
 				RootCert:     k8sCaCertE,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
@@ -398,7 +399,7 @@ func TestSecretFetcher(t *testing.T) {
 	expectedUpdateCASecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sCASecretNameE,
 				RootCert:     k8sCaCertF,
 				ExpireTime:   k8sTestCaCertExpireTimeB,
@@ -415,7 +416,7 @@ func TestSecretFetcher(t *testing.T) {
 	expectedDeletedCASecrets := []expectedSecret{
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sCASecretNameE},
+			secret: &security.SecretItem{ResourceName: k8sCASecretNameE},
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestGenericCASecretE, expectedDeletedCASecrets)
@@ -424,7 +425,7 @@ func TestSecretFetcher(t *testing.T) {
 	expectedAddedSecrets = []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameG,
 				CertificateChain: k8sCertChainB,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -433,7 +434,7 @@ func TestSecretFetcher(t *testing.T) {
 		},
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameG + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
@@ -446,11 +447,11 @@ func TestSecretFetcher(t *testing.T) {
 	expectedDeletedSecrets = []expectedSecret{
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameG},
+			secret: &security.SecretItem{ResourceName: k8sSecretNameG},
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameG + GatewaySdsCaSuffix},
+			secret: &security.SecretItem{ResourceName: k8sSecretNameG + GatewaySdsCaSuffix},
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestKubernetesSecretG, expectedDeletedSecrets)
@@ -463,7 +464,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
 		UseCaClient: false,
 		DeleteCache: func(secretName string) {},
-		UpdateCache: func(secretName string, ns model.SecretItem) {},
+		UpdateCache: func(secretName string, ns security.SecretItem) {},
 	}
 	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
@@ -482,7 +483,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 	expectedAddedSecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -491,7 +492,7 @@ func TestSecretFetcherInvalidSecret(t *testing.T) {
 		},
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
@@ -527,7 +528,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
 		UseCaClient: false,
 		DeleteCache: func(secretName string) {},
-		UpdateCache: func(secretName string, ns model.SecretItem) {},
+		UpdateCache: func(secretName string, ns security.SecretItem) {},
 	}
 	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
@@ -577,7 +578,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 	expectedAddedSecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -586,7 +587,7 @@ func TestSecretFetcherSkipSecret(t *testing.T) {
 		},
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
@@ -635,7 +636,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
 		UseCaClient: false,
 		DeleteCache: func(secretName string) {},
-		UpdateCache: func(secretName string, ns model.SecretItem) {},
+		UpdateCache: func(secretName string, ns security.SecretItem) {},
 	}
 	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	if gSecretFetcher.UseCaClient {
@@ -653,7 +654,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	expectedAddedSecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameC,
 				CertificateChain: k8sCertChainC,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -662,7 +663,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		},
 		{
 			exist: false,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameC + GatewaySdsCaSuffix,
 			},
 		},
@@ -674,11 +675,11 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	expectedDeletedSecret := []expectedSecret{
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC},
+			secret: &security.SecretItem{ResourceName: k8sSecretNameC},
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC + GatewaySdsCaSuffix},
+			secret: &security.SecretItem{ResourceName: k8sSecretNameC + GatewaySdsCaSuffix},
 		},
 	}
 	testDeleteSecret(t, gSecretFetcher, k8sTestTLSSecretC, expectedDeletedSecret)
@@ -690,7 +691,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 	expectedUpdateSecret := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameC,
 				CertificateChain: k8sCertChainD,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -699,7 +700,7 @@ func TestSecretFetcherTlsSecretFormat(t *testing.T) {
 		},
 		{
 			exist:  false,
-			secret: &model.SecretItem{ResourceName: k8sSecretNameC + GatewaySdsCaSuffix},
+			secret: &security.SecretItem{ResourceName: k8sSecretNameC + GatewaySdsCaSuffix},
 		},
 	}
 	var newSecretVersion string
@@ -715,7 +716,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 	gSecretFetcher := &SecretFetcher{
 		UseCaClient:        false,
 		DeleteCache:        func(secretName string) {},
-		UpdateCache:        func(secretName string, ns model.SecretItem) {},
+		UpdateCache:        func(secretName string, ns security.SecretItem) {},
 		FallbackSecretName: k8sSecretFallbackScrt,
 	}
 	gSecretFetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
@@ -749,7 +750,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 	expectedAddedSecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainA,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -758,7 +759,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 		},
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
 				RootCert:     k8sCaCertA,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
@@ -798,7 +799,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 	expectedUpdateSecrets := []expectedSecret{
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName:     k8sSecretNameA,
 				CertificateChain: k8sCertChainB,
 				ExpireTime:       k8sTestCertChainExpireTimeA,
@@ -807,10 +808,10 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 		},
 		{
 			exist: true,
-			secret: &model.SecretItem{
+			secret: &security.SecretItem{
 				ResourceName: k8sSecretNameA + GatewaySdsCaSuffix,
-				RootCert:     k8sCaCertB,
 				ExpireTime:   k8sTestCaCertExpireTimeA,
+				RootCert:     k8sCaCertB,
 			},
 		},
 	}
@@ -821,7 +822,7 @@ func TestSecretFetcherUsingFallbackIngressSecret(t *testing.T) {
 	}
 }
 
-func compareSecret(t *testing.T, secret, expectedSecret *model.SecretItem) {
+func compareSecret(t *testing.T, secret, expectedSecret *security.SecretItem) {
 	t.Helper()
 	if expectedSecret.ResourceName != secret.ResourceName {
 		t.Errorf("resource name verification error: expected %s but got %s", expectedSecret.ResourceName, secret.ResourceName)
