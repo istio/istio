@@ -419,11 +419,10 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 		},
 	}
 	cases := []struct {
-		serviceByHostnameAndNamespace map[host.Name]map[string]*model.Service
-		push                          *model.PushContext
-		node                          *model.Proxy
-		httpRoute                     *route.Route
-		quotaSpec                     []*mccpb.QuotaSpec
+		push      *model.PushContext
+		node      *model.Proxy
+		httpRoute *route.Route
+		quotaSpec []*mccpb.QuotaSpec
 	}{
 		{
 			push: &model.PushContext{
@@ -440,11 +439,6 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
 				}}},
-			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-				host.Name("svc.ns3"): {
-					"ns3": &svc,
-				},
-			},
 			quotaSpec: []*mccpb.QuotaSpec{{
 				Rules: []*mccpb.QuotaRule{{Quotas: []*mccpb.Quota{{Quota: "requestcount", Charge: 100}}}},
 			}},
@@ -464,17 +458,9 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
 				}}},
-			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-				host.Name("a.ns3"): {
-					"ns3": &svc,
-				},
-			},
 		},
 	}
 	for _, c := range cases {
-		push := &model.PushContext{
-			ServiceByHostnameAndNamespace: c.serviceByHostnameAndNamespace,
-		}
 		c.node.SetSidecarScope(c.push)
 		in := plugin.InputParams{
 			Push: c.push,
