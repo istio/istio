@@ -171,13 +171,13 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		if err != nil {
 			return usList, resources, err
 		}
-		if !includeClusterResources {
-			err = h.client.List(context.TODO(), objects,
-				client.MatchingLabelsSelector{Selector: selector.Add(*componentRequirement)})
-		} else {
+		if includeClusterResources {
 			s := klabels.NewSelector()
 			err = h.client.List(context.TODO(), objects,
 				client.MatchingLabelsSelector{Selector: s.Add(*componentRequirement)})
+		} else {
+			err = h.client.List(context.TODO(), objects,
+				client.MatchingLabelsSelector{Selector: selector.Add(*componentRequirement)})
 		}
 		if err != nil {
 			continue

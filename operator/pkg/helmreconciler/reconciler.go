@@ -350,8 +350,8 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 	if h.iop != nil {
 		revision = h.iop.Spec.Revision
 	}
-	// Only pilot component uses revisions
-	if componentName == string(name.PilotComponentName) {
+	// Base components should not be labeled.
+	if componentName != string(name.IstioBaseComponentName) {
 		if revision == "" {
 			revision = "default"
 		}
