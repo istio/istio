@@ -36,6 +36,10 @@ type Controller interface {
 	// for a service.
 	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
 
+	// AppendInstanceHandler notifies about changes to the service instances
+	// for a service.
+	AppendWorkloadHandler(f func(*ForeignInstance, Event)) error
+
 	// Run until a signal is received
 	Run(stop <-chan struct{})
 

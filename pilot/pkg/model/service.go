@@ -24,6 +24,7 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -244,9 +245,28 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
+type ForeignInstance struct {
+	Namespace string            `json:"namespace,omitempty"`
+	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
+	PortMap   map[string]uint32 `json:"portMap,omitempty"`
+}
+
+// DeepCopy creates a copy of ForeignInstance.
+func (instance *ForeignInstance) DeepCopy() *ForeignInstance {
+	pmap := map[string]uint32{}
+	for k, v := range instance.PortMap {
+		pmap[k] = v
+	}
+	return &ForeignInstance{
+		Namespace: instance.Namespace,
+		PortMap:   pmap,
+		Endpoint:  instance.Endpoint.DeepCopy(),
+	}
+}
+
 // a custom comparison of foreign service instances based on the fields that we need
 // i.e. excluding the ports. Returns true if equal, false otherwise.
-func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
+func ForeignSeviceInstancesEqual(first, second *ForeignInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
 	}
@@ -272,6 +292,13 @@ func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
 		return false
 	}
 	if first.Endpoint.UID != second.Endpoint.UID {
+		return false
+	}
+	if first.Namespace != second.Namespace {
+		return false
+	}
+	// TODO something faster than reflection?
+	if !reflect.DeepEqual(first.PortMap, second.PortMap) {
 		return false
 	}
 	return true

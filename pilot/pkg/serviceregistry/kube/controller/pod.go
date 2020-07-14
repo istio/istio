@@ -81,9 +81,9 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	}
 
 	ip := pod.Status.PodIP
+
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
-
 	if len(ip) > 0 {
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
@@ -101,19 +101,19 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				if pc.podsByIP[ip] == key {
 					pc.deleteIP(ip)
 				}
-				return nil
-			}
-			switch pod.Status.Phase {
-			case v1.PodPending, v1.PodRunning:
-				if key != pc.podsByIP[ip] {
-					// add to cache if the pod is running or pending
-					pc.update(ip, key)
-				}
+			} else {
+				switch pod.Status.Phase {
+				case v1.PodPending, v1.PodRunning:
+					if key != pc.podsByIP[ip] {
+						// add to cache if the pod is running or pending
+						pc.update(ip, key)
+					}
 
-			default:
-				// delete if the pod switched to other states and is in the cache
-				if pc.podsByIP[ip] == key {
-					pc.deleteIP(ip)
+				default:
+					// delete if the pod switched to other states and is in the cache
+					if pc.podsByIP[ip] == key {
+						pc.deleteIP(ip)
+					}
 				}
 			}
 		case model.EventDelete:
@@ -122,8 +122,33 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				pc.deleteIP(ip)
 			}
 		}
+		// fire instance handles for k8s endpoints only
+		for _, handler := range pc.c.workloadHandlers {
+			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "")
+			handler(&model.ForeignInstance{
+				Namespace: pod.Namespace,
+				Endpoint:  ep,
+				PortMap:   getPortMap(pod),
+			}, ev)
+		}
 	}
 	return nil
+}
+
+func getPortMap(pod *v1.Pod) map[string]uint32 {
+	pmap := map[string]uint32{}
+	for _, c := range pod.Spec.Containers {
+		for _, port := range c.Ports {
+			if port.Name == "" || port.Protocol != v1.ProtocolTCP {
+				continue
+			}
+			// First port wins, per Kubernetes (https://github.com/kubernetes/kubernetes/issues/54213)
+			if _, f := pmap[port.Name]; !f {
+				pmap[port.Name] = uint32(port.ContainerPort)
+			}
+		}
+	}
+	return pmap
 }
 
 func (pc *PodCache) deleteIP(ip string) {

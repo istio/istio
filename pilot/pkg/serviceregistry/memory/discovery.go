@@ -35,6 +35,11 @@ type ServiceController struct {
 	sync.RWMutex
 }
 
+func (c *ServiceController) AppendWorkloadHandler(f func(*model.ForeignInstance, model.Event)) error {
+	// Memory does not support workload handlers; everything is done in terms of instances
+	return nil
+}
+
 var _ model.Controller = &ServiceController{}
 
 // AppendServiceHandler appends a service handler to the controller

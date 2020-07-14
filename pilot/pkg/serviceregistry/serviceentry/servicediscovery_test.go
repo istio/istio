@@ -52,7 +52,7 @@ func createConfigs(configs []*model.Config, store model.IstioConfigStore, t *tes
 	}
 }
 
-func callInstanceHandlers(instances []*model.ServiceInstance, sd *ServiceEntryStore, ev model.Event, t *testing.T) {
+func callInstanceHandlers(instances []*model.ForeignInstance, sd *ServiceEntryStore, ev model.Event, t *testing.T) {
 	t.Helper()
 	for _, instance := range instances {
 		sd.ForeignServiceInstanceHandler(instance, ev)
@@ -557,28 +557,22 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 	defer stopFn()
 
 	// Setup a couple of foreign instances for test. These will be selected by the `selector` SE
-	fi1 := &model.ServiceInstance{
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{Namespace: selector.Name},
-		},
+	fi1 := &model.ForeignInstance{
+		Namespace: selector.Name,
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
-			EndpointPort:   2222,
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
 
-	fi2 := &model.ServiceInstance{
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{Namespace: selector.Name},
-		},
+	fi2 := &model.ForeignInstance{
+		Namespace: selector.Name,
 		Endpoint: &model.IstioEndpoint{
 			Address:        "3.3.3.3",
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
-			EndpointPort:   3333,
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -594,7 +588,7 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 
 	t.Run("add foreign instance", func(t *testing.T) {
 		// Add a foreign instance, we expect this to update
-		callInstanceHandlers([]*model.ServiceInstance{fi1}, sd, model.EventAdd, t)
+		callInstanceHandlers([]*model.ForeignInstance{fi1}, sd, model.EventAdd, t)
 		instances := []*model.ServiceInstance{
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
@@ -608,7 +602,7 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 
 	t.Run("another foreign instance", func(t *testing.T) {
 		// Add a different instance
-		callInstanceHandlers([]*model.ServiceInstance{fi2}, sd, model.EventAdd, t)
+		callInstanceHandlers([]*model.ForeignInstance{fi2}, sd, model.EventAdd, t)
 		instances := []*model.ServiceInstance{
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
@@ -627,7 +621,7 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 
 	t.Run("delete foreign instance", func(t *testing.T) {
 		// Delete the instances, it should be gone
-		callInstanceHandlers([]*model.ServiceInstance{fi2}, sd, model.EventDelete, t)
+		callInstanceHandlers([]*model.ForeignInstance{fi2}, sd, model.EventDelete, t)
 		instances := []*model.ServiceInstance{
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
@@ -639,14 +633,14 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 
 		// Delete the other instance
-		callInstanceHandlers([]*model.ServiceInstance{fi1}, sd, model.EventDelete, t)
+		callInstanceHandlers([]*model.ForeignInstance{fi1}, sd, model.EventDelete, t)
 		instances = []*model.ServiceInstance{}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
 
 		// Add the instance back
-		callInstanceHandlers([]*model.ServiceInstance{fi1}, sd, model.EventAdd, t)
+		callInstanceHandlers([]*model.ForeignInstance{fi1}, sd, model.EventAdd, t)
 		instances = []*model.ServiceInstance{
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
