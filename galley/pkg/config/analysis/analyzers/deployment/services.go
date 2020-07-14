@@ -86,9 +86,12 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 			for protocol := range protMap {
 				svcNames = append(svcNames, protMap[protocol]...)
 			}
-
+			keyPath := "{.metadata.name}"
+			line := util.FindErrorLine(keyPath, r.Origin.GetFieldMap())
+			m := msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames)
+			m.SetLine(line)
 			// Reporting the message for the deployment, port and conflicting services.
-			c.Report(collections.K8SAppsV1Deployments.Name(), msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames))
+			c.Report(collections.K8SAppsV1Deployments.Name(), m)
 		}
 	}
 }

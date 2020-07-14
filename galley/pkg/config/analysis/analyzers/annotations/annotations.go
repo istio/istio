@@ -15,6 +15,7 @@
 package annotations
 
 import (
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"strings"
 
 	"istio.io/api/annotation"
@@ -81,8 +82,12 @@ outer:
 
 		annotationDef := lookupAnnotation(ann)
 		if annotationDef == nil {
-			ctx.Report(collectionType,
-				msg.NewUnknownAnnotation(r, ann))
+
+			m := msg.NewUnknownAnnotation(r, ann)
+			line := util.ErrorLineForAnnotation(ann, r)
+			m.SetLine(line)
+
+			ctx.Report(collectionType, m)
 			continue
 		}
 
@@ -95,8 +100,12 @@ outer:
 
 		attachesTo := resourceTypesAsStrings(annotationDef.Resources)
 		if !contains(attachesTo, kind) {
-			ctx.Report(collectionType,
-				msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", ")))
+
+			line := util.ErrorLineForAnnotation(ann, r)
+			m := msg.NewMisplacedAnnotation(r, ann, strings.Join(attachesTo, ", "))
+			m.SetLine(line)
+
+			ctx.Report(collectionType, m)
 			continue
 		}
 
@@ -105,8 +114,12 @@ outer:
 		validationFunction := inject.AnnotationValidation[ann]
 		if validationFunction != nil {
 			if err := validationFunction(value); err != nil {
-				ctx.Report(collectionType,
-					msg.NewInvalidAnnotation(r, ann, err.Error()))
+
+				line := util.ErrorLineForAnnotation(ann, r)
+				m := msg.NewInvalidAnnotation(r, ann, err.Error())
+				m.SetLine(line)
+
+				ctx.Report(collectionType, m)
 				continue
 			}
 		}

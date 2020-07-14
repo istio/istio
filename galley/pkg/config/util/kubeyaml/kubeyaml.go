@@ -17,6 +17,8 @@ package kubeyaml
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"unicode"
@@ -90,16 +92,17 @@ func NewYAMLReader(r *bufio.Reader) *YAMLReader {
 	}
 }
 
-// Read returns a full YAML document and its first line number.
-func (r *YAMLReader) Read() ([]byte, int, error) {
+// Read returns a full YAML document, a full YAML document with its values replaced by line numbers and its first line number.
+func (r *YAMLReader) Read() ([]byte, []byte, int, error) {
 	var buffer bytes.Buffer
+	var lineBuffer bytes.Buffer
 	startLine := r.currLine + 1
 	foundStart := false
 	for {
 		r.currLine++
 		line, err := r.reader.Read()
 		if err != nil && err != io.EOF {
-			return nil, startLine, err
+			return nil, nil, startLine, err
 		}
 
 		// detect beginning of the chunk
@@ -115,21 +118,25 @@ func (r *YAMLReader) Read() ([]byte, int, error) {
 			after := line[i:]
 			if len(strings.TrimRightFunc(string(after), unicode.IsSpace)) == 0 {
 				if buffer.Len() != 0 {
-					return buffer.Bytes(), startLine, nil
+					return buffer.Bytes(), lineBuffer.Bytes(), startLine, nil
 				}
 				if err == io.EOF {
-					return nil, startLine, err
+					return nil, nil, startLine, err
 				}
 			}
 		}
 		if err == io.EOF {
 			if buffer.Len() != 0 {
 				// If we're at EOF, we have a final, non-terminated line. Return it.
-				return buffer.Bytes(), startLine, nil
+				return buffer.Bytes(), lineBuffer.Bytes(), startLine, nil
 			}
-			return nil, startLine, err
+			return nil, nil, startLine, err
 		}
+
+		lineWithNumber := []byte(ConvertToLineNumber(string(line), r.currLine))
+
 		buffer.Write(line)
+		lineBuffer.Write(lineWithNumber)
 	}
 }
 
@@ -153,4 +160,74 @@ func (r *LineReader) Read() ([]byte, error) {
 	}
 	buffer.WriteByte('\n')
 	return buffer.Bytes(), err
+}
+
+// ConvertToLineNumber converts value in the field to its line number
+func ConvertToLineNumber(line string, lineNumber int) string {
+	resStr := line
+
+	// Find index of ':' and '#'
+	colonInd := strings.Index(resStr, ":")
+	sharpInd := strings.Index(resStr, " #")
+
+	// Skip line with only comments
+	trimStr := strings.TrimSpace(resStr)
+	if len(trimStr) > 0 && trimStr[0] == '#' || len(trimStr) == 0{ return resStr }
+
+	// Remove comments after the line
+	if sharpInd > 0 {
+		resStr = resStr[:sharpInd] + "\n"
+	}
+
+	// Handle the edge case that ":" in the comment
+	if colonInd > sharpInd && sharpInd > 0 {colonInd = -1}
+
+	// If string has ':', change value after ':' to line number
+	if colonInd > 0 && colonInd != len(strings.TrimRight(resStr, " \n")) - 1 {
+
+		fieldValueToStr := fmt.Sprintf("%d", lineNumber)
+		resStr = resStr[:colonInd] + ": " + fieldValueToStr + "\n"
+
+	}else if colonInd < 0 {
+
+		// If the value is in a field with the array form, change it to line number
+		spaceInd := 0
+		for resStr[spaceInd] == ' ' || (resStr[spaceInd] == '-'&& spaceInd != len(resStr) - 1 && resStr[spaceInd + 1] == ' ') {
+			spaceInd++
+		}
+		resStr = resStr[:spaceInd] + fmt.Sprintf("%d", lineNumber) + "\n"
+	}
+
+	return resStr
+}
+
+// JsonUnmarshal perform json.Unmarshal() to the right type
+func JsonUnmarshal (item []byte) interface{} {
+	var float     float64
+	var mapObject map[string] interface{}
+	var str       string
+	var arr       []interface{}
+	var b         bool
+
+	err := json.Unmarshal(item, &float)
+	if err == nil {
+		return float
+	}
+	err = json.Unmarshal(item, &mapObject)
+	if err == nil {
+		return mapObject
+	}
+	err = json.Unmarshal(item, &str)
+	if err == nil {
+		return str
+	}
+	err = json.Unmarshal(item, &arr)
+	if err == nil {
+		return arr
+	}
+	err = json.Unmarshal(item, &b)
+	if err == nil {
+		return b
+	}
+	return nil
 }

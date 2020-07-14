@@ -40,6 +40,10 @@ func (o origin) Reference() resource.Reference {
 	return defaultReference
 }
 
+func (o origin) GetFieldMap() map[string]int {
+	return map[string]int{string(0): 0}
+}
+
 type reference string
 
 func (r reference) String() string {

@@ -17,6 +17,7 @@ package diag
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"istio.io/istio/pkg/config/resource"
@@ -60,6 +61,8 @@ type Message struct {
 
 	// DocRef is an optional reference tracker for the documentation URL
 	DocRef string
+
+	line int
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
@@ -71,7 +74,12 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	if includeOrigin && m.Resource != nil {
 		result["origin"] = m.Resource.Origin.FriendlyName()
 		if m.Resource.Origin.Reference() != nil {
-			result["reference"] = m.Resource.Origin.Reference().String()
+
+			loc := m.Resource.Origin.Reference().String()
+			if m.line != 0 {
+				loc = m.ReplaceLine(loc)
+			}
+			result["reference"] = loc
 		}
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
@@ -92,6 +100,9 @@ func (m *Message) Origin() string {
 		loc := ""
 		if m.Resource.Origin.Reference() != nil {
 			loc = " " + m.Resource.Origin.Reference().String()
+			if m.GetLine() != 0 {
+				loc = m.ReplaceLine(loc)
+			}
 		}
 		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}
@@ -127,3 +138,26 @@ func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message
 		Parameters: p,
 	}
 }
+
+// SetLine sets the error line number of the message
+func (m *Message) SetLine(l int) {
+	m.line = l
+}
+
+// GetLine gets the error line number of the message
+func (m *Message) GetLine() int {
+	return m.line
+}
+
+// ReplaceLine replaces the line number from the input String method of the Reference object to the line from the Message object
+func (m Message) ReplaceLine(l string) string{
+	loc := l
+	_, err := strconv.Atoi(string(loc[len(loc)-1]))
+	for err == nil {
+		loc = loc[:len(loc)-1]
+		_, err = strconv.Atoi(string(loc[len(loc)-1]))
+	}
+	loc += fmt.Sprintf("%d", m.GetLine())
+	return loc
+}
+
