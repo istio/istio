@@ -280,7 +280,7 @@ Specifically:
     - [RBAC](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/rbac.yaml)
         - this creates the service account the CNI plugin is configured to use to access the kube-api-server
 
-The installation script `install-cni.sh` injects the `istio-cni` plugin config at the end of the CNI plugin chain
+The installation script `install-cni` injects the `istio-cni` plugin config at the end of the CNI plugin chain
 config.  It creates or modifies the file from the configmap created by the Kubernetes manifest.
 
 #### Plugin Logic

@@ -120,7 +120,7 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 	t.Logf("Finished pre-populating working dirs")
 }
 
-// startDocker starts a test Docker container and runs the install-cni.sh script.
+// startDocker starts a test Docker container and runs the install-cni script.
 func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	tempK8sSvcAcctDir, cniConfFileName string, t *testing.T) string {
 	t.Helper()

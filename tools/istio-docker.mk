@@ -211,9 +211,8 @@ docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-repair
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
 docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
-docker.install-cni: cni/deployments/kubernetes/install/scripts/istio-cni.conf.default
+docker.install-cni: cni/deployments/kubernetes/install/istio-cni.conf.default
 docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
-docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
 	$(DOCKER_RULE)
 
 .PHONY: dockerx dockerx.save
