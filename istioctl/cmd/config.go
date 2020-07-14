@@ -31,6 +31,8 @@ var (
 		"cert-dir",
 		"prefer-experimental",
 		"xds-port",
+		"xds-san",
+		"insecure",
 	}
 )
 
