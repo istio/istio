@@ -15,12 +15,11 @@
 package stackdriver
 
 import (
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance represents a deployed Stackdriver app instance in a Kubernetes cluster.
@@ -38,11 +37,7 @@ type Config struct {
 
 // New returns a new instance of stackdriver.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, c)
-	})
-	return
+	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new Stackdriver instance or fails test.

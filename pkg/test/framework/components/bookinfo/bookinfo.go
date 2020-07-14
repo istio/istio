@@ -18,7 +18,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 type Config struct {
@@ -28,13 +27,7 @@ type Config struct {
 
 // Deploy returns a new instance of deployed BookInfo
 func Deploy(ctx resource.Context, cfg Config) (undeploy func(), err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-
-	ctx.Environment().Case(environment.Kube, func() {
-		undeploy, err = deploy(ctx, cfg)
-	})
-
-	return
+	return deploy(ctx, cfg)
 }
 
 // DeployOrFail returns a new instance of deployed BookInfo or fails test

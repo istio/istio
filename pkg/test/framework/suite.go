@@ -37,7 +37,6 @@ import (
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -226,17 +225,14 @@ func (s *suiteImpl) RequireSingleCluster() Suite {
 
 func (s *suiteImpl) RequireEnvironmentVersion(version string) Suite {
 	fn := func(ctx resource.Context) error {
-		if environmentName(ctx) == environment.Kube {
-			kenv := ctx.Environment().(*kube.Environment)
-			ver, err := kenv.KubeClusters[0].GetKubernetesVersion()
-			if err != nil {
-				return fmt.Errorf("failed to get Kubernetes version: %v", err)
-			}
-			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-			if serverVersion < version {
-				s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
-					version, serverVersion))
-			}
+		ver, err := ctx.Clusters()[0].GetKubernetesVersion()
+		if err != nil {
+			return fmt.Errorf("failed to get Kubernetes version: %v", err)
+		}
+		serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+		if serverVersion < version {
+			s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
+				version, serverVersion))
 		}
 		return nil
 	}
@@ -366,7 +362,7 @@ type SuiteOutcome struct {
 	TestOutcomes []TestOutcome
 }
 
-func environmentName(ctx resource.Context) environment.Name {
+func environmentName(ctx resource.Context) string {
 	if ctx.Environment() != nil {
 		return ctx.Environment().EnvironmentName()
 	}
@@ -375,7 +371,7 @@ func environmentName(ctx resource.Context) environment.Name {
 
 func isMulticluster(ctx resource.Context) bool {
 	if ctx.Environment() != nil {
-		return ctx.Environment().IsMulticluster()
+		return ctx.Clusters().IsMulticluster()
 	}
 	return false
 }
@@ -395,7 +391,7 @@ func (s *suiteImpl) writeOutput() {
 		ctx.outcomeMu.RLock()
 		out := SuiteOutcome{
 			Name:         ctx.Settings().TestID,
-			Environment:  environmentName(ctx).String(),
+			Environment:  environmentName(ctx),
 			Multicluster: isMulticluster(ctx),
 			TestOutcomes: ctx.testOutcomes,
 		}

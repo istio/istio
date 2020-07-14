@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // CallType defines ingress gateway type
@@ -121,12 +120,7 @@ type CallResponse struct {
 
 // Deploy returns a new instance of echo.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i = newKube(ctx, cfg)
-		err = nil
-	})
-	return
+	return newKube(ctx, cfg), nil
 }
 
 // Deploy returns a new Ingress instance or fails test

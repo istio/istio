@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance is an example component. Consider implementing your component as an interface, so that others can add
@@ -36,18 +35,7 @@ type Config struct {
 // New is the canonical method the users will look for creating a new instance of component. It should be possible
 // (and easy) to create multiple instance of your component.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
-
-	// You need to provide environment specific implementations of your component. If you support only specific
-	// environments, then return resource.UnsupportedEnvironment to signal the situation.
-	switch ctx.Environment().EnvironmentName() {
-	case environment.Kube:
-		i = newKube(ctx, cfg)
-
-	default:
-		err = resource.UnsupportedEnvironment(ctx.Environment())
-	}
-
-	return i, err
+	return newKube(ctx, cfg), nil
 }
 
 // NewOrFail is a very useful convenience for allocating components within tests.
