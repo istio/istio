@@ -106,6 +106,8 @@ func k8sPodsExec(name, namespace, command string, stdin io.Reader) (sout, serr s
 	req.VersionedParams(&v1.PodExecOptions{
 		Command: strings.Fields(command),
 		Stdin:   stdin != nil,
+		Stderr:  true,
+		Stdout:  true,
 	}, scheme.ParameterCodec)
 
 	config, err := k8sClientConfig()

@@ -61,41 +61,59 @@ func gkeCluster(project, location, clusterName string) (*containerpb.Cluster, er
 }
 
 // First attempts to infer config (project, location, cluster) from the current kubectl context, then an active pod
-func gkeConfig() (string, string, string) {
-	project, location, cluster := gkeConfigFromContext()
-	if !validGKEConfig(project, location, cluster) {
-		project, location, cluster = gkeConfigFromActive()
+// Returns the config along with the relevant cluster
+func gkeConfig() (project, location, clusterName string, cluster *containerpb.Cluster, err error) {
+	project, location, clusterName = gkeConfigFromContext()
+	cluster, err = gkeCluster(project, location, clusterName)
+	if err == nil {
+		fmt.Printf("inferred (project, location, cluster) from kubectl context: (%s, %s, %s)\n", project, location, clusterName)
+		return
 	}
-	return project, location, cluster
+
+	project, location, clusterName = gkeConfigFromActive()
+	cluster, err = gkeCluster(project, location, clusterName)
+	if err == nil {
+		fmt.Printf("inferred (project, location, cluster) from metadata server: (%s, %s, %s)\n", project, location, clusterName)
+
+	}
+	return
 }
 
 // Assumes that the kubectl context (created from gcloud container clusters get-credentials) has not been renamed
 // Targets contexts in the format "gke_project_location_cluster"
-func gkeConfigFromContext() (string, string, string) {
+func gkeConfigFromContext() (project, location, cluster string) {
 	currentContext := k8sConfig().CurrentContext
 	re := regexp.MustCompile("^gke_(.+)_(.+)_(.+)$")
 	match := re.FindStringSubmatch(currentContext)
 	if len(match) == 4 {
 		return match[1], match[2], match[3]
 	}
-	return "", "", ""
+	return
 }
-
-// TODO: Remote exec on a pod or pull platform metadata
 
 const (
-	DisableLegacyEndpoint = "curl -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/computeMetadata/v1/instance/attributes/disable-legacy-endpoints'"
+	MetadataCurlCmd         = "curl -H Metadata-Flavor:Google %s"
+	ProjectIDEndpoint       = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+	ClusterLocationEndpoint = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-location"
+	ClusterNameEndpoint     = "http://metadata.google.internal/computeMetadata/v1/instance/attributes/cluster-name"
 )
 
-func gkeConfigFromActive() (string, string, string) {
-	so, se, err := k8sPodsExec("istiod", "istio-system", DisableLegacyEndpoint, nil)
+// Attempts to access the metadata API through the istiod pod
+func gkeConfigFromActive() (project, location, cluster string) {
+	project, _, err := k8sPodsExec("istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ProjectIDEndpoint), nil)
 	if err != nil {
-		fmt.Printf("encountered error while getting metadata: %v", err)
+		fmt.Printf("encountered error while getting metadata: %v\n", err)
+		return
 	}
-	fmt.Printf("%v, %v, %v done", so, se, err)
-	return so, se, "dd"
-}
-
-func validGKEConfig(project, location, cluster string) bool {
-	return project != "" && location != "" && cluster != ""
+	location, _, err = k8sPodsExec("istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ClusterLocationEndpoint), nil)
+	if err != nil {
+		fmt.Printf("encountered error while getting metadata: %v\n", err)
+		return
+	}
+	cluster, _, err = k8sPodsExec("istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ClusterNameEndpoint), nil)
+	if err != nil {
+		fmt.Printf("encountered error while getting metadata: %v\n", err)
+		return
+	}
+	return project, location, cluster
 }

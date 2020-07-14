@@ -88,18 +88,14 @@ func vmPackCmd() *cobra.Command {
 			envVars["IstiodIP"] = istiod.Spec.ClusterIP
 
 			// consider passed in flags before attempting to infer config
-			if validGKEConfig(gkeProject, clusterLocation, clusterName) {
+			cluster, err := gkeCluster(gkeProject, clusterLocation, clusterName)
+			if err == nil {
 				fmt.Printf("using provided flags for (project, location, cluster): (%s, %s, %s)\n", gkeProject, clusterLocation, clusterName)
 			} else {
-				gkeProject, clusterLocation, clusterName = gkeConfig()
-				if !validGKEConfig(gkeProject, clusterLocation, clusterLocation) {
+				gkeProject, clusterLocation, clusterName, cluster, err = gkeConfig()
+				if err != nil {
 					return fmt.Errorf("could not infer (project, location, cluster). Try passing in flags instead")
 				}
-				fmt.Printf("inferred (project, location, cluster): (%s, %s, %s)\n", gkeProject, clusterLocation, clusterName)
-			}
-			cluster, err := gkeCluster(gkeProject, clusterLocation, clusterName)
-			if err != nil {
-				return err
 			}
 			envVars["ISTIO_SERVICE_CIDR"] = cluster.ServicesIpv4Cidr
 
