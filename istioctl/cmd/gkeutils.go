@@ -82,8 +82,18 @@ func gkeConfigFromContext() (string, string, string) {
 }
 
 // TODO: Remote exec on a pod or pull platform metadata
+
+const (
+	DisableLegacyEndpoint = "curl -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/computeMetadata/v1/instance/attributes/disable-legacy-endpoints'"
+)
+
 func gkeConfigFromActive() (string, string, string) {
-	return "", "", ""
+	so, se, err := k8sPodsExec("istiod", "istio-system", DisableLegacyEndpoint, nil)
+	if err != nil {
+		fmt.Printf("encountered error while getting metadata: %v", err)
+	}
+	fmt.Printf("%v, %v, %v done", so, se, err)
+	return so, se, "dd"
 }
 
 func validGKEConfig(project, location, cluster string) bool {

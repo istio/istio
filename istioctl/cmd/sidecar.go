@@ -81,12 +81,7 @@ func vmPackCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			envVars := map[string]string{}
-			clientset, err := outsideClientset()
-			if err != nil {
-				return err
-			}
-
-			istiod, err := k8sService(clientset, "istio-system", "istiod")
+			istiod, err := k8sService("istiod", "istio-system")
 			if err != nil {
 				return err
 			}
