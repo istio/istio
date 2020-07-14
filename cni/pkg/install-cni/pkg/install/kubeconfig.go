@@ -39,7 +39,7 @@ clusters:
 users:
 - name: istio-cni
   user:
-    token: {{.ServiceAccountToken}}
+    token: "{{.ServiceAccountToken}}"
 contexts:
 - name: istio-cni-context
   context:
