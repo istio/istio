@@ -375,6 +375,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	// add a name to the route
 	out.Name = routeName
 
+	operations := translateHeadersOperations(in.Headers)
+	out.RequestHeadersToAdd = operations.requestHeadersToAdd
+	out.ResponseHeadersToAdd = operations.responseHeadersToAdd
+	out.RequestHeadersToRemove = operations.requestHeadersToRemove
+	out.ResponseHeadersToRemove = operations.responseHeadersToRemove
+
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
 		action := &route.Route_Redirect{
@@ -397,7 +403,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		case 308:
 			action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
 		default:
-			log.Warnf("Redirect Code %d are not yet supported", in.Redirect.RedirectCode)
+			log.Warnf("Redirect Code %d is not yet supported", in.Redirect.RedirectCode)
 			action = nil
 		}
 
@@ -428,19 +434,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			}
 		}
 
-		requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
-		out.RequestHeadersToAdd = requestHeadersToAdd
-		responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
-		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
-		out.ResponseHeadersToAdd = responseHeadersToAdd
-		requestHeadersToRemove := make([]string, 0)
-		requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
-		out.RequestHeadersToRemove = requestHeadersToRemove
-		responseHeadersToRemove := make([]string, 0)
-		responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
-		out.ResponseHeadersToRemove = responseHeadersToRemove
-
 		if in.Mirror != nil {
 			if mp := mirrorPercent(in); mp != nil {
 				action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
@@ -465,14 +458,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				}
 			}
 
-			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
-			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
-			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
-			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
-			requestHeadersToRemove := make([]string, 0)
-			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
-			responseHeadersToRemove := make([]string, 0)
-			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
+			operations := translateHeadersOperations(dst.Headers)
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
@@ -480,10 +466,10 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
 				Name:                    n,
 				Weight:                  weight,
-				RequestHeadersToAdd:     requestHeadersToAdd,
-				RequestHeadersToRemove:  requestHeadersToRemove,
-				ResponseHeadersToAdd:    responseHeadersToAdd,
-				ResponseHeadersToRemove: responseHeadersToRemove,
+				RequestHeadersToAdd:     operations.requestHeadersToAdd,
+				RequestHeadersToRemove:  operations.requestHeadersToRemove,
+				ResponseHeadersToAdd:    operations.responseHeadersToAdd,
+				ResponseHeadersToRemove: operations.responseHeadersToRemove,
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -591,6 +577,32 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 	}
 	sort.Stable(SortHeaderValueOption(headerValueOptionList))
 	return headerValueOptionList
+}
+
+type headersOperations struct {
+	requestHeadersToAdd     []*core.HeaderValueOption
+	responseHeadersToAdd    []*core.HeaderValueOption
+	requestHeadersToRemove  []string
+	responseHeadersToRemove []string
+}
+
+// translateHeadersOperations translates headers operations
+func translateHeadersOperations(headers *networking.Headers) headersOperations {
+	req := headers.GetRequest()
+	resp := headers.GetResponse()
+
+	requestHeadersToAdd := translateAppendHeaders(req.GetSet(), false)
+	requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(req.GetAdd(), true)...)
+
+	responseHeadersToAdd := translateAppendHeaders(resp.GetSet(), false)
+	responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(resp.GetAdd(), true)...)
+
+	return headersOperations{
+		requestHeadersToAdd:     requestHeadersToAdd,
+		responseHeadersToAdd:    responseHeadersToAdd,
+		requestHeadersToRemove:  append([]string{}, req.GetRemove()...), // copy slice
+		responseHeadersToRemove: append([]string{}, resp.GetRemove()...),
+	}
 }
 
 // translateRouteMatch translates match condition
@@ -1069,33 +1081,28 @@ func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 	return catchall && len(m.Headers) == 0 && len(m.QueryParams) == 0
 }
 
-// CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
+// CombineVHostRoutes semi concatenates Vhost's routes into a single route set.
 // Moves the catch all routes alone to the end, while retaining
 // the relative order of other routes in the concatenated route.
 // Assumes that the virtual services that generated first and second are ordered by
 // time.
-func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Route {
-	allroutes := make([]*route.Route, 0, len(first)+len(second))
+func CombineVHostRoutes(routeSets ...[]*route.Route) []*route.Route {
+	l := 0
+	for _, rs := range routeSets {
+		l += len(rs)
+	}
+	allroutes := make([]*route.Route, 0, l)
 	catchAllRoutes := make([]*route.Route, 0)
-
-	for _, f := range first {
-		if isCatchAllRoute(f) {
-			catchAllRoutes = append(catchAllRoutes, f)
-		} else {
-			allroutes = append(allroutes, f)
+	for _, routes := range routeSets {
+		for _, r := range routes {
+			if isCatchAllRoute(r) {
+				catchAllRoutes = append(catchAllRoutes, r)
+			} else {
+				allroutes = append(allroutes, r)
+			}
 		}
 	}
-
-	for _, s := range second {
-		if isCatchAllRoute(s) {
-			catchAllRoutes = append(catchAllRoutes, s)
-		} else {
-			allroutes = append(allroutes, s)
-		}
-	}
-
-	allroutes = append(allroutes, catchAllRoutes...)
-	return allroutes
+	return append(allroutes, catchAllRoutes...)
 }
 
 // isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.

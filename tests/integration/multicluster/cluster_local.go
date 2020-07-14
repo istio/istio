@@ -22,14 +22,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
 // ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
 // clusterLocalNS have been configured in meshConfig.serviceSettings to be clusterLocal.
-func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []pilot.Instance, feature features.Feature) {
+func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
@@ -46,14 +45,14 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, pilots []
 							srcName, dstName := fmt.Sprintf("src-%d", i), fmt.Sprintf("dst-%d", i)
 							var src, dst echo.Instance
 							builder := echoboot.NewBuilderOrFail(ctx, ctx).
-								With(&src, newEchoConfig(srcName, clusterLocalNS, local, pilots)).
-								With(&dst, newEchoConfig(dstName, clusterLocalNS, local, pilots))
+								With(&src, newEchoConfig(srcName, clusterLocalNS, local)).
+								With(&dst, newEchoConfig(dstName, clusterLocalNS, local))
 							for j, remoteCluster := range clusters {
 								if i == j {
 									continue
 								}
 								var ref echo.Instance
-								builder = builder.With(&ref, newEchoConfig(dstName, clusterLocalNS, remoteCluster, pilots))
+								builder = builder.With(&ref, newEchoConfig(dstName, clusterLocalNS, remoteCluster))
 							}
 							builder.BuildOrFail(ctx)
 

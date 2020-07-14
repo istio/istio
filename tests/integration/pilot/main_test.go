@@ -68,6 +68,5 @@ func echoConfig(ns namespace.Instance, name string) echo.Config {
 			},
 		},
 		Subsets: []echo.SubsetConfig{{}},
-		Pilot:   p,
 	}
 }

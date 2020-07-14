@@ -79,7 +79,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Co
 	var a, b, multiVersion, headless, naked, vmInstance echo.Instance
 
 	// Multi-version specific setup
-	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
+	cfg := util.EchoConfig("multiversion", ns, false, nil)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
 		{
@@ -93,7 +93,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Co
 	}
 
 	// VM specific setup
-	vmCfg := util.EchoConfig("vm", ns, false, nil, p)
+	vmCfg := util.EchoConfig("vm", ns, false, nil)
 
 	// for test cases that have `buildVM` off, vm will function like a regular pod
 	vmCfg.DeployAsVM = buildVM
@@ -101,12 +101,12 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Co
 	vmCfg.Ports[0].ServicePort = vmCfg.Ports[0].InstancePort
 
 	echoboot.NewBuilderOrFail(ctx, ctx).
-		With(&a, util.EchoConfig("a", ns, false, nil, p)).
-		With(&b, util.EchoConfig("b", ns, false, nil, p)).
+		With(&a, util.EchoConfig("a", ns, false, nil)).
+		With(&b, util.EchoConfig("b", ns, false, nil)).
 		With(&multiVersion, cfg).
-		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
+		With(&headless, util.EchoConfig("headless", ns, true, nil)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), p)).
+			SetBool(echo.SidecarInject, false))).
 		With(&vmInstance, vmCfg).
 		BuildOrFail(ctx)
 
