@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/env"
 	"os"
 	"os/exec"
 	"path"
@@ -26,6 +25,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/env"
 )
 
 const (

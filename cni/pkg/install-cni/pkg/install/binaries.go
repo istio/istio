@@ -16,12 +16,13 @@ package install
 
 import (
 	"io/ioutil"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"os"
 	"path/filepath"
 
 	"github.com/coreos/etcd/pkg/fileutil"
+
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
+	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"istio.io/pkg/log"
 )
 

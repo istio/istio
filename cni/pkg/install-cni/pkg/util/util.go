@@ -16,12 +16,13 @@ package util
 
 import (
 	"context"
-	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/fsnotify/fsnotify"
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/coreos/etcd/pkg/fileutil"
+	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
 )
 
 func CopyAtomically(srcFilepath, targetDir, targetFilename string) error {

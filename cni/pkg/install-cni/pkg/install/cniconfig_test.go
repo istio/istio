@@ -17,13 +17,15 @@ package install
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 
 	testutils "istio.io/istio/pilot/test/util"
 )
@@ -265,6 +267,9 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 					// Delayed case
 					// Write delayed CNI config file
 					data, err := ioutil.ReadFile(filepath.Join("testdata", c.delayedConfName))
+					if err != nil {
+						t.Fatal(err)
+					}
 					err = ioutil.WriteFile(filepath.Join(tempDir, c.delayedConfName), data, 0644)
 					if err != nil {
 						t.Fatal(err)
@@ -427,7 +432,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			LogLevel:           "debug",
 			KubeconfigFilename: kubeconfigFilename,
 		}
-		test := func(t *testing.T, cfg config.Config) func(t *testing.T) {
+		test := func(cfg config.Config) func(t *testing.T) {
 			return func(t *testing.T) {
 				// Create temp directory for files
 				tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))
@@ -450,7 +455,8 @@ func TestCreateCNIConfigFile(t *testing.T) {
 					expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
 				}
 
-				ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
 				resultFilepath, err := createCNIConfigFile(ctx, &cfg, "")
 				if err != nil {
 					assert.Empty(t, resultFilepath)
@@ -480,8 +486,8 @@ func TestCreateCNIConfigFile(t *testing.T) {
 				testutils.CompareBytes(resultConfig, goldenConfig, goldenFilepath, t)
 			}
 		}
-		t.Run("network-config-file "+c.name, test(t, cfgFile))
-		t.Run(c.name, test(t, cfg))
+		t.Run("network-config-file "+c.name, test(cfgFile))
+		t.Run(c.name, test(cfg))
 	}
 }
 
@@ -489,6 +495,9 @@ func copyExistingConfFiles(t *testing.T, targetDir string, confFiles ...string) 
 	t.Helper()
 	for _, f := range confFiles {
 		data, err := ioutil.ReadFile(filepath.Join("testdata", f))
+		if err != nil {
+			t.Fatal(err)
+		}
 		err = ioutil.WriteFile(filepath.Join(targetDir, f), data, 0644)
 		if err != nil {
 			t.Fatal(err)

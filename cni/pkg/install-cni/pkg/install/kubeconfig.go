@@ -16,15 +16,16 @@ package install
 
 import (
 	"encoding/base64"
-	"errors"
 	"io/ioutil"
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"os"
 	"path/filepath"
 	"text/template"
 
 	"github.com/coreos/etcd/pkg/fileutil"
+	"github.com/pkg/errors"
+
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 )
 
 const kubeconfigTemplate = `# Kubeconfig file for Istio CNI plugin.
@@ -55,18 +56,21 @@ type kubeconfigFields struct {
 	TLSConfig                 string
 }
 
-func createKubeconfigFile(cfg *config.Config, saToken string) (string, error) {
+func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepath string, err error) {
 	if len(cfg.K8sServiceHost) == 0 {
-		return "", errors.New("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
+		err = errors.New("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
+		return
 	}
 
 	if len(cfg.K8sServicePort) == 0 {
-		return "", errors.New("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
+		err = errors.New("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
+		return
 	}
 
-	tpl, err := template.New("kubeconfig").Parse(kubeconfigTemplate)
+	var tpl *template.Template
+	tpl, err = template.New("kubeconfig").Parse(kubeconfigTemplate)
 	if err != nil {
-		return "", err
+		return
 	}
 
 	protocol := cfg.K8sServiceProtocol
@@ -83,9 +87,10 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (string, error) {
 	if cfg.SkipTLSVerify {
 		tlsConfig = "insecure-skip-tls-verify: true"
 	} else if fileutil.Exist(caFile) {
-		caContents, err := ioutil.ReadFile(caFile)
+		var caContents []byte
+		caContents, err = ioutil.ReadFile(caFile)
 		if err != nil {
-			return "", err
+			return
 		}
 		caBase64 := base64.StdEncoding.EncodeToString(caContents)
 		tlsConfig = "certificate-authority-data: " + caBase64
@@ -99,25 +104,38 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (string, error) {
 		TLSConfig:                 tlsConfig,
 	}
 
-	tmpFile, err := ioutil.TempFile(cfg.MountedCNINetDir, cfg.KubeconfigFilename+".tmp.")
+	var tmpFile *os.File
+	tmpFile, err = ioutil.TempFile(cfg.MountedCNINetDir, cfg.KubeconfigFilename+".tmp.")
 	if err != nil {
-		return "", err
+		return
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		if fileutil.Exist(tmpFile.Name()) {
+			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
+				if err != nil {
+					err = errors.Wrap(err, rmErr.Error())
+				} else {
+					err = rmErr
+				}
+			}
+		}
+	}()
 
 	if err = tpl.Execute(tmpFile, fields); err != nil {
-		_ = tmpFile.Close()
-		return "", err
+		if closeErr := tmpFile.Close(); closeErr != nil {
+			err = errors.Wrap(err, closeErr.Error())
+		}
+		return
 	}
 
 	if err = tmpFile.Close(); err != nil {
-		return "", err
+		return
 	}
 
-	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
+	kubeconfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
 	if err = os.Rename(tmpFile.Name(), kubeconfigFilepath); err != nil {
 		return "", err
 	}
 
-	return kubeconfigFilepath, nil
+	return
 }

@@ -18,12 +18,11 @@ package install_test
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/env"
 	"os"
 	"testing"
 
-	//"github.com/nsf/jsondiff"
 	"istio.io/istio/cni/deployments/kubernetes/install/test"
+	"istio.io/istio/pkg/test/env"
 )
 
 var (

@@ -18,11 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"github.com/pkg/errors"
 	"io/ioutil"
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"os"
 	"path/filepath"
 	"sort"
@@ -30,6 +26,11 @@ import (
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/coreos/etcd/pkg/fileutil"
+	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
+
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -148,7 +149,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		}
 	}
 
-	if err = util.WriteAtomically(cniConfigFilepath, cniConfig, 0644); err != nil {
+	if err = util.WriteAtomically(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 		return "", err
 	}
 

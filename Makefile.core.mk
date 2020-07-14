@@ -439,18 +439,15 @@ test: racetest
 
 TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
 # For now, keep a minimal subset. This can be expanded in the future, especially after mixer removal, which has some expensive tests that may OOM.
-BENCH_TAREGTS ?= ./pilot/...
+BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
-
-RACE_TESTS ?= pilot-racetest mixer-racetest security-racetest galley-test common-racetest istioctl-racetest operator-racetest cni-racetest
-
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
 	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
-	prow/benchtest.sh run $(BENCH_TAREGTS)
+	prow/benchtest.sh run $(BENCH_TARGETS)
 	prow/benchtest.sh compare
 
 report-benchtest:

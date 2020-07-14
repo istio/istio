@@ -15,13 +15,13 @@
 package cmd
 
 import (
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/install"
 	"istio.io/pkg/log"
@@ -55,7 +55,8 @@ func init() {
 
 	// Not configurable in CNI helm charts
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
-	registerBooleanParameter(constants.Sleep, true, "Whether to sleep and wait for modifications after installation to prevent Kubernetes from restarting the pod repeatedly")
+	registerBooleanParameter(constants.Sleep, true,
+		"Whether to sleep and wait for modifications after installation to prevent Kubernetes from restarting the pod repeatedly")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 	registerStringParameter(constants.KubecfgFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")

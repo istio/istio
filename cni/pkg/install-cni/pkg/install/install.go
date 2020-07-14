@@ -18,18 +18,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/fsnotify/fsnotify"
-	"github.com/pkg/errors"
 	"io/ioutil"
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
-	"istio.io/pkg/log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+
+	"github.com/coreos/etcd/pkg/fileutil"
+	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
+
+	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
+	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/pkg/log"
 )
 
 type configFiles struct {
@@ -44,11 +46,11 @@ func Run(cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func(cfg *config.Config, sigChan chan os.Signal, cancel context.CancelFunc) {
+	go func(sigChan chan os.Signal, cancel context.CancelFunc) {
 		sig := <-sigChan
 		log.Infof("Exit signal received: %s", sig)
 		cancel()
-	}(cfg, sigChan, cancel)
+	}(sigChan, cancel)
 
 	defer func() {
 		if cleanErr := cleanup(cfg, files); cleanErr != nil {
@@ -178,18 +180,17 @@ func checkInstall(cfg *config.Config, cniConfigFilepath string) error {
 		}
 
 		return fmt.Errorf("istio-cni CNI config removed from CNI config file: %s", cniConfigFilepath)
-	} else {
-		// Verify that Istio CNI config exists as a standalone plugin
-		cniConfigMap, err := getCNIConfigMap(cniConfigFilepath)
-		if err != nil {
-			return err
-		}
-
-		if cniConfigMap["type"] != "istio-cni" {
-			return fmt.Errorf("istio-cni CNI config file modified: %s", cniConfigFilepath)
-		}
-		return nil
 	}
+	// Verify that Istio CNI config exists as a standalone plugin
+	cniConfigMap, err := getCNIConfigMap(cniConfigFilepath)
+	if err != nil {
+		return err
+	}
+
+	if cniConfigMap["type"] != "istio-cni" {
+		return fmt.Errorf("istio-cni CNI config file modified: %s", cniConfigFilepath)
+	}
+	return nil
 }
 
 func cleanup(cfg *config.Config, files configFiles) error {
@@ -218,7 +219,7 @@ func cleanup(cfg *config.Config, files configFiles) error {
 			}
 
 			// Write CNI config file atomically
-			if err = util.WriteAtomically(files.cniConfigFilepath, cniConfig, 0644); err != nil {
+			if err = util.WriteAtomically(files.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 				return err
 			}
 		} else {
