@@ -996,19 +996,19 @@ func (s *Server) initControllers(args *PilotArgs) error {
 
 // initNamespaceController initializes namespace controller to sync config map.
 func (s *Server) initNamespaceController(args *PilotArgs) {
-	if s.CA != nil && s.kubeClients != nil {
+	if s.CA != nil && s.kubeClient != nil {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClients.Kube()).
+				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient.Kube()).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
 					log.Infof("Starting namespace controller")
-					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClients)
+					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClient)
 					// Start informers again. This fixes the case where informers for namespace do not start,
 					// as we create them only after acquiring the leader lock
 					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
 					// basically lazy loading the informer, if we stop it when we lose the lock we will never
 					// recreate it again.
-					s.kubeClients.RunAndWait(stop)
+					s.kubeClient.RunAndWait(stop)
 					nc.Run(leaderStop)
 				}).
 				Run(stop)
