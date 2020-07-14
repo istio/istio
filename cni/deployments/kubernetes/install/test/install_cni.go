@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/env"
 	"os"
 	"os/exec"
 	"path"
@@ -41,11 +42,10 @@ const (
       "cni_bin_dir": "/opt/cni/bin",
       "exclude_namespaces": [ "istio-system" ]
   }
-}
-`
+}`
 )
 
-func env(key, fallback string) string {
+func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
@@ -68,16 +68,6 @@ func mktemp(dir, prefix string, t *testing.T) string {
 	}
 	t.Logf("Created temporary dir: %v", tempDir)
 	return tempDir
-}
-
-func pwd(t *testing.T) string {
-	t.Helper()
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Couldn't get current working directory, err: %v", err)
-	}
-	// TODO: ensure that test artifacts are placed at an accessible location
-	return wd + "/../deployments/kubernetes/install/test/"
 }
 
 func ls(dir string, t *testing.T) []string {
@@ -134,13 +124,13 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	tempK8sSvcAcctDir, cniConfFileName string, t *testing.T) string {
 	t.Helper()
 
-	dockerImage := env("HUB", "") + "/install-cni:" + env("TAG", "")
+	dockerImage := getEnv("HUB", "") + "/install-cni:" + getEnv("TAG", "")
 	errFileName := path.Dir(tempCNIConfDir) + "/docker_run_stderr"
 
 	// Build arguments list by picking whatever is necessary from the environment.
 	args := []string{"run", "-d",
 		"--name", "test-istio-cni-install",
-		"-v", env("PWD", "") + ":/usr/src/project-config",
+		"-v", getEnv("PWD", "") + ":/usr/src/project-config",
 		"-v", tempCNIConfDir + ":/host/etc/cni/net.d",
 		"-v", tempCNIBinDir + ":/host/opt/cni/bin",
 		"-v", tempK8sSvcAcctDir + ":/var/run/secrets/kubernetes.io/serviceaccount",
@@ -340,8 +330,8 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 func RunInstallCNITest(testNum int, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 	expectedPostCleanFile string, cniConfDirOrderedFiles []string, t *testing.T) {
 
-	wd := pwd(t)
-	testWorkRootDir := env("TEST_WORK_ROOTDIR", "/tmp")
+	wd := env.IstioSrc + "/cni/deployments/kubernetes/install/test"
+	testWorkRootDir := getEnv("TEST_WORK_ROOTDIR", "/tmp")
 
 	tempCNIConfDir := mktemp(testWorkRootDir, "cni-conf-", t)
 	defer rm(tempCNIConfDir, t)

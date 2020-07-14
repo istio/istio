@@ -31,6 +31,10 @@ var (
 
 // TestInstallCNI consumes CLI flags and runs the install CNI test.
 func TestInstallCNI(t *testing.T) {
+	var confFiles []string
+	if len(*confDirOrderedFiles) > 0 {
+		confFiles = strings.Split(*confDirOrderedFiles, ",")
+	}
 	RunInstallCNITest(1, *preConfFlag, *resultFileNameFlag, *delayedConfFlag, *expectedConfFlag,
-		*expectedCleanFlag, strings.Split(*confDirOrderedFiles, ","), t)
+		*expectedCleanFlag, confFiles, t)
 }
