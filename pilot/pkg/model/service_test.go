@@ -148,7 +148,7 @@ func TestGetLocalityOrDefault(t *testing.T) {
 }
 
 func TestForeignInstancesEqual(t *testing.T) {
-	exampleInstance := &ForeignInstance{
+	exampleInstance := &WorkloadInstance{
 		Endpoint: &IstioEndpoint{
 			Labels:          labels.Instance{"app": "prod-app"},
 			Address:         "an-address",
@@ -190,14 +190,14 @@ func TestForeignInstancesEqual(t *testing.T) {
 	differingUID.Endpoint.UID = "UID-TWO"
 
 	cases := []struct {
-		comparer *ForeignInstance
-		comparee *ForeignInstance
+		comparer *WorkloadInstance
+		comparee *WorkloadInstance
 		shouldEq bool
 		name     string
 	}{
 		{
-			comparer: &ForeignInstance{},
-			comparee: &ForeignInstance{},
+			comparer: &WorkloadInstance{},
+			comparee: &WorkloadInstance{},
 			shouldEq: true,
 			name:     "two null endpoints",
 		},
@@ -258,9 +258,9 @@ func TestForeignInstancesEqual(t *testing.T) {
 	}
 
 	for _, testCase := range cases {
-		t.Run("ForeignSeviceInstancesEqual: "+testCase.name, func(t *testing.T) {
-			isEq := ForeignSeviceInstancesEqual(testCase.comparer, testCase.comparee)
-			isEqReverse := ForeignSeviceInstancesEqual(testCase.comparee, testCase.comparer)
+		t.Run("WorkloadInstancesEqual: "+testCase.name, func(t *testing.T) {
+			isEq := WorkloadInstancesEqual(testCase.comparer, testCase.comparee)
+			isEqReverse := WorkloadInstancesEqual(testCase.comparee, testCase.comparer)
 
 			if isEq != isEqReverse {
 				t.Errorf(

@@ -350,10 +350,10 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-func (c *Controller) AppendWorkloadHandler(f func(*model.ForeignInstance, model.Event)) error {
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
 	for _, r := range c.GetRegistries() {
 		if err := r.AppendWorkloadHandler(f); err != nil {
-			log.Infof("Fail to append instance handler to adapter %s", r.Provider())
+			log.Infof("Fail to append workload handler to adapter %s", r.Provider())
 			return err
 		}
 	}

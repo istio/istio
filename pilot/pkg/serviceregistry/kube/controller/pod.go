@@ -122,10 +122,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				pc.deleteIP(ip)
 			}
 		}
-		// fire instance handles for k8s endpoints only
+		// fire instance handles for workload
 		for _, handler := range pc.c.workloadHandlers {
 			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "")
-			handler(&model.ForeignInstance{
+			handler(&model.WorkloadInstance{
 				Namespace: pod.Namespace,
 				Endpoint:  ep,
 				PortMap:   getPortMap(pod),

@@ -226,7 +226,7 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-func (c *Controller) AppendWorkloadHandler(f func(*model.ForeignInstance, model.Event)) error {
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
 	// Consul does not support workload handlers
 	return nil
 }

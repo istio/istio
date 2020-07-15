@@ -362,7 +362,7 @@ func convertForeignServiceInstances(foreignInstance *model.IstioEndpoint, servic
 // from service port to endpoint port. Need to figure out a way to map workload entry port to
 // appropriate k8s service port
 func convertWorkloadEntryToForeignInstances(namespace string,
-	we *networking.WorkloadEntry) *model.ForeignInstance {
+	we *networking.WorkloadEntry) *model.WorkloadInstance {
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
@@ -373,7 +373,7 @@ func convertWorkloadEntryToForeignInstances(namespace string,
 	if we.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
 	}
-	return &model.ForeignInstance{
+	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			Network: we.Network,
