@@ -65,7 +65,9 @@ func (q *queueImpl) Push(item Task) {
 // Note: The queue can be rerun after closed.
 func (q *queueImpl) Run(stop <-chan struct{}) {
 	// enable rerun the queue
+	q.cond.L.Lock()
 	q.closing = false
+	q.cond.L.Unlock()
 	go func() {
 		<-stop
 		q.cond.L.Lock()
