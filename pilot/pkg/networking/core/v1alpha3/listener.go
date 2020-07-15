@@ -2177,9 +2177,9 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	return listener
 }
 
-// Create pass through filters for the listener assuming all the other filter chains are ready.
+// Create pass through filter chain for the listener assuming all the other filter chains are ready.
 // The match member of pass through filter chain depends on the existing non-passthrough filter chain.
-// TODO: Calculate the filter chian match to replace the wildcard and replace appendListenerFallthroughRoute.
+// TODO(lambdai): Calculate the filter chian match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
 	for _, fc := range l.FilterChains {
 		if isMatchAllFilterChain(fc) {
@@ -2205,9 +2205,8 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 	}
 
 	for _, p := range configgen.Plugins {
-		err := p.OnOutboundPassthroughFilterChain(in, mutable)
-		if err != nil {
-			log.Debugf("fail to set pass through filter chain for listener: %#v", l.Name)
+		if err := p.OnOutboundPassthroughFilterChain(in, mutable); err != nil {
+			log.Debugf("Fail to set pass through filter chain for listener: %#v", l.Name)
 			return
 		}
 	}
