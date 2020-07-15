@@ -352,12 +352,6 @@ type kubernetesConfig struct {
 	model.Config
 }
 
-type marshalKubernetesConfig struct {
-	meta_v1.TypeMeta   `json:",inline"`
-	meta_v1.ObjectMeta `json:"metadata"`
-	Spec               proto.Message `json:"spec"`
-}
-
 func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 	cfg, err := crd.ConvertConfig(k.Config)
 	if err != nil {
