@@ -393,15 +393,6 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	return out
 }
 
-// ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (sc *SidecarScope) ServiceForHostname(hostname host.Name) *Service {
-	if sc == nil {
-		return nil
-	}
-
-	return sc.servicesByHostname[hostname]
-}
-
 // Services returns the list of services imported across all egress listeners by this
 // Sidecar config
 func (sc *SidecarScope) Services() []*Service {

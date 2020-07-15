@@ -597,6 +597,22 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
+// ServiceForHostname returns the service associated with a given hostname following SidecarScope
+func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
+	if proxy != nil && proxy.SidecarScope != nil {
+		return proxy.SidecarScope.servicesByHostname[hostname]
+	}
+
+	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
+	// so the selection must be undefined.
+	for _, service := range ps.ServiceByHostnameAndNamespace[hostname] {
+		return service
+	}
+
+	// No service found
+	return nil
+}
+
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().

@@ -32,7 +32,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -410,14 +409,6 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 	}
 	ii := model.MakeIstioStore(l)
 	mesh := mesh.DefaultMeshConfig()
-	svc := model.Service{
-		Hostname: "svc.ns3",
-		Attributes: model.ServiceAttributes{
-			Name:      "svc",
-			Namespace: ns,
-			UID:       "istio://ns3/services/svc",
-		},
-	}
 	cases := []struct {
 		push      *model.PushContext
 		node      *model.Proxy

@@ -509,14 +509,14 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, virtualHostname string, h
 			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
 				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
 			} else {
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname)
+				svc := in.Push.ServiceForHostname(in.Node, hostname)
 				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
 			addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname)
+				svc := in.Push.ServiceForHostname(in.Node, hostname)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mpb.ServiceConfig{
 					DisableCheckCalls: isPolicyCheckDisabled,

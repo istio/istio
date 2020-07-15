@@ -310,7 +310,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 	subsetLabels := push.SubsetToLabels(proxy, subsetName, hostname)
 
 	push.Mutex.Lock()
-	svc := proxy.SidecarScope.ServiceForHostname(hostname)
+	svc := push.ServiceForHostname(proxy, hostname)
 	push.Mutex.Unlock()
 	if svc == nil {
 		// Shouldn't happen here
@@ -473,7 +473,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 // getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
 // which is needed to access the traffic policy from the destination rule.
 func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name) *networkingapi.DestinationRule {
-	cfg := push.DestinationRule(proxy, proxy.SidecarScope.ServiceForHostname(hostname))
+	cfg := push.DestinationRule(proxy, push.ServiceForHostname(proxy, hostname))
 	if cfg != nil {
 		return cfg.Spec.(*networkingapi.DestinationRule)
 	}
