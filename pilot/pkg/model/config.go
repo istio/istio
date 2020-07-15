@@ -16,24 +16,23 @@ package model
 
 import (
 	"fmt"
+	"hash/crc32"
 	"sort"
 	"strings"
 	"time"
-
-	"istio.io/pkg/ledger"
 
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
 	"github.com/gogo/protobuf/proto"
 
 	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/ledger"
 )
 
 var (
@@ -47,6 +46,16 @@ type ConfigKey struct {
 	Kind      resource.GroupVersionKind
 	Name      string
 	Namespace string
+}
+
+func (key ConfigKey) HashCode() uint32 {
+	var result uint32
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Kind))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Version))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Group))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Namespace))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Name))
+	return result
 }
 
 // ConfigsOfKind extracts configs of the specified kind.
