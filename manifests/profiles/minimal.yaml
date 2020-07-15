@@ -10,6 +10,13 @@ spec:
       enabled: false
 
   values:
+    global:
+      # disable config validation webhook configuration
+      configValidation: false
+      # disable sidecar injector mutating webhook configuration
+      operatorManageWebhooks: true
+
+    # disable telemetry v1 and v2
     telemetry:
       enabled: false
       v1:
