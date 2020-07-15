@@ -117,7 +117,6 @@ type Controller struct {
 	webhookInformer          v1beta1.ValidatingWebhookConfigurationInformer
 
 	queue                         workqueue.RateLimitingInterface
-	endpointReadyOnce             bool
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
 
@@ -342,10 +341,7 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
 	failurePolicy := kubeApiAdmission.Ignore
-	ready, err := c.readyForFailClose()
-	if err != nil {
-		return err
-	}
+	ready := c.readyForFailClose()
 	if ready {
 		failurePolicy = kubeApiAdmission.Fail
 	}
@@ -359,18 +355,18 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	return c.updateValidatingWebhookConfiguration(caBundle, failurePolicy)
 }
 
-func (c *Controller) readyForFailClose() (bool, error) {
+func (c *Controller) readyForFailClose() bool {
 	if !c.dryRunOfInvalidConfigRejected {
 		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
 			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
 			req := &reconcileRequest{"retry dry-run creation of invalid config"}
 			c.queue.AddAfter(req, time.Second)
-			return false, nil
+			return false
 		}
 		scope.Info("Endpoint successfully rejected invalid config. Switching to fail-close.")
 		c.dryRunOfInvalidConfigRejected = true
 	}
-	return true, nil
+	return true
 }
 
 const (
