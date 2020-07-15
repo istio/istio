@@ -39,6 +39,10 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
 
+	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
+	google "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
+	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
+
 	"github.com/google/uuid"
 )
 
@@ -585,17 +589,38 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			// withToken indicates whether we use the token in our CSR request
 			withToken := true
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.secOpts.ProvCert != "" {
-				if sc.configOptions.OutputKeyCertToDir == sc.secOpts.ProvCert{
-					withToken = false
-					// the output key cert directory is the same as the ProvCert directory
-					// It is a short-lived cert case
-					// which means the user hopes to use the short-lived cert rotate
-				} else {
-					// It is a long-lived cert case
-					// The prov cert dir is provided and the output key cert directory is not the same
 
+			// if user provides a PROV_CERT Directory Path for client to extract path
+			// we will use cert to provide authentication and not use a token in that case
+			// and reset the connection to use the previously rotated cert to do mtls
+			// otherwise we will first check whether the token is expired or not
+			if sc.secOpts.ProvCert != "" {
+				withToken = false
+				// reconnect the fetch client to use the rotated cert
+				switch sc.fetcher.CaClient.(type) {
+					case *citadel.CitadelClient:
+						citadelClient := sc.fetcher.CaClient.(*citadel.CitadelClient)
+						err := citadelClient.Reconnect()
+						if err != nil {
+							cacheLog.Errorf("%s Connection Reset fails", logPrefix)
+							// Send the notification to close the stream if reconnection fails, so that client could re-connect with a new token.
+							sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+							return true
+						}
+					case *google.GoogleCAClient:
+						// TODO(myidpt): Reset ClientConnection in googleCA cases to do mtls verification
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
+				  case *vault.VaultClient:
+						// TODO(myidpt): Reset ClientConnection in Vault cases to do mtls verification
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				  	return true
+					default:
+						cacheLog.Debugf("%s token expired", logPrefix)
+						// TODO(myidpt):Not Support client found
+						// requiring the client to send another SDS request.
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
 				}
 			} else if sc.isTokenExpired(&secret) {
 				cacheLog.Debugf("%s token expired", logPrefix)
@@ -604,7 +629,6 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 				return true
 			}
-
 
 			wg.Add(1)
 			go func() {

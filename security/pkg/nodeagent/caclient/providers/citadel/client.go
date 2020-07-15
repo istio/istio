@@ -48,7 +48,7 @@ var (
 		"Set to a directory containing provisioned certs, for VMs").Get()
 )
 
-type citadelClient struct {
+type CitadelClient struct {
 	caEndpoint    string
 	enableTLS     bool
 	caTLSRootCert []byte
@@ -59,7 +59,7 @@ type citadelClient struct {
 
 // NewCitadelClient create a CA client for Citadel.
 func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, error) {
-	c := &citadelClient{
+	c := &CitadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
@@ -77,7 +77,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 }
 
 // CSR Sign calls Citadel to sign a CSR.
-func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
+func (c *CitadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &pb.IstioCertificateRequest{
 		Csr:              string(csrPEM),
@@ -101,7 +101,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	return resp.CertChain, nil
 }
 
-func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
+func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Load the TLS root certificate from the specified file.
 	// Create a certificate pool
 	var certPool *x509.CertPool
@@ -155,7 +155,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
-func (c *citadelClient) Reconnect() error {
+func (c *CitadelClient) Reconnect() error {
 	err := c.releaseResource()
 	if err != nil {
 		return fmt.Errorf("failed to close connection")
@@ -170,12 +170,12 @@ func (c *citadelClient) Reconnect() error {
 	return err
 }
 
-func (c *citadelClient) releaseResource() error {
+func (c *CitadelClient) releaseResource() error {
 	err := c.conn.Close()
 	return err
 }
 
-func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
+func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 	var opts grpc.DialOption
 	var err error
 	if c.enableTLS {
