@@ -161,19 +161,18 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 				genericScrtCaCert: ic.CaCert,
 			},
 		}
-	} else {
-		if isNotGeneric {
-			return &v1.Secret{}
-		}
-		return &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cn,
-				Namespace: ns,
-			},
-			StringData: map[string]string{
-				genericScrtCaCert: ic.CaCert,
-			},
-		}
+	}
+	if isNotGeneric {
+		return &v1.Secret{}
+	}
+	return &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cn,
+			Namespace: ns,
+		},
+		StringData: map[string]string{
+			genericScrtCaCert: ic.CaCert,
+		},
 	}
 }
 
