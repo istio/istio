@@ -166,8 +166,9 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	case TypeDebugSyncronization:
 		res = sg.debugSyncz()
 	case TypeDebugConfigDump:
-		if len(w.ResourceNames) == 0 {
-			log.Infof("%s without ResourceName", TypeDebugConfigDump)
+		if len(w.ResourceNames) == 0 || len(w.ResourceNames) > 1 {
+			// Malformed request from client
+			log.Infof("%s with %d ResourceNames", TypeDebugConfigDump, len(w.ResourceNames))
 			break
 		}
 		var err error
@@ -181,7 +182,7 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 }
 
 // isSidecar ad-hoc method to see if connection represents a sidecar
-func isSidecar(con *Connection) bool {
+func isProxy(con *Connection) bool {
 	return con != nil &&
 		con.node != nil &&
 		con.node.Metadata != nil &&
@@ -202,7 +203,7 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 	for _, con := range sg.Server.adsClients {
 		con.mu.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
-		if isSidecar(con) {
+		if isProxy(con) {
 			xdsConfigs := []*status.PerXdsConfig{}
 			for _, stype := range stypes {
 				pxc := &status.PerXdsConfig{}
@@ -229,7 +230,6 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 				},
 				XdsConfig: xdsConfigs,
 			}
-			log.Infof("Trying to show status of %#v\n", clientConfig)
 			res = append(res, util.MessageToAny(clientConfig))
 		}
 		con.mu.RUnlock()
@@ -252,16 +252,14 @@ func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
 func (sg *InternalGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
 	conn := sg.Server.getProxyConnection(proxyID)
 	if conn == nil {
-		// Return no configuration.  Legacy Istio 1.6 /debug/config_dump
-		// returned http.StatusNotFound, but we do not consider it an error.
-		return []*any.Any{}, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
+		// This is "like" a 404.  The error is the client's.  However, this endpoint
+		// only tracks a single "shard" of connections.  The client may try another instance.
+		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 
 	dump, err := sg.Server.configDump(conn)
 	if err != nil {
-		// Return no configuration.  Legacy Istio 1.6 /debug/config_dump
-		// returned http.StatusInternalServerError, but we do not consider it an error.
-		return []*any.Any{}, err
+		return nil, err
 	}
 
 	return dump.Configs, nil
