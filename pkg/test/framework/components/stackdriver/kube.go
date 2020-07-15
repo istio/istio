@@ -28,7 +28,7 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 
-	jsonpb "github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
@@ -53,7 +53,7 @@ type kubeComponent struct {
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error

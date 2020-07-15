@@ -100,7 +100,7 @@ spec:
 }
 
 func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
-	c := resource.ClusterOrDefault(nil, ctx.Environment())
+	c := ctx.Clusters().Default()
 	gvr := schema.GroupVersionResource{
 		Group:    "networking.istio.io",
 		Version:  "v1alpha3",
