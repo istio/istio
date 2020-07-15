@@ -16,6 +16,7 @@ package sdstlsorigination
 
 import (
 	"fmt"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	"reflect"
 	"strings"
 	"testing"
@@ -54,11 +55,11 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "SIMPLE", credentialA, false)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credName})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName})
 
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "SIMPLE", CredentialB, false)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, false)
 
@@ -176,16 +177,16 @@ func TestMutualTlsOrigination(t *testing.T) {
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credNameGeneric})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credNameGeneric})
 
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameNotGeneric}, "MUTUAL", credentialANonGeneric, true)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credNameNotGeneric})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credNameNotGeneric})
 
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameA}, "MUTUAL", credentialBCert, false)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameA})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameA})
 
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, true)
 

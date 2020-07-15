@@ -110,31 +110,8 @@ func CreateKubeSecret(t test.Failer, ctx framework.TestContext, credNames []stri
 	}, retry.Timeout(time.Second*5))
 }
 
-// DeleteKubeSecret deletes a secret
-// nolint: interfacer
-func DeleteKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string) {
-	// Get namespace for gateway pod.
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-
-	if len(credNames) == 0 {
-		ctx.Log("no credential names are specified, skip creating ingress secret")
-		return
-	}
-	// Create Kubernetes secret for ingress gateway
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
-	for _, cn := range credNames {
-		var immediate int64
-		err := cluster.CoreV1().Secrets(systemNS.Name()).Delete(context.TODO(), cn,
-			metav1.DeleteOptions{GracePeriodSeconds: &immediate})
-		if err != nil {
-			t.Fatalf("Failed to create secret (error: %s)", err)
-		}
-	}
-}
-
 // createSecret creates a kubernetes secret which stores CA cert for SIMPLE TLS.
-// For mTLS ingress gateway, createSecret adds client cert and key into the secret object.
+// For mTLS gateway, createSecret adds client cert and key into the secret object.
 func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotGeneric bool) *v1.Secret {
 	if credentialType == "MUTUAL" {
 		if isNotGeneric {
@@ -359,9 +336,8 @@ spec:
 // Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
 func CreateDestinationRule(t *testing.T, serverNamespace namespace.Instance,
 	destinationRuleMode string, credentialName string) bytes.Buffer {
-	var destinationRuleToParse string
 
-	destinationRuleToParse = DestinationRuleConfig
+	destinationRuleToParse := DestinationRuleConfig
 
 	tmpl, err := template.New("DestinationRule").Parse(destinationRuleToParse)
 	if err != nil {
