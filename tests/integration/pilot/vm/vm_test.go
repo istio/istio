@@ -82,7 +82,7 @@ spec:
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					ServicePort:  8090,
-					InstancePort: 9090,
+					InstancePort: 10090,
 				},
 			}
 
