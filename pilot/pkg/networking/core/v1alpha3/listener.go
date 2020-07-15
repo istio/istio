@@ -2179,7 +2179,7 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 
 // Create pass through filter chain for the listener assuming all the other filter chains are ready.
 // The match member of pass through filter chain depends on the existing non-passthrough filter chain.
-// TODO(lambdai): Calculate the filter chian match to replace the wildcard and replace appendListenerFallthroughRoute.
+// TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
 	for _, fc := range l.FilterChains {
 		if isMatchAllFilterChain(fc) {
