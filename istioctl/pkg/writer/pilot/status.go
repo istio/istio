@@ -195,11 +195,11 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*xdsapi.DiscoveryRespo
 }
 
 func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
-	_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+	_, err := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 		status.proxyID,
 		status.clusterStatus, status.listenerStatus, status.endpointStatus, status.routeStatus,
 		status.istiodID, status.istiodVersion)
-	return nil
+	return err
 }
 
 func getSyncStatus(configs []*xdsstatus.PerXdsConfig) (cds, lds, eds, rds string) {

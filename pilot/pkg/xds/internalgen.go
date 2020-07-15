@@ -167,13 +167,13 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		res = sg.debugSyncz()
 	case TypeDebugConfigDump:
 		if len(w.ResourceNames) == 0 {
-			log.Infof("istio.io/debug/config_dump without ResourceName")
+			log.Infof("%s without ResourceName", TypeDebugConfigDump)
 			break
 		}
 		var err error
 		res, err = sg.debugConfigDump(w.ResourceNames[0])
 		if err != nil {
-			log.Infof("istio.io/debug/config_dump failed: %v", err)
+			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
 			break
 		}
 	}
