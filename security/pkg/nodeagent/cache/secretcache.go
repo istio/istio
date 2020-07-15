@@ -974,7 +974,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 			// if cert exists in the file path user provides,
 			// we will use cert instead of the token to do CSR Sign request
 
-			if err = sc.certExists(); err != nil {
+			if err = sc.certExists(); err == nil {
 				// if CSR request is without token, set the token to empty
 				exchangedToken = ""
 			}
