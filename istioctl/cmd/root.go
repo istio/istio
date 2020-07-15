@@ -108,11 +108,11 @@ func ConfigAndEnvProcessing() error {
 	viper.SetConfigType(configType)
 	viper.AddConfigPath(configPath)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	err := viper.ReadInConfig()
+	// We may use err later, we haven't forgotten it
 
 	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	viper.SetDefault("xds-port", 15012)
-
-	err := viper.ReadInConfig()
 
 	// Ignore errors reading the configuration unless the file is explicitly customized
 	if IstioConfig != defaultIstioctlConfig {

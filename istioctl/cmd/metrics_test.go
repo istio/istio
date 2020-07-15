@@ -40,6 +40,10 @@ type mockPromAPI struct {
 	cannedResponse map[string]prometheus_model.Value
 }
 
+func init() {
+	_ = ConfigAndEnvProcessing()
+}
+
 func mockExecClientAuthNoPilot(_, _, _ string) (kube.ExtendedClient, error) {
 	return &testKube.MockClient{}, nil
 }
