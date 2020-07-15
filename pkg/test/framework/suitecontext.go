@@ -139,11 +139,7 @@ func (s *suiteContext) Environment() resource.Environment {
 	return s.environment
 }
 
-func (s *suiteContext) IsMulticluster() bool {
-	return s.Environment().IsMulticluster()
-}
-
-func (s *suiteContext) Clusters() []resource.Cluster {
+func (s *suiteContext) Clusters() resource.Clusters {
 	return s.Environment().Clusters()
 }
 

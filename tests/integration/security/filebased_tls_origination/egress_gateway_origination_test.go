@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"path"
 	"reflect"
 	"testing"
@@ -25,8 +26,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
-
-	"io/ioutil"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
@@ -37,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -59,8 +57,6 @@ func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
-			ctx.RequireOrSkip(environment.Kube)
-
 			internalClient, externalServer, appNamespace, _ := setupEcho(t, ctx)
 
 			testCases := map[string]struct {
