@@ -32,6 +32,8 @@ import (
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 )
 
+// TestSimpleTlsOrigination test SIMPLE TLS mode with TLS origination happening at Gateway proxy
+// It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
 func TestSimpleTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.sds").
@@ -122,4 +124,15 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				})
 			}
 		})
+}
+
+
+// TestMutualTlsOrigination test MUTUAL TLS mode with TLS origination happening at Gateway proxy
+// It uses CredentialName set in DestinationRule API to fetch secrets from k8s API server
+func TestMutualTlsOrigination(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.egress.mtls.sds").
+		Run(func(ctx framework.TestContext) {
+		ctx.RequireOrSkip(environment.Kube)
+	})
 }

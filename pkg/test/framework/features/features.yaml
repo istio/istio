@@ -54,6 +54,7 @@ features:
       tls:
     egress:
       mtls:
+        sds:
       tls:
         filebased:
         sds:
