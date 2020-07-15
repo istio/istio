@@ -18,11 +18,12 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"path"
 	"reflect"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -137,7 +138,6 @@ func TestEgressGatewayTls(t *testing.T) {
 
 					istioCfg := istio.DefaultConfigOrFail(t, ctx)
 					systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-
 
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
