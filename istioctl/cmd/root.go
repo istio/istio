@@ -156,20 +156,6 @@ debug and diagnose their Istio mesh.
 
 	cmd.AddFlags(rootCmd)
 
-	preferExperimental := viper.GetBool("PREFER-EXPERIMENTAL")
-	legacyCmd := &cobra.Command{
-		Use:   "legacy",
-		Short: "Legacy command variants",
-	}
-	if preferExperimental {
-		rootCmd.AddCommand(legacyCmd)
-		legacyCmd.AddCommand(newVersionCommand())
-		rootCmd.AddCommand(statusCommand())
-	} else {
-		rootCmd.AddCommand(newVersionCommand())
-		rootCmd.AddCommand(statusCommand())
-	}
-
 	rootCmd.AddCommand(register())
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
@@ -183,6 +169,35 @@ debug and diagnose their Istio mesh.
 		Use:     "experimental",
 		Aliases: []string{"x", "exp"},
 		Short:   "Experimental commands that may be modified or deprecated",
+	}
+
+	xdsBasedTroubleshooting := []*cobra.Command{
+		xdsVersionCommand(),
+		xdsStatusCommand(),
+	}
+	debugBasedTroubleshooting := []*cobra.Command{
+		newVersionCommand(),
+		statusCommand(),
+	}
+	var debugCmdAttachmentPoint *cobra.Command
+	if viper.GetBool("PREFER-EXPERIMENTAL") {
+		legacyCmd := &cobra.Command{
+			Use:   "legacy",
+			Short: "Legacy command variants",
+		}
+		rootCmd.AddCommand(legacyCmd)
+		for _, c := range xdsBasedTroubleshooting {
+			rootCmd.AddCommand(c)
+		}
+		debugCmdAttachmentPoint = legacyCmd
+	} else {
+		debugCmdAttachmentPoint = rootCmd
+	}
+	for _, c := range xdsBasedTroubleshooting {
+		experimentalCmd.AddCommand(c)
+	}
+	for _, c := range debugBasedTroubleshooting {
+		debugCmdAttachmentPoint.AddCommand(c)
 	}
 
 	rootCmd.AddCommand(experimentalCmd)
@@ -208,13 +223,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
-
-	experimentalCmd.AddCommand(xdsVersionCommand())
-	experimentalCmd.AddCommand(xdsStatusCommand())
-	if preferExperimental {
-		rootCmd.AddCommand(xdsStatusCommand())
-		rootCmd.AddCommand(xdsVersionCommand())
-	}
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
