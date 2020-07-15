@@ -63,7 +63,7 @@ func TestEgressGatewayTls(t *testing.T) {
 			ctx.RequireOrSkip(environment.Kube)
 
 			internalClient, externalServer, _, serviceNamespace := setupEcho(t, ctx)
-			// Set up Host Namespace
+			// Set up Host Name
 			host := "server." + serviceNamespace.Name() + ".svc.cluster.local"
 
 			testCases := map[string]struct {
@@ -351,7 +351,7 @@ metadata:
 spec:
   host: istio-egressgateway.istio-system.svc.cluster.local
   subsets:
-  - name: nginx
+  - name: server
     trafficPolicy:
       loadBalancer:
         simple: ROUND_ROBIN
@@ -379,6 +379,7 @@ spec:
       route:
         - destination:
             host: istio-egressgateway.istio-system.svc.cluster.local
+            subset: server
             port:
               number: 80
           weight: 100
