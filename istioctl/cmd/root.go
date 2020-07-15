@@ -17,7 +17,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -93,12 +92,6 @@ func defaultLogOptions() *log.Options {
 
 // ConfigAndEnvProcessing uses spf13/viper for overriding CLI parameters
 func ConfigAndEnvProcessing() error {
-	if IstioConfig != defaultIstioctlConfig {
-		// Warn if user incorrectly customized $ISTIOCONFIG
-		if _, err := os.Stat(IstioConfig); os.IsNotExist(err) {
-			return fmt.Errorf("configuration file %q does not exist (check ISTIOCONFIG)", IstioConfig)
-		}
-	}
 	configPath := filepath.Dir(IstioConfig)
 	baseName := filepath.Base(IstioConfig)
 	configType := filepath.Ext(IstioConfig)
@@ -115,12 +108,18 @@ func ConfigAndEnvProcessing() error {
 	viper.SetConfigType(configType)
 	viper.AddConfigPath(configPath)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	err := viper.ReadInConfig()
 
 	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	viper.SetDefault("xds-port", 15012)
 
-	return err
+	err := viper.ReadInConfig()
+
+	// Ignore errors reading the configuration unless the file is explicitly customized
+	if IstioConfig != defaultIstioctlConfig {
+		return err
+	}
+
+	return nil
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
