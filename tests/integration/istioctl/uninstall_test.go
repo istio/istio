@@ -78,7 +78,7 @@ func TestUninstallByRevision(t *testing.T) {
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
 
 			retry.UntilSuccessOrFail(t, func() error {
-				for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.NonNamespacedCPResources...) {
+				for _, gvk := range append(helmreconciler.NamespacedResources, helmreconciler.ClusterCPResources...) {
 					resources := strings.ToLower(gvk.Kind) + "s"
 					gvr := schema.GroupVersionResource{Group: gvk.Group, Version: gvk.Version, Resource: resources}
 					ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)

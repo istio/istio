@@ -64,7 +64,7 @@ func TestHelmReconciler_DeleteControlPlaneByRevision(t *testing.T) {
 		if err := h.DeleteControlPlaneByManifests(manifestMap, testRevision, false); err != nil {
 			t.Fatalf("HelmReconciler.DeleteControlPlaneByManifests() error = %v", err)
 		}
-		for _, gvk := range append(NamespacedResources, NonNamespacedCPResources...) {
+		for _, gvk := range append(NamespacedResources, ClusterCPResources...) {
 			receiver := &unstructured.Unstructured{}
 			receiver.SetGroupVersionKind(schema.GroupVersionKind{Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind})
 			objKey := client.ObjectKey{Namespace: "istio-system", Name: "istiod-test"}

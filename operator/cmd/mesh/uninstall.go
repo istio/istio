@@ -111,7 +111,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	client, err := k8sClient(uiArgs.kubeConfigPath, uiArgs.context)
+	restConfig, _, client, err := K8sConfig(uiArgs.kubeConfigPath, uiArgs.context)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		h, err := helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), iop, opts)
+		h, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 		if err != nil {
 			return fmt.Errorf("failed to create reconciler: %v", err)
 		}
@@ -147,14 +147,14 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		return nil
 	}
 	manifestMap, iops, err := manifest.GenManifests([]string{uiArgs.filename},
-		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, client.RESTConfig(), l)
+		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, restConfig, l)
 	if err != nil {
 		return err
 	}
 	if err := preCheckWarnings(cmd, uiArgs, iops.Revision, nil, l); err != nil {
 		return fmt.Errorf("failed to do preuninstall check: %v", err)
 	}
-	h, err = helmreconciler.NewHelmReconciler(client.Controller(), client.RESTConfig(), nil, opts)
+	h, err = helmreconciler.NewHelmReconciler(client, restConfig, nil, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}

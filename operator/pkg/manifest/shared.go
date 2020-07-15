@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
@@ -37,8 +38,6 @@ import (
 	"istio.io/istio/operator/pkg/validate"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
-
-	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 var (
@@ -94,7 +93,6 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 	if err := validateSetFlags(setFlags); err != nil {
 		return "", nil, err
 	}
-
 
 	fy, profile, err := ReadYamlProfile(inFilenames, setFlags, force, l)
 	if err != nil {

@@ -66,12 +66,12 @@ var (
 		// Cannot currently prune CRDs because this will also wipe out user config.
 		// {Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
 	}
-	// NonNamespacedCPResources lists cluster scope shared resources types which should be deleted during uninstall.
-	NonNamespacedCPResources = []schema.GroupVersionKind{
+	// ClusterCPResources lists cluster scope resources types which should be deleted during uninstall command.
+	ClusterCPResources = []schema.GroupVersionKind{
 		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
 	}
-	// AllClusterResources orders all cluster scope resources types which should be deleted, including CRD.
-	AllClusterResources = append(NonNamespacedResources,
+	// AllClusterResources lists all cluster scope resources types which should be deleted in purge case, including CRD.
+	AllClusterResources = append(ClusterResources,
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr})
 )
 
@@ -160,7 +160,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		label.IstioRev: revision,
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
-	gvkList := append(NamespacedResources, NonNamespacedCPResources...)
+	gvkList := append(NamespacedResources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(NamespacedResources, AllClusterResources...)
 	}
