@@ -18,12 +18,16 @@ import (
 	"context"
 	"fmt"
 
+	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -88,4 +92,75 @@ func newKubeClientWithRevision(kubeconfig, configContext string, revision string
 
 func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
 	return newKubeClientWithRevision(kubeconfig, configContext, "")
+}
+
+func xdsStatusCommand() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	var centralOpts clioptions.CentralControlPlaneOptions
+
+	statusCmd := &cobra.Command{
+		Use:   "proxy-status [<pod-name[.namespace]>]",
+		Short: "Retrieves the synchronization status of each Envoy in the mesh",
+		Long: `
+Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
+
+`,
+		Example: `# Retrieve sync status for all Envoys in a mesh
+	istioctl proxy-status
+
+# Retrieve sync diff for a single Envoy and Istiod
+	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+`,
+		Aliases: []string{"ps"},
+		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return err
+			}
+
+			if len(args) > 0 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				path := "config_dump"
+				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+				if err != nil {
+					return fmt.Errorf("could not contact sidecar: %w", err)
+				}
+
+				xdsRequest := xdsapi.DiscoveryRequest{
+					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
+					Node: &envoy_corev3.Node{
+						Id: "debug~0.0.0.0~istioctl~cluster.local",
+					},
+					TypeUrl: pilotxds.TypeDebugConfigDump,
+				}
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+				if err != nil {
+					return err
+				}
+				c, err := compare.NewXdsComparator(c.OutOrStdout(), xdsResponses, envoyDump)
+				if err != nil {
+					return err
+				}
+				return c.Diff()
+			}
+
+			xdsRequest := xdsapi.DiscoveryRequest{
+				Node: &envoy_corev3.Node{
+					Id: "debug~0.0.0.0~istioctl~cluster.local",
+				},
+				TypeUrl: pilotxds.TypeDebugSyncronization,
+			}
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+			if err != nil {
+				return err
+			}
+			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+			return sw.PrintAll(xdsResponses)
+		},
+	}
+
+	opts.AttachControlPlaneFlags(statusCmd)
+	centralOpts.AttachControlPlaneFlags(statusCmd)
+
+	return statusCmd
 }

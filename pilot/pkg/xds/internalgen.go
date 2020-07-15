@@ -15,13 +15,19 @@
 package xds
 
 import (
+	"fmt"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	pilot_xds_v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -34,6 +40,12 @@ const (
 	// the 'NACK' from envoy on rejected configs. Only ID is set in metadata.
 	// This includes all the info that envoy (client) provides.
 	TypeURLNACK = "istio.io/nack"
+
+	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
+	TypeDebugSyncronization = "istio.io/debug/syncz"
+
+	// TypeDebugConfigDump requests Envoy configuration for a proxy without creating one
+	TypeDebugConfigDump = "istio.io/debug/config_dump"
 )
 
 // InternalGen is a Generator for XDS status updates: connect, disconnect, nacks, acks
@@ -142,6 +154,7 @@ func (sg *InternalGen) startPush(typeURL string, data []proto.Message) {
 // We can also expose ACKS.
 func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
 	res := []*any.Any{}
+
 	switch w.TypeUrl {
 	case TypeURLConnections:
 		sg.Server.adsClientsMutex.RLock()
@@ -150,6 +163,104 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 			res = append(res, util.MessageToAny(v.xdsNode))
 		}
 		sg.Server.adsClientsMutex.RUnlock()
+	case TypeDebugSyncronization:
+		res = sg.debugSyncz()
+	case TypeDebugConfigDump:
+		if len(w.ResourceNames) == 0 || len(w.ResourceNames) > 1 {
+			// Malformed request from client
+			log.Infof("%s with %d ResourceNames", TypeDebugConfigDump, len(w.ResourceNames))
+			break
+		}
+		var err error
+		res, err = sg.debugConfigDump(w.ResourceNames[0])
+		if err != nil {
+			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
+			break
+		}
 	}
 	return res
+}
+
+// isSidecar ad-hoc method to see if connection represents a sidecar
+func isProxy(con *Connection) bool {
+	return con != nil &&
+		con.node != nil &&
+		con.node.Metadata != nil &&
+		con.node.Metadata.ProxyConfig != nil
+}
+
+func (sg *InternalGen) debugSyncz() []*any.Any {
+	res := []*any.Any{}
+
+	stypes := []string{
+		pilot_xds_v3.ListenerShortType,
+		pilot_xds_v3.RouteShortType,
+		pilot_xds_v3.EndpointShortType,
+		pilot_xds_v3.ClusterShortType,
+	}
+
+	sg.Server.adsClientsMutex.RLock()
+	for _, con := range sg.Server.adsClients {
+		con.mu.RLock()
+		// Skip "nodes" without metdata (they are probably istioctl queries!)
+		if isProxy(con) {
+			xdsConfigs := []*status.PerXdsConfig{}
+			for _, stype := range stypes {
+				pxc := &status.PerXdsConfig{}
+				if watchedResource, ok := con.node.Active[stype]; ok {
+					pxc.Status = debugSyncStatus(watchedResource)
+				} else {
+					pxc.Status = status.ConfigStatus_NOT_SENT
+				}
+				switch stype {
+				case pilot_xds_v3.ListenerShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
+				case pilot_xds_v3.RouteShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_RouteConfig{}
+				case pilot_xds_v3.EndpointShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
+				case pilot_xds_v3.ClusterShortType:
+					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
+				}
+				xdsConfigs = append(xdsConfigs, pxc)
+			}
+			clientConfig := &status.ClientConfig{
+				Node: &core.Node{
+					Id: con.node.ID,
+				},
+				XdsConfig: xdsConfigs,
+			}
+			res = append(res, util.MessageToAny(clientConfig))
+		}
+		con.mu.RUnlock()
+	}
+	sg.Server.adsClientsMutex.RUnlock()
+
+	return res
+}
+
+func debugSyncStatus(wr *model.WatchedResource) status.ConfigStatus {
+	if wr.NonceSent == "" {
+		return status.ConfigStatus_NOT_SENT
+	}
+	if wr.NonceAcked == wr.NonceSent {
+		return status.ConfigStatus_SYNCED
+	}
+	return status.ConfigStatus_STALE
+}
+
+func (sg *InternalGen) debugConfigDump(proxyID string) ([]*any.Any, error) {
+	conn := sg.Server.getProxyConnection(proxyID)
+	if conn == nil {
+		// This is "like" a 404.  The error is the client's.  However, this endpoint
+		// only tracks a single "shard" of connections.  The client may try another instance.
+		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
+	}
+
+	dump, err := sg.Server.configDump(conn)
+	if err != nil {
+		return nil, err
+	}
+
+	return dump.Configs, nil
 }
