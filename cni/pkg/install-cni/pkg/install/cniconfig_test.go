@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-
+	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	testutils "istio.io/istio/pilot/test/util"
 )
 
@@ -200,7 +200,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			}()
 
 			// Create existing config files if specified in test case
-			copyExistingConfFiles(t, tempDir, c.existingConfFiles...)
+			util.CopyExistingConfFiles(t, tempDir, c.existingConfFiles...)
 
 			cfg := pluginConfig{
 				mountedCNINetDir: tempDir,
@@ -446,7 +446,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 				}()
 
 				// Create existing config files if specified in test case
-				copyExistingConfFiles(t, tempDir, c.existingConfFiles...)
+				util.CopyExistingConfFiles(t, tempDir, c.existingConfFiles...)
 
 				cfg.MountedCNINetDir = tempDir
 
@@ -488,19 +488,5 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		}
 		t.Run("network-config-file "+c.name, test(cfgFile))
 		t.Run(c.name, test(cfg))
-	}
-}
-
-func copyExistingConfFiles(t *testing.T, targetDir string, confFiles ...string) {
-	t.Helper()
-	for _, f := range confFiles {
-		data, err := ioutil.ReadFile(filepath.Join("testdata", f))
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = ioutil.WriteFile(filepath.Join(targetDir, f), data, 0644)
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
 }
