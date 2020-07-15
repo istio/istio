@@ -46,8 +46,8 @@ type googleCAClient struct {
 	client     gcapb.MeshCertificateServiceClient
 }
 
-// NewGoogleCAClient create a CA client, and a CA Client Closer for Google client
-func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.Closer, error) {
+// NewGoogleCAClient create a CA client for Google client
+func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 	c := &googleCAClient{
 		caEndpoint: endpoint,
 		enableTLS:  tls,
@@ -58,7 +58,7 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.Clo
 	if tls {
 		opts, err = c.getTLSDialOption()
 		if err != nil {
-			return nil, nil, err
+			return nil,err
 		}
 	} else {
 		opts = grpc.WithInsecure()
@@ -69,11 +69,11 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.Clo
 	conn, err := grpc.Dial(endpoint, opts)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
-		return nil, nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
 	c.client = gcapb.NewMeshCertificateServiceClient(conn)
-	return c, c, nil
+	return c, nil
 }
 
 // CSR Sign calls Google CA to sign a CSR.

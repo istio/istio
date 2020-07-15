@@ -585,20 +585,9 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 
-			// if user provides a PROV_CERT Directory Path for client to extract certs from path
-			// we will use cert to provide authentication and not use a token in that case
-			// and reset the connection to use the previously rotated cert to do mtls
-			// otherwise we will first check whether the token is expired or not
-			if sc.secOpts.ProvCert != "" {
-				err := sc.fetcher.CaClientCloser.Close()
-				if err != nil {
-					cacheLog.Errorf("%s failed to Reconnect", logPrefix)
-					// Send the notification to close the stream if reconnection fails,
-					// requiring the client to send another SDS request.
-					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-					return true
-				}
-			} else if sc.isTokenExpired(&secret) {
+			// if user not set PROV_CERT Directory Path for client to extract certs from path
+			// we will first check whether the token is expired or not
+			if sc.secOpts.ProvCert == ""  && sc.isTokenExpired(&secret) {
 				cacheLog.Debugf("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				// requiring the client to send another SDS request.
@@ -982,6 +971,9 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		var httpRespCode int
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
+			// if cert exists in the file path user provides,
+			// we will use cert instead of the token to do CSR Sign request
+
 			if err = sc.certExists(); err != nil {
 				// if CSR request is without token, set the token to empty
 				exchangedToken = ""

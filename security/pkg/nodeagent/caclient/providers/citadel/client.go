@@ -56,8 +56,8 @@ type citadelClient struct {
 	clusterID     string
 }
 
-// NewCitadelClient create a CA client, and a CA Client Closer for citadel client
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, security.Closer, error) {
+// NewCitadelClient create a CA client  citadel client
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, error) {
 	c := &citadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
@@ -68,10 +68,10 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 	conn, err := c.buildConnection()
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
-		return nil, nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 	c.client = pb.NewIstioCertificateServiceClient(conn)
-	return c, c, nil
+	return c, nil
 }
 
 // CSR Sign calls Citadel to sign a CSR.
@@ -81,10 +81,14 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
+	if token != "" {
+		// add Bearer prefix, which is required by Citadel.
+		token = bearerTokenPrefix + token
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
+	} else {
+		c.client.Close()
+	}
 
-	// add Bearer prefix, which is required by Citadel.
-	token = bearerTokenPrefix + token
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to create certificate: %v", err)
@@ -151,10 +155,6 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
-}
-
-func (c *citadelClient) Close() error {
-	return c.client.Close()
 }
 
 func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {

@@ -179,13 +179,6 @@ type Client interface {
 		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
 }
 
-// Closer interface defines the clients need to implement a client connection close function
-// which can be used in reconnect failed connection and the rotate case where user needs
-// to close the conn with expired cert and use the latest rotated cert to do mtls
-type Closer interface {
-	Close() error
-}
-
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.
