@@ -49,6 +49,7 @@ func NewQueue(errorDelay time.Duration) Instance {
 	}
 }
 
+// Push enqueue an item
 func (q *queueImpl) Push(item Task) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
@@ -58,7 +59,13 @@ func (q *queueImpl) Push(item Task) {
 	q.cond.Signal()
 }
 
+// Run start the task handler, which should be in a separate go routine.
+// The queue can be closed via stop channel. However when it is being closed,
+// the left elements in the queue will be processed.
+// Note: The queue can be rerun after closed.
 func (q *queueImpl) Run(stop <-chan struct{}) {
+	// enable rerun the queue
+	q.closing = false
 	go func() {
 		<-stop
 		q.cond.L.Lock()
