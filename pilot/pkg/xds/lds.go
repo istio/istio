@@ -30,7 +30,7 @@ func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, vers
 	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
 
 	if s.DebugConfigs {
-		con.LDSListeners = rawListeners
+		con.XdsListeners = rawListeners
 	}
 	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.RequestedTypes.LDS)
 	err := con.send(response)
