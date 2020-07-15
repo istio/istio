@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package istioctl
+package revisions
 
 import (
 	"context"
@@ -33,36 +33,13 @@ import (
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
 	stableRevision = "stable"
-	canaryRevision = "canary"
 )
-
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		RequireSingleCluster().
-		Setup(istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = fmt.Sprintf(`
-revision: %s
-`, stableRevision)
-		})).
-		Setup(istio.Setup(nil, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = fmt.Sprintf(`
-profile: empty
-revision: %s
-components:
-  pilot:
-    enabled: true
-`, canaryRevision)
-		})).
-		Run()
-}
 
 func TestUninstallByRevision(t *testing.T) {
 	framework.

@@ -83,10 +83,10 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 		Example: `  # Uninstall a single control plane by revision
   istioctl x uninstall --revision foo
 
-  # Uninstall by iop file
+  # Uninstall a single control plane by iop file
   istioctl x uninstall -f iop.yaml
   
-  # Uninstall all Istio resources
+  # Uninstall all control planes and shared resources
   istioctl x uninstall --purge
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -136,9 +136,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		if err := preCheckWarnings(cmd, uiArgs, uiArgs.revision, tp, l); err != nil {
-			return fmt.Errorf("failed to do preuninstall check: %v", err)
-		}
+		preCheckWarnings(cmd, uiArgs, uiArgs.revision, tp, l)
 
 		if err := h.DeleteObjectsList(objectsList); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
@@ -151,9 +149,8 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
-	if err := preCheckWarnings(cmd, uiArgs, iops.Revision, nil, l); err != nil {
-		return fmt.Errorf("failed to do preuninstall check: %v", err)
-	}
+	preCheckWarnings(cmd, uiArgs, iops.Revision, nil, l)
+
 	h, err = helmreconciler.NewHelmReconciler(client, restConfig, nil, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
@@ -169,7 +166,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
 func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
-	rev string, resourcesList []string, l *clog.ConsoleLogger) error {
+	rev string, resourcesList []string, l *clog.ConsoleLogger) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
 		l.LogAndError(err.Error())
@@ -194,12 +191,10 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 	}
 	if uiArgs.skipConfirmation {
 		l.LogAndPrint(message)
-		return nil
 	}
 	message += "Proceed? (y/N)"
 	if needConfirmation && !confirm(message, cmd.OutOrStdout()) {
 		cmd.Print("Cancelled.\n")
 		os.Exit(1)
 	}
-	return nil
 }
