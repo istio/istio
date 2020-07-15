@@ -255,8 +255,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods(), func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
-		if err != nil || !exists {
-			log.Debugf("Endpoint %v lookup failed, skipping stale endpoint", key)
+		if err != nil {
+			log.Debugf("Endpoint %v lookup failed with error %v, skipping stale endpoint", key, err)
+			return
+		}
+		if !exists {
+			log.Debugf("Endpoint %v not found, skipping stale endpoint", key)
 			return
 		}
 		c.queue.Push(func() error {
