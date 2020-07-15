@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/circonus/config/config.proto -x "-n circonus -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/circonus/config/config.proto -x "-n circonus -t metric -d example"
 
 package circonus
 

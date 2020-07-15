@@ -668,7 +668,7 @@ func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 
 func printListeners(w io.Writer, c *Connection) {
 	comma := false
-	for _, ls := range c.LDSListeners {
+	for _, ls := range c.XdsListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
@@ -688,7 +688,7 @@ func printListeners(w io.Writer, c *Connection) {
 
 func printClusters(w io.Writer, c *Connection) {
 	comma := false
-	for _, cl := range c.CDSClusters {
+	for _, cl := range c.XdsClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue
@@ -708,7 +708,7 @@ func printClusters(w io.Writer, c *Connection) {
 
 func printRoutes(w io.Writer, c *Connection) {
 	comma := false
-	for _, rt := range c.RouteConfigs {
+	for _, rt := range c.XdsRoutes {
 		if rt == nil {
 			adsLog.Errorf("INVALID ROUTE CONFIG NIL")
 			continue

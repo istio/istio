@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-
 	"github.com/gogo/protobuf/proto"
+
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 func TestToYAML(t *testing.T) {

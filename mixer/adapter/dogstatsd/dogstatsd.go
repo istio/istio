@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/dogstatsd/config/config.proto -x "-n dogstatsd -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/dogstatsd/config/config.proto -x "-n dogstatsd -t metric -d example"
 
 package dogstatsd
 

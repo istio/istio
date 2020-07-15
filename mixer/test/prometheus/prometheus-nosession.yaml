@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -n prometheus-nosession -s=false -c $REPO_ROOT/mixer/adapter/prometheus/config/config.proto_descriptor -t metric -o prometheus-nosession.yaml
+# mixgen adapter -n prometheus-nosession -s=false -c $REPO_ROOT/mixer/adapter/prometheus/config/config.proto_descriptor -t metric -o prometheus-nosession.yaml -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: prometheus-nosession
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: false
   templates:
   - metric

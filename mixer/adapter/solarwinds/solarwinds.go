@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/solarwinds/config/config.proto -x "-n solarwind -t logentry -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/solarwinds/config/config.proto -x "-n solarwind -t logentry -t metric -d example"
 
 // Package solarwinds publishes metric and log values collected by Mixer
 // to appoptics and papertrail respectively.

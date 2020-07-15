@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/cloudwatch/config/config.proto -x "-n cloudwatch -t metric"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/cloudwatch/config/config.proto -x "-n cloudwatch -t metric -d example"
 
 package cloudwatch
 

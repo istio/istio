@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -c $REPO_ROOT/mixer/adapter/stackdriver/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/stackdriver/config -n stackdriver -t logentry -t tracespan -t metric -t edges
+# mixgen adapter -c $REPO_ROOT/mixer/adapter/stackdriver/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/stackdriver/config -n stackdriver -t logentry -t tracespan -t metric -t edges -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: stackdriver
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: true
   templates:
   - logentry

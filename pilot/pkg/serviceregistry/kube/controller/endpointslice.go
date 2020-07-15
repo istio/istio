@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers/discovery/v1alpha1"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
@@ -152,14 +153,13 @@ func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
 	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	for _, e := range slice.Endpoints {
 		for _, a := range e.Addresses {
-			esc.c.pods.dropNeedsUpdate(key, a)
+			esc.c.pods.endpointDeleted(key, a)
 		}
 	}
 }
 
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
 	slice := es.(*discoveryv1alpha1.EndpointSlice)
-	key := kube.KeyFunc(slice.Name, slice.Namespace)
 	endpoints := make([]*model.IstioEndpoint, 0)
 	for _, e := range slice.Endpoints {
 		if e.Conditions.Ready != nil && !*e.Conditions.Ready {
@@ -167,33 +167,12 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			continue
 		}
 		for _, a := range e.Addresses {
-			pod := esc.c.pods.getPodByIP(a)
+			pod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
 			if pod == nil {
-				// This means, the endpoint event has arrived before pod event. This might happen because
-				// PodCache is eventually consistent.
-				if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
-					// There is a small chance getInformer may have the pod, but it hasn't made its way to the PodCache yet
-					// This is due to the shared queue. Try the getInformer store first
-					podFromInformer, f, err := esc.c.pods.informer.GetStore().GetByKey(key)
-					if err != nil || !f {
-						// If pod is still not available, this an unusual case.
-						endpointsWithNoPods.Increment()
-						log.Errorf("Endpoint without pod %s %s.%s", a, host, slice.Namespace)
-						if esc.c.metrics != nil {
-							esc.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, a)
-						}
-						// Tell pod cache we want to get an update when this pod arrives
-						esc.c.pods.recordNeedsUpdate(key, a)
-						continue
-					} else {
-						pod = podFromInformer.(*v1.Pod)
-					}
-				}
+				continue
 			}
-
 			builder := esc.newEndpointBuilder(pod, e)
-			// EDS and ServiceEntry use name for service port - ADS will need to
-			// map to numbers.
+			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range slice.Ports {
 				var portNum int32
 				if port.Port != nil {
