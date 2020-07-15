@@ -40,7 +40,7 @@ var (
 	gkeClusterURL     = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
-type GoogleCAClient struct {
+type googleCAClient struct {
 	caEndpoint string
 	enableTLS  bool
 	client     gcapb.MeshCertificateServiceClient
@@ -48,7 +48,7 @@ type GoogleCAClient struct {
 
 // NewGoogleCAClient create a CA client for Google CA.
 func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.ReconnectClient, error) {
-	c := &GoogleCAClient{
+	c := &googleCAClient{
 		caEndpoint: endpoint,
 		enableTLS:  tls,
 	}
@@ -77,7 +77,7 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.Rec
 }
 
 // CSR Sign calls Google CA to sign a CSR.
-func (cl *GoogleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
+func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, token string,
 	certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error) {
 	req := &gcapb.MeshCertificateRequest{
 		RequestId: reqID,
@@ -115,7 +115,7 @@ func (cl *GoogleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 	return resp.CertChain, nil
 }
 
-func (cl *GoogleCAClient) getTLSDialOption() (grpc.DialOption, error) {
+func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Load the system default root certificates.
 	pool, err := x509.SystemCertPool()
 	if err != nil {
@@ -126,7 +126,7 @@ func (cl *GoogleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(creds), nil
 }
 
-func (cl * GoogleCAClient)Reconnect() error {
+func (cl *googleCAClient)Reconnect() error {
 	// TODO: add a reconnection logic here
 	return nil
 }
