@@ -56,7 +56,7 @@ type citadelClient struct {
 	clusterID     string
 }
 
-// NewCitadelClient create a CA client  citadel client
+// NewCitadelClient create a CA client for Citadel.
 func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, error) {
 	c := &citadelClient{
 		caEndpoint:    endpoint,

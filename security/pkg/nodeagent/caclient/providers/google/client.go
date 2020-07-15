@@ -46,7 +46,7 @@ type googleCAClient struct {
 	client     gcapb.MeshCertificateServiceClient
 }
 
-// NewGoogleCAClient create a CA client for Google client
+// NewGoogleCAClient create a CA client for Google CA.
 func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 	c := &googleCAClient{
 		caEndpoint: endpoint,
@@ -58,7 +58,7 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 	if tls {
 		opts, err = c.getTLSDialOption()
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 	} else {
 		opts = grpc.WithInsecure()
@@ -124,11 +124,6 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	}
 	creds := credentials.NewClientTLSFromCert(pool, "")
 	return grpc.WithTransportCredentials(creds), nil
-}
-
-func (cl *googleCAClient) Close() error {
-	// TODO: add a reconnection logic here
-	return nil
 }
 
 func parseZone(clusterURL string) string {
