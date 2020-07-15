@@ -17,6 +17,8 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -66,13 +68,25 @@ func listCommand() *cobra.Command {
 
 func runList(writer io.Writer) error {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-	fmt.Fprintf(w, "FLAG\tOVERRIDE\tVALUE\n")
+	fmt.Fprintf(w, "FLAG\tVALUE\tFROM\n")
 	for _, flag := range settableFlags {
-		var override string
-		if viper.InConfig(flag) {
-			override = viper.GetString(flag)
-		}
-		fmt.Fprintf(w, "%s\t%s\t%v\n", flag, override, viper.GetString(flag))
+		fmt.Fprintf(w, "%s\t%s\t%v\n", flag, viper.GetString(flag), configSource(flag))
 	}
 	return w.Flush()
+}
+
+func configSource(flag string) string {
+	if viper.InConfig(flag) {
+		return IstioConfig
+	}
+
+	// Viper doesn't provide a method to distinguish between config set by env and by file.
+	// This logic is similar to Viper's getEnv(), but hard-coded for istioctl's use of Viper.
+	eflag := "ISTIOCTL_" + strings.ToUpper(strings.ReplaceAll(flag, "-", "_"))
+	_, ok := os.LookupEnv(eflag)
+	if ok {
+		return "$" + eflag
+	}
+
+	return "default"
 }

@@ -104,16 +104,12 @@ func ConfigAndEnvProcessing() error {
 	// and environment variables.
 	viper.SetEnvPrefix("ISTIOCTL")
 	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true) // So we can say ISTIOCTL_CERT_DIR="" to suppress certs
 	viper.SetConfigName(configName)
 	viper.SetConfigType(configType)
 	viper.AddConfigPath(configPath)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	err := viper.ReadInConfig()
-	// We may use err later, we haven't forgotten it
-
-	viper.SetDefault("istioNamespace", controller.IstioNamespace)
-	viper.SetDefault("xds-port", 15012)
-
 	// Ignore errors reading the configuration unless the file is explicitly customized
 	if IstioConfig != defaultIstioctlConfig {
 		return err
@@ -143,6 +139,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
 		"The name of the kubeconfig context to use")
 
+	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", viper.GetString("istioNamespace"),
 		"Istio system namespace")
 
