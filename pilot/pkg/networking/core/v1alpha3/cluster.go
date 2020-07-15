@@ -905,7 +905,9 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	// Apply auto mtls to clusters excluding these kind of headless service
 	if c.GetType() != cluster.Cluster_ORIGINAL_DST {
 		// convert to transport socket matcher if the mode was auto detected
-		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected {
+		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL && mtlsCtxType == autoDetected &&
+			!strings.Contains(opts.cluster.Name, "istio-egressgateway") {
+
 			transportSocket := c.TransportSocket
 			c.TransportSocket = nil
 			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
