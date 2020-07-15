@@ -141,9 +141,8 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
 			c.pods.queueEndpointEventOnPodArrival(epkey, ip)
 			return nil
-		} else {
-			pod = podFromInformer.(*v1.Pod)
 		}
+		pod = podFromInformer.(*v1.Pod)
 	}
 	return pod
 }
