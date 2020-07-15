@@ -597,6 +597,22 @@ func (ps *PushContext) Services(proxy *Proxy) []*Service {
 	return out
 }
 
+// ServiceForHostname returns the service associated with a given hostname following SidecarScope
+func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
+	if proxy != nil && proxy.SidecarScope != nil {
+		return proxy.SidecarScope.servicesByHostname[hostname]
+	}
+
+	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
+	// so the selection must be undefined.
+	for _, service := range ps.ServiceByHostnameAndNamespace[hostname] {
+		return service
+	}
+
+	// No service found
+	return nil
+}
+
 // VirtualServices lists all virtual services bound to the specified gateways
 // This replaces store.VirtualServices. Used only by the gateways
 // Sidecars use the egressListener.VirtualServices().
@@ -629,7 +645,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 		// Currently we assume that there will be only one sidecar config for a namespace.
 		var defaultSidecar *SidecarScope
 		for _, wrapper := range sidecars {
-			if wrapper.Config != nil {
+			if wrapper.Config != nil && wrapper.Config.Spec != nil {
 				sidecar := wrapper.Config.Spec.(*networking.Sidecar)
 				// if there is no workload selector, the config applies to all workloads
 				// if there is a workload selector, check for matching workload labels
@@ -659,6 +675,10 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Colle
 
 // DestinationRule returns a destination rule for a service name in a given domain.
 func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
+	if service == nil {
+		return nil
+	}
+
 	// If proxy has a sidecar scope that is user supplied, then get the destination rules from the sidecar scope
 	// sidecarScope.config is nil if there is no sidecar scope for the namespace
 	if proxy.SidecarScope != nil && proxy.Type == SidecarProxy {

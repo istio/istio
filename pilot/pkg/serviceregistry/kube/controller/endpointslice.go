@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers/discovery/v1alpha1"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
@@ -52,6 +53,10 @@ func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceIn
 	}
 	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", reflect.DeepEqual, out.onEvent)
 	return out
+}
+
+func (esc *endpointSliceController) getInformer() cache.SharedIndexInformer {
+	return esc.informer
 }
 
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
@@ -143,6 +148,16 @@ func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, p
 	return out
 }
 
+func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
+	slice := endpoint.(*discoveryv1alpha1.EndpointSlice)
+	key := kube.KeyFunc(slice.Name, slice.Namespace)
+	for _, e := range slice.Endpoints {
+		for _, a := range e.Addresses {
+			esc.c.pods.endpointDeleted(key, a)
+		}
+	}
+}
+
 func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host host.Name) []*model.IstioEndpoint {
 	slice := es.(*discoveryv1alpha1.EndpointSlice)
 	endpoints := make([]*model.IstioEndpoint, 0)
@@ -152,27 +167,12 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			continue
 		}
 		for _, a := range e.Addresses {
-			pod := esc.c.pods.getPodByIP(a)
+			pod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
 			if pod == nil {
-				// This can not happen in usual case
-				if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
-					pod = esc.c.pods.getPod(e.TargetRef.Name, e.TargetRef.Namespace)
-					if pod == nil {
-						// If pod is still not available, this an unusual case.
-						endpointsWithNoPods.Increment()
-						log.Errorf("Endpoint without pod %s %s.%s", a, host, slice.Namespace)
-						if esc.c.metrics != nil {
-							esc.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, a)
-						}
-						continue
-					}
-				}
-				// For service without selector, maybe there are no related pods
+				continue
 			}
-
 			builder := esc.newEndpointBuilder(pod, e)
-			// EDS and ServiceEntry use name for service port - ADS will need to
-			// map to numbers.
+			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range slice.Ports {
 				var portNum int32
 				if port.Port != nil {

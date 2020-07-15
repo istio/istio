@@ -14,12 +14,6 @@
 
 package resource
 
-import (
-	"fmt"
-
-	"istio.io/istio/pkg/test/framework/resource/environment"
-)
-
 // EnvironmentFactory creates an Environment.
 type EnvironmentFactory func(ctx Context) (Environment, error)
 
@@ -34,21 +28,10 @@ func NilEnvironmentFactory(Context) (Environment, error) {
 type Environment interface {
 	Resource
 
-	EnvironmentName() environment.Name
-
-	// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
-	IsMulticluster() bool
+	EnvironmentName() string
 
 	// Clusters in this Environment. There will always be at least one.
-	Clusters() []Cluster
-
-	// Case calls the given function if this environment has the given name.
-	Case(e environment.Name, fn func())
-}
-
-// UnsupportedEnvironment generates an error indicating that the given environment is not supported.
-func UnsupportedEnvironment(env Environment) error {
-	return fmt.Errorf("unsupported environment: %q", string(env.EnvironmentName()))
+	Clusters() Clusters
 }
 
 var _ Environment = FakeEnvironment{}
@@ -60,22 +43,18 @@ type FakeEnvironment struct {
 	IDValue     string
 }
 
-func (f FakeEnvironment) IsMulticluster() bool {
-	return f.NumClusters > 1
-}
-
 func (f FakeEnvironment) ID() ID {
 	return FakeID(f.IDValue)
 }
 
-func (f FakeEnvironment) EnvironmentName() environment.Name {
+func (f FakeEnvironment) EnvironmentName() string {
 	if len(f.Name) == 0 {
 		return "fake"
 	}
-	return environment.Name(f.Name)
+	return f.Name
 }
 
-func (f FakeEnvironment) Clusters() []Cluster {
+func (f FakeEnvironment) Clusters() Clusters {
 	out := make([]Cluster, f.NumClusters)
 	for i := 0; i < f.NumClusters; i++ {
 		out[i] = FakeCluster{
@@ -83,8 +62,4 @@ func (f FakeEnvironment) Clusters() []Cluster {
 		}
 	}
 	return out
-}
-
-func (f FakeEnvironment) Case(environment.Name, func()) {
-	panic("not implemented")
 }

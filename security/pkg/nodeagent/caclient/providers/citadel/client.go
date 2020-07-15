@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
 	pb "istio.io/istio/security/proto"
 	"istio.io/pkg/log"
 )
@@ -57,7 +57,7 @@ type citadelClient struct {
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (caClientInterface.Client, error) {
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, error) {
 	c := &citadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,

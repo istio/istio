@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"path"
 	"reflect"
 	"testing"
@@ -28,8 +29,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 
-	"io/ioutil"
-
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -39,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -60,7 +58,6 @@ func TestEgressGatewayTls(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
-			ctx.RequireOrSkip(environment.Kube)
 
 			internalClient, externalServer, _, serviceNamespace := setupEcho(t, ctx)
 			// Set up Host Name
@@ -277,7 +274,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,
-			Pilot:     p,
 			Ports:     []echo.Port{},
 			Subsets: []echo.SubsetConfig{{
 				Version: "v1",
@@ -303,7 +299,6 @@ func setupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 					TLS:          true,
 				},
 			},
-			Pilot: p,
 			// Set up TLS certs on the server. This will make the server listen with these credentials.
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image

@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
-	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
+	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
+	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 )
 
 var (

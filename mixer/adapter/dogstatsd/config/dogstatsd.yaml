@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -c $REPO_ROOT/mixer/adapter/dogstatsd/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/dogstatsd/config -n dogstatsd -t metric
+# mixgen adapter -c $REPO_ROOT/mixer/adapter/dogstatsd/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/dogstatsd/config -n dogstatsd -t metric -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: dogstatsd
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: true
   templates:
   - metric

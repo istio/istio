@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -c $REPO_ROOT/mixer/adapter/denier/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/denier/config -n denier -t checknothing -t listentry -t quota
+# mixgen adapter -c $REPO_ROOT/mixer/adapter/denier/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/denier/config -n denier -t checknothing -t listentry -t quota -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: denier
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: true
   templates:
   - checknothing

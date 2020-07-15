@@ -310,3 +310,17 @@ global:
   #   kubernetes: cluster.local
   #   else:  default dns domain
   trustDomain: "cluster.local"
+
+meshConfig:
+  enablePrometheusMerge: true
+  defaultConfig:
+    proxyMetadata: {}
+    tracing:
+    #      tlsSettings:
+    #        mode: DISABLE # DISABLE, SIMPLE, MUTUAL, ISTIO_MUTUAL
+    #        clientCertificate: # example: /etc/istio/tracer/cert-chain.pem
+    #        privateKey:        # example: /etc/istio/tracer/key.pem
+    #        caCertificates:    # example: /etc/istio/tracer/root-cert.pem
+    #        sni:               # example: tracer.somedomain
+    #        subjectAltNames: []
+    # - tracer.somedomain

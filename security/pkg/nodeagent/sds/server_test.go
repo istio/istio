@@ -26,6 +26,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pkg/security"
+
 	tlsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	sdsv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
@@ -166,7 +168,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	// Create a SDS server talking to the fake servers
 	stsclient.GKEClusterURL = msts.FakeGKEClusterURL
 	stsclient.SecureTokenEndpoint = mockSTSServer.URL + "/v1/identitybindingtoken"
-	arg := Options{
+	arg := security.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Millisecond,
@@ -182,15 +184,15 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 		CaClient:    caClient,
 	}
 
-	workloadSdsCacheOptions := &cache.Options{}
+	workloadSdsCacheOptions := &security.Options{}
 	workloadSdsCacheOptions.TrustDomain = "FakeTrustDomain"
 	workloadSdsCacheOptions.Pkcs8Keys = false
-	workloadSdsCacheOptions.Plugins = NewPlugins([]string{"GoogleTokenExchange"})
+	workloadSdsCacheOptions.TokenExchangers = NewPlugins([]string{"GoogleTokenExchange"})
 	workloadSdsCacheOptions.RotationInterval = 10 * time.Minute
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = 10
-	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, *workloadSdsCacheOptions)
+	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, workloadSdsCacheOptions)
 
-	server, err := NewServer(arg, workloadSecretCache, nil)
+	server, err := NewServer(&arg, workloadSecretCache, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}

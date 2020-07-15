@@ -74,14 +74,23 @@ var (
 		monitoring.WithLabels(typeTag, eventTag),
 	)
 
+	// nolint: gocritic
+	// This is deprecated in favor of `pilot_k8s_endpoints_pending_pod`, which is a gauge indicating the number of
+	// currently missing pods. This helps distinguish transient errors from permanent ones
 	endpointsWithNoPods = monitoring.NewSum(
 		"pilot_k8s_endpoints_with_no_pods",
 		"Endpoints that does not have any corresponding pods.")
+
+	endpointsPendingPodUpdate = monitoring.NewGauge(
+		"pilot_k8s_endpoints_pending_pod",
+		"Number of endpoints that do not currently have any corresponding pods.",
+	)
 )
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
 	monitoring.MustRegister(endpointsWithNoPods)
+	monitoring.MustRegister(endpointsPendingPodUpdate)
 }
 
 func incrementEvent(kind, event string) {
@@ -197,21 +206,20 @@ type Controller struct {
 	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
+	// service instances from workload entries  - map of ip -> service instance
+	foreignRegistryInstancesByIP map[string]*model.ServiceInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
 
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
-
-	// service instances from workload entries  - map of ip -> service instance
-	foreignRegistryInstancesByIP map[string]*model.ServiceInstance
 }
 
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see secretcontroler).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
-	log.Infof("Starting Kubernetes service registry")
+	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
@@ -245,7 +253,20 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
 	registerHandlers(c.nodeInformer, c.queue, "Nodes", reflect.DeepEqual, c.onNodeEvent)
 
-	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods())
+	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods(), func(key string) {
+		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
+		if err != nil {
+			log.Debugf("Endpoint %v lookup failed with error %v, skipping stale endpoint", key, err)
+			return
+		}
+		if !exists {
+			log.Debugf("Endpoint %v not found, skipping stale endpoint", key)
+			return
+		}
+		c.queue.Push(func() error {
+			return c.endpoints.onEvent(item, model.EventUpdate)
+		})
+	})
 	registerHandlers(c.pods.informer, c.queue, "Pods", reflect.DeepEqual, c.pods.onEvent)
 
 	return c
@@ -296,18 +317,18 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 		delete(c.externalNameSvcInstanceMap, svcConv.Hostname)
 		c.Unlock()
 	default:
-		// instance conversion is only required when service is added/updated.
-		instances := kube.ExternalNameServiceInstances(*svc, svcConv)
 		if isNodePortGatewayService(svc) {
 			// We need to know which services are using node selectors because during node events,
 			// we have to update all the node port services accordingly.
-			nodeSelector := getNodeSelectorsForService(*svc)
+			nodeSelector := getNodeSelectorsForService(svc)
 			c.Lock()
 			// only add when it is nodePort gateway service
 			c.nodeSelectorsForServices[svcConv.Hostname] = nodeSelector
 			c.Unlock()
 			c.updateServiceExternalAddr(svcConv)
 		}
+		// instance conversion is only required when service is added/updated.
+		instances := kube.ExternalNameServiceInstances(svc, svcConv)
 		c.Lock()
 		c.servicesMap[svcConv.Hostname] = svcConv
 		if len(instances) > 0 {
@@ -325,7 +346,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 	return nil
 }
 
-func getNodeSelectorsForService(svc v1.Service) labels.Instance {
+func getNodeSelectorsForService(svc *v1.Service) labels.Instance {
 	if nodeSelector := svc.Annotations[kube.NodeSelectorAnnotation]; nodeSelector != "" {
 		var nodeSelectorKV map[string]string
 		if err := json.Unmarshal([]byte(nodeSelector), &nodeSelectorKV); err != nil {
@@ -795,7 +816,7 @@ func (c *Controller) hydrateForeignServiceInstance(si *model.ServiceInstance) ([
 	}
 
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(listerv1.NewServiceLister(c.serviceInformer.GetIndexer()), dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			var service *model.Service
 			c.RLock()
@@ -849,7 +870,7 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.ServiceInstance, ev
 	}
 
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(listerv1.NewServiceLister(c.serviceInformer.GetIndexer()), dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			var service *model.Service
 			c.RLock()

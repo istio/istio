@@ -129,7 +129,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	}
 
 	for _, route := range routes {
-		service := node.SidecarScope.ServiceForHostname(host.Name(route.Destination.Host), push.ServiceByHostnameAndNamespace)
+		service := push.ServiceForHostname(node, host.Name(route.Destination.Host))
 		if route.Weight > 0 {
 			clusterName := istio_route.GetDestinationCluster(route.Destination, service, port.Port)
 			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{
@@ -185,7 +185,7 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
 	port *model.Port, configMeta model.ConfigMeta) []*listener.Filter {
 	if len(routes) == 1 {
-		service := node.SidecarScope.ServiceForHostname(host.Name(routes[0].Destination.Host), push.ServiceByHostnameAndNamespace)
+		service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
 		statPrefix := clusterName
 		// If stat name is configured, build the stat prefix from configured pattern.

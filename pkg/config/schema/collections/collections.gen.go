@@ -407,19 +407,19 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
-	// K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions describes the
-	// collection k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions
-	K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions = collection.Builder{
-		Name:         "k8s/apiextensions.k8s.io/v1beta1/customresourcedefinitions",
-		VariableName: "K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions",
+	// K8SApiextensionsK8SIoV1Customresourcedefinitions describes the
+	// collection k8s/apiextensions.k8s.io/v1/customresourcedefinitions
+	K8SApiextensionsK8SIoV1Customresourcedefinitions = collection.Builder{
+		Name:         "k8s/apiextensions.k8s.io/v1/customresourcedefinitions",
+		VariableName: "K8SApiextensionsK8SIoV1Customresourcedefinitions",
 		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "apiextensions.k8s.io",
 			Kind:          "CustomResourceDefinition",
 			Plural:        "CustomResourceDefinitions",
-			Version:       "v1beta1",
-			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1beta1.CustomResourceDefinition",
-			ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+			Version:       "v1",
+			Proto:         "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition",
+			ProtoPackage:  "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
 		}.MustBuild(),
@@ -1053,7 +1053,7 @@ var (
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
-		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
+		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SConfigIstioIoV1Alpha2Adapters).
 		MustAdd(K8SConfigIstioIoV1Alpha2Attributemanifests).
@@ -1118,7 +1118,7 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
-		MustAdd(K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions).
+		MustAdd(K8SApiextensionsK8SIoV1Customresourcedefinitions).
 		MustAdd(K8SAppsV1Deployments).
 		MustAdd(K8SConfigIstioIoV1Alpha2Adapters).
 		MustAdd(K8SConfigIstioIoV1Alpha2Attributemanifests).

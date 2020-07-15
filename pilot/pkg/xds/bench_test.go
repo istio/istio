@@ -35,18 +35,15 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/plugin"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -351,7 +348,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 				if len(r) == 0 {
 					b.Fatal("Got no routes!")
 				}
-				response = routeDiscoveryResponse(r, "", "", v2.RouteType)
+				response = routeDiscoveryResponse(r, "", "", v3.RouteType)
 			}
 			logDebug(b, response)
 		})
@@ -402,12 +399,10 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 		endpoints int
 		services  int
 	}{
-		{100, 1},
+		{1, 100},
+		{10, 10},
+		{100, 10},
 		{1000, 1},
-		{10000, 1},
-		{100, 100},
-		{1000, 100},
-		{10000, 100},
 	}
 	adsLog.SetOutputLevel(log.WarnLevel)
 	var response interface{}
@@ -425,23 +420,12 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				// This should correlate to pushEds()
-				// TODO directly call pushEeds, but mock/skip the grpc send
-
 				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc))
-
-					if l == nil {
-						continue
-					}
-
-					l = util.CloneClusterLoadAssignment(l)
-
-					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
+					l := s.generateEndpoints(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push, nil)
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v2.EndpointType)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v3.EndpointType)
 			}
 		})
 	}

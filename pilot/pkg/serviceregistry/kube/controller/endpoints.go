@@ -16,6 +16,7 @@ package controller
 
 import (
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -156,6 +157,10 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	return out, nil
 }
 
+func (e *endpointsController) getInformer() cache.SharedIndexInformer {
+	return e.informer
+}
+
 func (e *endpointsController) onEvent(curr interface{}, event model.Event) error {
 	if err := e.c.checkReadyForEvents(); err != nil {
 		return err
@@ -178,33 +183,28 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, curr)
 }
 
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
+	ep := endpoint.(*v1.Endpoints)
+	key := kube.KeyFunc(ep.Name, ep.Namespace)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			e.c.pods.endpointDeleted(key, ea.IP)
+		}
+	}
+}
+
 func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
 	endpoints := make([]*model.IstioEndpoint, 0)
 	ep := endpoint.(*v1.Endpoints)
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			pod := e.c.pods.getPodByIP(ea.IP)
+			pod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
 			if pod == nil {
-				// This means, the endpoint event has arrived before pod event. This might happen because
-				// PodCache is eventually consistent. We should try to get the pod from kube-api server.
-				if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-					pod = e.c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
-					if pod == nil {
-						// If pod is still not available, this an unusual case.
-						endpointsWithNoPods.Increment()
-						log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-						if e.c.metrics != nil {
-							e.c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ea.IP)
-						}
-						continue
-					}
-				}
+				continue
 			}
-
 			builder := NewEndpointBuilder(e.c, pod)
 
-			// EDS and ServiceEntry use name for service port - ADS will need to
-			// map to numbers.
+			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
 			for _, port := range ss.Ports {
 				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
 				endpoints = append(endpoints, istioEndpoint)

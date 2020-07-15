@@ -29,8 +29,9 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
+	"istio.io/istio/pkg/security"
+
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/model"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
 
@@ -235,7 +236,7 @@ func (ms *mockIngressGatewaySecretStore) SecretCacheMiss() int {
 	return ms.secretCacheMiss
 }
 
-func (ms *mockIngressGatewaySecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*model.SecretItem, error) {
+func (ms *mockIngressGatewaySecretStore) GenerateSecret(ctx context.Context, conID, resourceName, token string) (*security.SecretItem, error) {
 	if ms.checkToken && token != fakeToken1 && token != fakeToken2 {
 		return nil, fmt.Errorf("unexpected token %q", token)
 	}
@@ -245,7 +246,7 @@ func (ms *mockIngressGatewaySecretStore) GenerateSecret(ctx context.Context, con
 		ResourceName: resourceName,
 	}
 	if resourceName == testResourceName {
-		s := &model.SecretItem{
+		s := &security.SecretItem{
 			CertificateChain: fakeCertificateChain,
 			PrivateKey:       fakePrivateKey,
 			ResourceName:     testResourceName,
@@ -281,7 +282,7 @@ func (ms *mockIngressGatewaySecretStore) SecretExist(conID, spiffeID, token, ver
 		ms.secretCacheMiss++
 		return false
 	}
-	cs := val.(*model.SecretItem)
+	cs := val.(*security.SecretItem)
 	fmt.Println("key is: ", key, ". Token: ", cs.Token)
 	if spiffeID != cs.ResourceName {
 		fmt.Printf("resource name not match: %s vs %s\n", spiffeID, cs.ResourceName)
@@ -346,7 +347,7 @@ func StartStreamTest(t *testing.T) *StreamSetup {
 }
 
 func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGatewaySecretStore) {
-	arg := Options{
+	arg := security.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
@@ -355,7 +356,7 @@ func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGa
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(arg, st, nil)
+	server, err := NewServer(&arg, st, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}

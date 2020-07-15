@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"io"
 
+	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
 
@@ -41,6 +44,34 @@ func NewComparator(w io.Writer, istiodResponses map[string][]byte, envoyResponse
 		}
 		c.istiod = istiodDump
 		break
+	}
+	if c.istiod == nil {
+		return nil, fmt.Errorf("unable to find config dump in Istiod responses")
+	}
+	envoyDump := &configdump.Wrapper{}
+	err := json.Unmarshal(envoyResponse, envoyDump)
+	if err != nil {
+		return nil, err
+	}
+	c.envoy = envoyDump
+	c.w = w
+	c.context = 7
+	c.location = "Local" // the time.Location for formatting time.Time instances
+	return c, nil
+}
+
+// NewXdsComparator is a comparator constructor
+func NewXdsComparator(w io.Writer, istiodResponses map[string]*xdsapi.DiscoveryResponse, envoyResponse []byte) (*Comparator, error) {
+	c := &Comparator{}
+	for _, resp := range istiodResponses {
+		if len(resp.Resources) > 0 {
+			c.istiod = &configdump.Wrapper{
+				&adminapi.ConfigDump{
+					Configs: resp.Resources,
+				},
+			}
+			break
+		}
 	}
 	if c.istiod == nil {
 		return nil, fmt.Errorf("unable to find config dump in Istiod responses")

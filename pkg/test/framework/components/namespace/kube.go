@@ -44,7 +44,6 @@ var (
 type kubeNamespace struct {
 	id   resource.ID
 	name string
-	env  *kube.Environment
 	ctx  resource.Context
 }
 
@@ -57,7 +56,7 @@ func (n *kubeNamespace) Dump() {
 		return
 	}
 
-	for _, cluster := range n.env.KubeClusters {
+	for _, cluster := range n.ctx.Clusters() {
 		kube2.DumpPods(cluster, d, n.name)
 	}
 }
@@ -82,7 +81,7 @@ func (n *kubeNamespace) Close() (err error) {
 		ns := n.name
 		n.name = ""
 
-		for _, cluster := range n.env.KubeClusters {
+		for _, cluster := range n.ctx.Clusters() {
 			err = cluster.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground())
 		}
 	}
@@ -129,13 +128,12 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	ns := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
 	n := &kubeNamespace{
 		name: ns,
-		env:  ctx.Environment().(*kube.Environment),
 		ctx:  ctx,
 	}
 	id := ctx.TrackResource(n)
 	n.id = id
 
-	for _, cluster := range n.env.KubeClusters {
+	for _, cluster := range n.ctx.Clusters() {
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:   ns,
