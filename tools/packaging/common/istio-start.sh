@@ -18,7 +18,7 @@
 #
 # Script to configure and start the Istio sidecar.
 
-set -e
+set -ex
 
 # Match pilot/docker/Dockerfile.proxyv2
 export ISTIO_META_ISTIO_VERSION="1.7.0"
@@ -38,6 +38,9 @@ if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
   . "$ISTIO_CLUSTER_CONFIG"
 fi
 set +a
+env
+cat /var/lib/istio/envoy/cluster.env
+cat /var/lib/istio/envoy/sidecar.env
 
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
