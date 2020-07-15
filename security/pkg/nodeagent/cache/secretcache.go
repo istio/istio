@@ -18,6 +18,7 @@ package cache
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -236,7 +237,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
-		ns, err := sc.generateSecret(ctx, token, connKey, time.Now(), true)
+		ns, err := sc.generateSecret(ctx, token, connKey, time.Now())
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
 				logPrefix, err)
@@ -582,17 +583,14 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
-			// withToken indicates whether we use the token in our CSR request
-			withToken := true
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 
-			// if user provides a PROV_CERT Directory Path for client to extract path
+			// if user provides a PROV_CERT Directory Path for client to extract certs from path
 			// we will use cert to provide authentication and not use a token in that case
 			// and reset the connection to use the previously rotated cert to do mtls
 			// otherwise we will first check whether the token is expired or not
 			if sc.secOpts.ProvCert != "" {
-				withToken = false
-				err := sc.fetcher.ReconnectCaClient.Reconnect()
+				err := sc.fetcher.CaClientCloser.Close()
 				if err != nil {
 					cacheLog.Errorf("%s failed to Reconnect", logPrefix)
 					// Send the notification to close the stream if reconnection fails,
@@ -614,9 +612,9 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				cacheLog.Debugf("%s token is still valid, reuse token to generate key/cert", logPrefix)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
-				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
+				// Most likely this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
-				ns, err := sc.generateSecret(context.Background(), secret.Token, connKey, now, withToken)
+				ns, err := sc.generateSecret(context.Background(), secret.Token, connKey, now)
 				if err != nil {
 					cacheLog.Errorf("%s failed to rotate secret: %v", logPrefix, err)
 					return
@@ -831,7 +829,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 	return sdsFromFile, nil, nil
 }
 
-func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time, withToken bool) (*security.SecretItem, error) {
+func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey ConnKey, t time.Time) (*security.SecretItem, error) {
 	// If node agent works as gateway agent, searches for kubernetes secret instead of sending
 	// CSR to CA.
 	if !sc.fetcher.UseCaClient {
@@ -874,7 +872,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	numOutgoingRequests.With(RequestType.Value(CSR)).Increment()
 	timeBeforeCSR := time.Now()
-	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true, withToken)
+	certChainPEM, err := sc.sendRetriableRequest(ctx, csrPEM, exchangedToken, connKey, true)
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(CSR)).Record(csrLatency)
 	if err != nil {
@@ -957,7 +955,7 @@ func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
 // sendRetriableRequest sends retriable requests for either CSR or ExchangeToken.
 // Prior to sending the request, it also sleep random millisecond to avoid thundering herd problem.
 func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
-	providedExchangedToken string, connKey ConnKey, isCSR bool, withToken bool) ([]string, error) {
+	providedExchangedToken string, connKey ConnKey, isCSR bool) ([]string, error) {
 
 	if sc.configOptions.InitialBackoffInMilliSec > 0 {
 		sc.randMutex.Lock()
@@ -984,7 +982,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		var httpRespCode int
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
-			if !withToken {
+			if err = sc.certExists(); err != nil {
 				// if CSR request is without token, set the token to empty
 				exchangedToken = ""
 			}
@@ -1044,11 +1042,19 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 		return "", fmt.Errorf("found more than one plugin")
 	}
 	exchangedTokens, err := sc.sendRetriableRequest(ctx, nil, k8sJwtToken,
-		ConnKey{ConnectionID: "", ResourceName: ""}, false, true)
+		ConnKey{ConnectionID: "", ResourceName: ""}, false)
 	if err != nil || len(exchangedTokens) == 0 {
 		cacheLog.Errorf("Failed to exchange token for %s: %v", logPrefix, err)
 		return "", err
 	}
 	cacheLog.Debugf("Token exchange succeeded for %s", logPrefix)
 	return exchangedTokens[0], nil
+}
+
+func (sc *SecretCache) certExists() error {
+	_, err := tls.LoadX509KeyPair(sc.secOpts.ProvCert+"/cert-chain.pem", sc.secOpts.ProvCert+"/key.pem")
+	if err != nil {
+		return fmt.Errorf("cannot load key pair: %s", err)
+	}
+	return nil
 }

@@ -46,8 +46,8 @@ type googleCAClient struct {
 	client     gcapb.MeshCertificateServiceClient
 }
 
-// NewGoogleCAClient create a CA client for Google CA.
-func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.ReconnectClient, error) {
+// NewGoogleCAClient create a CA client, and a CA Client Closer for Google client
+func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.Closer, error) {
 	c := &googleCAClient{
 		caEndpoint: endpoint,
 		enableTLS:  tls,
@@ -126,7 +126,7 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(creds), nil
 }
 
-func (cl *googleCAClient) Reconnect() error {
+func (cl *googleCAClient) Close() error {
 	// TODO: add a reconnection logic here
 	return nil
 }

@@ -54,11 +54,10 @@ type citadelClient struct {
 	caTLSRootCert []byte
 	client        pb.IstioCertificateServiceClient
 	clusterID     string
-	conn          *grpc.ClientConn
 }
 
-// NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, security.ReconnectClient, error) {
+// NewCitadelClient create a CA client, and a CA Client Closer for citadel client
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, security.Closer, error) {
 	c := &citadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
@@ -71,7 +70,6 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
-	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return c, c, nil
 }
@@ -151,24 +149,8 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
-func (c *citadelClient) Reconnect() error {
-	err := c.releaseResource()
-	if err != nil {
-		return fmt.Errorf("failed to close connection")
-	}
-
-	conn, err := c.buildConnection()
-	if err != nil {
-		return err
-	}
-	c.conn = conn
-	c.client = pb.NewIstioCertificateServiceClient(conn)
-	return err
-}
-
-func (c *citadelClient) releaseResource() error {
-	err := c.conn.Close()
-	return err
+func (c *citadelClient) Close() error {
+	return c.client.Close()
 }
 
 func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
