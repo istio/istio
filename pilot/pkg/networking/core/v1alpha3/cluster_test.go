@@ -3138,6 +3138,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
@@ -3203,6 +3204,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
@@ -3265,6 +3267,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
@@ -3353,6 +3356,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
