@@ -54,6 +54,7 @@ type citadelClient struct {
 	caTLSRootCert []byte
 	client        pb.IstioCertificateServiceClient
 	clusterID     string
+	conn 					*grpc.ClientConn
 }
 
 // NewCitadelClient create a CA client for Citadel.
@@ -70,6 +71,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
+	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return c, nil
 }
@@ -86,7 +88,11 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		token = bearerTokenPrefix + token
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
 	} else {
-		c.client.Close()
+		err := c.reconnect()
+		if err != nil {
+			citadelClientLog.Errorf("Failed to Reconnect: %v", err)
+			return nil, err
+		}
 	}
 
 	resp, err := c.client.CreateCertificate(ctx, req)
@@ -176,4 +182,24 @@ func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
+}
+
+func (c *citadelClient) reconnect() error {
+	err := c.releaseResource()
+	if err != nil {
+		return fmt.Errorf("failed to close connection")
+	}
+
+	conn, err := c.buildConnection()
+	if err != nil {
+		return err
+	}
+	c.conn = conn
+	c.client = pb.NewIstioCertificateServiceClient(conn)
+	return err
+}
+
+func (c *citadelClient) releaseResource() error {
+	err := c.conn.Close()
+	return err
 }

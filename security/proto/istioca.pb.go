@@ -271,9 +271,6 @@ const _ = grpc.SupportPackageIsVersion4
 type IstioCertificateServiceClient interface {
 	// Using provided CSR, returns a signed certificate.
 	CreateCertificate(ctx context.Context, in *IstioCertificateRequest, opts ...grpc.CallOption) (*IstioCertificateResponse, error)
-
-	// close the connection
-	Close() error
 }
 
 type istioCertificateServiceClient struct {
@@ -291,10 +288,6 @@ func (c *istioCertificateServiceClient) CreateCertificate(ctx context.Context, i
 		return nil, err
 	}
 	return out, nil
-}
-
-func(c *istioCertificateServiceClient) Close() error {
-	return c.cc.Close()
 }
 
 // IstioCertificateServiceServer is the server API for IstioCertificateService service.
