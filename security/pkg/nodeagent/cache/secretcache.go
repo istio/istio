@@ -236,7 +236,7 @@ func (sc *SecretCache) GenerateSecret(ctx context.Context, connectionID, resourc
 		// If working as Citadel agent, send request for normal key/cert pair.
 		// If working as ingress gateway agent, fetch key/cert or root cert from SecretFetcher. Resource name for
 		// root cert ends with "-cacert".
-		ns, err := sc.generateSecret(ctx, token, connKey, time.Now())
+		ns, err := sc.generateSecret(ctx, token, connKey, time.Now(), true)
 		if err != nil {
 			cacheLog.Errorf("%s failed to generate secret for proxy: %v",
 				logPrefix, err)
@@ -582,15 +582,29 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
+			// withToken indicates whether we use the token in our CSR request
+			withToken := true
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) {
+			if sc.secOpts.ProvCert != "" {
+				if sc.configOptions.OutputKeyCertToDir == sc.secOpts.ProvCert{
+					withToken = false
+					// the output key cert directory is the same as the ProvCert directory
+					// It is a short-lived cert case
+					// which means the user hopes to use the short-lived cert rotate
+				} else {
+					// It is a long-lived cert case
+					// The prov cert dir is provided and the output key cert directory is not the same
+
+				}
+			} else if sc.isTokenExpired(&secret) {
 				cacheLog.Debugf("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				// requiring the client to send another SDS request.
 				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 				return true
 			}
+
 
 			wg.Add(1)
 			go func() {
@@ -600,7 +614,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
-				ns, err := sc.generateSecret(context.Background(), secret.Token, connKey, now)
+				ns, err := sc.generateSecret(context.Background(), secret.Token, connKey, now, withToken)
 				if err != nil {
 					cacheLog.Errorf("%s failed to rotate secret: %v", logPrefix, err)
 					return
