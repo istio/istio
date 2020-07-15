@@ -352,6 +352,7 @@ spec:
         tls:
           mode: {{.Mode}}
           credentialName: {{.CredentialName}}
+          sni: server.{{.ServerNamespace}}.svc.cluster.local
 `
 )
 

@@ -17,16 +17,13 @@ package sdstlsorigination
 import (
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/namespace"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
 var (
-	inst             istio.Instance
-	ingressNamespace namespace.Instance
+	inst istio.Instance
 )
 
 func TestMain(m *testing.M) {

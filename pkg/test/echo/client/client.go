@@ -57,7 +57,7 @@ func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 		var cfg credentials.TransportCredentials
 		if tlsSettings.VerifyClientCert {
 			cfg = credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool,
-				ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: certPool, InsecureSkipVerify: false })
+				ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: certPool})
 		} else {
 			cfg = credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
 		}
