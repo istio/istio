@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/mixer/pkg/server"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const (
@@ -40,8 +39,6 @@ const (
 type client struct {
 	// Indicates that the component is running in local mode.
 	local bool
-
-	env resource.Environment
 
 	conns      []*grpc.ClientConn
 	clients    map[string]istioMixerV1.MixerClient

@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // TypeURL for making discovery requests.
@@ -58,11 +57,7 @@ type Config struct {
 
 // New returns a new instance of echo.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, cfg)
-	})
-	return
+	return newKube(ctx, cfg)
 }
 
 // NewOrFail returns a new Pilot instance, or fails test.

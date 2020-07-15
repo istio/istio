@@ -32,7 +32,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -410,20 +409,11 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 	}
 	ii := model.MakeIstioStore(l)
 	mesh := mesh.DefaultMeshConfig()
-	svc := model.Service{
-		Hostname: "svc.ns3",
-		Attributes: model.ServiceAttributes{
-			Name:      "svc",
-			Namespace: ns,
-			UID:       "istio://ns3/services/svc",
-		},
-	}
 	cases := []struct {
-		serviceByHostnameAndNamespace map[host.Name]map[string]*model.Service
-		push                          *model.PushContext
-		node                          *model.Proxy
-		httpRoute                     *route.Route
-		quotaSpec                     []*mccpb.QuotaSpec
+		push      *model.PushContext
+		node      *model.Proxy
+		httpRoute *route.Route
+		quotaSpec []*mccpb.QuotaSpec
 	}{
 		{
 			push: &model.PushContext{
@@ -440,11 +430,6 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
 				}}},
-			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-				host.Name("svc.ns3"): {
-					"ns3": &svc,
-				},
-			},
 			quotaSpec: []*mccpb.QuotaSpec{{
 				Rules: []*mccpb.QuotaRule{{Quotas: []*mccpb.Quota{{Quota: "requestcount", Charge: 100}}}},
 			}},
@@ -464,22 +449,15 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
 				}}},
-			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-				host.Name("a.ns3"): {
-					"ns3": &svc,
-				},
-			},
 		},
 	}
 	for _, c := range cases {
-		push := &model.PushContext{
-			ServiceByHostnameAndNamespace: c.serviceByHostnameAndNamespace,
-		}
+		c.node.SetSidecarScope(c.push)
 		in := plugin.InputParams{
 			Push: c.push,
 			Node: c.node,
 		}
-		tc := modifyOutboundRouteConfig(push, &in, "", c.httpRoute)
+		tc := modifyOutboundRouteConfig(&in, "", c.httpRoute)
 
 		mixerSvcConfigAny := tc.TypedPerFilterConfig["mixer"]
 		mixerSvcConfig := &mccpb.ServiceConfig{}
