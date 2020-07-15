@@ -136,6 +136,9 @@ data:
         source_labels:
         - __meta_kubernetes_pod_node_name
         target_label: kubernetes_node
+      file_sd_configs:
+      - files:
+        - /etc/config/file_sd_config.json
     - job_name: kubernetes-service-endpoints-slow
       kubernetes_sd_configs:
       - role: endpoints

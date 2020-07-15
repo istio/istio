@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/tests/integration/pilot/vm"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -116,8 +118,11 @@ func TestSetup(ctx resource.Context) (err error) {
 					Name:         "http",
 					Protocol:     protocol.HTTP,
 					InstancePort: 8090,
+					ServicePort:  8090,
 				},
 			},
+			DeployAsVM: true,
+			VMImage:    vm.DefaultVMImage,
 		}).
 		Build()
 	if err != nil {

@@ -166,6 +166,8 @@ spec:
           volumeMounts:
           - name: config-volume
             mountPath: /etc/istio/config
+          - name: prom-config
+            mountPath: /etc/config
           {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
           - name: istio-token
             mountPath: /var/run/secrets/tokens
@@ -189,6 +191,10 @@ spec:
       - emptyDir:
           medium: Memory
         name: local-certs
+      - name: prom-config
+        hostPath:
+          path: /etc/config
+          type: DirectoryOrCreate
       {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:

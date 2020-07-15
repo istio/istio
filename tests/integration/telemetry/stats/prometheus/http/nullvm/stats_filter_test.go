@@ -37,7 +37,13 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(common.GetIstioInstance(), nil)).
+		Setup(istio.Setup(common.GetIstioInstance(), func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true`
+		})).
 		Setup(common.TestSetup).
 		Run()
 }

@@ -16,9 +16,11 @@ package kube
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -60,6 +62,11 @@ type instance struct {
 	ctx       resource.Context
 	tls       *echoCommon.TLSSettings
 	cluster   resource.Cluster
+}
+
+type staticConfig struct {
+	targets []string
+	labels  map[string]string
 }
 
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
@@ -168,6 +175,12 @@ spec:
 			// Deploy the workload entry.
 			if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
 				return nil, fmt.Errorf("failed deploying workload entry: %v", err)
+			}
+
+			// Write Workload Entry Endpoints to the file_sd_config map to be collected by Prometheus
+			if err = updateWorkloadEndpoint(vmPod.Name, vmPod.Status.PodIP, cfg.Service,
+				vmPod.Labels["istio.io/test-vm-version"]); err != nil {
+				return nil, fmt.Errorf("failed writing workload enpoints: %v", err)
 			}
 		}
 	}
@@ -311,6 +324,34 @@ func workloadHasSidecar(cfg echo.Config, podName string) bool {
 		}
 	}
 	return true
+}
+
+// Update the workload endpoint to the config map created by `Istiod`.
+// External workloads have no endpoint registered in k8s, so the traffic sent to these non-k8s workloads
+// won't be picked up by Prometheus. We update the workload entries' endpoints to a config map so that
+// Prometheus could mount the map and read the endpoints.
+func updateWorkloadEndpoint(name, endpoint, service, version string) error {
+	filePath := "/etc/config/file_sd_config.json"
+	file, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	var sdConfig []interface{}
+	_ = json.Unmarshal(file, &sdConfig)
+
+	sdConfig = append(sdConfig, staticConfig{
+		targets: []string{endpoint},
+		labels: map[string]string{
+			"name":    name,
+			"app":     service,
+			"version": version,
+		},
+	})
+	sdConfigJson, _ := json.Marshal(sdConfig)
+	if err := ioutil.WriteFile(filePath, sdConfigJson, 0666); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *instance) initialize(pods []kubeCore.Pod) error {

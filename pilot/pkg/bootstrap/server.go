@@ -273,6 +273,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing discovery service: %v", err)
 	}
+	if err := s.createPromSDConfigMap(); err != nil {
+		return nil, fmt.Errorf("error creating prometheus service discovery config map: %v", err)
+	}
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
@@ -322,7 +325,7 @@ func getClusterID(args *PilotArgs) string {
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
-	log.Infof("Staring Istiod Server with primary cluster %s", s.clusterID)
+	log.Infof("Starting Istiod Server with primary cluster %s", s.clusterID)
 
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
@@ -1066,7 +1069,7 @@ func (s *Server) maybeCreateCA(caOpts *CAOptions) error {
 func (s *Server) startCA(caOpts *CAOptions) {
 	if s.CA != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
-			log.Infof("staring CA")
+			log.Infof("starting CA")
 			s.RunCA(s.secureGrpcServer, s.CA, caOpts)
 			return nil
 		})
@@ -1097,4 +1100,14 @@ func (s *Server) initMeshHandlers() {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
+}
+
+func (s *Server) createPromSDConfigMap() error {
+	log.Info("creating prometheus service discovery config map")
+	filePath := "/etc/config/file_sd_config.json"
+	if err := ioutil.WriteFile(filePath, []byte{}, 0666); err != nil {
+		return err
+	}
+	log.Infof("created prometheus service discovery config map at %v", filePath)
+	return nil
 }

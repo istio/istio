@@ -321,7 +321,7 @@ func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string
 
 func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 	cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
-	// Convert legacy config to workload oritended.
+	// Convert legacy config to workload oriented.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
 			{
