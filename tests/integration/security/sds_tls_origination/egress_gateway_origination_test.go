@@ -47,10 +47,10 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			)
 
 			var credentialA = sdstlsutil.TLSCredential{
-				CaCert: sdstlsutil.RootCertA,
+				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			var CredentialB = sdstlsutil.TLSCredential{
-				CaCert: sdstlsutil.RootCertB,
+				CaCert: sdstlsutil.FakeRoot,
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "SIMPLE", credentialA, false)
@@ -60,7 +60,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "SIMPLE", CredentialB, false)
 			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, false)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
@@ -152,27 +152,27 @@ func TestMutualTlsOrigination(t *testing.T) {
 			)
 
 			var credentialAGeneric = sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.ClientCertA,
-				PrivateKey: sdstlsutil.ClientKeyA,
-				CaCert:     sdstlsutil.RootCertA,
+				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
+				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
+				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 
 			var credentialANonGeneric = sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.ClientCertA,
-				PrivateKey: sdstlsutil.ClientKeyA,
-				CaCert:     sdstlsutil.RootCertA,
+				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
+				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
+				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Configured with an invalid ClientCert
 			var credentialBCert = sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.ClientCertB,
-				PrivateKey: sdstlsutil.ClientKeyA,
-				CaCert:     sdstlsutil.RootCertA,
+				ClientCert: sdstlsutil.FakeCert,
+				PrivateKey: sdstlsutil.MustReadCert(t, "key.pem"),
+				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Configured with an invalid ClientCert and PrivateKey
 			var credentialBCertAndKey = sdstlsutil.TLSCredential{
-				ClientCert: sdstlsutil.ClientCertB,
-				PrivateKey: sdstlsutil.ClientKeyB,
-				CaCert:     sdstlsutil.RootCertA,
+				ClientCert: sdstlsutil.FakeCert,
+				PrivateKey: sdstlsutil.FakeKey,
+				CaCert:     sdstlsutil.MustReadCert(t, "root-cert.pem"),
 			}
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
@@ -187,7 +187,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
 			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, true)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
@@ -226,7 +226,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA
 				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				"MUTUAL TLS with correct root cert but invalid client cert and private key": {
-					response:        []string{response.StatusCodeOK},
+					response:        []string{response.StatusCodeUnavailable},
 					credentialToUse: strings.TrimSuffix(fakeCredNameB, "-cacert"),
 					gateway:         false,
 				},

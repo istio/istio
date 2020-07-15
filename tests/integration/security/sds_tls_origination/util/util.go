@@ -179,7 +179,7 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 // SetupEcho creates two namespaces client and server. It also brings up two echo instances server and
 // client in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
+func SetupEcho(t *testing.T, ctx resource.Context, verifyClientCert bool) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	clientNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "client",
 		Inject: true,
@@ -222,11 +222,12 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			// Set up TLS certs on the server. This will make the server listen with these credentials.
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image
-				RootCert:   RootCertA,
-				ClientCert: ServerCert,
-				Key:        ServerKey,
+				RootCert:   MustReadCert(t, "root-cert.pem"),
+				ClientCert: MustReadCert(t, "cert-chain.pem"),
+				Key:        MustReadCert(t, "key.pem"),
 				// Override hostname to match the SAN in the cert we are using
-				Hostname: "server.default.svc",
+				Hostname:         "server.default.svc",
+				VerifyClientCert: verifyClientCert,
 			},
 			Subsets: []echo.SubsetConfig{{
 				Version:     "v1",
