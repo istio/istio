@@ -43,6 +43,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			var (
 				credName     = "tls-credential-cacert"
 				fakeCredName = "fake-tls-credential-cacert"
+				credNameMissing = "tls-credential-not-created-cacert"
 			)
 
 			var credentialA = sdstlsutil.TLSCredential{
@@ -81,6 +82,14 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				"Simple TLS with Fake Root Cert": {
 					response:        []string{response.StatusCodeUnavailable},
 					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
+					gateway:         false,
+				},
+
+				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
+				// Secret fetching error at Gateway, results in a 400 response.
+				"Simple TLS with credentialName set when the underlying secret doesn't exist": {
+					response:        []string{response.StatusCodeBadRequest},
+					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					gateway:         false,
 				},
 			}
