@@ -222,9 +222,9 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 			// Set up TLS certs on the server. This will make the server listen with these credentials.
 			TLSSettings: &common.TLSSettings{
 				// Echo has these test certs baked into the docker image
-				RootCert:   MustReadCert(t, "root-cert.pem"),
-				ClientCert: MustReadCert(t, "cert-chain.pem"),
-				Key:        MustReadCert(t, "key.pem"),
+				RootCert:   RootCertA,
+				ClientCert: ServerCert,
+				Key:        ServerKey,
 				// Override hostname to match the SAN in the cert we are using
 				Hostname: "server.default.svc",
 			},
