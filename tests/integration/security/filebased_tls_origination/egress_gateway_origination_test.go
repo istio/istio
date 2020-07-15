@@ -188,6 +188,7 @@ spec:
         tls:
           mode: {{.Mode}}
           caCertificates: {{.RootCertPath}}
+          sni: server.default.svc
 
 `
 	// Destination Rule configs
@@ -204,6 +205,7 @@ spec:
           number: 443
         tls:
           mode: {{.Mode}}
+          sni: server.default.svc
 
 `
 	DestinationRuleConfigMutual = `
@@ -222,6 +224,7 @@ spec:
           clientCertificate: /etc/certs/custom/cert-chain.pem
           privateKey: /etc/certs/custom/key.pem
           caCertificates: {{.RootCertPath}}
+          sni: server.default.svc
 `
 )
 
