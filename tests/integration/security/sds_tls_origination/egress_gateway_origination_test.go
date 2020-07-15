@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/retry"
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 )
@@ -40,7 +39,6 @@ func TestSimpleTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.tls.sds").
 		Run(func(ctx framework.TestContext) {
-			ctx.RequireOrSkip(environment.Kube)
 
 			var (
 				credName        = "tls-credential-cacert"
@@ -143,7 +141,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.egress.mtls.sds").
 		Run(func(ctx framework.TestContext) {
-			ctx.RequireOrSkip(environment.Kube)
 
 			var (
 				credNameGeneric    = "mtls-credential-generic"
