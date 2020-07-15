@@ -342,17 +342,12 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
 	failurePolicy := kubeApiAdmission.Ignore
-	if c.o.RemoteWebhookConfig {
+	ready, err := c.readyForFailClose()
+	if err != nil {
+		return err
+	}
+	if ready {
 		failurePolicy = kubeApiAdmission.Fail
-	} else {
-		ready, err := c.readyForFailClose()
-		if err != nil {
-			return err
-		}
-
-		if ready {
-			failurePolicy = kubeApiAdmission.Fail
-		}
 	}
 	caBundle, err := c.loadCABundle()
 	if err != nil {
@@ -365,21 +360,6 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 }
 
 func (c *Controller) readyForFailClose() (bool, error) {
-	// don't create the webhook config before the endpoint is ready
-	if !c.endpointReadyOnce {
-		ready, reason, err := c.isEndpointReady()
-		if err != nil {
-			scope.Errorf("Error checking endpoint readiness: %v", err)
-			return false, err
-		}
-		if !ready {
-			scope.Infof("Endpoint %v is not ready: %v", c.o.ServiceName, reason)
-			return false, nil
-		}
-		scope.Infof("Endpoint %v is not ready", c.o.ServiceName)
-		c.endpointReadyOnce = true
-	}
-
 	if !c.dryRunOfInvalidConfigRejected {
 		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
 			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
@@ -391,18 +371,6 @@ func (c *Controller) readyForFailClose() (bool, error) {
 		c.dryRunOfInvalidConfigRejected = true
 	}
 	return true, nil
-}
-
-func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
-	endpoint, err := c.endpointsInformer.Lister().Endpoints(c.o.WatchedNamespace).Get(c.o.ServiceName)
-	if err != nil {
-		if kubeErrors.IsNotFound(err) {
-			return false, "resource not found", nil
-		}
-		return false, fmt.Sprintf("error getting resource: %v", err), err
-	}
-	ready, reason = isEndpointReady(endpoint)
-	return ready, reason, nil
 }
 
 const (
@@ -438,18 +406,6 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 		return true, ""
 	}
 	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
-}
-
-func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {
-	if len(endpoint.Subsets) == 0 {
-		return false, "no subsets"
-	}
-	for _, subset := range endpoint.Subsets {
-		if len(subset.Addresses) > 0 {
-			return true, ""
-		}
-	}
-	return false, "no subset addresses ready"
 }
 
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
