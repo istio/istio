@@ -192,12 +192,16 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 
 // DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
 // If purge option is set to true, all manifests would be removed regardless of labels match.
-func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.ManifestMap, revision string, purge bool) error {
+func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.ManifestMap,
+	revision string, includeClusterResources bool) error {
 	labels := map[string]string{
 		label.IstioRev:   revision,
 		operatorLabelStr: operatorReconcileStr,
 	}
 	for cn, mf := range manifestMap.Consolidated() {
+		if cn == string(name.IstioBaseComponentName) && !includeClusterResources {
+			continue
+		}
 		objects, err := object.ParseK8sObjectsFromYAMLManifest(mf)
 		if err != nil {
 			return fmt.Errorf("failed to parse k8s objects from yaml: %v", err)
@@ -220,7 +224,7 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 			}
 			unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
 		}
-		if err := h.deleteResources(nil, labels, cn, &unstructuredObjects, purge); err != nil {
+		if err := h.deleteResources(nil, labels, cn, &unstructuredObjects, includeClusterResources); err != nil {
 			return fmt.Errorf("failed to delete resources: %v", err)
 		}
 	}
