@@ -57,7 +57,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "SIMPLE", fakeCredentialA, false)
 			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, p)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
