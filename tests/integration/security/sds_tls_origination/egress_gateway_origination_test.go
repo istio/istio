@@ -86,9 +86,9 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				},
 
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
-				// Secret fetching error at Gateway, results in a 400 response.
+				// Secret fetching error at Gateway, results in a 503 response.
 				"Simple TLS with credentialName set when the underlying secret doesn't exist": {
-					response:        []string{response.StatusCodeBadRequest},
+					response:        []string{response.StatusCodeUnavailable},
 					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					gateway:         false,
 				},
@@ -186,7 +186,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, true)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, false)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
@@ -231,9 +231,9 @@ func TestMutualTlsOrigination(t *testing.T) {
 				},
 
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
-				// Secret fetching error at Gateway, results in a 400 response.
+				// Secret fetching error at Gateway, results in a 503 response.
 				"MUTUAL TLS with credentialName set when the underlying secret doesn't exist": {
-					response:        []string{response.StatusCodeBadRequest},
+					response:        []string{response.StatusCodeUnavailable},
 					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					gateway:         false,
 				},
