@@ -234,6 +234,7 @@ spec:
         - bash
         - -c
         - |-
+          set -ex
           # Capture all inbound and outbound traffic
           sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_INBOUND_PORTS=* > /var/lib/istio/envoy/cluster.env'
