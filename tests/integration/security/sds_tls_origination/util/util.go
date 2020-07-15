@@ -133,8 +133,8 @@ func DeleteKubeSecret(t test.Failer, ctx framework.TestContext, credNames []stri
 	}
 }
 
-// createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
-// For mTLS ingress gateway, createSecret adds ca certificate into the secret object.
+// createSecret creates a kubernetes secret which stores CA cert for SIMPLE TLS.
+// For mTLS ingress gateway, createSecret adds client cert and key into the secret object.
 func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotGeneric bool) *v1.Secret {
 	if credentialType == "MUTUAL" {
 		if isNotGeneric {
@@ -176,10 +176,8 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 	}
 }
 
-// SetupEcho creates two namespaces app and service. It also brings up two echo instances server and
-// client in app namespace. HTTP and HTTPS port on the server echo are set up. Sidecar scope config
-// is applied to only allow egress traffic to service namespace such that when client to server calls are made
-// we are able to simulate "external" traffic by going outside this namespace. Egress Gateway is set up in the
+// SetupEcho creates two namespaces client and server. It also brings up two echo instances server and
+// client in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
 func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	clientNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
@@ -319,11 +317,9 @@ spec:
 `
 )
 
-// We want to test "external" traffic. To do this without actually hitting an external endpoint,
-// we can import only the service namespace, so the apps are not known.
-// If some service(client) in appNamespace wants to call another service in appNamespace(server) it cannot
-// directly call it as sidecarscope only allows traffic to serviceNamespace, Gateway in serviceNamespace
-// then comes into action and receives this "outgoing" traffic to only route it back into appNamespace(server)
+// We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
+// routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
+// TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
 func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
 	tmpl, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
@@ -358,6 +354,7 @@ spec:
 `
 )
 
+// Create the DestinationRule for TLS origination at Gateway by reading secret in istio-system namespace.
 func CreateDestinationRule(t *testing.T, serverNamespace namespace.Instance,
 	destinationRuleMode string, credentialName string) bytes.Buffer {
 	var destinationRuleToParse string

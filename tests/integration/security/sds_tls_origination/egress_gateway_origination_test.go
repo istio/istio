@@ -65,13 +65,17 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			testCases := map[string]struct {
 				response        []string
 				credentialToUse string
-				gateway         bool
+				gateway         bool // true if the request is expected to be routed through gateway
 			}{
+				// Use CA certificate stored as k8s secret with the same issuing CA as server's CA.
+				// This root certificate can validate the server cert presented by the echoboot server instance.
 				"Simple TLS with Correct Root Cert": {
 					response:        []string{response.StatusCodeOK},
 					credentialToUse: strings.TrimSuffix(credName, "-cacert"),
 					gateway:         true,
 				},
+				// Use CA certificate stored as k8s secret with different issuing CA as server's CA.
+				// This root certificate cannot validate the server cert presented by the echoboot server instance.
 				"Simple TLS with Fake Root Cert": {
 					response:        []string{response.StatusCodeUnavailable},
 					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
