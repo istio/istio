@@ -93,6 +93,11 @@ func (c *VaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, 
 	return certChain, nil
 }
 
+func (cl * VaultClient)Reconnect() error {
+	// TODO: add a reconnection logic here
+	return nil
+}
+
 // createVaultClient creates a client to a Vault server
 // vaultAddr: the address of the Vault server (e.g., "http://127.0.0.1:8200").
 func createVaultClient(vaultAddr string) (*api.Client, error) {

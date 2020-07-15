@@ -39,10 +39,6 @@ import (
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
 
-	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
-	google "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	vault "istio.io/istio/security/pkg/nodeagent/caclient/providers/vault"
-
 	"github.com/google/uuid"
 )
 
@@ -596,31 +592,13 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			// otherwise we will first check whether the token is expired or not
 			if sc.secOpts.ProvCert != "" {
 				withToken = false
-				// reconnect the fetch client to use the rotated cert
-				switch sc.fetcher.CaClient.(type) {
-					case *citadel.CitadelClient:
-						citadelClient := sc.fetcher.CaClient.(*citadel.CitadelClient)
-						err := citadelClient.Reconnect()
-						if err != nil {
-							cacheLog.Errorf("%s Connection Reset fails", logPrefix)
-							// Send the notification to close the stream if reconnection fails, so that client could re-connect with a new token.
-							sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-							return true
-						}
-					case *google.GoogleCAClient:
-						// TODO(myidpt): Reset ClientConnection in googleCA cases to do mtls verification
-						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-						return true
-				  case *vault.VaultClient:
-						// TODO(myidpt): Reset ClientConnection in Vault cases to do mtls verification
-						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				  	return true
-					default:
-						cacheLog.Debugf("%s token expired", logPrefix)
-						// TODO(myidpt):Not Support client found
-						// requiring the client to send another SDS request.
-						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-						return true
+				err := sc.fetcher.ReconnectCaClient.Reconnect()
+				if err != nil {
+					cacheLog.Errorf("%s failed to Reconnect", logPrefix)
+					// Send the notification to close the stream if reconnection fails,
+					// requiring the client to send another SDS request.
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
 				}
 			} else if sc.isTokenExpired(&secret) {
 				cacheLog.Debugf("%s token expired", logPrefix)

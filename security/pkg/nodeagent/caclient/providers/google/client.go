@@ -47,7 +47,7 @@ type GoogleCAClient struct {
 }
 
 // NewGoogleCAClient create a CA client for Google CA.
-func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
+func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.ReconnectClient, error) {
 	c := &GoogleCAClient{
 		caEndpoint: endpoint,
 		enableTLS:  tls,
@@ -58,7 +58,7 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 	if tls {
 		opts, err = c.getTLSDialOption()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		opts = grpc.WithInsecure()
@@ -69,11 +69,11 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 	conn, err := grpc.Dial(endpoint, opts)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
+		return nil, nil ,fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
 	c.client = gcapb.NewMeshCertificateServiceClient(conn)
-	return c, nil
+	return c, c ,nil
 }
 
 // CSR Sign calls Google CA to sign a CSR.
@@ -124,6 +124,11 @@ func (cl *GoogleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	}
 	creds := credentials.NewClientTLSFromCert(pool, "")
 	return grpc.WithTransportCredentials(creds), nil
+}
+
+func (cl * GoogleCAClient)Reconnect() error {
+	// TODO: add a reconnection logic here
+	return nil
 }
 
 func parseZone(clusterURL string) string {

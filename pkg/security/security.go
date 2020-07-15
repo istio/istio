@@ -179,6 +179,12 @@ type Client interface {
 		certValidTTLInSec int64) ([]string /*PEM-encoded certificate chain*/, error)
 }
 
+// ReconnectClient interface defines the clients need to implement a reconnect function
+// which can be used in reconnect failed connection and reconenct using the rotate cert
+// to do mtls
+type ReconnectClient interface {
+	Reconnect() error
+}
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.

@@ -83,6 +83,8 @@ type SecretFetcher struct {
 	UseCaClient bool
 	CaClient    security.Client
 
+	ReconnectCaClient security.ReconnectClient
+
 	// Controller and store for secret objects.
 	scrtController cache.Controller
 	scrtStore      cache.Store

@@ -310,13 +310,14 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	}
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
+	var caReconnectClient security.ReconnectClient
 	log.Infof("sa.serverOptions.CAEndpoint == %v", sa.secOpts.CAEndpoint)
 	if (sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com")) &&
 		stsclient.GKEClusterURL != "" {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
-		caClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
+		caClient,caReconnectClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
 		sa.secOpts.PluginNames = []string{"GoogleTokenExchange"}
 	} else {
 		// Determine the default CA.
@@ -415,7 +416,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
 		// rootCert may be nil - in which case the system roots are used, and the CA is expected to have public key
 		// Otherwise assume the injection has mounted /etc/certs/root-cert.pem
-		caClient, err = citadel.NewCitadelClient(sa.secOpts.CAEndpoint, tls, rootCert, sa.secOpts.ClusterID)
+		caClient, caReconnectClient, err = citadel.NewCitadelClient(sa.secOpts.CAEndpoint, tls, rootCert, sa.secOpts.ClusterID)
 		if err == nil {
 			sa.CitadelClient = caClient
 		}
@@ -427,6 +428,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	}
 	fetcher.UseCaClient = true
 	fetcher.CaClient = caClient
+	fetcher.ReconnectCaClient = caReconnectClient
 
 	return
 }

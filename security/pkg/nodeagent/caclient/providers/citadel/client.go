@@ -58,7 +58,7 @@ type CitadelClient struct {
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, error) {
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, security.ReconnectClient, error) {
 	c := &CitadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
@@ -69,11 +69,11 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 	conn, err := c.buildConnection()
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
-		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
+		return nil, nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
-	return c, nil
+	return c, c, nil
 }
 
 // CSR Sign calls Citadel to sign a CSR.
