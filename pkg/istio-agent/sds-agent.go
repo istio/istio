@@ -428,7 +428,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	}
 	fetcher.UseCaClient = true
 	fetcher.CaClient = caClient
-	fetcher.ReconnectCaClient = caClientCloser
+	fetcher.CaClientCloser = caClientCloser
 
 	return
 }
