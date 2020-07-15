@@ -16,11 +16,12 @@ package sdstlsorigination
 
 import (
 	"fmt"
-	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
