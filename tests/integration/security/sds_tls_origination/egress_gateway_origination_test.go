@@ -146,7 +146,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 			var (
 				credNameGeneric    = "mtls-credential-generic"
 				credNameNotGeneric = "mtls-credential-not-generic"
-				fakeCredName       = "fake-mtls-credential"
+				fakeCredNameA      = "fake-mtls-credential-a"
+				fakeCredNameB      = "fake-mtls-credential-b"
 				credNameMissing    = "mtls-credential-not-created"
 			)
 
@@ -167,6 +168,12 @@ func TestMutualTlsOrigination(t *testing.T) {
 				PrivateKey: sdstlsutil.ClientKeyA,
 				CaCert:     sdstlsutil.RootCertA,
 			}
+			// Configured with an invalid ClientCert and PrivateKey
+			var fakeCredentialB = sdstlsutil.TLSCredential{
+				ClientCert: sdstlsutil.FakeClientCertA,
+				PrivateKey: sdstlsutil.FakeClientKeyA,
+				CaCert:     sdstlsutil.RootCertA,
+			}
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameGeneric}, "MUTUAL", credentialAGeneric, false)
 			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credNameGeneric})
@@ -174,9 +181,11 @@ func TestMutualTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameNotGeneric}, "MUTUAL", credentialANonGeneric, true)
 			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{credNameNotGeneric})
 
-			// Add kubernetes secret to provision key/cert for gateway.
-			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "MUTUAL", fakeCredentialA, false)
-			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
+			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameA}, "MUTUAL", fakeCredentialA, false)
+			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameA})
+
+			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameB}, "MUTUAL", fakeCredentialB, false)
+			defer sdstlsutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
 
@@ -205,17 +214,26 @@ func TestMutualTlsOrigination(t *testing.T) {
 					gateway:         true,
 				},
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
-				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
-				// validate the client cert. Secret is not of type generic.
+				// This root certificate can validate the server cert presented by the echoboot server instance and server CA
+				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
 				"MUTUAL TLS with correct root cert but invalid client cert": {
 					response:        []string{response.StatusCodeUnavailable},
-					credentialToUse: strings.TrimSuffix(fakeCredName, "-cacert"),
+					credentialToUse: strings.TrimSuffix(fakeCredNameA, "-cacert"),
+					gateway:         false,
+				},
+
+				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
+				// This root certificate can validate the server cert presented by the echoboot server instance and server CA
+				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
+				"MUTUAL TLS with correct root cert but invalid client cert and private key": {
+					response:        []string{response.StatusCodeUnavailable},
+					credentialToUse: strings.TrimSuffix(fakeCredNameB, "-cacert"),
 					gateway:         false,
 				},
 
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 400 response.
-				"Simple TLS with credentialName set when the underlying secret doesn't exist": {
+				"MUTUAL TLS with credentialName set when the underlying secret doesn't exist": {
 					response:        []string{response.StatusCodeBadRequest},
 					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
 					gateway:         false,
