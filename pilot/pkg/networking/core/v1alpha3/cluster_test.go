@@ -1057,9 +1057,16 @@ func TestApplyOutlierDetection(t *testing.T) {
 		o    *cluster.OutlierDetection
 	}{
 		{
+			"Nil outlier detection",
+			nil,
+			nil,
+		},
+		{
 			"No outlier detection is set",
 			&networking.OutlierDetection{},
-			&cluster.OutlierDetection{},
+			&cluster.OutlierDetection{
+				EnforcingSuccessRate: &wrappers.UInt32Value{Value: 0},
+			},
 		},
 		{
 			"Consecutive gateway and 5xx errors are set",
@@ -1072,6 +1079,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 100},
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1082,6 +1090,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1092,6 +1101,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1102,6 +1112,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1112,6 +1123,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
 			},
 		},
 	}
