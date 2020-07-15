@@ -99,7 +99,7 @@ type SidecarScope struct {
 	// Set of known configs this sidecar depends on.
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
-	configDependencies map[ConfigKey]struct{}
+	configDependencies map[uint32]struct{}
 
 	// The namespace to treat as the administrative root namespace for
 	// Istio configuration.
@@ -171,7 +171,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
 		services:           defaultEgressListener.services,
 		destinationRules:   make(map[host.Name]*Config),
-		configDependencies: make(map[ConfigKey]struct{}),
+		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 	}
 
@@ -224,7 +224,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *Config, configNamespa
 
 	r := sidecarConfig.Spec.(*networking.Sidecar)
 	out := &SidecarScope{
-		configDependencies: make(map[ConfigKey]struct{}),
+		configDependencies: make(map[uint32]struct{}),
 		RootNamespace:      ps.Mesh.RootNamespace,
 	}
 
@@ -492,7 +492,7 @@ func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
 		return true
 	}
 
-	_, exists := sc.configDependencies[config]
+	_, exists := sc.configDependencies[config.HashCode()]
 	return exists
 }
 
@@ -504,11 +504,11 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigKey) {
 	}
 
 	if sc.configDependencies == nil {
-		sc.configDependencies = make(map[ConfigKey]struct{})
+		sc.configDependencies = make(map[uint32]struct{})
 	}
 
 	for _, config := range dependencies {
-		sc.configDependencies[config] = struct{}{}
+		sc.configDependencies[config.HashCode()] = struct{}{}
 	}
 }
 

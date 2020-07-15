@@ -396,15 +396,15 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				// Test the policy with overlapped `paths` and `not_paths` on b.
 				// a and x should have the same results:
 				// - path with prefix `/prefix` should be denied explicitly.
-				// - path `/prefix/whitelist` should be excluded from the deny.
+				// - path `/prefix/allowlist` should be excluded from the deny.
 				// - path `/allow` should be allowed implicitly.
 				newTestCase(a, b, "/prefix", false),
 				newTestCase(a, b, "/prefix/other", false),
-				newTestCase(a, b, "/prefix/whitelist", true),
+				newTestCase(a, b, "/prefix/allowlist", true),
 				newTestCase(a, b, "/allow", true),
 				newTestCase(x, b, "/prefix", false),
 				newTestCase(x, b, "/prefix/other", false),
-				newTestCase(x, b, "/prefix/whitelist", true),
+				newTestCase(x, b, "/prefix/allowlist", true),
 				newTestCase(x, b, "/allow", true),
 
 				// Test the policy that denies other namespace on c.

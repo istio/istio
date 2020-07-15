@@ -56,12 +56,12 @@ type DiscoveryStream interface {
 	grpc.ServerStream
 }
 
-// Connection is a listener connection type.
+// Connection holds information about connected client.
 type Connection struct {
-	// Mutex to protect changes to this XDS connection
+	// Mutex to protect changes to this connection.
 	mu sync.RWMutex
 
-	// PeerAddr is the address of the client envoy, from network layer
+	// PeerAddr is the address of the client envoy, from network layer.
 	PeerAddr string
 
 	// Time of connection, for debugging
@@ -73,20 +73,20 @@ type Connection struct {
 
 	node *model.Proxy
 
-	// Sending on this channel results in a push. We may also make it a channel of objects so
-	// same info can be sent to all clients, without recomputing.
+	// Sending on this channel results in a push.
 	pushChannel chan *Event
 
-	LDSListeners []*listener.Listener                 `json:"-"`
-	RouteConfigs map[string]*route.RouteConfiguration `json:"-"`
-	CDSClusters  []*cluster.Cluster
-
-	// Both ADS and EDS streams implement this interface
+	// Both ADS and SDS streams implement this interface
 	stream DiscoveryStream
 
-	// Original node metadata, to avoid unmarshall/marshall. This is included
-	// in internal events.
+	// Original node metadata, to avoid unmarshall/marshall.
+	// This is included in internal events.
 	xdsNode *core.Node
+
+	// Computed Xds data. Mainly used for debug display.
+	XdsListeners []*listener.Listener                 `json:"-"`
+	XdsRoutes    map[string]*route.RouteConfiguration `json:"-"`
+	XdsClusters  []*cluster.Cluster
 }
 
 // Event represents a config or registry event that results in a push.
@@ -114,8 +114,8 @@ func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 		PeerAddr:     peerAddr,
 		Connect:      time.Now(),
 		stream:       stream,
-		LDSListeners: []*listener.Listener{},
-		RouteConfigs: map[string]*route.RouteConfiguration{},
+		XdsListeners: []*listener.Listener{},
+		XdsRoutes:    map[string]*route.RouteConfiguration{},
 	}
 }
 

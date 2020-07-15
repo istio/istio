@@ -10,7 +10,7 @@ Labeling a test with a feature and scenario allow release managers and others to
 
 ## Adding New Feature Constants
 
-For consistency, features must be registerd in [features.yaml](features.yaml), or your test will fail.  Each entry in this file will be equivalent to a dot delimited feature label.  For instance:
+For consistency, features must be registered in [features.yaml](features.yaml), or your test will fail.  Each entry in this file will be equivalent to a dot delimited feature label.  For instance:
 
 ```yaml
     usability:

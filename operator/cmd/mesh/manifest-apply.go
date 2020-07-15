@@ -25,7 +25,6 @@ import (
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -204,13 +203,6 @@ func ApplyManifests(setOverlay []string, inFilenames []string, force bool, dryRu
 	if err != nil {
 		return err
 	}
-	obj, err := object.ParseYAMLToK8sObject([]byte(iopStr))
-	if err != nil {
-		return err
-	}
-	if err := reconciler.ApplyObject(obj.UnstructuredObject()); err != nil {
-		return err
-	}
 
-	return nil
+	return saveIOPToCluster(reconciler, iopStr)
 }

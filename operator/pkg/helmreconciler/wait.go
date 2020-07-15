@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -57,7 +57,7 @@ type deployment struct {
 // until all are ready or a timeout is reached
 func WaitForResources(objects object.K8sObjects, restConfig *rest.Config, cs kubernetes.Interface,
 	waitTimeout time.Duration, dryRun bool, l *progress.ManifestLog) error {
-	if dryRun {
+	if dryRun || TestMode {
 		return nil
 	}
 
@@ -188,19 +188,19 @@ func waitForCRDs(objects object.K8sObjects, restConfig *rest.Config) error {
 	errPoll := wait.Poll(cRDPollInterval, cRDPollTimeout, func() (bool, error) {
 	descriptor:
 		for _, crdName := range crdNames {
-			crd, errGet := cs.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
+			crd, errGet := cs.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
 			if errGet != nil {
 				return false, errGet
 			}
 			for _, cond := range crd.Status.Conditions {
 				switch cond.Type {
-				case v1beta1.Established:
-					if cond.Status == v1beta1.ConditionTrue {
+				case apiextensionv1.Established:
+					if cond.Status == apiextensionv1.ConditionTrue {
 						scope.Infof("established CRD %s", crdName)
 						continue descriptor
 					}
-				case v1beta1.NamesAccepted:
-					if cond.Status == v1beta1.ConditionFalse {
+				case apiextensionv1.NamesAccepted:
+					if cond.Status == apiextensionv1.ConditionFalse {
 						scope.Warnf("name conflict for %v: %v", crdName, cond.Reason)
 					}
 				}
