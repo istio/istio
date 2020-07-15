@@ -24,9 +24,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
