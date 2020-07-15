@@ -35,6 +35,7 @@ spec:
 {{- else}}
         service.istio.io/canonical-revision: latest
 {{- end }}
+        security.istio.io/tlsMode: istio
       annotations:
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15090"
