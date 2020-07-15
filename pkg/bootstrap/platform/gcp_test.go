@@ -217,7 +217,9 @@ func TestGCPMetadata(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
-			os.Clearenv()
+			for e := range tt.env {
+				os.Unsetenv(e)
+			}
 			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})
 	}
@@ -278,7 +280,6 @@ func TestMetadataCache(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("gcpEnv.Metadata() => '%v'; want '%v'", got, tt.want)
 			}
-			os.Clearenv()
 			envOnce, envPid, envNpid, envCluster, envLocation = sync.Once{}, "", "", "", ""
 		})
 	}

@@ -33,15 +33,14 @@ import (
 )
 
 const (
-	GCPProject            = "gcp_project"
-	GCPProjectNumber      = "gcp_project_number"
-	GCPCluster            = "gcp_gke_cluster_name"
-	GCPLocation           = "gcp_location"
-	GCEInstance           = "gcp_gce_instance"
-	GCEInstanceID         = "gcp_gce_instance_id"
-	GCEInstanceTemplate   = "gcp_gce_instance_template"
-	GCEInstanceCreatedBy  = "gcp_gce_instance_created_by"
-	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
+	GCPProject           = "gcp_project"
+	GCPProjectNumber     = "gcp_project_number"
+	GCPCluster           = "gcp_gke_cluster_name"
+	GCPLocation          = "gcp_location"
+	GCEInstance          = "gcp_gce_instance"
+	GCEInstanceID        = "gcp_gce_instance_id"
+	GCEInstanceTemplate  = "gcp_gce_instance_template"
+	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
 )
 
 var (
@@ -119,12 +118,12 @@ func (e *gcpEnv) Metadata() map[string]string {
 	if gcpMetadataVar.Get() == "" && !shouldFillMetadata() {
 		return md
 	}
+
+	e.Lock()
+	defer e.Unlock()
 	if e.metadata != nil {
 		return e.metadata
 	}
-	e.Lock()
-	defer e.Unlock()
-
 	envPid, envNPid, envCN, envLoc := parseGCPMetadata()
 	if envPid != "" {
 		md[GCPProject] = envPid
@@ -231,7 +230,7 @@ func (e *gcpEnv) Labels() map[string]string {
 	var instanceLabels map[string]string
 	go func() {
 		// use explicit credentials with compute.instances.get IAM permissions
-		creds, err := google.FindDefaultCredentials(ctx, compute.CloudPlatformScope)
+		creds, err := google.FindDefaultCredentials(ctx, compute.ComputeReadonlyScope)
 		if err != nil {
 			log.Warnf("failed to find default credentials: %v", err)
 			success <- false

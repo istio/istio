@@ -18,6 +18,10 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
+const (
+	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
+)
+
 // Environment provides information for the platform on which the bootstrapping
 // is taking place.
 type Environment interface {
