@@ -17,24 +17,25 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"os"
-	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/pkg/env"
 )
 
 var (
 	// settableFlags are the flags used to istioctl
-	settableFlags = []string{
-		"istioNamespace",
-		"xds-address",
-		"cert-dir",
-		"prefer-experimental",
-		"xds-port",
-		"xds-san",
-		"insecure",
+	settableFlags = map[string]interface{}{
+		"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", controller.IstioNamespace, "istioctl --istioNamespace override"),
+		"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "istioctl --xds-address override"),
+		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "istioctl --cert-dir override"),
+		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "istioctl should use experimental subcommand variants"),
+		"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "istioctl --xds-port override"),
+		"xds-san":             env.RegisterStringVar("ISTIOCTL_XDS_SAN", "", "istioctl --xds-san override"),
+		"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "istioctl --insecure override"),
 	}
 )
 
@@ -69,24 +70,60 @@ func listCommand() *cobra.Command {
 func runList(writer io.Writer) error {
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintf(w, "FLAG\tVALUE\tFROM\n")
-	for _, flag := range settableFlags {
-		fmt.Fprintf(w, "%s\t%s\t%v\n", flag, viper.GetString(flag), configSource(flag))
+	for flag, v := range settableFlags {
+		fmt.Fprintf(w, "%s\t%s\t%v\n", flag, viper.GetString(flag), configSource(flag, v))
 	}
 	return w.Flush()
 }
 
-func configSource(flag string) string {
+func configSource(flag string, v interface{}) string {
+	// Environment variables have high precedence in Viper
+	if isVarSet(v) {
+		return "$" + getVarVar(v).Name
+	}
+
 	if viper.InConfig(flag) {
 		return IstioConfig
 	}
 
-	// Viper doesn't provide a method to distinguish between config set by env and by file.
-	// This logic is similar to Viper's getEnv(), but hard-coded for istioctl's use of Viper.
-	eflag := "ISTIOCTL_" + strings.ToUpper(strings.ReplaceAll(flag, "-", "_"))
-	_, ok := os.LookupEnv(eflag)
-	if ok {
-		return "$" + eflag
-	}
-
 	return "default"
+}
+
+func getVarVar(v interface{}) env.Var {
+	switch ev := v.(type) {
+	case env.StringVar:
+		return ev.Var
+	case env.BoolVar:
+		return ev.Var
+	case env.IntVar:
+		return ev.Var
+	case env.DurationVar:
+		return ev.Var
+	case env.FloatVar:
+		return ev.Var
+	default:
+		panic(fmt.Sprintf("Unexpected environment var type %v", v))
+	}
+}
+
+func isVarSet(v interface{}) bool {
+	switch ev := v.(type) {
+	case env.StringVar:
+		_, ok := ev.Lookup()
+		return ok
+	case env.BoolVar:
+		_, ok := ev.Lookup()
+		return ok
+	case env.IntVar:
+		_, ok := ev.Lookup()
+		return ok
+	case env.DurationVar:
+		_, ok := ev.Lookup()
+		return ok
+	case env.FloatVar:
+		_, ok := ev.Lookup()
+		return ok
+	default:
+		panic(fmt.Sprintf("Unexpected environment var type %v", v))
+	}
 }
