@@ -69,11 +69,11 @@ func NewGoogleCAClient(endpoint string, tls bool) (security.Client, security.Rec
 	conn, err := grpc.Dial(endpoint, opts)
 	if err != nil {
 		googleCAClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
-		return nil, nil ,fmt.Errorf("failed to connect to endpoint %s", endpoint)
+		return nil, nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
 
 	c.client = gcapb.NewMeshCertificateServiceClient(conn)
-	return c, c ,nil
+	return c, c, nil
 }
 
 // CSR Sign calls Google CA to sign a CSR.
@@ -126,7 +126,7 @@ func (cl *googleCAClient) getTLSDialOption() (grpc.DialOption, error) {
 	return grpc.WithTransportCredentials(creds), nil
 }
 
-func (cl *googleCAClient)Reconnect() error {
+func (cl *googleCAClient) Reconnect() error {
 	// TODO: add a reconnection logic here
 	return nil
 }

@@ -191,4 +191,3 @@ func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
 
 	return conn, nil
 }
-

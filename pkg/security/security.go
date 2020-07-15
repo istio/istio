@@ -185,6 +185,7 @@ type Client interface {
 type ReconnectClient interface {
 	Reconnect() error
 }
+
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.

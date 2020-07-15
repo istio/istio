@@ -317,7 +317,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
-		caClient,caReconnectClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
+		caClient, caReconnectClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
 		sa.secOpts.PluginNames = []string{"GoogleTokenExchange"}
 	} else {
 		// Determine the default CA.

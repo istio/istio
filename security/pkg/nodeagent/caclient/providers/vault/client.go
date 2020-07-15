@@ -93,7 +93,7 @@ func (c *vaultClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte, 
 	return certChain, nil
 }
 
-func (cl *vaultClient)Reconnect() error {
+func (cl *vaultClient) Reconnect() error {
 	// TODO: add a reconnection logic here
 	return nil
 }

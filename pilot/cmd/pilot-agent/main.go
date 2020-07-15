@@ -254,7 +254,7 @@ var (
 			secOpts := &security.Options{
 				PilotCertProvider:  pilotCertProvider,
 				OutputKeyCertToDir: outputKeyCertToDir,
-				ProvCert: 					provCert,
+				ProvCert:           provCert,
 				JWTPath:            jwtPath,
 				ClusterID:          clusterIDVar.Get(),
 				FileMountedCerts:   fileMountedCertsEnv,
