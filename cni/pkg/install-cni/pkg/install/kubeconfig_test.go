@@ -29,6 +29,7 @@ import (
 )
 
 const (
+	kubeconfigMode = 0600
 	k8sServiceHost = "10.96.0.1"
 	k8sServicePort = "443"
 	saToken        = "service_account_token_string"
@@ -60,6 +61,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 		name               string
 		expectFailure      bool
 		kubeconfigFilename string
+		kubeconfigMode     int
 		k8sServiceProtocol string
 		k8sServiceHost     string
 		k8sServicePort     string
@@ -79,6 +81,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 		{
 			name:               "skip TLS verify",
 			kubeconfigFilename: "istio-cni-kubeconfig",
+			kubeconfigMode:     kubeconfigMode,
 			k8sServiceHost:     k8sServiceHost,
 			k8sServicePort:     k8sServicePort,
 			saToken:            saToken,
@@ -87,11 +90,11 @@ func TestCreateKubeconfigFile(t *testing.T) {
 		{
 			name:               "TLS verify",
 			kubeconfigFilename: "istio-cni-kubeconfig",
-
-			k8sServiceHost: k8sServiceHost,
-			k8sServicePort: k8sServicePort,
-			saToken:        saToken,
-			kubeCAFilepath: kubeCAFilepath,
+			kubeconfigMode:     kubeconfigMode,
+			k8sServiceHost:     k8sServiceHost,
+			k8sServicePort:     k8sServicePort,
+			saToken:            saToken,
+			kubeCAFilepath:     kubeCAFilepath,
 		},
 	}
 
@@ -111,6 +114,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			cfg := &config.Config{
 				MountedCNINetDir:   tempDir,
 				KubeconfigFilename: c.kubeconfigFilename,
+				KubeconfigMode:     c.kubeconfigMode,
 				KubeCAFile:         c.kubeCAFilepath,
 				K8sServiceProtocol: c.k8sServiceProtocol,
 				K8sServiceHost:     c.k8sServiceHost,
@@ -140,6 +144,14 @@ func TestCreateKubeconfigFile(t *testing.T) {
 
 			if !fileutil.Exist(resultFilepath) {
 				t.Fatalf("kubeconfig file does not exist: %s", resultFilepath)
+			}
+
+			info, err := os.Stat(resultFilepath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if info.Mode() != kubeconfigMode {
+				t.Fatalf("kubeconfig file mode incorrectly set: expected: %#o, got: %#o", kubeconfigMode, info.Mode())
 			}
 
 			var goldenFilepath string

@@ -26,6 +26,7 @@ type Config struct {
 
 	LogLevel           string
 	KubeconfigFilename string
+	KubeconfigMode     int
 	KubeCAFile         string
 	SkipTLSVerify      bool
 

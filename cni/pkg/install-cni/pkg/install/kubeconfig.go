@@ -121,6 +121,10 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepat
 		}
 	}()
 
+	if err = os.Chmod(tmpFile.Name(), os.FileMode(cfg.KubeconfigMode)); err != nil {
+		return
+	}
+
 	if err = tpl.Execute(tmpFile, fields); err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
 			err = errors.Wrap(err, closeErr.Error())

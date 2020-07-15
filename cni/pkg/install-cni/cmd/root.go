@@ -60,6 +60,7 @@ func init() {
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 	registerStringParameter(constants.KubecfgFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")
+	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the pod one")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerBooleanParameter(constants.UpdateCNIBinaries, true, "Update binaries")
@@ -73,6 +74,11 @@ func registerStringParameter(name, value, usage string) {
 
 func registerStringArrayParameter(name string, value []string, usage string) {
 	rootCmd.Flags().StringArray(name, value, usage)
+	bindViper(name)
+}
+
+func registerIntegerParameter(name string, value int, usage string) {
+	rootCmd.Flags().Int(name, value, usage)
 	bindViper(name)
 }
 
@@ -101,6 +107,7 @@ func constructConfig() (*config.Config, error) {
 
 		LogLevel:           viper.GetString(constants.LogLevel),
 		KubeconfigFilename: viper.GetString(constants.KubecfgFilename),
+		KubeconfigMode:     viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:         viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:      viper.GetBool(constants.SkipTLSVerify),
 		K8sServiceProtocol: os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
