@@ -116,47 +116,45 @@ func TestEgressGatewayTls(t *testing.T) {
 			}
 
 			for name, tc := range testCases {
-				t.Run(name, func(t *testing.T) {
-					bufDestinationRule := createDestinationRule(t, serviceNamespace, tc.destinationRuleMode, tc.fakeRootCert)
+				ctx.NewSubTest(name).
+					Run(func(ctx framework.TestContext) {
+						bufDestinationRule := createDestinationRule(t, serviceNamespace, tc.destinationRuleMode, tc.fakeRootCert)
 
-					istioCfg := istio.DefaultConfigOrFail(t, ctx)
-					systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+						istioCfg := istio.DefaultConfigOrFail(t, ctx)
+						systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
-					// Wait for all CDS configs to update
-					time.Sleep(10 * time.Second)
+						ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
+						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 
-					ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
-					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
+						// Hack: Wait for all CDS configs to update
+						time.Sleep(5 * time.Second)
 
-					// Wait for all CDS configs to update
-					time.Sleep(10 * time.Second)
-
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := internalClient.Call(echo.CallOptions{
-							Target:   externalServer,
-							PortName: "http",
-							Headers: map[string][]string{
-								"Host": {host},
-							},
-						})
-						if err != nil {
-							return fmt.Errorf("request failed: %v", err)
-						}
-						codes := make([]string, 0, len(resp))
-						for _, r := range resp {
-							codes = append(codes, r.Code)
-						}
-						if !reflect.DeepEqual(codes, tc.response) {
-							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
-						}
-						for _, r := range resp {
-							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
-								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+						retry.UntilSuccessOrFail(t, func() error {
+							resp, err := internalClient.Call(echo.CallOptions{
+								Target:   externalServer,
+								PortName: "http",
+								Headers: map[string][]string{
+									"Host": {host},
+								},
+							})
+							if err != nil {
+								return fmt.Errorf("request failed: %v", err)
 							}
-						}
-						return nil
-					}, retry.Delay(3*time.Second), retry.Timeout(30*time.Second))
-				})
+							codes := make([]string, 0, len(resp))
+							for _, r := range resp {
+								codes = append(codes, r.Code)
+							}
+							if !reflect.DeepEqual(codes, tc.response) {
+								return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+							}
+							for _, r := range resp {
+								if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+									return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+								}
+							}
+							return nil
+						}, retry.Delay(3*time.Second), retry.Timeout(30*time.Second))
+					})
 			}
 		})
 }
@@ -398,7 +396,7 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 	}
 
 	// Have to wait for DR to apply to all sidecars first!
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	tmplVS, err := template.New("Gateway").Parse(VirtualService)
 	if err != nil {
