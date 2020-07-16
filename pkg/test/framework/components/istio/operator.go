@@ -316,7 +316,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 
 	operatorCfg := &pkgAPI.IstioOperator{}
 	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
-		return fmt.Errorf("failed to unmsarshal base iop: %v", err)
+		return fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
 	var values = &pkgAPI.Values{}
 	if operatorCfg.Spec.Values != nil {
@@ -325,7 +325,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 			return fmt.Errorf("failed to marshal base values: %v", err)
 		}
 		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
-			return fmt.Errorf("failed to unmsarshal base values: %v", err)
+			return fmt.Errorf("failed to unmarshal base values: %v", err)
 		}
 	}
 
