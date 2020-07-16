@@ -819,6 +819,10 @@ func applyOutlierDetection(cluster *apiv2.Cluster, outlier *networking.OutlierDe
 	}
 
 	out := &v2Cluster.OutlierDetection{}
+
+	// SuccessRate based outlier detection should be disabled.
+	out.EnforcingSuccessRate = &wrappers.UInt32Value{Value: 0}
+
 	if outlier.BaseEjectionTime != nil {
 		out.BaseEjectionTime = gogo.DurationToProtoDuration(outlier.BaseEjectionTime)
 	}

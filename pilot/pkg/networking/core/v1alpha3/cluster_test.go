@@ -1048,9 +1048,16 @@ func TestApplyOutlierDetection(t *testing.T) {
 		o    *apiv2_cluster.OutlierDetection
 	}{
 		{
+			"Nil outlier detection",
+			nil,
+			nil,
+		},
+		{
 			"No outlier detection is set",
 			&networking.OutlierDetection{},
-			&apiv2_cluster.OutlierDetection{},
+			&apiv2_cluster.OutlierDetection{
+				EnforcingSuccessRate: &wrappers.UInt32Value{Value: 0},
+			},
 		},
 		{
 			"Deprecated consecutive errors is set",
@@ -1061,6 +1068,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 0},
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1074,6 +1082,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 100},
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1084,6 +1093,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&apiv2_cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1094,6 +1104,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&apiv2_cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1104,6 +1115,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&apiv2_cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1114,6 +1126,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&apiv2_cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
 			},
 		},
 	}
