@@ -413,6 +413,9 @@ spec:
             - name: config-volume
               mountPath: /etc/config
               readOnly: true
+            - name: file-sd-volume
+              mountPath: /etc/file_sd
+              readOnly: true
 
         - name: prometheus-server
           image: "prom/prometheus:v2.19.0"
@@ -452,6 +455,8 @@ spec:
             - name: storage-volume
               mountPath: /data
               subPath: ""
+            - name: file-sd-volume
+              mountPath: /etc/file_sd
       securityContext:
         fsGroup: 65534
         runAsGroup: 65534
@@ -462,6 +467,9 @@ spec:
         - name: config-volume
           configMap:
             name: prometheus
+        - name: file-sd-volume
+          configMap:
+            name: file-sd-config
         - name: storage-volume
           emptyDir:
             {}
