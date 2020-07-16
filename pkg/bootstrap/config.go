@@ -508,6 +508,9 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
 
+	// Add all instance labels with lower precedence than pod labels
+	extractInstanceLabels(plat, meta)
+
 	// Add all pod labels found from filesystem
 	// These are typically volume mounted by the downward API
 	lbls, err := readPodLabels()
@@ -523,6 +526,21 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	}
 
 	return meta, untypedMeta, nil
+}
+
+// Extracts instance labels for the platform into model.NodeMetadata.Labels
+// only if not running on Kubernetes
+func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeMetadata) {
+	if plat == nil || meta == nil || plat.IsKubernetes() {
+		return
+	}
+	instanceLabels := plat.Labels()
+	if meta.Labels == nil {
+		meta.Labels = map[string]string{}
+	}
+	for k, v := range instanceLabels {
+		meta.Labels[k] = v
+	}
 }
 
 func readPodLabels() (map[string]string, error) {
