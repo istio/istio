@@ -247,16 +247,10 @@ metadata:
 spec:
   host: istio-egressgateway.istio-system.svc.cluster.local
   subsets:
-  - name: nginx
+  - name: server
     trafficPolicy:
-      loadBalancer:
-        simple: ROUND_ROBIN
-      portLevelSettings:
-      - port:
-          number: 80
-        tls:
-          sni: server.{{.ServerNamespace}}.svc.cluster.local
----
+`
+	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -275,6 +269,7 @@ spec:
       route:
         - destination:
             host: istio-egressgateway.istio-system.svc.cluster.local
+            subset: server
             port:
               number: 80
           weight: 100
@@ -299,17 +294,32 @@ spec:
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
 func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace.Instance, serverNamespace namespace.Instance) {
-	tmpl, err := template.New("Gateway").Parse(Gateway)
+	tmplGateway, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
+	var bufGateway bytes.Buffer
+	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(clientNamespace.Name(), buf.String()); err != nil {
-		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
+	if err := ctx.Config().ApplyYAML(clientNamespace.Name(), bufGateway.String()); err != nil {
+		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
+	}
+
+	time.Sleep(time.Second * 10)
+
+	tmplVS, err := template.New("Gateway").Parse(VirtualService)
+	if err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	var bufVS bytes.Buffer
+	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serverNamespace.Name()}); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	if err := ctx.Config().ApplyYAML(clientNamespace.Name(), bufVS.String()); err != nil {
+		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufVS.String())
 	}
 }
 

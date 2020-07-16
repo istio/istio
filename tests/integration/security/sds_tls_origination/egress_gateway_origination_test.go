@@ -102,8 +102,12 @@ func TestSimpleTlsOrigination(t *testing.T) {
 					istioCfg := istio.DefaultConfigOrFail(t, ctx)
 					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
+					time.Sleep(time.Second * 10)
+
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+
+					time.Sleep(time.Second * 10)
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
@@ -247,6 +251,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 					istioCfg := istio.DefaultConfigOrFail(t, ctx)
 					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
+					time.Sleep(time.Second * 10)
+
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
@@ -276,7 +282,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 							}
 						}
 						return nil
-					}, retry.Delay(time.Millisecond*100))
+					}, retry.Delay(time.Second*3), retry.Timeout(time.Second*30))
 				})
 			}
 		})
