@@ -32,6 +32,10 @@ import (
 type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
+	getInformer() cache.SharedIndexInformer
+	onEvent(curr interface{}, event model.Event) error
+	// forgetEndpoint does internal bookkeeping on a deleted endpoint
+	forgetEndpoint(endpoint interface{})
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance

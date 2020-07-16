@@ -224,7 +224,7 @@ func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
 	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
 	defer c.Stop()
-	podCache := newPodCache(nil, c)
+	podCache := newPodCache(nil, c, nil)
 
 	f := podCache.onEvent
 
