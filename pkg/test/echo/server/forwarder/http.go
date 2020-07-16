@@ -85,7 +85,7 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 
 	keys := []string{}
 	for k := range httpResp.Header {
-		keys = append(keys,k)
+		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
