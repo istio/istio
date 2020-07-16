@@ -69,10 +69,10 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 					return err
 				}
 				// Query client side metrics
-				if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
-					return err
-				}
+				//if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
+				//	t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+				//	return err
+				//}
 				if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
