@@ -32,12 +32,22 @@ var (
 	clusterLocation string
 )
 
-func vmRegisterCmd() *cobra.Command {
-	vmRegisterCmd := &cobra.Command{
-		Use:     "vm-register",
-		Short:   "Creates a VM deployment resource",
-		Long:    "longer",
-		Example: "vm-register --name foo -n bar -l env=prod,vers=2 --serviceAccount sa",
+func sidecarCommands() *cobra.Command {
+	sidecarCmd := &cobra.Command{
+		Use:   "sidecar",
+		Short: "Commands to assist in managing sidecar configuration",
+	}
+	sidecarCmd.AddCommand(createGroupCommand())
+	sidecarCmd.AddCommand(generateConfigCommand())
+	return sidecarCmd
+}
+
+func createGroupCommand() *cobra.Command {
+	createGroupCmd := &cobra.Command{
+		Use:     "create-group",
+		Short:   "Creates a WorkloadGroup YAML artifact",
+		Long:    "Creates a WorkloadGroup YAML artifact for passing to the Kubernetes API server (kubectl apply -f workloadgroup.yaml)",
+		Example: "create-group --name foo --namespace bar --labels app=foobar,version=1 --serviceAccount default",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("requires a service name")
@@ -51,19 +61,19 @@ func vmRegisterCmd() *cobra.Command {
 			fmt.Printf("Registering service %s in namespace %s with labels %s using service account %s\n", name, namespace, labelsMap, serviceAccount)
 		},
 	}
-	vmRegisterCmd.PersistentFlags().StringVar(&name, "name", "", "Service name")
-	vmRegisterCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the service")
-	vmRegisterCmd.PersistentFlags().StringToStringVarP(&labelsMap, "labels", "l", nil, "List of labels to apply for the service; e.g. -l env=prod,vers=2")
-	vmRegisterCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "Service account to link to the service")
-	return vmRegisterCmd
+	createGroupCmd.PersistentFlags().StringVar(&name, "name", "", "Service name")
+	createGroupCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the service")
+	createGroupCmd.PersistentFlags().StringToStringVarP(&labelsMap, "labels", "l", nil, "List of labels to apply for the service; e.g. -l env=prod,vers=2")
+	createGroupCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "Service account to link to the service")
+	return createGroupCmd
 }
 
-func vmPackCmd() *cobra.Command {
-	vmPackCmd := &cobra.Command{
-		Use:     "vm-pack",
-		Short:   "Pack VM dependencies into a tarball",
-		Long:    "Packs ??? into a tarball",
-		Example: "vm-pack --name foo -n bar -o foo.tar.gz",
+func generateConfigCommand() *cobra.Command {
+	generateConfigCmd := &cobra.Command{
+		Use:     "generate-config",
+		Short:   "Generates and packs all the required VM configuration files",
+		Long:    "Retrieves a WorkloadGroup artifact from the Kubernetes API server, then generates and packs all the required VM configuration files.",
+		Example: "generate-config --name foo --namespace bar -o filename",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("requires a service name")
@@ -103,12 +113,12 @@ func vmPackCmd() *cobra.Command {
 			return nil
 		},
 	}
-	vmPackCmd.PersistentFlags().StringVar(&name, "name", "", "Service name")
-	vmPackCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the service")
-	vmPackCmd.PersistentFlags().StringVarP(&filename, "filename", "o", "", "Name of the tarball to be created")
+	generateConfigCmd.PersistentFlags().StringVar(&name, "name", "", "Service name")
+	generateConfigCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the service")
+	generateConfigCmd.PersistentFlags().StringVarP(&filename, "output filename", "o", "", "Name of the tarball to be created")
 
-	vmPackCmd.PersistentFlags().StringVar(&gkeProject, "project", "", "Target project name")
-	vmPackCmd.PersistentFlags().StringVar(&clusterLocation, "location", "", "Target cluster location")
-	vmPackCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Target cluster name")
-	return vmPackCmd
+	generateConfigCmd.PersistentFlags().StringVar(&gkeProject, "project", "", "Target project name")
+	generateConfigCmd.PersistentFlags().StringVar(&clusterLocation, "location", "", "Target cluster location")
+	generateConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Target cluster name")
+	return generateConfigCmd
 }
