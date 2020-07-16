@@ -60,7 +60,7 @@ restricted_licenses:
   - QPL-1.0
   - Sleepycat
 
-whitelisted_modules:
+allowlisted_modules:
   - bitbucket.org/ww/goautoneg
   - git.apache.org/thrift.git
   - github.com/alicebob/gopher-json

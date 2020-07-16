@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"text/template"
 
@@ -26,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -264,6 +266,10 @@ spec:
           value: "ALL"
         - name: ISTIO_NAMESPACE # start.sh reads this and converts to POD_NAMESPACE
           value: {{ $.Namespace }}
+        {{- range $name, $value := $.Environment }}
+        - name: {{ $name }}
+          value: "{{ $value }}"
+        {{- end }}
         readinessProbe:
           httpGet:
             path: /healthz/ready
@@ -342,7 +348,12 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 		if err != nil {
 			return "", "", err
 		}
-		addr, err := istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
+		var addr net.TCPAddr
+		err = retry.UntilSuccess(func() error {
+			var err error
+			addr, err = istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
+			return err
+		})
 		if err != nil {
 			return "", "", err
 		}
@@ -383,6 +394,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
+		"Environment": cfg.VMEnvironment,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

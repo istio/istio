@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/fluentd/config/config.proto -x "-n fluentd -t logentry"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/fluentd/config/config.proto -x "-n fluentd -t logentry -d example"
 
 // Package fluentd adapter for Mixer. Conforms to interfaces in
 // mixer/pkg/adapter. Accepts logentries and forwards to a listening

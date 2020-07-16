@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/opa/config/config.proto -x "-n opa -t authorization"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/opa/config/config.proto -x "-n opa -t authorization -d example"
 
 package opa // import "istio.io/istio/mixer/adapter/opa"
 

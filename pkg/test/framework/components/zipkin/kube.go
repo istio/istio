@@ -79,7 +79,7 @@ func removeZipkin(ctx resource.Context, ns string) error {
 
 func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: resource.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfgIn.Cluster),
 	}
 	c.id = ctx.TrackResource(c)
 

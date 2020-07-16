@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -c $REPO_ROOT/mixer/adapter/opa/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/opa/config -n opa -t authorization
+# mixgen adapter -c $REPO_ROOT/mixer/adapter/opa/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/opa/config -n opa -t authorization -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: opa
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: true
   templates:
   - authorization

@@ -32,7 +32,7 @@ func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, ve
 	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes())
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
-			con.RouteConfigs[r.Name] = r
+			con.XdsRoutes[r.Name] = r
 			if adsLog.DebugEnabled() {
 				resp, _ := protomarshal.ToJSONWithIndent(r, " ")
 				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.node.ID)

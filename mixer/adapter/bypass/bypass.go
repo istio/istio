@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: lll
-//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/bypass/config/config.proto -x "-n bypass -t checknothing -t reportnothing -t metric -t quota"
+//go:generate $REPO_ROOT/bin/mixer_codegen.sh -a mixer/adapter/bypass/config/config.proto -x "-n bypass -t checknothing -t reportnothing -t metric -t quota -d example"
 
 package bypass
 

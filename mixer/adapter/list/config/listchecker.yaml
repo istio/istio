@@ -1,12 +1,12 @@
 # this config is created through command
-# mixgen adapter -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/list/config -n listchecker -t listentry
+# mixgen adapter -c $REPO_ROOT/mixer/adapter/list/config/config.proto_descriptor -o $REPO_ROOT/mixer/adapter/list/config -n listchecker -t listentry -d example
 apiVersion: "config.istio.io/v1alpha2"
 kind: adapter
 metadata:
   name: listchecker
   namespace: istio-system
 spec:
-  description: 
+  description: example
   session_based: true
   templates:
   - listentry

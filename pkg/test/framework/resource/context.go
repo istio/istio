@@ -61,11 +61,8 @@ type Context interface {
 	// The Environment in which the tests run
 	Environment() Environment
 
-	// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
-	IsMulticluster() bool
-
 	// Clusters in this Environment. There will always be at least one.
-	Clusters() []Cluster
+	Clusters() Clusters
 
 	// Settings returns common settings
 	Settings() *Settings

@@ -113,7 +113,7 @@ require (
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/gomega v1.10.1
 	github.com/open-policy-agent/opa v0.8.2
-	github.com/openshift/api v3.9.1-0.20191008181517-e4fd21196097+incompatible
+	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/opentracing/opentracing-go v1.0.2
 	github.com/openzipkin/zipkin-go v0.1.7
 	github.com/pelletier/go-toml v1.3.0 // indirect
@@ -152,7 +152,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
-	golang.org/x/tools v0.0.0-20191216173652-a0e659d51361
+	golang.org/x/tools v0.0.0-20200115044656-831fdb1e1868
 	google.golang.org/api v0.15.0
 	google.golang.org/genproto v0.0.0-20200619004808-3e7fca5c55db
 	google.golang.org/grpc v1.29.1
@@ -161,7 +161,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200630182154-19d61f093aab
+	istio.io/api v0.0.0-20200714164416-42acf9095d43
 	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
 	istio.io/gogo-genproto v0.0.0-20200422223746-8166b73efbae
 	istio.io/pkg v0.0.0-20200504224939-261164cc57da

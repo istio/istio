@@ -1,4 +1,4 @@
-# The following policy denies access to path with prefix "/prefix" except "/prefix/whitelist" to workload b
+# The following policy denies access to path with prefix "/prefix" except "/prefix/allowlist" to workload b
 
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
@@ -14,7 +14,7 @@ spec:
   - to:
     - operation:
         paths: ["/prefix*"]
-        notPaths: ["/prefix/whitelist"]
+        notPaths: ["/prefix/allowlist"]
 ---
 
 # The following policy denies access from other namespaces

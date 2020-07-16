@@ -19,18 +19,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // NewBuilder for Echo Instances.
 func NewBuilder(ctx resource.Context) (b echo.Builder, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-
-	ctx.Environment().Case(environment.Kube, func() {
-		b = kube.NewBuilder(ctx)
-		err = nil
-	})
-	return
+	return kube.NewBuilder(ctx), nil
 }
 
 // NewBuilder for Echo Instances.

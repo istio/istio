@@ -18,7 +18,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -495,26 +496,26 @@ func toEntry(obj *unstructured.Unstructured, schema resource2.Schema) *resource.
 	}
 }
 
-func toCrd(schema collection.Schema) *v1beta1.CustomResourceDefinition {
+func toCrd(schema collection.Schema) *apiextensionv1.CustomResourceDefinition {
 	r := schema.Resource()
-	return &v1beta1.CustomResourceDefinition{
+	return &apiextensionv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            r.Plural() + "." + r.Group(),
 			ResourceVersion: "v1",
 		},
 
-		Spec: v1beta1.CustomResourceDefinitionSpec{
+		Spec: apiextensionv1.CustomResourceDefinitionSpec{
 			Group: r.Group(),
-			Names: v1beta1.CustomResourceDefinitionNames{
+			Names: apiextensionv1.CustomResourceDefinitionNames{
 				Plural: r.Plural(),
 				Kind:   r.Kind(),
 			},
-			Versions: []v1beta1.CustomResourceDefinitionVersion{
+			Versions: []apiextensionv1.CustomResourceDefinitionVersion{
 				{
 					Name: r.Version(),
 				},
 			},
-			Scope: v1beta1.NamespaceScoped,
+			Scope: apiextensionv1.NamespaceScoped,
 		},
 	}
 }

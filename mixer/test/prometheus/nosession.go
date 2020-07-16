@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint:lll
-//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n prometheus-nosession -s=false  -c $REPO_ROOT/mixer/adapter/prometheus/config/config.proto_descriptor   -t metric -o prometheus-nosession.yaml
+//go:generate go run $REPO_ROOT/mixer/tools/mixgen/main.go adapter -n prometheus-nosession -s=false  -c $REPO_ROOT/mixer/adapter/prometheus/config/config.proto_descriptor   -t metric -o prometheus-nosession.yaml -d example
 
 package prometheus
 

@@ -23,6 +23,28 @@ import (
 // ClusterIndex is the index of a cluster within the Environment
 type ClusterIndex int
 
+// Clusters is an ordered list of Cluster instances.
+type Clusters []Cluster
+
+// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
+func (c Clusters) IsMulticluster() bool {
+	return len(c) > 1
+}
+
+// Default returns the first cluster in the list.
+func (c Clusters) Default() Cluster {
+	return c[0]
+}
+
+// GetOrDefault returns the given cluster if non-nil. Otherwise returns the first
+// Cluster in the list.
+func (c Clusters) GetOrDefault(cluster Cluster) Cluster {
+	if cluster != nil {
+		return cluster
+	}
+	return c.Default()
+}
+
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
@@ -36,15 +58,6 @@ type Cluster interface {
 
 	// Index of this Cluster within the Environment
 	Index() ClusterIndex
-}
-
-// ClusterOrDefault gets the given cluster if available. Otherwise returns the first
-// Cluster in the Environment.
-func ClusterOrDefault(c Cluster, e Environment) Cluster {
-	if c != nil {
-		return c
-	}
-	return e.Clusters()[0]
 }
 
 var _ Cluster = FakeCluster{}
