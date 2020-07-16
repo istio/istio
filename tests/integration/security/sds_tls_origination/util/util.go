@@ -248,7 +248,6 @@ spec:
   host: istio-egressgateway.istio-system.svc.cluster.local
   subsets:
   - name: server
-    trafficPolicy:
 `
 	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
@@ -309,7 +308,7 @@ func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace
 
 	time.Sleep(time.Second * 10)
 
-	tmplVS, err := template.New("Gateway").Parse(VirtualService)
+	tmplVS, err := template.New("VirtualService").Parse(VirtualService)
 	if err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
