@@ -186,7 +186,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, false)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, true)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
