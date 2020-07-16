@@ -96,9 +96,11 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 	// Report if we found no pods matching this gateway's selector
 	if gwSelectorMatches == 0 {
+
 		m := msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String())
 		line := util.ErrorLineForGatewaySelector(gwSelector, r)
 		m.SetLine(line)
+
 		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 		return
 	}
@@ -108,9 +110,11 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		if server.Port != nil {
 			_, ok := servicePorts[server.Port.Number]
 			if !ok {
+
 				m := msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number))
 				line := util.ErrorLineForGatewaySelector(gwSelector, r)
 				m.SetLine(line)
+
 				c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			}
 		}

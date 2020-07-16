@@ -15,6 +15,7 @@
 package virtualservice
 
 import (
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"regexp"
 
 	"istio.io/api/networking/v1alpha3"
@@ -53,27 +54,33 @@ func (a *RegexAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis
 
 	vs := r.Message.(*v1alpha3.VirtualService)
 
-	for _, route := range vs.GetHttp() {
-		for _, m := range route.GetMatch() {
-			analyzeStringMatch(r, m.GetUri(), ctx, "uri")
-			analyzeStringMatch(r, m.GetScheme(), ctx, "scheme")
-			analyzeStringMatch(r, m.GetMethod(), ctx, "method")
-			analyzeStringMatch(r, m.GetAuthority(), ctx, "authority")
-			for _, h := range m.GetHeaders() {
-				analyzeStringMatch(r, h, ctx, "headers")
+	for i, route := range vs.GetHttp() {
+		for j, m := range route.GetMatch() {
+
+			pathInfo := &util.PathInfo{HttpIndex: i, MatchIndex: j}
+
+			analyzeStringMatch(r, m.GetUri(), ctx, "uri", pathInfo)
+			analyzeStringMatch(r, m.GetScheme(), ctx, "scheme", pathInfo)
+			analyzeStringMatch(r, m.GetMethod(), ctx, "method", pathInfo)
+			analyzeStringMatch(r, m.GetAuthority(), ctx, "authority", pathInfo)
+			for key, h := range m.GetHeaders() {
+				pathInfo = &util.PathInfo{HttpIndex: i, MatchIndex: j, HeaderKey: key}
+				analyzeStringMatch(r, h, ctx, "headers", pathInfo)
 			}
-			for _, qp := range m.GetQueryParams() {
-				analyzeStringMatch(r, qp, ctx, "queryParams")
+			for key, qp := range m.GetQueryParams() {
+				pathInfo = &util.PathInfo{HttpIndex: i, MatchIndex: j, QueryParamsKey: key}
+				analyzeStringMatch(r, qp, ctx, "queryParams", pathInfo)
 			}
 			// We don't validate withoutHeaders, because they are undocumented
 		}
-		for _, origin := range route.GetCorsPolicy().GetAllowOrigins() {
-			analyzeStringMatch(r, origin, ctx, "corsPolicy.allowOrigins")
+		for j, origin := range route.GetCorsPolicy().GetAllowOrigins() {
+			pathInfo := &util.PathInfo{HttpIndex: i, AllowOriginIndex: j}
+			analyzeStringMatch(r, origin, ctx, "corsPolicy.allowOrigins", pathInfo)
 		}
 	}
 }
 
-func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx analysis.Context, where string) {
+func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx analysis.Context, where string, pathInfo *util.PathInfo) {
 	re := sm.GetRegex()
 	if re == "" {
 		return
@@ -84,6 +91,9 @@ func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx anal
 		return
 	}
 
-	ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-		msg.NewInvalidRegexp(r, where, re, err.Error()))
+	line := util.ErrorLineForHttpRegex(*pathInfo, where, r)
+	m := msg.NewInvalidRegexp(r, where, re, err.Error())
+	m.SetLine(line)
+
+	ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 }

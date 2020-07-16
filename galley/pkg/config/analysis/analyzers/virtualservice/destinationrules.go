@@ -61,17 +61,32 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	ns := r.Metadata.FullName.Namespace
 
 	for _, destination := range getRouteDestinations(vs) {
-		if !d.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+
+		if !d.checkDestinationSubset(ns, destination.destination, destHostsAndSubsets) {
+
+			line := util.ErrorLineForHostInDestination(destination.GetRouteRule(), destination.GetServiceIndex(),
+				destination.GetDestinationIndex(), r)
+			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
+				fmt.Sprintf("%s+%s", destination.destination.GetHost(), destination.destination.GetSubset()))
+			m.SetLine(line)
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
+
 	}
 
 	for _, destination := range getHTTPMirrorDestinations(vs) {
-		if !d.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+
+		if !d.checkDestinationSubset(ns, destination.destination, destHostsAndSubsets) {
+
+			line := util.ErrorLineForHostInHttpMirror(destination.GetServiceIndex(), r)
+			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
+				fmt.Sprintf("%s+%s", destination.destination.GetHost(), destination.destination.GetSubset()))
+			m.SetLine(line)
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
+
 	}
 }
 

@@ -55,10 +55,12 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 
 		// If we can't find a namespace for the gateway, it's because there's no matching selector. Exit early with a different message.
 		if gwNs == "" {
+
 			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
 			gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
 			line := util.ErrorLineForGatewaySelector(gwSelector, r)
 			m.SetLine(line)
+
 			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			return true
 		}
@@ -75,9 +77,11 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			}
 
 			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
+
 				line := util.ErrorLineForCredentialName(i, r)
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
 				m.SetLine(line)
+
 				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			}
 		}

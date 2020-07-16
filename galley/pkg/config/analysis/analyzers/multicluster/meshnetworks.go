@@ -15,6 +15,7 @@
 package multicluster
 
 import (
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -70,7 +71,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(collections.IstioMeshV1Alpha1MeshNetworks.Name(), func(r *resource.Instance) bool {
 		mn := r.Message.(*v1alpha1.MeshNetworks)
 		for i, n := range mn.Networks {
-			for _, e := range n.Endpoints {
+			for j, e := range n.Endpoints {
 				switch re := e.Ne.(type) {
 				case *v1alpha1.Network_NetworkEndpoints_FromRegistry:
 					found := false
@@ -80,7 +81,12 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 						}
 					}
 					if !found {
-						c.Report(collections.IstioMeshV1Alpha1MeshNetworks.Name(), msg.NewUnknownMeshNetworksServiceRegistry(r, re.FromRegistry, i))
+
+						line := util.ErrorLineForFromRegistry(i, j, r)
+						m := msg.NewUnknownMeshNetworksServiceRegistry(r, re.FromRegistry, i)
+						m.SetLine(line)
+
+						c.Report(collections.IstioMeshV1Alpha1MeshNetworks.Name(), m)
 					}
 				}
 			}

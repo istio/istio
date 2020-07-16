@@ -15,7 +15,6 @@
 package authz
 
 import (
-	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -145,11 +144,11 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 		for j, from := range rule.From {
 			for k, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
 				if !matchNamespace(ns, c) {
-					pathKey := "{.spec.rules[" + fmt.Sprintf("%d", i) + "].from[" + fmt.Sprintf("%d", j) +
-						"].source.namespaces[" + fmt.Sprintf("%d", k) + "]}"
-					line := util.FindErrorLine(pathKey, r.Origin.GetFieldMap())
+
+					line := util.ErrorLineForAuthorizationPolicyNameSpace(i, j, k, r)
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
 					m.SetLine(line)
+
 					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
 				}
 			}
@@ -157,14 +156,11 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 			// Check source.notNamespaces
 			for k, ns := range from.Source.NotNamespaces {
 				if !matchNamespace(ns, c) {
-					pathKey := "{.spec.rules[" + fmt.Sprintf("%d", i) + "].from[" + fmt.Sprintf("%d", j) +
-						"].source.notNamespaces[" + fmt.Sprintf("%d", k) + "]}"
-					var line int
-					if v, ok := r.Origin.GetFieldMap()[pathKey]; ok {
-						line = v
-					}
+
+					line := util.ErrorLineForAuthorizationPolicyNameSpace(i, j, k, r)
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
 					m.SetLine(line)
+
 					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
 				}
 			}

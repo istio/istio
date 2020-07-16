@@ -66,36 +66,52 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	for _, d := range getRouteDestinations(vs) {
-		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.GetHost(), serviceEntryHosts)
+		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.destination.GetHost(), serviceEntryHosts)
 		if s == nil {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewReferencedResourceNotFound(r, "host", d.GetHost()))
+
+			line := util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
+			m := msg.NewReferencedResourceNotFound(r, "host", d.destination.GetHost())
+			m.SetLine(line)
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			continue
 		}
 		checkServiceEntryPorts(ctx, r, d, s)
 	}
 
 	for _, d := range getHTTPMirrorDestinations(vs) {
-		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.GetHost(), serviceEntryHosts)
+		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.destination.GetHost(), serviceEntryHosts)
 		if s == nil {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewReferencedResourceNotFound(r, "mirror host", d.GetHost()))
+
+			line := util.ErrorLineForHostInHttpMirror(d.GetServiceIndex(), r)
+			m := msg.NewReferencedResourceNotFound(r, "mirror host", d.destination.GetHost())
+			m.SetLine(line)
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			continue
 		}
 		checkServiceEntryPorts(ctx, r, d, s)
 	}
 }
 
-func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *v1alpha3.Destination, s *v1alpha3.ServiceEntry) {
-	if d.GetPort() == nil {
+func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Destination, s *v1alpha3.ServiceEntry) {
+	if d.destination.GetPort() == nil {
 		// If destination port isn't specified, it's only a problem if the service being referenced exposes multiple ports.
 		if len(s.GetPorts()) > 1 {
 			var portNumbers []int
 			for _, p := range s.GetPorts() {
 				portNumbers = append(portNumbers, int(p.GetNumber()))
 			}
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.GetHost(), portNumbers))
+			var line int
+			if d.routeRule == "" {
+				line = util.ErrorLineForHostInHttpMirror(d.GetServiceIndex(), r)
+			}else {
+				line = util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
+			}
+			m := msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.destination.GetHost(), portNumbers)
+			m.SetLine(line)
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			return
 		}
 
@@ -105,13 +121,24 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *v1alp
 
 	foundPort := false
 	for _, p := range s.GetPorts() {
-		if d.GetPort().GetNumber() == p.GetNumber() {
+		if d.destination.GetPort().GetNumber() == p.GetNumber() {
 			foundPort = true
 			break
 		}
 	}
 	if !foundPort {
-		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			msg.NewReferencedResourceNotFound(r, "host:port", fmt.Sprintf("%s:%d", d.GetHost(), d.GetPort().GetNumber())))
+
+		var line int
+		if d.routeRule == "" {
+			line = util.ErrorLineForHostInHttpMirror(d.GetServiceIndex(), r)
+		}else {
+			line = util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
+		}
+
+		m := msg.NewReferencedResourceNotFound(r, "host:port",
+			fmt.Sprintf("%s:%d", d.destination.GetHost(), d.destination.GetPort().GetNumber()))
+		m.SetLine(line)
+
+		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 	}
 }

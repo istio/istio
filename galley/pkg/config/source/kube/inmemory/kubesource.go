@@ -259,6 +259,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
+	// Convert YAML with line numbers as values to a JSON object
 	jsonLineChunk, err := yaml.ToJSON(lineChunk)
 	if err != nil {
 		jsonLineChunk = nil
@@ -308,7 +309,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return kubeResource{}, err
 	}
 
-	// Build flat map for analyzers to find the exact error line number
+	// Build flat map for analyzers if the line JSON object exists, if the YAML text is ill-formed, this will be nil
 	var fieldMap map[string]int
 	if jsonLineChunk != nil {
 		fieldMap = BuildFieldMap(jsonChunk, jsonLineChunk)
@@ -349,16 +350,15 @@ func DfsBuildMap(yamlObj interface{}, lineObj interface{}, fieldMap map[string]i
 		fieldMap["{" + key + "}"] = int(lineData.(float64))
 
 	case string:
-
 		key := curPath
 		fieldMap["{" + key + "}"] = int(lineData.(float64))
 
 	case []interface {}:
+		var lineArray []interface{}
 		yamlArray := yamlData.([]interface{})
 
-		var lineArray []interface{}
-
 		// Handle edge case for values like "[a,b,c,d,e]" in the command field
+		// lineData only has two types: float64 and []interface {}
 		if FindFloatInterface(lineData) == "float64" {
 			res := FillLineNumberToStruct(yamlArray, lineData.(float64))
 			if res == nil {
@@ -375,7 +375,6 @@ func DfsBuildMap(yamlObj interface{}, lineObj interface{}, fieldMap map[string]i
 		}
 
 	case map[string]interface {}:
-
 		yamlMap := yamlData.(map[string]interface{})
 
 		// Handle edge case for values that has maps in only one line
@@ -403,11 +402,12 @@ func DfsBuildMap(yamlObj interface{}, lineObj interface{}, fieldMap map[string]i
 
 // FindFloatInterface returns "float64" if the interface is float64 type else returns ""
 func FindFloatInterface(p interface{}) string {
+	res := ""
 	switch p.(type) {
 	case float64:
-		return "float64"
+		res = "float64"
 	}
-	return ""
+	return res
 }
 
 // FillLineNumberToStruct returns an object that has the same structure with the input but the values are filled by the input line

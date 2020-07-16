@@ -51,8 +51,12 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 		if len(vsList) > 1 {
 			vsNames := combineResourceEntryNames(vsList)
 			for i := range vsList {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn)))
+
+				line := util.ErrorLineForMetaDataName(vsList[i])
+				m := msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn))
+				m.SetLine(line)
+
+				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			}
 		}
 	}
