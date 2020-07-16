@@ -102,20 +102,6 @@ func TestEgressGatewayTls(t *testing.T) {
 					response:            []string{response.StatusCodeBadRequest},
 					gateway:             false, // 400 response will not contain header
 				},
-				// Egress Gateway can't "originate" ISTIO_MUTUAL to server as the server is outside the mesh and has no
-				// sidecar proxy
-				// 4. ISTIO_MUTUAL TLS origination case::
-				//    internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
-				//      VS Routing (add Egress Header) --> Egress Gateway(originates istio mutual TLS)
-				//      --> externalServer(443 with TLS enforced)
-				//     request fails as server has no sidecar proxy and istio_mutual case shouldn't be used
-				// TODO: nschhina figure out why the following tests are flaky
-				"ISTIO_MUTUAL TLS origination from egress gateway to https endpoint": {
-					destinationRuleMode: "ISTIO_MUTUAL",
-					response:            []string{response.StatusCodeBadRequest},
-					gateway:             false, // 400 response will not contain header
-					fakeRootCert:        false,
-				},
 				//5. SIMPLE TLS origination with "fake" root cert::
 				//   internalClient ) ---HTTP request (Host: some-external-site.com----> Hits listener 0.0.0.0_80 ->
 				//     VS Routing (add Egress Header) --> Egress Gateway(originates simple TLS)
@@ -135,6 +121,9 @@ func TestEgressGatewayTls(t *testing.T) {
 
 					istioCfg := istio.DefaultConfigOrFail(t, ctx)
 					systemNamespace := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+
+					// Wait for all CDS configs to update
+					time.Sleep(10 * time.Second)
 
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
@@ -188,7 +177,7 @@ spec:
         tls:
           mode: {{.Mode}}
           caCertificates: {{.RootCertPath}}
-          sni: server.default.svc
+          sni: server.{{.AppNamespace}}.svc.cluster.local
 
 `
 	// Destination Rule configs
@@ -205,7 +194,7 @@ spec:
           number: 443
         tls:
           mode: {{.Mode}}
-          sni: server.default.svc
+          sni: server.{{.AppNamespace}}.svc.cluster.local
 
 `
 	DestinationRuleConfigMutual = `
@@ -224,7 +213,7 @@ spec:
           clientCertificate: /etc/certs/custom/cert-chain.pem
           privateKey: /etc/certs/custom/key.pem
           caCertificates: {{.RootCertPath}}
-          sni: server.default.svc
+          sni: server.{{.AppNamespace}}.svc.cluster.local
 `
 )
 
@@ -353,12 +342,6 @@ spec:
   host: istio-egressgateway.istio-system.svc.cluster.local
   subsets:
   - name: server
-    trafficPolicy:
-      portLevelSettings:
-      - port:
-          number: 80
-        tls:
-          sni: server.{{.ServerNamespace}}.svc.cluster.local
 `
 	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
