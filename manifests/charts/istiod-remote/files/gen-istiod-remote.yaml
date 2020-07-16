@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio
-  namespace: default
+  namespace: example
   labels:
     istio.io/rev: default
     release: istiod-remote
@@ -16,7 +16,7 @@ data:
 
   mesh: |-
     defaultConfig:
-      discoveryAddress: istiod.default.svc:15012
+      discoveryAddress: istiod.example.svc:15012
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
@@ -32,7 +32,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
-  namespace: default
+  namespace: example
   labels:
     istio.io/rev: default
     release: istiod-remote
@@ -652,7 +652,7 @@ data:
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: istio-sidecar-injector-default
+  name: istio-sidecar-injector-example
   labels:
     istio.io/rev: default
     app: sidecar-injector
