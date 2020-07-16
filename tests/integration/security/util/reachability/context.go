@@ -99,6 +99,7 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Co
 	// for test cases that have `buildVM` off, vm will function like a regular pod
 	vmCfg.DeployAsVM = buildVM
 	vmCfg.VMImage = vm.DefaultVMImage
+	vmCfg.Ports[0].ServicePort = vmCfg.Ports[0].InstancePort
 
 	echoboot.NewBuilderOrFail(ctx, ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil)).
