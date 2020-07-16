@@ -26,7 +26,6 @@ import (
 	istioMixerV1 "istio.io/api/mixer/v1"
 
 	"istio.io/istio/mixer/pkg/server"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
@@ -38,23 +37,18 @@ var _ io.Closer = &kubeComponent{}
 
 type kubeComponent struct {
 	id resource.ID
-
 	*client
-
-	env     *kube.Environment
 	cluster resource.Cluster
 }
 
 // NewKubeComponent factory function for the component
 func newKube(ctx resource.Context, cfgIn Config) (*kubeComponent, error) {
 	c := &kubeComponent{
-		env:     ctx.Environment().(*kube.Environment),
-		cluster: resource.ClusterOrDefault(cfgIn.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfgIn.Cluster),
 	}
 
 	c.client = &client{
 		local: false,
-		env:   c.env,
 
 		// Use the DefaultArgs to get config identity attribute
 		args:    server.DefaultArgs(),

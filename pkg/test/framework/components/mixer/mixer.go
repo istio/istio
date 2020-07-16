@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 type Instance interface {
@@ -51,11 +50,7 @@ func (c *CheckResponse) Succeeded() bool {
 
 // New returns a new instance of echo.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, cfg)
-	})
-	return
+	return newKube(ctx, cfg)
 }
 
 func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {

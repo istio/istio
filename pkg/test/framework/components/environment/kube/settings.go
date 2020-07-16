@@ -19,9 +19,6 @@ import (
 	"fmt"
 
 	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/scopes"
-
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -56,12 +53,7 @@ type SetupSettingsFunc func(s *Settings)
 // Setup is a setup function that allows overriding values in the Kube environment settings.
 func Setup(sfn SetupSettingsFunc) resource.SetupFn {
 	return func(ctx resource.Context) error {
-		switch ctx.Environment().EnvironmentName() {
-		case environment.Kube:
-			sfn(ctx.Environment().(*Environment).s)
-		default:
-			scopes.Framework.Warnf("kube.SetupSettings: Skipping on non-kube environment: %s", ctx.Environment().EnvironmentName())
-		}
+		sfn(ctx.Environment().(*Environment).s)
 		return nil
 	}
 }
