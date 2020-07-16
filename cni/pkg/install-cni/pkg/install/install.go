@@ -16,7 +16,6 @@ package install
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -80,20 +79,21 @@ func Run(cfg *config.Config) (err error) {
 
 		files.cniConfigFilepath, err = createCNIConfigFile(ctx, cfg, saToken)
 		if err != nil {
-			if err == context.Canceled {
+			if errors.Is(err, context.Canceled) {
 				// Error was caused by interrupt/termination signal
 				err = nil
 			}
 			return
 		}
 
-		if !cfg.Sleep {
+		if cfg.ExecuteOnce {
 			err = checkInstall(cfg, files.cniConfigFilepath)
 			return
 		}
 		// Otherwise, keep container alive
 
 		// Create file watcher before checking for installation
+		// so that no file modifications are missed while and after checking
 		var watcher *fsnotify.Watcher
 		var fileModified chan bool
 		var errChan chan error
@@ -109,7 +109,7 @@ func Run(cfg *config.Config) (err error) {
 			}
 			// Valid configuration; Wait for modifications before checking again
 			if waitErr := util.WaitForFileMod(ctx, fileModified, errChan); waitErr != nil {
-				if waitErr != context.Canceled {
+				if !errors.Is(waitErr, context.Canceled) {
 					// Error was not caused by interrupt/termination signal
 					err = waitErr
 				}
@@ -125,9 +125,9 @@ func Run(cfg *config.Config) (err error) {
 		}
 
 		if err = watcher.Close(); err != nil {
-			return
+			log.Warnf("error closing file watcher: %v", err)
 		}
-		log.Info("Restarting script...")
+		log.Info("Restarting...")
 	}
 }
 
@@ -226,8 +226,7 @@ func cleanup(cfg *config.Config, files configFiles) error {
 				}
 			}
 
-			// Marshal and write CNI config atomically
-			cniConfig, err := json.MarshalIndent(cniConfigMap, "", "  ")
+			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
 			if err != nil {
 				return err
 			}

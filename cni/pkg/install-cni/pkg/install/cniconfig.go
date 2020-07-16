@@ -321,5 +321,5 @@ func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
 		newMap["plugins"] = append(plugins, istioMap)
 	}
 
-	return json.MarshalIndent(newMap, "", "  ")
+	return util.MarshalCNIConfig(newMap)
 }

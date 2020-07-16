@@ -46,7 +46,8 @@ const (
       "cni_bin_dir": "/opt/cni/bin",
       "exclude_namespaces": [ "istio-system" ]
   }
-}`
+}
+`
 )
 
 func getEnv(key, fallback string) string {

@@ -25,41 +25,21 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
+	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 )
 
 const (
-	kubeconfigMode = 0600
 	k8sServiceHost = "10.96.0.1"
 	k8sServicePort = "443"
+	kubeCAFilepath = "testdata/kube-ca.crt"
 	saToken        = "service_account_token_string"
 )
 
 func TestCreateKubeconfigFile(t *testing.T) {
-	saDir, err := ioutil.TempDir("", "serviceaccount-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.RemoveAll(saDir); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	data, err := ioutil.ReadFile(filepath.Join("testdata", "kube-ca.crt"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	kubeCAFilepath := filepath.Join(saDir, "kube-ca.crt")
-	err = ioutil.WriteFile(kubeCAFilepath, data, 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	cases := []struct {
 		name               string
-		expectFailure      bool
+		expectedFailure    bool
 		kubeconfigFilename string
 		kubeconfigMode     int
 		k8sServiceProtocol string
@@ -70,18 +50,18 @@ func TestCreateKubeconfigFile(t *testing.T) {
 		skipTLSVerify      bool
 	}{
 		{
-			name:          "k8s service host not set",
-			expectFailure: true,
+			name:            "k8s service host not set",
+			expectedFailure: true,
 		},
 		{
-			name:           "k8s service port not set",
-			expectFailure:  true,
-			k8sServiceHost: k8sServiceHost,
+			name:            "k8s service port not set",
+			expectedFailure: true,
+			k8sServiceHost:  k8sServiceHost,
 		},
 		{
 			name:               "skip TLS verify",
 			kubeconfigFilename: "istio-cni-kubeconfig",
-			kubeconfigMode:     kubeconfigMode,
+			kubeconfigMode:     constants.DefaultKubeconfigMode,
 			k8sServiceHost:     k8sServiceHost,
 			k8sServicePort:     k8sServicePort,
 			saToken:            saToken,
@@ -90,7 +70,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 		{
 			name:               "TLS verify",
 			kubeconfigFilename: "istio-cni-kubeconfig",
-			kubeconfigMode:     kubeconfigMode,
+			kubeconfigMode:     constants.DefaultKubeconfigMode,
 			k8sServiceHost:     k8sServiceHost,
 			k8sServicePort:     k8sServicePort,
 			saToken:            saToken,
@@ -124,12 +104,12 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			resultFilepath, err := createKubeconfigFile(cfg, c.saToken)
 			if err != nil {
 				assert.Empty(t, resultFilepath)
-				if !c.expectFailure {
+				if !c.expectedFailure {
 					t.Fatalf("did not expect failure: %v", err)
 				}
 				// Successful test case expecting failure
 				return
-			} else if c.expectFailure {
+			} else if c.expectedFailure {
 				t.Fatalf("expected failure")
 			}
 
@@ -150,8 +130,8 @@ func TestCreateKubeconfigFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if info.Mode() != kubeconfigMode {
-				t.Fatalf("kubeconfig file mode incorrectly set: expected: %#o, got: %#o", kubeconfigMode, info.Mode())
+			if info.Mode() != os.FileMode(c.kubeconfigMode) {
+				t.Fatalf("kubeconfig file mode incorrectly set: expected: %#o, got: %#o", os.FileMode(c.kubeconfigMode), info.Mode())
 			}
 
 			var goldenFilepath string

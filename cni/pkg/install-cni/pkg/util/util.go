@@ -143,7 +143,6 @@ func GetPlugins(cniConfigMap map[string]interface{}) (plugins []interface{}, err
 		if panicErr := recover(); panicErr != nil {
 			plugins = nil
 			err = errors.New("error reading plugin list from CNI config")
-			return
 		}
 	}()
 	plugins = cniConfigMap["plugins"].([]interface{})
@@ -155,9 +154,17 @@ func GetPlugin(rawPlugin interface{}) (plugin map[string]interface{}, err error)
 		if panicErr := recover(); panicErr != nil {
 			plugin = nil
 			err = errors.New("error reading plugin from CNI config plugin list")
-			return
 		}
 	}()
 	plugin = rawPlugin.(map[string]interface{})
 	return
+}
+
+func MarshalCNIConfig(cniConfigMap map[string]interface{}) ([]byte, error) {
+	cniConfig, err := json.MarshalIndent(cniConfigMap, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	cniConfig = append(cniConfig, "\n"...)
+	return cniConfig, nil
 }

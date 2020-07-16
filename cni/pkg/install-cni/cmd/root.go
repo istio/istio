@@ -29,7 +29,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
-	Short: "Install and configure CNI on a node",
+	Short: "Install and configure Istio CNI plugin on a node",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := constructConfig()
 		if err != nil {
@@ -52,14 +52,12 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI config template as a string")
+	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
-	registerBooleanParameter(constants.Sleep, true,
-		"Whether to sleep and wait for modifications after installation to prevent Kubernetes from restarting the pod repeatedly")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
-	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
-	registerStringParameter(constants.KubecfgFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")
+	registerStringParameter(constants.KubeconfigFilename, "ZZZ-istio-cni-kubeconfig", "Name of the kubeconfig file")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the pod one")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
@@ -100,13 +98,12 @@ func constructConfig() (*config.Config, error) {
 		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
-		Sleep:            viper.GetBool(constants.Sleep),
 
 		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
 		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
 
 		LogLevel:           viper.GetString(constants.LogLevel),
-		KubeconfigFilename: viper.GetString(constants.KubecfgFilename),
+		KubeconfigFilename: viper.GetString(constants.KubeconfigFilename),
 		KubeconfigMode:     viper.GetInt(constants.KubeconfigMode),
 		KubeCAFile:         viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:      viper.GetBool(constants.SkipTLSVerify),

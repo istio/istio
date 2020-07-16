@@ -16,6 +16,7 @@ package install
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -86,7 +87,10 @@ func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepat
 	var tlsConfig string
 	if cfg.SkipTLSVerify {
 		tlsConfig = "insecure-skip-tls-verify: true"
-	} else if fileutil.Exist(caFile) {
+	} else {
+		if !fileutil.Exist(caFile) {
+			return "", fmt.Errorf("file does not exist: %s", caFile)
+		}
 		var caContents []byte
 		caContents, err = ioutil.ReadFile(caFile)
 		if err != nil {

@@ -19,7 +19,6 @@ type Config struct {
 	MountedCNINetDir string
 	CNIConfName      string
 	ChainedCNIPlugin bool
-	Sleep            bool
 
 	CNINetworkConfigFile string
 	CNINetworkConfig     string
@@ -37,4 +36,6 @@ type Config struct {
 
 	UpdateCNIBinaries bool
 	SkipCNIBinaries   []string
+
+	ExecuteOnce bool
 }
