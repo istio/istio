@@ -384,13 +384,13 @@ spec:
 )
 
 func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.Instance, serviceNamespace namespace.Instance) {
-	tmpl, err := template.New("Gateway").Parse(Gateway)
+	tmplGateway, err := template.New("Gateway").Parse(Gateway)
 	if err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
+	if err := tmplGateway.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
@@ -400,9 +400,9 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 	// Have to wait for DR to apply to all sidecars first!
 	time.Sleep(10 * time.Second)
 
-	tmpl, err = template.New("Gateway").Parse(VirtualService)
+	tmplVS, err := template.New("Gateway").Parse(VirtualService)
 
-	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
+	if err := tmplVS.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
