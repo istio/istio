@@ -42,8 +42,7 @@ func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterC
 	if in.ServiceInstance != nil {
 		tlsGetter = authn.NewTLSPortNumber(in.ServiceInstance.Endpoint.EndpointPort)
 	}
-	return factory.NewPolicyApplier(in.Push,
-		in.ServiceInstance, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
+	return factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
 		tlsGetter, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
 }
 
@@ -71,7 +70,7 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Muta
 
 func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	ns := in.Node.Metadata.Namespace
-	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance, ns, labels.Collection{in.Node.Metadata.Labels})
+	applier := factory.NewPolicyApplier(in.Push, ns, labels.Collection{in.Node.Metadata.Labels})
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
@@ -123,7 +122,7 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 // OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
 func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
-	applier := factory.NewPolicyApplier(in.Push, nil /* ServiceInstance */, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
+	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	// Pass 0 for endpointPort so that it never matches any port-level policy.
 	return applier.InboundFilterChain(authn.NewTLSPortNumber(0), in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
 }
