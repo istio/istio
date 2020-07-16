@@ -34,19 +34,13 @@ spec:
   ingress:
   - port:
       number: 9080
-    localhostClientTls:
-      mode: SIMPLE
     defaultEndpoint: unix:///var/run/some.sock
   egress:
   - hosts:
     - "./*"
-    localhostServerTls:
-      mode: SIMPLE
   outboundTrafficPolicy:
     mode: ALLOW_ANY
     egressProxy:
       host: example
       port:
         number: 9080
-  localhost:
-    clientTls:
