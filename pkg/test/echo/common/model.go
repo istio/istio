@@ -25,9 +25,6 @@ type TLSSettings struct {
 	// This needed for integration tests, as we are connecting using a port-forward (127.0.0.1), so
 	// any DNS certs will not validate.
 	Hostname string
-
-	// If set to true, during TLS handshake, server requests and verifies client certificate
-	VerifyClientCert bool
 }
 
 // Port represents a network port where a service is listening for

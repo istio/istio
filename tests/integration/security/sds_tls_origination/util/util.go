@@ -156,7 +156,7 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 // SetupEcho creates two namespaces client and server. It also brings up two echo instances server and
 // client in respective namespaces. HTTP and HTTPS port on the server echo are set up. Egress Gateway is set up in the
 // service namespace to handle egress for "external" calls.
-func SetupEcho(t *testing.T, ctx resource.Context, verifyClientCert bool) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
+func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance, namespace.Instance, namespace.Instance) {
 	clientNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "client",
 		Inject: true,
@@ -203,8 +203,7 @@ func SetupEcho(t *testing.T, ctx resource.Context, verifyClientCert bool) (echo.
 				ClientCert: MustReadCert(t, "cert-chain.pem"),
 				Key:        MustReadCert(t, "key.pem"),
 				// Override hostname to match the SAN in the cert we are using
-				Hostname:         "server.default.svc",
-				VerifyClientCert: verifyClientCert,
+				Hostname: "server.default.svc",
 			},
 			Subsets: []echo.SubsetConfig{{
 				Version:     "v1",

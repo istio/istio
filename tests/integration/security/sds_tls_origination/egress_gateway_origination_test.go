@@ -60,7 +60,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "SIMPLE", CredentialB, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredName})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, false)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
@@ -152,7 +152,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				fakeCredNameA      = "fake-mtls-credential-a"
 				fakeCredNameB      = "fake-mtls-credential-b"
 				credNameMissing    = "mtls-credential-not-created"
-				simpleCredName     =  "tls-credential-simple-cacert"
+				simpleCredName     = "tls-credential-simple-cacert"
 			)
 
 			var credentialASimple = sdstlsutil.TLSCredential{
@@ -198,7 +198,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{simpleCredName}, "SIMPLE", credentialASimple, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{simpleCredName})
 
-			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, true)
+			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx)
 
 			// Set up Host Namespace
 			host := "server." + serverNamespace.Name() + ".svc.cluster.local"
@@ -233,15 +233,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 					gateway:         false,
 				},
 
-				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
-				// This root certificate can validate the server cert presented by the echoboot server instance and server CA
-				// cannot validate the client cert. Returns 503 response as TLS handshake fails.
-				"MUTUAL TLS with correct root cert but invalid client cert and private key": {
-					response:        []string{response.StatusCodeUnavailable},
-					credentialToUse: strings.TrimSuffix(fakeCredNameB, "-cacert"),
-					gateway:         false,
-				},
-
 				// Set up an UpstreamCluster with a CredentialName when secret doesn't even exist in istio-system ns.
 				// Secret fetching error at Gateway, results in a 503 response.
 				"MUTUAL TLS with credentialName set when the underlying secret doesn't exist": {
@@ -264,12 +255,12 @@ func TestMutualTlsOrigination(t *testing.T) {
 					istioCfg := istio.DefaultConfigOrFail(t, ctx)
 					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
-					time.Sleep(time.Second * 10)
+					time.Sleep(time.Second * 5)
 
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
-					time.Sleep(time.Second * 10)
+					time.Sleep(time.Second * 5)
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
