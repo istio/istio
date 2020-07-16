@@ -139,6 +139,9 @@ func TestEgressGatewayTls(t *testing.T) {
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 
+					// Wait for all CDS configs to update
+					time.Sleep(10 * time.Second)
+
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
 							Target:   externalServer,
@@ -163,7 +166,7 @@ func TestEgressGatewayTls(t *testing.T) {
 							}
 						}
 						return nil
-					}, retry.Delay(500*time.Millisecond), retry.Timeout(30*time.Second))
+					}, retry.Delay(3*time.Second), retry.Timeout(30*time.Second))
 				})
 			}
 		})
@@ -351,14 +354,13 @@ spec:
   subsets:
   - name: server
     trafficPolicy:
-      loadBalancer:
-        simple: ROUND_ROBIN
       portLevelSettings:
       - port:
           number: 80
         tls:
           sni: server.{{.ServerNamespace}}.svc.cluster.local
----
+`
+	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -410,6 +412,18 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 	}
 	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
+	}
+
+	// Have to wait for DR to apply to all sidecars first!
+	time.Sleep(10 * time.Second)
+
+	tmpl, err = template.New("Gateway").Parse(VirtualService)
+
+	if err := tmpl.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
+		t.Fatalf("failed to apply virtualservice: %v. template: %v", err, buf.String())
 	}
 }
 
