@@ -257,6 +257,10 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
+	return nil
+}
+
 func (c *Controller) Run(<-chan struct{}) {}
 
 func (c *Controller) HasSynced() bool { return true }

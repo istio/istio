@@ -36,6 +36,10 @@ type Controller interface {
 	// for a service.
 	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
 
+	// AppendWorkloadHandler notifies about changes to workloads. This differs from InstanceHandler,
+	// which deals with service instances (the result of a merge of Service and Workload)
+	AppendWorkloadHandler(f func(*WorkloadInstance, Event)) error
+
 	// Run until a signal is received
 	Run(stop <-chan struct{})
 
