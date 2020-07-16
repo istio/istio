@@ -248,46 +248,46 @@ func TestMutualTlsOrigination(t *testing.T) {
 			}
 
 			for name, tc := range testCases {
-				t.Run(name, func(t *testing.T) {
-					bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "MUTUAL", tc.credentialToUse)
+				ctx.NewSubTest(name).
+					Run(func(ctx framework.TestContext) {
+						bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "MUTUAL", tc.credentialToUse)
 
-					// Get namespace for gateway pod.
-					istioCfg := istio.DefaultConfigOrFail(t, ctx)
-					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+						// Get namespace for gateway pod.
+						istioCfg := istio.DefaultConfigOrFail(t, ctx)
+						systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
-					time.Sleep(time.Second * 5)
+						ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
-					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
-					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+						// Hack: Wait for CDS update to propagate
+						time.Sleep(time.Second * 5)
 
-					time.Sleep(time.Second * 5)
-
-					retry.UntilSuccessOrFail(t, func() error {
-						resp, err := internalClient.Call(echo.CallOptions{
-							Target:   externalServer,
-							PortName: "http",
-							Headers: map[string][]string{
-								"Host": {host},
-							},
-						})
-						if err != nil {
-							return fmt.Errorf("request failed: %v", err)
-						}
-						codes := make([]string, 0, len(resp))
-						for _, r := range resp {
-							codes = append(codes, r.Code)
-						}
-						if !reflect.DeepEqual(codes, tc.response) {
-							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
-						}
-						for _, r := range resp {
-							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
-								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+						retry.UntilSuccessOrFail(t, func() error {
+							resp, err := internalClient.Call(echo.CallOptions{
+								Target:   externalServer,
+								PortName: "http",
+								Headers: map[string][]string{
+									"Host": {host},
+								},
+							})
+							if err != nil {
+								return fmt.Errorf("request failed: %v", err)
 							}
-						}
-						return nil
-					}, retry.Delay(time.Second*3), retry.Timeout(time.Second*30))
-				})
+							codes := make([]string, 0, len(resp))
+							for _, r := range resp {
+								codes = append(codes, r.Code)
+							}
+							if !reflect.DeepEqual(codes, tc.response) {
+								return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+							}
+							for _, r := range resp {
+								if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+									return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+								}
+							}
+							return nil
+						}, retry.Delay(time.Second*3), retry.Timeout(time.Second*30))
+					})
 			}
 		})
 }

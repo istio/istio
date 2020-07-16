@@ -305,7 +305,7 @@ func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
-	// Must give some time to DR to propagate to all configs
+	// Hack:Must give some time to DR to propagate to all configs
 	time.Sleep(time.Second * 5)
 
 	tmplVS, err := template.New("VirtualService").Parse(VirtualService)
