@@ -120,10 +120,10 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 					Name:      cn,
 					Namespace: ns,
 				},
-				StringData: map[string]string{
-					tlsScrtCert:   ic.ClientCert,
-					tlsScrtKey:    ic.PrivateKey,
-					tlsScrtCaCert: ic.CaCert,
+				Data: map[string][]byte{
+					tlsScrtCert:   []byte(ic.ClientCert),
+					tlsScrtKey:    []byte(ic.PrivateKey),
+					tlsScrtCaCert: []byte(ic.CaCert),
 				},
 			}
 		}
@@ -132,10 +132,10 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 				Name:      cn,
 				Namespace: ns,
 			},
-			StringData: map[string]string{
-				genericScrtCert:   ic.ClientCert,
-				genericScrtKey:    ic.PrivateKey,
-				genericScrtCaCert: ic.CaCert,
+			Data: map[string][]byte{
+				genericScrtCert:   []byte(ic.ClientCert),
+				genericScrtKey:    []byte(ic.PrivateKey),
+				genericScrtCaCert: []byte(ic.CaCert),
 			},
 		}
 	}
@@ -147,8 +147,8 @@ func createSecret(credentialType string, cn, ns string, ic TLSCredential, isNotG
 			Name:      cn,
 			Namespace: ns,
 		},
-		StringData: map[string]string{
-			genericScrtCaCert: ic.CaCert,
+		Data: map[string][]byte{
+			genericScrtCaCert: []byte(ic.CaCert),
 		},
 	}
 }
@@ -306,7 +306,8 @@ func createGateway(t *testing.T, ctx resource.Context, clientNamespace namespace
 		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
-	time.Sleep(time.Second * 10)
+	// Must give some time to DR to propagate to all configs
+	time.Sleep(time.Second * 5)
 
 	tmplVS, err := template.New("VirtualService").Parse(VirtualService)
 	if err != nil {

@@ -102,12 +102,12 @@ func TestSimpleTlsOrigination(t *testing.T) {
 					istioCfg := istio.DefaultConfigOrFail(t, ctx)
 					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
-					time.Sleep(time.Second * 10)
+					time.Sleep(time.Second * 5)
 
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
-					time.Sleep(time.Second * 10)
+					time.Sleep(time.Second * 5)
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
@@ -133,7 +133,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 							}
 						}
 						return nil
-					}, retry.Delay(time.Millisecond*100))
+					}, retry.Delay(time.Second*3), retry.Timeout(time.Second*15))
 				})
 			}
 		})
@@ -152,7 +152,12 @@ func TestMutualTlsOrigination(t *testing.T) {
 				fakeCredNameA      = "fake-mtls-credential-a"
 				fakeCredNameB      = "fake-mtls-credential-b"
 				credNameMissing    = "mtls-credential-not-created"
+				simpleCredName     =  "tls-credential-simple-cacert"
 			)
+
+			var credentialASimple = sdstlsutil.TLSCredential{
+				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
+			}
 
 			var credentialAGeneric = sdstlsutil.TLSCredential{
 				ClientCert: sdstlsutil.MustReadCert(t, "cert-chain.pem"),
@@ -189,6 +194,9 @@ func TestMutualTlsOrigination(t *testing.T) {
 
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredNameB}, "MUTUAL", credentialBCertAndKey, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{fakeCredNameB})
+
+			sdstlsutil.CreateKubeSecret(t, ctx, []string{simpleCredName}, "SIMPLE", credentialASimple, false)
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{simpleCredName})
 
 			internalClient, externalServer, _, serverNamespace := sdstlsutil.SetupEcho(t, ctx, true)
 
@@ -239,6 +247,11 @@ func TestMutualTlsOrigination(t *testing.T) {
 				"MUTUAL TLS with credentialName set when the underlying secret doesn't exist": {
 					response:        []string{response.StatusCodeUnavailable},
 					credentialToUse: strings.TrimSuffix(credNameMissing, "-cacert"),
+					gateway:         false,
+				},
+				"MUTUAL TLS with correct root cert but no client certs": {
+					response:        []string{response.StatusCodeUnavailable},
+					credentialToUse: strings.TrimSuffix(simpleCredName, "-cacert"),
 					gateway:         false,
 				},
 			}
