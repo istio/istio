@@ -19,7 +19,6 @@ import (
 
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/protocol"
 )
 
 func TestGetByPort(t *testing.T) {
@@ -148,9 +147,8 @@ func TestGetLocalityOrDefault(t *testing.T) {
 	}
 }
 
-func TestForeignSeviceInstancesEqual(t *testing.T) {
-	exampleInstance := &ServiceInstance{
-		Service: &Service{},
+func TestForeignInstancesEqual(t *testing.T) {
+	exampleInstance := &WorkloadInstance{
 		Endpoint: &IstioEndpoint{
 			Labels:          labels.Instance{"app": "prod-app"},
 			Address:         "an-address",
@@ -166,11 +164,6 @@ func TestForeignSeviceInstancesEqual(t *testing.T) {
 			EndpointPort: 22,
 			LbWeight:     100,
 			TLSMode:      "mutual",
-		},
-		ServicePort: &Port{
-			Name:     "a-faux-ssh-port",
-			Port:     22,
-			Protocol: protocol.UDP,
 		},
 	}
 	differingAddr := exampleInstance.DeepCopy()
@@ -197,34 +190,16 @@ func TestForeignSeviceInstancesEqual(t *testing.T) {
 	differingUID.Endpoint.UID = "UID-TWO"
 
 	cases := []struct {
-		comparer *ServiceInstance
-		comparee *ServiceInstance
+		comparer *WorkloadInstance
+		comparee *WorkloadInstance
 		shouldEq bool
 		name     string
 	}{
 		{
-			comparer: &ServiceInstance{},
-			comparee: &ServiceInstance{},
+			comparer: &WorkloadInstance{},
+			comparee: &WorkloadInstance{},
 			shouldEq: true,
 			name:     "two null endpoints",
-		},
-		{
-			comparer: &ServiceInstance{
-				ServicePort: &Port{
-					Name:     "a-faux-ssh-port",
-					Port:     22,
-					Protocol: protocol.UDP,
-				},
-			},
-			comparee: &ServiceInstance{
-				ServicePort: &Port{
-					Name:     "a-faux-non-ssh-port",
-					Port:     80,
-					Protocol: protocol.UDP,
-				},
-			},
-			shouldEq: true,
-			name:     "two null endpoints with different service ports",
 		},
 		{
 			comparer: exampleInstance.DeepCopy(),
@@ -283,9 +258,9 @@ func TestForeignSeviceInstancesEqual(t *testing.T) {
 	}
 
 	for _, testCase := range cases {
-		t.Run("ForeignSeviceInstancesEqual: "+testCase.name, func(t *testing.T) {
-			isEq := ForeignSeviceInstancesEqual(testCase.comparer, testCase.comparee)
-			isEqReverse := ForeignSeviceInstancesEqual(testCase.comparee, testCase.comparer)
+		t.Run("WorkloadInstancesEqual: "+testCase.name, func(t *testing.T) {
+			isEq := WorkloadInstancesEqual(testCase.comparer, testCase.comparee)
+			isEqReverse := WorkloadInstancesEqual(testCase.comparee, testCase.comparer)
 
 			if isEq != isEqReverse {
 				t.Errorf(

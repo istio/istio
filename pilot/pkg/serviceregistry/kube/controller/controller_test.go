@@ -1756,10 +1756,8 @@ func TestForeignServiceInstanceHandlerMultipleEndpoints(t *testing.T) {
 	}
 
 	// Simulate adding a workload entry (fired through invocation of ForeignServiceInstanceHandler)
-	controller.ForeignServiceInstanceHandler(&model.ServiceInstance{
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{Namespace: "nsA"},
-		},
+	controller.ForeignServiceInstanceHandler(&model.WorkloadInstance{
+		Namespace: "nsA",
 		Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
 			ServiceAccount: "account",
 			Address:        "2.2.2.2",
