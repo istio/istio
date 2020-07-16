@@ -252,7 +252,7 @@ func (e unknownSchemaError) Error() string {
 	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
-func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte, lineChunk []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte, yamlChunkWithLineNumber []byte) (kubeResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
@@ -260,9 +260,9 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 
 	// Convert YAML with line numbers as values to a JSON object
-	jsonLineChunk, err := yaml.ToJSON(lineChunk)
+	jsonChunkWithLineNumber, err := yaml.ToJSON(yamlChunkWithLineNumber)
 	if err != nil {
-		jsonLineChunk = nil
+		jsonChunkWithLineNumber = nil
 	}
 
 	// Peek at the beginning of the JSON to
@@ -311,8 +311,8 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 
 	// Build flat map for analyzers if the line JSON object exists, if the YAML text is ill-formed, this will be nil
 	var fieldMap map[string]int
-	if jsonLineChunk != nil {
-		fieldMap = BuildFieldMap(jsonChunk, jsonLineChunk)
+	if jsonChunkWithLineNumber != nil {
+		fieldMap = BuildFieldMap(jsonChunk, jsonChunkWithLineNumber)
 	}
 
 	pos := rt.Position{Filename: name, Line: lineNum}
@@ -324,24 +324,26 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 }
 
 // BuildFieldMap builds every field along its JSONPath as key and its line number as value
-func BuildFieldMap(yamlJson []byte, lineJson []byte) map[string]int {
-	res := make(map[string]int)
+func BuildFieldMap(yamlJson []byte, yamlJsonWithLineNumber []byte) map[string]int {
+
+	// fieldMap contains paths of each fields of the resource as the key, and its corresponding line number as the value
+	fieldMap := make(map[string]int)
 
 	// Unmarshal two JSON objects to obtain keys to build the map
 	yamlData := kubeyaml.JsonUnmarshal(yamlJson)
-	lineData := kubeyaml.JsonUnmarshal(lineJson)
+	yamlDataWithLineNumber := kubeyaml.JsonUnmarshal(yamlJsonWithLineNumber)
 
-	DfsBuildMap(yamlData, lineData, res, "")
+	DfsBuildMap(yamlData, yamlDataWithLineNumber, fieldMap, "")
 
-	return res
+	return fieldMap
 }
 
 // DfsBuildMap builds the field map with a dfs method to each key in the JSON object
-func DfsBuildMap(yamlObj interface{}, lineObj interface{}, fieldMap map[string]int, curPath string) {
+func DfsBuildMap(yamlObj interface{}, yamlObjWithLineNumber interface{}, fieldMap map[string]int, curPath string) {
 	var yamlData interface{}
 	var lineData interface{}
 	yamlData = yamlObj
-	lineData = lineObj
+	lineData = yamlObjWithLineNumber
 
 	// Check interface type, and go to the next step
 	switch yamlData.(type) {
@@ -411,27 +413,31 @@ func FindFloatInterface(p interface{}) string {
 }
 
 // FillLineNumberToStruct returns an object that has the same structure with the input but the values are filled by the input line
-func FillLineNumberToStruct(p interface{}, line float64) interface{} {
-	var res interface{}
-	switch p.(type) {
+func FillLineNumberToStruct(keyObject interface{}, lineNumber float64) interface{} {
+	var fieldMap interface{}
+	switch keyObject.(type) {
 	case int:
-		res = line
+		fieldMap = lineNumber
+
 	case float64:
-		res = line
+		fieldMap = lineNumber
+
 	case string:
-		res = line
+		fieldMap = lineNumber
+
 	case []interface {}:
 		a := make([]interface{}, 0)
-		for _, v := range p.([]interface{}) {
-			a = append(a, FillLineNumberToStruct(v, line))
+		for _, v := range keyObject.([]interface{}) {
+			a = append(a, FillLineNumberToStruct(v, lineNumber))
 		}
 		return a
+
 	case map[string]interface {}:
 		m := make(map[string]interface{})
-		for k, v := range p.(map[string]interface{}) {
-			m[k] = FillLineNumberToStruct(v, line)
+		for k, v := range keyObject.(map[string]interface{}) {
+			m[k] = FillLineNumberToStruct(v, lineNumber)
 		}
 		return m
 	}
-	return res
+	return fieldMap
 }
