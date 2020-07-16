@@ -76,7 +76,6 @@ spec:
 					Service:   "client",
 					Namespace: ns,
 					Ports:     ports,
-					Pilot:     p,
 					Subsets: []echo.SubsetConfig{
 						{
 							Annotations: map[echo.Annotation]*echo.AnnotationValue{
@@ -94,7 +93,6 @@ spec:
 					Service:       "server",
 					Namespace:     ns,
 					Ports:         ports,
-					Pilot:         p,
 					DeployAsVM:    true,
 					VMImage:       vm.DefaultVMImage,
 					VMEnvironment: vmEnv,
