@@ -113,14 +113,6 @@ global:
     s390x: 2
     ppc64le: 2
 
-  # The customized CA address to retrieve certificates for the pods in the cluster.
-  # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
-  caAddress: ""
-
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
-  # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: true
-
   # set the default set of namespaces to which services, service entries, virtual services, destination
   # rules should be exported to. Currently only one value can be provided in this list. This value
   # should be one of the following two options:
@@ -182,6 +174,51 @@ global:
   imagePullSecrets: []
   # - private-registry-key
 
+  # To output all istio components logs in json format by adding --log_as_json argument to each container argument
+  logAsJson: false
+
+  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
+  # The control plane has different scopes depending on component, but can configure default log level across all components
+  # If empty, default scope and level will be used as configured in code
+  logging:
+    level: "default:info"
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low priority class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""
+
+  proxy:
+    image: proxyv2
+
+    # CAUTION: It is important to ensure that all Istio helm charts specify the same clusterDomain value
+    # cluster domain. Default value is "cluster.local".
+    clusterDomain: "cluster.local"
+
+    # Resources for the sidecar.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 2000m
+        memory: 1024Mi
+
+  ##############################################################################################
+  # The following values are found in other charts. To effectively modify these values, make   #
+  # make sure they are consistent across your Istio helm charts                                #
+  ##############################################################################################
+
+  # The customized CA address to retrieve certificates for the pods in the cluster.
+  # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
+  caAddress: ""
+
+  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
+  # propagated, not recommended for tests.
+  controlPlaneSecurityEnabled: true
+
   # Used to locate istio-pilot.
   # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
   # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
@@ -192,15 +229,6 @@ global:
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"
-
-  # To output all istio components logs in json format by adding --log_as_json argument to each container argument
-  logAsJson: false
-
-  # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
-  # The control plane has different scopes depending on component, but can configure default log level across all components
-  # If empty, default scope and level will be used as configured in code
-  logging:
-    level: "default:info"
 
   # Mesh ID means Mesh Identifier. It should be unique within the scope where
   # meshes will interact with each other, but it is not required to be
@@ -231,29 +259,10 @@ global:
   # Istiod is the default
   pilotCertProvider: istiod
 
-  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
-  # system-node-critical, it is better to configure this in order to make sure your Istio pods
-  # will not be killed because of low priority class.
-  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-  # for more detail.
-  priorityClassName: ""
-
-  proxy:
-    image: proxyv2
-
-    # cluster domain. Default value is "cluster.local".
-    clusterDomain: "cluster.local"
-
-    # Resources for the sidecar.
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 2000m
-        memory: 1024Mi
-
   sds:
+    # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.
+    # When a CSR is sent from Citadel Agent to the CA (e.g. Citadel), this aud is to make sure the
+    # JWT is intended for the CA.
     token:
       aud: istio-ca
 
