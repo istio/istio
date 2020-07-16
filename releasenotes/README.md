@@ -19,8 +19,7 @@ area: traffic-management
 # issue is a list of GitHub issues resolved in this note.
 issue:
   - https://github.com/istio/istio/issues/23622
-  - https://github.com/istio/istio/issues/23623
-  - https://github.com/istio/istio/issues/23624
+  - 23624
 releaseNotes: |
 *Fixed* an issue preventing the operator from recreating watched resources if they are deleted
 
@@ -37,47 +36,6 @@ When validating TLS certificates, Envoy incorrectly allows a wildcard DNS Subjec
 
 Some release notes may affect multiple types of notes. For those, please fill in all respective areas. For notes that only affect one or two areas, please fill in only those sections. Sections that don't have content can be omitted.
 
-### Upgrade Notes
-
-These notes detail the changes which purposefully break backwards compatibility with Istio 1.5.x. The notes also mention changes which preserve backwards compatibility while introducing new behavior. Changes are only included if the new behavior would be unexpected to a user. These should be written in paragraph format with a title and content.
-
-```yaml
-upgradeNotes:
-  - title: Change the readiness port of gateways
-    content: |
-      If you are using the 15020 port to check the health of your Istio ingress gateway with your Kubernetes network load balancer, change the port from 15020 to 15021.
-```
-
-### Release Notes
-
-These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `*Action*`.
-
-```yaml
-*Fixed* an issue preventing the operator from recreating watched resources if they are deleted
-```
-
-### Security Notes
-
-These notes detail fixes to security issues in Istio. These may be upgrades to vulnerable libraries, fixes for CVEs, or related content. Security Notes should start with the first the CVE ID in the format `__[CVE-2020-15104](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15104)__` followed by a description and then the CVSS score in the format `CVSS Score: 6.6 [AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C&version=3.1)`
-
-```yaml
-securityNotes: |
-__[CVE-2020-15104](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15104)__:
-When validating TLS certificates, Envoy incorrectly allows a wildcard DNS Subject Alternative Name to apply to multiple subdomains. For example, with a SAN of `*.example.com`, Envoy incorrectly allows `nested.subdomain.example.com`, when it should only allow `subdomain.example.com`.
-    - CVSS Score: 6.6 [AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C&version=3.1)
-```
-
-### Issue
-
-While many pull requests will only fix a single GitHub issue, some pull requests may fix multiple issues. Please list all fixed GitHub issues. Issues written as numbers only will be interpreted as being reported against the `istio/istio` repo, while issues recorded as URLs will be read as the supplied URLs.
-
-```yaml
-issues:
-  - https://github.com/istio/istio/issues/23622
-  - https://github.com/istio/istio/issues/23623
-  - https://github.com/istio/istio/issues/23624
-```
-
 ### Area
 
 This field describes the are of Istio that the note affects. Valid values include:
@@ -87,6 +45,22 @@ This field describes the are of Istio that the note affects. Valid values includ
 * installation
 * istioctl
 * documentation
+
+### Issue
+
+While many pull requests will only fix a single GitHub issue, some pull requests may fix multiple issues. Please list all fixed GitHub issues. Issues written as numbers only will be interpreted as being reported against the `istio/istio` repo, while issues recorded as URLs will be read as the supplied URLs.
+
+### Release Notes
+
+These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `*Action*`.
+
+### Upgrade Notes
+
+These notes detail the changes which purposefully break backwards compatibility with the previous version of Istio. The notes also mention changes which preserve backwards compatibility while introducing new behavior. Changes are only included if the new behavior would be unexpected to a user. These should be written in paragraph format with a title and content.
+
+### Security Notes
+
+These notes detail fixes to security issues in Istio. These may be upgrades to vulnerable libraries, fixes for CVEs, or related content. Security Notes should start with the first the CVE ID in the format `__[CVE-2020-15104](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15104)__` followed by a description and then the CVSS score in the format `CVSS Score: 6.6 [AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C&version=3.1)`
 
 ## Adding a release note to multiple Istio Releases
 
