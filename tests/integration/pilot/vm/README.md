@@ -45,17 +45,17 @@ echo.Config{
    Ports:      ports,
    Pilot:      p,
    DeployAsVM: true,
-   VMImage:    "app_sidecar_ubuntu_bionic"
+   VMImage:    vm.DefaultVMImage
 }
 ```
 
-The default image referenced with `DefaultVMImage` should be used in most cases. If you want to use additional images
-please reference [next section](#add_more_images).
-We have [additional images](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go)
-that are built in the post-submit jobs.
+The default image referenced with `DefaultVMImage` from `vm` package should be used in all pre-submit tests since
+only the default image would be built in pre-submit stage. Using additional images are only possible in
+post-submit stage as shown in the [next section](#add_more_images).
+A complete list of supported additional images can be found in [`util.go`](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go).
 If `VMImage` is not provided while `DeployAsVM` is on, it will default the Docker image to be `DefaultVMImage`.
 
-## <a id="add_more_images">Scenario 2: Supporting More OS Images</a>
+## <a id="add_more_images">Scenario 2: Supporting Additional OS Images</a>
 
 We list the supported OSes in [util.go](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go)
 and the images will be created in [prow/lib.sh](https://github.com/istio/istio/blob/master/prow/lib.sh).
@@ -75,7 +75,7 @@ to save time in CI/CD.**
 
 ## Scenario 3: Testing VM Onboarding & Enmeshing
 
-Detailed steps to onboard a VM could be found in this [documentation](https://istio.io/latest/docs/examples/virtual-machines/single-network/) for the VM onboarding process.
+Detailed steps to onboard a VM could be found in [VM onboarding documentation](https://istio.io/latest/docs/examples/virtual-machines/single-network/).
 
 Currently, these steps are pre-configured and built in the deployment. However, each of them could be tested
 by tweaking the [VM deployment template](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/kube/deployment.go#L193).
