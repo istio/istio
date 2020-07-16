@@ -63,7 +63,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
-			sourceQuery, destinationQuery, appQuery := buildQuery()
+			_, destinationQuery, appQuery := buildQuery()
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := SendTraffic(); err != nil {
 					return err
