@@ -138,7 +138,7 @@ data:
         target_label: kubernetes_node
       file_sd_configs:
       - files:
-        - /etc/config/file_sd_config.json
+        - /etc/file_sd/*.yaml
     - job_name: kubernetes-service-endpoints-slow
       kubernetes_sd_configs:
       - role: endpoints
@@ -452,6 +452,8 @@ spec:
             - name: storage-volume
               mountPath: /data
               subPath: ""
+            - name: file-sd-volume
+              mountPath: /etc/file_sd
       securityContext:
         fsGroup: 65534
         runAsGroup: 65534
@@ -462,6 +464,9 @@ spec:
         - name: config-volume
           configMap:
             name: prometheus
+        - name: file-sd-volume
+          configMap:
+            name: file-sd-config
         - name: storage-volume
           emptyDir:
             {}

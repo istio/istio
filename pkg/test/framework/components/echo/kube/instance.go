@@ -16,11 +16,9 @@ package kube
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -178,7 +176,7 @@ spec:
 			}
 
 			// Write Workload Entry Endpoints to the file_sd_config map to be collected by Prometheus
-			if err = updateWorkloadEndpoint(vmPod.Name, vmPod.Status.PodIP, cfg.Service,
+			if err = updateWorkloadEndpoint(c.cluster, vmPod.Name, vmPod.Status.PodIP, cfg.Service,
 				vmPod.Labels["istio.io/test-vm-version"]); err != nil {
 				return nil, fmt.Errorf("failed writing workload enpoints: %v", err)
 			}
@@ -330,28 +328,48 @@ func workloadHasSidecar(cfg echo.Config, podName string) bool {
 // External workloads have no endpoint registered in k8s, so the traffic sent to these non-k8s workloads
 // won't be picked up by Prometheus. We update the workload entries' endpoints to a config map so that
 // Prometheus could mount the map and read the endpoints.
-func updateWorkloadEndpoint(name, endpoint, service, version string) error {
-	filePath := "/etc/config/file_sd_config.json"
-	file, err := ioutil.ReadFile(filePath)
+func updateWorkloadEndpoint(client kubernetes.Interface, name, endpoint, service, version string) error {
+	currentCM, err := client.CoreV1().ConfigMaps("istio-system").Get(context.TODO(),
+		"file-sd-config", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	var sdConfig []interface{}
-	_ = json.Unmarshal(file, &sdConfig)
-
-	sdConfig = append(sdConfig, staticConfig{
-		targets: []string{endpoint},
-		labels: map[string]string{
-			"name":    name,
-			"app":     service,
-			"version": version,
-		},
-	})
-	sdConfigJson, _ := json.Marshal(sdConfig)
-	if err := ioutil.WriteFile(filePath, sdConfigJson, 0666); err != nil {
+	if currentCM.Data == nil {
+		currentCM.Data = make(map[string]string)
+	}
+	currentCM.Data[fmt.Sprintf("%s.yaml", name)] = fmt.Sprintf(`
+- targets:
+  - %s
+  labels:
+    name: %s
+    app: %s
+    version: %s`, endpoint, name, service, version)
+	if _, err := client.CoreV1().ConfigMaps("istio-system").Update(context.TODO(), currentCM,
+		metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 	return nil
+	//filePath := "/etc/config/file_sd_config.json"
+	//file, err := ioutil.ReadFile(filePath)
+	//if err != nil {
+	//	return err
+	//}
+	//var sdConfig []interface{}
+	//_ = json.Unmarshal(file, &sdConfig)
+	//
+	//sdConfig = append(sdConfig, staticConfig{
+	//	targets: []string{endpoint},
+	//	labels: map[string]string{
+	//		"name":    name,
+	//		"app":     service,
+	//		"version": version,
+	//	},
+	//})
+	//sdConfigJson, _ := json.Marshal(sdConfig)
+	//if err := ioutil.WriteFile(filePath, sdConfigJson, 0666); err != nil {
+	//	return err
+	//}
+	//return nil
 }
 
 func (c *instance) initialize(pods []kubeCore.Pod) error {

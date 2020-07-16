@@ -16,10 +16,9 @@ package http
 
 import (
 	"fmt"
+	"istio.io/istio/tests/integration/pilot/vm"
 	"testing"
 	"time"
-
-	"istio.io/istio/tests/integration/pilot/vm"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"

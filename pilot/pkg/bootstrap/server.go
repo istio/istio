@@ -21,6 +21,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
 	"net/http"
 	"path"
@@ -31,6 +33,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/status"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -1110,10 +1113,22 @@ func (s *Server) initMeshHandlers() {
 
 func (s *Server) createPromSDConfigMap() error {
 	log.Info("creating prometheus service discovery config map")
-	filePath := "/etc/config/file_sd_config.json"
-	if err := ioutil.WriteFile(filePath, []byte{}, 0666); err != nil {
-		return err
+	if s.kubeClient == nil {
+		log.Info("kube client not available. prometheus service discovery config map creation failed.")
+	} else {
+		cfg := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "file-sd-config",
+			},
+			Data: make(map[string]string),
+		}
+		if _, err := s.kubeClient.CoreV1().ConfigMaps("istio-system").Create(context.TODO(), cfg,
+			metav1.CreateOptions{}); err != nil {
+			if !apierrors.IsAlreadyExists(err) && !apierrors.IsInvalid(err) {
+				return fmt.Errorf("failed to create config map: %v", err)
+			}
+		}
+		log.Info("created prometheus service discovery config map")
 	}
-	log.Infof("created prometheus service discovery config map at %v", filePath)
 	return nil
 }
