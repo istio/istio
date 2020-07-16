@@ -88,7 +88,7 @@ var (
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
 
 	// StackdriverInstallFilePath is the stackdriver installation file.
-	StackdriverInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/stackdriver/stackdriver.yaml")
+	StackdriverInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/monitoring/stackdriver/stackdriver.yaml")
 
 	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
 	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/gcemetadata/gce_metadata_server.yaml")

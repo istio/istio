@@ -19,6 +19,7 @@ features:
   observability:
     telemetry:
       stats:
+        standard-metrics:
         prometheus:
           customize-metric:
           merge:
