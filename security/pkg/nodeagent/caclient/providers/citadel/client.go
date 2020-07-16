@@ -185,7 +185,7 @@ func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
 }
 
 func (c *citadelClient) reconnect() error {
-	err := c.releaseResource()
+	err := c.conn.Close()
 	if err != nil {
 		return fmt.Errorf("failed to close connection")
 	}
@@ -196,10 +196,5 @@ func (c *citadelClient) reconnect() error {
 	}
 	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
-	return err
-}
-
-func (c *citadelClient) releaseResource() error {
-	err := c.conn.Close()
 	return err
 }
