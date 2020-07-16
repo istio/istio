@@ -250,7 +250,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
-					time.Sleep(time.Second*10)
+					time.Sleep(time.Second * 10)
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
