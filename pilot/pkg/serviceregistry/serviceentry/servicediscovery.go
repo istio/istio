@@ -521,7 +521,11 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 		}
 	}
 
-	s.storeMutex.RLock()
+	// We need to take a full lock here, rather than just a read lock and then later updating s.instances
+	// otherwise, what may happen is both the refresh thread and workload entry/pod handler both generate their own
+	// view of s.instances and then write them, leading to inconsistent state. This lock ensures that both threads do
+	// a full R+W before the other can start, rather than R,R,W,W.
+	s.storeMutex.Lock()
 	for ip, foreignInstance := range s.foreignRegistryInstancesByIP {
 		key := configKey{
 			kind:      foreignInstanceConfigType,
@@ -543,8 +547,6 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 		}
 		updateInstances(key, instances, di, dip)
 	}
-
-	s.storeMutex.RUnlock()
 
 	wles, err := s.store.List(gvk.WorkloadEntry, model.NamespaceAll)
 	if err != nil {
@@ -570,10 +572,9 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 		}
 	}
 
-	s.storeMutex.Lock()
+	s.seWithSelectorByNamespace = seWithSelectorByNamespace
 	s.instances = di
 	s.ip2instance = dip
-	s.seWithSelectorByNamespace = seWithSelectorByNamespace
 	s.storeMutex.Unlock()
 
 	// Without this pilot becomes very unstable even with few 100 ServiceEntry objects - the N_clusters * N_update generates too much garbage ( yaml to proto)

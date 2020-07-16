@@ -416,7 +416,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 			return fmt.Errorf("%v", err)
 		}
 		return nil
-	}, retry.Converge(2), retry.Timeout(time.Second*1))
+	}, retry.Converge(2), retry.Timeout(time.Second*2))
 }
 
 func compare(t *testing.T, actual, expected interface{}) error {
