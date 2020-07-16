@@ -340,12 +340,12 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 
 // The foreign service instance has pointer to the foreign service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serviceEntryServices []*model.Service,
+func convertForeignServiceInstances(foreignInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			ep := *foreignInstance.Endpoint
+			ep := *foreignInstance
 			ep.ServicePortName = serviceEntryPort.Name
 			// if target port is set, use the target port else fallback to the service port
 			// TODO: we need a way to get the container port map from k8s
@@ -367,8 +367,8 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
-	we *networking.WorkloadEntry) *model.ServiceInstance {
+func convertWorkloadEntryToForeignInstances(namespace string,
+	we *networking.WorkloadEntry) *model.WorkloadInstance {
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
@@ -379,7 +379,7 @@ func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
 	if we.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
 	}
-	return &model.ServiceInstance{
+	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			// Not setting ports here as its done by k8s controller
@@ -392,10 +392,7 @@ func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{
-				Namespace: namespace,
-			},
-		},
+		PortMap:   we.Ports,
+		Namespace: namespace,
 	}
 }
