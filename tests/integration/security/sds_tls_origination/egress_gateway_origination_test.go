@@ -102,12 +102,8 @@ func TestSimpleTlsOrigination(t *testing.T) {
 					istioCfg := istio.DefaultConfigOrFail(t, ctx)
 					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
 
-					time.Sleep(time.Second * 5)
-
 					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
-
-					time.Sleep(time.Second * 5)
 
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := internalClient.Call(echo.CallOptions{
@@ -133,7 +129,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 							}
 						}
 						return nil
-					}, retry.Delay(time.Second*3), retry.Timeout(time.Second*15))
+					}, retry.Delay(time.Second*1), retry.Timeout(time.Minute*2))
 				})
 			}
 		})
@@ -259,9 +255,6 @@ func TestMutualTlsOrigination(t *testing.T) {
 						ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
 
-						// Hack: Wait for CDS update to propagate
-						time.Sleep(time.Second * 5)
-
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{
 								Target:   externalServer,
@@ -286,7 +279,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 								}
 							}
 							return nil
-						}, retry.Delay(time.Second*3), retry.Timeout(time.Second*30))
+						}, retry.Delay(time.Second*1), retry.Timeout(time.Minute*2))
 					})
 			}
 		})
