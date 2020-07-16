@@ -39,7 +39,7 @@ spec:
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
-                      filename: /etc/istio/extensions/metadata-exchange-filter.wasm
+                      filename: /etc/istio/extensions/metadata-exchange-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -165,7 +165,7 @@ spec:
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -215,7 +215,7 @@ spec:
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -266,7 +266,7 @@ spec:
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -328,7 +328,7 @@ spec:
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -376,7 +376,7 @@ spec:
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -424,7 +424,7 @@ spec:
                   runtime: envoy.wasm.runtime.v8
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
