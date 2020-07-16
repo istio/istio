@@ -132,6 +132,10 @@ spec:
           {{- else }}
           - --trace_zipkin_url=http://zipkin.{{ .Values.global.telemetryNamespace }}:9411/api/v1/spans
           {{- end }}
+          - --averageLatencyThreshold
+          - {{ .Values.mixer.telemetry.loadshedding.latencyThreshold }}
+          - --loadsheddingMode
+          - {{ .Values.mixer.telemetry.loadshedding.mode }}
         env:
         - name: POD_NAMESPACE
           valueFrom:
