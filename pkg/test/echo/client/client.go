@@ -54,9 +54,7 @@ func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.RootCert)) {
 			return nil, fmt.Errorf("failed to create cert pool")
 		}
-
 		cfg := credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: certPool})
-
 		// If provided, override the hostname
 		if tlsSettings.Hostname != "" {
 			if err := cfg.OverrideServerName(tlsSettings.Hostname); err != nil {
