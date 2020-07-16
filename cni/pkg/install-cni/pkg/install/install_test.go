@@ -42,6 +42,14 @@ func TestCheckInstall(t *testing.T) {
 			existingConfFiles: []string{"bridge.conf", "list.conflist.golden"},
 		},
 		{
+			name:              "intentional preempted config invalid",
+			expectedFailure:   true,
+			cniConfigFilename: "invalid-arr.conflist",
+			cniConfName:       "invalid-arr.conflist",
+			chainedCNIPlugin:  true,
+			existingConfFiles: []string{"bridge.conf", "invalid-arr.conflist"},
+		},
+		{
 			name:              "intentional preempted config",
 			cniConfigFilename: "list.conflist.golden",
 			cniConfName:       "list.conflist.golden",

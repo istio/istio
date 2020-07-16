@@ -16,6 +16,7 @@ package util
 
 import (
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -121,4 +122,42 @@ func WaitForFileMod(ctx context.Context, fileModified chan bool, errChan chan er
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func ReadCNIConfigMap(path string) (map[string]interface{}, error) {
+	cniConfig, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cniConfigMap map[string]interface{}
+	if err = json.Unmarshal(cniConfig, &cniConfigMap); err != nil {
+		return nil, errors.Wrap(err, path)
+	}
+
+	return cniConfigMap, nil
+}
+
+func GetPlugins(cniConfigMap map[string]interface{}) (plugins []interface{}, err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			plugins = nil
+			err = errors.New("error reading plugin list from CNI config")
+			return
+		}
+	}()
+	plugins = cniConfigMap["plugins"].([]interface{})
+	return
+}
+
+func GetPlugin(rawPlugin interface{}) (plugin map[string]interface{}, err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			plugin = nil
+			err = errors.New("error reading plugin from CNI config plugin list")
+			return
+		}
+	}()
+	plugin = rawPlugin.(map[string]interface{})
+	return
 }

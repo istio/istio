@@ -167,14 +167,20 @@ func checkInstall(cfg *config.Config, cniConfigFilepath string) error {
 
 	if cfg.ChainedCNIPlugin {
 		// Verify that Istio CNI config exists in the CNI config plugin list
-		cniConfigMap, err := getCNIConfigMap(cniConfigFilepath)
+		cniConfigMap, err := util.ReadCNIConfigMap(cniConfigFilepath)
 		if err != nil {
 			return err
 		}
-
-		plugins := cniConfigMap["plugins"].([]interface{})
-		for _, plugin := range plugins {
-			if plugin.(map[string]interface{})["type"] == "istio-cni" {
+		plugins, err := util.GetPlugins(cniConfigMap)
+		if err != nil {
+			return errors.Wrap(err, cniConfigFilepath)
+		}
+		for _, rawPlugin := range plugins {
+			plugin, err := util.GetPlugin(rawPlugin)
+			if err != nil {
+				return errors.Wrap(err, cniConfigFilepath)
+			}
+			if plugin["type"] == "istio-cni" {
 				return nil
 			}
 		}
@@ -182,7 +188,7 @@ func checkInstall(cfg *config.Config, cniConfigFilepath string) error {
 		return fmt.Errorf("istio-cni CNI config removed from CNI config file: %s", cniConfigFilepath)
 	}
 	// Verify that Istio CNI config exists as a standalone plugin
-	cniConfigMap, err := getCNIConfigMap(cniConfigFilepath)
+	cniConfigMap, err := util.ReadCNIConfigMap(cniConfigFilepath)
 	if err != nil {
 		return err
 	}
@@ -198,27 +204,33 @@ func cleanup(cfg *config.Config, files configFiles) error {
 	if len(files.cniConfigFilepath) > 0 && fileutil.Exist(files.cniConfigFilepath) {
 		if cfg.ChainedCNIPlugin {
 			log.Infof("Removing Istio CNI config from CNI config file: %s", files.cniConfigFilepath)
+
 			// Read JSON from CNI config file
-			cniConfigMap, err := getCNIConfigMap(files.cniConfigFilepath)
+			cniConfigMap, err := util.ReadCNIConfigMap(files.cniConfigFilepath)
 			if err != nil {
 				return err
 			}
-
 			// Find Istio CNI and remove from plugin list
-			plugins := cniConfigMap["plugins"].([]interface{})
-			for i, plugin := range plugins {
-				if plugin.(map[string]interface{})["type"] == "istio-cni" {
+			plugins, err := util.GetPlugins(cniConfigMap)
+			if err != nil {
+				return errors.Wrap(err, files.cniConfigFilepath)
+			}
+			for i, rawPlugin := range plugins {
+				plugin, err := util.GetPlugin(rawPlugin)
+				if err != nil {
+					return errors.Wrap(err, files.cniConfigFilepath)
+				}
+				if plugin["type"] == "istio-cni" {
 					cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
 					break
 				}
 			}
 
+			// Marshal and write CNI config atomically
 			cniConfig, err := json.MarshalIndent(cniConfigMap, "", "  ")
 			if err != nil {
 				return err
 			}
-
-			// Write CNI config file atomically
 			if err = util.WriteAtomically(files.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 				return err
 			}
@@ -249,18 +261,4 @@ func cleanup(cfg *config.Config, files configFiles) error {
 		}
 	}
 	return nil
-}
-
-func getCNIConfigMap(path string) (map[string]interface{}, error) {
-	cniConfig, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var cniConfigMap map[string]interface{}
-	if err = json.Unmarshal(cniConfig, &cniConfigMap); err != nil {
-		return nil, errors.Wrap(err, path)
-	}
-
-	return cniConfigMap, nil
 }

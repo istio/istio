@@ -303,29 +303,53 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 
 func TestInsertCNIConfig(t *testing.T) {
 	cases := []struct {
-		name       string
-		inFilename string
+		name                 string
+		expectedFailure      bool
+		existingConfFilename string
+		newConfFilename      string
 	}{
 		{
-			name:       "regular network file",
-			inFilename: "bridge.conf",
+			name:                 "invalid existing config format (map)",
+			expectedFailure:      true,
+			existingConfFilename: "invalid-map.conflist",
+			newConfFilename:      "istio-cni.conf",
 		},
 		{
-			name:       "list network file",
-			inFilename: "list.conflist",
+			name:                 "invalid new config format (arr)",
+			expectedFailure:      true,
+			existingConfFilename: "list.conflist",
+			newConfFilename:      "invalid-arr.conflist",
+		},
+		{
+			name:                 "invalid existing config format (arr)",
+			expectedFailure:      true,
+			existingConfFilename: "invalid-arr.conflist",
+			newConfFilename:      "istio-cni.conf",
+		},
+		{
+			name:                 "regular network file",
+			existingConfFilename: "bridge.conf",
+			newConfFilename:      "istio-cni.conf",
+		},
+		{
+			name:                 "list network file",
+			existingConfFilename: "list.conflist",
+			newConfFilename:      "istio-cni.conf",
 		},
 	}
 
-	istioConf := testutils.ReadFile("testdata/istio-cni.conf", t)
-
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			existingConfFilepath := "testdata/" + c.inFilename
+			istioConf := testutils.ReadFile(filepath.Join("testdata", c.newConfFilename), t)
+			existingConfFilepath := "testdata/" + c.existingConfFilename
 			existingConf := testutils.ReadFile(existingConfFilepath, t)
 
 			output, err := insertCNIConfig(istioConf, existingConf)
 			if err != nil {
-				t.Fatal(err)
+				if !c.expectedFailure {
+					t.Fatal(err)
+				}
+				return
 			}
 
 			goldenFilepath := existingConfFilepath + ".golden"

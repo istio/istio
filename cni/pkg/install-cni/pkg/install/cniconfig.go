@@ -314,7 +314,10 @@ func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
 	} else {
 		// Assume it is a network list file
 		newMap = existingMap
-		plugins := newMap["plugins"].([]interface{})
+		plugins, err := util.GetPlugins(newMap)
+		if err != nil {
+			return nil, fmt.Errorf("existing CNI config: %v", err)
+		}
 		newMap["plugins"] = append(plugins, istioMap)
 	}
 
