@@ -64,7 +64,9 @@ features:
   # features releated to the lifecycle of istio installations
   installation:
     istioctl:
-      uninstall:
+      uninstall_revision:
+      uninstall_manifest:
+      uninstall_purge:
     multicluster:
       central-istiod:
       multimaster:

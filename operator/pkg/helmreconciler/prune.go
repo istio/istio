@@ -216,11 +216,8 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 				continue
 			}
 			obju := obj.UnstructuredObject()
-			if err := util.SetLabel(obju, operatorLabelStr, operatorReconcileStr); err != nil {
-				return fmt.Errorf("failed to apply labels: %v", err)
-			}
-			if err := util.SetLabel(obju, IstioComponentLabelStr, cn); err != nil {
-				return fmt.Errorf("failed to apply labels: %v", err)
+			if err := h.applyLabelsAndAnnotations(obju, cn); err != nil {
+				return err
 			}
 			unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
 		}
@@ -297,7 +294,6 @@ func (h *HelmReconciler) deleteResources(excluded map[string]bool, coreLabels ma
 			h.opts.Log.LogAndPrintf("Not pruning object %s because of dry run.", oh)
 			continue
 		}
-
 		err := h.client.Delete(context.TODO(), &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {

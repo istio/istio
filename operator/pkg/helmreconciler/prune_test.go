@@ -39,8 +39,8 @@ const (
 	testRevision = "test"
 )
 
-func TestHelmReconciler_DeleteControlPlaneByRevision(t *testing.T) {
-	t.Run("deleteControlPlaneByRevision", func(t *testing.T) {
+func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
+	t.Run("deleteControlPlaneByManifest", func(t *testing.T) {
 		s := runtime.NewScheme()
 		cl := fake.NewFakeClientWithScheme(s)
 		df := filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml")

@@ -115,7 +115,6 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
-
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{DryRun: rootArgs.dryRun, Log: l, ProgressLog: progress.NewLog()}
 	var h *helmreconciler.HelmReconciler
@@ -149,9 +148,12 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
+	iop, err := translate.IOPStoIOP(iops, "removed", iopv1alpha1.Namespace(iops))
+	if err != nil {
+		return err
+	}
 	preCheckWarnings(cmd, uiArgs, iops.Revision, nil, l)
-
-	h, err = helmreconciler.NewHelmReconciler(client, restConfig, nil, opts)
+	h, err = helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}
@@ -191,6 +193,7 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 	}
 	if uiArgs.skipConfirmation {
 		l.LogAndPrint(message)
+		return
 	}
 	message += "Proceed? (y/N)"
 	if needConfirmation && !confirm(message, cmd.OutOrStdout()) {
