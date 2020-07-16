@@ -670,7 +670,8 @@ func mergeMap(to map[string]string, from map[string]string) {
 type fakePlatform struct {
 	platform.Environment
 
-	meta map[string]string
+	meta   map[string]string
+	labels map[string]string
 }
 
 func (f *fakePlatform) Metadata() map[string]string {
@@ -679,4 +680,12 @@ func (f *fakePlatform) Metadata() map[string]string {
 
 func (f *fakePlatform) Locality() *core.Locality {
 	return &core.Locality{}
+}
+
+func (f *fakePlatform) Labels() map[string]string {
+	return f.labels
+}
+
+func (f *fakePlatform) IsKubernetes() bool {
+	return true
 }
