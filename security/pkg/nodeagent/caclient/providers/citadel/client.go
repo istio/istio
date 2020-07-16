@@ -54,7 +54,7 @@ type citadelClient struct {
 	caTLSRootCert []byte
 	client        pb.IstioCertificateServiceClient
 	clusterID     string
-	conn 					*grpc.ClientConn
+	conn          *grpc.ClientConn
 }
 
 // NewCitadelClient create a CA client for Citadel.

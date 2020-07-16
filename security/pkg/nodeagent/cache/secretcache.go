@@ -587,7 +587,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 			// if user not set PROV_CERT Directory Path for client to extract certs from path
 			// we will first check whether the token is expired or not
-			if sc.secOpts.ProvCert == ""  && sc.isTokenExpired(&secret) {
+			if sc.secOpts.ProvCert == "" && sc.isTokenExpired(&secret) {
 				cacheLog.Debugf("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				// requiring the client to send another SDS request.
