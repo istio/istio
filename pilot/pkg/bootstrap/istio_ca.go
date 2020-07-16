@@ -112,6 +112,9 @@ var (
 
 	audience = env.RegisterStringVar("AUDIENCE", "",
 		"Expected audience in the tokens. ")
+
+	caRSAKeySize = env.RegisterIntVar("CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE", 2048,
+		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 )
 
 type CAOptions struct {
@@ -339,7 +342,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 			maxCertTTL, opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
-			enableJitterForRootCertRotator.Get())
+			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
 		}
@@ -358,7 +361,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxCertTTL)
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL, caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}

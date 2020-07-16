@@ -172,7 +172,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		Org:           rotator.config.org,
 		IsCA:          true,
 		IsSelfSigned:  true,
-		RSAKeySize:    caKeySize,
+		RSAKeySize:    rotator.ca.caRSAKeySize,
 		IsDualUse:     rotator.config.dualUse,
 	}
 	// options should be consistent with the one used in NewSelfSignedIstioCAOptions().
