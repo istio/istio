@@ -62,11 +62,6 @@ type instance struct {
 	cluster   resource.Cluster
 }
 
-type staticConfig struct {
-	targets []string
-	labels  map[string]string
-}
-
 func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err error) {
 	// Fill in defaults for any missing values.
 	common.AddPortIfMissing(&cfg, protocol.GRPC)
@@ -176,7 +171,14 @@ spec:
 			}
 
 			// Write Workload Entry Endpoints to the file_sd_config map to be collected by Prometheus
-			if err = updateWorkloadEndpoint(c.cluster, vmPod.Name, vmPod.Status.PodIP, cfg.Service,
+			port := 8090
+			for _, p := range cfg.Ports {
+				if p.Protocol == protocol.HTTP {
+					port = p.ServicePort
+				}
+			}
+			if err = updateWorkloadEndpoint(c.cluster, vmPod.Name,
+				fmt.Sprintf("%s:%d", vmPod.Status.PodIP, port), cfg.Service,
 				vmPod.Labels["istio.io/test-vm-version"]); err != nil {
 				return nil, fmt.Errorf("failed writing workload enpoints: %v", err)
 			}
@@ -337,13 +339,16 @@ func updateWorkloadEndpoint(client kubernetes.Interface, name, endpoint, service
 	if currentCM.Data == nil {
 		currentCM.Data = make(map[string]string)
 	}
-	currentCM.Data[fmt.Sprintf("%s.yaml", name)] = fmt.Sprintf(`
+
+	staticConfig := `
 - targets:
   - %s
   labels:
     name: %s
     app: %s
-    version: %s`, endpoint, name, service, version)
+    version: %s
+`
+	currentCM.Data[fmt.Sprintf("%s.yaml", name)] = fmt.Sprintf(staticConfig, endpoint, name, service, version)
 	if _, err := client.CoreV1().ConfigMaps("istio-system").Update(context.TODO(), currentCM,
 		metav1.UpdateOptions{}); err != nil {
 		return err
