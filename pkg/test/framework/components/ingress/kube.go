@@ -127,7 +127,7 @@ func newKube(ctx resource.Context, cfg Config) Instance {
 	c.id = ctx.TrackResource(c)
 	c.namespace = cfg.Istio.Settings().IngressNamespace
 	c.env = ctx.Environment().(*kube.Environment)
-	c.cluster = resource.ClusterOrDefault(cfg.Cluster, ctx.Environment())
+	c.cluster = ctx.Clusters().GetOrDefault(cfg.Cluster)
 
 	return c
 }

@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/tests/integration/security/util"
 )
@@ -52,7 +51,6 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/17933")
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ctx.RequireOrSkip(environment.Kube)
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)

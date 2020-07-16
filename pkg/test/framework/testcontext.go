@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -53,9 +52,6 @@ type TestContext interface {
 
 	// CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix in the workdir, or fails the test.
 	CreateTmpDirectoryOrFail(prefix string) string
-
-	// RequireOrSkip skips the test if the environment is not as expected.
-	RequireOrSkip(envName environment.Name)
 
 	// WhenDone runs the given function when the test context completes.
 	// This function may not (safely) access the test context.
@@ -200,11 +196,7 @@ func (c *testContext) Environment() resource.Environment {
 	return c.suite.environment
 }
 
-func (c *testContext) IsMulticluster() bool {
-	return c.Environment().IsMulticluster()
-}
-
-func (c *testContext) Clusters() []resource.Cluster {
+func (c *testContext) Clusters() resource.Clusters {
 	return c.Environment().Clusters()
 }
 
@@ -250,12 +242,6 @@ func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
 		c.Fatalf("Error creating temp directory with prefix %q: %v", prefix, err)
 	}
 	return tmp
-}
-
-func (c *testContext) RequireOrSkip(envName environment.Name) {
-	if c.Environment().EnvironmentName() != envName {
-		c.Skipf("Skipping %q: expected environment not found: %s", c.Name(), envName)
-	}
 }
 
 func (c *testContext) newChildContext(test *testImpl) *testContext {
