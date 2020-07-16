@@ -79,11 +79,10 @@ spec:
 `)
 			ports := []echo.Port{
 				{
-					Name:     "http",
-					Protocol: protocol.HTTP,
-					// Due to a bug in WorkloadEntry, service port must equal target port for now
-					InstancePort: 8090,
+					Name:         "http",
+					Protocol:     protocol.HTTP,
 					ServicePort:  8090,
+					InstancePort: 10090,
 				},
 			}
 
@@ -100,12 +99,23 @@ spec:
 				}).
 				BuildOrFail(t)
 
+				// TargetPort does not work for headless services because headless services are orig dst clusters
+				// i.e. we simply forward traffic as is. So, when creating the echo instance for the headless
+				// service, set the target port and instance port to be the same so that the server side listens on
+				// the same port as the service port.
 			echoboot.NewBuilderOrFail(t, ctx).
 				With(&k8sHeadlessService, echo.Config{
 					Service:   headlessServiceHostname,
 					Namespace: ns,
-					Ports:     ports,
-					Headless:  true,
+					Ports: []echo.Port{
+						{
+							Name:         "http",
+							Protocol:     protocol.HTTP,
+							ServicePort:  8090,
+							InstancePort: 8090,
+						},
+					},
+					Headless: true,
 				}).
 				BuildOrFail(t)
 
