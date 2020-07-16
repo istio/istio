@@ -22,7 +22,7 @@ kind: feature
 # - documentation
 area: documentation
 
-# issue is a (potentially comma separated list) of GitHub issues resolved in this note.
+# issue is a list of GitHub issues resolved in this note.
 issue:
 - https://github.com/istio/istio/issues/23622
 
