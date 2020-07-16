@@ -109,8 +109,8 @@ func TestEgressGatewayTls(t *testing.T) {
 				//    request fails as the server cert can't be validated using the fake root cert used during origination
 				"SIMPLE TLS origination from egress gateway to https endpoint with fake root cert": {
 					destinationRuleMode: "SIMPLE",
-					response:            []string{response.StatusCodeBadRequest},
-					gateway:             false, // 400 response will not contain header
+					response:            []string{response.StatusCodeUnavailable},
+					gateway:             false, // 503 response will not contain header
 					fakeRootCert:        true,
 				},
 			}
@@ -389,24 +389,29 @@ func createGateway(t *testing.T, ctx resource.Context, appsNamespace namespace.I
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	var buf bytes.Buffer
-	if err := tmplGateway.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
+	var bufGateway bytes.Buffer
+	if err := tmplGateway.Execute(&bufGateway, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
-		t.Fatalf("failed to apply gateway: %v. template: %v", err, buf.String())
+	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), bufGateway.String()); err != nil {
+		t.Fatalf("failed to apply gateway: %v. template: %v", err, bufGateway.String())
 	}
 
 	// Have to wait for DR to apply to all sidecars first!
 	time.Sleep(10 * time.Second)
 
 	tmplVS, err := template.New("Gateway").Parse(VirtualService)
-
-	if err := tmplVS.Execute(&buf, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
+	if err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
-	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), buf.String()); err != nil {
-		t.Fatalf("failed to apply virtualservice: %v. template: %v", err, buf.String())
+
+	var bufVS bytes.Buffer
+
+	if err := tmplVS.Execute(&bufVS, map[string]string{"ServerNamespace": serviceNamespace.Name()}); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+	if err := ctx.Config().ApplyYAML(appsNamespace.Name(), bufVS.String()); err != nil {
+		t.Fatalf("failed to apply virtualservice: %v. template: %v", err, bufVS.String())
 	}
 }
 
