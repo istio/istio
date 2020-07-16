@@ -265,7 +265,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		maxCertTTL:    opts.MaxCertTTL,
 		keyCertBundle: opts.KeyCertBundle,
 		livenessProbe: probe.NewProbe(),
-		caRSAKeySize:   opts.CARSAKeySize,
+		caRSAKeySize:  opts.CARSAKeySize,
 	}
 
 	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {
