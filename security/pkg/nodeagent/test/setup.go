@@ -30,6 +30,8 @@ import (
 
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/security/pkg/credentialfetcher"
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -165,6 +167,12 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		RecycleInterval:   5 * time.Minute,
 	}
 
+	// Fow now, only test k8s platform.
+	// TODO (liminw): add support for other platforms.
+	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.K8S, "", proxyTokenPath)
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
 	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")
 	if err != nil {
 		t.Fatalf("failed to create CA client: %+v", err)
@@ -174,8 +182,8 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		CaClient:    caClient,
 	}
 	opt := e.cacheOptions(t)
-	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
-	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache, nil)
+	workloadSecretCache := cache.NewSecretCache(secretFetcher, credFetcher, sds.NotifyProxy, opt)
+	sdsServer, err := sds.NewServer(serverOptions, credFetcher, workloadSecretCache, nil)
 	if err != nil {
 		t.Fatalf("failed to start SDS server: %+v", err)
 	}

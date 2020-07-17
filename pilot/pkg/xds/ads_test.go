@@ -35,6 +35,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/security/pkg/credentialfetcher"
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 
 	"istio.io/istio/tests/util"
 
@@ -90,8 +92,12 @@ func TestAgent(t *testing.T) {
 	}
 
 	t.Run("agentProxy", func(t *testing.T) {
+		credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.K8S, "", "")
+		if err != nil {
+			t.Fatalf("Failed to create credential fetcher: %v", err)
+		}
 		// Start the istio-agent (proxy and SDS part) - will connect to XDS
-		sa := istioagent.NewAgent(&mesh.ProxyConfig{
+		sa := istioagent.NewAgent(credFetcher, &mesh.ProxyConfig{
 			DiscoveryAddress:       util.MockPilotSGrpcAddr,
 			ControlPlaneAuthPolicy: mesh.AuthenticationPolicy_MUTUAL_TLS,
 		}, &istioagent.AgentConfig{

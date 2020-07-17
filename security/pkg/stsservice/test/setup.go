@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 
 	istioEnv "istio.io/istio/pkg/test/env"
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
@@ -241,7 +242,7 @@ func (e *Env) genStsReq(stsAddr string) (req *http.Request) {
 
 func setupSTS(stsPort int, backendURL string, enableCache bool) (*stsServer.Server, *google.Plugin, error) {
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(tokenBackend.FakeTrustDomain,
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(credPlugin.K8S, tokenBackend.FakeTrustDomain,
 		tokenBackend.FakeProjectNum, tokenBackend.FakeGKEClusterURL, enableCache)
 	federatedTokenTestingEndpoint := backendURL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := backendURL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"

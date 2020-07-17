@@ -172,6 +172,9 @@ type Options struct {
 	// CSR requires a token. This is a property of the CA.
 	// The default value is false because Istiod does not require a token in CSR.
 	UseTokenForCSR bool
+
+	// Platform where the agent runs
+	Platform string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -204,7 +207,7 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(context.Context, string, string) (string, time.Time, int, error)
+	ExchangeToken(context.Context, string, string, string) (string, time.Time, int, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

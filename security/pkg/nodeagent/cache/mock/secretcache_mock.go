@@ -120,7 +120,7 @@ func NewMockTokenExchangeServer(errors uint64) *TokenExchangeServer {
 }
 
 // ExchangeToken returns a dumb token or errors depending on the settings.
-func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string) (string, time.Time, int, error) {
+func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string, string) (string, time.Time, int, error) {
 	s.errorCountMutex.Lock()
 	if s.errorCount < s.errors {
 		s.errorCount++

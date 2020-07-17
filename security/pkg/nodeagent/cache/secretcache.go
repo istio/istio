@@ -35,6 +35,7 @@ import (
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -82,6 +83,10 @@ const (
 
 type k8sJwtPayload struct {
 	Sub string `json:"sub"`
+}
+
+type gceJwtPayload struct {
+	Email string `json:"email"`
 }
 
 // SecretManager defines secrets management interface which is used by SDS.
@@ -157,10 +162,12 @@ type SecretCache struct {
 	certMutex *sync.RWMutex
 
 	secOpts *security.Options
+
+	credFetcher credentialfetcher.CredFetcher
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
+func NewSecretCache(fetcher *secretfetcher.SecretFetcher, credFetcher credentialfetcher.CredFetcher,
 	notifyCb func(ConnKey, *security.SecretItem) error, options *security.Options) *SecretCache {
 	ret := &SecretCache{
 		fetcher:               fetcher,
@@ -176,6 +183,7 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		fileCerts:             make(map[string]map[ConnKey]struct{}),
 		certMutex:             &sync.RWMutex{},
 		secOpts:               options,
+		credFetcher:           credFetcher,
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -584,21 +592,24 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-
-			// if user not set PROV_CERT Directory Path for client to extract certs from path
-			// we will first check whether the token is expired or not
-			if sc.secOpts.ProvCert == "" && sc.isTokenExpired(&secret) {
-				cacheLog.Debugf("%s token expired", logPrefix)
-				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-				// requiring the client to send another SDS request.
-				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				return true
+			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
+			if sc.isTokenExpired(&secret) {
+				cacheLog.Infof("%s token expired, getting a new token", logPrefix)
+				t, err := sc.credFetcher.GetPlatformCredential()
+				if err != nil {
+					cacheLog.Errorf("failed to get credential token: %v", err)
+					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+					// requiring the client to send another SDS request.
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				}
+				secret.Token = t
 			}
 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				cacheLog.Debugf("%s token is still valid, reuse token to generate key/cert", logPrefix)
+				cacheLog.Debugf("%s use token to generate key/cert", logPrefix)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likely this code path may not necessary, since TTL of cert is much longer than token.
@@ -839,12 +850,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
 	// otherwise just use sdsrequest.resourceName as csr host name.
-	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
+	csrHostName, err := constructCSRHostName(sc.configOptions.Platform, sc.configOptions.TrustDomain, token)
 	if err != nil {
 		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
 			" resource name: %s", logPrefix, err, connKey.ResourceName)
 		csrHostName = connKey.ResourceName
 	}
+	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
 	options := pkiutil.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
@@ -981,7 +993,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.TokenExchangers[0]
-			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
+			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.Platform, sc.configOptions.TrustDomain, exchangedToken)
 		}
 		cacheLog.Debugf("%s", requestErrorString)
 

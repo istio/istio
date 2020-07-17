@@ -44,6 +44,8 @@ import (
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
+	"istio.io/istio/security/pkg/credentialfetcher"
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -86,7 +88,11 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 	wst := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(&arg, wst, nil)
+	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
+	server, err := NewServer(&arg, credFetcher, wst, nil)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -187,7 +193,12 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 		gst = nil
 	}
 
-	server, err := NewServer(&arg, wst, gst)
+	// use mock platform
+	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
+	server, err := NewServer(&arg, credFetcher, wst, gst)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -305,7 +316,12 @@ func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
 	st := &mockSecretStore{
 		checkToken: false,
 	}
-	server, err := NewServer(&arg, st, nil)
+	// use mock platform
+	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
+	server, err := NewServer(&arg, credFetcher, st, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
@@ -1062,7 +1078,11 @@ func TestDebugEndpoints(t *testing.T) {
 		sdsClients = map[cache.ConnKey]*sdsConnection{}
 		sdsClientsMutex.Unlock()
 
-		server, err := NewServer(&arg, st, nil)
+		credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
+		if err != nil {
+			t.Fatalf("Failed to create credential fetcher: %v", err)
+		}
+		server, err := NewServer(&arg, credFetcher, st, nil)
 		if err != nil {
 			t.Fatalf("failed to start grpc server for sds: %v", err)
 		}

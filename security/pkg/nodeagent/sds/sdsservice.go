@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -41,6 +40,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
 )
@@ -128,9 +128,10 @@ type sdsservice struct {
 
 	localJWT bool
 
-	jwtPath string
-
 	outputKeyCertToDir string
+
+	// Credential fetcher
+	credFetcher credentialfetcher.CredFetcher
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -154,7 +155,8 @@ type Debug struct {
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
 func newSDSService(st security.SecretManager,
 	secOpt *security.Options,
-	skipTokenVerification bool) *sdsservice {
+	skipTokenVerification bool,
+	credFetcher credentialfetcher.CredFetcher) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -166,8 +168,8 @@ func newSDSService(st security.SecretManager,
 		tickerInterval:       secOpt.RecycleInterval,
 		closing:              make(chan bool),
 		localJWT:             secOpt.UseLocalJWT,
-		jwtPath:              secOpt.JWTPath,
 		outputKeyCertToDir:   secOpt.OutputKeyCertToDir,
+		credFetcher:          credFetcher,
 	}
 
 	go ret.clearStaledClientsJob()
@@ -283,13 +285,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			if s.localJWT {
-				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
-				tok, err := ioutil.ReadFile(s.jwtPath)
+				t, err := s.credFetcher.GetPlatformCredential()
 				if err != nil {
 					sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 					return err
 				}
-				token = string(tok)
+				token = t
 			} else if s.outputKeyCertToDir != "" {
 				// Using existing certs and the new SDS - skipToken case is for the old node agent.
 			} else if !s.skipToken {
@@ -398,13 +399,12 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	token := ""
 	if s.localJWT {
-		// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
-		tok, err := ioutil.ReadFile(s.jwtPath)
+		t, err := s.credFetcher.GetPlatformCredential()
 		if err != nil {
 			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 			return nil, err
 		}
-		token = string(tok)
+		token = t
 	} else if !s.skipToken {
 		t, err := getCredentialToken(ctx)
 		if err != nil {

@@ -51,6 +51,8 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/security/pkg/credentialfetcher"
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
@@ -67,6 +69,7 @@ const (
 // TODO: Move most of this to pkg.
 
 var (
+	platform           string
 	role               = &model.Proxy{}
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
@@ -276,11 +279,15 @@ var (
 			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
-			if citadel.ProvCert != "" {
-				secOpts.AlwaysValidTokenFlag = true
-			}
+			secOpts.AlwaysValidTokenFlag = (platform == credPlugin.K8S)
 
-			sa := istio_agent.NewAgent(&proxyConfig,
+			credFetcher, err := credentialfetcher.NewCredFetcher(platform, trustDomain, jwtPath)
+			if err != nil {
+				return fmt.Errorf("failed to create credential fetcher: %v", err)
+			}
+			log.Infof("Start credential fetcher on %s platform in %s trust domain", platform, trustDomain)
+
+			sa := istio_agent.NewAgent(credFetcher, &proxyConfig,
 				&istio_agent.AgentConfig{}, secOpts)
 
 			var pilotSAN []string
@@ -334,7 +341,7 @@ var (
 					localHostAddr = localHostIPv6
 				}
 				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{TrustDomain: trustDomain})
+					tokenmanager.Config{Platform: platform, TrustDomain: trustDomain})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,
@@ -429,6 +436,8 @@ func getDNSDomain(podNamespace, domain string) string {
 }
 
 func init() {
+	proxyCmd.PersistentFlags().StringVar(&platform, "platform", "k8s",
+		"The platform where istio agent runs, options are gcp, k8s ...")
 	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
 		string(serviceregistry.Kubernetes),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",

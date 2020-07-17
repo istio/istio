@@ -33,6 +33,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
+	"istio.io/istio/security/pkg/credentialfetcher"
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	mca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google/mock"
@@ -186,9 +188,14 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	workloadSdsCacheOptions.TokenExchangers = NewPlugins([]string{"GoogleTokenExchange"})
 	workloadSdsCacheOptions.RotationInterval = 10 * time.Minute
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = 10
-	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, workloadSdsCacheOptions)
+	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
+	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, credFetcher, NotifyProxy, workloadSdsCacheOptions)
 
-	server, err := NewServer(&arg, workloadSecretCache, nil)
+	// use mock platform
+	server, err := NewServer(&arg, credFetcher, workloadSecretCache, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}

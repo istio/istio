@@ -21,13 +21,15 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/codes"
+
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 )
 
-func constructCSRHostName(trustDomain, token string) (string, error) {
+func constructCSRHostName(platform, trustDomain, token string) (string, error) {
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
 	strs := strings.Split(token, ".")
 	if len(strs) != 3 {
-		return "", fmt.Errorf("invalid k8s jwt token")
+		return "", fmt.Errorf("invalid jwt token on %s platform", platform)
 	}
 
 	payload := strs[1]
@@ -36,21 +38,20 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	}
 	dp, err := base64.URLEncoding.DecodeString(payload)
 	if err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+		return "", fmt.Errorf("failed to decode payload from jwt token on %s platform: %v", platform, err)
 	}
 
-	var jp k8sJwtPayload
-	if err = json.Unmarshal(dp, &jp); err != nil {
-		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	var ns, sa string
+	switch platform {
+	case credPlugin.GCE:
+		ns, sa, err = extractGCEIdentity(dp, trustDomain)
+	default: // Platform is "k8s" or not set.
+		ns, sa, err = extractk8sIdentity(dp)
 	}
 
-	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
-	ss := strings.Split(jp.Sub, ":")
-	if len(ss) != 4 {
-		return "", fmt.Errorf("invalid sub field in k8s jwt token")
+	if err != nil {
+		return "", fmt.Errorf("cannot extract identity from token on %s platform: %v", platform, err)
 	}
-	ns := ss[2] //namespace
-	sa := ss[3] //service account
 
 	domain := "cluster.local"
 	if trustDomain != "" {
@@ -58,6 +59,43 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	}
 
 	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
+}
+
+// Extract k8s identity from token payload
+func extractk8sIdentity(payload []byte) (string, string, error) {
+	var jp k8sJwtPayload
+	if err := json.Unmarshal(payload, &jp); err != nil {
+		return "", "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
+	ss := strings.Split(jp.Sub, ":")
+	if len(ss) != 4 {
+		return "", "", fmt.Errorf("invalid sub field in k8s jwt token")
+	}
+	ns := ss[2] //namespace
+	sa := ss[3] //service account
+
+	return ns, sa, nil
+}
+
+// extractGCEIdentity extracts gce identity from token payload
+func extractGCEIdentity(payload []byte, trustDomain string) (string, string, error) {
+	var jp gceJwtPayload
+	if err := json.Unmarshal(payload, &jp); err != nil {
+		return "", "", fmt.Errorf("invalid gce jwt token: %v", err)
+	}
+	sa := jp.Email
+
+	// trust domain has the format of "projectid.svc.id.goog"
+	ss := strings.Split(trustDomain, ".")
+	if len(ss) != 4 {
+		return "", "", fmt.Errorf("invalid trust domain: %s", trustDomain)
+	}
+	// namespace is project id.
+	ns := ss[0]
+
+	return ns, sa, nil
 }
 
 // isRetryableErr checks if a failed request should be retry based on gRPC resp code or http status code.

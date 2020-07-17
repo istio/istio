@@ -39,6 +39,7 @@ type TokenManager struct {
 }
 
 type Config struct {
+	Platform    string
 	TrustDomain string
 }
 
@@ -82,7 +83,7 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 		if projectInfo := getGCPProjectInfo(); len(projectInfo.Number) > 0 {
 			gkeClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 				projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)
-			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectInfo.Number, gkeClusterURL, true); err == nil {
+			if p, err := google.CreateTokenManagerPlugin(config.Platform, config.TrustDomain, projectInfo.Number, gkeClusterURL, true); err == nil {
 				tm.plugin = p
 			}
 		}

@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/security"
+	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -38,6 +40,7 @@ var (
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
 	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
+	GCEProvider         = "GoogleComputeEngine"
 )
 
 const (
@@ -78,9 +81,9 @@ func NewPlugin() security.TokenExchanger {
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string) (
+func (p Plugin) ExchangeToken(ctx context.Context, platform, trustDomain, k8sSAjwt string) (
 	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
-	aud := constructAudience(trustDomain)
+	aud := constructAudience(platform, trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
 	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
@@ -116,12 +119,15 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
 
-func constructAudience(trustDomain string) string {
-	if GKEClusterURL == "" {
-		return trustDomain
+func constructAudience(platform, trustDomain string) string {
+	switch platform {
+	case credPlugin.GCE:
+		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GCEProvider)
+	case credPlugin.Mock:
+		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, mock.FakeGKEClusterURL)
+	default: // platform is "k8s" or not set
+		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
 	}
-
-	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
 }
 
 func constructFederatedTokenRequest(aud, jwt string) []byte {

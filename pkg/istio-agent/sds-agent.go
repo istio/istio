@@ -31,7 +31,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
-
+	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
@@ -123,6 +123,9 @@ type Agent struct {
 
 	cfg     *AgentConfig
 	secOpts *security.Options
+
+	// Credential fetcher.
+	CredFetcher credentialfetcher.CredFetcher
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -136,16 +139,11 @@ type AgentConfig struct {
 	LocalXDSAddr string
 }
 
-// NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
-// present, and set additional config options for the in-process SDS agent.
-//
-// The JWT token is currently using a pre-defined audience (istio-ca) or it must match the trust domain (WIP).
-// If the JWT token is not present - the local SDS agent can't authenticate.
-//
-// If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
-//
-func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.Options) *Agent {
+// NewAgent wraps the logic for a local SDS. It sets config options for the in-process SDS agent.
+func NewAgent(credfetcher credentialfetcher.CredFetcher, proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
+	sopts *security.Options) *Agent {
 	sa := &Agent{
+		CredFetcher: credfetcher,
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
 		secOpts:     sopts,
@@ -166,10 +164,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 	//   the short lived certs.
 	// - if a JWTPath token exists, will be included in the request.
 
-	if _, err := os.Stat(sa.secOpts.JWTPath); err != nil {
-		log.Warna("Missing JWT token ", sa.secOpts.JWTPath)
-		sa.secOpts.JWTPath = ""
-	}
 	// If original /etc/certs or a separate 'provisioning certs' (VM) are present,
 	// add them to the tlsContext. If server asks for them and they exist - will be provided.
 	certDir := "./etc/certs"
@@ -243,7 +237,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		}
 	}
 
-	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets, gatewaySecretCache)
+	server, err := sds.NewServer(sa.secOpts, sa.CredFetcher, sa.WorkloadSecrets, gatewaySecretCache)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +268,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 	var err error
 
-	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, sa.secOpts)
+	workloadSecretCache = cache.NewSecretCache(fetcher, sa.CredFetcher, sds.NotifyProxy, sa.secOpts)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	if sa.secOpts.FileMountedCerts {
@@ -428,6 +422,6 @@ func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.Sec
 
 	gatewaySecretChan = make(chan struct{})
 	gSecretFetcher.Run(gatewaySecretChan)
-	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
+	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sa.CredFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
 }
