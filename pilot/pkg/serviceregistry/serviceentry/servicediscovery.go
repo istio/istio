@@ -45,7 +45,6 @@ func (key instancesKey) HashCode() uint32 {
 	var result uint32
 	result = 31*result + crc32.ChecksumIEEE([]byte(key.hostname))
 	result = 31*result + crc32.ChecksumIEEE([]byte(key.namespace))
-	result = 31*result + crc32.ChecksumIEEE([]byte(key.namespace))
 	return result
 }
 
