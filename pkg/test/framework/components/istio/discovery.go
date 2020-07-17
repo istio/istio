@@ -8,8 +8,8 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
-// ServiceDiscovery returns the service discovery client for the given cluster or returns an error
-func (i *operatorComponent) ServiceDiscovery(cluster resource.Cluster) (pilot.Instance, error) {
+// Discovery returns the service discovery client for the given cluster or returns an error
+func (i *operatorComponent) Discovery(cluster resource.Cluster) (pilot.Instance, error) {
 	// lazy init since it requires some k8s calls, port-forwarding and building grpc clients
 	if len(i.discovery) == 0 {
 		if err := i.initDiscovery(); err != nil {
@@ -24,10 +24,10 @@ func (i *operatorComponent) ServiceDiscovery(cluster resource.Cluster) (pilot.In
 	return nil, fmt.Errorf("no service discovery client for %s", cluster.Name())
 }
 
-// ServiceDiscoveryOrFail returns the service discovery client for the given cluster or fails the test if
+// DiscoveryOrFail returns the service discovery client for the given cluster or fails the test if
 // it is not found.
-func (i *operatorComponent) ServiceDiscoveryOrFail(f test.Failer, cluster resource.Cluster) pilot.Instance {
-	d, err := i.ServiceDiscovery(cluster)
+func (i *operatorComponent) DiscoveryOrFail(f test.Failer, cluster resource.Cluster) pilot.Instance {
+	d, err := i.Discovery(cluster)
 	if err != nil {
 		f.Fatal(err)
 	}

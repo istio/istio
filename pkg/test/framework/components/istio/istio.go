@@ -26,9 +26,9 @@ import (
 type Instance interface {
 	resource.Resource
 
-	ServiceDiscovery(resource.Cluster) (pilot.Instance, error)
+	Discovery(resource.Cluster) (pilot.Instance, error)
 
-	ServiceDiscoveryOrFail(test.Failer, resource.Cluster) pilot.Instance
+	DiscoveryOrFail(test.Failer, resource.Cluster) pilot.Instance
 
 	Settings() Config
 }
