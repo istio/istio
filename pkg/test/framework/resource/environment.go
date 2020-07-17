@@ -32,6 +32,10 @@ type Environment interface {
 
 	// Clusters in this Environment. There will always be at least one.
 	Clusters() Clusters
+
+	// GetControlPlaneCluster returns the cluster running the control plane for the given cluster based on the ControlPlaneTopology.
+	// An error is returned if the given cluster isn't present in the topology, or the cluster in the topology isn't in KubeClusters.
+	GetControlPlaneCluster(cluster Cluster) (Cluster, error)
 }
 
 var _ Environment = FakeEnvironment{}
@@ -62,4 +66,8 @@ func (f FakeEnvironment) Clusters() Clusters {
 		}
 	}
 	return out
+}
+
+func (f FakeEnvironment) GetControlPlaneCluster(cluster Cluster) (Cluster, error) {
+	return FakeCluster{}, nil
 }
