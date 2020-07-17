@@ -1,7 +1,8 @@
 apiVersion: release-notes/v2
 kind: bug-fix
 area: istioctl
-issue: 23868
+issue:
+- 25581
 
 # No releaseNotes
 # Although this item has a user-facing change (--authority instead of --xds-san), the
