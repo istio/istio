@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -55,7 +56,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1084,6 +1084,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 						service.GetServiceAddressForProxy(node) == "" && servicePort.Protocol.IsTCP() {
 						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
+								// Make sure each endpoint address is a valid address
+								// as service entries could have NONE resolution with label selectors for workload
+								// entries (which could technically have hostnames).
+								if net.ParseIP(instance.Endpoint.Address) == nil {
+									continue
+								}
 								// Skip build outbound listener to the node itself,
 								// as when app access itself by pod ip will not flow through this listener.
 								// Simultaneously, it will be duplicate with inbound listener.
