@@ -138,7 +138,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 					// we will return an empty cert so that when user sets the Prov cert path
 					// but not have such cert in the file path we use the token to provide verification
 					// instead of just broken the workflow
-					citadelClientLog.Warnf("cannot load key pair using token instead : %s", err)
+					citadelClientLog.Warnf("cannot load key pair, using token instead : %+v", err)
 					return &certificate, nil
 				}
 			}

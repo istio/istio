@@ -23,12 +23,13 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	k8sauth "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
+
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	k8sauth "k8s.io/api/authentication/v1"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/apimachinery/pkg/runtime"
-	ktesting "k8s.io/client-go/testing"
 
 	pb "istio.io/istio/security/proto"
 )
@@ -36,8 +37,8 @@ import (
 const mockServerAddress = "localhost:0"
 
 var (
-	fakeCert  = []string{"foo", "bar"}
-	fakeToken = "Bearer fakeToken"
+	fakeCert   = []string{"foo", "bar"}
+	fakeToken  = "Bearer fakeToken"
 	validToken = "Bearer validToken"
 )
 
@@ -150,25 +151,25 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 		server       mockTokenCAServer
 		expectedCert []string
 		expectedErr  string
-		token string
+		token        string
 	}{
 		"Valid Token": {
 			server:       mockTokenCAServer{Certs: fakeCert, Err: nil},
 			expectedCert: fakeCert,
 			expectedErr:  "",
-			token: validToken,
+			token:        validToken,
 		},
 		"Empty Token": {
 			server:       mockTokenCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
 			expectedCert: nil,
 			expectedErr:  "rpc error: code = Unknown desc = target JWT extraction error: no HTTP authorization header exists",
-			token: "",
+			token:        "",
 		},
 		"inValid Token": {
 			server:       mockTokenCAServer{Certs: []string{}, Err: nil},
 			expectedCert: nil,
 			expectedErr:  "invalid response cert chain",
-			token: fakeToken,
+			token:        fakeToken,
 		},
 	}
 
