@@ -126,9 +126,6 @@ func TestEgressGatewayTls(t *testing.T) {
 						ctx.Config().ApplyYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 						defer ctx.Config().DeleteYAMLOrFail(ctx, systemNamespace.Name(), bufDestinationRule.String())
 
-						// Hack: Wait for all CDS configs to update
-						time.Sleep(5 * time.Second)
-
 						retry.UntilSuccessOrFail(t, func() error {
 							resp, err := internalClient.Call(echo.CallOptions{
 								Target:   externalServer,
@@ -153,7 +150,7 @@ func TestEgressGatewayTls(t *testing.T) {
 								}
 							}
 							return nil
-						}, retry.Delay(3*time.Second), retry.Timeout(30*time.Second))
+						}, retry.Delay(1*time.Second), retry.Timeout(2*time.Minute))
 					})
 			}
 		})
