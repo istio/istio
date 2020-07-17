@@ -370,17 +370,17 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 	if !strings.Contains(gwname, "/") {
 		if !strings.Contains(gwname, ".") {
 			// we have a short name. Resolve to a gateway in same namespace
-			out = fmt.Sprintf("%s/%s", meta.Namespace, gwname)
+			out = meta.Namespace + "/" + gwname
 		} else {
 			// parse namespace from FQDN. This is very hacky, but meant for backward compatibility only
-			parts := strings.Split(gwname, ".")
-			out = fmt.Sprintf("%s/%s", parts[1], parts[0])
+			i := strings.Index(gwname, ".")
+			out = gwname[i+1:] + "/" + gwname[:i]
 		}
 	} else {
 		// remove the . from ./gateway and substitute it with the namespace name
-		parts := strings.Split(gwname, "/")
-		if parts[0] == "." {
-			out = fmt.Sprintf("%s/%s", meta.Namespace, parts[1])
+		i := strings.Index(gwname, "/")
+		if gwname[:i] == "." {
+			out = meta.Namespace + "/" + gwname[i+1:]
 		}
 	}
 	return out
