@@ -1822,6 +1822,53 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	}
 }
 
+func TestAutoMTLSClusterSubsets(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		Subsets: []*networking.Subset{
+			{
+				Name: "foobar",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRequestsPerConnection: 1,
+						},
+					},
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+							Tls: &networking.ClientTLSSettings{
+								Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+								Sni:  "custom.sni.com",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	testMesh.EnableAutoMtls.Value = true
+
+	clusters, err := buildTestClusters(TestServiceNHostname, 0, model.SidecarProxy, nil, testMesh, destRule)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	tlsContext := getTLSContext(t, clusters[1])
+	g.Expect(tlsContext).ToNot(BeNil())
+	g.Expect(tlsContext.GetSni()).To(Equal("custom.sni.com"))
+	g.Expect(clusters[1].TransportSocketMatches).To(HaveLen(0))
+
+	for _, i := range []int{0, 2, 3} {
+		g.Expect(getTLSContext(t, clusters[i])).To(BeNil())
+		g.Expect(clusters[i].TransportSocketMatches).To(HaveLen(2))
+	}
+
+}
+
 func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 	g := NewGomegaWithT(t)
 
