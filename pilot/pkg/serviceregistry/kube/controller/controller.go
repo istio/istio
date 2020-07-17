@@ -270,7 +270,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	c.pods = newPodCache(podInformer, c, func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
 		if err != nil || !exists {
-			log.Warnf("Endpoint %v lookup failed, skipping stale endpoint", key)
+			log.Debugf("Endpoint %v lookup failed, skipping stale endpoint. error: %v", key, err)
 			return
 		}
 		c.queue.Push(func() error {
