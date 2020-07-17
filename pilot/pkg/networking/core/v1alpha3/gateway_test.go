@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"istio.io/istio/pilot/pkg/features"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"reflect"
@@ -106,7 +107,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
 								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
-								InitialFetchTimeout: features.InitialFetchTimeout,
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -130,7 +130,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
 									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
-									InitialFetchTimeout: features.InitialFetchTimeout,
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
