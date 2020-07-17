@@ -713,10 +713,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	out := make([]*model.ServiceInstance, 0)
 
 	c.RLock()
-	winstances := c.workdloadInstancesByIP
-	c.RUnlock()
-
-	for _, wi := range winstances {
+	for _, wi := range c.workdloadInstancesByIP {
 		if wi.Namespace != svc.Attributes.Namespace {
 			continue
 		}
@@ -732,6 +729,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 			})
 		}
 	}
+	c.RUnlock()
 	return out
 }
 
