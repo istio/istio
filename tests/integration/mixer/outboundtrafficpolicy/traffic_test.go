@@ -26,10 +26,10 @@ import (
 
 var (
 	prom prometheus.Instance
+	ist  istio.Instance
 )
 
 func TestMain(m *testing.M) {
-	var ist istio.Instance
 	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).

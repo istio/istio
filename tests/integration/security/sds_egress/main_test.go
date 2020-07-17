@@ -27,7 +27,6 @@ import (
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 	prom prometheus.Instance
 )
 
@@ -42,9 +41,6 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
 			if prom, err = prometheus.New(ctx, prometheus.Config{}); err != nil {
 				return err
 			}

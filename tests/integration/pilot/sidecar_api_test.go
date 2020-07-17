@@ -57,11 +57,12 @@ func TestSidecarListeners(t *testing.T) {
 				IstioVersion: model.MaxIstioVersion,
 			}
 
+			d := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
 			// Start the xDS stream containing the listeners for this node
-			p.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))
+			d.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))
 
 			// Test the empty case where no config is loaded
-			p.WatchDiscoveryOrFail(t, time.Second*10,
+			d.WatchDiscoveryOrFail(t, time.Second*10,
 				func(response *discovery.DiscoveryResponse) (b bool, e error) {
 					validator := structpath.ForProto(response)
 					if validator.Select("{.resources[?(@.address.socketAddress.portValue==%v)]}", 15001).Check() != nil {
@@ -82,7 +83,7 @@ func TestSidecarListeners(t *testing.T) {
 			}()
 
 			// Now continue to watch on the same stream
-			err := p.WatchDiscovery(time.Second*10,
+			err := d.WatchDiscovery(time.Second*10,
 				func(response *discovery.DiscoveryResponse) (b bool, e error) {
 					validator := structpath.ForProto(response)
 					if validator.Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").Check() != nil {

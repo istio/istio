@@ -44,7 +44,6 @@ const (
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -57,12 +56,6 @@ func TestMain(m *testing.M) {
 		RequireEnvironmentVersion("1.13").
 		RequireSingleCluster().
 		Setup(istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 }
 

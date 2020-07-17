@@ -28,7 +28,6 @@ import (
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -45,11 +44,5 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, nil, cert.CreateCASecret)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 }

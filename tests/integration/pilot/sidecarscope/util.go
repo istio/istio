@@ -196,9 +196,7 @@ type Config struct {
 	IngressListener    bool
 }
 
-func SetupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
-	p := pilot.NewOrFail(t, ctx, pilot.Config{})
-
+func SetupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) *model.Proxy {
 	includedNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "included",
 		Inject: true,
@@ -238,7 +236,7 @@ func SetupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) C
 		IPAddresses:     []string{"1.1.1.1"},
 		ConfigNamespace: appNamespace.Name(),
 	}
-	return p, nodeID
+	return nodeID
 }
 
 func createConfig(t *testing.T, ctx resource.Context, config Config, yaml string, namespace namespace.Instance) {

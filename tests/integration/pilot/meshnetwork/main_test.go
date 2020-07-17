@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -64,7 +63,6 @@ spec:
 
 var (
 	i istio.Instance
-	p pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -73,12 +71,6 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 }
 
@@ -154,7 +146,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			}
 			// Now get the EDS from the fake VM sidecar to see if the gateway IP is there for the echo service.
 			// the Gateway IP:Port is set in the test-values/values-istio-mesh-networks.yaml
-			if err := checkEDSInVM(t, ns.Name(), k8sSvcClusterName,
+			if err := checkEDSInVM(t, ctx, ns.Name(), k8sSvcClusterName,
 				"1.1.1.1", "2.2.2.2", 15443); err != nil {
 				t.Fatal(err)
 			}
@@ -203,7 +195,7 @@ func checkEDSInPod(t *testing.T, c echo.Instance, vmSvcClusterName string, endpo
 		c.ID(), vmSvcClusterName, endpointIP)
 }
 
-func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP string, gatewayPort uint32) error {
+func checkEDSInVM(t *testing.T, ctx framework.TestContext, ns, k8sSvcClusterName, endpointIP, gatewayIP string, gatewayPort uint32) error {
 	node := &model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{endpointIP},
@@ -217,6 +209,7 @@ func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP str
 		},
 	}
 
+	p := i.DiscoveryOrFail(t, ctx.Clusters()[0])
 	// make an eds request, simulating a VM, asking for a cluster on k8s
 	request := pilot.NewDiscoveryRequest(node.ServiceNode(), v3.EndpointType)
 	request.ResourceNames = []string{k8sSvcClusterName}

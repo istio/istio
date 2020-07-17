@@ -55,18 +55,10 @@ type Config struct {
 	Cluster resource.Cluster
 }
 
-// New returns a new instance of echo.
+// New returns a new Pilot instance.
+// Deprecated: use Discovery from the istio component instead.
 func New(ctx resource.Context, cfg Config) (i Instance, err error) {
 	return newKube(ctx, cfg)
-}
-
-// NewOrFail returns a new Pilot instance, or fails test.
-func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
-	i, err := New(c, config)
-	if err != nil {
-		t.Fatalf("pilot.NewOrFail: %v", err)
-	}
-	return i
 }
 
 // NewDiscoveryRequest is a utility method for creating a new request for the given node and type.

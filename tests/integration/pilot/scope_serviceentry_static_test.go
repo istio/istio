@@ -40,7 +40,7 @@ func TestServiceEntryStatic(t *testing.T) {
 			c.Resolution = "STATIC"
 			return c
 		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+		nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
 		// Check to ensure only endpoints for imported namespaces
 		req := &discovery.DiscoveryRequest{
@@ -51,6 +51,7 @@ func TestServiceEntryStatic(t *testing.T) {
 			TypeUrl:       v3.EndpointType,
 		}
 
+		p := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}
@@ -83,7 +84,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 			c.IngressListener = true
 			return c
 		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+		nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 		// Change the node's IP so that it does not match with any service entry
 		nodeID.IPAddresses = []string{"100.100.100.100"}
 
@@ -94,6 +95,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 			TypeUrl: v3.ClusterType,
 		}
 
+		p := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}

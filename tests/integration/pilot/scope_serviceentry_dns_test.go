@@ -37,7 +37,7 @@ func TestServiceEntryDNS(t *testing.T) {
 			c.Resolution = "DNS"
 			return c
 		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+		nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
 		req := &discovery.DiscoveryRequest{
 			Node: &core.Node{
@@ -46,6 +46,7 @@ func TestServiceEntryDNS(t *testing.T) {
 			TypeUrl: v3.ClusterType,
 		}
 
+		p := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +63,7 @@ func TestServiceEntryDNSNoSelfImport(t *testing.T) {
 			c.ImportedNamespaces = []string{c.IncludedNamespace + "/*"}
 			return c
 		}
-		p, nodeID := sidecarscope.SetupTest(t, ctx, configFn)
+		nodeID := sidecarscope.SetupTest(t, ctx, configFn)
 
 		req := &discovery.DiscoveryRequest{
 			Node: &core.Node{
@@ -71,6 +72,7 @@ func TestServiceEntryDNSNoSelfImport(t *testing.T) {
 			TypeUrl: v3.ClusterType,
 		}
 
+		p := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}

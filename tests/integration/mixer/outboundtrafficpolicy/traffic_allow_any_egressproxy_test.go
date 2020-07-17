@@ -71,9 +71,7 @@ type Config struct {
 }
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
-	meshConfig := mesh.DefaultMeshConfig()
-
-	p := pilot.NewOrFail(t, ctx, pilot.Config{MeshConfig: &meshConfig})
+	p := ist.DiscoveryOrFail(t, ctx.Clusters()[0])
 
 	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",
