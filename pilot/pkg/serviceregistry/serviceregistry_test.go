@@ -93,8 +93,8 @@ func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceE
 	wc := serviceentry.NewServiceDiscovery(configController, istioStore, xdsUpdater)
 	client.RunAndWait(stop)
 
-	kc.AppendWorkloadHandler(wc.ForeignServiceInstanceHandler)
-	wc.AppendWorkloadHandler(kc.ForeignServiceInstanceHandler)
+	kc.AppendWorkloadHandler(wc.WorkloadInstanceHandler)
+	wc.AppendWorkloadHandler(kc.WorkloadInstanceHandler)
 
 	go kc.Run(stop)
 	go wc.Run(stop)

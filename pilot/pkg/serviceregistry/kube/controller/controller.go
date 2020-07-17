@@ -207,8 +207,8 @@ type Controller struct {
 	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
-	// service instances from workload entries  - map of ip -> service instance
-	foreignRegistryInstancesByIP map[string]*model.WorkloadInstance
+	// workdload instances from workload entries  - map of ip -> workload instance
+	workdloadInstancesByIP map[string]*model.WorkloadInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -224,18 +224,18 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	// The queue requires a time duration for a retry delay after a handler error
 	c := &Controller{
-		domainSuffix:                 options.DomainSuffix,
-		client:                       kubeClient.Kube(),
-		queue:                        queue.NewQueue(1 * time.Second),
-		clusterID:                    options.ClusterID,
-		xdsUpdater:                   options.XDSUpdater,
-		servicesMap:                  make(map[host.Name]*model.Service),
-		nodeSelectorsForServices:     make(map[host.Name]labels.Instance),
-		nodeInfoMap:                  make(map[string]kubernetesNode),
-		externalNameSvcInstanceMap:   make(map[host.Name][]*model.ServiceInstance),
-		foreignRegistryInstancesByIP: make(map[string]*model.WorkloadInstance),
-		networksWatcher:              options.NetworksWatcher,
-		metrics:                      options.Metrics,
+		domainSuffix:               options.DomainSuffix,
+		client:                     kubeClient.Kube(),
+		queue:                      queue.NewQueue(1 * time.Second),
+		clusterID:                  options.ClusterID,
+		xdsUpdater:                 options.XDSUpdater,
+		servicesMap:                make(map[host.Name]*model.Service),
+		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
+		nodeInfoMap:                make(map[string]kubernetesNode),
+		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
+		workdloadInstancesByIP:     make(map[string]*model.WorkloadInstance),
+		networksWatcher:            options.NetworksWatcher,
+		metrics:                    options.Metrics,
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
@@ -639,7 +639,7 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
 	// First get k8s standard service instances and the workload entry instances
 	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
-	outInstances = append(outInstances, c.getForeignServiceInstancesByPort(svc, reqSvcPort)...)
+	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
 	if len(outInstances) > 0 || err != nil {
@@ -662,17 +662,17 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 	return nil, nil
 }
 
-func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
-	// Run through all the foreign instances, select ones that match the service labels
+func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
+	// Run through all the workload instances, select ones that match the service labels
 	// only if this is a kubernetes internal service and of ClientSideLB (eds) type
 	// as InstancesByPort is called by the aggregate controller. We dont want to include
-	// foreign instances for any other registry
-	var foreignInstancesExist bool
+	// workload instances for any other registry
+	var workloadInstancesExist bool
 	c.RLock()
-	foreignInstancesExist = len(c.foreignRegistryInstancesByIP) > 0
+	workloadInstancesExist = len(c.workdloadInstancesByIP) > 0
 	c.RUnlock()
 
-	if !foreignInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
+	if !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
 		svc.MeshExternal || svc.Resolution != model.ClientSideLB {
 		return nil
 	}
@@ -683,7 +683,7 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 	k8sService, err := c.serviceLister.Services(svc.Attributes.Namespace).Get(svc.Attributes.Name)
 	// We did not find the k8s service. We cannot get the targetPort
 	if err != nil {
-		log.Infof("getForeignServiceInstancesByPort(%s.%s) failed to get k8s service => error %v",
+		log.Infof("serviceInstancesFromWorkloadInstances(%s.%s) failed to get k8s service => error %v",
 			svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil
 	}
@@ -713,13 +713,16 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 	out := make([]*model.ServiceInstance, 0)
 
 	c.RLock()
-	for _, fi := range c.foreignRegistryInstancesByIP {
-		if fi.Namespace != svc.Attributes.Namespace {
+	winstances := c.workdloadInstancesByIP
+	c.RUnlock()
+
+	for _, wi := range winstances {
+		if wi.Namespace != svc.Attributes.Namespace {
 			continue
 		}
-		if selector.SubsetOf(fi.Endpoint.Labels) {
+		if selector.SubsetOf(wi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
-			istioEndpoint := *fi.Endpoint
+			istioEndpoint := *wi.Endpoint
 			istioEndpoint.EndpointPort = uint32(targetPort)
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
@@ -729,22 +732,21 @@ func (c *Controller) getForeignServiceInstancesByPort(svc *model.Service, reqSvc
 			})
 		}
 	}
-	c.RUnlock()
 	return out
 }
 
 // convenience function to collect all workload entry endpoints in updateEDS calls.
-func (c *Controller) collectAllForeignEndpoints(svc *model.Service) []*model.IstioEndpoint {
-	var foreignInstancesExist bool
+func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*model.IstioEndpoint {
+	var workloadInstancesExist bool
 	c.RLock()
-	foreignInstancesExist = len(c.foreignRegistryInstancesByIP) > 0
+	workloadInstancesExist = len(c.workdloadInstancesByIP) > 0
 	c.RUnlock()
 
-	if !foreignInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
+	if !workloadInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
 		return nil
 	}
 
-	instances := c.getForeignServiceInstancesByPort(svc, svc.Ports[0].Port)
+	instances := c.serviceInstancesFromWorkloadInstances(svc, svc.Ports[0].Port)
 	endpoints := make([]*model.IstioEndpoint, 0)
 
 	// all endpoints for ports[0]
@@ -776,11 +778,11 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		proxyIP := proxy.IPAddresses[0]
 
 		pod := c.pods.getPodByIP(proxyIP)
-		if foreign, f := c.foreignRegistryInstancesByIP[proxyIP]; f {
+		if workload, f := c.workdloadInstancesByIP[proxyIP]; f {
 			var err error
-			out, err = c.hydrateForeignServiceInstance(foreign)
+			out, err = c.hydrateWorkloadInstance(workload)
 			if err != nil {
-				log.Warnf("hydrateForeignServiceInstance for %v failed: %v", proxy.ID, err)
+				log.Warnf("hydrateWorkloadInstance for %v failed: %v", proxy.ID, err)
 			}
 		} else if pod != nil {
 			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
@@ -823,7 +825,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 	return out, nil
 }
 
-func (c *Controller) hydrateForeignServiceInstance(si *model.WorkloadInstance) ([]*model.ServiceInstance, error) {
+func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) ([]*model.ServiceInstance, error) {
 	out := []*model.ServiceInstance{}
 	// find the workload entry's service by label selector
 	// rather than scanning through our internal map of model.services, get the services via the k8s apis
@@ -860,8 +862,8 @@ func (c *Controller) hydrateForeignServiceInstance(si *model.WorkloadInstance) (
 	return out, nil
 }
 
-// ForeignServiceInstanceHandler defines the handler for service instances generated by other registries
-func (c *Controller) ForeignServiceInstanceHandler(si *model.WorkloadInstance, event model.Event) {
+// WorkloadInstanceHandler defines the handler for service instances generated by other registries
+func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event model.Event) {
 	// ignore malformed workload entries. And ignore any workload entry that does not have a label
 	// as there is no way for us to select them
 	if si.Namespace == "" || len(si.Endpoint.Labels) == 0 {
@@ -873,9 +875,9 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.WorkloadInstance, e
 	c.Lock()
 	switch event {
 	case model.EventDelete:
-		delete(c.foreignRegistryInstancesByIP, si.Endpoint.Address)
+		delete(c.workdloadInstancesByIP, si.Endpoint.Address)
 	default: // add or update
-		c.foreignRegistryInstancesByIP[si.Endpoint.Address] = si
+		c.workdloadInstancesByIP[si.Endpoint.Address] = si
 	}
 	c.Unlock()
 
@@ -909,7 +911,7 @@ func (c *Controller) ForeignServiceInstanceHandler(si *model.WorkloadInstance, e
 				// Similar code as UpdateServiceShards in eds.go
 				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
 				if err != nil {
-					log.Debugf("Failed to get endpoints for service %s on port %d, in response to foreign instance: %v",
+					log.Debugf("Failed to get endpoints for service %s on port %d, in response to workload instance: %v",
 						service.Hostname, port.Port, err)
 					continue
 				}
