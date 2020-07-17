@@ -278,9 +278,9 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	}
 }
 
-// convertWorkloadInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
+// convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
 // same as the ServiceEntry convertInstances.
-func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
+func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
@@ -338,14 +338,14 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 	return tlsMode
 }
 
-// The foreign service instance has pointer to the foreign service and its service port.
+// The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-func convertForeignServiceInstances(foreignInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
+func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			ep := *foreignInstance
+			ep := *workloadInstance
 			ep.ServicePortName = serviceEntryPort.Name
 			// if target port is set, use the target port else fallback to the service port
 			// TODO: we need a way to get the container port map from k8s
@@ -367,7 +367,7 @@ func convertForeignServiceInstances(foreignInstance *model.IstioEndpoint, servic
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToForeignInstances(namespace string,
+func convertWorkloadEntryToWorkloadInstances(namespace string,
 	we *networking.WorkloadEntry) *model.WorkloadInstance {
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {

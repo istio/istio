@@ -147,7 +147,7 @@ func TestGetLocalityOrDefault(t *testing.T) {
 	}
 }
 
-func TestForeignInstancesEqual(t *testing.T) {
+func TestWorkloadInstanceEqual(t *testing.T) {
 	exampleInstance := &WorkloadInstance{
 		Endpoint: &IstioEndpoint{
 			Labels:          labels.Instance{"app": "prod-app"},

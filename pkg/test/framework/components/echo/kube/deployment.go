@@ -266,6 +266,10 @@ spec:
           value: "ALL"
         - name: ISTIO_NAMESPACE # start.sh reads this and converts to POD_NAMESPACE
           value: {{ $.Namespace }}
+        {{- range $name, $value := $.Environment }}
+        - name: {{ $name }}
+          value: "{{ $value }}"
+        {{- end }}
         readinessProbe:
           httpGet:
             path: /healthz/ready
@@ -390,6 +394,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
+		"Environment": cfg.VMEnvironment,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

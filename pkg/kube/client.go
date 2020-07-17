@@ -470,25 +470,25 @@ func (c *client) proxyGet(name, namespace, path string, port int) rest.ResponseW
 	return request
 }
 
-func (c *client) AllDiscoveryDo(ctx context.Context, pilotNamespace, path string) (map[string][]byte, error) {
-	pilots, err := c.GetIstioPods(ctx, pilotNamespace, map[string]string{
+func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
+	istiods, err := c.GetIstioPods(ctx, istiodNamespace, map[string]string{
 		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
 		return nil, err
 	}
-	if len(pilots) == 0 {
+	if len(istiods) == 0 {
 		return nil, errors.New("unable to find any Pilot instances")
 	}
 	result := map[string][]byte{}
-	for _, pilot := range pilots {
-		res, err := c.proxyGet(pilot.Name, pilot.Namespace, path, 8080).DoRaw(ctx)
+	for _, istiod := range istiods {
+		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 8080).DoRaw(ctx)
 		if err != nil {
 			return nil, err
 		}
 		if len(res) > 0 {
-			result[pilot.Name] = res
+			result[istiod.Name] = res
 		}
 	}
 	return result, err

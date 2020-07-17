@@ -157,6 +157,14 @@ func (e *azureEnv) Locality() *core.Locality {
 	return &l
 }
 
+func (e *azureEnv) Labels() map[string]string {
+	return map[string]string{}
+}
+
+func (e *azureEnv) IsKubernetes() bool {
+	return true
+}
+
 func (e *azureEnv) azureMetadata() string {
 	return azureMetadataFn(e.APIVersion)
 }

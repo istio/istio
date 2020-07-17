@@ -24,6 +24,7 @@ import (
 
 // Instance represents a deployed Stackdriver app instance in a Kubernetes cluster.
 type Instance interface {
+	Address() string
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
 	ListTimeSeries() ([]*monitoringpb.TimeSeries, error)
