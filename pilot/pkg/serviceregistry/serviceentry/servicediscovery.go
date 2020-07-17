@@ -16,7 +16,9 @@ package serviceentry
 
 import (
 	"fmt"
+	"hash/crc32"
 	"reflect"
+	"strconv"
 	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -39,6 +41,14 @@ type instancesKey struct {
 	namespace string
 }
 
+func (key instancesKey) HashCode() uint32 {
+	var result uint32
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.hostname))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.namespace))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.namespace))
+	return result
+}
+
 func makeInstanceKey(i *model.ServiceInstance) instancesKey {
 	return instancesKey{i.Service.Hostname, i.Service.Attributes.Namespace}
 }
@@ -58,6 +68,14 @@ type configKey struct {
 	namespace string
 }
 
+func (key configKey) HashCode() uint32 {
+	var result uint32
+	result = 31*result + crc32.ChecksumIEEE([]byte(strconv.Itoa(int(key.kind))))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.name))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.namespace))
+	return result
+}
+
 // ServiceEntryStore communicates with ServiceEntry CRDs and monitors for changes
 type ServiceEntryStore struct { // nolint:golint
 	XdsUpdater model.XDSUpdater
@@ -67,7 +85,7 @@ type ServiceEntryStore struct { // nolint:golint
 
 	ip2instance map[string][]*model.ServiceInstance
 	// Endpoints table
-	instances map[instancesKey]map[configKey][]*model.ServiceInstance
+	instances map[uint32]map[uint32][]*model.ServiceInstance
 	// service instances from kubernetes pods - map of ip -> service instance
 	foreignRegistryInstancesByIP map[string]*model.WorkloadInstance
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
@@ -84,7 +102,7 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 		XdsUpdater:                   xdsUpdater,
 		store:                        store,
 		ip2instance:                  map[string][]*model.ServiceInstance{},
-		instances:                    map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instances:                    map[uint32]map[uint32][]*model.ServiceInstance{},
 		foreignRegistryInstancesByIP: map[string]*model.WorkloadInstance{},
 		refreshIndexes:               true,
 	}
@@ -415,7 +433,7 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 
 	out := make([]*model.ServiceInstance, 0)
 
-	instanceLists, found := s.instances[instancesKey{svc.Hostname, svc.Attributes.Namespace}]
+	instanceLists, found := s.instances[instancesKey{svc.Hostname, svc.Attributes.Namespace}.HashCode()]
 	if found {
 		for _, instances := range instanceLists {
 			for _, instance := range instances {
@@ -452,7 +470,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
 
 	s.storeMutex.RLock()
 	for key := range keys {
-		for _, i := range s.instances[key] {
+		for _, i := range s.instances[key.HashCode()] {
 			allInstances = append(allInstances, i...)
 		}
 	}
@@ -501,7 +519,7 @@ func (s *ServiceEntryStore) maybeRefreshIndexes() {
 		return
 	}
 
-	di := map[instancesKey]map[configKey][]*model.ServiceInstance{}
+	di := map[uint32]map[uint32][]*model.ServiceInstance{}
 	dip := map[string][]*model.ServiceInstance{}
 
 	seWithSelectorByNamespace := map[string][]servicesWithEntry{}
@@ -592,10 +610,10 @@ func (s *ServiceEntryStore) deleteExistingInstances(ckey configKey, instances []
 }
 
 // This method is not concurrent safe.
-func deleteInstances(key configKey, instances []*model.ServiceInstance, instancemap map[instancesKey]map[configKey][]*model.ServiceInstance,
+func deleteInstances(key configKey, instances []*model.ServiceInstance, instancemap map[uint32]map[uint32][]*model.ServiceInstance,
 	ip2instance map[string][]*model.ServiceInstance) {
 	for _, i := range instances {
-		delete(instancemap[makeInstanceKey(i)], key)
+		delete(instancemap[makeInstanceKey(i).HashCode()], key.HashCode())
 		delete(ip2instance, i.Endpoint.Address)
 	}
 }
@@ -612,14 +630,16 @@ func (s *ServiceEntryStore) updateExistingInstances(ckey configKey, instances []
 
 // updateInstances updates the instance data to the passed in maps.
 // This is not concurrent safe.
-func updateInstances(key configKey, instances []*model.ServiceInstance, instancemap map[instancesKey]map[configKey][]*model.ServiceInstance,
+func updateInstances(key configKey, instances []*model.ServiceInstance, instancemap map[uint32]map[uint32][]*model.ServiceInstance,
 	ip2instance map[string][]*model.ServiceInstance) {
+	keyHash := key.HashCode()
 	for _, instance := range instances {
 		ikey := makeInstanceKey(instance)
-		if _, f := instancemap[ikey]; !f {
-			instancemap[ikey] = map[configKey][]*model.ServiceInstance{}
+		ikeyHash := ikey.HashCode()
+		if _, f := instancemap[ikeyHash]; !f {
+			instancemap[ikeyHash] = map[uint32][]*model.ServiceInstance{}
 		}
-		instancemap[ikey][key] = append(instancemap[ikey][key], instance)
+		instancemap[ikeyHash][keyHash] = append(instancemap[ikeyHash][keyHash], instance)
 		ip2instance[instance.Endpoint.Address] = append(ip2instance[instance.Endpoint.Address], instance)
 	}
 }
