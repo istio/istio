@@ -1,0 +1,316 @@
+// Copyright 2016 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package attribute
+
+import (
+	"net"
+	"strings"
+	"fmt"
+	"sync"
+	"sort"
+	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	"time"
+	mixerpb "istio.io/api/mixer/v1"
+	attr "istio.io/pkg/attribute"
+
+)
+
+// Exports of types for backwards compatibility
+//type (
+//	Bag        = attr.Bag
+//	MutableBag = attr.MutableBag
+//)
+
+// ProtoBag implements the Bag interface on top of an Attributes proto.
+type EnvoyProtoBag struct {
+	reqMap              map[string]interface{}
+	//proto               *mixerpb.CompressedAttributes
+	globalDict          map[string]int32
+	globalWordList      []string
+	messageDict         map[string]int32
+	convertedStringMaps map[int32]attr.StringMap
+	stringMapMutex      sync.RWMutex
+
+	// to keep track of attributes that are referenced
+	referencedAttrs      map[attr.Reference]attr.Presence
+	referencedAttrsMutex sync.Mutex
+}
+
+// referencedAttrsSize is the size of referenced attributes.
+
+var envoyProtoBags = sync.Pool{
+	New: func() interface{} {
+		return &EnvoyProtoBag{
+			referencedAttrs: make(map[attr.Reference]attr.Presence, referencedAttrsSize),
+		}
+	},
+}
+
+// GetProtoBag returns a proto-based attribute bag.
+// When you are done using the proto bag, call the Done method to recycle it.
+func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
+	//, globalDict map[string]int32,	globalWordList []string) *EnvoyProtoBag {
+	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
+
+	// build the message-level dictionary
+	reqMap := make(map[string]interface{})
+	//TODO account for other protocols
+	reqMap["context.protocol"] = "http"
+	//req_map["context.proxy_version"] = "unknown"
+	reqMap["context.reporter.kind"] = "server"
+	//req_map["context.reporter.uid"] = "unknown"
+	reqMap["destination.ip"] = []byte(net.ParseIP(req.GetAttributes().GetDestination().GetAddress().GetSocketAddress().
+		GetAddress()).To16())
+	reqMap["target.ip"] = []byte(net.ParseIP(req.GetAttributes().GetDestination().GetAddress().GetSocketAddress().
+		GetAddress()).To16())
+	reqMap["destination.port"] = int64(req.GetAttributes().GetDestination().GetAddress().GetSocketAddress().
+		GetPortValue())
+	reqMap["destination.principal"] = req.GetAttributes().GetDestination().GetPrincipal()
+	reqMap["source.principal"] = req.GetAttributes().GetSource().GetPrincipal()
+	reqMap["source.ip"] = []byte(net.ParseIP(req.GetAttributes().GetSource().GetAddress().GetSocketAddress().
+		GetAddress()).To16())
+	reqMap["origin.ip"] = []byte(net.ParseIP(req.GetAttributes().GetSource().GetAddress().GetSocketAddress().
+		GetAddress()).To16())
+	reqMap["source.port"] = int64(req.GetAttributes().GetSource().GetAddress().GetSocketAddress().GetPortValue())
+	//reqMap["source.uid"] = ""
+	//reqMap["destination.uid"] = ""
+	reqMap["request.headers"] = req.GetAttributes().GetRequest().GetHttp().GetHeaders()
+	reqMap["request.host"] = req.GetAttributes().GetRequest().GetHttp().GetHost()
+	reqMap["request.method"] = req.GetAttributes().GetRequest().GetHttp().GetMethod()
+	reqMap["request.path"] = req.GetAttributes().GetRequest().GetHttp().GetPath()
+	reqMap["request.scheme"] = req.GetAttributes().GetRequest().GetHttp().GetScheme()
+	reqMap["request.time"] = time.Unix(int64(req.GetAttributes().GetRequest().GetTime().Seconds),
+		int64(req.GetAttributes().GetRequest().GetTime().Nanos))
+	//reqMap["request.url_path"] = "unknown"
+	reqMap["request.useragent"] = req.GetAttributes().GetRequest().GetHttp().GetHeaders()["user-agent"]
+
+
+	pb.reqMap = reqMap
+
+
+
+	scope.Debugf("Returning bag with attributes:\n%v", pb)
+
+	return pb
+}
+
+// GetProtoBag returns a proto-based attribute bag.
+// When you are done using the proto bag, call the Done method to recycle it.
+func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
+	// build the message-level dictionary
+	reqMap := make(map[string]interface{})
+	if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
+		reqMap["context.protocol"] = ""
+		reqMap["destination.ip"] = []byte(net.ParseIP(httpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamLocalAddress().GetSocketAddress().GetAddress()).To16())
+		reqMap["destination.port"] = int64(httpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamLocalAddress().GetSocketAddress().GetPortValue())
+		reqMap["source.ip"] = []byte(net.ParseIP(httpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamRemoteAddress().GetSocketAddress().GetAddress()).To16())
+		reqMap["source.port"] = int64(httpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamRemoteAddress().GetSocketAddress().GetPortValue())
+		reqMap["source.namespace"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.namespace"].GetStringValue()
+		reqMap["source.principal"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata(
+		)["istio_authn"].GetFields()["source.principal"].GetStringValue()
+		reqMap["source.user"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.user"].GetStringValue()
+		reqMap["request.headers"] = httpLogs.GetLogEntry()[num].GetRequest().GetRequestHeaders()
+		reqMap["request.host"] = httpLogs.GetLogEntry()[num].GetRequest().GetAuthority()
+		reqMap["request.method"] = httpLogs.GetLogEntry()[num].GetRequest().GetRequestMethod()
+		reqMap["request.path"] = httpLogs.GetLogEntry()[num].GetRequest().GetPath()
+		reqMap["request.scheme"] = httpLogs.GetLogEntry()[num].GetRequest().GetScheme()
+		reqMap["request.time"] = time.Unix(int64(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Seconds),
+			int64(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Nanos))
+		reqMap["request.url_path"] = ""
+		reqMap["request.useragent"] = httpLogs.GetLogEntry()[num].GetRequest().GetUserAgent()
+		reqMap["response.headers"] = httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeaders()
+		reqMap["response.code"] = httpLogs.GetLogEntry()[num].GetResponse().GetResponseCode().GetValue()
+		reqMap["response.size"] = httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes()
+		reqMap["response.total_size"] = httpLogs.GetLogEntry()[num].GetResponse().
+			GetResponseBodyBytes() + httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes()
+		reqMap["context.reporter.kind"] = ""
+
+
+	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
+		reqMap["context.protocol"] = ""
+		reqMap["destination.ip"] = []byte(net.ParseIP(tcpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamLocalAddress().GetSocketAddress().GetAddress()).To16())
+		reqMap["destination.port"] = int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamLocalAddress().GetSocketAddress().GetPortValue())
+		reqMap["source.ip"] = []byte(net.ParseIP(tcpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamRemoteAddress().GetSocketAddress().GetAddress()).To16())
+		reqMap["source.port"] = int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetDownstreamRemoteAddress().GetSocketAddress().GetPortValue())
+		reqMap["source.namespace"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.namespace"].GetStringValue()
+		reqMap["source.principal"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata(
+		)["istio_authn"].GetFields()["source.principal"].GetStringValue()
+		reqMap["source.user"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.user"].GetStringValue()
+		reqMap["request.time"] = time.Unix(int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Seconds),
+			int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Nanos))
+		reqMap["context.reporter.kind"] = ""
+
+	}
+
+	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
+
+	pb.reqMap = reqMap
+
+
+	scope.Debugf("Returning bag with attributes:\n%v", pb)
+
+	return pb
+}
+
+// Get returns an attribute value.
+func (pb *EnvoyProtoBag) Get(name string) (interface{}, bool) {
+	if val, ok := pb.reqMap[name]; ok {
+		pb.Reference(name, attr.Exact)
+		return val, ok
+	}
+	pb.Reference(name, attr.Absence)
+	return nil, false
+}
+
+// ReferenceTracker for a proto bag
+func (pb *EnvoyProtoBag) ReferenceTracker() attr.ReferenceTracker {
+	return pb
+}
+
+// GetReferencedAttributes returns the set of attributes that have been referenced through this bag.
+func (pb *EnvoyProtoBag) GetReferencedAttributes(globalDict map[string]int32,
+	globalWordCount int) *mixerpb.ReferencedAttributes {
+	output := &mixerpb.ReferencedAttributes{}
+
+	ds := newDictState(globalDict, globalWordCount)
+
+	output.AttributeMatches = make([]mixerpb.ReferencedAttributes_AttributeMatch, len(pb.referencedAttrs))
+	i := 0
+	for k, v := range pb.referencedAttrs {
+		mk := int32(0)
+		if len(k.MapKey) > 0 {
+			mk = ds.assignDictIndex(k.MapKey)
+		}
+		output.AttributeMatches[i] = mixerpb.ReferencedAttributes_AttributeMatch{
+			Name:      ds.assignDictIndex(k.Name),
+			MapKey:    mk,
+			Condition: mixerpb.ReferencedAttributes_Condition(v),
+		}
+		i++
+	}
+
+	output.Words = ds.getMessageWordList()
+
+	return output
+}
+
+// Clear the list of referenced attributes being tracked by this bag
+func (pb *EnvoyProtoBag) Clear() {
+	for k := range pb.referencedAttrs {
+		delete(pb.referencedAttrs, k)
+	}
+}
+
+// Restore the list of referenced attributes being tracked by this bag
+func (pb *EnvoyProtoBag) Restore(snap attr.ReferencedAttributeSnapshot) {
+	ra := make(map[attr.Reference]attr.Presence, len(snap.ReferencedAttrs))
+	for k, v := range snap.ReferencedAttrs {
+		ra[k] = v
+	}
+	pb.referencedAttrs = ra
+}
+
+// Snapshot grabs a snapshot of the currently referenced attributes
+func (pb *EnvoyProtoBag) Snapshot() attr.ReferencedAttributeSnapshot {
+	var snap attr.ReferencedAttributeSnapshot
+
+	pb.referencedAttrsMutex.Lock()
+	snap.ReferencedAttrs = make(map[attr.Reference]attr.Presence, len(pb.referencedAttrs))
+	for k, v := range pb.referencedAttrs {
+		snap.ReferencedAttrs[k] = v
+	}
+	pb.referencedAttrsMutex.Unlock()
+	return snap
+}
+
+func (pb *EnvoyProtoBag) MapReference(name string, key string, condition attr.Presence) {
+	pb.referencedAttrsMutex.Lock()
+	pb.referencedAttrs[attr.Reference{Name: name, MapKey: key}] = condition
+	pb.referencedAttrsMutex.Unlock()
+}
+
+func (pb *EnvoyProtoBag) Reference(name string, condition attr.Presence) {
+	pb.referencedAttrsMutex.Lock()
+	pb.referencedAttrs[attr.Reference{Name: name}] = condition
+	pb.referencedAttrsMutex.Unlock()
+}
+
+
+
+
+
+// Contains returns true if protobag contains this key.
+func (pb *EnvoyProtoBag) Contains(key string) bool {
+	if _, ok := pb.reqMap[key]; ok {
+		return true
+	}
+	return false
+
+}
+
+// Names returns the names of all the attributes known to this bag.
+func (pb *EnvoyProtoBag) Names() []string {
+	keys := make([]string, 0, len(pb.reqMap))
+	for k := range pb.reqMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	return keys
+}
+
+// Done indicates the bag can be reclaimed.
+func (pb *EnvoyProtoBag) Done() {
+	pb.Reset()
+	envoyProtoBags.Put(pb)
+}
+
+// Reset removes all local state.
+func (pb *EnvoyProtoBag) Reset() {
+	pb.globalDict = make(map[string]int32)
+	pb.globalWordList = nil
+	pb.messageDict = make(map[string]int32)
+	pb.stringMapMutex.Lock()
+	pb.convertedStringMaps = make(map[int32]attr.StringMap)
+	pb.stringMapMutex.Unlock()
+	pb.referencedAttrsMutex.Lock()
+	pb.referencedAttrs = make(map[attr.Reference]attr.Presence, referencedAttrsSize)
+	pb.referencedAttrsMutex.Unlock()
+}
+
+// String runs through the named attributes, looks up their values,
+// and prints them to a string.
+func (pb *EnvoyProtoBag) String() string {
+	var sb strings.Builder
+	for _, key := range pb.Names() {
+		val, _ := pb.Get(key)
+		sb.WriteString(fmt.Sprintf("%v : %v\n",key, val))
+	}
+	return sb.String()
+}
+
+
+
+
+

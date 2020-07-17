@@ -40,6 +40,8 @@ import (
 	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/runtime"
 	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
+	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/tracing"
@@ -264,6 +266,9 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
+	envoyServer := api.NewGRPCServerEnvoy(s.dispatcher, s.gp, s.checkCache, throttler)
+	authzGRPC.RegisterAuthorizationServer(s.server, &envoyServer)
+	accessLogGRPC.RegisterAccessLogServiceServer(s.server, &envoyServer)
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)

@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright 2016 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,12 @@ import (
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
 
-	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 
 	mixerpb "istio.io/api/mixer/v1"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 	"istio.io/istio/mixer/pkg/attribute"
 	"istio.io/istio/mixer/pkg/checkcache"
 	"istio.io/istio/mixer/pkg/loadshedding"
@@ -41,6 +44,19 @@ import (
 type (
 	// grpcServer holds the dispatchState for the gRPC API server.
 	grpcServer struct {
+		dispatcher dispatcher.Dispatcher
+		gp         *pool.GoroutinePool
+		cache      *checkcache.Cache
+
+		// the global dictionary. This will eventually be writable via config
+		globalWordList []string
+		globalDict     map[string]int32
+
+		// load shedding
+		throttler *loadshedding.Throttler
+	}
+
+	grpcServerEnvoy struct {
 		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
 		cache      *checkcache.Cache
@@ -72,6 +88,66 @@ func NewGRPCServer(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cac
 		cache:          cache,
 		throttler:      throttler,
 	}
+}
+
+func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache,
+	throttler *loadshedding.Throttler) grpcServerEnvoy {
+	list := attribute.GlobalList()
+	globalDict := make(map[string]int32, len(list))
+	for i := 0; i < len(list); i++ {
+		globalDict[list[i]] = int32(i)
+	}
+	return grpcServerEnvoy{
+		dispatcher:     dispatcher,
+		gp:             gp,
+		globalWordList: list,
+		globalDict:     globalDict,
+		cache:          cache,
+		throttler:      throttler,
+	}
+}
+
+
+func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
+	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: 1.0}) {
+		return nil, grpc.Errorf(codes.Unavailable, "Server is currently overloaded. Please try again.")
+	}
+
+	envoyProtoBag := attribute.GetEnvoyProtoBagAuthz(req)
+
+
+	if s.cache != nil {
+		if value, ok := s.cache.Get(envoyProtoBag); ok {
+			resp := &authzGRPC.CheckResponse{
+				Status: &rpcstatus.Status{
+					Code : value.StatusCode,
+				},
+				HttpResponse: &authzGRPC.CheckResponse_OkResponse{
+					OkResponse: &authzGRPC.OkHttpResponse{},
+				},
+			}
+			valueForOK := rpc.Status{
+				Code:    value.StatusCode,
+				Message: value.StatusMessage,
+			}
+			if status.IsOK(valueForOK) {
+				lg.Debug("Check approved from cache")
+			} else {
+				lg.Debugf("Check denied from cache: %v", resp.Status)
+			}
+
+			if !status.IsOK(valueForOK)  {
+				// we found a cached result and no quotas to allocate, so we're outta here
+				return resp, nil
+			}
+		}
+	}
+	envoyCheckBag := attr.GetMutableBag(envoyProtoBag)
+	resp, err := s.checkEnvoy(ctx, req, envoyProtoBag, envoyCheckBag)
+
+	envoyProtoBag.Done()
+	envoyCheckBag.Done()
+	return resp, err
 }
 
 // Check is the entry point for the external Check method
@@ -129,6 +205,67 @@ func (s *grpcServer) Check(ctx context.Context, req *mixerpb.CheckRequest) (*mix
 	checkBag.Done()
 
 	return resp, err
+}
+
+
+func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context, req *authzGRPC.CheckRequest,
+	protoBag *attribute.EnvoyProtoBag, checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
+	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
+		err = fmt.Errorf("preprocessing attributes failed: %v", err)
+		lg.Errora("Check failed: ", err.Error())
+		return nil, grpc.Errorf(codes.Internal, err.Error())
+	}
+
+	lg.Debug("Dispatching to main adapters after running processors")
+	lg.Debuga("Attribute Bag: \n", checkBag)
+	lg.Debug("Dispatching Check")
+	// snapshot the state after we've called the APAs so that we can reuse it
+	// for every check + quota call.
+	//snapApa := protoBag.Snapshot()
+
+	cr, err := s.dispatcher.Check(ctx, checkBag)
+	if err != nil {
+		err = fmt.Errorf("performing check operation failed: %v", err)
+		lg.Errora("Check failed: ", err.Error())
+		return nil, grpc.Errorf(codes.Internal, err.Error())
+	}
+	var resp *authzGRPC.CheckResponse
+	if status.IsOK(cr.Status) {
+		lg.Debug("Check approved")
+		resp = &authzGRPC.CheckResponse{
+			Status: &rpcstatus.Status{
+				Code : cr.Status.Code,
+			},
+			HttpResponse: &authzGRPC.CheckResponse_OkResponse{
+				OkResponse: &authzGRPC.OkHttpResponse{},
+			},
+		}
+	} else {
+		lg.Debugf("Check denied: %v", cr.Status)
+		resp = &authzGRPC.CheckResponse{
+			Status: &rpcstatus.Status{
+				Code : cr.Status.Code,
+			},
+			HttpResponse: &authzGRPC.CheckResponse_DeniedResponse{
+				DeniedResponse: &authzGRPC.DeniedHttpResponse{},
+			},
+		}
+
+	}
+
+	if s.cache != nil {
+		// keep this for later...
+		s.cache.Set(protoBag, checkcache.Value{
+			StatusCode:           resp.Status.Code,
+			StatusMessage:        cr.Status.Message,
+			Expiration:           time.Now().Add(cr.ValidDuration),
+			ValidUseCount:        cr.ValidUseCount,
+			RouteDirective:       cr.RouteDirective,
+		})
+	}
+
+
+	return resp, nil
 }
 
 func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
@@ -228,6 +365,83 @@ func (s *grpcServer) check(ctx context.Context, req *mixerpb.CheckRequest,
 	}
 
 	return resp, nil
+}
+
+
+//Access log service shold return empty response
+func (s *grpcServerEnvoy) StreamAccessLogs(
+	srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) (error) {
+	for {
+		ctx := context.TODO()
+
+		msg, err := srv.Recv()
+		if err != nil {
+			return err
+		}
+
+		var totalBags int
+		if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
+			totalBags = len(httpLogs.GetLogEntry())
+		} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
+			totalBags = len(tcpLogs.GetLogEntry())
+		}
+
+		if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: float64(totalBags)}) {
+			return grpc.Errorf(codes.Unavailable, "Server is currently overloaded. Please try again.")
+		}
+
+		reportSpan, reportCtx := opentracing.StartSpanFromContext(ctx, "Report")
+		reporter := s.dispatcher.GetReporter(reportCtx)
+		var errors *multierror.Error
+		var protoBag *attribute.EnvoyProtoBag
+		var reportBag *attr.MutableBag
+
+		for i := 0; i < totalBags; i++ {
+			lg.Debuga("Dispatching Report %d out of %d", i+1, totalBags)
+			span, newctx := opentracing.StartSpanFromContext(reportCtx, fmt.Sprintf("attribute bag %d", i))
+
+			//envoyProtoBag := attribute.GetEnvoyProtoBagAccessLog(msg, i)
+
+			protoBag = attribute.GetEnvoyProtoBagAccessLog(msg, i)
+			reportBag = attr.GetMutableBag(protoBag)
+			if err := dispatchSingleReport(newctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
+				span.LogFields(otlog.String("error", err.Error()))
+				span.Finish()
+				errors = multierror.Append(errors, err)
+				continue
+			}
+			span.Finish()
+
+			if reportBag != nil {
+				reportBag.Done()
+			}
+			if protoBag != nil {
+				protoBag.Done()
+			}
+
+		}
+		if err := reporter.Flush(); err != nil {
+			errors = multierror.Append(errors, err)
+		}
+		reporter.Done()
+
+		if errors != nil {
+			reportSpan.LogFields(otlog.String("error", errors.Error()))
+		}
+		reportSpan.Finish()
+
+		if errors != nil {
+			lg.Errora("Report failed: ", errors.Error())
+			return grpc.Errorf(codes.Unknown, errors.Error())
+		}
+
+		//for loop around srv.Recv so that it constantly receives a stream of receives.
+
+		//return &accessLogGRPC.StreamAccessLogsResponse{}// grpc.Errorf(codes.Unimplemented,
+		//	"method StreamAccessLogs not implemented")
+	}
+	return grpc.Error(codes.OK, "")
+
 }
 
 var reportResp = &mixerpb.ReportResponse{}
