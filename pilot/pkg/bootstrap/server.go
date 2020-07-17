@@ -21,13 +21,14 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net"
 	"net/http"
 	"path"
 	"sync"
 	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"google.golang.org/grpc/reflection"
 

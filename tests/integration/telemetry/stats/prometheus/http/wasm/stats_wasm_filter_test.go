@@ -50,4 +50,10 @@ func setupConfig(cfg *istio.Config) {
 	// enable telemetry v2 with Wasm
 	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "true"
+	cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true
+`
 }
