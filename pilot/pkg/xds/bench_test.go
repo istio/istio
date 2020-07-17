@@ -185,7 +185,8 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.6.0",
+			IstioVersion: "1.7.0",
+			SdsEnabled:   true,
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
@@ -216,9 +217,12 @@ func getConfigs(t testing.TB, input ConfigInput) []model.Config {
 	if err := tmpl.ExecuteTemplate(&buf, configName+".yaml", input); err != nil {
 		t.Fatalf("failed to execute template: %v", err)
 	}
-	configs, _, err := crd.ParseInputs(buf.String())
+	configs, badKinds, err := crd.ParseInputs(buf.String())
 	if err != nil {
 		t.Fatalf("failed to read config: %v", err)
+	}
+	if len(badKinds) != 0 {
+		t.Fatalf("Got unknown resources: %v", badKinds)
 	}
 	// setup default namespace if not defined
 	for i, c := range configs {
@@ -283,6 +287,10 @@ var testCases = []ConfigInput{
 	},
 	{
 		Name:     "empty",
+		Services: 100,
+	},
+	{
+		Name:     "tls",
 		Services: 100,
 	},
 	{
