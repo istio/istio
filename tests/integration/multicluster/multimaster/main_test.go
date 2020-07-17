@@ -22,14 +22,11 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	ist                              istio.Instance
-	pilots                           []pilot.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
 )
@@ -44,17 +41,6 @@ func TestMain(m *testing.M) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))
-			for i, cluster := range ctx.Environment().Clusters() {
-				if pilots[i], err = pilot.New(ctx, pilot.Config{
-					Cluster: cluster,
-				}); err != nil {
-					return err
-				}
-			}
-			return nil
-		}).
 		Run()
 }
 
