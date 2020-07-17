@@ -1043,6 +1043,9 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 }
 
 func (sc *SecretCache) certExists() bool {
+	if sc.secOpts.ProvCert == "" {
+		return false
+	}
 	_, err := tls.LoadX509KeyPair(sc.secOpts.ProvCert+"/cert-chain.pem", sc.secOpts.ProvCert+"/key.pem")
 	if err != nil {
 		cacheLog.Errorf("cannot load key pair from %s: %s", sc.secOpts.ProvCert, err)

@@ -123,18 +123,20 @@ type mockTokenCAServer struct {
 
 func (ca *mockTokenCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
 	client := fake.NewSimpleClientset()
-	tokenReview := &k8sauth.TokenReview{
-		Spec: k8sauth.TokenReviewSpec{
-			Token: validToken,
-		},
-	}
-	tokenReview.Status.Audiences = []string{}
-	tokenReview.Status.Authenticated = true
-	tokenReview.Status.User = k8sauth.UserInfo{
-		Username: "system:serviceaccount:default:example-pod-sa",
-		Groups:   []string{"system:serviceaccounts"},
-	}
 	client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
+		tokenReview := &k8sauth.TokenReview{
+			Spec: k8sauth.TokenReviewSpec{
+				Token: validToken,
+			},
+			Status: k8sauth.TokenReviewStatus{
+				Audiences: []string{},
+				Authenticated: true,
+				User: k8sauth.UserInfo{
+					Username: "system:serviceaccount:default:example-pod-sa",
+					Groups:   []string{"system:serviceaccounts"},
+				},
+			},
+		}
 		return true, tokenReview, nil
 	})
 	authenticator := authenticate.NewKubeJWTAuthenticator(client, "Kubernetes", nil, "example.com", jwt.PolicyFirstParty)
@@ -165,7 +167,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 			expectedErr:  "rpc error: code = Unknown desc = target JWT extraction error: no HTTP authorization header exists",
 			token:        "",
 		},
-		"inValid Token": {
+		"InValid Token": {
 			server:       mockTokenCAServer{Certs: []string{}, Err: nil},
 			expectedCert: nil,
 			expectedErr:  "invalid response cert chain",

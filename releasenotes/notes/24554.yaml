@@ -8,4 +8,3 @@ issue: 24554
 releaseNotes: |
   *Added*
   - Enable the workload cert rotate automatically in VM
-  - Unit test for citadel client token logic
