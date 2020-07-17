@@ -88,15 +88,23 @@ var (
 		"Events from k8s registry.",
 		monitoring.WithLabels(typeTag, eventTag),
 	)
-
+	// nolint: gocritic
+	// This is deprecated in favor of `pilot_k8s_endpoints_pending_pod`, which is a gauge indicating the number of
+	// currently missing pods. This helps distinguish transient errors from permanent ones
 	endpointsWithNoPods = monitoring.NewSum(
 		"pilot_k8s_endpoints_with_no_pods",
 		"Endpoints that does not have any corresponding pods.")
+
+	endpointsPendingPodUpdate = monitoring.NewGauge(
+		"pilot_k8s_endpoints_pending_pod",
+		"Number of endpoints that do not currently have any corresponding pods.",
+	)
 )
 
 func init() {
 	monitoring.MustRegister(k8sEvents)
 	monitoring.MustRegister(endpointsWithNoPods)
+	monitoring.MustRegister(endpointsPendingPodUpdate)
 }
 
 func incrementEvent(kind, event string) {
@@ -259,7 +267,16 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	registerHandlers(c.filteredNodeInformer, c.queue, "Nodes", c.onNodeEvent)
 
 	podInformer := sharedInformers.Core().V1().Pods().Informer()
-	c.pods = newPodCache(podInformer, c)
+	c.pods = newPodCache(podInformer, c, func(key string) {
+		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
+		if err != nil || !exists {
+			log.Debugf("Endpoint %v lookup failed, skipping stale endpoint. error: %v", key, err)
+			return
+		}
+		c.queue.Push(func() error {
+			return c.endpoints.onEvent(item, model.EventUpdate)
+		})
+	})
 	registerHandlers(podInformer, c.queue, "Pods", c.pods.onEvent)
 
 	return c
@@ -1006,7 +1023,35 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
+func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) *v1.Pod {
+	pod := c.pods.getPodByIP(ip)
+	if pod != nil {
+		return pod
+	}
+	// This means, the endpoint event has arrived before pod event.
+	// This might happen because PodCache is eventually consistent.
+	if targetRef != nil && targetRef.Kind == "Pod" {
+		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
+		// There is a small chance getInformer may have the pod, but it hasn't
+		// made its way to the PodCache yet as it a shared queue.
+		podFromInformer, f, err := c.pods.informer.GetStore().GetByKey(key)
+		if err != nil || !f {
+			log.Debugf("Endpoint without pod %s %s.%s error: %v", ip, ep.Name, ep.Namespace, err)
+			endpointsWithNoPods.Increment()
+			if c.metrics != nil {
+				c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ip)
+			}
+			// Tell pod cache we want to queue the endpoint event when this pod arrives.
+			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
+			c.pods.recordNeedsUpdate(epkey, ip)
+			return nil
+		}
+		pod = podFromInformer.(*v1.Pod)
+	}
+	return pod
+}
+
+func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event, epc *endpointsController) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
 
 	c.RLock()
@@ -1020,22 +1065,9 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
-				pod := c.pods.getPodByIP(ea.IP)
+				pod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, hostname)
 				if pod == nil {
-					// This means, the endpoint event has arrived before pod event. This might happen because
-					// PodCache is eventually consistent. We should try to get the pod from kube-api server.
-					if ea.TargetRef != nil && ea.TargetRef.Kind == "Pod" {
-						pod = c.pods.getPod(ea.TargetRef.Name, ea.TargetRef.Namespace)
-						if pod == nil {
-							// If pod is still not available, this an unusual case.
-							endpointsWithNoPods.Increment()
-							log.Errorf("Endpoint without pod %s %s.%s", ea.IP, ep.Name, ep.Namespace)
-							if c.metrics != nil {
-								c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, ea.IP)
-							}
-							continue
-						}
-					}
+					continue
 				}
 
 				builder := NewEndpointBuilder(c, pod)
@@ -1048,6 +1080,8 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event) {
 				}
 			}
 		}
+	} else {
+		epc.forgetEndpoint(ep)
 	}
 
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)

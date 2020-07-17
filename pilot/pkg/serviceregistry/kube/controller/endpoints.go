@@ -214,6 +214,20 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 
 	return e.handleEvent(ep.Name, ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
 		ep := obj.(*v1.Endpoints)
-		e.c.updateEDS(ep, event)
+		e.c.updateEDS(ep, event, e)
 	})
+}
+
+func (e *endpointsController) getInformer() cache.SharedIndexInformer {
+	return e.informer
+}
+
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
+	ep := endpoint.(*v1.Endpoints)
+	key := kube.KeyFunc(ep.Name, ep.Namespace)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			e.c.pods.dropNeedsUpdate(key, ea.IP)
+		}
+	}
 }

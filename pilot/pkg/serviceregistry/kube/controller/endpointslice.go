@@ -19,6 +19,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	discoverylister "k8s.io/client-go/listers/discovery/v1alpha1"
@@ -76,19 +77,9 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 				continue
 			}
 			for _, a := range e.Addresses {
-				pod := esc.c.pods.getPodByIP(a)
+				pod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostname)
 				if pod == nil {
-					// This can not happen in usual case
-					if e.TargetRef != nil && e.TargetRef.Kind == "Pod" {
-						log.Warnf("Endpoint without pod %s %s.%s", a, svcName, slice.Namespace)
-
-						if esc.c.metrics != nil {
-							esc.c.metrics.AddMetric(model.EndpointNoPod, string(hostname), nil, a)
-						}
-						// TODO: keep them in a list, and check when pod events happen !
-						continue
-					}
-					// For service without selector, maybe there are no related pods
+					continue
 				}
 
 				builder := esc.newEndpointBuilder(pod, e)
@@ -109,6 +100,8 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 				}
 			}
 		}
+	} else {
+		esc.forgetEndpoint(es)
 	}
 
 	esc.endpointCache.Update(hostname, slice.Name, endpoints)
@@ -329,4 +322,18 @@ func (e *endpointSliceCache) Get(hostname host.Name) []*model.IstioEndpoint {
 		endpoints = append(endpoints, eps...)
 	}
 	return endpoints
+}
+
+func (esc *endpointSliceController) getInformer() cache.SharedIndexInformer {
+	return esc.informer
+}
+
+func (esc *endpointSliceController) forgetEndpoint(endpoint interface{}) {
+	slice := endpoint.(*discoveryv1alpha1.EndpointSlice)
+	key := kube.KeyFunc(slice.Name, slice.Namespace)
+	for _, e := range slice.Endpoints {
+		for _, a := range e.Addresses {
+			esc.c.pods.dropNeedsUpdate(key, a)
+		}
+	}
 }
