@@ -49,7 +49,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
@@ -408,7 +407,6 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	svc.Resolution = model.Passthrough
 	services := []*model.Service{svc}
 

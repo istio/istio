@@ -1081,7 +1081,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
-						service.GetServiceAddressForProxy(node) == "" && servicePort.Protocol.IsTCP() {
+						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
 						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
 								// Make sure each endpoint address is a valid address
