@@ -197,7 +197,9 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		log.Errorf("error getting IstioOperator iop: %s", err)
 		return reconcile.Result{}, err
 	}
-
+	if iop.Spec == nil {
+		iop.Spec = &v1alpha1.IstioOperatorSpec{Profile: name.DefaultProfileName}
+	}
 	deleted := iop.GetDeletionTimestamp() != nil
 	finalizers := sets.NewString(iop.GetFinalizers()...)
 	if deleted {

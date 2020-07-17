@@ -32,14 +32,9 @@ import (
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/proxy"
 	istioVersion "istio.io/pkg/version"
 )
-
-type sidecarSyncStatus struct {
-	// nolint: structcheck, unused
-	pilot string
-	xds.SyncStatus
-}
 
 func newVersionCommand() *cobra.Command {
 	profileCmd := mesh.ProfileCmd()
@@ -93,39 +88,8 @@ func getRemoteInfoWrapper(pc **cobra.Command, opts *clioptions.ControlPlaneOptio
 
 func getProxyInfoWrapper(opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		return getProxyInfo(opts)
+		return proxy.GetProxyInfo(kubeconfig, configContext, opts.Revision, istioNamespace)
 	}
-}
-
-func getProxyInfo(opts *clioptions.ControlPlaneOptions) (*[]istioVersion.ProxyInfo, error) {
-	kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
-	if err != nil {
-		return nil, err
-	}
-
-	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
-	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
-	if err != nil {
-		return nil, err
-	}
-
-	pi := []istioVersion.ProxyInfo{}
-	for _, syncz := range allSyncz {
-		var sss []*sidecarSyncStatus
-		err = json.Unmarshal(syncz, &sss)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, ss := range sss {
-			pi = append(pi, istioVersion.ProxyInfo{
-				ID:           ss.ProxyID,
-				IstioVersion: ss.SyncStatus.IstioVersion,
-			})
-		}
-	}
-
-	return &pi, nil
 }
 
 // xdsVersionCommand gets the Control Plane and Sidecar versions via XDS

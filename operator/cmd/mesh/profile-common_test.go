@@ -18,6 +18,7 @@ import (
 	"errors"
 	"testing"
 
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/util/clog"
 )
 
@@ -61,7 +62,7 @@ spec:
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			gotOverlay, gotProfile, err := parseYAMLFiles(tt.inYAML, tt.inForce, tt.inLogger)
+			gotOverlay, gotProfile, err := manifest.ParseYAMLFiles(tt.inYAML, tt.inForce, tt.inLogger)
 			if tt.expectedProfile != gotProfile || tt.expectedOverlay != gotOverlay ||
 				((tt.expectedErr != nil && err == nil) || (tt.expectedErr == nil && err != nil)) {
 				t.Errorf("%s: expect overlay, profile,&err %v %v %v, got %v %v %v", tt.desc, tt.expectedOverlay,

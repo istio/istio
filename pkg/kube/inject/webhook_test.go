@@ -41,7 +41,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	operatormesh "istio.io/istio/operator/cmd/mesh"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pilot/pkg/model"
@@ -836,7 +836,7 @@ func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (
 	}
 
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := operatormesh.GenManifests(inFilenames, setFlags, false, nil, l)
+	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, l)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}

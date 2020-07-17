@@ -32,6 +32,7 @@ import (
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -134,7 +135,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -170,7 +171,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
 	if args.inFilenames != nil {
-		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilenames)
+		overrideIOPSYaml, err = manifest.ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
@@ -194,7 +195,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	} else {
 		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
 	}
-	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", currentSets, true, nil, l)
+	currentProfileIOPSYaml, _, err := manifest.GenIOPSFromProfile(profile, "", currentSets, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)

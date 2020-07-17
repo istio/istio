@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
@@ -196,7 +197,7 @@ func fakeApplyExtraResources(inFile string) error {
 
 func fakeControllerReconcile(inFile string, chartSource chartSourceType) (*ObjectSet, error) {
 	l := clog.NewDefaultLogger()
-	_, iops, err := GenerateConfig(
+	_, iops, err := manifest.GenerateConfig(
 		[]string{inFileAbsolutePath(inFile)},
 		[]string{"installPackagePath=" + string(chartSource)},
 		false, testRestConfig, l)
