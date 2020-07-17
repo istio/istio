@@ -15,6 +15,7 @@
 package model
 
 import (
+	"google.golang.org/protobuf/types/known/durationpb"
 	"sync"
 	"time"
 
@@ -163,6 +164,14 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 		return nil
 	}
 
+
+	var fetchTimeout *durationpb.Duration
+	if name == SDSDefaultResourceName || name == SDSRootResourceName {
+		fetchTimeout = ptypes.DurationProto(time.Second * 0)
+	} else {
+		fetchTimeout = features.InitialFetchTimeout
+	}
+
 	useV3 := requestedType == v3.ClusterType || requestedType == v3.ListenerType || requestedType == ""
 
 	if name == SDSDefaultResourceName && useV3 {
@@ -190,7 +199,7 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 			// set the fetch timeout to 0 here because workload certs are
 			// guaranteed to exist. while others like gateway certs may not
 			// exist.
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0)},
+			InitialFetchTimeout: fetchTimeout},
 	}
 	if useV3 {
 		// For v3 clusters/listeners, send v3 secrets
