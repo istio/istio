@@ -26,6 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coreos/etcd/pkg/fileutil"
+
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -37,8 +39,10 @@ const (
 	readExec        = 0755
 
 	cniConfName          = "CNI_CONF_NAME"
+	chainedCNIPluginName = "CHAINED_CNI_PLUGIN"
 	cniNetworkConfigName = "CNI_NETWORK_CONFIG"
 	cniNetworkConfig     = `{
+  "cniVersion": "0.3.1",
   "type": "istio-cni",
   "log_level": "info",
   "kubernetes": {
@@ -143,7 +147,7 @@ func populateTempDirs(wd string, cniDirOrderedFiles []string, tempCNIConfDir, te
 
 // startDocker starts a test Docker container and runs the install-cni script.
 func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
-	tempK8sSvcAcctDir, cniConfFileName string, t *testing.T) string {
+	tempK8sSvcAcctDir, cniConfFileName string, chainedCNIPlugin bool, t *testing.T) string {
 	t.Helper()
 
 	dockerImage := getEnv("HUB", "") + "/install-cni:" + getEnv("TAG", "")
@@ -161,6 +165,9 @@ func startDocker(testNum int, wd, tempCNIConfDir, tempCNIBinDir,
 	}
 	if cniConfFileName != "" {
 		args = append(args, "-e", cniConfName+"="+cniConfFileName)
+	}
+	if !chainedCNIPlugin {
+		args = append(args, "-e", chainedCNIPluginName+"=false")
 	}
 	args = append(args, dockerImage, "/usr/local/bin/install-cni")
 
@@ -289,7 +296,7 @@ func checkTempFilesCleaned(tempCNIConfDir string, t *testing.T) {
 
 // doTest sets up necessary environment variables, runs the Docker installation
 // container and verifies output file correctness.
-func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
+func doTest(testNum int, chainedCNIPlugin bool, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 	expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 	testWorkRootDir string, t *testing.T) {
 
@@ -304,7 +311,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 	}
 	setEnv(cniNetworkConfigName, cniNetworkConfig, t)
 
-	containerID := startDocker(testNum, wd, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, t)
+	containerID := startDocker(testNum, wd, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir, envPreconf, chainedCNIPlugin, t)
 	defer func() {
 		docker("stop", containerID, t)
 		docker("logs", containerID, t)
@@ -312,7 +319,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 	}()
 
 	resultFile := tempCNIConfDir + "/" + resultFileName
-	if delayedConfFile != "" {
+	if chainedCNIPlugin && delayedConfFile != "" {
 		timeout := time.After(5 * time.Second)
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
@@ -332,7 +339,11 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 	checkBinDir(t, tempCNIBinDir, "add", "istio-cni", "istio-iptables")
 
 	// Test script restart by removing configuration
-	rmCNIConfig(testNum, resultFileName, containerID, t)
+	if chainedCNIPlugin {
+		rmCNIConfig(testNum, resultFileName, containerID, t)
+	} else if err := os.Remove(resultFile); err != nil {
+		t.Fatalf("error removing CNI config file: %s", resultFile)
+	}
 	// Verify configuration is still valid after removal
 	compareConfResult(testWorkRootDir, resultFile, expectedOutputFile, t)
 	t.Log("PASS: Istio CNI configuration still valid after removal")
@@ -340,10 +351,16 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 	docker("stop", containerID, t)
 
 	t.Logf("Test %v: Check the cleanup worked", testNum)
-	if len(expectedPostCleanFile) == 0 {
-		compareConfResult(testWorkRootDir, resultFile, wd+cniConfSubDir+preConfFile, t)
+	if chainedCNIPlugin {
+		if len(expectedPostCleanFile) == 0 {
+			compareConfResult(testWorkRootDir, resultFile, wd+cniConfSubDir+preConfFile, t)
+		} else {
+			compareConfResult(testWorkRootDir, resultFile, expectedPostCleanFile, t)
+		}
 	} else {
-		compareConfResult(testWorkRootDir, resultFile, expectedPostCleanFile, t)
+		if fileutil.Exist(resultFile) {
+			t.Logf("FAIL: Istio CNI config file was not removed: %s", resultFile)
+		}
 	}
 	checkBinDir(t, tempCNIBinDir, "del", "istio-cni", "istio-iptables")
 	checkTempFilesCleaned(tempCNIConfDir, t)
@@ -355,7 +372,7 @@ func doTest(testNum int, wd, preConfFile, resultFileName, delayedConfFile, expec
 // file doesn't have a _test.go suffix, and this func doesn't start with a Test
 // prefix. This func is only meant to be invoked programmatically. A separate
 // install_cni_test.go file exists for executing this test.
-func RunInstallCNITest(testNum int, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
+func RunInstallCNITest(testNum int, chainedCNIPlugin bool, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 	expectedPostCleanFile string, cniConfDirOrderedFiles []string, t *testing.T) {
 
 	wd := env.IstioSrc + "/cni/deployments/kubernetes/install/test"
@@ -371,10 +388,12 @@ func RunInstallCNITest(testNum int, preConfFile, resultFileName, delayedConfFile
 	t.Logf("conf-dir=%v; bin-dir=%v; k8s-serviceaccount=%v", tempCNIConfDir,
 		tempCNIBinDir, tempK8sSvcAcctDir)
 
-	// Copy script that removes Istio CNI's config from the file
-	cp(wd+"/data/remove_istio_cni.sh", tempCNIBinDir+"/remove_istio_cni.sh", readExec, t)
+	if chainedCNIPlugin {
+		// Copy script that removes Istio CNI's config from the file
+		cp(wd+"/data/remove_istio_cni.sh", tempCNIBinDir+"/remove_istio_cni.sh", readExec, t)
+	}
 	populateTempDirs(wd, cniConfDirOrderedFiles, tempCNIConfDir, tempK8sSvcAcctDir, t)
-	doTest(testNum, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
+	doTest(testNum, chainedCNIPlugin, wd, preConfFile, resultFileName, delayedConfFile, expectedOutputFile,
 		expectedPostCleanFile, tempCNIConfDir, tempCNIBinDir, tempK8sSvcAcctDir,
 		testWorkRootDir, t)
 }
