@@ -337,37 +337,15 @@ func updateWorkloadEndpoint(client kubernetes.Interface, name, endpoint, service
 - targets:
   - %s
   labels:
-    name: %s
     app: %s
     version: %s
 `
-	currentCM.Data[fmt.Sprintf("%s.yaml", name)] = fmt.Sprintf(staticConfig, endpoint, name, service, version)
+	currentCM.Data[fmt.Sprintf("%s.yaml", name)] = fmt.Sprintf(staticConfig, endpoint, service, version)
 	if _, err := client.CoreV1().ConfigMaps("istio-system").Update(context.TODO(), currentCM,
 		metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 	return nil
-	//filePath := "/etc/config/file_sd_config.json"
-	//file, err := ioutil.ReadFile(filePath)
-	//if err != nil {
-	//	return err
-	//}
-	//var sdConfig []interface{}
-	//_ = json.Unmarshal(file, &sdConfig)
-	//
-	//sdConfig = append(sdConfig, staticConfig{
-	//	targets: []string{endpoint},
-	//	labels: map[string]string{
-	//		"name":    name,
-	//		"app":     service,
-	//		"version": version,
-	//	},
-	//})
-	//sdConfigJson, _ := json.Marshal(sdConfig)
-	//if err := ioutil.WriteFile(filePath, sdConfigJson, 0666); err != nil {
-	//	return err
-	//}
-	//return nil
 }
 
 func (c *instance) initialize(pods []kubeCore.Pod) error {

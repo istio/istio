@@ -64,7 +64,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
-			sourceQuery, destinationQuery, vmDestinationQuery, appQuery := buildQuery()
+			sourceQuery, destinationQuery, appQuery := buildQuery("server")
 			retry.UntilSuccessOrFail(t, func() error {
 				if err := SendTraffic(); err != nil {
 					return err
@@ -75,11 +75,6 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 					return err
 				}
 				if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
-					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
-					return err
-				}
-				// Query VM stats
-				if err := promUtil.QueryPrometheus(t, vmDestinationQuery, GetPromInstance()); err != nil {
 					t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 					return err
 				}
@@ -95,7 +90,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 			if useVM {
 				echoboot.NewBuilderOrFail(t, ctx).
 					With(&vmServer, echo.Config{
-						Service:   "server-vm",
+						Service:   "vm",
 						Namespace: appNsInst,
 						Subsets:   []echo.SubsetConfig{{}},
 						Ports: []echo.Port{
@@ -119,7 +114,13 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 						return err
 					}
 					// Query VM stats
-					if err := promUtil.QueryPrometheus(t, vmDestinationQuery, GetPromInstance()); err != nil {
+					sourceQuery, destinationQuery, _ := buildQuery("vm")
+					// Query client side metrics
+					if err := promUtil.QueryPrometheus(t, sourceQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+						return err
+					}
+					if err := promUtil.QueryPrometheus(t, destinationQuery, GetPromInstance()); err != nil {
 						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
 						return err
 					}
@@ -194,18 +195,17 @@ spec:
     mode: STRICT`, appNsInst.Name()))
 }
 
-func buildQuery() (sourceQuery, destinationQuery, vmDestinationQuery, appQuery string) {
+func buildQuery(destination string) (sourceQuery, destinationQuery, appQuery string) {
 	ns := GetAppNamespace()
 	sourceQuery = `istio_requests_total{reporter="source",`
 	destinationQuery = `istio_requests_total{reporter="destination",`
-	vmDestinationQuery = `istio_requests_total{reporter="destination",`
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "200",
-		"destination_app":                "server",
+		"destination_app":                destination,
 		"destination_version":            "v1",
-		"destination_service":            "server." + ns.Name() + ".svc.cluster.local",
-		"destination_service_name":       "server",
+		"destination_service":            destination + "." + ns.Name() + ".svc.cluster.local",
+		"destination_service_name":       destination,
 		"destination_workload_namespace": ns.Name(),
 		"destination_service_namespace":  ns.Name(),
 		"source_app":                     "client",
@@ -214,15 +214,15 @@ func buildQuery() (sourceQuery, destinationQuery, vmDestinationQuery, appQuery s
 		"source_workload_namespace":      ns.Name(),
 	}
 	for k, v := range labels {
+		// These two fields remain unknown so we skip them for VMs
+		if destination == "vm" && (k == "destination_app" || k == "destination_version") {
+			continue
+		}
 		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
 		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
-		if k != "destination_app" && k != "destination_version" {
-			vmDestinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
-		}
 	}
 	sourceQuery += "}"
 	destinationQuery += "}"
-	vmDestinationQuery += "}"
 	appQuery += `istio_echo_http_requests_total{kubernetes_namespace="` + ns.Name() + `"}`
 	return
 }
