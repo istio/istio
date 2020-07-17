@@ -32,6 +32,7 @@ const (
 	StateInstalling InstallState = iota
 	StatePruning
 	StateComplete
+	StateUninstallComplete
 )
 
 // Log records the progress of an installation
@@ -142,6 +143,9 @@ func (p *Log) SetState(state InstallState) {
 		p.bar.Write()
 	case StateComplete:
 		p.bar.SetTemplateString(`{{ green "✔" }} Installation complete`)
+		p.bar.Write()
+	case StateUninstallComplete:
+		p.bar.SetTemplateString(`{{ green "✔" }} Uninstall complete`)
 		p.bar.Write()
 	}
 }

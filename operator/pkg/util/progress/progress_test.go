@@ -70,4 +70,7 @@ func TestProgressLog(t *testing.T) {
 
 	p.SetState(StateComplete)
 	expect(`✔ Installation complete`)
+
+	p.SetState(StateUninstallComplete)
+	expect(`✔ Uninstall complete`)
 }

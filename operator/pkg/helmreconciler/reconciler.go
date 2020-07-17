@@ -211,7 +211,21 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
-	return h.Prune(nil, true)
+	iop := h.iop
+	if iop.Spec.Revision == "" {
+		return h.Prune(nil, true)
+	}
+	// Delete IOP with revision:
+	// for this case we update the status field to pending if there are still proxies pointing to this revision
+	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
+	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec.Namespace, iop.Spec.Revision)
+	if err != nil {
+		return err
+	}
+	if err := h.SetStatusComplete(status); err != nil {
+		return err
+	}
+	return nil
 }
 
 // DeleteAll deletes all Istio resources in the cluster.
@@ -336,14 +350,10 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 	if h.iop != nil {
 		revision = h.iop.Spec.Revision
 	}
-
-	// Only pilot component uses revisions
-	if componentName == string(name.PilotComponentName) {
-		if revision == "" {
-			revision = "default"
-		}
-		labels[label.IstioRev] = revision
+	if revision == "" {
+		revision = "default"
 	}
+	labels[label.IstioRev] = revision
 
 	labels[IstioComponentLabelStr] = componentName
 
@@ -398,7 +408,11 @@ func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.Join([]string{crName, crNamespace, componentName, h.restConfig.Host}, "-"), nil
+	var host string
+	if h.restConfig != nil {
+		host = h.restConfig.Host
+	}
+	return strings.Join([]string{crName, crNamespace, componentName, host}, "-"), nil
 }
 
 // getCRNamespace returns the namespace of the CR associated with h.
