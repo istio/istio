@@ -40,10 +40,6 @@ const authnConfig = `
   }
 `
 
-const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
-	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
-	`"sub":"sub@foo.com"}`
-
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
 {
@@ -82,7 +78,7 @@ var checkAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.auth.raw_claims": "*",
   "request.url_path": "/echo"
 }
 `
@@ -107,10 +103,8 @@ var reportAttributesOkGet = `
   "destination.port": "*",
   "destination.uid": "",
   "istio_authn": "*",
-  "jwt-auth": "*",
   "destination.namespace": "",
   "istio_authn": "*",
-  "jwt-auth": "*",
   "target.name": "target-name",
   "target.user": "target-user",
   "target.uid": "POD222",
@@ -128,7 +122,7 @@ var reportAttributesOkGet = `
      "x-request-id": "*"
   },
   "request.size": 0,
-  "request.total_size": 266,
+  "request.total_size": 473,
   "response.total_size": "*",
   "response.time": "*",
   "response.size": 0,
@@ -147,7 +141,7 @@ var reportAttributesOkGet = `
      "aud": "aud1",
      "some-other-string-claims": "some-claims-kept"
   },
-  "request.auth.raw_claims": ` + fmt.Sprintf("%q", secIstioAuthUserinfoHeaderValue) + `,
+  "request.auth.raw_claims": "*",
   "request.url_path": "/echo"
 }
 `
