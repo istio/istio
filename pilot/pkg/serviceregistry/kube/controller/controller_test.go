@@ -1721,7 +1721,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	}
 }
 
-func TestForeignServiceInstanceHandlerMultipleEndpoints(t *testing.T) {
+func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	controller, fx := newFakeControllerWithOptions(fakeControllerOptions{})
 	defer controller.Stop()
 
@@ -1755,8 +1755,8 @@ func TestForeignServiceInstanceHandlerMultipleEndpoints(t *testing.T) {
 		t.Fatal("Timeout incremental eds")
 	}
 
-	// Simulate adding a workload entry (fired through invocation of ForeignServiceInstanceHandler)
-	controller.ForeignServiceInstanceHandler(&model.WorkloadInstance{
+	// Simulate adding a workload entry (fired through invocation of WorkloadInstanceHandler)
+	controller.WorkloadInstanceHandler(&model.WorkloadInstance{
 		Namespace: "nsA",
 		Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
 			ServiceAccount: "account",

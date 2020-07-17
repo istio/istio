@@ -55,7 +55,7 @@ func createConfigs(configs []*model.Config, store model.IstioConfigStore, t *tes
 func callInstanceHandlers(instances []*model.WorkloadInstance, sd *ServiceEntryStore, ev model.Event, t *testing.T) {
 	t.Helper()
 	for _, instance := range instances {
-		sd.ForeignServiceInstanceHandler(instance, ev)
+		sd.WorkloadInstanceHandler(instance, ev)
 	}
 }
 
@@ -552,11 +552,11 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 	})
 }
 
-func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
+func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 	store, sd, events, stopFn := initServiceDiscovery()
 	defer stopFn()
 
-	// Setup a couple of foreign instances for test. These will be selected by the `selector` SE
+	// Setup a couple of workload instances for test. These will be selected by the `selector` SE
 	fi1 := &model.WorkloadInstance{
 		Namespace: selector.Name,
 		Endpoint: &model.IstioEndpoint{
@@ -586,8 +586,8 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 		expectEvents(t, events, Event{kind: "xds"})
 	})
 
-	t.Run("add foreign instance", func(t *testing.T) {
-		// Add a foreign instance, we expect this to update
+	t.Run("add workload instance", func(t *testing.T) {
+		// Add a workload instance, we expect this to update
 		callInstanceHandlers([]*model.WorkloadInstance{fi1}, sd, model.EventAdd, t)
 		instances := []*model.ServiceInstance{
 			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
@@ -600,7 +600,7 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 
-	t.Run("another foreign instance", func(t *testing.T) {
+	t.Run("another workload instance", func(t *testing.T) {
 		// Add a different instance
 		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, t)
 		instances := []*model.ServiceInstance{
@@ -619,7 +619,7 @@ func TestServiceDiscoveryForeignServiceInstance(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 4})
 	})
 
-	t.Run("delete foreign instance", func(t *testing.T) {
+	t.Run("delete workload instance", func(t *testing.T) {
 		// Delete the instances, it should be gone
 		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventDelete, t)
 		instances := []*model.ServiceInstance{
