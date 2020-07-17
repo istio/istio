@@ -19,8 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/tests/integration/pilot/vm"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -37,7 +35,7 @@ import (
 )
 
 var (
-	client, server, vmServer echo.Instance
+	client, server, vm echo.Instance
 	ist                      istio.Instance
 	appNsInst                namespace.Instance
 	promInst                 prometheus.Instance
@@ -89,7 +87,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 			// Test VM if requested
 			if useVM {
 				echoboot.NewBuilderOrFail(t, ctx).
-					With(&vmServer, echo.Config{
+					With(&vm, echo.Config{
 						Service:   "vm",
 						Namespace: appNsInst,
 						Subsets:   []echo.SubsetConfig{{}},
@@ -107,7 +105,7 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 
 				retry.UntilSuccessOrFail(t, func() error {
 					_, err := client.Call(echo.CallOptions{
-						Target:   vmServer,
+						Target:   vm,
 						PortName: "http",
 					})
 					if err != nil {
