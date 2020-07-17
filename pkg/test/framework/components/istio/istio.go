@@ -17,18 +17,17 @@ package istio
 import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
-// Instance represents a deployed Istio instance
+// Discovery represents a deployed Istio instance
 type Instance interface {
 	resource.Resource
 
-	Discovery(resource.Cluster) (pilot.Instance, error)
+	Discovery(resource.Cluster) (Discovery, error)
 
-	DiscoveryOrFail(test.Failer, resource.Cluster) pilot.Instance
+	DiscoveryOrFail(test.Failer, resource.Cluster) Discovery
 
 	Settings() Config
 }

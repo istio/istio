@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	"istio.io/istio/pkg/test/env"
 
 	xdscore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,7 +31,6 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/structpath"
 )
@@ -59,7 +60,7 @@ func TestSidecarListeners(t *testing.T) {
 
 			d := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
 			// Start the xDS stream containing the listeners for this node
-			d.StartDiscoveryOrFail(t, pilot.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))
+			d.StartDiscoveryOrFail(t, istio.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))
 
 			// Test the empty case where no config is loaded
 			d.WatchDiscoveryOrFail(t, time.Second*10,

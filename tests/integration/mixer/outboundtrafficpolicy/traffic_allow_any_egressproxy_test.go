@@ -22,6 +22,8 @@ import (
 	"text/template"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -33,10 +35,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -70,7 +70,7 @@ type Config struct {
 	AppNamespace string
 }
 
-func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (pilot.Instance, *model.Proxy) {
+func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (istio.Discovery, *model.Proxy) {
 	p := ist.DiscoveryOrFail(t, ctx.Clusters()[0])
 
 	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{

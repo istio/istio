@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"net"
 	"os"
 	"path"
@@ -60,7 +59,7 @@ type operatorComponent struct {
 	ctx         resource.Context
 	environment *kube.Environment
 
-	discovery       []pilot.Instance
+	discovery []Discovery
 
 	mu sync.Mutex
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
@@ -72,7 +71,7 @@ var _ io.Closer = &operatorComponent{}
 var _ Instance = &operatorComponent{}
 var _ resource.Dumper = &operatorComponent{}
 
-// ID implements resource.Instance
+// ID implements resource.Discovery
 func (i *operatorComponent) ID() resource.ID {
 	return i.id
 }

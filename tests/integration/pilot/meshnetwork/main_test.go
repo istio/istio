@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -211,7 +210,7 @@ func checkEDSInVM(t *testing.T, ctx framework.TestContext, ns, k8sSvcClusterName
 
 	p := i.DiscoveryOrFail(t, ctx.Clusters()[0])
 	// make an eds request, simulating a VM, asking for a cluster on k8s
-	request := pilot.NewDiscoveryRequest(node.ServiceNode(), v3.EndpointType)
+	request := istio.NewDiscoveryRequest(node.ServiceNode(), v3.EndpointType)
 	request.ResourceNames = []string{k8sSvcClusterName}
 	if err := p.StartDiscovery(request); err != nil {
 		return err
