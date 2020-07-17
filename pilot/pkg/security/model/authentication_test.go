@@ -15,7 +15,9 @@
 package model
 
 import (
+	"github.com/golang/protobuf/ptypes"
 	"testing"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -282,7 +284,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					{
 						Name: "file-cert:serverCertChain~serverKey",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -306,7 +308,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "file-root:servrRootCert",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
