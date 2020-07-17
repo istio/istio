@@ -1,4 +1,4 @@
-apiVersion: release-notes/v1
+apiVersion: release-notes/v2
 kind: feature
 area: istioctl
 issue: 23868
