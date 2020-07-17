@@ -428,7 +428,33 @@ type ServiceAttributes struct {
 	// The port that the user provides in the meshNetworks config is the service port.
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[string]map[uint32]uint32
+
+	// EndpointsComposition indicates the composition of endpoints for a given service
+	// whether it is IP only, DNS only or mix of both.
+	EndpointsComposition EndpointsComposition
 }
+
+// EndpointsComposition indicates the composition of endpoints for a given service
+// whether it is IP only, DNS only or mix of both.
+type EndpointsComposition int
+
+const (
+	// UnknownEndpoints indicates that this field wasn't set.
+	UnknownEndpoints = iota
+
+	// IpEndpoints indicates that the service's endpoints are made of IP Addresses only.
+	IpEndpoints
+
+	// DnsEndpoints indicates that the service's endpoints are made of DNS Addresses only.
+	DnsEndpoints
+
+	// UnixEndpoints indicates that the service's endpoints are made of unix domain socket addresses only.
+	UnixEndpoints
+
+	// MixedModeEndpoints indicates that the service's endpoints are made of both IP and DNS addresses (and possibly
+	// unix domain sockets).
+	MixedModeEndpoints
+)
 
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll

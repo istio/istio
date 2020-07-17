@@ -116,6 +116,13 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 		},
 	}
 
+	if !istioService.MeshExternal {
+		// All K8S services are by default assumed to be made of IP endpoints only (pods)
+		// we will tweak this when the workload instances arrive for this service
+		// except for external name services
+		istioService.Attributes.EndpointsComposition = model.IpEndpoints
+	}
+
 	switch svc.Spec.Type {
 	case coreV1.ServiceTypeNodePort:
 		if _, ok := svc.Annotations[NodeSelectorAnnotation]; ok {

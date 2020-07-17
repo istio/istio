@@ -232,6 +232,54 @@ func convertServices(cfg model.Config) []*model.Service {
 		}
 	}
 
+	// Capture the endpoint composition
+	if len(serviceEntry.Endpoints) > 0 {
+		ips := 0
+		dns := 0
+		uds := 0
+		for _, ep := range serviceEntry.Endpoints {
+			if net.ParseIP(ep.Address) != nil {
+				ips++
+			} else {
+				if strings.HasPrefix(ep.Address, model.UnixAddressPrefix) {
+					uds++
+				} else {
+					dns++
+				}
+			}
+		}
+		if len(serviceEntry.Endpoints) - ips == 0 {
+			// we have only IPs.
+			// set all the resolutions to STATIC (overriding the user specified value)
+			// and set the endpoint compositions
+			for _, o := range out {
+				o.Resolution = model.ClientSideLB
+				o.Attributes.EndpointsComposition = model.IpEndpoints
+			}
+		} else if len(serviceEntry.Endpoints) - dns == 0 {
+			// we have only hostnames.
+			// set all the resolutions to DNS (overriding the user specified value)
+			// and set the endpoint compositions
+			for _, o := range out {
+				o.Resolution = model.DNSLB
+				o.Attributes.EndpointsComposition = model.DnsEndpoints
+			}
+		} else if len(serviceEntry.Endpoints) - uds == 0 {
+			// we have only unix socket addresses.
+			// set all the resolutions to static (overriding the user specified value)
+			// and set the endpoint compositions
+			for _, o := range out {
+				o.Resolution = model.ClientSideLB
+				o.Attributes.EndpointsComposition = model.UnixEndpoints
+			}
+		} else {
+			// we have a mix
+			// resolution should not matter.
+			for _, o := range out {
+				o.Attributes.EndpointsComposition = model.MixedModeEndpoints
+			}
+		}
+	}
 	return out
 }
 
@@ -367,13 +415,18 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstances(namespace string,
+func convertWorkloadEntryToWorkloadInstance(namespace string,
 	we *networking.WorkloadEntry) *model.WorkloadInstance {
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
 		return nil
 	}
+	if net.ParseIP(addr) == nil {
+		// k8s can't use workloads with hostnames in the address field.
+		return nil
+	}
+
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
