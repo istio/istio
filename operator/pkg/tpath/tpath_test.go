@@ -61,6 +61,26 @@ a:
 `,
 		},
 		{
+			desc:      "AddListEntryToNewList",
+			path:      `a.b.[name:n1].list[0]`,
+			value:     `foo`,
+			wantFound: true,
+			want: `
+a:
+  b:
+  - name: n1
+    value: v1
+    list:
+    - foo
+  - name: n2
+    list:
+    - v1
+    - v2
+    - v3_regex
+    - foo
+`,
+		},
+		{
 			desc:      "ModifyListEntryValue",
 			path:      `a.b.[name:n1].value`,
 			value:     `v2`,
