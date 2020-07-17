@@ -149,8 +149,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 	defaultEgressListener.services = ps.Services(&dummyNode)
 
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
-	defaultEgressListener.virtualServices = ps.VirtualServices(&dummyNode, meshGateway)
+	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},
@@ -364,8 +363,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		ConfigNamespace: configNamespace,
 	}
 
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
-	out.virtualServices = out.selectVirtualServices(ps.VirtualServices(&dummyNode, meshGateway))
+	out.virtualServices = out.selectVirtualServices(ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway))
 	out.services = out.selectServices(ps.Services(&dummyNode), configNamespace)
 
 	return out
