@@ -244,9 +244,28 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
-// a custom comparison of foreign service instances based on the fields that we need
+type WorkloadInstance struct {
+	Namespace string            `json:"namespace,omitempty"`
+	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
+	PortMap   map[string]uint32 `json:"portMap,omitempty"`
+}
+
+// DeepCopy creates a copy of WorkloadInstance.
+func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
+	pmap := map[string]uint32{}
+	for k, v := range instance.PortMap {
+		pmap[k] = v
+	}
+	return &WorkloadInstance{
+		Namespace: instance.Namespace,
+		PortMap:   pmap,
+		Endpoint:  instance.Endpoint.DeepCopy(),
+	}
+}
+
+// a custom comparison of workload instances based on the fields that we need
 // i.e. excluding the ports. Returns true if equal, false otherwise.
-func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
+func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
 	}
@@ -273,6 +292,24 @@ func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
 	}
 	if first.Endpoint.UID != second.Endpoint.UID {
 		return false
+	}
+	if first.Namespace != second.Namespace {
+		return false
+	}
+	if !portMapEquals(first.PortMap, second.PortMap) {
+		return false
+	}
+	return true
+}
+
+func portMapEquals(a, b map[string]uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
 	}
 	return true
 }

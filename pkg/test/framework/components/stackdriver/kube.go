@@ -28,10 +28,11 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 
-	jsonpb "github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+	kubeApiCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -49,11 +50,12 @@ type kubeComponent struct {
 	ns        namespace.Instance
 	forwarder istioKube.PortForwarder
 	cluster   resource.Cluster
+	address   string
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -97,6 +99,15 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 	c.forwarder = forwarder
 	scopes.Framework.Debugf("initialized stackdriver port forwarder: %v", forwarder.Address())
+
+	var svc *kubeApiCore.Service
+	if svc, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster, c.ns.Name(), "stackdriver"); err != nil {
+		scopes.Framework.Infof("Error waiting for Stackdriver service to be available: %v", err)
+		return nil, err
+	}
+
+	c.address = fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].TargetPort.IntVal)
+	scopes.Framework.Infof("Stackdriver in-cluster address: %s", c.address)
 
 	return c, nil
 }
@@ -176,4 +187,8 @@ func (c *kubeComponent) Close() error {
 
 func (c *kubeComponent) GetStackdriverNamespace() string {
 	return c.ns.Name()
+}
+
+func (c *kubeComponent) Address() string {
+	return c.address
 }

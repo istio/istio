@@ -38,8 +38,9 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
@@ -47,6 +48,10 @@ import (
 var (
 	// installerScope is the scope for all commands in the mesh package.
 	installerScope = log.RegisterScope("installer", "installer", 0)
+
+	// testK8Interface is used if it is set. Not possible to inject due to cobra command boundary.
+	testK8Interface *kubernetes.Clientset
+	testRestConfig  *rest.Config
 )
 
 func initLogsOrExit(_ *rootArgs) {
@@ -66,37 +71,13 @@ func configLogs(opt *log.Options) error {
 }
 
 func refreshGoldenFiles() bool {
-	return os.Getenv("REFRESH_GOLDEN") == "true"
+	ev := os.Getenv("REFRESH_GOLDEN")
+	return ev == "true" || ev == "1"
 }
 
-func ReadLayeredYAMLs(filenames []string) (string, error) {
-	return readLayeredYAMLs(filenames, os.Stdin)
-}
-
-func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error) {
-	var ly string
-	var stdin bool
-	for _, fn := range filenames {
-		var b []byte
-		var err error
-		if fn == "-" {
-			if stdin {
-				continue
-			}
-			stdin = true
-			b, err = ioutil.ReadAll(stdinReader)
-		} else {
-			b, err = ioutil.ReadFile(strings.TrimSpace(fn))
-		}
-		if err != nil {
-			return "", err
-		}
-		ly, err = util.OverlayYAML(ly, string(b))
-		if err != nil {
-			return "", err
-		}
-	}
-	return ly, nil
+func kubeBuilderInstalled() bool {
+	ev := os.Getenv("KUBEBUILDER")
+	return ev == "true" || ev == "1"
 }
 
 // confirm waits for a user to confirm with the supplied message.
@@ -135,6 +116,12 @@ func K8sConfig(kubeConfigPath string, context string) (*rest.Config, *kubernetes
 
 // InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and context.
 func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
+	if testRestConfig != nil || testK8Interface != nil {
+		if !(testRestConfig != nil && testK8Interface != nil) {
+			return nil, nil, fmt.Errorf("testRestConfig and testK8Interface must both be either nil or set")
+		}
+		return testRestConfig, testK8Interface, nil
+	}
 	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
 	if err != nil {
 		return nil, nil, err
@@ -218,13 +205,25 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 	return err
 }
 
+// --manifests is an alias for --set installPackagePath=
+// --revision is an alias for --set revision=
+func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
+	if manifestsPath != "" {
+		flags = append(flags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
+	}
+	if revision != "" {
+		flags = append(flags, fmt.Sprintf("revision=%s", revision))
+	}
+	return flags
+}
+
 // getCRAndNamespaceFromFile returns the CR name and istio namespace from a file containing an IstioOperator CR.
 func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
 	if filePath == "" {
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
+	_, mergedIOPS, err := manifest.GenerateConfig([]string{filePath}, nil, false, nil, l)
 	if err != nil {
 		return "", "", err
 	}
@@ -261,4 +260,13 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 // deleteNamespace deletes namespace using the given k8s client.
 func deleteNamespace(cs kubernetes.Interface, namespace string) error {
 	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
+}
+
+// saveIOPToCluster saves the state in an IOP CR in the cluster.
+func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) error {
+	obj, err := object.ParseYAMLToK8sObject([]byte(iop))
+	if err != nil {
+		return err
+	}
+	return reconciler.ApplyObject(obj.UnstructuredObject())
 }

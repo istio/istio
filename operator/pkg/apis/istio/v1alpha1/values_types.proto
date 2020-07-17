@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1369,6 +1369,9 @@ message ProxyConfig {
   string excludeOutboundPorts = 28;
 
   TypeMapStringInterface lifecycle = 36;
+
+  // Causes the sidecar to be injected at the front of the container list and blocks the start of the other containers until the proxy is ready
+  google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37;
 }
 
 // Specifies which tracer to use.

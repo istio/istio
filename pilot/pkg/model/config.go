@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"hash/crc32"
 	"sort"
 	"strings"
 	"time"
@@ -46,6 +47,16 @@ type ConfigKey struct {
 	Kind      resource.GroupVersionKind
 	Name      string
 	Namespace string
+}
+
+func (key ConfigKey) HashCode() uint32 {
+	var result uint32
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Kind))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Version))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Kind.Group))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Namespace))
+	result = 31*result + crc32.ChecksumIEEE([]byte(key.Name))
+	return result
 }
 
 // ConfigsOfKind extracts configs of the specified kind.

@@ -19,7 +19,6 @@ package gcemetadata
 import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance represents a deployed GCE Metadata Server app instance.
@@ -37,11 +36,7 @@ type Config struct {
 
 // New returns a new instance of stackdriver.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, c)
-	})
-	return
+	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new GCE Metadata Server instance or fails test.

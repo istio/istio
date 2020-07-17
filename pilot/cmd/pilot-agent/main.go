@@ -286,11 +286,6 @@ var (
 			sa := istio_agent.NewAgent(&proxyConfig,
 				&istio_agent.AgentConfig{}, secOpts)
 
-			// Connection to Istiod secure port
-			if sa.RequireCerts {
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-			}
-
 			var pilotSAN, mixerSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)

@@ -1592,7 +1592,7 @@ func TestEndpointUpdate(t *testing.T) {
 	}
 }
 
-// Validates that when Pilot sees Endpoint before the corresponding Pod, it loads Pod from K8S and proceed.
+// Validates that when Pilot sees Endpoint before the corresponding Pod, it triggers endpoint event on pod event.
 func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
@@ -1721,7 +1721,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	}
 }
 
-func TestForeignServiceInstanceHandlerMultipleEndpoints(t *testing.T) {
+func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	controller, fx := newFakeControllerWithOptions(fakeControllerOptions{})
 	defer controller.Stop()
 
@@ -1755,11 +1755,9 @@ func TestForeignServiceInstanceHandlerMultipleEndpoints(t *testing.T) {
 		t.Fatal("Timeout incremental eds")
 	}
 
-	// Simulate adding a workload entry (fired through invocation of ForeignServiceInstanceHandler)
-	controller.ForeignServiceInstanceHandler(&model.ServiceInstance{
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{Namespace: "nsA"},
-		},
+	// Simulate adding a workload entry (fired through invocation of WorkloadInstanceHandler)
+	controller.WorkloadInstanceHandler(&model.WorkloadInstance{
+		Namespace: "nsA",
 		Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
 			ServiceAccount: "account",
 			Address:        "2.2.2.2",

@@ -95,11 +95,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	rootCertFile := ""
 	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 		maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, false)
+		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -171,11 +172,12 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	caNamespace := "default"
 	const rootCertFile = ""
 	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, false)
+		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -221,6 +223,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	caNamespace := "default"
 	const rootCertFile = ""
 	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
 
 	client := fake.NewSimpleClientset()
 
@@ -230,7 +233,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
+		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
 	} else if err.Error() != expectedErr {
@@ -249,7 +252,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel1()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
+		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -287,12 +290,13 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
+	rsaKeySize := 2048
 
 	defaultWorkloadCertTTL := 99999 * time.Hour
 	maxWorkloadCertTTL := time.Hour
 
 	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL)
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
@@ -560,12 +564,13 @@ func TestSignWithCertChain(t *testing.T) {
 	certChainFile := "../testdata/multilevelpki/int-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int-key.pem"
+	rsaKeySize := 2048
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
 	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL)
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
@@ -626,10 +631,11 @@ func TestGenKeyCert(t *testing.T) {
 	}
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := 3650 * 24 * time.Hour
+	rsaKeySize := 2048
 
 	for id, tc := range cases {
 		caopts, err := NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
-			defaultWorkloadCertTTL, maxWorkloadCertTTL)
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 		if err != nil {
 			t.Fatalf("%s: failed to create a plugged-cert CA Options: %v", id, err)
 		}

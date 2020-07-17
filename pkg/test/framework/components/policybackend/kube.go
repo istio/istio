@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/fakes/policy"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -152,7 +151,6 @@ type kubeComponent struct {
 	*client
 
 	ctx       resource.Context
-	kubeEnv   *kube.Environment
 	namespace namespace.Instance
 
 	forwarder   istioKube.PortForwarder
@@ -163,12 +161,10 @@ type kubeComponent struct {
 
 // NewKubeComponent factory function for the component
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
-	env := ctx.Environment().(*kube.Environment)
 	c := &kubeComponent{
 		ctx:     ctx,
-		kubeEnv: env,
 		client:  &client{},
-		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
 	c.id = ctx.TrackResource(c)
 

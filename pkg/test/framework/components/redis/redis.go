@@ -17,7 +17,6 @@ package redis
 import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Redis represents a deployed Redis app instance in a Kubernetes cluster.
@@ -33,11 +32,7 @@ type Config struct {
 
 // New returns a new instance of redis.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, c)
-	})
-	return
+	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new Redis instance or fails test.

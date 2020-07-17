@@ -125,10 +125,13 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 		XDSSAN:          discHost,
 		ResponseHandler: sa.proxyGen,
 	}
-	if sa.RequireCerts {
+
+	// Set Secrets and JWTPath if the default ControlPlaneAuthPolicy is MUTUAL_TLS
+	if sa.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 		cfg.Secrets = secrets
 		cfg.JWTPath = sa.secOpts.JWTPath
 	}
+
 	ads, err := adsc.New(proxyConfig, cfg)
 	if err != nil {
 		// Error to be handled by caller - probably by exit if
