@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -31,11 +32,11 @@ var (
 	settableFlags = map[string]interface{}{
 		"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", controller.IstioNamespace, "istioctl --istioNamespace override"),
 		"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "istioctl --xds-address override"),
-		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "istioctl --cert-dir override"),
-		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "istioctl should use experimental subcommand variants"),
 		"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "istioctl --xds-port override"),
 		"xds-san":             env.RegisterStringVar("ISTIOCTL_XDS_SAN", "", "istioctl --xds-san override"),
+		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "istioctl --cert-dir override"),
 		"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "istioctl --insecure override"),
+		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "istioctl should use experimental subcommand variants"),
 	}
 )
 
@@ -44,7 +45,7 @@ func configCmd() *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "config SUBCOMMAND",
 		Short: "Gonfigure istioctl defaults",
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.NoArgs,
 		Example: `
 # list configuration parameters
 istioctl config list
@@ -68,9 +69,19 @@ func listCommand() *cobra.Command {
 }
 
 func runList(writer io.Writer) error {
+	// Sort flag names
+	keys := make([]string, len(settableFlags))
+	i := 0
+	for key := range settableFlags {
+		keys[i] = key
+		i++
+	}
+	sort.Strings(keys)
+
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
 	fmt.Fprintf(w, "FLAG\tVALUE\tFROM\n")
-	for flag, v := range settableFlags {
+	for _, flag := range keys {
+		v := settableFlags[flag]
 		fmt.Fprintf(w, "%s\t%s\t%v\n", flag, viper.GetString(flag), configSource(flag, v))
 	}
 	return w.Flush()
