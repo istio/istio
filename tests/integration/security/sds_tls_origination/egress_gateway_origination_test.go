@@ -214,7 +214,7 @@ func TestMutualTlsOrigination(t *testing.T) {
 				},
 				// Use CA certificate and client certs stored as k8s secret with the same issuing CA as server's CA.
 				// This root certificate can validate the server cert presented by the echoboot server instance and server CA can
-				// validate the client cert. Secret is of type generic.
+				// validate the client cert. Secret is not of type generic.
 				"MUTUAL TLS with correct root cert and client certs and non generic secret type": {
 					response:        []string{response.StatusCodeOK},
 					credentialToUse: strings.TrimSuffix(credNameNotGeneric, "-cacert"),
