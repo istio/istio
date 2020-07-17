@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	"istio.io/pkg/env"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
@@ -38,6 +39,11 @@ const (
 	AnalyzeController = "istio-analyze-leader"
 )
 
+var (
+	disableLeaderElection = env.RegisterBoolVar("DIABLE_LEADER_ELECTION", false,
+		"Disable the leader election feature.")
+)
+
 type LeaderElection struct {
 	namespace string
 	name      string
@@ -53,6 +59,11 @@ type LeaderElection struct {
 
 // Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
+	if disableLeaderElection.Get() {
+		for _, f := range l.runFns {
+			go f(stop)
+		}
+	}
 	for {
 		le, err := l.create()
 		if err != nil {

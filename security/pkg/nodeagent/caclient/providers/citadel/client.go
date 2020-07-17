@@ -118,7 +118,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 	// Create a certificate pool
 	var certPool *x509.CertPool
 	var err error
-	if c.caTLSRootCert == nil {
+	if c.caTLSRootCert == nil || strings.HasSuffix(c.caEndpoint, ":443") {
 		// No explicit certificate - assume the citadel-compatible server uses a public cert
 		certPool, err = x509.SystemCertPool()
 		if err != nil {

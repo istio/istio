@@ -127,6 +127,9 @@ func extractBearerToken(ctx context.Context) (string, error) {
 		if strings.HasPrefix(value, bearerTokenPrefix) {
 			return strings.TrimPrefix(value, bearerTokenPrefix), nil
 		}
+		if strings.HasPrefix(value, bearerTokenPrefix2) {
+			return strings.TrimPrefix(value, bearerTokenPrefix2), nil
+		}
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")

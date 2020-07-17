@@ -28,7 +28,8 @@ const (
 )
 
 func (s *Server) initSecureWebhookServer(args *PilotArgs) {
-	if s.kubeClient == nil {
+	if s.kubeClient == nil || args.ServerOptions.HTTPSAddr == "OFF" {
+		s.httpsMux = s.httpMux
 		return
 	}
 

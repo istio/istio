@@ -19,7 +19,9 @@ import (
 	"errors"
 
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
+	"istio.io/pkg/log"
 )
 
 // authenticate authenticates the ADS request using the configured authenticators.
@@ -38,6 +40,10 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	if !ok {
 		return nil, errors.New("invalid context")
 	}
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	log.Warna("XXX METADATA: ", md)
+
 	// Not a TLS connection, we will not perform authentication
 	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
 	// request not over TLS on the insecure port

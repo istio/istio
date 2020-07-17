@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 
@@ -348,6 +349,8 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	_, _ = fmt.Fprintf(w, "\n[\n")
+
+	log.Warna("XXX ", req.Header)
 
 	var err error
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {

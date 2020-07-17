@@ -176,6 +176,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
+	// Adds client cert auth and kube (sds enabled)
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
 		true, features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
@@ -199,10 +200,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 			log.Infoa("K8S token doesn't support OIDC, using only in-cluster auth")
 		}
 	}
-
-	// Allow authorization with a previously issued certificate, for VMs
-	// Will return a caller with identities extracted from the SAN, should be a SPIFFE identity.
-	caServer.Authenticators = append(caServer.Authenticators, &authenticate.ClientCertAuthenticator{})
 
 	if serverErr := caServer.Run(); serverErr != nil {
 		// stop the registry-related controllers

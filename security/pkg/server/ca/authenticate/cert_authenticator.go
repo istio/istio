@@ -26,6 +26,7 @@ import (
 
 const (
 	bearerTokenPrefix = "Bearer "
+	bearerTokenPrefix2 = "bearer "
 	authorizationMeta = "authorization"
 	clusterIDMeta     = "clusterid"
 
