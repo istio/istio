@@ -44,7 +44,6 @@ var (
 		gvk.Sidecar:               {},
 		gvk.EnvoyFilter:           {},
 		gvk.AuthorizationPolicy:   {},
-		gvk.PeerAuthentication:    {},
 		gvk.RequestAuthentication: {},
 	}
 )

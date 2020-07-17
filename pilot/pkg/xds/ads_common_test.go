@@ -125,7 +125,7 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	sidecarNamespaceScopeTypes := []resource.GroupVersionKind{
-		gvk.Sidecar, gvk.EnvoyFilter, gvk.AuthorizationPolicy, gvk.PeerAuthentication, gvk.RequestAuthentication,
+		gvk.Sidecar, gvk.EnvoyFilter, gvk.AuthorizationPolicy, gvk.RequestAuthentication,
 	}
 	for _, kind := range sidecarNamespaceScopeTypes {
 		cases = append(cases,
