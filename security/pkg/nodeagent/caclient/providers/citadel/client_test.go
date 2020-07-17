@@ -19,17 +19,19 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"google.golang.org/grpc"
-	k8sauth "k8s.io/api/authentication/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
-	ktesting "k8s.io/client-go/testing"
-
-	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"google.golang.org/grpc/metadata"
+	//k8sauth "k8s.io/api/authentication/v1"
+	//"k8s.io/apimachinery/pkg/runtime"
+	//"k8s.io/client-go/kubernetes/fake"
+	//ktesting "k8s.io/client-go/testing"
+	//
+	//"istio.io/istio/pkg/jwt"
+	//"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	pb "istio.io/istio/security/proto"
 )
@@ -40,6 +42,7 @@ var (
 	fakeCert   = []string{"foo", "bar"}
 	fakeToken  = "Bearer fakeToken"
 	validToken = "Bearer validToken"
+	authorizationMeta = "authorization"
 )
 
 type mockCAServer struct {
@@ -118,34 +121,37 @@ func TestCitadelClient(t *testing.T) {
 
 type mockTokenCAServer struct {
 	Certs []string
-	Err   error
 }
 
 func (ca *mockTokenCAServer) CreateCertificate(ctx context.Context, in *pb.IstioCertificateRequest) (*pb.IstioCertificateResponse, error) {
-	client := fake.NewSimpleClientset()
-	client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
-		tokenReview := &k8sauth.TokenReview{
-			Spec: k8sauth.TokenReviewSpec{
-				Token: validToken,
-			},
-			Status: k8sauth.TokenReviewStatus{
-				Audiences: []string{},
-				Authenticated: true,
-				User: k8sauth.UserInfo{
-					Username: "system:serviceaccount:default:example-pod-sa",
-					Groups:   []string{"system:serviceaccounts"},
-				},
-			},
-		}
-		return true, tokenReview, nil
-	})
-	authenticator := authenticate.NewKubeJWTAuthenticator(client, "Kubernetes", nil, "example.com", jwt.PolicyFirstParty)
-	_, err := authenticator.Authenticate(ctx)
-	if err == nil {
-		return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
+	targetJWT, err := extractBearerToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if targetJWT != validToken {
+		return nil, fmt.Errorf("token is not valid")
+	}
+	return &pb.IstioCertificateResponse{CertChain: ca.Certs}, nil
+}
+
+func extractBearerToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("no metadata is attached")
 	}
 
-	return nil, err
+	authHeader, exists := md[authorizationMeta]
+	if !exists {
+		return "", fmt.Errorf("no HTTP authorization header exists")
+	}
+
+	for _, value := range authHeader {
+		if strings.HasPrefix(value, bearerTokenPrefix) {
+			return strings.TrimPrefix(value, bearerTokenPrefix), nil
+		}
+	}
+
+	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }
 
 func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
@@ -156,60 +162,62 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 		token        string
 	}{
 		"Valid Token": {
-			server:       mockTokenCAServer{Certs: fakeCert, Err: nil},
+			server:       mockTokenCAServer{Certs: fakeCert},
 			expectedCert: fakeCert,
 			expectedErr:  "",
 			token:        validToken,
 		},
 		"Empty Token": {
-			server:       mockTokenCAServer{Certs: nil, Err: fmt.Errorf("test failure")},
+			server:       mockTokenCAServer{Certs: nil},
 			expectedCert: nil,
-			expectedErr:  "rpc error: code = Unknown desc = target JWT extraction error: no HTTP authorization header exists",
+			expectedErr:  "rpc error: code = Unknown desc = no HTTP authorization header exists",
 			token:        "",
 		},
 		"InValid Token": {
-			server:       mockTokenCAServer{Certs: []string{}, Err: nil},
+			server:       mockTokenCAServer{Certs: []string{}},
 			expectedCert: nil,
-			expectedErr:  "invalid response cert chain",
+			expectedErr:  "rpc error: code = Unknown desc = token is not valid",
 			token:        fakeToken,
 		},
 	}
 
 	for id, tc := range testCases {
-		// create a local grpc server
-		s := grpc.NewServer()
-		defer s.Stop()
-		lis, err := net.Listen("tcp", mockServerAddress)
-		if err != nil {
-			t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
-		}
-
-		go func() {
-			pb.RegisterIstioCertificateServiceServer(s, &tc.server)
-			if err := s.Serve(lis); err != nil {
-				t.Logf("Test case [%s]: failed to serve: %v", id, err)
+		t.Run(id, func(t *testing.T) {
+			// create a local grpc server
+			s := grpc.NewServer()
+			defer s.Stop()
+			lis, err := net.Listen("tcp", mockServerAddress)
+			if err != nil {
+				t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
 			}
-		}()
 
-		// The goroutine starting the server may not be ready, results in flakiness.
-		time.Sleep(1 * time.Second)
+			go func() {
+				pb.RegisterIstioCertificateServiceServer(s, &tc.server)
+				if err := s.Serve(lis); err != nil {
+					t.Logf("Test case [%s]: failed to serve: %v", id, err)
+				}
+			}()
 
-		cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
-		if err != nil {
-			t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
-		}
+			// The goroutine starting the server may not be ready, results in flakiness.
+			time.Sleep(1 * time.Second)
 
-		resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
-		if err != nil {
-			if err.Error() != tc.expectedErr {
-				t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+			cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
+			if err != nil {
+				t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 			}
-		} else {
-			if tc.expectedErr != "" {
-				t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
-			} else if !reflect.DeepEqual(resp, tc.expectedCert) {
-				t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+
+			resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
+			if err != nil {
+				if err.Error() != tc.expectedErr {
+					t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+				}
+			} else {
+				if tc.expectedErr != "" {
+					t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
+				} else if !reflect.DeepEqual(resp, tc.expectedCert) {
+					t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+				}
 			}
-		}
+		})
 	}
 }
