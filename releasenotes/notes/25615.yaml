@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 25599
+
+# No user-facing change.  The feature this fixes not in 1.6.
