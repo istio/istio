@@ -38,9 +38,9 @@ import (
 
 var (
 	client, server, vm echo.Instance
-	ist                      istio.Instance
-	appNsInst                namespace.Instance
-	promInst                 prometheus.Instance
+	ist                istio.Instance
+	appNsInst          namespace.Instance
+	promInst           prometheus.Instance
 )
 
 // GetIstioInstance gets Istio instance.
