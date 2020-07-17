@@ -371,7 +371,7 @@ type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
 	network         string
-	clusterId       string
+	clusterID       string
 	locality        *core.Locality
 	destinationRule *model.Config
 	service         *model.Service
@@ -390,7 +390,7 @@ func createEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.P
 	key := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
-		clusterId:       proxy.Metadata.ClusterID,
+		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
 		destinationRule: push.DestinationRule(proxy, svc),
@@ -589,7 +589,7 @@ func buildLocalityLbEndpointsFromShards(
 	for clusterID, endpoints := range shards.Shards {
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (clusterID != b.clusterId) {
+		if isClusterLocal && (clusterID != b.clusterID) {
 			continue
 		}
 
