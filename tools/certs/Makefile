@@ -257,3 +257,26 @@ root-key.pem:
 		-extensions req_ext -extfile $(dir $<)/workload.conf \
 		-in $< -out $@
 
+#------------------------------------------------------------------------
+## <namespace>/token-cert will get a certificate for namespace using the token method. This only requires namespace permissions,
+# will not access istio-system or the root CA.
+CA_ADDR ?= istiod-xds-icq63pqnqq-uc.a.run.app:443
+
+# Get a token
+%/token:
+	echo '{"kind":"TokenRequest","apiVersion":"authentication.k8s.io/v1","spec":{"audiences":["istio-ca"], "expirationSeconds":2592000}}' | \
+    		kubectl create --raw /api/v1/namespaces/$(dir $@)serviceaccounts/default/token -f - | \
+    		jq -j '.status.token' > $(dir $@)istio-token
+	kubectl -n istio-system get secret istio-ca-secret -ojsonpath='{.data.ca-cert\.pem}' | \
+      	 base64 -d > root-cert.pem
+
+# Get a cert from the CA, using the token. Alternative to downloading the root CA and generating the cert locally.
+%/token-cert: %/workload.csr %/token
+	echo -n '{"csr": "' >$(dir $@)/csr-escaped
+	cat  $< | awk -F'\\n' '{printf "%s\\n",$$0} END {print "\"}"}'  >> $(dir $@)/csr-escaped
+	cat $(dir $@)csr-escaped | grpcurl  -import-path /work/security/proto/ \
+        -proto /work/security/proto/istioca.proto -use-reflection=false \
+         -d @ -H "Authorization:  Bearer $(shell cat $(dir $@)istio-token )" \
+         ${CA_ADDR} istio.v1.auth.IstioCertificateService/CreateCertificate > $(dir $@)/cert.json
+	cat default/cert.json |jq .certChain[0] | sed 's/\\n/\n/g' | sed 's/"//' > $(dir $@)/workload-cert.pem
+	cat default/cert.json |jq .certChain[1] | sed 's/\\n/\n/g' | sed 's/"//' > $(dir $@)/root-cert.pem
