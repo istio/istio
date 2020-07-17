@@ -24,7 +24,6 @@ import (
 	"syscall"
 
 	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
@@ -86,47 +85,14 @@ func Run(cfg *config.Config) (err error) {
 			return
 		}
 
-		if cfg.ExecuteOnce {
-			err = checkInstall(cfg, files.cniConfigFilepath)
-			return
-		}
-		// Otherwise, keep container alive
-
-		// Create file watcher before checking for installation
-		// so that no file modifications are missed while and after checking
-		var watcher *fsnotify.Watcher
-		var fileModified chan bool
-		var errChan chan error
-		watcher, fileModified, errChan, err = util.CreateFileWatcher(cfg.MountedCNINetDir)
-		if err != nil {
+		if err = sleepCheckInstall(ctx, cfg, files.cniConfigFilepath); err != nil {
+			if errors.Is(err, context.Canceled) {
+				// Error was caused by interrupt/termination signal
+				err = nil
+			}
 			return
 		}
 
-		for {
-			if checkErr := checkInstall(cfg, files.cniConfigFilepath); checkErr != nil {
-				log.Infof("Invalid configuration. %v", checkErr)
-				break
-			}
-			// Valid configuration; Wait for modifications before checking again
-			if waitErr := util.WaitForFileMod(ctx, fileModified, errChan); waitErr != nil {
-				if !errors.Is(waitErr, context.Canceled) {
-					// Error was not caused by interrupt/termination signal
-					err = waitErr
-				}
-				if closeErr := watcher.Close(); closeErr != nil {
-					if err != nil {
-						err = errors.Wrap(err, closeErr.Error())
-					} else {
-						err = closeErr
-					}
-				}
-				return
-			}
-		}
-
-		if err = watcher.Close(); err != nil {
-			log.Warnf("error closing file watcher: %v", err)
-		}
 		log.Info("Restarting...")
 	}
 }
@@ -145,6 +111,32 @@ func readServiceAccountToken() (string, error) {
 	return string(token), nil
 }
 
+// sleepCheckInstall blocks until an invalid configuration is detected and returns nil
+// Or returns an error if an error occurs or context is canceled
+func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepath string) error {
+	// Create file watcher before checking for installation
+	// so that no file modifications are missed while and after checking
+	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.MountedCNINetDir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = watcher.Close()
+	}()
+
+	for {
+		if checkErr := checkInstall(cfg, cniConfigFilepath); checkErr != nil {
+			log.Infof("Invalid configuration. %v", checkErr)
+			return nil
+		}
+		// Valid configuration; Wait for modifications before checking again
+		if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
+			return err
+		}
+	}
+}
+
+// checkInstall returns an error if an invalid CNI configuration is detected
 func checkInstall(cfg *config.Config, cniConfigFilepath string) error {
 	defaultCNIConfigFilename, err := getDefaultCNINetwork(cfg.MountedCNINetDir)
 	if err != nil {
@@ -230,7 +222,7 @@ func cleanup(cfg *config.Config, files configFiles) error {
 			if err != nil {
 				return err
 			}
-			if err = util.WriteAtomically(files.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+			if err = util.AtomicWrite(files.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 				return err
 			}
 		} else {

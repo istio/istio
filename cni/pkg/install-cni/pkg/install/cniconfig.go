@@ -26,7 +26,6 @@ import (
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/coreos/etcd/pkg/fileutil"
-	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
@@ -149,7 +148,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		}
 	}
 
-	if err = util.WriteAtomically(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+	if err = util.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 		return "", err
 	}
 
@@ -169,46 +168,35 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 
 // If configured as chained CNI plugin, waits indefinitely for a main CNI config file to exist before returning
 // Or until cancelled by parent context
-func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (cniConfigFilepath string, err error) {
+func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error) {
 	filename := cfg.cniConfName
 
 	if !cfg.chainedCNIPlugin {
 		if len(filename) == 0 {
 			filename = "YYY-istio-cni.conf"
 		}
-		cniConfigFilepath = filepath.Join(cfg.mountedCNINetDir, filename)
-		return
+		return filepath.Join(cfg.mountedCNINetDir, filename), nil
 	}
 
-	var watcher *fsnotify.Watcher
-	var fileModified chan bool
-	var errChan chan error
-	watcher, fileModified, errChan, err = util.CreateFileWatcher(cfg.mountedCNINetDir)
+	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.mountedCNINetDir)
 	if err != nil {
-		return
+		return "", err
 	}
 	defer func() {
-		if closeErr := watcher.Close(); closeErr != nil {
-			if err != nil {
-				err = errors.Wrap(err, closeErr.Error())
-			} else {
-				err = closeErr
-			}
-		}
+		_ = watcher.Close()
 	}()
 
 	for len(filename) == 0 {
-		var getErr error
-		filename, getErr = getDefaultCNINetwork(cfg.mountedCNINetDir)
-		if getErr == nil {
+		filename, err = getDefaultCNINetwork(cfg.mountedCNINetDir)
+		if err == nil {
 			break
 		}
 		if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
-			return
+			return "", err
 		}
 	}
 
-	cniConfigFilepath = filepath.Join(cfg.mountedCNINetDir, filename)
+	cniConfigFilepath := filepath.Join(cfg.mountedCNINetDir, filename)
 
 	for !fileutil.Exist(cniConfigFilepath) {
 		if strings.HasSuffix(cniConfigFilepath, ".conf") && fileutil.Exist(cniConfigFilepath+"list") {
@@ -227,7 +215,7 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (cniConfigFilep
 
 	log.Infof("CNI config file %s exists. Proceeding.", cniConfigFilepath)
 
-	return
+	return cniConfigFilepath, err
 }
 
 // Follows the same semantics as kubelet

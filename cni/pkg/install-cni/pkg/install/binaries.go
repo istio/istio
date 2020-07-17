@@ -57,7 +57,7 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 			}
 
 			srcFilepath := filepath.Join(srcDir, filename)
-			err := util.CopyAtomically(srcFilepath, targetDir, filename)
+			err := util.AtomicCopy(srcFilepath, targetDir, filename)
 			if err != nil {
 				return err
 			}

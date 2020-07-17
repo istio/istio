@@ -26,7 +26,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func CopyAtomically(srcFilepath, targetDir, targetFilename string) error {
+// Copies file by reading the file then writing atomically into the target directory
+func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
 	info, err := os.Stat(srcFilepath)
 	if err != nil {
 		return err
@@ -37,11 +38,11 @@ func CopyAtomically(srcFilepath, targetDir, targetFilename string) error {
 		return err
 	}
 
-	return WriteAtomically(filepath.Join(targetDir, targetFilename), input, info.Mode())
+	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, info.Mode())
 }
 
 // Write atomically by writing to a temporary file in the same directory then renaming
-func WriteAtomically(path string, data []byte, mode os.FileMode) (err error) {
+func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 	tmpFile, err := ioutil.TempFile(filepath.Dir(path), filepath.Base(path)+".tmp.")
 	if err != nil {
 		return
@@ -77,6 +78,7 @@ func WriteAtomically(path string, data []byte, mode os.FileMode) (err error) {
 	return
 }
 
+// Creates a file watcher that watches for any changes to the directory
 func CreateFileWatcher(dir string) (watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error, err error) {
 	watcher, err = fsnotify.NewWatcher()
 	if err != nil {
@@ -84,7 +86,7 @@ func CreateFileWatcher(dir string) (watcher *fsnotify.Watcher, fileModified chan
 	}
 
 	fileModified, errChan = make(chan bool), make(chan error)
-	go WatchFiles(watcher, fileModified, errChan)
+	go watchFiles(watcher, fileModified, errChan)
 
 	if err = watcher.Add(dir); err != nil {
 		if closeErr := watcher.Close(); closeErr != nil {
@@ -96,7 +98,7 @@ func CreateFileWatcher(dir string) (watcher *fsnotify.Watcher, fileModified chan
 	return
 }
 
-func WatchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error) {
+func watchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan error) {
 	for {
 		select {
 		case _, ok := <-watcher.Events:
@@ -113,6 +115,7 @@ func WatchFiles(watcher *fsnotify.Watcher, fileModified chan bool, errChan chan 
 	}
 }
 
+// Waits until a file is modified (returns nil), the context is cancelled (returns context error), or returns error
 func WaitForFileMod(ctx context.Context, fileModified chan bool, errChan chan error) error {
 	select {
 	case <-fileModified:
@@ -124,6 +127,7 @@ func WaitForFileMod(ctx context.Context, fileModified chan bool, errChan chan er
 	}
 }
 
+// Read CNI config from file and return the unmarshalled JSON as a map
 func ReadCNIConfigMap(path string) (map[string]interface{}, error) {
 	cniConfig, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -138,28 +142,27 @@ func ReadCNIConfigMap(path string) (map[string]interface{}, error) {
 	return cniConfigMap, nil
 }
 
+// Given an unmarshalled CNI config JSON map, return the plugin list asserted as a []interface{}
 func GetPlugins(cniConfigMap map[string]interface{}) (plugins []interface{}, err error) {
-	defer func() {
-		if panicErr := recover(); panicErr != nil {
-			plugins = nil
-			err = errors.New("error reading plugin list from CNI config")
-		}
-	}()
-	plugins = cniConfigMap["plugins"].([]interface{})
+	plugins, ok := cniConfigMap["plugins"].([]interface{})
+	if !ok {
+		err = errors.New("error reading plugin list from CNI config")
+		return
+	}
 	return
 }
 
+// Given the raw plugin interface, return the plugin asserted as a map[string]interface{}
 func GetPlugin(rawPlugin interface{}) (plugin map[string]interface{}, err error) {
-	defer func() {
-		if panicErr := recover(); panicErr != nil {
-			plugin = nil
-			err = errors.New("error reading plugin from CNI config plugin list")
-		}
-	}()
-	plugin = rawPlugin.(map[string]interface{})
+	plugin, ok := rawPlugin.(map[string]interface{})
+	if !ok {
+		err = errors.New("error reading plugin from CNI config plugin list")
+		return
+	}
 	return
 }
 
+// Marshal the CNI config map and append a new line
 func MarshalCNIConfig(cniConfigMap map[string]interface{}) ([]byte, error) {
 	cniConfig, err := json.MarshalIndent(cniConfigMap, "", "  ")
 	if err != nil {

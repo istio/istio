@@ -14,6 +14,7 @@
 
 package config
 
+// Config struct defines the Istio CNI installation options
 type Config struct {
 	CNINetDir        string
 	MountedCNINetDir string
@@ -36,6 +37,4 @@ type Config struct {
 
 	UpdateCNIBinaries bool
 	SkipCNIBinaries   []string
-
-	ExecuteOnce bool
 }
