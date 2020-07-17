@@ -40,10 +40,6 @@ const authnConfig = `
   }
 `
 
-const secIstioAuthUserinfoHeaderValue = `{"aud":"aud1","exp":20000000000,` +
-	`"iat":1500000000,"iss":"issuer@foo.com","some-other-string-claims":"some-claims-kept",` +
-	`"sub":"sub@foo.com"}`
-
 // Check attributes from a good GET request
 var checkAttributesOkGet = `
 {
