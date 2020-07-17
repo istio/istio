@@ -623,6 +623,23 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 	}
 }
 
+func TestGenerateEmptyV6ConfigOnV4OnlyEnv(t *testing.T) {
+	cfg := constructConfig()
+	cfg.DryRun = true
+	dnsCaptureByEnvoy.DefaultValue = ""
+	dnsCaptureByAgent.DefaultValue = "ALL"
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.cfg.EnableInboundIPv6 = false
+	iptConfigurator.cfg.ProxyGID = "1,2"
+	iptConfigurator.cfg.ProxyUID = "3,4"
+	iptConfigurator.run()
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	expected := []string{}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: empty\nActual: %#v", actual)
+	}
+}
+
 func TestHandleOutboundPortsIncludeWithOutboundPorts(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.OutboundPortsInclude = "32000,31000"
