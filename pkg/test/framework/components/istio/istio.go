@@ -15,7 +15,9 @@
 package istio
 
 import (
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -23,6 +25,10 @@ import (
 // Instance represents a deployed Istio instance
 type Instance interface {
 	resource.Resource
+
+	ServiceDiscovery(resource.Cluster) (pilot.Instance, error)
+
+	ServiceDiscoveryOrFail(test.Failer, resource.Cluster) pilot.Instance
 
 	Settings() Config
 }

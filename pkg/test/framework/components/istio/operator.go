@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/framework/components/pilot"
 	"net"
 	"os"
 	"path"
@@ -58,6 +59,8 @@ type operatorComponent struct {
 	settings    Config
 	ctx         resource.Context
 	environment *kube.Environment
+
+	discovery       []pilot.Instance
 
 	mu sync.Mutex
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
