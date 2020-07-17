@@ -31,7 +31,7 @@ import (
 // proxy bootstrap config with Wasm runtime. To avoid flake, it does not verify correctness
 // of metrics, which should be covered by integration test in proxy repo.
 func TestWasmStatsFilter(t *testing.T) {
-	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.wasm"))
+	common.TestStatsFilter(t, features.Feature("observability.telemetry.stats.prometheus.http.wasm"), false)
 }
 
 func TestMain(m *testing.M) {
@@ -50,10 +50,4 @@ func setupConfig(cfg *istio.Config) {
 	// enable telemetry v2 with Wasm
 	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "true"
 	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "true"
-	cfg.ControlPlaneValues = `
-values:
-  global:
-    meshExpansion:
-      enabled: true
-`
 }

@@ -60,7 +60,7 @@ func GetPromInstance() prometheus.Instance {
 
 // TestStatsFilter includes common test logic for stats and mx exchange filters running
 // with nullvm and wasm runtime.
-func TestStatsFilter(t *testing.T, feature features.Feature) {
+func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 	framework.NewTest(t).
 		Features(feature).
 		Run(func(ctx framework.TestContext) {
@@ -90,6 +90,42 @@ func TestStatsFilter(t *testing.T, feature features.Feature) {
 				}
 				return nil
 			}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+
+			// Test VM if requested
+			if useVM {
+				echoboot.NewBuilderOrFail(t, ctx).
+					With(&vmServer, echo.Config{
+						Service:   "server-vm",
+						Namespace: appNsInst,
+						Subsets:   []echo.SubsetConfig{{}},
+						Ports: []echo.Port{
+							{
+								Name:         "http",
+								Protocol:     protocol.HTTP,
+								InstancePort: 8090,
+								ServicePort:  8090,
+							},
+						},
+						DeployAsVM: true,
+						VMImage:    vm.DefaultVMImage,
+					}).BuildOrFail(t)
+
+				retry.UntilSuccessOrFail(t, func() error {
+					_, err := client.Call(echo.CallOptions{
+						Target:   vmServer,
+						PortName: "http",
+					})
+					if err != nil {
+						return err
+					}
+					// Query VM stats
+					if err := promUtil.QueryPrometheus(t, vmDestinationQuery, GetPromInstance()); err != nil {
+						t.Logf("prometheus values for istio_requests_total: \n%s", util.PromDump(promInst, "istio_requests_total"))
+						return err
+					}
+					return nil
+				}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+			}
 		})
 }
 
@@ -126,21 +162,6 @@ func TestSetup(ctx resource.Context) (err error) {
 				},
 			},
 		}).
-		With(&vmServer, echo.Config{
-			Service:   "server-vm",
-			Namespace: appNsInst,
-			Subsets:   []echo.SubsetConfig{{}},
-			Ports: []echo.Port{
-				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
-					InstancePort: 8090,
-					ServicePort:  8090,
-				},
-			},
-			DeployAsVM: true,
-			VMImage:    vm.DefaultVMImage,
-		}).
 		Build()
 	if err != nil {
 		return err
@@ -156,13 +177,6 @@ func TestSetup(ctx resource.Context) (err error) {
 func SendTraffic() error {
 	_, err := client.Call(echo.CallOptions{
 		Target:   server,
-		PortName: "http",
-	})
-	if err != nil {
-		return err
-	}
-	_, err = client.Call(echo.CallOptions{
-		Target:   vmServer,
 		PortName: "http",
 	})
 	return err
