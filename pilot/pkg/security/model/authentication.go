@@ -207,7 +207,7 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 			// set the fetch timeout to 0 here because workload certs are
 			// guaranteed to exist. while others like gateway certs may not
 			// exist.
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),		},
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0)},
 	}
 
 	return cfg
