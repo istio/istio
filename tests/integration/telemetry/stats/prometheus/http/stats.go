@@ -101,6 +101,10 @@ func TestSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
+	promInst, err = prometheus.New(ctx, prometheus.Config{})
+	if err != nil {
+		return
+	}
 	err = b.
 		With(&client, echo.Config{
 			Service:   "client",
@@ -126,10 +130,6 @@ func TestSetup(ctx resource.Context) (err error) {
 		Build()
 	if err != nil {
 		return err
-	}
-	promInst, err = prometheus.New(ctx, prometheus.Config{})
-	if err != nil {
-		return
 	}
 	return nil
 }

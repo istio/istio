@@ -171,14 +171,7 @@ spec:
 			}
 
 			// Write Workload Entry Endpoints to the file_sd_config map to be collected by Prometheus
-			port := 8090
-			for _, p := range cfg.Ports {
-				if p.Protocol == protocol.HTTP {
-					port = p.ServicePort
-				}
-			}
-			if err = updateWorkloadEndpoint(c.cluster, vmPod.Name,
-				fmt.Sprintf("%s:%d", vmPod.Status.PodIP, port), cfg.Service,
+			if err = updateWorkloadEndpoint(c.cluster, vmPod.Name, vmPod.Status.PodIP, cfg.Service,
 				vmPod.Labels["istio.io/test-vm-version"]); err != nil {
 				return nil, fmt.Errorf("failed writing workload enpoints: %v", err)
 			}

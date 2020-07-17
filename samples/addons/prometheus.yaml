@@ -136,9 +136,6 @@ data:
         source_labels:
         - __meta_kubernetes_pod_node_name
         target_label: kubernetes_node
-      file_sd_configs:
-      - files:
-        - /etc/file_sd/*.yaml
     - job_name: kubernetes-service-endpoints-slow
       kubernetes_sd_configs:
       - role: endpoints
@@ -279,6 +276,26 @@ data:
         target_label: kubernetes_pod_name
       scrape_interval: 5m
       scrape_timeout: 30s
+    - job_name: kubernetes-file-sd-endpoints
+      kubernetes_sd_configs:
+      - role: endpoints
+      file_sd_configs:
+        - files:
+          - /etc/file_sd/*.yaml
+      relabel_configs:
+      - action: keep
+        regex: (.+)
+        source_labels:
+        - __meta_filepath
+      - action: replace
+        regex: ([^:]+)(?::\d+)?
+        replacement: $1:15020
+        source_labels:
+        - __address__
+        target_label: __address__
+      - replacement: /stats/prometheus
+        target_label: __metrics_path__
+
   recording_rules.yml: |
     {}
   rules: |
