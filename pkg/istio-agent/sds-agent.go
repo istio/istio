@@ -303,12 +303,17 @@ func gatewaySdsExists() bool {
 //
 // In addition it deals with the case the XDS server is on port 443, expected with a proper cert.
 // /etc/ssl/certs/ca-certificates.crt
+//
+// TODO: additional checks for existence. Fail early, instead of obscure envoy errors.
 func (sa *Agent) FindRootCAForXDS() string {
 	if strings.HasSuffix(sa.proxyConfig.DiscoveryAddress, ":443") {
 		return "/etc/ssl/certs/ca-certificates.crt"
 	} else if sa.secOpts.PilotCertProvider == "istiod" {
+		// This is the default - a mounted config map on K8S
 		return "./var/run/secrets/istio/root-cert.pem"
 	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
+		// Using K8S - this is likely incorrect, may work by accident.
+		// API is alpha.
 		return "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	} else if sa.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,

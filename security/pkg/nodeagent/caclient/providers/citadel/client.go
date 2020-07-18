@@ -41,6 +41,7 @@ const (
 var (
 	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
 
+	// TODO: move to main, stop using directly - security.Options instead !
 	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
 	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
 	// with extra SAN (labels, etc) in data path.
