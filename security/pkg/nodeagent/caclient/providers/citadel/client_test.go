@@ -25,18 +25,19 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	//k8sauth "k8s.io/api/authentication/v1"
-	//"k8s.io/apimachinery/pkg/runtime"
-	//"k8s.io/client-go/kubernetes/fake"
-	//ktesting "k8s.io/client-go/testing"
-	//
-	//"istio.io/istio/pkg/jwt"
-	//"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/istio/pkg/test/util/retry"
+	util "istio.io/istio/tests/integration/mixer"
+	"istio.io/istio/tests/integration/telemetry/tracing"
 
 	pb "istio.io/istio/security/proto"
 )
 
-const mockServerAddress = "localhost:0"
+const (
+	mockServerAddress = "localhost:0"
+	retryTimes = 3
+)
+
+
 
 var (
 	fakeCert   = []string{"foo", "bar"}
@@ -183,41 +184,41 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
-			// create a local grpc server
-			s := grpc.NewServer()
-			defer s.Stop()
-			lis, err := net.Listen("tcp", mockServerAddress)
-			if err != nil {
-				t.Fatalf("Test case [%s]: failed to listen: %v", id, err)
-			}
-
-			go func() {
-				pb.RegisterIstioCertificateServiceServer(s, &tc.server)
-				if err := s.Serve(lis); err != nil {
-					t.Logf("Test case [%s]: failed to serve: %v", id, err)
+			 retry.UntilSuccessOrFail(t, func() error{
+				s := grpc.NewServer()
+				defer s.Stop()
+				lis, err := net.Listen("tcp", mockServerAddress)
+				if err != nil {
+					return fmt.Errorf("Test case [%s]: failed to listen: %v", id, err)
 				}
-			}()
+				go func() {
+					pb.RegisterIstioCertificateServiceServer(s, &tc.server)
+					if err := s.Serve(lis); err != nil {
+						t.Logf("Test case [%s]: failed to serve: %v", id, err)
+					}
+				}()
+				// The goroutine starting the server may not be ready, results in flakiness.
+				time.Sleep(1 * time.Second)
 
-			// The goroutine starting the server may not be ready, results in flakiness.
-			time.Sleep(1 * time.Second)
-
-			cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
-			if err != nil {
-				t.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
-			}
-
-			resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
-			if err != nil {
-				if err.Error() != tc.expectedErr {
-					t.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+				cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
+				if err != nil {
+					return fmt.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
 				}
-			} else {
-				if tc.expectedErr != "" {
-					t.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
-				} else if !reflect.DeepEqual(resp, tc.expectedCert) {
-					t.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+
+				resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
+				if err != nil {
+					if err.Error() != tc.expectedErr {
+						return fmt.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+					}
+				} else {
+					if tc.expectedErr != "" {
+						return fmt.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
+					} else if !reflect.DeepEqual(resp, tc.expectedCert) {
+						return fmt.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+					}
 				}
-			}
+				return nil
+			}, retry.Timeout(20* time.Second), retry.Delay(2 * time.Second))
 		})
 	}
 }
