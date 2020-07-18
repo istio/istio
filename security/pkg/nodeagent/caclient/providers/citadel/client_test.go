@@ -182,41 +182,41 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
-				s := grpc.NewServer()
-				defer s.Stop()
-				lis, err := net.Listen("tcp", mockServerAddress)
-				if err != nil {
-					t.Fatalf("test case [%s]: failed to listen: %v", id, err)
+			s := grpc.NewServer()
+			defer s.Stop()
+			lis, err := net.Listen("tcp", mockServerAddress)
+			if err != nil {
+				t.Fatalf("test case [%s]: failed to listen: %v", id, err)
+			}
+			go func() {
+				pb.RegisterIstioCertificateServiceServer(s, &tc.server)
+				if err := s.Serve(lis); err != nil {
+					t.Logf("Test case [%s]: failed to serve: %v", id, err)
 				}
-				go func() {
-					pb.RegisterIstioCertificateServiceServer(s, &tc.server)
-					if err := s.Serve(lis); err != nil {
-						t.Logf("Test case [%s]: failed to serve: %v", id, err)
-					}
-				}()
+			}()
 
-				err = retry.UntilSuccess(func() error {
-					cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
-					if err != nil {
-						return fmt.Errorf("test case [%s]: failed to create ca client: %v", id, err)
-					}
-					resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
-					if err != nil {
-						if err.Error() != tc.expectedErr {
-							return fmt.Errorf("test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
-						}
-					} else {
-						if tc.expectedErr != "" {
-							return fmt.Errorf("test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
-						} else if !reflect.DeepEqual(resp, tc.expectedCert) {
-							return fmt.Errorf("test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
-						}
-					}
-					return nil
-				}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second) )
+			err = retry.UntilSuccess(func() error {
+				cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
 				if err != nil {
-					t.Fatalf("test failed error is： %+v", err)
+					return fmt.Errorf("test case [%s]: failed to create ca client: %v", id, err)
 				}
+				resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
+				if err != nil {
+					if err.Error() != tc.expectedErr {
+						return fmt.Errorf("test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+					}
+				} else {
+					if tc.expectedErr != "" {
+						return fmt.Errorf("test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
+					} else if !reflect.DeepEqual(resp, tc.expectedCert) {
+						return fmt.Errorf("test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+					}
+				}
+				return nil
+			}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second))
+			if err != nil {
+				t.Fatalf("test failed error is： %+v", err)
+			}
 		})
 	}
 }
