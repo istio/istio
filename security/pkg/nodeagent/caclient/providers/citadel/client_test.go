@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pkg/test/util/retry"
 
@@ -182,12 +183,11 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
-			retry.UntilSuccessOrFail(t, func() error {
 				s := grpc.NewServer()
 				defer s.Stop()
 				lis, err := net.Listen("tcp", mockServerAddress)
 				if err != nil {
-					return fmt.Errorf("Test case [%s]: failed to listen: %v", id, err)
+					t.Fatal("test case [%s]: failed to listen: %v", id, err)
 				}
 				go func() {
 					pb.RegisterIstioCertificateServiceServer(s, &tc.server)
@@ -195,28 +195,29 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 						t.Logf("Test case [%s]: failed to serve: %v", id, err)
 					}
 				}()
-				// The goroutine starting the server may not be ready, results in flakiness.
-				time.Sleep(1 * time.Second)
 
-				cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
-				if err != nil {
-					return fmt.Errorf("Test case [%s]: failed to create ca client: %v", id, err)
-				}
-
-				resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
-				if err != nil {
-					if err.Error() != tc.expectedErr {
-						return fmt.Errorf("Test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+				err = retry.UntilSuccess(func() error {
+					cli, err := NewCitadelClient(lis.Addr().String(), false, nil, "Kubernetes")
+					if err != nil {
+						return fmt.Errorf("test case [%s]: failed to create ca client: %v", id, err)
 					}
-				} else {
-					if tc.expectedErr != "" {
-						return fmt.Errorf("Test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
-					} else if !reflect.DeepEqual(resp, tc.expectedCert) {
-						return fmt.Errorf("Test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+					resp, err := cli.CSRSign(context.Background(), "12345678-1234-1234-1234-123456789012", []byte{01}, tc.token, 1)
+					if err != nil {
+						if err.Error() != tc.expectedErr {
+							return fmt.Errorf("test case [%s]: error (%s) does not match expected error (%s)", id, err.Error(), tc.expectedErr)
+						}
+					} else {
+						if tc.expectedErr != "" {
+							return fmt.Errorf("test case [%s]: expect error: %s but got no error", id, tc.expectedErr)
+						} else if !reflect.DeepEqual(resp, tc.expectedCert) {
+							return fmt.Errorf("test case [%s]: resp: got %+v, expected %v", id, resp, tc.expectedCert)
+						}
 					}
+					return nil
+				}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second) )
+				if err != nil {
+					t.Fatal(err)
 				}
-				return nil
-			}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second))
 		})
 	}
 }
