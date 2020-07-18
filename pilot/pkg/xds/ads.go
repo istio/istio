@@ -338,7 +338,7 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 
 func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if con.Watching(v3.ListenerShortType) {
-		if !s.shouldRespond(con, ldsReject, discReq) {
+		if !s.ShouldRespond(con, ldsReject, discReq) {
 			return nil
 		}
 	}
@@ -352,7 +352,7 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 
 func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if con.Watching(v3.ClusterShortType) {
-		if !s.shouldRespond(con, cdsReject, discReq) {
+		if !s.ShouldRespond(con, cdsReject, discReq) {
 			return nil
 		}
 	}
@@ -365,7 +365,7 @@ func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, edsReject, discReq) {
+	if !s.ShouldRespond(con, edsReject, discReq) {
 		return nil
 	}
 	con.node.Active[v3.EndpointShortType].ResourceNames = discReq.ResourceNames
@@ -378,7 +378,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, rdsReject, discReq) {
+	if !s.ShouldRespond(con, rdsReject, discReq) {
 		return nil
 	}
 	con.node.Active[v3.RouteShortType].ResourceNames = discReq.ResourceNames
@@ -390,9 +390,9 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	return nil
 }
 
-// shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
+// ShouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring.Metric, request *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) ShouldRespond(con *Connection, rejectMetric monitoring.Metric, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is errorneous.
@@ -441,7 +441,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 
 	// Envoy can send two DiscoveryRequests with same version and nonce when it detects
 	// a new resource. We should respond if they change.
-	if listEqualUnordered(previousResources, request.ResourceNames) {
+	// If this is a case of reconnect i.e. previousInfo is nil, we should always respond with
+	// the current resource names.
+	if previousInfo != nil && listEqualUnordered(previousResources, request.ResourceNames) {
 		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		return false
 	}
