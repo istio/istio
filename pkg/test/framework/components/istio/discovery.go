@@ -20,7 +20,7 @@ import (
 	"istio.io/istio/pkg/test/kube"
 )
 
-// Discovery of Pilot
+// Discovery allows interacting with the discovery server in a cluster to check for configuration correctness.
 type Discovery interface {
 	CallDiscovery(req *envoyservicediscoveryv3.DiscoveryRequest) (*envoyservicediscoveryv3.DiscoveryResponse, error)
 	CallDiscoveryOrFail(t test.Failer, req *envoyservicediscoveryv3.DiscoveryRequest) *envoyservicediscoveryv3.DiscoveryResponse
@@ -69,7 +69,7 @@ func (i *operatorComponent) initDiscovery() error {
 		if inst := i.discovery[cp.Index()]; inst == nil {
 			i.discovery[cp.Index()], err = newDiscovery(i.ctx, cp)
 			if err != nil {
-				return fmt.Errorf("error creating pilot instance for cluster %d: %v", cp.Index(), err)
+				return fmt.Errorf("error creating discovery instance for cluster %d: %v", cp.Index(), err)
 			}
 		}
 		i.discovery[c.Index()] = i.discovery[cp.Index()]
@@ -88,7 +88,7 @@ func NewDiscoveryRequest(nodeID string, typeURL string) *envoyservicediscoveryv3
 }
 
 const (
-	pilotService = "istiod"
+	discoveryService = "istiod"
 	grpcPortName = "grpc-xds"
 )
 
@@ -108,7 +108,7 @@ func newDiscovery(ctx resource.Context, cluster resource.Cluster) (Discovery, er
 	}
 	ns := icfg.ConfigNamespace
 
-	fetchFn := kube.NewSinglePodFetch(c.cluster, ns, "istio=pilot")
+	fetchFn := kube.NewSinglePodFetch(c.cluster, ns, "istio=discovery")
 	pods, err := kube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func newDiscovery(ctx resource.Context, cluster resource.Cluster) (Discovery, er
 		}
 	}()
 
-	// Start port-forwarding for pilot.
+	// Start port-forwarding for discovery.
 	c.forwarder, err = c.cluster.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
 	if err != nil {
 		return nil, err
@@ -171,16 +171,16 @@ func (c *discoveryImpl) close() (err error) {
 }
 
 func (c *discoveryImpl) getGrpcPort(ns string) (uint16, error) {
-	svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), pilotService, v1.GetOptions{})
+	svc, err := c.cluster.CoreV1().Services(ns).Get(context.TODO(), discoveryService, v1.GetOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to retrieve service %s: %v", pilotService, err)
+		return 0, fmt.Errorf("failed to retrieve service %s: %v", discoveryService, err)
 	}
 	for _, portInfo := range svc.Spec.Ports {
 		if portInfo.Name == grpcPortName {
 			return uint16(portInfo.TargetPort.IntValue()), nil
 		}
 	}
-	return 0, fmt.Errorf("failed to get target port in service %s", pilotService)
+	return 0, fmt.Errorf("failed to get target port in service %s", discoveryService)
 }
 
 type discoveryClient struct {
