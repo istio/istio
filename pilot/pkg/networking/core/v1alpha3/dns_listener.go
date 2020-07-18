@@ -39,6 +39,7 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 				Regex:      ".*", // Match everything.. All DNS queries go through Envoy. Unknown ones will be forwarded
 			},
 		},
+		IgnoreCase: true,
 	},
 }
 
@@ -73,7 +74,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		ClientConfig: &dnsfilter.DnsFilterConfig_ClientContextConfig{
 			ResolverTimeout: ptypes.DurationProto(resolverTimeout),
 			// no upstream resolves. Envoy will use the ambient ones
-			MaxPendingLookups: 128, // arbitrary
+			MaxPendingLookups: 256, // arbitrary
 		},
 	}
 	dnsFilter := &listener.ListenerFilter{
@@ -125,6 +126,12 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 		// same wildcard passthrough TCP listener 0.0.0.0:3306.
 		//
 		if svc.Hostname.IsWildCarded() {
+			continue
+		}
+
+		// Bug in envoy results in requiring atleast 2 characters for dns name! No idea why.
+		// https://github.com/envoyproxy/envoy/issues/11893
+		if len(svc.Hostname) == 1 {
 			continue
 		}
 
@@ -180,14 +187,18 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 				},
 			})
 			if node.ConfigNamespace == svc.Attributes.Namespace {
-				virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
-					Name: svc.Attributes.Name,
-					Endpoint: &dnstable.DnsTable_DnsEndpoint{
-						EndpointConfig: &dnstable.DnsTable_DnsEndpoint_AddressList{
-							AddressList: &dnstable.DnsTable_AddressList{Address: addressList},
+				// Bug in envoy results in requiring atleast 2 characters for dns name! No idea why.
+				// https://github.com/envoyproxy/envoy/issues/11893
+				if len(svc.Attributes.Name) > 1 {
+					virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
+						Name: svc.Attributes.Name,
+						Endpoint: &dnstable.DnsTable_DnsEndpoint{
+							EndpointConfig: &dnstable.DnsTable_DnsEndpoint_AddressList{
+								AddressList: &dnstable.DnsTable_AddressList{Address: addressList},
+							},
 						},
-					},
-				})
+					})
+				}
 			}
 		}
 	}
