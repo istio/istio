@@ -19,11 +19,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"github.com/onsi/gomega"
 
@@ -355,7 +356,7 @@ func TestProxyStatus(t *testing.T) {
 			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
 
 			// test the --file param
-			filename:="ps-configdump.json"
+			filename := "ps-configdump.json"
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
 			dump, err := cs.EnvoyDo(context.TODO(), podID, ns.Name(), "GET", "config_dump", nil)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -367,7 +368,7 @@ func TestProxyStatus(t *testing.T) {
 			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
-	})
+		})
 }
 
 func TestAuthZCheck(t *testing.T) {

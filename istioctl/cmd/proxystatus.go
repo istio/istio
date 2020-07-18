@@ -18,8 +18,9 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"istio.io/pkg/log"
 	"os"
+
+	"istio.io/pkg/log"
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
