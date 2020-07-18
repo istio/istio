@@ -39,7 +39,6 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 				Regex:      ".*", // Match everything.. All DNS queries go through Envoy. Unknown ones will be forwarded
 			},
 		},
-		IgnoreCase: true,
 	},
 }
 
