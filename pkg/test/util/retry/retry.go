@@ -106,12 +106,13 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 	}
 
 	successes := 0
+	failures := 0
 	var lasterr error
 	to := time.After(cfg.timeout)
 	for {
 		select {
 		case <-to:
-			return nil, fmt.Errorf("timeout while waiting (last error: %v)", lasterr)
+			return nil, fmt.Errorf("timeout while waiting (last error: %v, attempts: %d)", lasterr, failures)
 		default:
 		}
 
@@ -121,12 +122,15 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 				successes++
 			} else {
 				successes = 0
+
+				failures++
 			}
 			if successes >= cfg.converge {
 				return result, err
 			}
 		} else {
 			successes = 0
+			failures++
 		}
 		if err != nil {
 			lasterr = err
