@@ -338,7 +338,7 @@ func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) e
 
 func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if con.Watching(v3.ListenerShortType) {
-		if !s.ShouldRespond(con, ldsReject, discReq) {
+		if !s.shouldRespond(con, ldsReject, discReq) {
 			return nil
 		}
 	}
@@ -352,7 +352,7 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 
 func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
 	if con.Watching(v3.ClusterShortType) {
-		if !s.ShouldRespond(con, cdsReject, discReq) {
+		if !s.shouldRespond(con, cdsReject, discReq) {
 			return nil
 		}
 	}
@@ -365,7 +365,7 @@ func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.ShouldRespond(con, edsReject, discReq) {
+	if !s.shouldRespond(con, edsReject, discReq) {
 		return nil
 	}
 	con.node.Active[v3.EndpointShortType].ResourceNames = discReq.ResourceNames
@@ -378,7 +378,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.ShouldRespond(con, rdsReject, discReq) {
+	if !s.shouldRespond(con, rdsReject, discReq) {
 		return nil
 	}
 	con.node.Active[v3.RouteShortType].ResourceNames = discReq.ResourceNames
@@ -390,9 +390,9 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	return nil
 }
 
-// ShouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
+// shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) ShouldRespond(con *Connection, rejectMetric monitoring.Metric, request *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring.Metric, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is errorneous.
