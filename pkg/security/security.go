@@ -58,6 +58,7 @@ type Options struct {
 	KeyFile string
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
+	// Defaults to ProxyConfig.discoveryAddress, currently overriden by env CA_ADDR
 	CAEndpoint string
 
 	// The CA provider name.
@@ -115,6 +116,14 @@ type Options struct {
 
 	// Existing certs, for VM or existing certificates
 	CertsDir string
+
+	// ProvCert is a directory containing existing certificates.
+	// The certificates will be exchanged for fresh certificates - "FileMountedCerts"
+	// are used directly.
+	//
+	// This can be used for long-lived certs that are exchanged for short-lived ones, or
+	// to refresh shorter lived certs when set to same value with OutputKeyCertToDir.
+	ProvCert string
 
 	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
 	TLSEnabled bool

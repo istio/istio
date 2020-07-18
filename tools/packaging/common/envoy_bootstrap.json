@@ -146,7 +146,7 @@
       "grpc_services": [
         {
           "envoy_grpc": {
-            "cluster_name": "xds-grpc"
+            "cluster_name": "{{ .discovery_address }}"
           }
         }
       ]
@@ -220,12 +220,13 @@
         }
       },
       {
-        "name": "xds-grpc",
+        "name": "{{ .discovery_address }}",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
+
         {{- if eq .config.ControlPlaneAuthPolicy 1 }}
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
@@ -254,14 +255,8 @@
               ],
               "validation_context": {
                 "trusted_ca": {
-                  {{- if .provisioned_cert }}
-                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
-                  {{- else if eq .pilot_cert_provider "kubernetes" }}
-                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-                  {{- else if eq .pilot_cert_provider "istiod" }}
-                  "filename": "./var/run/secrets/istio/root-cert.pem"
-                  {{- end }}
-                },
+                  "filename": "{{- .provisioned_cert }}"
+                 },
                 "match_subject_alt_names": {{ .pilot_SAN }}
               }
             }
@@ -269,7 +264,7 @@
         },
         {{- end }}
         "load_assignment": {
-          "cluster_name": "xds-grpc",
+          "cluster_name": "{{ .discovery_address }}",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {

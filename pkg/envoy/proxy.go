@@ -59,6 +59,8 @@ type ProxyConfig struct {
 	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
+	// ProvCert is the filename of the XDS cluster root certificate
+	// Set as provisioned_cert
 	ProvCert            string
 }
 
