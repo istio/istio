@@ -51,7 +51,7 @@ func TestServiceEntryStatic(t *testing.T) {
 			TypeUrl:       v3.EndpointType,
 		}
 
-		p := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
+		p := i.DiscoveryOrFail(ctx, nil)
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}
@@ -95,7 +95,7 @@ func TestSidecarScopeIngressListener(t *testing.T) {
 			TypeUrl: v3.ClusterType,
 		}
 
-		p := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
+		p := i.DiscoveryOrFail(ctx, nil)
 		if err := p.StartDiscovery(req); err != nil {
 			t.Fatal(err)
 		}

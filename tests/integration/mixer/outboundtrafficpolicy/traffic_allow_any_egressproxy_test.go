@@ -71,7 +71,7 @@ type Config struct {
 }
 
 func setupTest(t *testing.T, ctx resource.Context, modifyConfig func(c Config) Config) (istio.Discovery, *model.Proxy) {
-	p := ist.DiscoveryOrFail(t, ctx.Clusters()[0])
+	p := ist.DiscoveryOrFail(t, nil)
 
 	appNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
 		Prefix: "app",

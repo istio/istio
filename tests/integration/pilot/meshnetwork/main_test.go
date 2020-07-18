@@ -145,8 +145,7 @@ func TestAsymmetricMeshNetworkWithGatewayIP(t *testing.T) {
 			}
 			// Now get the EDS from the fake VM sidecar to see if the gateway IP is there for the echo service.
 			// the Gateway IP:Port is set in the test-values/values-istio-mesh-networks.yaml
-			if err := checkEDSInVM(t, ctx, ns.Name(), k8sSvcClusterName,
-				"1.1.1.1", "2.2.2.2", 15443); err != nil {
+			if err := checkEDSInVM(t, ns.Name(), k8sSvcClusterName, "1.1.1.1", "2.2.2.2", 15443); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -194,7 +193,7 @@ func checkEDSInPod(t *testing.T, c echo.Instance, vmSvcClusterName string, endpo
 		c.ID(), vmSvcClusterName, endpointIP)
 }
 
-func checkEDSInVM(t *testing.T, ctx framework.TestContext, ns, k8sSvcClusterName, endpointIP, gatewayIP string, gatewayPort uint32) error {
+func checkEDSInVM(t *testing.T, ns, k8sSvcClusterName, endpointIP, gatewayIP string, gatewayPort uint32) error {
 	node := &model.Proxy{
 		Type:            model.SidecarProxy,
 		IPAddresses:     []string{endpointIP},
@@ -208,7 +207,7 @@ func checkEDSInVM(t *testing.T, ctx framework.TestContext, ns, k8sSvcClusterName
 		},
 	}
 
-	p := i.DiscoveryOrFail(t, ctx.Clusters()[0])
+	p := i.DiscoveryOrFail(t, nil)
 	// make an eds request, simulating a VM, asking for a cluster on k8s
 	request := istio.NewDiscoveryRequest(node.ServiceNode(), v3.EndpointType)
 	request.ResourceNames = []string{k8sSvcClusterName}

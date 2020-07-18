@@ -31,7 +31,8 @@ type Discovery interface {
 	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*envoyservicediscoveryv3.DiscoveryResponse) (bool, error))
 }
 
-// Discovery returns the service discovery client for the given cluster or returns an error
+// Discovery returns the service discovery client for the given cluster or the first configured
+// cluster in the environment if given nil.
 func (i *operatorComponent) Discovery(cluster resource.Cluster) (Discovery, error) {
 	// lazy init since it requires some k8s calls, port-forwarding and building grpc clients
 	if len(i.discovery) == 0 {
@@ -47,8 +48,8 @@ func (i *operatorComponent) Discovery(cluster resource.Cluster) (Discovery, erro
 	return nil, fmt.Errorf("no service discovery client for %s", cluster.Name())
 }
 
-// DiscoveryOrFail returns the service discovery client for the given cluster or fails the test if
-// it is not found.
+// DiscoveryOrFail returns the service discovery client for the given cluster or the first configured
+// cluster in the environment if given nil. The test will be failed if there is an error.
 func (i *operatorComponent) DiscoveryOrFail(f test.Failer, cluster resource.Cluster) Discovery {
 	d, err := i.Discovery(cluster)
 	if err != nil {

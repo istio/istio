@@ -58,7 +58,7 @@ func TestSidecarListeners(t *testing.T) {
 				IstioVersion: model.MaxIstioVersion,
 			}
 
-			d := i.DiscoveryOrFail(ctx, ctx.Clusters()[0])
+			d := i.DiscoveryOrFail(ctx, nil)
 			// Start the xDS stream containing the listeners for this node
 			d.StartDiscoveryOrFail(t, istio.NewDiscoveryRequest(nodeID.ServiceNode(), v3.ListenerType))
 
