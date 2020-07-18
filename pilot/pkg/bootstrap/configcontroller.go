@@ -110,6 +110,7 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 				leaderelection.
 					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
+						log.Infof("restarting kubeclient")
 						// Start informers again. This fixes the case where informers for namespace do not start,
 						// as we create them only after acquiring the leader lock
 						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -222,9 +223,8 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			xdsMCP, err := adsc.New(&meshconfig.ProxyConfig{
 				DiscoveryAddress: srcAddress.Host,
 			}, &adsc.Config{
-				Watch: []string {"mcp"},
-				Meta: model.NodeMetadata{
-				}.ToStruct(),
+				Watch: []string{"mcp"},
+				Meta:  model.NodeMetadata{}.ToStruct(),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)

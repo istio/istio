@@ -33,6 +33,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"istio.io/istio/pkg/config/schema/collection"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/security"
@@ -194,8 +195,10 @@ type ADSC struct {
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
 
-	sync   map[string]time.Time
-	syncCh chan string
+	sync             map[string]time.Time
+	syncCh           chan string
+	Sent             map[string]*discovery.DiscoveryRequest
+	adsServiceClient discovery.AggregatedDiscoveryServiceClient
 }
 
 type ResponseHandler interface {
@@ -235,6 +238,7 @@ func newADSC(p *v1alpha1.ProxyConfig, opts *Config) *ADSC {
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
+		Sent:        map[string]*discovery.DiscoveryRequest{},
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
@@ -297,13 +301,13 @@ func getPrivateIPIfAvailable() net.IP {
 
 func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var clientCert tls.Certificate
+	var clientCerts []tls.Certificate
 	var serverCABytes []byte
 	var err error
 	var certName string
 
-	if strings.HasSuffix(a.url, ":443") {
-		serverCABytes, err = ioutil.ReadFile("")
-	} else if a.cfg.Secrets != nil {
+	// If we need MTLS - CertDir or Secrets provider is set.
+	if a.cfg.Secrets != nil {
 		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
 		if err != nil {
 			log.Infof("Failed to get credential token: %v", err)
@@ -320,21 +324,28 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if a.cfg.CertDir != "" {
+		certName = a.cfg.CertDir + "/cert-chain.pem"
+		clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
+		if err != nil {
+			return nil, err
+		}
+		clientCerts = []tls.Certificate{clientCert}
+	}
+
+	// Load the root CAs
+	if a.cfg.XDSRootCAFile != "" {
+		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
+	} else if a.cfg.Secrets != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.RootCertReqResourceName, string(tok))
+			cache.RootCertReqResourceName, "")
 		if err != nil {
 			return nil, err
 		}
 
 		serverCABytes = rootCA.RootCert
-	} else {
-		certName = a.cfg.CertDir + "/cert-chain.pem"
-		clientCert, err = tls.LoadX509KeyPair(certName,
-			a.cfg.CertDir+"/key.pem")
-		if err != nil {
-			return nil, err
-		}
+	} else if a.cfg.CertDir != "" {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.CertDir + "/root-cert.pem")
 		if err != nil {
 			return nil, err
@@ -363,15 +374,17 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		shost = a.cfg.XDSSAN
 	}
 
-	return &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
+	tc := &tls.Config{
+		Certificates: clientCerts,
 		RootCAs:      serverCAs,
 		ServerName:   shost,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
 		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
-	}, nil
+	}
+
+	return tc, nil
 }
 
 // Close the stream.
@@ -420,13 +433,13 @@ func (a *ADSC) connect() error {
 	}
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
+	a.adsServiceClient = xds
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
 	}
 	a.stream = edsstr
 	a.sendNodeMeta = true
-
 
 	return nil
 }
@@ -466,14 +479,16 @@ func (a *ADSC) Run() error {
 	return nil
 }
 
-// HasSyncedConfig returns true if MCP configs have synced
+// HasSyncedConfig returns true if all sent config requests have synced
 func (a *ADSC) hasSynced() bool {
-	for _, s := range collections.Pilot.All() {
+	if len(a.Sent) == 0 {
+		return false
+	}
+	for k, _ := range a.Sent {
 		a.mutex.RLock()
-		t := a.sync[s.Resource().GroupVersionKind().String()]
+		t := a.sync[k]
 		a.mutex.RUnlock()
 		if t.IsZero() {
-			log.Warn("NOT SYNCE" + s.Resource().GroupVersionKind().String())
 			return false
 		}
 	}
@@ -487,16 +502,17 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 		msg, err := a.stream.Recv()
 		if err != nil {
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
-				if closeOnExit {
-					a.RecvWg.Done()
-					a.Close()
-					a.WaitClear()
-					a.Updates <- ""
-					a.XDSUpdates <- nil
-				} else {
-					a.Updates <- ""
-					a.XDSUpdates <- nil
-				}
+			if closeOnExit {
+				a.RecvWg.Done()
+				a.Close()
+				a.WaitClear()
+				a.Updates <- ""
+				a.XDSUpdates <- nil
+			} else {
+				a.Updates <- ""
+				a.XDSUpdates <- nil
+			}
+			a.stream.CloseSend()
 
 			return
 		}
@@ -836,6 +852,9 @@ func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
 		a.sendNodeMeta = false
 	}
 	req.ResponseNonce = time.Now().String()
+	a.mutex.Lock()
+	a.Sent[req.TypeUrl] = req
+	a.mutex.Unlock()
 	return a.stream.Send(req)
 }
 
@@ -1016,17 +1035,23 @@ func (a *ADSC) Watch() {
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
 func (a *ADSC) WatchConfig() {
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+	_ = a.Send(&discovery.DiscoveryRequest{
+		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
 	})
 
-	for _, sch := range collections.Pilot.All() {
-		_ = a.stream.Send(&discovery.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       sch.Resource().GroupVersionKind().String(),
+	for _, sch := range []collection.Schema{collections.IstioNetworkingV1Alpha3Destinationrules,
+		collections.IstioNetworkingV1Alpha3Envoyfilters,
+		collections.IstioNetworkingV1Alpha3Gateways,
+		collections.IstioNetworkingV1Alpha3Serviceentries,
+		collections.IstioNetworkingV1Alpha3Sidecars,
+		collections.IstioNetworkingV1Alpha3Virtualservices,
+		collections.IstioNetworkingV1Alpha3Workloadentries,
+		collections.IstioSecurityV1Beta1Authorizationpolicies,
+		collections.IstioSecurityV1Beta1Peerauthentications,
+		collections.IstioSecurityV1Beta1Requestauthentications,
+	} {
+		_ = a.Send(&discovery.DiscoveryRequest{
+			TypeUrl: sch.Resource().GroupVersionKind().String(),
 		})
 	}
 }
@@ -1179,20 +1204,31 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 
 // Reconnect attempts to connect, with backoff in case of failure.
 func (a *ADSC) reconnect() {
-	err := a.connect()
-	if err == nil {
+	var err error
+	if a.adsServiceClient == nil {
+		err = a.connect()
+	} else {
+		edsstr, err := a.adsServiceClient.StreamAggregatedResources(context.Background())
+		if err == nil {
+			a.stream = edsstr
+			// first resource in stream needs meta
+			a.sendNodeMeta = true
+		}
+	}
+
+	if err == nil && a.stream != nil {
 		a.cfg.BackoffPolicy.Reset()
 	} else {
-		log.Warna("Connect failed, reconnect after: ", a.cfg.BackoffPolicy.NextBackOff())
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
+
+		log.Warna("Connect failed, reconnect after: ", a.cfg.BackoffPolicy.NextBackOff())
 		return
 	}
 	a.sendInitial()
 	a.handleRecv(false)
 	// Connection closed, try to reconnect
-	time.AfterFunc(100 * time.Millisecond, a.reconnect)
+	time.AfterFunc(100*time.Millisecond, a.reconnect)
 }
-
 
 // Start method attempts to behave like starting Envoy: will get credentials and attempt to
 // connect with exponential backoff.

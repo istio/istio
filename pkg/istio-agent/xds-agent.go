@@ -124,8 +124,8 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	cfg := &adsc.Config{
 		XDSSAN:          discHost,
 		ResponseHandler: sa.proxyGen,
-//		XDSRootCAFile:  sa.
-		Watch: []string{"mcp", "envoy"},
+		XDSRootCAFile:   sa.FindRootCAForXDS(),
+		Watch:           []string{"mcp", "envoy"},
 	}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets

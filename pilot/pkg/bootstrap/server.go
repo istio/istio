@@ -24,7 +24,6 @@ import (
 	"net"
 	"net/http"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -139,7 +138,7 @@ type Server struct {
 	// debug, monitoring and readiness.
 	// Also handles the webhook for cases envoy or gateway is terminating
 	// TLS
-	httpMux  *http.ServeMux
+	httpMux *http.ServeMux
 
 	// webhooks, with MTLS certificates
 	httpsMux *http.ServeMux
@@ -353,10 +352,14 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
-		reflection.Register(s.grpcServer)
 		if s.GRPCListener == nil {
 			return // listener is off - using handler
 		}
+		log.Infoa("Startup callbacks done, starting GRPC")
+		if !s.waitForCacheSync(stop) {
+			return
+		}
+		reflection.Register(s.grpcServer)
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
@@ -456,22 +459,9 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 // initIstiodHTTPServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
 	log.Info("initializing Istiod admin server")
-	// if the gRPC address is off, use the same port. This is used when envoy or an external
-	// gateway is in front of Istio, and we want to use a single port.
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.ProtoMajor == 2 && (
-			len(r.Header) == 0 ||
-			strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc")) {
-			log.Warna("XXX-GRPC ", r.Header)
-			s.grpcServer.ServeHTTP(w, r)
-		} else {
-			log.Warna("XXX ", r.Header)
-			s.httpsMux.ServeHTTP(w, r)
-		}
-	})
 	s.httpServer = &http.Server{
 		Addr:    args.ServerOptions.HTTPAddr,
-		Handler: h,
+		Handler: s.httpsMux,
 	}
 
 	// create http listener

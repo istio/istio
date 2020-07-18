@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	disableLeaderElection = env.RegisterBoolVar("DIABLE_LEADER_ELECTION", false,
+	disableLeaderElection = env.RegisterBoolVar("DISABLE_LEADER_ELECTION", false,
 		"Disable the leader election feature.")
 )
 
@@ -60,9 +60,11 @@ type LeaderElection struct {
 // Run will start leader election, calling all runFns when we become the leader.
 func (l *LeaderElection) Run(stop <-chan struct{}) {
 	if disableLeaderElection.Get() {
+		log.Infoa("Disabled leader election feature: ", l.namespace, " ", l.name)
 		for _, f := range l.runFns {
 			go f(stop)
 		}
+		return
 	}
 	for {
 		le, err := l.create()
