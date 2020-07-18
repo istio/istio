@@ -15,9 +15,10 @@
 package model
 
 import (
-	"google.golang.org/protobuf/types/known/durationpb"
 	"sync"
 	"time"
+
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_grpc_credential "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v3"
@@ -173,7 +174,6 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
-
 
 	var fetchTimeout *durationpb.Duration
 	if name == SDSDefaultResourceName || name == SDSRootResourceName {
