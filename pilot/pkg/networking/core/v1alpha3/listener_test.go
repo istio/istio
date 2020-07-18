@@ -2242,7 +2242,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 				Protocol: protocol,
 			},
 		},
-		Resolution: model.Passthrough,
+		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 		},
@@ -2262,7 +2262,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 				Protocol: protocol,
 			},
 		},
-		Resolution: model.Passthrough,
+		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 		},
