@@ -370,6 +370,8 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 			if strings.HasSuffix(sa.secOpts.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
+			} else if strings.HasSuffix(sa.secOpts.CAEndpoint, ":443") {
+				tls = true
 			} else if sa.secOpts.TLSEnabled {
 				if sa.secOpts.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
