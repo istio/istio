@@ -1124,8 +1124,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			httpListeners = append(httpListeners, l.listener)
 		}
 	}
-
 	tcpListeners = append(tcpListeners, httpListeners...)
+	// Build pass through filter chains now that all the non-passthrough filter chains are ready.
+	for _, listener := range tcpListeners {
+		configgen.appendListenerFallthroughRouteForCompleteListener(listener, node, push)
+	}
 	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
@@ -1602,7 +1605,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
-	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
+	// Note that the fall through route is built at the very end of all outbound listeners
 	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	mutable := &istionetworking.MutableObjects{
@@ -1814,7 +1817,6 @@ type filterChainOpts struct {
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
-	isFallThrough    bool
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -2175,12 +2177,10 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	return listener
 }
 
-// appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
-// PassthroughCluster. This should be appended as the final filter or it will mask the others.
-// This allows external https traffic, even when port the port (usually 443) is in use by another service.
-func appendListenerFallthroughRoute(l *listener.Listener, opts *buildListenerOpts,
-	node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
-	wildcardMatch := &listener.FilterChainMatch{}
+// Create pass through filter chain for the listener assuming all the other filter chains are ready.
+// The match member of pass through filter chain depends on the existing non-passthrough filter chain.
+// TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
+func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
 	for _, fc := range l.FilterChains {
 		if isMatchAllFilterChain(fc) {
 			// We can only have one wildcard match. If the filter chain already has one, skip it
@@ -2190,24 +2190,33 @@ func appendListenerFallthroughRoute(l *listener.Listener, opts *buildListenerOpt
 		}
 	}
 
-	if currentListenerEntry != nil {
-		for _, fc := range currentListenerEntry.listener.FilterChains {
-			if isMatchAllFilterChain(fc) {
-				// We can only have one wildcard match. If the existing filter chain already has one, skip it
-				// This can happen when there are multiple https services
-				return
-			}
+	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
+
+	in := &plugin.InputParams{
+		Node: node,
+		Push: push,
+	}
+	mutable := &istionetworking.MutableObjects{
+		FilterChains: []istionetworking.FilterChain{
+			{
+				TCP: fallthroughNetworkFilters,
+			},
+		},
+	}
+
+	for _, p := range configgen.Plugins {
+		if err := p.OnOutboundPassthroughFilterChain(in, mutable); err != nil {
+			log.Debugf("Fail to set pass through filter chain for listener: %#v", l.Name)
+			return
 		}
 	}
 
-	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(opts.push, node)
-
-	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
-		filterChainName: util.PassthroughFilterChain,
-		networkFilters:  fallthroughNetworkFilters,
-		isFallThrough:   true,
-	})
-	l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
+	outboundPassThroughFilterChain := &listener.FilterChain{
+		FilterChainMatch: &listener.FilterChainMatch{},
+		Name:             util.PassthroughFilterChain,
+		Filters:          mutable.FilterChains[0].TCP,
+	}
+	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
@@ -2275,9 +2284,6 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			// codec is used by RBAC or mixer later.
 
 			if len(opt.networkFilters) > 0 {
-				if opt.isFallThrough {
-					insertFallthroughMetadata(mutable.Listener.FilterChains[i])
-				}
 				// this is the terminating filter
 				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
 
@@ -2353,15 +2359,9 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 	for _, incomingFilterChain := range incoming {
 		conflict := false
-		fallthroughChain := false
 
-		for i, existingFilterChain := range mergedFilterChains {
-			fallthroughChain, conflict = fallthroughOrConflict(existingFilterChain, incomingFilterChain)
-
-			if fallthroughChain {
-				mergedFilterChains[i] = incomingFilterChain
-				continue
-			}
+		for _, existingFilterChain := range mergedFilterChains {
+			conflict = isConflict(existingFilterChain, incomingFilterChain)
 
 			if conflict {
 				// NOTE: While pluginParams.Service can be nil,
@@ -2390,7 +2390,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 			}
 
 		}
-		if !conflict && !fallthroughChain {
+		if !conflict {
 			// There is no conflict with any filter chain in the existing listener.
 			// So append the new filter chains to the existing listener's filter chains
 			mergedFilterChains = append(mergedFilterChains, incomingFilterChain)
@@ -2405,23 +2405,8 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 // fallthroughOrConflict determines whether the incoming filter chain has conflict with existing.
 // It also identifies whether the existing filter chain is a fallthrough and hence should be replaced.
-func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool) {
-	switch {
-	case isMatchAllFilterChain(existing):
-		// This is a catch all filter chain.
-		// We can only merge with a non-catch all filter chain
-		// Else mark it as conflict
-		if isMatchAllFilterChain(incoming) {
-			// replace fallthrough filter chain with the real service one
-			if isFallthroughFilterChain(existing) {
-				return true, false
-			}
-			return false, true
-		}
-	case filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch):
-		return false, true
-	}
-	return false, false
+func isConflict(existing, incoming *listener.FilterChain) bool {
+	return filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch)
 }
 
 func filterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
@@ -2505,7 +2490,6 @@ func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain 
 		} else {
 			filterChain[id].ListenerProtocol = istionetworking.ListenerProtocolHTTP
 		}
-		filterChain[id].IsFallThrough = opts.filterChainOpts[id].isFallThrough
 	}
 
 	return filterChain
@@ -2558,32 +2542,9 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 	return &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)}}
 }
 
-func insertFallthroughMetadata(chain *listener.FilterChain) {
-	if chain.Metadata == nil {
-		chain.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
-		}
-	}
-	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
-		chain.Metadata.FilterMetadata[PilotMetaKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
-		}
-	}
-	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] =
-		&structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}}
-}
-
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {
 	// See if it is empty filter chain.
 	return filterChainMatchEmpty(fc.FilterChainMatch)
-}
-
-func isFallthroughFilterChain(fc *listener.FilterChain) bool {
-	if fc.Metadata != nil && fc.Metadata.FilterMetadata != nil &&
-		fc.Metadata.FilterMetadata[PilotMetaKey] != nil && fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] != nil {
-		return fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"].GetBoolValue()
-	}
-	return false
 }
 
 func removeListenerFilterTimeout(listeners []*listener.Listener) {
