@@ -109,6 +109,11 @@ function setup_kind_registry() {
 
 # Pushes images to local kind registry
 function kind_push_images() {
+  docker images
+  docker rmi ${HUB}/proxyv2:${TAG}
+  docker pull istio/proxyv2:1.6.5
+  docker tag istio/proxyv2:1.6.5 ${HUB}/proxyv2:${TAG}
+  docker images
   docker images "${HUB}/*:${TAG}*" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
 }
 
