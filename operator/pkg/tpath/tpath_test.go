@@ -61,26 +61,6 @@ a:
 `,
 		},
 		{
-			desc:      "AddListEntryToNewList",
-			path:      `a.b.[name:n1].list[0]`,
-			value:     `foo`,
-			wantFound: true,
-			want: `
-a:
-  b:
-  - name: n1
-    value: v1
-    list:
-    - foo
-  - name: n2
-    list:
-    - v1
-    - v2
-    - v3_regex
-    - foo
-`,
-		},
-		{
 			desc:      "ModifyListEntryValue",
 			path:      `a.b.[name:n1].value`,
 			value:     `v2`,
@@ -182,82 +162,6 @@ a:
     - v2
     - v-the-third
     name: n2
-`,
-		},
-		{
-			desc:    "ExtendNthLeafListEntry",
-			path:    `a.b.[1].list.[3]`,
-			value:   `v4`,
-			wantErr: `index 3 exceeds list length 3 at path [3]`,
-			want: `
-a:
-  b:
-  - name: n1
-    value: v1
-  - list:
-    - v1
-    - v2
-    - v3_regex
-    - v4
-    name: n2
-`,
-		},
-		{
-			desc:    "ExtendMoreThanOneLeafListEntry",
-			path:    `a.b.[1].list.[5]`,
-			value:   `v4`,
-			wantErr: `index 5 exceeds list length 3 at path [5]`,
-			want: `
-a:
-  b:
-  - name: n1
-    value: v1
-  - list:
-    - v1
-    - v2
-    - v3_regex
-    - null
-    - null
-    - v4
-    name: n2
-`,
-		},
-		{
-			desc:    "ExtendNthListEntry",
-			path:    `a.b.[2].name`,
-			value:   `n3`,
-			wantErr: `index 2 exceeds list length 2 at path [2].name`,
-			want: `
-a:
-  b:
-  - name: n1
-    value: v1
-  - list:
-    - v1
-    - v2
-    - v3_regex
-    name: n2
-  - name: n3
-`,
-		},
-		{
-			desc:    "ExtendMoreThanOneListEntry",
-			path:    `a.b.[4].name`,
-			value:   `n3`,
-			wantErr: `index 4 exceeds list length 2 at path [4].name`,
-			want: `
-a:
-  b:
-  - name: n1
-    value: v1
-  - list:
-    - v1
-    - v2
-    - v3_regex
-    name: n2
-  - null
-  - null
-  - name: n3
 `,
 		},
 		{
@@ -441,6 +345,9 @@ a: {}
 				t.Fatalf("GetPathContext(%s): gotFound:%v, wantFound:%v", tt.desc, gotFound, tt.wantFound)
 			}
 			if tt.wantErr != "" || !tt.wantFound {
+				if tt.want != "" {
+					t.Error("tt.want is set but never checked")
+				}
 				return
 			}
 
@@ -585,6 +492,87 @@ components:
 components:
   ingressGateways:
     - enabled: "false"
+`,
+		},
+		{
+			desc: "no initial list for entry",
+			baseYAML: `
+a: {}
+`,
+			path:  "a.list.[0]",
+			value: "v1",
+			want: `
+a:
+  list:
+    - v1		
+`,
+		},
+		{
+			desc: "ExtendNthLeafListEntry",
+			baseYAML: `
+a:
+  list:
+    - v1
+`,
+			path:  `a.list.[1]`,
+			value: `v2`,
+			want: `
+a:
+  list: 
+  - v1
+  - v2
+`,
+		},
+		{
+			desc: "ExtendMoreThanOneLeafListEntry",
+			baseYAML: `
+a:
+  list:
+    - v1
+`,
+			path:  `a.list.[3]`,
+			value: `v2`,
+			want: `
+a:
+  list:
+  - v1
+  - null
+  - null 
+  - v2
+`,
+		},
+		{
+			desc: "ExtendNthListEntry",
+			baseYAML: `
+a:
+  list:
+  - name: foo
+`,
+			path:  `a.list.[1].name`,
+			value: `bar`,
+			want: `
+a:
+  list:
+  - name: foo
+  - name: bar
+`,
+		},
+		{
+			desc: "ExtendMoreThanOneLeafListEntry",
+			baseYAML: `
+a:
+  list:
+  - name: foo
+`,
+			path:  `a.list.[3].name`,
+			value: `bar`,
+			want: `
+a:
+  list:
+  - name: foo
+  - null
+  - null
+  - name: bar
 `,
 		},
 	}
