@@ -196,10 +196,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Deploy the Istio control plane(s)
-	errG := multierror.Group{}
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
 			cluster := cluster
+			errG := multierror.Group{}
 			errG.Go(func() error {
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
@@ -211,11 +211,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 					return patchIstiodCustomHost(cfg, cluster)
 				})
 			}
+			if errs := errG.Wait(); errs != nil {
+				return nil, fmt.Errorf("%d errors occurred deploying control plane clusters: %v", errs.Len(), errs.ErrorOrNil())
+			}
 		}
-	}
-
-	if errs := errG.Wait(); errs != nil {
-		return nil, fmt.Errorf("%d errors occurred deploying control plane clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
 	// Wait for all of the control planes to be started before deploying remote clusters
@@ -228,20 +227,13 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	}
 
 	// Deploy Istio to remote clusters
-	errG = multierror.Group{}
 	for _, cluster := range env.KubeClusters {
 		if !env.IsControlPlaneCluster(cluster) {
 			cluster := cluster
-			errG.Go(func() error {
-				if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
-					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
-				}
-				return nil
-			})
+			if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
+				return nil, fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
+			}
 		}
-	}
-	if errs := errG.Wait(); errs != nil {
-		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
 	if env.IsMulticluster() && !isCentralIstio(env, cfg) {
