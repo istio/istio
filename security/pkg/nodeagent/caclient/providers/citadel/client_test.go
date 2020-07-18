@@ -25,24 +25,20 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/mixer"
-	"istio.io/istio/tests/integration/telemetry/tracing"
 
 	pb "istio.io/istio/security/proto"
 )
 
 const (
 	mockServerAddress = "localhost:0"
-	retryTimes = 3
 )
 
-
-
 var (
-	fakeCert   = []string{"foo", "bar"}
-	fakeToken  = "Bearer fakeToken"
-	validToken = "Bearer validToken"
+	fakeCert          = []string{"foo", "bar"}
+	fakeToken         = "Bearer fakeToken"
+	validToken        = "Bearer validToken"
 	authorizationMeta = "authorization"
 )
 
@@ -155,6 +151,8 @@ func extractBearerToken(ctx context.Context) (string, error) {
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
 }
 
+// this test is to test whether the server side receive the correct token when
+// we build the CSR sign request
 func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 	testCases := map[string]struct {
 		server       mockTokenCAServer
@@ -184,7 +182,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 
 	for id, tc := range testCases {
 		t.Run(id, func(t *testing.T) {
-			 retry.UntilSuccessOrFail(t, func() error{
+			retry.UntilSuccessOrFail(t, func() error {
 				s := grpc.NewServer()
 				defer s.Stop()
 				lis, err := net.Listen("tcp", mockServerAddress)
@@ -218,7 +216,7 @@ func TestCitadelClientWithDifferentTypeToken(t *testing.T) {
 					}
 				}
 				return nil
-			}, retry.Timeout(20* time.Second), retry.Delay(2 * time.Second))
+			}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second))
 		})
 	}
 }
