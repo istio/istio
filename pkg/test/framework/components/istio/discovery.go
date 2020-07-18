@@ -81,7 +81,7 @@ func (i *operatorComponent) initDiscovery() error {
 			return err
 		}
 		if inst := i.discovery[cp.Index()]; inst == nil {
-			i.discovery[cp.Index()], err = newDiscovery(i.ctx, cp)
+			i.discovery[cp.Index()], err = i.newDiscovery(cp)
 			if err != nil {
 				return fmt.Errorf("error creating discovery instance for cluster %d: %v", cp.Index(), err)
 			}
@@ -110,17 +110,12 @@ var (
 	_ Discovery = &discoveryImpl{}
 )
 
-func newDiscovery(ctx resource.Context, cluster resource.Cluster) (Discovery, error) {
+func (i *operatorComponent) newDiscovery(cluster resource.Cluster) (Discovery, error) {
 	c := &discoveryImpl{
-		cluster: ctx.Clusters().GetOrDefault(cluster),
+		cluster: i.ctx.Clusters().GetOrDefault(cluster),
 	}
 
-	// TODO: This should be obtained from an Istio deployment.
-	icfg, err := DefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ns := icfg.ConfigNamespace
+	ns := i.settings.SystemNamespace
 
 	fetchFn := kube.NewSinglePodFetch(c.cluster, ns, "istio=discovery")
 	pods, err := kube.WaitUntilPodsAreReady(fetchFn)
