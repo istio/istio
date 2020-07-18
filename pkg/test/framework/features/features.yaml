@@ -44,7 +44,15 @@ features:
       loadbalancing:
   usability:
     observability:
+      describe:
+      version:
+      wait:
       status:
+      proxy-status:
+      authz-check:
+    helpers:
+      add-to-mesh:
+      remove-from-mesh:
   # features that allow users to secure their services and service mesh.
   security:
     peer:
