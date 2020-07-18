@@ -53,7 +53,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 `,
 		Aliases: []string{"ps"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 0) != (configDumpFile == "") {
+			if (len(args) == 0) && (configDumpFile != "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--file can only be used when pod-name is specified")
 			}
