@@ -55,8 +55,10 @@ features:
       tls:
     egress:
       mtls:
+        sds:
       tls:
         filebased:
+        sds:
     control-plane:
       k8s-certs:
       plugin-cert:
