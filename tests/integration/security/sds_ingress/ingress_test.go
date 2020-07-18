@@ -57,7 +57,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 			)
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA, false)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName})
 
 			ns := ingressutil.SetupTest(ctx)
 			ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
@@ -126,8 +126,8 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, credCaName, ingress.Mtls, ingressutil.IngressCredentialCaCertA, false)
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls,
 				ingressutil.IngressCredentialServerKeyCertA, false)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credCaName)
+			defer ingressutil.DeleteKubeSecret(t, ctx, credName)
+			defer ingressutil.DeleteKubeSecret(t, ctx, credCaName)
 
 			ingA := ingress.NewOrFail(t, ctx, ingress.Config{Istio: inst})
 			tlsContext := ingressutil.TLSContext{
@@ -181,7 +181,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA, false)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
+			defer ingressutil.DeleteKubeSecret(t, ctx, credName)
 
 			ns := ingressutil.SetupTest(ctx)
 			ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
@@ -243,7 +243,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 
 			// Add kubernetes secret to provision key/cert for ingress gateway.
 			ingressutil.CreateIngressKubeSecret(t, ctx, credName, ingress.Mtls, ingressutil.IngressCredentialA, true)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, credName)
+			defer ingressutil.DeleteKubeSecret(t, ctx, credName)
 
 			ns := ingressutil.SetupTest(ctx)
 			ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
@@ -438,7 +438,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				ctx.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					ingressutil.CreateIngressKubeSecret(ctx, ctx, []string{c.secretName}, ingress.TLS,
 						c.ingressGatewayCredential, false)
-					defer ingressutil.DeleteIngressKubeSecret(ctx, ctx, []string{c.secretName})
+					defer ingressutil.DeleteKubeSecret(ctx, ctx, []string{c.secretName})
 					ing := ingress.NewOrFail(ctx, ctx, c.ingressConfig)
 
 					ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
@@ -550,7 +550,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
 					ingressutil.CreateIngressKubeSecret(t, ctx, []string{c.secretName}, ingress.Mtls,
 						c.ingressGatewayCredential, false)
-					defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{c.secretName})
+					defer ingressutil.DeleteKubeSecret(t, ctx, []string{c.secretName})
 
 					ingressutil.SetupConfig(t, ctx, ns, ingressutil.TestConfig{
 						Mode:           "MUTUAL",

@@ -2113,6 +2113,10 @@ func (p *fakePlugin) OnOutboundListener(in *plugin.InputParams, mutable *istione
 	return nil
 }
 
+func (p *fakePlugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
+	return nil
+}
+
 func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
 	return nil
 }
@@ -2339,7 +2343,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	return env
 }
 
-func TestAppendListenerFallthroughRoute(t *testing.T) {
+func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 	push := &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{},
 	}
@@ -2385,20 +2389,18 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			hostname: util.PassthroughCluster,
 		},
 	}
+	configgen := NewConfigGenerator([]plugin.Plugin{})
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
-			appendListenerFallthroughRoute(tests[idx].listener, tests[idx].listenerOpts,
-				tests[idx].node, nil)
-			if len(tests[idx].listenerOpts.filterChainOpts) != 1 {
-				t.Errorf("Expected exactly 1 filter chain options")
+			configgen.appendListenerFallthroughRouteForCompleteListener(tests[idx].listener,
+				tests[idx].node, push)
+			if len(tests[idx].listener.FilterChains) != 1 {
+				t.Errorf("Expected exactly 1 filter chain")
 			}
-			if !tests[idx].listenerOpts.filterChainOpts[0].isFallThrough {
-				t.Errorf("Expected fall through to be set")
-			}
-			if len(tests[idx].listenerOpts.filterChainOpts[0].networkFilters) != 1 {
+			if len(tests[idx].listener.FilterChains[0].Filters) != 1 {
 				t.Errorf("Expected exactly 1 network filter in the chain")
 			}
-			filter := tests[idx].listenerOpts.filterChainOpts[0].networkFilters[0]
+			filter := tests[idx].listener.FilterChains[0].Filters[0]
 			var tcpProxy tcp.TcpProxy
 			cfg := filter.GetTypedConfig()
 			_ = ptypes.UnmarshalAny(cfg, &tcpProxy)
@@ -2501,12 +2503,11 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		},
 	}
 
-	insertFallthroughMetadata(listenerMap["0.0.0.0_443"].listener.FilterChains[2])
-
 	incomingFilterChains := []*listener.FilterChain{
 		{
-			FilterChainMatch: &listener.FilterChainMatch{},
-			// This is not a valid config, just for test
+			FilterChainMatch: &listener.FilterChainMatch{
+				ServerNames: []string{"bar.com"},
+			}, // This is not a valid config, just for test
 			Filters: []*listener.Filter{tcpProxyFilter2},
 		},
 	}
@@ -2525,14 +2526,14 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap)
 
-	if len(out) != 3 {
+	if len(out) != 4 {
 		t.Errorf("Got %d filter chains, expected 3", len(out))
 	}
 	if !isMatchAllFilterChain(out[2]) {
 		t.Errorf("The last filter chain  %#v is not wildcard matching", out[2])
 	}
 
-	if !reflect.DeepEqual(out[2].Filters, incomingFilterChains[0].Filters) {
+	if !reflect.DeepEqual(out[3].Filters, incomingFilterChains[0].Filters) {
 		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
 	}
 }
