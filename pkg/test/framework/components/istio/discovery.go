@@ -103,7 +103,7 @@ func NewDiscoveryRequest(nodeID string, typeURL string) *envoyservicediscoveryv3
 
 const (
 	discoveryService = "istiod"
-	grpcPortName = "grpc-xds"
+	grpcPortName     = "grpc-xds"
 )
 
 var (
