@@ -97,9 +97,6 @@ spec:
 {{- range $name, $value := $subset.Annotations }}
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
-{{- if $.IncludeInboundPorts }}
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
-{{- end }}
     spec:
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
@@ -370,23 +367,22 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 		namespace = cfg.Namespace.Name()
 	}
 	params := map[string]interface{}{
-		"Hub":                 settings.Hub,
-		"Tag":                 settings.Tag,
-		"PullPolicy":          settings.PullPolicy,
-		"Service":             cfg.Service,
-		"Version":             cfg.Version,
-		"Headless":            cfg.Headless,
-		"Locality":            cfg.Locality,
-		"ServiceAccount":      cfg.ServiceAccount,
-		"Ports":               cfg.Ports,
-		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
-		"ContainerPorts":      getContainerPorts(cfg.Ports),
-		"ServiceAnnotations":  cfg.ServiceAnnotations,
-		"IncludeInboundPorts": cfg.IncludeInboundPorts,
-		"Subsets":             cfg.Subsets,
-		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.Cluster.Name(),
-		"Namespace":           namespace,
+		"Hub":                settings.Hub,
+		"Tag":                settings.Tag,
+		"PullPolicy":         settings.PullPolicy,
+		"Service":            cfg.Service,
+		"Version":            cfg.Version,
+		"Headless":           cfg.Headless,
+		"Locality":           cfg.Locality,
+		"ServiceAccount":     cfg.ServiceAccount,
+		"Ports":              cfg.Ports,
+		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
+		"ContainerPorts":     getContainerPorts(cfg.Ports),
+		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"Subsets":            cfg.Subsets,
+		"TLSSettings":        cfg.TLSSettings,
+		"Cluster":            cfg.Cluster.Name(),
+		"Namespace":          namespace,
 		"VM": map[string]interface{}{
 			"Image":      vmImage,
 			"IstiodIP":   istiodIP,

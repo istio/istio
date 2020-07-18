@@ -96,11 +96,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	b, err := echoboot.NewBuilder(ctx)
-	if err != nil {
-		return
-	}
-	err = b.
+	err = echoboot.NewBuilder(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appNsInst,

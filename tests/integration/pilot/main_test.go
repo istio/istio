@@ -15,10 +15,12 @@
 package pilot
 
 import (
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 
 	"istio.io/istio/pkg/test/framework"
@@ -30,6 +32,9 @@ import (
 var (
 	i istio.Instance
 	p pilot.Instance
+
+	echoNamespace namespace.Instance
+	a, b, naked   echo.Instance
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -48,6 +53,55 @@ values:
 		})).
 		Setup(func(ctx resource.Context) (err error) {
 			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
+				return err
+			}
+			return nil
+		}).
+		Setup(func(ctx resource.Context) error {
+			var err error
+			//echoNamespace, err = namespace.New(ctx, namespace.Config{
+			//	Prefix: "echo",
+			//	Inject: true,
+			//})
+			echoNamespace, err = namespace.Claim(ctx, "echo-1-86089", true)
+			if err != nil {
+				return err
+			}
+			ports := []echo.Port{
+				{Name: "http", Protocol: protocol.HTTP},
+				{Name: "grpc", Protocol: protocol.GRPC},
+				{Name: "tcp", Protocol: protocol.TCP},
+				{Name: "auto-tcp", Protocol: protocol.TCP},
+				{Name: "auto-http", Protocol: protocol.HTTP},
+				{Name: "auto-grpc", Protocol: protocol.GRPC},
+			}
+			if err := echoboot.NewBuilder(ctx).
+				With(&a, echo.Config{
+					Service:   "a",
+					Namespace: echoNamespace,
+					Ports:     ports,
+					Subsets:   []echo.SubsetConfig{{}},
+				}).
+				With(&b, echo.Config{
+					Service:   "b",
+					Namespace: echoNamespace,
+					Ports:     ports,
+					Subsets:   []echo.SubsetConfig{{}},
+				}).
+				With(&naked, echo.Config{
+					Service:   "naked",
+					Namespace: echoNamespace,
+					Ports:     ports,
+					Subsets: []echo.SubsetConfig{
+						{
+							Annotations: map[echo.Annotation]*echo.AnnotationValue{
+								echo.SidecarInject: {
+									Value: strconv.FormatBool(false)},
+							},
+						},
+					},
+				}).
+				Build(); err != nil {
 				return err
 			}
 			return nil
