@@ -259,7 +259,7 @@ root-key.pem:
 
 #------------------------------------------------------------------------
 ## <namespace>/token-cert will get a certificate for namespace using the token method. This only requires namespace permissions,
-# will not access istio-system or the root CA.
+# will not access istio-system or the certifcate.
 CA_ADDR ?= istiod-xds-icq63pqnqq-uc.a.run.app:443
 
 # Get a token

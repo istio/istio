@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"istio.io/istio/pkg/adsc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
@@ -94,7 +95,7 @@ type Agent struct {
 
 	// RequireCerts is set if the agent requires certificates:
 	// - if controlPlaneAuthEnabled is set
-	// - port of discovery server is not 15010 (the plain text default).
+	// - port of discovery server is not 15010 (the plain text default) or 443 (plain TLS).
 	RequireCerts bool
 
 	// RootCert is the CA root certificate. It is loaded part of detecting the
@@ -132,6 +133,8 @@ type Agent struct {
 
 	cfg     *AgentConfig
 	secOpts *security.Options
+
+	ADSC *adsc.ADSC
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.

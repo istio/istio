@@ -58,6 +58,11 @@ type Options struct {
 	KeyFile string
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
+	//
+	// From CA_ADDR
+	// Based on port:
+	// - 443 - plain TLS
+	// - 15012 - mTLS, using the mounted cert or fallback paths
 	CAEndpoint string
 
 	// The CA provider name.

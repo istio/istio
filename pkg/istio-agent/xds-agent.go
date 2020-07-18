@@ -124,6 +124,8 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	cfg := &adsc.Config{
 		XDSSAN:          discHost,
 		ResponseHandler: sa.proxyGen,
+//		XDSRootCAFile:  sa.
+		Watch: []string{"mcp", "envoy"},
 	}
 	if sa.RequireCerts {
 		cfg.Secrets = secrets
@@ -140,11 +142,8 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	ads.Store = sa.xdsServer.MemoryConfigStore
 	ads.Registry = sa.xdsServer.DiscoveryServer.MemRegistry
 
-	// Send requests for MCP configs, for caching/debugging.
-	ads.WatchConfig()
-
-	// Send requests for normal envoy configs
-	ads.Watch()
+	ads.Start()
+	sa.ADSC = ads
 
 	sa.proxyGen.AddClient(ads)
 

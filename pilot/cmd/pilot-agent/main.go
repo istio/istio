@@ -90,7 +90,7 @@ var (
 
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "Pod namespace")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
@@ -294,7 +294,6 @@ var (
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
 			log.Infof("PilotSAN %#v", pilotSAN)
-			log.Infof("MixerSAN %#v", mixerSAN)
 
 			// Start in process SDS.
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())

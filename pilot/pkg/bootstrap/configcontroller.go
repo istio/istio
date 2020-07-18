@@ -222,10 +222,17 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			xdsMCP, err := adsc.New(&meshconfig.ProxyConfig{
 				DiscoveryAddress: srcAddress.Host,
 			}, &adsc.Config{
+				Watch: []string {"mcp"},
 				Meta: model.NodeMetadata{
-					Generator: "api",
 				}.ToStruct(),
 			})
+			if err != nil {
+				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
+			}
+			err = xdsMCP.Run()
+			if err != nil {
+				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
+			}
 			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 			xdsMCP.Store = model.MakeIstioStore(configController)
