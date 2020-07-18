@@ -273,7 +273,9 @@ var (
 			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
-			if citadel.ProvCert != "" {
+			secOpts.ProvCert = citadel.ProvCert
+
+			if secOpts.ProvCert != "" {
 				secOpts.AlwaysValidTokenFlag = true
 			}
 
@@ -384,7 +386,7 @@ var (
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
-				ProvCert:            citadel.ProvCert,
+				ProvCert:            sa.FindRootCAForXDS(),
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)

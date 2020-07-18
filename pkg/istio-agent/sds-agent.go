@@ -189,9 +189,11 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 	}
 	// If original /etc/certs or a separate 'provisioning certs' (VM) are present,
 	// add them to the tlsContext. If server asks for them and they exist - will be provided.
+
+	// certDir holds the private key for the connection to the CA provider.
 	certDir := "./etc/certs"
-	if citadel.ProvCert != "" {
-		certDir = citadel.ProvCert
+	if sopts.ProvCert != "" {
+		certDir = sopts.ProvCert
 	}
 	if _, err := os.Stat(certDir + "/key.pem"); err == nil {
 		sa.CertsPath = certDir
@@ -291,6 +293,40 @@ func gatewaySdsExists() bool {
 	return !os.IsNotExist(err)
 }
 
+// explicit code to determine the root CA to be configured in bootstrap file.
+// It may be different from the CA for the cert server - which is based on CA_ADDR
+// Replaces logic in the template:
+//                 {{- if .provisioned_cert }}
+//                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
+//                  {{- else if eq .pilot_cert_provider "kubernetes" }}
+//                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+//                  {{- else if eq .pilot_cert_provider "istiod" }}
+//                  "filename": "./var/run/secrets/istio/root-cert.pem"
+//                  {{- end }}
+//
+// In addition it deals with the case the XDS server is on port 443, expected with a proper cert.
+// /etc/ssl/certs/ca-certificates.crt
+//
+// TODO: additional checks for existence. Fail early, instead of obscure envoy errors.
+func (sa *Agent) FindRootCAForXDS() string {
+	if strings.HasSuffix(sa.proxyConfig.DiscoveryAddress, ":443") {
+		return "/etc/ssl/certs/ca-certificates.crt"
+	} else if sa.secOpts.PilotCertProvider == "istiod" {
+		// This is the default - a mounted config map on K8S
+		return "./var/run/secrets/istio/root-cert.pem"
+	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
+		// Using K8S - this is likely incorrect, may work by accident.
+		// API is alpha.
+		return "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	} else if sa.secOpts.ProvCert != "" {
+		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
+		// and should not be involved in determining the root CA.
+		return sa.secOpts.ProvCert + "/root-cert.pem"
+	}
+	// Default to std certs.
+	return "/etc/ssl/certs/ca-certificates.crt"
+}
+
 // newWorkloadSecretCache creates the cache for workload secrets and/or gateway secrets.
 func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCache, caClient security.Client) {
 	fetcher := &secretfetcher.SecretFetcher{}
@@ -373,6 +409,8 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 			if strings.HasSuffix(sa.secOpts.CAEndpoint, ":15010") {
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
+			} else if strings.HasSuffix(sa.secOpts.CAEndpoint, ":443") {
+				tls = true
 			} else if sa.secOpts.TLSEnabled {
 				if sa.secOpts.PilotCertProvider == "istiod" {
 					log.Info("istiod uses self-issued certificate")
