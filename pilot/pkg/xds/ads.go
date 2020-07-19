@@ -418,9 +418,21 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 
 	previousInfo := con.node.Active[stype]
 
+	// If this is a case of Envoy reconnecting Istiod i.e. Istiod does not have
+	// information about this typeUrl, but Envoy sends response nonce - either
+	// because Istiod is restarted or Envoy disconnects and reconnects.
+	// We should always respond with the current resource names.
+	if previousInfo == nil {
+		adsLog.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		con.mu.Lock()
+		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.mu.Unlock()
+		return true
+	}
+
 	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
 	// A nonce becomes stale following a newer nonce being sent to Envoy.
-	if previousInfo != nil && request.ResponseNonce != previousInfo.NonceSent {
+	if request.ResponseNonce != previousInfo.NonceSent {
 		adsLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
 			con.ConID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.Increment()
@@ -430,21 +442,20 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
 	con.mu.Lock()
-	// This will be the case, if Envoy disconnects from a pilot instance and connects to another instance.
-	if previousInfo == nil {
-		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
-	}
 	previousResources := con.node.Active[stype].ResourceNames
 	con.node.Active[stype].VersionAcked = request.VersionInfo
 	con.node.Active[stype].NonceAcked = request.ResponseNonce
 	con.mu.Unlock()
 
-	// Envoy can send two DiscoveryRequests with same version and nonce when it detects
-	// a new resource. We should respond if they change.
+	// Envoy can send two DiscoveryRequests with same version and nonce
+	// when it detects a new resource. We should respond if they change.
 	if listEqualUnordered(previousResources, request.ResourceNames) {
 		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		return false
 	}
+	adsLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
+		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
+
 	return true
 }
 
@@ -453,12 +464,12 @@ func listEqualUnordered(a []string, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	clusterSet := make(map[string]struct{}, len(a))
+	first := make(map[string]struct{}, len(a))
 	for _, c := range a {
-		clusterSet[c] = struct{}{}
+		first[c] = struct{}{}
 	}
 	for _, c := range b {
-		_, f := clusterSet[c]
+		_, f := first[c]
 		if !f {
 			return false
 		}
