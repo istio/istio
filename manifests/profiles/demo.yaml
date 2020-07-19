@@ -28,8 +28,8 @@ spec:
             # Note that AWS ELB will by default perform health checks on the first port
             # on this list. Setting this to the health check port will ensure that health
             # checks always work. https://github.com/istio/istio/issues/12503
-            - port: 15020
-              targetPort: 15020
+            - port: 15021
+              targetPort: 15021
               name: status-port
             - port: 80
               targetPort: 8080
@@ -45,36 +45,9 @@ spec:
               targetPort: 15443
               name: tls
 
-    policy:
-      enabled: false
-      k8s:
-        resources:
-          requests:
-            cpu: 10m
-            memory: 100Mi
-
-    telemetry:
-      k8s:
-        resources:
-          requests:
-            cpu: 50m
-            memory: 100Mi
-
     pilot:
       k8s:
         env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: GODEBUG
-            value: gctrace=1
           - name: PILOT_TRACE_SAMPLING
             value: "100"
           - name: CONFIG_NAMESPACE
@@ -102,24 +75,6 @@ spec:
 
     pilot:
       autoscaleEnabled: false
-
-    mixer:
-      adapters:
-        useAdapterCRDs: false
-        kubernetesenv:
-          enabled: true
-        prometheus:
-          enabled: true
-          metricsExpiryDuration: 10m
-        stackdriver:
-          enabled: false
-        stdio:
-          enabled: true
-          outputAsJson: false
-      policy:
-        autoscaleEnabled: false
-      telemetry:
-        autoscaleEnabled: false
 
     gateways:
       istio-egressgateway:
