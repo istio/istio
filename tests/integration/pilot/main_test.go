@@ -68,8 +68,9 @@ values:
 			return nil
 		}).
 		Setup(func(ctx resource.Context) error {
+			var err error
 			// TODO: allow using an existing namespace to allow repeated runs with 0 setup
-			echoNamespace, err := namespace.New(ctx, namespace.Config{
+			echoNamespace, err = namespace.New(ctx, namespace.Config{
 				Prefix: "echo",
 				Inject: true,
 			})
