@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"istio.io/istio/pkg/test/scopes"
 	"net"
 	"sync"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // Discovery allows interacting with the discovery server in a cluster to check for configuration correctness.
@@ -119,7 +119,7 @@ func (i *operatorComponent) newDiscovery(cluster resource.Cluster) (Discovery, e
 	}
 
 	ns := i.settings.SystemNamespace
-	scopes.Framework.Infof("setting up discovery client for namespace %s in cluster %s", ns, cluster.Name())
+	scopes.Framework.Infof("setting up discovery client for %s/%s", cluster.Name(), ns)
 	fetchFn := kube.NewSinglePodFetch(c.cluster, ns, "istio=discovery")
 	pods, err := kube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
