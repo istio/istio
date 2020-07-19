@@ -48,6 +48,8 @@ type Discovery interface {
 // Discovery returns the service discovery client for the given cluster or the first configured
 // cluster in the environment if given nil.
 func (i *operatorComponent) Discovery(cluster resource.Cluster) (Discovery, error) {
+	cluster = i.ctx.Clusters().GetOrDefault(cluster)
+
 	// lazy init since it requires some k8s calls, port-forwarding and building grpc clients
 	if len(i.discovery) == 0 {
 		if err := i.initDiscovery(); err != nil {
@@ -112,7 +114,7 @@ var (
 
 func (i *operatorComponent) newDiscovery(cluster resource.Cluster) (Discovery, error) {
 	c := &discoveryImpl{
-		cluster: i.ctx.Clusters().GetOrDefault(cluster),
+		cluster: cluster,
 	}
 
 	ns := i.settings.SystemNamespace
