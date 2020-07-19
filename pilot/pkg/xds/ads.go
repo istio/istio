@@ -439,13 +439,21 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	con.node.Active[stype].NonceAcked = request.ResponseNonce
 	con.mu.Unlock()
 
-	// Envoy can send two DiscoveryRequests with same version and nonce when it detects
-	// a new resource. We should respond if they change.
 	// If this is a case of reconnect i.e. previousInfo is nil, we should always respond with
 	// the current resource names.
-	if previousInfo != nil && listEqualUnordered(previousResources, request.ResourceNames) {
-		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+	if previousInfo == nil {
+		adsLog.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
+		return true
+	}
+
+	// Envoy can send two DiscoveryRequests with same version and nonce when it detects
+	// a new resource. We should respond if they change.
+	if listEqualUnordered(previousResources, request.ResourceNames) {
+		adsLog.Infof("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		return false
+	} else {
+		adsLog.Infof("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
+			previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
 	}
 	return true
 }
