@@ -451,10 +451,10 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	if listEqualUnordered(previousResources, request.ResourceNames) {
 		adsLog.Debugf("ADS:%s: ACK %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		return false
-	} else {
-		adsLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
-			previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
 	}
+	adsLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s %s", stype,
+		previousResources, request.ResourceNames, con.ConID, request.VersionInfo, request.ResponseNonce)
+
 	return true
 }
 
