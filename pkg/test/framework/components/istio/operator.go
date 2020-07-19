@@ -130,6 +130,12 @@ func (i *operatorComponent) Close() (err error) {
 			}
 		}
 	}
+	for _, d := range i.discovery {
+		if e := d.(*discoveryImpl).close(); e != nil {
+			err = multierror.Append(err, e)
+		}
+	}
+
 	return
 }
 
