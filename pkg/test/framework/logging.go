@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 
 	"google.golang.org/grpc/grpclog"
+
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/pkg/log"
 )

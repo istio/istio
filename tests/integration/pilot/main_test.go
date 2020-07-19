@@ -33,8 +33,18 @@ var (
 	i istio.Instance
 	p pilot.Instance
 
+	// Namespace echo apps will be deployed
 	echoNamespace namespace.Instance
-	a, b, naked   echo.Instance
+
+	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
+	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
+	// its doing something unique to that specific test.
+	// Standard echo app to be used by tests
+	a echo.Instance
+	// Standard echo app to be used by tests
+	b echo.Instance
+	// Echo app to be used by tests, with no sidecar injected
+	naked   echo.Instance
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -58,12 +68,11 @@ values:
 			return nil
 		}).
 		Setup(func(ctx resource.Context) error {
-			var err error
-			//echoNamespace, err = namespace.New(ctx, namespace.Config{
-			//	Prefix: "echo",
-			//	Inject: true,
-			//})
-			echoNamespace, err = namespace.Claim(ctx, "echo-1-86089", true)
+			// TODO: allow using an existing namespace to allow repeated runs with 0 setup
+			echoNamespace, err := namespace.New(ctx, namespace.Config{
+				Prefix: "echo",
+				Inject: true,
+			})
 			if err != nil {
 				return err
 			}
