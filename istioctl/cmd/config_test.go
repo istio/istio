@@ -34,7 +34,7 @@ func TestConfigList(t *testing.T) {
 			expectedOutput: `FLAG                    VALUE            FROM
 cert-dir                                 default
 insecure                                 default
-istioNamespace          istio-system     default
+istioNamespace                           default
 prefer-experimental                      default
 xds-address                              default
 xds-port                15012            default
