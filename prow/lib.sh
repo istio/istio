@@ -70,8 +70,18 @@ function download_untar_istio_release() {
   tar -xzf "${dir}/istio-${tag}-linux.tar.gz" -C "${dir}"
 }
 
+function buildx-create() {
+  if ! docker buildx ls | grep -q container-builder; then
+    docker buildx create --driver-opt network=host --name container-builder
+  fi
+  docker buildx use container-builder
+}
+
 function build_images() {
   SELECT_TEST="${1}"
+
+  buildx-create
+
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
 
