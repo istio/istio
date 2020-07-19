@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Tool to get xDS configs from pilot. This tool simulate envoy sidecar gRPC call to get config,
-// so it will work even when sidecar hasn't connected (e.g in the case of pilot running on local machine))
+// This tool simulate envoy sidecar gRPC call to get config,
 //
 // Usage:
 //
@@ -34,15 +33,8 @@
 // To get LDS or CDS, use -type lds or -type cds, and provide the pod labels. For example:
 //
 // ```bash
-// go run pilot_cli.go -n testns --proxytag app=httpbin
+// go run pilot_cli.go
 // ```
-//
-// For EDS/RDS, provide comma-separated-list of corresponding clusters or routes name. For example:
-//
-// ```bash
-// go run ./pilot/tools/debug/pilot_cli.go --type eds --proxytag httpbin \
-// --res "inbound|http||sleep.default.svc.cluster.local,outbound|http||httpbin.default.svc.cluster.local"
-//
 // ```
 
 package main
@@ -66,9 +58,10 @@ import (
 )
 
 var (
-	homeVar = env.RegisterStringVar("HOME", "", "")
-
+	// Same as normal agent
 	namespace = env.RegisterStringVar("POD_NAMESPACE", "default", "Pod namespace")
+
+	// TODO: labels, PROXY_CONFIG
 
 	proxyName  = flag.String("name", "default", "Pod name")
 	pilotURL   = flag.String("xds", "localhost:15010", "xds server address.")
@@ -111,7 +104,7 @@ func main() {
 	if !ok {
 		log.Warna("Initial config failed, will keep trying ")
 	}
-	log.Warna("Received ", agentc.ADSC.Received)
+	log.Warna("Received ", len(agentc.ADSC.Received))
 	//pod := &adsc.Config{
 	//	Workload: *proxyName,
 	//	Namespace: *namespace,
