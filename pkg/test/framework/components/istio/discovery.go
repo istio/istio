@@ -120,7 +120,7 @@ func (i *operatorComponent) newDiscovery(cluster resource.Cluster) (Discovery, e
 
 	ns := i.settings.SystemNamespace
 	scopes.Framework.Infof("setting up discovery client for %s/%s", cluster.Name(), ns)
-	fetchFn := kube.NewSinglePodFetch(c.cluster, ns, "istio=discovery")
+	fetchFn := kube.NewSinglePodFetch(c.cluster, ns, "istio=pilot")
 	pods, err := kube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
