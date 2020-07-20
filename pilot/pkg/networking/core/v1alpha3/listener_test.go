@@ -49,7 +49,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
@@ -408,7 +407,6 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	svc.Resolution = model.Passthrough
 	services := []*model.Service{svc}
 
@@ -419,7 +417,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		numListenersOnServicePort int
 	}{
 		{
-			name: "gen a listener per instance",
+			name: "gen a listener per IP instance",
 			instances: []*model.ServiceInstance{
 				// This instance is the proxy itself, will not gen a outbound listener for it.
 				buildServiceInstance(services[0], "1.1.1.1"),
@@ -428,6 +426,13 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
 			numListenersOnServicePort: 3,
+		},
+		{
+			name: "no listeners for DNS instance",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(services[0], "example.com"),
+			},
+			numListenersOnServicePort: 0,
 		},
 	}
 	for _, tt := range tests {
@@ -2241,7 +2246,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 				Protocol: protocol,
 			},
 		},
-		Resolution: model.Passthrough,
+		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 		},
@@ -2261,7 +2266,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 				Protocol: protocol,
 			},
 		},
-		Resolution: model.Passthrough,
+		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 		},

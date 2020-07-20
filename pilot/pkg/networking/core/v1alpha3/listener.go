@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -55,7 +56,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1076,14 +1076,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					pluginParams.ListenerProtocol = istionetworking.ModelProtocolToListenerProtocol(servicePort.Protocol,
 						core.TrafficDirection_OUTBOUND)
 
-					// Support Kubernetes statefulsets/headless services with TCP ports only.
+					// Support statefulsets/headless services with TCP ports, and empty service address field.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
-					// wildcard route match to get to the appropriate pod through original dst clusters.
+					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
-						service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && servicePort.Protocol.IsTCP() {
+						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
 						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
+								// Make sure each endpoint address is a valid address
+								// as service entries could have NONE resolution with label selectors for workload
+								// entries (which could technically have hostnames).
+								if net.ParseIP(instance.Endpoint.Address) == nil {
+									continue
+								}
 								// Skip build outbound listener to the node itself,
 								// as when app access itself by pod ip will not flow through this listener.
 								// Simultaneously, it will be duplicate with inbound listener.
