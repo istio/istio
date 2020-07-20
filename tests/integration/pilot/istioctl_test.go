@@ -358,12 +358,12 @@ func TestProxyStatus(t *testing.T) {
 			// test the --file param
 			filename := "ps-configdump.json"
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
-			dump, err := cs.EnvoyDo(context.TODO(), podID, ns.Name(), "GET", "config_dump", nil)
+			dump, err := cs.EnvoyDo(context.TODO(), podID, echoNamespace.Name(), "GET", "config_dump", nil)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			err = ioutil.WriteFile(filename, dump, os.ModePerm)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			args = []string{
-				"proxy-status", fmt.Sprintf("%s.%s", podID, ns.Name()), "--file", filename}
+				"proxy-status", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "--file", filename}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
