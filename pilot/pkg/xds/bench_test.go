@@ -192,7 +192,7 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 		ConfigNamespace: "default",
 	}
 
-	configs := getConfigslegacy(t, config)
+	configs := getConfigsWithCache(t, config)
 	env := buildTestEnv(t, configs)
 
 	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
@@ -201,7 +201,7 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 
 var configCache = map[ConfigInput][]model.Config{}
 
-func getConfigslegacy(t testing.TB, input ConfigInput) []model.Config {
+func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
 	// Config setup is slow for large tests. Cache this and return from cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
