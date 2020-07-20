@@ -105,7 +105,6 @@ func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 //num is the index of the entry from the message's batch to create a bag from
 func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
 	// build the message-level dictionary
-	fmt.Println(msg)
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
 	if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
