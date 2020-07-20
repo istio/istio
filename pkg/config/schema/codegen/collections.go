@@ -113,6 +113,15 @@ var (
 		{{- end}}
 	{{- end }}
 		Build()
+
+	// Deprecated contains only collections used by that will soon be used by nothing.
+	Deprecated = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if .Collection.Deprecated }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end}}
+	{{- end }}
+		Build()
 )
 `
 
