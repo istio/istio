@@ -16,10 +16,10 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -34,16 +34,26 @@ var rootCmd = &cobra.Command{
 	Short: "Install and configure Istio CNI plugin on a node",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
+
 		var cfg *config.Config
-		cfg, err = constructConfig()
-		if err != nil {
+		if cfg, err = constructConfig(); err != nil {
 			return
 		}
 
-		if err = install.Run(ctx, cfg); err != nil {
+		installer := install.NewInstaller(cfg)
+
+		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				// Error was caused by interrupt/termination signal
 				err = nil
+			}
+		}
+
+		if cleanErr := installer.Cleanup(); cleanErr != nil {
+			if err != nil {
+				err = errors.Wrap(err, cleanErr.Error())
+			} else {
+				err = cleanErr
 			}
 		}
 

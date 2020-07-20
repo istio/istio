@@ -30,49 +30,110 @@ import (
 	"istio.io/pkg/log"
 )
 
-type configFiles struct {
+type Installer struct {
+	cfg                *config.Config
+	saToken            string
 	kubeconfigFilepath string
 	cniConfigFilepath  string
 }
 
-// Run starts the installation process with given configuration
-func Run(ctx context.Context, cfg *config.Config) (err error) {
-	var files configFiles
-	defer func() {
-		if cleanErr := cleanup(cfg, files); cleanErr != nil {
-			if err != nil {
-				err = errors.Wrap(err, cleanErr.Error())
-			} else {
-				err = cleanErr
-			}
-		}
-	}()
+// NewInstaller returns an instance of Installer with the given config
+func NewInstaller(cfg *config.Config) *Installer {
+	return &Installer{
+		cfg: cfg,
+	}
+}
 
+// Run starts the installation process, verifies the configuration, then sleeps.
+// If an invalid configuration is detected, the installation process will restart to restore a valid state.
+func (in *Installer) Run(ctx context.Context) (err error) {
 	for {
-		if err = copyBinaries(cfg.UpdateCNIBinaries, cfg.SkipCNIBinaries); err != nil {
+		if err = copyBinaries(in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
 			return
 		}
 
-		var saToken string
-		saToken, err = readServiceAccountToken()
-		if err != nil {
+		if in.saToken, err = readServiceAccountToken(); err != nil {
 			return
 		}
 
-		if files.kubeconfigFilepath, err = createKubeconfigFile(cfg, saToken); err != nil {
+		if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
 			return
 		}
 
-		if files.cniConfigFilepath, err = createCNIConfigFile(ctx, cfg, saToken); err != nil {
+		if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
 			return
 		}
 
-		if err = sleepCheckInstall(ctx, cfg, files.cniConfigFilepath); err != nil {
+		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath); err != nil {
 			return
 		}
 
 		log.Info("Restarting...")
 	}
+}
+
+// Cleanup remove Istio CNI's config, kubeconfig file, and binaries.
+func (in *Installer) Cleanup() error {
+	log.Info("Cleaning up.")
+	if len(in.cniConfigFilepath) > 0 && fileutil.Exist(in.cniConfigFilepath) {
+		if in.cfg.ChainedCNIPlugin {
+			log.Infof("Removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
+
+			// Read JSON from CNI config file
+			cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
+			if err != nil {
+				return err
+			}
+			// Find Istio CNI and remove from plugin list
+			plugins, err := util.GetPlugins(cniConfigMap)
+			if err != nil {
+				return errors.Wrap(err, in.cniConfigFilepath)
+			}
+			for i, rawPlugin := range plugins {
+				plugin, err := util.GetPlugin(rawPlugin)
+				if err != nil {
+					return errors.Wrap(err, in.cniConfigFilepath)
+				}
+				if plugin["type"] == "istio-cni" {
+					cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
+					break
+				}
+			}
+
+			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
+			if err != nil {
+				return err
+			}
+			if err = util.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+				return err
+			}
+		} else {
+			log.Infof("Removing Istio CNI config file: %s", in.cniConfigFilepath)
+			if err := os.Remove(in.cniConfigFilepath); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(in.kubeconfigFilepath) > 0 && fileutil.Exist(in.kubeconfigFilepath) {
+		log.Infof("Removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
+		if err := os.Remove(in.kubeconfigFilepath); err != nil {
+			return err
+		}
+	}
+
+	log.Info("Removing existing binaries")
+	if istioCNIBin := filepath.Join(constants.HostCNIBinDir, "istio-cni"); fileutil.Exist(istioCNIBin) {
+		if err := os.Remove(istioCNIBin); err != nil {
+			return err
+		}
+	}
+	if istioIptablesBin := filepath.Join(constants.HostCNIBinDir, "istio-iptables"); fileutil.Exist(istioIptablesBin) {
+		if err := os.Remove(istioIptablesBin); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func readServiceAccountToken() (string, error) {
@@ -90,7 +151,7 @@ func readServiceAccountToken() (string, error) {
 }
 
 // sleepCheckInstall blocks until an invalid configuration is detected and returns nil
-// Or returns an error if an error occurs or context is canceled
+// or returns an error if an error occurs or context is canceled.
 func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepath string) error {
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
@@ -165,69 +226,6 @@ func checkInstall(cfg *config.Config, cniConfigFilepath string) error {
 
 	if cniConfigMap["type"] != "istio-cni" {
 		return fmt.Errorf("istio-cni CNI config file modified: %s", cniConfigFilepath)
-	}
-	return nil
-}
-
-func cleanup(cfg *config.Config, files configFiles) error {
-	log.Info("Cleaning up.")
-	if len(files.cniConfigFilepath) > 0 && fileutil.Exist(files.cniConfigFilepath) {
-		if cfg.ChainedCNIPlugin {
-			log.Infof("Removing Istio CNI config from CNI config file: %s", files.cniConfigFilepath)
-
-			// Read JSON from CNI config file
-			cniConfigMap, err := util.ReadCNIConfigMap(files.cniConfigFilepath)
-			if err != nil {
-				return err
-			}
-			// Find Istio CNI and remove from plugin list
-			plugins, err := util.GetPlugins(cniConfigMap)
-			if err != nil {
-				return errors.Wrap(err, files.cniConfigFilepath)
-			}
-			for i, rawPlugin := range plugins {
-				plugin, err := util.GetPlugin(rawPlugin)
-				if err != nil {
-					return errors.Wrap(err, files.cniConfigFilepath)
-				}
-				if plugin["type"] == "istio-cni" {
-					cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
-					break
-				}
-			}
-
-			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
-			if err != nil {
-				return err
-			}
-			if err = util.AtomicWrite(files.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
-				return err
-			}
-		} else {
-			log.Infof("Removing Istio CNI config file: %s", files.cniConfigFilepath)
-			if err := os.Remove(files.cniConfigFilepath); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(files.kubeconfigFilepath) > 0 && fileutil.Exist(files.kubeconfigFilepath) {
-		log.Infof("Removing Istio CNI kubeconfig file: %s", files.kubeconfigFilepath)
-		if err := os.Remove(files.kubeconfigFilepath); err != nil {
-			return err
-		}
-	}
-
-	log.Info("Removing existing binaries")
-	if istioCNIBin := filepath.Join(constants.HostCNIBinDir, "istio-cni"); fileutil.Exist(istioCNIBin) {
-		if err := os.Remove(istioCNIBin); err != nil {
-			return err
-		}
-	}
-	if istioIptablesBin := filepath.Join(constants.HostCNIBinDir, "istio-iptables"); fileutil.Exist(istioIptablesBin) {
-		if err := os.Remove(istioIptablesBin); err != nil {
-			return err
-		}
 	}
 	return nil
 }
