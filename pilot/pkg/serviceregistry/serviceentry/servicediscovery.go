@@ -144,7 +144,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event m
 		s.deleteExistingInstances(key, instances)
 	}
 
-	s.edsUpdate(instances)
+	s.edsUpdate(instances, false)
 }
 
 // serviceEntryHandler defines the handler for service entries
@@ -231,7 +231,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 		}
 		// If only instances have changed, just update the indexes for the changed instances.
 		s.updateExistingInstances(key, instances)
-		s.edsUpdate(instances)
+		s.edsUpdate(instances, false)
 		return
 	}
 
@@ -255,7 +255,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 				}
 			}
 		}
-		s.edsUpdate(instances)
+		s.edsUpdate(instances, false)
 
 		// If service entry is deleted, cleanup endpoint shards for services.
 		for _, svc := range deletedSvcs {
@@ -334,7 +334,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 		s.deleteExistingInstances(key, instances)
 	}
 
-	s.edsUpdate(instances)
+	s.edsUpdate(instances, false)
 }
 
 func (s *ServiceEntryStore) Provider() serviceregistry.ProviderID {
@@ -438,8 +438,15 @@ type servicesWithEntry struct {
 	services []*model.Service
 }
 
+// Resync EDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
+// the config handlers.
+// This should probably not be used in production code.
+func (s *ServiceEntryStore) ResyncEDS() {
+	s.edsUpdate(nil, true)
+}
+
 // edsUpdate triggers an EDS update for the given instances
-func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
+func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, full bool) {
 	allInstances := []*model.ServiceInstance{}
 
 	// Find all keys we need to lookup
@@ -451,9 +458,17 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
 	s.maybeRefreshIndexes()
 
 	s.storeMutex.RLock()
-	for key := range keys {
-		for _, i := range s.instances[key] {
-			allInstances = append(allInstances, i...)
+	if full {
+		for _, imap := range s.instances {
+			for _, i := range imap {
+				allInstances = append(allInstances, i...)
+			}
+		}
+	} else {
+		for key := range keys {
+			for _, i := range s.instances[key] {
+				allInstances = append(allInstances, i...)
+			}
 		}
 	}
 	s.storeMutex.RUnlock()
