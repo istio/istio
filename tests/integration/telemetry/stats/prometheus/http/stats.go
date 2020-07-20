@@ -88,6 +88,10 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 
 			// Test VM if requested
 			if useVM {
+				vmLabelsJSON := "{\\\"service.istio.io/canonical-name\\\":\\\"vm\\\",\\\"service.istio.io/canonical-revision\\\":\\\"v1\\\"}"
+				vmEnv := map[string]string{
+					"ISTIO_METAJSON_LABELS": vmLabelsJSON,
+				}
 				echoboot.NewBuilderOrFail(t, ctx).
 					With(&vm, echo.Config{
 						Service:   "vm",
@@ -101,8 +105,9 @@ func TestStatsFilter(t *testing.T, feature features.Feature, useVM bool) {
 								ServicePort:  8090,
 							},
 						},
-						DeployAsVM: true,
-						VMImage:    vmUtil.DefaultVMImage,
+						DeployAsVM:    true,
+						VMImage:       vmUtil.DefaultVMImage,
+						VMEnvironment: vmEnv,
 					}).BuildOrFail(t)
 
 				retry.UntilSuccessOrFail(t, func() error {
@@ -202,8 +207,8 @@ func buildQuery(destination string) (sourceQuery, destinationQuery, appQuery str
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "200",
-		"destination_app":                destination,
-		"destination_version":            "v1",
+		"destination_canonical_service":  destination,
+		"destination_canonical_revision": "v1",
 		"destination_service":            destination + "." + ns.Name() + ".svc.cluster.local",
 		"destination_service_name":       destination,
 		"destination_workload_namespace": ns.Name(),
@@ -214,10 +219,6 @@ func buildQuery(destination string) (sourceQuery, destinationQuery, appQuery str
 		"source_workload_namespace":      ns.Name(),
 	}
 	for k, v := range labels {
-		// These two fields remain unknown so we skip them for VMs
-		if destination == "vm" && (k == "destination_app" || k == "destination_version") {
-			continue
-		}
 		sourceQuery += fmt.Sprintf(`%s=%q,`, k, v)
 		destinationQuery += fmt.Sprintf(`%s=%q,`, k, v)
 	}

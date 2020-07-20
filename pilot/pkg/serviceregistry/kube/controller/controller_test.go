@@ -1754,6 +1754,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	if ev := fx.Wait("eds"); ev == nil {
 		t.Fatal("Timeout incremental eds")
 	}
+	createPromSDConfigMap(t, controller)
 
 	// Simulate adding a workload entry (fired through invocation of WorkloadInstanceHandler)
 	controller.WorkloadInstanceHandler(&model.WorkloadInstance{
@@ -1764,6 +1765,24 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 			EndpointPort:   8080,
 		},
 	}, model.EventAdd)
+
+	// Check file sd configmap is correctly updated
+	cfg, err := controller.client.CoreV1().ConfigMaps("istio-system").Get(context.TODO(), "file-sd-config", metaV1.GetOptions{})
+	if err != nil {
+		t.Fatal("Get file-based service discovery failed")
+	}
+	staticConfig, exist := cfg.Data["2-2-2-2.yaml"]
+	expectedStaticConfig := `
+- targets:
+  - 2.2.2.2
+`
+	if !exist {
+		t.Fatal("File-based service discovery config map not correctly updated")
+	}
+	if staticConfig != expectedStaticConfig {
+		t.Fatalf("File-based service discovery config map updated with wrong format. Got %v, expected %v",
+			staticConfig, expectedStaticConfig)
+	}
 
 	expectedEndpointIPs := []string{"172.0.1.1", "2.2.2.2"}
 	// Check if an EDS event is fired
@@ -1822,5 +1841,18 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 			t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
 				gotEndpointIPs, expectedEndpointIPs)
 		}
+	}
+}
+
+func createPromSDConfigMap(t *testing.T, controller *Controller) {
+	cfg := &coreV1.ConfigMap{
+		ObjectMeta: metaV1.ObjectMeta{
+			Name: "file-sd-config",
+		},
+		Data: make(map[string]string),
+	}
+	if _, err := controller.client.CoreV1().ConfigMaps("istio-system").Create(context.TODO(), cfg,
+		metaV1.CreateOptions{}); err != nil {
+		t.Fatalf("Cannot create configmap in namespace \"istio-system\" (error: %v)", err)
 	}
 }

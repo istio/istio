@@ -15,12 +15,14 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -877,6 +879,40 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	default: // add or update
 		c.workdloadInstancesByIP[si.Endpoint.Address] = si
 	}
+
+	// Update the config map for workload's service discovery as well.
+	// External workloads have no endpoint registered in k8s, so the traffic sent to these non-k8s workloads
+	// won't be picked up by Prometheus. We update the workload entries' endpoints to a config map so that
+	// Prometheus could mount the map and read the endpoints.
+	wleName := createNameFromAddr(si.Endpoint.Address)
+	fileSDConfig, err := c.client.CoreV1().ConfigMaps("istio-system").
+		Get(context.TODO(), "file-sd-config", metav1.GetOptions{})
+	if err != nil {
+		log.Debugf("Failed to get config map for workload %v: %v",
+			si.Endpoint, err)
+	} else {
+		switch event {
+		case model.EventDelete:
+			if fileSDConfig.Data != nil {
+				delete(fileSDConfig.Data, fmt.Sprintf("%s.yaml", wleName))
+			}
+		default: // add or update
+			if fileSDConfig.Data == nil {
+				fileSDConfig.Data = make(map[string]string)
+			}
+			staticConfig := `
+- targets:
+  - %s
+`
+			fileSDConfig.Data[fmt.Sprintf("%s.yaml", wleName)] = fmt.Sprintf(staticConfig, si.Endpoint.Address)
+		}
+		// Write the update config map back to cluster
+		if _, err := c.client.CoreV1().ConfigMaps("istio-system").Update(context.TODO(), fileSDConfig,
+			metav1.UpdateOptions{}); err != nil {
+			log.Debugf("Failed to update config map for workload %v: %v",
+				si.Endpoint, err)
+		}
+	}
 	c.Unlock()
 
 	// find the workload entry's service by label selector
@@ -1239,4 +1275,8 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 
 func createUID(podName, namespace string) string {
 	return "kubernetes://" + podName + "." + namespace
+}
+
+func createNameFromAddr(ip string) string {
+	return strings.ReplaceAll(ip, ".", "-")
 }
