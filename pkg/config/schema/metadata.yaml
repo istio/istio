@@ -54,11 +54,13 @@ collections:
     kind: "QuotaSpec"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/mixer/v1/config/client/quotaspecbindings"
     kind: "QuotaSpecBinding"
     group: "config.istio.io"
     pilot: true
+    deprecated: true
 
   - name: "istio/networking/v1alpha3/destinationrules"
     kind: "DestinationRule"
