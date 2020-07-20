@@ -66,6 +66,8 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			serverArgs.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
 			serverArgs.Config.DistributionCacheRetention = features.DistributionHistoryRetention
+			serverArgs.Config.ControllerOptions.KubernetesAPIQPS = float32(features.KubernetesAPIQPS.Get())
+			serverArgs.Config.ControllerOptions.KubernetesAPIBurst = features.KubernetesAPIBurst.Get()
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
