@@ -15,11 +15,16 @@
 package pilot
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"github.com/onsi/gomega"
 
@@ -74,7 +79,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 )
 
 func TestWait(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.wait").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "default",
@@ -103,7 +108,7 @@ spec:
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewTest(t).Features("usability.observability.version").
 		Run(func(ctx framework.TestContext) {
 			cfg := i.Settings()
 
@@ -143,7 +148,7 @@ func TestVersion(t *testing.T) {
 }
 
 func TestDescribe(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.describe").
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-describe",
@@ -203,7 +208,7 @@ func getPodID(i echo.Instance) (string, error) {
 }
 
 func TestAddToAndRemoveFromMesh(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.helpers.add-to-mesh", "usability.helpers.remove-from-mesh").
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -241,7 +246,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 }
 
 func TestProxyConfig(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.proxy-config").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-pc",
@@ -314,7 +319,7 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 }
 
 func TestProxyStatus(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.proxy-status").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-ps",
@@ -349,11 +354,25 @@ func TestProxyStatus(t *testing.T) {
 			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
+
+			// test the --file param
+			filename := "ps-configdump.json"
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			dump, err := cs.EnvoyDo(context.TODO(), podID, ns.Name(), "GET", "config_dump", nil)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			err = ioutil.WriteFile(filename, dump, os.ModePerm)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			args = []string{
+				"proxy-status", fmt.Sprintf("%s.%s", podID, ns.Name()), "--file", filename}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
 		})
 }
 
 func TestAuthZCheck(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.authz-check").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 				Prefix: "istioctl-authz",
