@@ -119,7 +119,6 @@ global:
   # * implies these objects are visible to all namespaces, enabling any sidecar to talk to any other sidecar.
   # . implies these objects are visible to only to sidecars in the same namespace, or if imported as a Sidecar.egress.host
   defaultConfigVisibilitySettings: []
-#  - '*'
 
   # Default node selector to be applied to all deployments so that all pods can be
   # constrained to run a particular nodes. Each component can overwrite these default
@@ -172,7 +171,6 @@ global:
   # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
   # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
-  # - private-registry-key
 
   # To output all istio components logs in json format by adding --log_as_json argument to each container argument
   logAsJson: false
@@ -220,10 +218,8 @@ global:
   controlPlaneSecurityEnabled: true
 
   # Used to locate istio-pilot.
-  # Default is to install pilot in a dedicated namespace, istio-pilot11. You can use multiple namespaces, but
+  # Default is to install pilot in a dedicated namespace. You can use multiple namespaces, but
   # for each 'profile' you need to match the control plane namespace and the value of istioNamespace
-  # It is assumed that istio-system is running either 1.0 or an upgraded version of 1.1, but only security components are
-  # used (citadel generating the secrets).
   istioNamespace: istio-system
 
   # Configure the policy for validating JWT.
