@@ -16,12 +16,12 @@ package main
 
 import (
 	"context"
-	"istio.io/pkg/log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"istio.io/istio/cni/pkg/install-cni/cmd"
+	"istio.io/pkg/log"
 )
 
 func main() {
