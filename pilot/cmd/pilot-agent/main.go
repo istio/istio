@@ -254,6 +254,7 @@ var (
 				FileMountedCerts:   fileMountedCertsEnv,
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,
+				Platform:           platform,
 			}
 			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
