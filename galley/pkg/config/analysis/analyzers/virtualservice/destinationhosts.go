@@ -83,7 +83,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.destination.GetHost(), serviceEntryHosts)
 		if s == nil {
 
-			line := util.ErrorLineForHostInHttpMirror(d.GetServiceIndex(), r)
+			line := util.ErrorLineForHostInHTTPMirror(d.GetServiceIndex(), r)
 			m := msg.NewReferencedResourceNotFound(r, "mirror host", d.destination.GetHost())
 			m.SetLine(line)
 
@@ -104,8 +104,8 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Desti
 			}
 			var line int
 			if d.routeRule == "" {
-				line = util.ErrorLineForHostInHttpMirror(d.GetServiceIndex(), r)
-			}else {
+				line = util.ErrorLineForHostInHTTPMirror(d.GetServiceIndex(), r)
+			} else {
 				line = util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
 			}
 			m := msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.destination.GetHost(), portNumbers)
@@ -130,8 +130,8 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Desti
 
 		var line int
 		if d.routeRule == "" {
-			line = util.ErrorLineForHostInHttpMirror(d.GetServiceIndex(), r)
-		}else {
+			line = util.ErrorLineForHostInHTTPMirror(d.GetServiceIndex(), r)
+		} else {
 			line = util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
 		}
 

@@ -22,8 +22,8 @@ var _ resource.Origin = &testOrigin{}
 var _ resource.Reference = &testReference{}
 
 type testOrigin struct {
-	name string
-	ref  resource.Reference
+	name     string
+	ref      resource.Reference
 	fieldMap map[string]int
 }
 

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 
+	yamlv3 "gopkg.in/yaml.v3"
+
 	"github.com/hashicorp/go-multierror"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -207,7 +209,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 
 	for {
 		chunkCount++
-		doc, lineDoc, lineNum, err := decoder.Read()
+		doc, lineNum, err := decoder.Read()
 		if err == io.EOF {
 			break
 		}
@@ -220,8 +222,7 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
-		lineChunk := bytes.TrimSpace(lineDoc)
-		r, err := s.parseChunk(r, name, lineNum, chunk, lineChunk)
+		r, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
 			if errors.As(err, &uerr) {
@@ -252,17 +253,11 @@ func (e unknownSchemaError) Error() string {
 	return fmt.Sprintf("failed finding schema for group/version/kind: %s/%s/%s", e.group, e.version, e.kind)
 }
 
-func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte, yamlChunkWithLineNumber []byte) (kubeResource, error) {
+func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int, yamlChunk []byte) (kubeResource, error) {
 	// Convert to JSON
 	jsonChunk, err := yaml.ToJSON(yamlChunk)
 	if err != nil {
 		return kubeResource{}, fmt.Errorf("failed converting YAML to JSON: %v", err)
-	}
-
-	// Convert YAML with line numbers as values to a JSON object
-	jsonChunkWithLineNumber, err := yaml.ToJSON(yamlChunkWithLineNumber)
-	if err != nil {
-		jsonChunkWithLineNumber = nil
 	}
 
 	// Peek at the beginning of the JSON to
@@ -310,9 +305,17 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}
 
 	// Build flat map for analyzers if the line JSON object exists, if the YAML text is ill-formed, this will be nil
-	var fieldMap map[string]int
-	if jsonChunkWithLineNumber != nil {
-		fieldMap = BuildFieldMap(jsonChunk, jsonChunkWithLineNumber)
+	fieldMap := make(map[string]int)
+
+	// yamlv3.Node contains information like line number of the node, which will be used with its name to construct the field map
+	yamlChunkNode := yamlv3.Node{}
+	err = yamlv3.Unmarshal(yamlChunk, &yamlChunkNode)
+	if err == nil && len(yamlChunkNode.Content) == 1 {
+
+		// Get the Node that contains all the YAML chunk information
+		yamlNode := yamlChunkNode.Content[0]
+
+		BuildFieldPathMap(yamlNode, lineNum, "", fieldMap)
 	}
 
 	pos := rt.Position{Filename: name, Line: lineNum}
@@ -323,121 +326,47 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	}, nil
 }
 
-// BuildFieldMap builds every field along its JSONPath as key and its line number as value
-func BuildFieldMap(yamlJson []byte, yamlJsonWithLineNumber []byte) map[string]int {
-
-	// fieldMap contains paths of each fields of the resource as the key, and its corresponding line number as the value
-	fieldMap := make(map[string]int)
-
-	// Unmarshal two JSON objects to obtain keys to build the map
-	yamlData := kubeyaml.JsonUnmarshal(yamlJson)
-	yamlDataWithLineNumber := kubeyaml.JsonUnmarshal(yamlJsonWithLineNumber)
-
-	DfsBuildMap(yamlData, yamlDataWithLineNumber, fieldMap, "")
-
-	return fieldMap
-}
-
-// DfsBuildMap builds the field map with a dfs method to each key in the JSON object
-func DfsBuildMap(yamlObj interface{}, yamlObjWithLineNumber interface{}, fieldMap map[string]int, curPath string) {
-	var yamlData interface{}
-	var lineData interface{}
-	yamlData = yamlObj
-	lineData = yamlObjWithLineNumber
-
-	// Check interface type, and go to the next step
-	switch yamlData.(type) {
-	case float64:
-		key := curPath
-		fieldMap["{" + key + "}"] = int(lineData.(float64))
-
-	case string:
-		key := curPath
-		fieldMap["{" + key + "}"] = int(lineData.(float64))
-
-	case []interface {}:
-		var lineArray []interface{}
-		yamlArray := yamlData.([]interface{})
-
-		// Handle edge case for values like "[a,b,c,d,e]" in the command field
-		// lineData only has two types: float64 and []interface {}
-		if FindFloatInterface(lineData) == "float64" {
-			res := FillLineNumberToStruct(yamlArray, lineData.(float64))
-			if res == nil {
-				res = make([]interface{}, 0)
-			}
-			lineArray = res.([]interface{})
-		}else {
-			lineArray = lineData.([]interface{})
-		}
-
-		// Append corresponding index to the field in the array
-		for i := range yamlArray {
-			DfsBuildMap(yamlArray[i], lineArray[i], fieldMap, curPath + "[" + fmt.Sprintf("%d", i) + "]")
-		}
-
-	case map[string]interface {}:
-		yamlMap := yamlData.(map[string]interface{})
-
-		// Handle edge case for values that has maps in only one line
-		var lineMap map[string]interface{}
-		if FindFloatInterface(lineData) == "float64" {
-
-			res := FillLineNumberToStruct(yamlMap, lineData.(float64))
-			if res == nil {
-				res = make(map[string]interface{})
-			}
-			lineMap = res.(map[string]interface{})
-		}else {
-			lineMap = lineData.(map[string]interface{})
-		}
-
-		// perform map builder to the map's child
-		for k := range yamlMap {
-			DfsBuildMap(yamlMap[k], lineMap[k], fieldMap, curPath + "." + k)
-		}
-
-	default:
+// BuildFieldPathMap builds the flat map for each field of the YAML resource
+func BuildFieldPathMap(yamlElementNode *yamlv3.Node, startLineNum int, curPath string, fieldPathMap map[string]int) {
+	// If no content in the node, terminate the DFS search
+	if len(yamlElementNode.Content) == 0 {
 		return
 	}
-}
 
-// FindFloatInterface returns "float64" if the interface is float64 type else returns ""
-func FindFloatInterface(p interface{}) string {
-	res := ""
-	switch p.(type) {
-	case float64:
-		res = "float64"
-	}
-	return res
-}
+	i := 0
+	NodeContent := yamlElementNode.Content
+	// Iterate content by a step of 2, because in the content array the value is in the key's next index position
+	for i < len(NodeContent)-1 {
+		// Two condition, i + 1 positions have no content, which means they have the format like "key: value", then build the map
+		// Or i + 1 has contents, which means "key:\n  value...", then perform one more DFS search
+		keyNode := NodeContent[i]
+		valueNode := NodeContent[i+1]
+		pathKeyForMap := curPath + "." + keyNode.Value
+		if len(valueNode.Content) == 0 {
+			// minus one because startLineNum starts at line 1, and yamlv3.Node.line also starts at line 1
+			fieldPathMap["{"+pathKeyForMap+"}"] = valueNode.Line + startLineNum - 1
+		} else {
+			// Next iteration for child node
+			if valueNode.Tag == "!!seq" {
+				j := 0
+				for j < len(valueNode.Content) {
+					pathWithIndex := pathKeyForMap + "[" + fmt.Sprintf("%d", j) + "]"
 
-// FillLineNumberToStruct returns an object that has the same structure with the input but the values are filled by the input line
-func FillLineNumberToStruct(keyObject interface{}, lineNumber float64) interface{} {
-	var fieldMap interface{}
-	switch keyObject.(type) {
-	case int:
-		fieldMap = lineNumber
+					// Array with values or array with maps
+					if len(valueNode.Content[j].Content) == 0 {
+						fieldPathMap["{"+pathWithIndex+"}"] = valueNode.Content[j].Line + startLineNum - 1
+					} else {
+						BuildFieldPathMap(valueNode.Content[j], startLineNum, pathWithIndex, fieldPathMap)
+					}
 
-	case float64:
-		fieldMap = lineNumber
-
-	case string:
-		fieldMap = lineNumber
-
-	case []interface {}:
-		a := make([]interface{}, 0)
-		for _, v := range keyObject.([]interface{}) {
-			a = append(a, FillLineNumberToStruct(v, lineNumber))
+					j++
+				}
+			} else if valueNode.Tag == "!!map" {
+				BuildFieldPathMap(valueNode, startLineNum, pathKeyForMap, fieldPathMap)
+			}
 		}
-		return a
 
-	case map[string]interface {}:
-		m := make(map[string]interface{})
-		for k, v := range keyObject.(map[string]interface{}) {
-			m[k] = FillLineNumberToStruct(v, lineNumber)
-		}
-		return m
+		i += 2
+
 	}
-	return fieldMap
 }

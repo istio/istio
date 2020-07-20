@@ -15,8 +15,9 @@
 package annotations
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"strings"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/galley/pkg/config/analysis"

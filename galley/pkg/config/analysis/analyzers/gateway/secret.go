@@ -15,10 +15,10 @@
 package gateway
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	k8s_labels "k8s.io/apimachinery/pkg/labels"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
@@ -57,7 +57,7 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 		if gwNs == "" {
 
 			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
-			gwSelector := k8s_labels.SelectorFromSet(gw.Selector)
+			gwSelector := labels.SelectorFromSet(gw.Selector)
 			line := util.ErrorLineForGatewaySelector(gwSelector, r)
 			m.SetLine(line)
 

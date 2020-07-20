@@ -150,7 +150,7 @@ func (m *Message) GetLine() int {
 }
 
 // ReplaceLine replaces the line number from the input String method of the Reference object to the line from the Message object
-func (m Message) ReplaceLine(l string) string{
+func (m Message) ReplaceLine(l string) string {
 	loc := l
 	_, err := strconv.Atoi(string(loc[len(loc)-1]))
 	for err == nil {
@@ -160,4 +160,3 @@ func (m Message) ReplaceLine(l string) string{
 	loc += fmt.Sprintf("%d", m.GetLine())
 	return loc
 }
-

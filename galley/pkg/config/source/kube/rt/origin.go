@@ -67,6 +67,7 @@ func (o *Origin) Reference() resource.Reference {
 func (o *Origin) GetFieldMap() map[string]int {
 	return o.FieldMap
 }
+
 // Position is a representation of the location of a source.
 type Position struct {
 	Filename string // filename, if any

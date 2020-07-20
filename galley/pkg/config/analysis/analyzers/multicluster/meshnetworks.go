@@ -15,8 +15,9 @@
 package multicluster
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	v1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/analysis"

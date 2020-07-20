@@ -79,7 +79,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 		if !d.checkDestinationSubset(ns, destination.destination, destHostsAndSubsets) {
 
-			line := util.ErrorLineForHostInHttpMirror(destination.GetServiceIndex(), r)
+			line := util.ErrorLineForHostInHTTPMirror(destination.GetServiceIndex(), r)
 			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
 				fmt.Sprintf("%s+%s", destination.destination.GetHost(), destination.destination.GetSubset()))
 			m.SetLine(line)

@@ -22,7 +22,7 @@ type Origin interface {
 
 	Reference() Reference
 
-	GetFieldMap()  map[string]int
+	GetFieldMap() map[string]int
 }
 
 // Reference provides more information about an Origin. This is also source-implementation dependant.

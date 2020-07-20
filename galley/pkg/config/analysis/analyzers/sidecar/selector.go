@@ -14,9 +14,10 @@
 package sidecar
 
 import (
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"

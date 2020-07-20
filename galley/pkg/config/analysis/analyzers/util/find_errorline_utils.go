@@ -16,19 +16,12 @@ package util
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/config/resource"
-	"k8s.io/apimachinery/pkg/labels"
 	"strings"
-)
 
-// PathInfo stores the index information to indicate the path about a httpMatch
-type PathInfo struct {
-	HttpIndex        int
-	MatchIndex       int
-	AllowOriginIndex int
-	HeaderKey        string
-	QueryParamsKey   string
-}
+	"k8s.io/apimachinery/pkg/labels"
+
+	"istio.io/istio/pkg/config/resource"
+)
 
 // ErrorLineForHostInDestination returns the line number of the host in destination
 func ErrorLineForHostInDestination(routeRule string, serviceIndex int, destinationIndex int, r *resource.Instance) int {
@@ -39,8 +32,8 @@ func ErrorLineForHostInDestination(routeRule string, serviceIndex int, destinati
 	return line
 }
 
-// ErrorLineForHostInHttpMirror returns the line number of the host in destination
-func ErrorLineForHostInHttpMirror(routeRuleIndex int, r *resource.Instance) int {
+// ErrorLineForHostInHTTPMirror returns the line number of the host in destination
+func ErrorLineForHostInHTTPMirror(routeRuleIndex int, r *resource.Instance) int {
 	pathKey := "{.spec.http[" + fmt.Sprintf("%d", routeRuleIndex) + "].mirror.host}"
 	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
 	return line
@@ -53,21 +46,26 @@ func ErrorLineForVSGateway(gatewayIndex int, r *resource.Instance) int {
 	return line
 }
 
-// ErrorLineForHttpRegex returns the path of the regex match in HttpRoute
-func ErrorLineForHttpRegex(pathInfo PathInfo, where string, r *resource.Instance) int {
-	pathKey := "{.spec.http[" + fmt.Sprintf("%d", pathInfo.HttpIndex) + "]"
+// ErrorLineForHTTPRegexURISchemeMethodAuthority returns the path of the regex match in HttpRoute
+func ErrorLineForHTTPRegexURISchemeMethodAuthority(httpIndex int, matchIndex int, where string, r *resource.Instance) int {
+	pathKey := "{.spec.http[" + fmt.Sprintf("%d", httpIndex) + "]"
+	pathKey += ".match[" + fmt.Sprintf("%d", matchIndex) + "]." + where + ".regex}"
+	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
+	return line
+}
 
-	switch where {
-	case "corsPolicy.allowOrigins":
-		pathKey += ".corsPolicy.allowOrigins[" + fmt.Sprintf("%d", pathInfo.AllowOriginIndex) + "].regex}"
-	case "headers":
-		pathKey += ".match[" + fmt.Sprintf("%d", pathInfo.MatchIndex) + "].headers." + pathInfo.HeaderKey + ".regex}"
-	case "queryParams":
-		pathKey += ".match[" + fmt.Sprintf("%d", pathInfo.MatchIndex) + "].queryParams." + pathInfo.QueryParamsKey + ".regex}"
-	default:
-		pathKey += ".match[" + fmt.Sprintf("%d", pathInfo.MatchIndex) + "]." + where + ".regex}"
-	}
+// ErrorLineForHTTPRegexHeaderAndQueryParams returns the path of the regex match in HttpRoute
+func ErrorLineForHTTPRegexHeaderAndQueryParams(httpIndex int, matchIndex int, matchKey string, where string, r *resource.Instance) int {
+	pathKey := "{.spec.http[" + fmt.Sprintf("%d", httpIndex) + "]"
+	pathKey += ".match[" + fmt.Sprintf("%d", matchIndex) + "].headers." + matchKey + ".regex}"
+	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
+	return line
+}
 
+// ErrorLineForHTTPRegexAllowOrigins returns the path of the regex match in HttpRoute
+func ErrorLineForHTTPRegexAllowOrigins(httpIndex int, allowOriginIndex int, r *resource.Instance) int {
+	pathKey := "{.spec.http[" + fmt.Sprintf("%d", httpIndex) + "]"
+	pathKey += ".corsPolicy.allowOrigins[" + fmt.Sprintf("%d", allowOriginIndex) + "].regex}"
 	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
 	return line
 }
@@ -83,7 +81,7 @@ func ErrorLineForWorkLoadSelector(workLoadSelector labels.Selector, r *resource.
 
 // ErrorLineForFromRegistry returns the line number of fromRegistry in the mesh networks
 func ErrorLineForPortInService(portIndex int, r *resource.Instance) int {
-	keyPath := "{.spec.ports[" + fmt.Sprintf("%d", portIndex) + "].port" +"}"
+	keyPath := "{.spec.ports[" + fmt.Sprintf("%d", portIndex) + "].port" + "}"
 	line := FindErrorLine(keyPath, r.Origin.GetFieldMap())
 	return line
 }
@@ -97,7 +95,7 @@ func ErrorLineForFromRegistry(networkName string, endPointIndex int, r *resource
 
 // ErrorLineForContainerImage returns the line number of the image in the container
 func ErrorLineForContainerImage(containerIndex int, r *resource.Instance) int {
-	keyPath := "{.spec.spec.containers[}" + fmt.Sprintf("%d", containerIndex) + "].image}"
+	keyPath := "{.spec.containers[}" + fmt.Sprintf("%d", containerIndex) + "].image}"
 	line := FindErrorLine(keyPath, r.Origin.GetFieldMap())
 	return line
 }
@@ -153,7 +151,9 @@ func FindErrorLine(key string, m map[string]int) int {
 	var line int
 
 	// Check if the map exists
-	if m == nil { return line }
+	if m == nil {
+		return line
+	}
 
 	if v, ok := m[key]; ok {
 		line = v
