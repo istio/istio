@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: docker.io/istio/examples-bookinfo-ratings-v2:1.15.1
+        image: docker.io/istio/examples-bookinfo-ratings-v2:1.16.2
         imagePullPolicy: IfNotPresent
         env:
           # This assumes you registered your mysql vm as

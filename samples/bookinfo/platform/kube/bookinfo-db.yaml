@@ -46,7 +46,7 @@ spec:
     spec:
       containers:
       - name: mongodb 
-        image: docker.io/istio/examples-bookinfo-mongodb:1.15.1
+        image: docker.io/istio/examples-bookinfo-mongodb:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 27017
@@ -55,5 +55,5 @@ spec:
           mountPath: /data/db
       volumes:
       - name: data-db
-        emptyDir:
+        emptyDir: {}
 ---

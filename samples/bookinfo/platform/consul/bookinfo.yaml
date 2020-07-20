@@ -16,7 +16,7 @@
 version: '2'
 services:
   details-v1:
-    image: docker.io/istio/examples-bookinfo-details-v1:1.15.1
+    image: docker.io/istio/examples-bookinfo-details-v1:1.16.2
     networks:
       istiomesh:
     dns:
@@ -33,7 +33,7 @@ services:
       - "9080"
 
   ratings-v1:
-    image: docker.io/istio/examples-bookinfo-ratings-v1:1.15.1
+    image: docker.io/istio/examples-bookinfo-ratings-v1:1.16.2
     networks:
       istiomesh:
     dns:
@@ -50,7 +50,7 @@ services:
       - "9080"
 
   reviews-v1:
-    image: docker.io/istio/examples-bookinfo-reviews-v1:1.15.1
+    image: docker.io/istio/examples-bookinfo-reviews-v1:1.16.2
     networks:
       istiomesh:
     dns:
@@ -68,7 +68,7 @@ services:
       - "9080"
 
   reviews-v2:
-    image: docker.io/istio/examples-bookinfo-reviews-v2:1.15.1
+    image: docker.io/istio/examples-bookinfo-reviews-v2:1.16.2
     networks:
       istiomesh:
     dns:
@@ -86,7 +86,7 @@ services:
       - "9080"
 
   reviews-v3:
-    image: docker.io/istio/examples-bookinfo-reviews-v3:1.15.1
+    image: docker.io/istio/examples-bookinfo-reviews-v3:1.16.2
     networks:
       istiomesh:
     dns:
@@ -104,7 +104,7 @@ services:
       - "9080"
 
   productpage-v1:
-    image: docker.io/istio/examples-bookinfo-productpage-v1:1.15.1
+    image: docker.io/istio/examples-bookinfo-productpage-v1:1.16.2
     networks:
       istiomesh:
         ipv4_address: 172.28.0.14
