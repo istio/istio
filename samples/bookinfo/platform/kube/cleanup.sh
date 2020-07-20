@@ -24,7 +24,7 @@ fi
 
 # verify if the namespace exists, otherwise use default namespace
 if [[ -n ${NAMESPACE} ]];then
-  ns=$(kubectl get namespace ${NAMESPACE} --no-headers --output=go-template={{.metadata.name}} 2>/dev/null)
+  ns=$(kubectl get namespace "${NAMESPACE}" --no-headers --output=go-template="{{.metadata.name}}" 2>/dev/null)
   if [[ -z ${ns} ]];then
     echo "NAMESPACE ${NAMESPACE} not found."
     NAMESPACE=default
