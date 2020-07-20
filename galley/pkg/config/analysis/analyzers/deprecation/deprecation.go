@@ -28,19 +28,21 @@ import (
 // FieldAnalyzer checks for deprecated Istio types and fields
 type FieldAnalyzer struct{}
 
-// Currently we don't have an Istio API that tells which Istio APIs are deprecated.
+// Currently we don't have an Istio API that tells which Istio API fields are deprecated.
 // Run `find . -name "*.proto" -exec grep -i "deprecated=true" \{\} \; -print`
 // to see what is deprecated.  This analyzer is hand-crafted.
 
 // Metadata implements analyzer.Analyzer
 func (*FieldAnalyzer) Metadata() analysis.Metadata {
+	fieldAnalyzers := collection.Names{
+		collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+		collections.IstioNetworkingV1Alpha3Sidecars.Name(),
+	}
+
 	return analysis.Metadata{
 		Name:        "deprecation.DeprecationAnalyzer",
 		Description: "Checks for deprecated Istio types and fields",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioNetworkingV1Alpha3Sidecars.Name(),
-		},
+		Inputs:      append(collections.Deprecated.CollectionNames(), fieldAnalyzers...),
 	}
 }
 
@@ -54,6 +56,13 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeSidecar(r, ctx)
 		return true
 	})
+	for _, name := range collections.Deprecated.CollectionNames() {
+		ctx.ForEach(name, func(r *resource.Instance) bool {
+			ctx.Report(name,
+				msg.NewDeprecated(r, crDeprecatedMessage(name.String())))
+			return true
+		})
+	}
 }
 
 func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context) {
@@ -113,4 +122,8 @@ func replacedMessage(deprecated, replacement string) string {
 
 func ignoredMessage(field string) string {
 	return fmt.Sprintf("%s ignored", field)
+}
+
+func crDeprecatedMessage(typename string) string {
+	return fmt.Sprintf("Custom resource type %q is deprecated")
 }
