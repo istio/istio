@@ -977,11 +977,20 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 	}
 
 	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
+		if settings.CaCertificates == "" {
+			errs = appendErrors(errs, fmt.Errorf("caCertificate required for mutual tls"))
+		}
 		if settings.ClientCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
 		}
 		if settings.PrivateKey == "" {
 			errs = appendErrors(errs, fmt.Errorf("private key required for mutual tls"))
+		}
+	}
+
+	if settings.Mode == networking.ClientTLSSettings_SIMPLE {
+		if settings.CaCertificates == "" {
+			errs = appendErrors(errs, fmt.Errorf("caCertificate required for simple tls"))
 		}
 	}
 

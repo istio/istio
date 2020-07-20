@@ -1578,6 +1578,7 @@ func TestValidateTLS(t *testing.T) {
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "cert",
 				PrivateKey:        "key",
+				CaCertificates:    "cacert",
 			},
 			valid: true,
 		},
@@ -1595,6 +1596,24 @@ func TestValidateTLS(t *testing.T) {
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "",
+				PrivateKey:        "key",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CaCertificates not set when mode is SIMPLE, results in no server identity verification",
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_SIMPLE,
+				CaCertificates: "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CaCertificates not set when mode is MUTUAL, results in no server identity verification",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CaCertificates:    "",
+				ClientCertificate: "cert",
 				PrivateKey:        "key",
 			},
 			valid: false,
