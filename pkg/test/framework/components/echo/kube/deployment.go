@@ -98,6 +98,8 @@ spec:
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
     spec:
+      # temporary hack to test dns theory
+      dnsPolicy: Default
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
