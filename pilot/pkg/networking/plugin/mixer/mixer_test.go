@@ -32,7 +32,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	mccpb "istio.io/istio/pilot/pkg/networking/plugin/mixer/client"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -173,12 +172,7 @@ func TestOnOutboundListener(t *testing.T) {
 			mutableObjects: &istionetworking.MutableObjects{
 				Listener: &listener.Listener{},
 				FilterChains: []istionetworking.FilterChain{
-					{
-						IsFallThrough: false,
-					},
-					{
-						IsFallThrough: true,
-					},
+					{},
 				},
 			},
 			hostname: "BlackHoleCluster",
@@ -193,12 +187,7 @@ func TestOnOutboundListener(t *testing.T) {
 			mutableObjects: &istionetworking.MutableObjects{
 				Listener: &listener.Listener{},
 				FilterChains: []istionetworking.FilterChain{
-					{
-						IsFallThrough: false,
-					},
-					{
-						IsFallThrough: true,
-					},
+					{},
 				},
 			},
 			hostname: "PassthroughCluster",
@@ -211,22 +200,6 @@ func TestOnOutboundListener(t *testing.T) {
 			for i := 0; i < len(tests[idx].mutableObjects.FilterChains); i++ {
 				if len(tests[idx].mutableObjects.FilterChains[i].TCP) != 1 {
 					t.Errorf("Expected 1 TCP filter")
-				}
-				var tcpClientConfig mccpb.TcpClientConfig
-				cfg := tests[idx].mutableObjects.FilterChains[i].TCP[0].GetTypedConfig()
-				ptypes.UnmarshalAny(cfg, &tcpClientConfig)
-				if tests[idx].mutableObjects.FilterChains[i].IsFallThrough {
-					hostAttr := tcpClientConfig.MixerAttributes.Attributes["destination.service.host"]
-					if !reflect.DeepEqual(hostAttr, attrStringValue(tests[idx].hostname)) {
-						t.Errorf("Expected host %s but got %+v\n",
-							tests[idx].hostname, hostAttr)
-					}
-
-					nameAttr := tcpClientConfig.MixerAttributes.Attributes["destination.service.name"]
-					if !reflect.DeepEqual(nameAttr, attrStringValue(tests[idx].hostname)) {
-						t.Errorf("Expected name %s but got %+v\n",
-							tests[idx].hostname, nameAttr)
-					}
 				}
 			}
 		})
@@ -410,20 +383,11 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 	}
 	ii := model.MakeIstioStore(l)
 	mesh := mesh.DefaultMeshConfig()
-	svc := model.Service{
-		Hostname: "svc.ns3",
-		Attributes: model.ServiceAttributes{
-			Name:      "svc",
-			Namespace: ns,
-			UID:       "istio://ns3/services/svc",
-		},
-	}
 	cases := []struct {
-		serviceByHostnameAndNamespace map[host.Name]map[string]*model.Service
-		push                          *model.PushContext
-		node                          *model.Proxy
-		httpRoute                     *route.Route
-		quotaSpec                     []*mccpb.QuotaSpec
+		push      *model.PushContext
+		node      *model.Proxy
+		httpRoute *route.Route
+		quotaSpec []*mccpb.QuotaSpec
 	}{
 		{
 			push: &model.PushContext{
@@ -440,11 +404,6 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||svc.ns3.svc.cluster.local"},
 				}}},
-			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-				host.Name("svc.ns3"): {
-					"ns3": &svc,
-				},
-			},
 			quotaSpec: []*mccpb.QuotaSpec{{
 				Rules: []*mccpb.QuotaRule{{Quotas: []*mccpb.Quota{{Quota: "requestcount", Charge: 100}}}},
 			}},
@@ -464,22 +423,15 @@ func TestModifyOutboundRouteConfig(t *testing.T) {
 				Action: &route.Route_Route{Route: &route.RouteAction{
 					ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "outbound|||a.ns3.svc.cluster.local"},
 				}}},
-			serviceByHostnameAndNamespace: map[host.Name]map[string]*model.Service{
-				host.Name("a.ns3"): {
-					"ns3": &svc,
-				},
-			},
 		},
 	}
 	for _, c := range cases {
-		push := &model.PushContext{
-			ServiceByHostnameAndNamespace: c.serviceByHostnameAndNamespace,
-		}
+		c.node.SetSidecarScope(c.push)
 		in := plugin.InputParams{
 			Push: c.push,
 			Node: c.node,
 		}
-		tc := modifyOutboundRouteConfig(push, &in, "", c.httpRoute)
+		tc := modifyOutboundRouteConfig(&in, "", c.httpRoute)
 
 		mixerSvcConfigAny := tc.TypedPerFilterConfig["mixer"]
 		mixerSvcConfig := &mccpb.ServiceConfig{}

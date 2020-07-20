@@ -38,9 +38,9 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
@@ -78,36 +78,6 @@ func refreshGoldenFiles() bool {
 func kubeBuilderInstalled() bool {
 	ev := os.Getenv("KUBEBUILDER")
 	return ev == "true" || ev == "1"
-}
-
-func ReadLayeredYAMLs(filenames []string) (string, error) {
-	return readLayeredYAMLs(filenames, os.Stdin)
-}
-
-func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error) {
-	var ly string
-	var stdin bool
-	for _, fn := range filenames {
-		var b []byte
-		var err error
-		if fn == "-" {
-			if stdin {
-				continue
-			}
-			stdin = true
-			b, err = ioutil.ReadAll(stdinReader)
-		} else {
-			b, err = ioutil.ReadFile(strings.TrimSpace(fn))
-		}
-		if err != nil {
-			return "", err
-		}
-		ly, err = util.OverlayYAML(ly, string(b))
-		if err != nil {
-			return "", err
-		}
-	}
-	return ly, nil
 }
 
 // confirm waits for a user to confirm with the supplied message.
@@ -235,13 +205,25 @@ func applyManifest(restConfig *rest.Config, client client.Client, manifestStr st
 	return err
 }
 
+// --manifests is an alias for --set installPackagePath=
+// --revision is an alias for --set revision=
+func applyFlagAliases(flags []string, manifestsPath, revision string) []string {
+	if manifestsPath != "" {
+		flags = append(flags, fmt.Sprintf("installPackagePath=%s", manifestsPath))
+	}
+	if revision != "" {
+		flags = append(flags, fmt.Sprintf("revision=%s", revision))
+	}
+	return flags
+}
+
 // getCRAndNamespaceFromFile returns the CR name and istio namespace from a file containing an IstioOperator CR.
 func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource string, istioNamespace string, err error) {
 	if filePath == "" {
 		return "", "", nil
 	}
 
-	_, mergedIOPS, err := GenerateConfig([]string{filePath}, nil, false, nil, l)
+	_, mergedIOPS, err := manifest.GenerateConfig([]string{filePath}, nil, false, nil, l)
 	if err != nil {
 		return "", "", err
 	}

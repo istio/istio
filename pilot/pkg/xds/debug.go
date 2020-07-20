@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -345,32 +346,36 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 	return result
 }
 
+type kubernetesConfig struct {
+	model.Config
+}
+
+func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
+	cfg, err := crd.ConvertConfig(k.Config)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(cfg)
+}
+
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	_, _ = fmt.Fprintf(w, "\n[\n")
-
-	log.Warna("XXX ", req.Header)
-
-	var err error
+	configs := []kubernetesConfig{}
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
-			var b []byte
-			b, err = json.MarshalIndent(c, "  ", "  ")
-			if err != nil {
-				// We're done.
-				return true
-			}
-			_, _ = w.Write(b)
-			_, _ = fmt.Fprint(w, ",\n")
+			configs = append(configs, kubernetesConfig{c})
 		}
 		return false
 	})
-
-	if err == nil {
-		_, _ = fmt.Fprint(w, "\n{}]")
+	b, err := json.MarshalIndent(configs, "  ", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(err.Error()))
+		return
 	}
+	w.Header().Add("Content-Type", "application/json")
+	_, _ = w.Write(b)
 }
 
 // Resource debugging.
@@ -671,7 +676,7 @@ func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 
 func printListeners(w io.Writer, c *Connection) {
 	comma := false
-	for _, ls := range c.LDSListeners {
+	for _, ls := range c.XdsListeners {
 		if ls == nil {
 			adsLog.Errorf("INVALID LISTENER NIL")
 			continue
@@ -691,7 +696,7 @@ func printListeners(w io.Writer, c *Connection) {
 
 func printClusters(w io.Writer, c *Connection) {
 	comma := false
-	for _, cl := range c.CDSClusters {
+	for _, cl := range c.XdsClusters {
 		if cl == nil {
 			adsLog.Errorf("INVALID Cluster NIL")
 			continue
@@ -711,7 +716,7 @@ func printClusters(w io.Writer, c *Connection) {
 
 func printRoutes(w io.Writer, c *Connection) {
 	comma := false
-	for _, rt := range c.RouteConfigs {
+	for _, rt := range c.XdsRoutes {
 		if rt == nil {
 			adsLog.Errorf("INVALID ROUTE CONFIG NIL")
 			continue
@@ -734,7 +739,6 @@ func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
 	defer s.adsClientsMutex.RUnlock()
 
 	for conID := range s.adsClients {
-
 		if strings.Contains(conID, proxyID) {
 			return s.adsClients[conID]
 		}

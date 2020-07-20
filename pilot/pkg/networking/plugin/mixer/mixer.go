@@ -118,6 +118,28 @@ func skipMixerHTTPFilter(dir direction, mesh *meshconfig.MeshConfig, node *model
 	return disablePolicyChecks(dir, mesh, node) && mesh.GetDisableMixerHttpReports()
 }
 
+func (mixerplugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
+		return nil
+	}
+	svc := util.FallThroughFilterChainBlackHoleService
+	if util.IsAllowAnyOutbound(in.Node) {
+		svc = util.FallThroughFilterChainPassthroughService
+	}
+	attrs := createOutboundListenerAttributes(in)
+	fallThroughFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, svc)
+
+	for _, filterChain := range mutable.FilterChains {
+		filterChain.TCP = append(filterChain.TCP, fallThroughFilter)
+		length := len(filterChain.TCP)
+		// swap
+		tmp := filterChain.TCP[length-1]
+		filterChain.TCP[length-2] = filterChain.TCP[length-1]
+		filterChain.TCP[length-1] = tmp
+	}
+	return nil
+}
+
 // OnOutboundListener implements the Callbacks interface method.
 func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Push.Mesh.MixerCheckServer == "" && in.Push.Mesh.MixerReportServer == "" {
@@ -154,17 +176,7 @@ func (mixerplugin) OnOutboundListener(in *plugin.InputParams, mutable *networkin
 			}
 		} else {
 			for cnum := range mutable.FilterChains {
-				if mutable.FilterChains[cnum].IsFallThrough {
-					svc := util.FallThroughFilterChainBlackHoleService
-					if util.IsAllowAnyOutbound(in.Node) {
-						svc = util.FallThroughFilterChainPassthroughService
-					}
-					attrs := createOutboundListenerAttributes(in)
-					fallThroughFilter := buildOutboundTCPFilter(in.Push.Mesh, attrs, in.Node, svc)
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, fallThroughFilter)
-				} else {
-					mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
-				}
+				mutable.FilterChains[cnum].TCP = append(mutable.FilterChains[cnum].TCP, tcpFilter)
 			}
 		}
 		return nil
@@ -318,7 +330,7 @@ func (mixerplugin) OnOutboundRouteConfiguration(in *plugin.InputParams, routeCon
 	for i := 0; i < len(routeConfiguration.VirtualHosts); i++ {
 		virtualHost := routeConfiguration.VirtualHosts[i]
 		for j := 0; j < len(virtualHost.Routes); j++ {
-			virtualHost.Routes[j] = modifyOutboundRouteConfig(in.Push, in, virtualHost.Name, virtualHost.Routes[j])
+			virtualHost.Routes[j] = modifyOutboundRouteConfig(in, virtualHost.Name, virtualHost.Routes[j])
 		}
 		routeConfiguration.VirtualHosts[i] = virtualHost
 	}
@@ -492,7 +504,7 @@ func addFilterConfigToRoute(in *plugin.InputParams, httpRoute *route.Route, attr
 	})
 }
 
-func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
+func modifyOutboundRouteConfig(in *plugin.InputParams, virtualHostname string, httpRoute *route.Route) *route.Route {
 	isPolicyCheckDisabled := disablePolicyChecks(outbound, in.Push.Mesh, in.Node)
 	// default config, to be overridden by per-weighted cluster
 	httpRoute.TypedPerFilterConfig = addTypedServiceConfig(httpRoute.TypedPerFilterConfig, &mpb.ServiceConfig{
@@ -509,14 +521,14 @@ func modifyOutboundRouteConfig(push *model.PushContext, in *plugin.InputParams, 
 			if hostname == "" && upstreams.Cluster == util.PassthroughCluster {
 				attrs = addVirtualDestinationServiceAttributes(make(attributes), util.PassthroughCluster)
 			} else {
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				svc := in.Push.ServiceForHostname(in.Node, hostname)
 				attrs = addDestinationServiceAttributes(make(attributes), svc)
 			}
 			addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
 				_, _, hostname, _ := model.ParseSubsetKey(weighted.Name)
-				svc := in.Node.SidecarScope.ServiceForHostname(hostname, push.ServiceByHostnameAndNamespace)
+				svc := in.Push.ServiceForHostname(in.Node, hostname)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mpb.ServiceConfig{
 					DisableCheckCalls: isPolicyCheckDisabled,

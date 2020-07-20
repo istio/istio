@@ -40,7 +40,7 @@ func TestIntoResourceFile(t *testing.T) {
 		inFilePath string
 		mesh       func(m *meshapi.MeshConfig)
 	}{
-		//"testdata/hello.yaml" is tested in http_test.go (with debug)
+		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
 			in:   "hello.yaml",
 			want: "hello.yaml.injected",
@@ -298,6 +298,14 @@ func TestIntoResourceFile(t *testing.T) {
 			setFlags: []string{
 				`components.cni.enabled=true`,
 				`values.istio_cni.chained=false`,
+			},
+		},
+		{
+			// Verifies that HoldApplicationUntilProxyStarts in MeshConfig puts sidecar in front
+			in:   "hello.yaml",
+			want: "hello.proxyHoldsApplication.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
 			},
 		},
 	}

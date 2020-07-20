@@ -644,7 +644,7 @@ func TestConvertInstances(t *testing.T) {
 	}
 }
 
-func TestConvertWorkloadInstances(t *testing.T) {
+func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	labels := map[string]string{
 		"app": "wle",
 	}
@@ -699,10 +699,102 @@ func TestConvertWorkloadInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			instances := convertWorkloadInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry))
+			instances := convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry))
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
+	labels := map[string]string{
+		"app": "wle",
+	}
+	workloadInstanceTests := []struct {
+		name      string
+		namespace string
+		wle       *networking.WorkloadEntry
+		out       *model.WorkloadInstance
+	}{
+		{
+			name:      "simple",
+			namespace: "ns1",
+			wle: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http": 80,
+				},
+				ServiceAccount: "scooby",
+			},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels:         labels,
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+		{
+			name:      "simple - tls mode disabled",
+			namespace: "ns1",
+			wle: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels: map[string]string{
+					"security.istio.io/tlsMode": "disabled",
+				},
+				Ports: map[string]uint32{
+					"http": 80,
+				},
+				ServiceAccount: "scooby",
+			},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"security.istio.io/tlsMode": "disabled",
+					},
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "disabled",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+		{
+			name:      "unix domain socket",
+			namespace: "ns1",
+			wle: &networking.WorkloadEntry{
+				Address:        "unix://foo/bar",
+				ServiceAccount: "scooby",
+			},
+			out: nil,
+		},
+		{
+			name:      "DNS address",
+			namespace: "ns1",
+			wle: &networking.WorkloadEntry{
+				Address:        "scooby.com",
+				ServiceAccount: "scooby",
+			},
+			out: nil,
+		},
+	}
+
+	for _, tt := range workloadInstanceTests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := convertWorkloadEntryToWorkloadInstance(tt.namespace, tt.wle)
+			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
 			}
 		})

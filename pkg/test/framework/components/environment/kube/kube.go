@@ -18,15 +18,13 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // Environment is the implementation of a kubernetes environment. It implements environment.Environment,
 // and also hosts publicly accessible methods that are specific to cluster environment.
 type Environment struct {
-	id resource.ID
-
+	id           resource.ID
 	ctx          resource.Context
 	KubeClusters []Cluster
 	s            *Settings
@@ -64,8 +62,8 @@ func New(ctx resource.Context, s *Settings) (resource.Environment, error) {
 	return e, nil
 }
 
-func (e *Environment) EnvironmentName() environment.Name {
-	return environment.Kube
+func (e *Environment) EnvironmentName() string {
+	return "Kube"
 }
 
 func (e *Environment) IsMulticluster() bool {
@@ -77,7 +75,7 @@ func (e *Environment) IsMultinetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }
 
-func (e *Environment) Clusters() []resource.Cluster {
+func (e *Environment) Clusters() resource.Clusters {
 	out := make([]resource.Cluster, 0, len(e.KubeClusters))
 	for _, c := range e.KubeClusters {
 		out = append(out, c)
@@ -134,12 +132,6 @@ func (e *Environment) ClustersByNetwork() map[string][]*Cluster {
 		out[networkName] = append(out[networkName], &e.KubeClusters[clusterIdx])
 	}
 	return out
-}
-
-func (e *Environment) Case(name environment.Name, fn func()) {
-	if name == e.EnvironmentName() {
-		fn()
-	}
 }
 
 // ID implements resource.Instance
