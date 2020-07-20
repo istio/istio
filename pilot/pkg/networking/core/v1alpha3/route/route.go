@@ -134,7 +134,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 		svc := serviceRegistry[fqdn]
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
-				cluster := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", svc.Hostname, port.Port)
+				cluster := model.BuildOutboundClusterName("", svc.Hostname, port.Port, model.TunnelNone)
 				traceOperation := traceOperation(string(svc.Hostname), port.Port)
 				httpRoute := BuildDefaultHTTPOutboundRoute(node, cluster, traceOperation)
 
@@ -266,7 +266,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
+	return model.BuildOutboundClusterName(destination.Subset, host.Name(destination.Host), port, model.TunnelNone)
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -819,7 +819,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	// return virtual serivce name:port/uri as substitute.
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
 		// Parse host and port from cluster name.
-		_, _, h, p := model.ParseSubsetKey(c)
+		_, _, h, p, _:= model.ParseSubsetKey(c)
 		return string(h) + ":" + strconv.Itoa(p) + path
 	}
 	return vsName + ":" + strconv.Itoa(port) + path

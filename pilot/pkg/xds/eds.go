@@ -298,7 +298,7 @@ func connectionID(node string) string {
 // perf tests. The logic to compute is based on the current UpdateClusterInc
 func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
 	clusterName string) *endpoint.ClusterLoadAssignment {
-	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	_, subsetName, hostname, port, _ := model.ParseSubsetKey(clusterName)
 
 	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
 	// (public/private) as well as sidecar scopes allowing import of
@@ -358,7 +358,7 @@ func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, 
 func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Proxy, push *model.PushContext,
 	edsUpdatedServices map[string]struct{}) *endpoint.ClusterLoadAssignment {
 	if edsUpdatedServices != nil {
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		_, _, hostname, _ , _:= model.ParseSubsetKey(clusterName)
 		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
 			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
 			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
@@ -481,7 +481,7 @@ func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname ho
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
-	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
+	_, subsetName, hostname, portNumber, _ := model.ParseSubsetKey(clusterName)
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
 

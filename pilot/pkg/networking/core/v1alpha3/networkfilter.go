@@ -49,7 +49,7 @@ var (
 
 // buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
 func buildInboundNetworkFilters(push *model.PushContext, instance *model.ServiceInstance) []*listener.Filter {
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
+	clusterName := model.BuildInboundClusterName(instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
 	statPrefix := clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.

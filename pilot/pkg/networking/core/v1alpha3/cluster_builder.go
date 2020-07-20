@@ -94,7 +94,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		var subsetClusterName string
 		var defaultSni string
 		if clusterMode == DefaultClusterMode {
-			subsetClusterName = model.BuildSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
+			subsetClusterName = model.BuildOutboundClusterName(subset.Name, service.Hostname, port.Port, model.TunnelNone)
 			defaultSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 
 		} else {

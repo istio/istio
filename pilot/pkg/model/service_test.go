@@ -59,7 +59,7 @@ func TestParseSubsetKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			d, s, h, p := ParseSubsetKey(tt.input)
+			d, s, h, p,_ := ParseSubsetKey(tt.input)
 			if d != tt.direction {
 				t.Errorf("Expected direction %v got %v", tt.direction, d)
 			}
@@ -283,6 +283,6 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 
 func BenchmarkBuildSubsetKey(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		_ = BuildSubsetKey(TrafficDirectionInbound, "v1", "someHost", 80)
+		_ = BuildInboundClusterName("v1", "someHost", 80)
 	}
 }

@@ -72,7 +72,7 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	for _, c := range clusters {
 		if filter.Verify(c) {
 			if len(strings.Split(c.Name, "|")) > 3 {
-				direction, subset, fqdn, port := model.ParseSubsetKey(c.Name)
+				direction, subset, fqdn, port, _ := model.ParseSubsetKey(c.Name)
 				if subset == "" {
 					subset = "-"
 				}
@@ -153,11 +153,14 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 		return nil, fmt.Errorf("no clusters found")
 	}
 	sort.Slice(clusters, func(i, j int) bool {
-		iDirection, iSubset, iName, iPort := safelyParseSubsetKey(clusters[i].Name)
-		jDirection, jSubset, jName, jPort := safelyParseSubsetKey(clusters[j].Name)
+		iDirection, iSubset, iName, iPort, iTunnel := safelyParseSubsetKey(clusters[i].Name)
+		jDirection, jSubset, jName, jPort, jTunnel := safelyParseSubsetKey(clusters[j].Name)
 		if iName == jName {
 			if iSubset == jSubset {
 				if iPort == jPort {
+					if iDirection == jDirection {
+						return string(iTunnel) < string(jTunnel)
+					}
 					return iDirection < jDirection
 				}
 				return iPort < jPort
@@ -169,10 +172,10 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 	return clusters, nil
 }
 
-func safelyParseSubsetKey(key string) (model.TrafficDirection, string, host.Name, int) {
-	if len(strings.Split(key, "|")) > 3 {
+func safelyParseSubsetKey(key string) (model.TrafficDirection, string, host.Name, int, model.TunnelType) {
+	if len(strings.Split(key, "|")) > 4 {
 		return model.ParseSubsetKey(key)
 	}
 	name := host.Name(key)
-	return "", "", name, 0
+	return "", "", name, 0, model.TunnelNone
 }

@@ -106,6 +106,19 @@ type Service struct {
 	MeshExternal bool
 }
 
+// The outbound cluster name suffix which indicates what type of tunnel is supported.
+type TunnelType string
+
+const (
+	// The traditional outbound cluster in which the endpoints are the endpoint ip and endpoint port.
+	TunnelNone TunnelType = "tunnel-none"
+	// The http route which references this cluster assumes this cluster to support istio tunnel.
+	// The port of the endpoint is 15008 and the original port is in the filter meta data.
+	// Warning: Experimental feature. This type of cluster could only support HTTP traffic.
+	// TODO(lambdai): Support TCP traffic.
+	TunnelH2 TunnelType = "tunnel-h2"
+)
+
 // Resolution indicates how the service instances need to be resolved before routing
 // traffic.
 type Resolution int
@@ -524,10 +537,17 @@ func (s *Service) External() bool {
 	return s.MeshExternal
 }
 
-// BuildSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
+// BuildOutboundClusterName generates an outbound cluster name for a given service name, a subset and a port.
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
-func BuildSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
-	return string(direction) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname)
+func BuildOutboundClusterName(subsetName string, hostname host.Name, port int, tunnelType TunnelType) string {
+	return string(TrafficDirectionOutbound) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname) + "|" + string(tunnelType)
+}
+
+// BuildInboundClusterName generates an inbound cluster name for a given service name, a subset and a port.
+func BuildInboundClusterName(subsetName string, hostname host.Name, port int) string {
+	return string(TrafficDirectionInbound) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname) +
+		// The inbound cluster is always tunnel none. Add the prefix so that the in and out cluster names are uniform.
+		"|" + string(TunnelNone)
 }
 
 // BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
@@ -540,11 +560,11 @@ func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostnam
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.
 func IsValidSubsetKey(s string) bool {
-	return strings.Count(s, "|") == 3
+	return strings.Count(s, "|") == 4
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
-func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
+func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int, tunnelType TunnelType) {
 	var parts []string
 	dnsSrvMode := false
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
@@ -558,7 +578,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 		parts = strings.Split(s, "|")
 	}
 
-	if len(parts) < 4 {
+	if len(parts) < 5 {
 		return
 	}
 
@@ -571,6 +591,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	}
 
 	hostname = host.Name(parts[3])
+	tunnelType = TunnelType(parts[4])
 	return
 }
 

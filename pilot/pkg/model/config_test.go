@@ -148,24 +148,24 @@ func TestSubsetKey(t *testing.T) {
 			hostname: "hostname",
 			subset:   "subset",
 			port:     80,
-			want:     "outbound|80|subset|hostname",
+			want:     "outbound|80|subset|hostname|" + string(model.TunnelNone),
 		},
 		{
 			hostname: "hostname",
 			subset:   "",
 			port:     80,
-			want:     "outbound|80||hostname",
+			want:     "outbound|80||hostname|" + string(model.TunnelNone),
 		},
 	}
 
 	for _, c := range cases {
-		got := model.BuildSubsetKey(model.TrafficDirectionOutbound, c.subset, hostname, c.port)
+		got := model.BuildOutboundClusterName(c.subset, hostname, c.port, model.TunnelNone)
 		if got != c.want {
 			t.Errorf("Failed: got %q want %q", got, c.want)
 		}
 
 		// test parse subset key. ParseSubsetKey is the inverse of BuildSubsetKey
-		_, s, h, p := model.ParseSubsetKey(got)
+		_, s, h, p, _ := model.ParseSubsetKey(got)
 		if s != c.subset || h != c.hostname || p != c.port {
 			t.Errorf("Failed: got %s,%s,%d want %s,%s,%d", s, h, p, c.subset, c.hostname, c.port)
 		}

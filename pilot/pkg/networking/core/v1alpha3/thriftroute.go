@@ -107,5 +107,5 @@ func thriftRLSClusterNameFromAuthority(authority string) (string, error) {
 		rlsPort = p
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(components[0]), rlsPort), nil
+	return model.BuildOutboundClusterName( "", host.Name(components[0]), rlsPort, model.TunnelNone), nil
 }
