@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"os"
 	"strings"
 
@@ -30,12 +32,22 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "install-cni",
 	Short: "Install and configure Istio CNI plugin on a node",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := constructConfig()
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		ctx := cmd.Context()
+		var cfg *config.Config
+		cfg, err = constructConfig()
 		if err != nil {
-			return err
+			return
 		}
-		return install.Run(cfg)
+
+		if err = install.Run(ctx, cfg); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				// Error was caused by interrupt/termination signal
+				err = nil
+			}
+		}
+
+		return
 	},
 }
 

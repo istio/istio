@@ -19,9 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/pkg/errors"
@@ -38,18 +36,8 @@ type configFiles struct {
 }
 
 // Run starts the installation process with given configuration
-func Run(cfg *config.Config) (err error) {
+func Run(ctx context.Context, cfg *config.Config) (err error) {
 	var files configFiles
-
-	ctx, cancel := context.WithCancel(context.Background())
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func(sigChan chan os.Signal, cancel context.CancelFunc) {
-		sig := <-sigChan
-		log.Infof("Exit signal received: %s", sig)
-		cancel()
-	}(sigChan, cancel)
-
 	defer func() {
 		if cleanErr := cleanup(cfg, files); cleanErr != nil {
 			if err != nil {
@@ -71,25 +59,15 @@ func Run(cfg *config.Config) (err error) {
 			return
 		}
 
-		files.kubeconfigFilepath, err = createKubeconfigFile(cfg, saToken)
-		if err != nil {
+		if files.kubeconfigFilepath, err = createKubeconfigFile(cfg, saToken); err != nil {
 			return
 		}
 
-		files.cniConfigFilepath, err = createCNIConfigFile(ctx, cfg, saToken)
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				// Error was caused by interrupt/termination signal
-				err = nil
-			}
+		if files.cniConfigFilepath, err = createCNIConfigFile(ctx, cfg, saToken); err != nil {
 			return
 		}
 
 		if err = sleepCheckInstall(ctx, cfg, files.cniConfigFilepath); err != nil {
-			if errors.Is(err, context.Canceled) {
-				// Error was caused by interrupt/termination signal
-				err = nil
-			}
 			return
 		}
 

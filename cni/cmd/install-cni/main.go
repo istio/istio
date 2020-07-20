@@ -15,15 +15,28 @@
 package main
 
 import (
+	"context"
+	"istio.io/pkg/log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"istio.io/istio/cni/pkg/install-cni/cmd"
 )
 
 func main() {
-	rootCmd := cmd.GetCommand()
+	// Create context that cancels on termination signal
+	ctx, cancel := context.WithCancel(context.Background())
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func(sigChan chan os.Signal, cancel context.CancelFunc) {
+		sig := <-sigChan
+		log.Infof("Exit signal received: %s", sig)
+		cancel()
+	}(sigChan, cancel)
 
-	if err := rootCmd.Execute(); err != nil {
+	rootCmd := cmd.GetCommand()
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		os.Exit(1)
 	}
 }
