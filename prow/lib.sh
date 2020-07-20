@@ -71,6 +71,7 @@ function download_untar_istio_release() {
 }
 
 function buildx-create() {
+  export DOCKER_CLI_EXPERIMENTAL=enabled
   if ! docker buildx ls | grep -q container-builder; then
     docker buildx create --driver-opt network=host --name container-builder
   fi
