@@ -318,10 +318,10 @@ func subsetToLabels(dr *model.Config, subsetName string) labels.Collection {
 	return nil
 }
 
-// loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
+// loadAssignmentsForCluster return the endpoints for a cluster
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests. The logic to compute is based on the current UpdateClusterInc
-func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
+// perf tests.
+func (s *DiscoveryServer) loadAssignmentsForCluster(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
 	subsetLabels := subsetToLabels(b.destinationRule, b.subsetName)
 
 	if b.service == nil {
@@ -405,7 +405,7 @@ func createEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.P
 }
 
 func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	l := s.loadAssignmentsForClusterIsolated(b)
+	l := s.loadAssignmentsForCluster(b)
 	if l == nil {
 		return nil
 	}
