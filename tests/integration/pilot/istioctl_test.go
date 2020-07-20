@@ -192,7 +192,7 @@ func TestDescribe(t *testing.T) {
 					return err
 				}
 				if !describeSvcAOutput.MatchString(output) {
-					return fmt.Errorf("output:\n%v\n does not match regex:\n%v\n", output, describeSvcAOutput)
+					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
 				}
 				return nil
 			}, retry.Timeout(time.Second*5))
@@ -205,7 +205,7 @@ func TestDescribe(t *testing.T) {
 					return err
 				}
 				if !describePodAOutput.MatchString(output) {
-					return fmt.Errorf("output:\n%v\n does not match regex:\n%v\n", output, describeSvcAOutput)
+					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
 				}
 				return nil
 			}, retry.Timeout(time.Second*5))
@@ -387,7 +387,7 @@ func TestAuthZCheck(t *testing.T) {
 
 			args := []string{"experimental", "authz", "check",
 				fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
-			regex := regexp.MustCompile("noneSDS: default.*\\[integ-test\\]")
+			regex := regexp.MustCompile(`noneSDS: default.*\[integ-test\]`)
 
 			// Verify the output includes a policy "integ-test", which is the policy
 			// loaded above from authz-a.yaml

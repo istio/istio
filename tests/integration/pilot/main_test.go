@@ -44,7 +44,7 @@ var (
 	// Standard echo app to be used by tests
 	b echo.Instance
 	// Echo app to be used by tests, with no sidecar injected
-	naked   echo.Instance
+	naked echo.Instance
 )
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
