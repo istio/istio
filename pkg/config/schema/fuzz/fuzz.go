@@ -55,6 +55,7 @@ func RoundTrip(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Scheme
 	}
 }
 
+// nolint: interfacer
 func Fuzz(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Scheme, fuzzer *fuzz.Fuzzer) runtime.Object {
 	object, err := scheme.New(gvk)
 	if err != nil {
