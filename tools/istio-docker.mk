@@ -25,7 +25,7 @@ docker: docker.all
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
-docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 docker.test_policybackend docker.mixer docker.mixer_codegen \
+docker.app_sidecar_debian_10 docker.app_sidecar_centos_8  \
 docker.istioctl docker.operator docker.install-cni
 
 # Echo docker directory and the template to pass image name and version to for VM testing
@@ -44,7 +44,7 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT_LINUX)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
-                             pilot-discovery pilot-agent mixs mixgen \
+                             pilot-discovery pilot-agent \
                              istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
@@ -175,12 +175,6 @@ docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/server
 docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
 	$(DOCKER_RULE)
 
-# Test policy backend for mixer integration
-docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
-docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
-	$(DOCKER_RULE)
-
 docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.istioctl: istioctl/docker/Dockerfile.istioctl
 docker.istioctl: $(ISTIO_OUT_LINUX)/istioctl
@@ -190,20 +184,6 @@ docker.operator: manifests/
 docker.operator: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.operator: operator/docker/Dockerfile.operator
 docker.operator: $(ISTIO_OUT_LINUX)/operator
-	$(DOCKER_RULE)
-
-# mixer docker images
-
-docker.mixer: BUILD_PRE=&& chmod 755 mixs
-docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.mixer: mixer/docker/Dockerfile.mixer
-docker.mixer: $(ISTIO_DOCKER)/mixs
-	$(DOCKER_RULE)
-
-# mixer codegen docker images
-docker.mixer_codegen: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
-docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
 # CNI
