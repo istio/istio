@@ -10,7 +10,7 @@ apiVersion: release-notes/v2
 # - feature -- Used to specify a new feature that has been added. 
 # - test -- Used to describe additional testing added. This file is optional for
 #   tests, but included for completeness.
-kind: feature
+kind: 
 
 # area describes the area that this change affects. 
 # Valid values are:
@@ -20,16 +20,14 @@ kind: feature
 # - installation
 # - istioctl
 # - documentation
-area: istioctl
+area:
 
 # issue is a list of GitHub issues resolved in this note.
 issue: 
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
-releaseNotes: |
-  *Add* a map building process to build a flat map with each path of the fields of a YAML resource as the key, and their corresponding line number as values
-  *Revised*  analyzers for the `istioctl analyze` feature to show exact error line numbers after having all the results
+releaseNotes:
 
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes. 
