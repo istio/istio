@@ -264,7 +264,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 	var err error
 
-	workloadSecretCache = cache.NewSecretCache(fetcher, sa.CredFetcher, sds.NotifyProxy, sa.secOpts)
+	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, sa.secOpts)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	if sa.secOpts.FileMountedCerts {
