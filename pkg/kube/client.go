@@ -105,6 +105,7 @@ type Client interface {
 
 	// KubeInformer returns an informer for core kube client
 	KubeInformer() informers.SharedInformerFactory
+	NewKubeInformer() InformerFactory
 
 	// DynamicInformer returns an informer for dynamic client
 	DynamicInformer() dynamicinformer.DynamicSharedInformerFactory
@@ -177,9 +178,22 @@ const resyncInterval = 0
 
 func NewFakeClient() Client {
 	var c client
+	var err error
 	c.Interface = fake.NewSimpleClientset()
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+
+	namespaces := []string{metav1.NamespaceAll}
+	c.newKubeInformer, err = NewInformerFactory(namespaces, func(ns string) informers.SharedInformerFactory {
+		return informers.NewSharedInformerFactoryWithOptions(
+			c.Interface,
+			resyncInterval,
+			informers.WithNamespace(ns),
+		)
+	})
+	if err != nil {
+		panic(err.Error())
+	}
 
 	s := runtime.NewScheme()
 	if err := metav1.AddMetaToScheme(s); err != nil {
@@ -207,6 +221,9 @@ func NewFakeClient() Client {
 type client struct {
 	kubernetes.Interface
 
+	// Set of namespaces the client is limited to.
+	namespaces []string
+
 	// These may be set only when creating an extended client. TODO: remove this entirely
 	clientFactory util.Factory
 	restClient    *rest.RESTClient
@@ -217,8 +234,9 @@ type client struct {
 	extSet        kubeExtClient.Interface
 	versionClient discovery.ServerVersionInterface
 
-	kube         kubernetes.Interface
-	kubeInformer informers.SharedInformerFactory
+	kube            kubernetes.Interface
+	kubeInformer    informers.SharedInformerFactory
+	newKubeInformer InformerFactory
 
 	dynamic         dynamic.Interface
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
@@ -234,12 +252,16 @@ type client struct {
 }
 
 // newClientInternal creates a Kubernetes client from the given factory.
-func newClientInternal(clientFactory util.Factory, revision string) (*client, error) {
+func newClientInternal(clientFactory util.Factory, revision string, namespaces []string) (*client, error) {
 	var c client
 	var err error
 
 	c.clientFactory = clientFactory
 	c.revision = revision
+
+	if len(namespaces) == 0 {
+		namespaces = []string{metav1.NamespaceAll}
+	}
 
 	c.restClient, err = clientFactory.RESTClient()
 	if err != nil {
@@ -256,7 +278,19 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	if err != nil {
 		return nil, err
 	}
+
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
+
+	c.newKubeInformer, err = NewInformerFactory(namespaces, func(ns string) informers.SharedInformerFactory {
+		return informers.NewSharedInformerFactoryWithOptions(
+			c.Interface,
+			resyncInterval,
+			informers.WithNamespace(ns),
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	c.metadata, err = metadata.NewForConfig(c.config)
 	if err != nil {
@@ -294,13 +328,13 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 
 // NewExtendedClient creates a Kubernetes client from the given ClientConfig. The "revision" parameter
 // controls the behavior of GetIstioPods, by selecting a specific revision of the control plane.
-func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string) (ExtendedClient, error) {
-	return newClientInternal(newClientFactory(clientConfig), revision)
+func NewExtendedClient(clientConfig clientcmd.ClientConfig, revision string, namespaces []string) (ExtendedClient, error) {
+	return newClientInternal(newClientFactory(clientConfig), revision, namespaces)
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
-func NewClient(clientConfig clientcmd.ClientConfig) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig), "")
+func NewClient(clientConfig clientcmd.ClientConfig, namespaces []string) (Client, error) {
+	return newClientInternal(newClientFactory(clientConfig), "", namespaces)
 }
 
 func (c *client) RESTConfig() *rest.Config {
@@ -340,6 +374,10 @@ func (c *client) KubeInformer() informers.SharedInformerFactory {
 	return c.kubeInformer
 }
 
+func (c *client) NewKubeInformer() InformerFactory {
+	return c.newKubeInformer
+}
+
 func (c *client) DynamicInformer() dynamicinformer.DynamicSharedInformerFactory {
 	return c.dynamicInformer
 }
@@ -360,11 +398,13 @@ func (c *client) ServiceApisInformer() serviceapisinformer.SharedInformerFactory
 // Warning: this must be called AFTER .Informer() is called, which will register the informer.
 func (c *client) RunAndWait(stop <-chan struct{}) {
 	c.kubeInformer.Start(stop)
+	c.newKubeInformer.Start(stop)
 	c.dynamicInformer.Start(stop)
 	c.metadataInformer.Start(stop)
 	c.istioInformer.Start(stop)
 	c.serviceapisInformers.Start(stop)
 	c.kubeInformer.WaitForCacheSync(stop)
+	c.newKubeInformer.WaitForCacheSync(stop)
 	c.dynamicInformer.WaitForCacheSync(stop)
 	c.metadataInformer.WaitForCacheSync(stop)
 	c.istioInformer.WaitForCacheSync(stop)
