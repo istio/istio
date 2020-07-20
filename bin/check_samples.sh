@@ -28,6 +28,5 @@ go build -o $ISTIOCTL ./istioctl/cmd/istioctl
 for f in samples/**/*.yaml; do
   echo "Validating $f..."
   $ISTIOCTL validate -x \
-    -f samples/httpbin/policy/keyval-template.yaml \
     -f "$f"
 done
