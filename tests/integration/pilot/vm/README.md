@@ -22,10 +22,10 @@ disabling kube-dns, Service Account mount, etc. For more information around VM o
 refer to this [doc](https://istio.io/latest/docs/examples/virtual-machines/single-network/).
 
 To deploy an echo instance as a VM
-1. Set the ports for the VMs. Note that due to a bug in WorkloadEntry,
-we need to set the ServicePort to be the same as the InstancePort
-1. Set `DeployAsVm` to be true in `echo.Config`
+1. Set the ports for the VMs.
+1. Set `DeployAsVm` to be true in `echo.Config`.
 1. Set `VMImage` to be any image available from `GetSupportedOSVersion` in [util.go](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go).
+We used DefaultVMImage in the example.
 
 For example,
 
@@ -34,7 +34,6 @@ ports := []echo.Port{
    {
        Name:     "http",
        Protocol: protocol.HTTP,
-       // Due to a bug in WorkloadEntry, service port must equal target port for now
        InstancePort: 8090,
        ServicePort:  8090,
    },
@@ -49,9 +48,9 @@ echo.Config{
 }
 ```
 
-The default image referenced with `DefaultVMImage` from `vm` package should be used in all pre-submit tests since
-only the default image would be built in pre-submit stage. Using additional images are only possible in
-post-submit stage as shown in the [next section](#add_more_images).
+The default image referenced with `DefaultVMImage` from `vm` package should be used for all pre-submit tests since
+this is the only image available in the pre-submit stage. Using additional images are only possible in
+post-submit tests as shown in the [next section](#add_more_images).
 A complete list of supported additional images can be found in [`util.go`](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go).
 If `VMImage` is not provided while `DeployAsVM` is on, it will default the Docker image to be `DefaultVMImage`.
 
@@ -70,8 +69,6 @@ See other build targets for references.
 
 **Note: We will only build default image for pre-submit jobs and build all others for post-submit jobs
 to save time in CI/CD.**
-
-**Pre-submit tests only support the default image. If additional images are needed please run as a post-submit jobs.**
 
 ## Scenario 3: Testing VM Onboarding & Enmeshing
 
