@@ -819,7 +819,7 @@ func getRouteOperation(in *route.Route, vsName string, port int) string {
 	// return virtual serivce name:port/uri as substitute.
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
 		// Parse host and port from cluster name.
-		_, _, h, p, _:= model.ParseSubsetKey(c)
+		_, _, h, p, _ := model.ParseSubsetKey(c)
 		return string(h) + ":" + strconv.Itoa(p) + path
 	}
 	return vsName + ":" + strconv.Itoa(port) + path

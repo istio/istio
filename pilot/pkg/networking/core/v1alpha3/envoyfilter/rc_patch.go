@@ -184,7 +184,7 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	if patchContext != networking.EnvoyFilter_GATEWAY {
 		listenerPort := 0
 		if strings.HasPrefix(rc.Name, string(model.TrafficDirectionInbound)) {
-			_, _, _, listenerPort, _= model.ParseSubsetKey(rc.Name)
+			_, _, _, listenerPort, _ = model.ParseSubsetKey(rc.Name)
 		} else {
 			listenerPort, _ = strconv.Atoi(rc.Name)
 		}

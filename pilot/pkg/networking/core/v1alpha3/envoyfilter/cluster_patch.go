@@ -98,7 +98,7 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return cMatch.Name == cluster.Name
 	}
 
-	_, subset, hostname, port ,_:= model.ParseSubsetKey(cluster.Name)
+	_, subset, hostname, port, _ := model.ParseSubsetKey(cluster.Name)
 
 	if cMatch.Subset != "" && cMatch.Subset != subset {
 		return false

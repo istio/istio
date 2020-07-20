@@ -171,7 +171,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			port = service.Ports[0].Port
 		}
 
-		clusterName := model.BuildOutboundClusterName( "", service.Hostname, port, model.TunnelNone)
+		clusterName := model.BuildOutboundClusterName("", service.Hostname, port, model.TunnelNone)
 		statPrefix := clusterName
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {

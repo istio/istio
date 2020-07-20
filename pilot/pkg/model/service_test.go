@@ -59,7 +59,7 @@ func TestParseSubsetKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			d, s, h, p,_ := ParseSubsetKey(tt.input)
+			d, s, h, p, _ := ParseSubsetKey(tt.input)
 			if d != tt.direction {
 				t.Errorf("Expected direction %v got %v", tt.direction, d)
 			}

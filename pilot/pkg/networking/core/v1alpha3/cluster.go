@@ -179,7 +179,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) 
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxy, service)
-			clusterName := model.BuildOutboundClusterName( "", service.Hostname, port.Port, model.TunnelNone)
+			clusterName := model.BuildOutboundClusterName("", service.Hostname, port.Port, model.TunnelNone)
 			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service.MeshExternal)
 			if defaultCluster == nil {
 				continue

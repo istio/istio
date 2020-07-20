@@ -383,7 +383,7 @@ func buildUpstreamName(address string) string {
 
 	hostname, port, _ := net.SplitHostPort(address)
 	v, _ := strconv.Atoi(port)
-	return model.BuildOutboundClusterName( "", host.Name(hostname), v, model.TunnelNone)
+	return model.BuildOutboundClusterName("", host.Name(hostname), v, model.TunnelNone)
 }
 
 func buildTransport(mesh *meshconfig.MeshConfig, node *model.Proxy) *mpb.TransportConfig {
@@ -527,7 +527,7 @@ func modifyOutboundRouteConfig(in *plugin.InputParams, virtualHostname string, h
 			addFilterConfigToRoute(in, httpRoute, attrs, getQuotaSpec(in, hostname, isPolicyCheckDisabled))
 		case *route.RouteAction_WeightedClusters:
 			for _, weighted := range upstreams.WeightedClusters.Clusters {
-				_, _, hostname,_, _ := model.ParseSubsetKey(weighted.Name)
+				_, _, hostname, _, _ := model.ParseSubsetKey(weighted.Name)
 				svc := in.Push.ServiceForHostname(in.Node, hostname)
 				attrs := addDestinationServiceAttributes(make(attributes), svc)
 				weighted.TypedPerFilterConfig = addTypedServiceConfig(weighted.TypedPerFilterConfig, &mpb.ServiceConfig{
