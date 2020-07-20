@@ -334,4 +334,10 @@ var (
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
 	InjectionWebhookConfigName = env.RegisterStringVar("INJECTION_WEBHOOK_CONFIG_NAME", "istio-sidecar-injector",
 		"Name of the mutatingwebhookconfiguration to patch, if istioctl is not used.")
+
+	KubernetesAPIQPS = env.RegisterFloatVar("KUBERNETES_API_QPS", 20.0,
+		"Maximum QPS when communicating with the kubernetes API")
+
+	KubernetesAPIBurst = env.RegisterIntVar("KUBERNETES_API_BURST", 40,
+		"Maximum burst for throttle when communicating with the kubernetes API")
 )
