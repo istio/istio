@@ -31,7 +31,6 @@ import (
 
 var (
 	ist                              istio.Instance
-	pilots                           []pilot.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
 )
@@ -54,7 +53,6 @@ func TestMain(m *testing.M) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
 		})).
-		Setup(pilot.Setup(&pilots, pilot.Config{})).
 		Run()
 }
 

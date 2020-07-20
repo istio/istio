@@ -23,14 +23,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	ist                              istio.Instance
-	pilots                           []pilot.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
 )
@@ -53,7 +51,6 @@ func TestMain(m *testing.M) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
 		})).
-		Setup(pilot.Setup(&pilots, pilot.Config{})).
 		Run()
 }
 
