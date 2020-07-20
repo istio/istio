@@ -701,10 +701,13 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 
 	// Now get the target Port for this service port
 	targetPort := reqSvcPort
+	targetPortName := ""
 	for _, p := range k8sService.Spec.Ports {
 		if p.Name == servicePort.Name || p.Port == int32(servicePort.Port) {
 			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
 				targetPort = int(p.TargetPort.IntVal)
+			} else {
+				targetPortName = p.TargetPort.StrVal
 			}
 			break
 		}
@@ -720,7 +723,17 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 		if selector.SubsetOf(wi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
 			istioEndpoint := *wi.Endpoint
-			istioEndpoint.EndpointPort = uint32(targetPort)
+			if targetPortName != "" {
+				// This is a named port, find the corresponding port in the port map
+				matchedPort := wi.PortMap[targetPortName]
+				if matchedPort == 0 {
+					// No match found, skip this endpoint
+					continue
+				}
+				istioEndpoint.EndpointPort = matchedPort
+			} else {
+				istioEndpoint.EndpointPort = uint32(targetPort)
+			}
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
