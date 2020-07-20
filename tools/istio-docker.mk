@@ -207,12 +207,12 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
 # CNI
-docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni $(ISTIO_OUT_LINUX)/istio-cni-repair
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-repair
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
-docker.install-cni: cni/deployments/kubernetes/install/scripts/install-cni.sh
-docker.install-cni: cni/deployments/kubernetes/install/scripts/istio-cni.conf.default
+docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
+docker.install-cni: cni/deployments/kubernetes/install/istio-cni.conf.default
 docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
-docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
 	$(DOCKER_RULE)
 
 .PHONY: dockerx dockerx.save
