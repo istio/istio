@@ -50,6 +50,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 # Retrieve sync diff for a single Envoy and Istiod
 	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+
+# Write proxy config-dump to file, and compare to Istio control plane
+    kubectl port-forward -n istio-system istio-egressgateway-59585c5b9c-ndc59 15000 &
+    curl localhost:15000/config_dump > cd.json
+    istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system --file cd.json
 `,
 		Aliases: []string{"ps"},
 		Args: func(cmd *cobra.Command, args []string) error {
