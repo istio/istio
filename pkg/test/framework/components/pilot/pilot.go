@@ -16,10 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"time"
-
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	meshConfig "istio.io/api/mesh/v1alpha1"
 
@@ -33,14 +29,6 @@ type TypeURL string
 // Instance of Pilot
 type Instance interface {
 	resource.Resource
-
-	CallDiscovery(req *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error)
-	CallDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest) *discovery.DiscoveryResponse
-
-	StartDiscovery(req *discovery.DiscoveryRequest) error
-	StartDiscoveryOrFail(t test.Failer, req *discovery.DiscoveryRequest)
-	WatchDiscovery(duration time.Duration, accept func(*discovery.DiscoveryResponse) (bool, error)) error
-	WatchDiscoveryOrFail(t test.Failer, duration time.Duration, accept func(*discovery.DiscoveryResponse) (bool, error))
 }
 
 // Structured config for the Pilot component
@@ -67,14 +55,4 @@ func NewOrFail(t test.Failer, c resource.Context, config Config) Instance {
 		t.Fatalf("pilot.NewOrFail: %v", err)
 	}
 	return i
-}
-
-// NewDiscoveryRequest is a utility method for creating a new request for the given node and type.
-func NewDiscoveryRequest(nodeID string, typeURL TypeURL) *discovery.DiscoveryRequest {
-	return &discovery.DiscoveryRequest{
-		Node: &core.Node{
-			Id: nodeID,
-		},
-		TypeUrl: string(typeURL),
-	}
 }
