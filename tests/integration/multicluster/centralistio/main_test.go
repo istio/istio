@@ -30,7 +30,6 @@ import (
 
 var (
 	ist                              istio.Instance
-	pilots                           []pilot.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
 )
@@ -82,20 +81,6 @@ values:
   global:
     centralIstiod: true`
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))
-			// All clusters talk to the same pilot
-			pilot, err := pilot.New(ctx, pilot.Config{
-				Cluster: ctx.Environment().Clusters()[0],
-			})
-			if err != nil {
-				return err
-			}
-			for i := 0; i < len(ctx.Environment().Clusters()); i++ {
-				pilots[i] = pilot
-			}
-			return nil
-		}).
 		Run()
 }
 

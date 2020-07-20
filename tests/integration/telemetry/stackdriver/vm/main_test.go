@@ -40,7 +40,6 @@ const (
 
 var (
 	i       istio.Instance
-	p       pilot.Instance
 	ns      namespace.Instance
 	gceInst gcemetadata.Instance
 	sdInst  stackdriver.Instance
@@ -72,12 +71,6 @@ values:
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Setup(testSetup).
 		Run()
 }
