@@ -75,6 +75,7 @@ var _metadataYaml = []byte(`# Copyright 2019 Istio Authors
 # The total set of collections, both Istio (i.e. MCP) and K8s (API Server/K8s).
 collections:
   ## Istio collections
+<<<<<<< HEAD
   - name: "istio/config/v1alpha2/adapters"
     kind: "adapter"
     group: "config.istio.io"
@@ -97,6 +98,8 @@ collections:
     group: "config.istio.io"
     deprecated: true
 
+=======
+>>>>>>> f0ae2b6cd2... cleanup generated code and validation logic
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
     group: ""
@@ -105,6 +108,7 @@ collections:
     kind: "MeshNetworks"
     group: ""
 
+<<<<<<< HEAD
   - name: "istio/mixer/v1/config/client/quotaspecs"
     kind: "QuotaSpec"
     group: "config.istio.io"
@@ -117,6 +121,8 @@ collections:
     pilot: true
     deprecated: true
 
+=======
+>>>>>>> f0ae2b6cd2... cleanup generated code and validation logic
   - name: "istio/networking/v1alpha3/destinationrules"
     kind: "DestinationRule"
     group: "networking.istio.io"
@@ -152,6 +158,7 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
+<<<<<<< HEAD
   - name: "istio/policy/v1beta1/attributemanifests"
     kind: "attributemanifest"
     group: "config.istio.io"
@@ -172,6 +179,8 @@ collections:
     group: "config.istio.io"
     deprecated: true
 
+=======
+>>>>>>> f0ae2b6cd2... cleanup generated code and validation logic
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
@@ -251,43 +260,6 @@ collections:
     group: "networking.x-k8s.io"
 
   # Istio CRD collections
-
-  - name: "k8s/config.istio.io/v1alpha2/adapters"
-    kind: "adapter"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/attributemanifests"
-    kind: "attributemanifest"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/httpapispecs"
-    kind: "HTTPAPISpec"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/httpapispecbindings"
-    kind: "HTTPAPISpecBinding"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/instances"
-    kind: "instance"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/templates"
-    kind: "template"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/quotaspecs"
-    kind: "QuotaSpec"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/quotaspecbindings"
-    kind: "QuotaSpecBinding"
-    group: "config.istio.io"
-
-  - name: "k8s/config.istio.io/v1alpha2/rules"
-    kind: "rule"
-    group: "config.istio.io"
-
   - name: "k8s/networking.istio.io/v1alpha3/destinationrules"
     kind: "DestinationRule"
     group: "networking.istio.io"
@@ -316,10 +288,6 @@ collections:
     kind: "VirtualService"
     group: "networking.istio.io"
 
-  - name: "k8s/config.istio.io/v1alpha2/handlers"
-    kind: "handler"
-    group: "config.istio.io"
-
   - name: "k8s/security.istio.io/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
@@ -338,13 +306,7 @@ snapshots:
   - name: "default"
     strategy: debounce
     collections:
-      - "istio/config/v1alpha2/adapters"
-      - "istio/config/v1alpha2/httpapispecs"
-      - "istio/config/v1alpha2/httpapispecbindings"
-      - "istio/config/v1alpha2/templates"
       - "istio/mesh/v1alpha1/MeshConfig"
-      - "istio/mixer/v1/config/client/quotaspecbindings"
-      - "istio/mixer/v1/config/client/quotaspecs"
       - "istio/networking/v1alpha3/destinationrules"
       - "istio/networking/v1alpha3/envoyfilters"
       - "istio/networking/v1alpha3/gateways"
@@ -352,10 +314,6 @@ snapshots:
       - "istio/networking/v1alpha3/workloadentries"
       - "istio/networking/v1alpha3/sidecars"
       - "istio/networking/v1alpha3/virtualservices"
-      - "istio/policy/v1beta1/attributemanifests"
-      - "istio/policy/v1beta1/handlers"
-      - "istio/policy/v1beta1/instances"
-      - "istio/policy/v1beta1/rules"
       - "istio/security/v1beta1/authorizationpolicies"
       - "istio/security/v1beta1/requestauthentications"
       - "istio/security/v1beta1/peerauthentications"
@@ -555,38 +513,6 @@ resources:
     protoPackage: "istio.io/api/networking/v1alpha3"
     description: "describes the listeners associated with sidecars in a namespace"
 
-  - kind: "HTTPAPISpec"
-    plural: "httpapispecs"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.mixer.v1.config.client.HTTPAPISpec"
-    protoPackage: "istio.io/api/mixer/v1/config/client"
-    description: "describes an HTTP API specification"
-
-  - kind: "HTTPAPISpecBinding"
-    plural: "httpapispecbindings"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.mixer.v1.config.client.HTTPAPISpecBinding"
-    protoPackage: "istio.io/api/mixer/v1/config/client"
-    description: "describes an HTTP API specification binding"
-
-  - kind: "QuotaSpec"
-    plural: "quotaspecs"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.mixer.v1.config.client.QuotaSpec"
-    protoPackage: "istio.io/api/mixer/v1/config/client"
-    description: "describes an Quota specification"
-
-  - kind: "QuotaSpecBinding"
-    plural: "quotaspecbindings"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.mixer.v1.config.client.QuotaSpecBinding"
-    protoPackage: "istio.io/api/mixer/v1/config/client"
-    description: "describes an Quota specification binding"
-
   - kind: "MeshConfig"
     plural: "meshconfigs"
     group: ""
@@ -628,63 +554,11 @@ resources:
     validate: "ValidatePeerAuthentication"
     description: "describes the peer authentication."
 
-  - kind: "rule"
-    plural: "rules"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.policy.v1beta1.Rule"
-    protoPackage: "istio.io/api/policy/v1beta1"
-
-  - kind: "attributemanifest"
-    plural: "attributemanifests"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.policy.v1beta1.AttributeManifest"
-    protoPackage: "istio.io/api/policy/v1beta1"
-
-  - kind: "instance"
-    plural: "instances"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.policy.v1beta1.Instance"
-    protoPackage: "istio.io/api/policy/v1beta1"
-
-  - kind: "handler"
-    plural: "handlers"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "istio.policy.v1beta1.Handler"
-    protoPackage: "istio.io/api/policy/v1beta1"
-
-  - kind: "template"
-    plural: "templates"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "google.protobuf.Struct"
-    protoPackage: "github.com/gogo/protobuf/types"
-
-  - kind: "adapter"
-    plural: "adapters"
-    group: "config.istio.io"
-    version: "v1alpha2"
-    proto: "google.protobuf.Struct"
-    protoPackage: "github.com/gogo/protobuf/types"
-
 # Transform specific configurations
 transforms:
   - type: direct
     mapping:
       "k8s/apiextensions.k8s.io/v1/customresourcedefinitions": "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
-      "k8s/config.istio.io/v1alpha2/adapters": "istio/config/v1alpha2/adapters"
-      "k8s/config.istio.io/v1alpha2/attributemanifests": "istio/policy/v1beta1/attributemanifests"
-      "k8s/config.istio.io/v1alpha2/handlers": "istio/policy/v1beta1/handlers"
-      "k8s/config.istio.io/v1alpha2/httpapispecs": "istio/config/v1alpha2/httpapispecs"
-      "k8s/config.istio.io/v1alpha2/httpapispecbindings": "istio/config/v1alpha2/httpapispecbindings"
-      "k8s/config.istio.io/v1alpha2/instances": "istio/policy/v1beta1/instances"
-      "k8s/config.istio.io/v1alpha2/quotaspecs": "istio/mixer/v1/config/client/quotaspecs"
-      "k8s/config.istio.io/v1alpha2/quotaspecbindings": "istio/mixer/v1/config/client/quotaspecbindings"
-      "k8s/config.istio.io/v1alpha2/rules": "istio/policy/v1beta1/rules"
-      "k8s/config.istio.io/v1alpha2/templates": "istio/config/v1alpha2/templates"
       "k8s/networking.istio.io/v1alpha3/destinationrules": "istio/networking/v1alpha3/destinationrules"
       "k8s/networking.istio.io/v1alpha3/envoyfilters": "istio/networking/v1alpha3/envoyfilters"
       "k8s/networking.istio.io/v1alpha3/gateways": "istio/networking/v1alpha3/gateways"
