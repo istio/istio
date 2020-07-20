@@ -151,4 +151,6 @@ func (p *PilotArgs) applyDefaults() {
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.DistributionTrackingEnabled = features.EnableDistributionTracking
 	p.RegistryOptions.DistributionCacheRetention = features.DistributionHistoryRetention
+	p.RegistryOptions.KubeOptions.KubernetesAPIQPS = float32(features.KubernetesAPIQPS.Get())
+	p.RegistryOptions.KubeOptions.KubernetesAPIBurst = features.KubernetesAPIBurst.Get()
 }
