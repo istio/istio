@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -168,8 +169,7 @@ type Controller struct {
 
 	queue queue.Instance
 
-	serviceInformer cache.SharedIndexInformer
-	serviceLister   listerv1.ServiceLister
+	serviceInformer kubelib.InformerLister
 
 	endpoints kubeEndpointsController
 
@@ -238,8 +238,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		metrics:                    options.Metrics,
 	}
 
-	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
-	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
+	var err error
+
+	c.serviceInformer, err = kubeClient.NewKubeInformer().ForResource(v1.SchemeGroupVersion.WithResource("services"))
+	if err != nil {
+		panic(err.Error())
+	}
+
 	registerHandlers(c.serviceInformer, c.queue, "Services", reflect.DeepEqual, c.onServiceEvent)
 
 	switch options.EndpointMode {
@@ -423,7 +428,7 @@ func isNodePortGatewayService(svc *v1.Service) bool {
 	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
 }
 
-func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
+func registerHandlers(informer kubelib.Informer, q queue.Instance, otype string,
 	equalsFunc func(old, cur interface{}) bool, handler func(interface{}, model.Event) error) {
 
 	informer.AddEventHandler(
@@ -680,9 +685,10 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	selector := labels.Instance(svc.Attributes.LabelSelectors)
 
 	// Get the service port name and target port so that we can construct the service instance
-	k8sService, err := c.serviceLister.Services(svc.Attributes.Namespace).Get(svc.Attributes.Name)
-	// We did not find the k8s service. We cannot get the targetPort
-	if err != nil {
+	k8sService := &v1.Service{}
+	key := types.NamespacedName{Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace}
+	if err := c.serviceInformer.Get(key, k8sService); err != nil {
+		// We did not find the k8s service. We cannot get the targetPort
 		log.Infof("serviceInstancesFromWorkloadInstances(%s.%s) failed to get k8s service => error %v",
 			svc.Attributes.Name, svc.Attributes.Namespace, err)
 		return nil
@@ -805,7 +811,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			}
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
-			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+			if services, err := getPodServices(c.serviceInformer, pod); err == nil && len(services) > 0 {
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 				}
@@ -845,7 +851,7 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) ([]*mod
 	}
 
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices, err := getPodServices(c.serviceInformer, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			var service *model.Service
 			c.RLock()
@@ -899,7 +905,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 
 	// find the services that map to this workload entry, fire off eds updates if the service is of type client-side lb
-	if k8sServices, err := getPodServices(c.serviceLister, dummyPod); err == nil && len(k8sServices) > 0 {
+	if k8sServices, err := getPodServices(c.serviceInformer, dummyPod); err == nil && len(k8sServices) > 0 {
 		for _, k8sSvc := range k8sServices {
 			var service *model.Service
 			c.RLock()
@@ -937,14 +943,15 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
-	allServices, err := s.Services(pod.Namespace).List(klabels.Everything())
-	if err != nil {
+func getPodServices(l kubelib.Lister, pod *v1.Pod) ([]*v1.Service, error) {
+	allServices := &v1.ServiceList{}
+	if err := l.List(allServices, kubelib.InNamespace(pod.Namespace)); err != nil {
 		return nil, err
 	}
 
 	var services []*v1.Service
-	for _, service := range allServices {
+	for i := range allServices.Items {
+		service := &allServices.Items[i]
 		if service.Spec.Selector == nil {
 			// services with nil selectors match nothing, not everything.
 			continue
@@ -979,7 +986,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 	}
 
 	// Find the Service associated with the pod.
-	services, err := getPodServices(c.serviceLister, dummyPod)
+	services, err := getPodServices(c.serviceInformer, dummyPod)
 	if err != nil {
 		return nil, fmt.Errorf("error getting instances for %s: %v", proxy.ID, err)
 

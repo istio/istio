@@ -20,6 +20,7 @@ import (
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 
 	kubecfg "istio.io/istio/pkg/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -32,7 +33,7 @@ func newConfigStore() (istioclient.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
-	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg))
+	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg), []string{metav1.NamespaceAll})
 	if err != nil {
 		return nil, err
 	}

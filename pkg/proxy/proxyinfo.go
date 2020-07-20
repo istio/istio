@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
 	istioVersion "istio.io/pkg/version"
@@ -32,7 +34,7 @@ type sidecarSyncStatus struct {
 
 // GetProxyInfo retrieves infos of proxies that connect to the Istio control plane of specific revision.
 func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*[]istioVersion.ProxyInfo, error) {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision, []string{metav1.NamespaceAll})
 	if err != nil {
 		return nil, err
 	}

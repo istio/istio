@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -417,7 +418,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 			return fmt.Errorf("failed creating kube config: %v", err)
 		}
 
-		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig))
+		namespaces := strings.Split(args.RegistryOptions.KubeOptions.WatchedNamespaces, ",")
+		s.kubeClient, err = kubelib.NewClient(kubelib.NewClientConfigForRestConfig(s.kubeRestConfig), namespaces)
 		if err != nil {
 			return fmt.Errorf("failed creating kube client: %v", err)
 		}

@@ -17,6 +17,7 @@ package controller
 import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
@@ -63,7 +64,10 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 // processEndpointEvent triggers the config update.
 func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep interface{}) error {
 	if features.EnableHeadlessService {
-		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
+		svc := &v1.Service{}
+		key := types.NamespacedName{Name: name, Namespace: namespace}
+
+		if err := c.serviceInformer.Get(key, svc); err == nil {
 			// if the service is headless service, trigger a full push.
 			if svc.Spec.ClusterIP == v1.ClusterIPNone {
 				c.xdsUpdater.ConfigUpdate(&model.PushRequest{
