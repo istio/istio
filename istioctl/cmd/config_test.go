@@ -31,14 +31,14 @@ func TestConfigList(t *testing.T) {
 		},
 		{ // case 1
 			args: strings.Split("experimental config list", " "),
-			expectedOutput: `FLAG                    VALUE            FROM
-cert-dir                                 default
-insecure                                 default
-istioNamespace          istio-system     default
-prefer-experimental                      default
-xds-address                              default
-xds-port                15012            default
-xds-san                                  default
+			expectedOutput: `FLAG                    VALUE     FROM
+cert-dir                          default
+insecure                          default
+istioNamespace                    default
+prefer-experimental               default
+xds-address                       default
+xds-port                15012     default
+xds-san                           default
 `,
 			wantException: false,
 		},
