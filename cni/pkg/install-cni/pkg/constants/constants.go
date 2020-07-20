@@ -20,7 +20,6 @@ const (
 	CNINetDir            = "cni-net-dir"
 	CNIConfName          = "cni-conf-name"
 	ChainedCNIPlugin     = "chained-cni-plugin"
-	Sleep                = "sleep"
 	CNINetworkConfigFile = "cni-network-config-file"
 	CNINetworkConfig     = "cni-network-config"
 	LogLevel             = "log-level"
