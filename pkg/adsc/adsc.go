@@ -1253,6 +1253,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 // Reconnect attempts to connect, with backoff in case of failure.
 func (a *ADSC) reconnect() {
 	var err error
+	t0 := time.Now()
 	if a.adsServiceClient == nil {
 		err = a.connect()
 		log.Warna("CONNECTING ", err)
@@ -1277,6 +1278,7 @@ func (a *ADSC) reconnect() {
 	a.sendInitial()
 	a.handleRecv(false)
 	// Connection closed, try to reconnect
+	log.Warna("XXXXX Connect DONE, duration: ", time.Since(t0))
 	time.AfterFunc(100*time.Millisecond, a.reconnect)
 }
 
