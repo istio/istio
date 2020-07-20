@@ -195,6 +195,14 @@ type Config struct {
 	// InjectedAnnotations are additional annotations that will be added to the pod spec after injection
 	// This is primarily to support PSP annotations.
 	InjectedAnnotations map[string]string `json:"injectedAnnotations"`
+
+	// Ignored namespaces are ignored, even if the policy is 'on'
+	// Pod labels can override this.
+	IgnoredNamespaces []string  `json:"ignoredNamespaces"`
+
+	// InjectedNamespaces are injected, even if they don't have a label.
+	// This can be used with broad mutating webhook
+	InjectedNamespaces []string `json:"injectedNamespaces"`
 }
 
 func validateCIDRList(cidrs string) error {
@@ -334,7 +342,10 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	var useDefault bool
+
+	// Explicit annotation
 	var inject bool
+
 	switch strings.ToLower(annos[annotation.SidecarInject.Name]) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":
@@ -375,12 +386,32 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		}
 	}
 
+	if useDefault && len(config.IgnoredNamespaces) > 0 {
+		// skip other ignored system namespaces
+		for _, namespace := range config.IgnoredNamespaces {
+			if metadata.Namespace == namespace {
+				return false
+			}
+		}
+	}
+
+	if useDefault && len(config.InjectedNamespaces) > 0 {
+		// skip other ignored system namespaces
+		for _, namespace := range config.IgnoredNamespaces {
+			if metadata.Namespace == namespace {
+				return false
+			}
+		}
+	}
+
 	var required bool
 	switch config.Policy {
 	default: // InjectionPolicyOff
-		log.Errorf("Illegal value for autoInject:%s, must be one of [%s,%s]. Auto injection disabled!",
-			config.Policy, InjectionPolicyDisabled, InjectionPolicyEnabled)
-		required = false
+		if useDefault {
+			required = true
+		} else {
+			required = inject
+		}
 	case InjectionPolicyDisabled:
 		if useDefault {
 			required = false

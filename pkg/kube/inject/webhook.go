@@ -30,7 +30,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-
 	"istio.io/api/label"
 
 	"istio.io/api/annotation"
@@ -142,6 +141,12 @@ type WebhookParameters struct {
 	// The istio.io/rev this injector is responsible for
 	Revision string
 }
+
+// TODO:
+// - formally define the URL format - including cluster, network
+// - include the revision in the URL
+// - use Istiod configmap watcher to load per-revision template
+// - formalize the set of values available in injection template, treat it as a stable/versioned API.
 
 // NewWebhook creates a new instance of a mutating webhook for automatic sidecar injection.
 func NewWebhook(p WebhookParameters) (*Webhook, error) {
@@ -659,6 +664,10 @@ func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
 func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
+
+	// TODO: URGENT, invalid request testing for injector !!!!
+	// - catch throwables, don't crash the server !!!
+
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
 		handleError(fmt.Sprintf("Could not unmarshal raw object: %v %s", err,
 			string(req.Object.Raw)))
@@ -800,15 +809,23 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var reviewResponse *v1beta1.AdmissionResponse
-	ar := v1beta1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+	ar := &v1beta1.AdmissionReview{}
+	if _, _, err := deserializer.Decode(body, nil, ar); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		log.Debugf("AdmissionRequest for path=%s\n", path)
-		reviewResponse = wh.inject(&ar, path)
+		reviewResponse = wh.inject(ar, path)
 	}
 
+	x, _ := json.Marshal(ar)
+	log.Info(string(x))
+	log.Infoa("Headers: ", r.Header)
+		log.Infoa("TLS: ", r.TLS)
+	if r.TLS != nil {
+		log.Infoa("TLS: ", r.TLS.PeerCertificates)
+
+	}
 	response := v1beta1.AdmissionReview{}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
