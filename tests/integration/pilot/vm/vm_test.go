@@ -79,8 +79,8 @@ spec:
 `)
 			ports := []echo.Port{
 				{
-					Name:         "http",
-					Protocol:     protocol.HTTP,
+					Name:         "grpc",
+					Protocol:     protocol.GRPC,
 					ServicePort:  8090,
 					InstancePort: 10090,
 				},
@@ -109,8 +109,8 @@ spec:
 					Namespace: ns,
 					Ports: []echo.Port{
 						{
-							Name:         "http",
-							Protocol:     protocol.HTTP,
+							Name:         "grpc",
+							Protocol:     protocol.GRPC,
 							ServicePort:  8090,
 							InstancePort: 8090,
 						},
@@ -174,7 +174,7 @@ spec:
 							retry.UntilSuccessOrFail(ctx, func() error {
 								r, err := tt.from.Call(echo.CallOptions{
 									Target:   tt.to,
-									PortName: "http",
+									PortName: "grpc",
 									Host:     tt.host,
 								})
 								if err != nil {
