@@ -42,7 +42,7 @@ func SendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []st
 	retry.UntilSuccessOrFail(t, func() error {
 		resp, err := from.Call(echo.CallOptions{
 			Target:   to,
-			PortName: "http",
+			PortName: "grpc",
 			Count:    batchSize,
 		})
 		if err != nil {
