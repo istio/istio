@@ -273,7 +273,7 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 	return nil
 }
 
-func ExtractTcpProxy(t test.Failer, fcs *listener.FilterChain) *envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy {
+func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy {
 	for _, fc := range fcs.Filters {
 		if fc.Name == wellknown.TCPProxy {
 			tcpProxy := &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy{}

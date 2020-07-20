@@ -426,7 +426,7 @@ spec:
 		if f.FilterChainMatch != nil {
 			continue
 		}
-		tcp := ExtractTcpProxy(t, f)
+		tcp := ExtractTCPProxy(t, f)
 		if tcp.GetCluster() != expectedEgressCluster {
 			t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
 		}

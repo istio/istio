@@ -17,14 +17,9 @@ package pilot
 import (
 	"fmt"
 
-	meshConfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 )
-
-// TypeURL for making discovery requests.
-type TypeURL string
 
 // Instance of Pilot
 type Instance interface {
@@ -34,10 +29,6 @@ type Instance interface {
 // Structured config for the Pilot component
 type Config struct {
 	fmt.Stringer
-
-	// The MeshConfig to be used for Pilot in native environment. In Kube environment this can be
-	// configured with Helm.
-	MeshConfig *meshConfig.MeshConfig
 
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
