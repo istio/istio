@@ -138,6 +138,8 @@ type ADSC struct {
 
 	watchTime time.Time
 
+	initialWatchTypes []string
+
 	// InitialLoad tracks the time to receive the initial configuration.
 	InitialLoad time.Duration
 
@@ -206,12 +208,8 @@ type ResponseHandler interface {
 }
 
 const (
-	typePrefix = "type.googleapis.com/envoy.api.v2."
-
-	// ListenerType is sent after clusters and endpoints.
-	ListenerType = typePrefix + "Listener"
-	// RouteType is sent after listeners.
-	routeType = typePrefix + "RouteConfiguration"
+	// Temp - remove dep
+	ListenerType = v3.ListenerType
 )
 
 var (
@@ -229,16 +227,17 @@ func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) (*ADSC, error) {
 
 func newADSC(p *v1alpha1.ProxyConfig, opts *Config) *ADSC {
 	adsc := &ADSC{
-		Updates:     make(chan string, 100),
-		XDSUpdates:  make(chan *discovery.DiscoveryResponse, 100),
-		VersionInfo: map[string]string{},
-		url:         p.DiscoveryAddress,
-		Received:    map[string]*discovery.DiscoveryResponse{},
-		RecvWg:      sync.WaitGroup{},
-		cfg:         opts,
-		syncCh:      make(chan string, len(collections.Pilot.All())),
-		sync:        map[string]time.Time{},
-		Sent:        map[string]*discovery.DiscoveryRequest{},
+		Updates:           make(chan string, 100),
+		XDSUpdates:        make(chan *discovery.DiscoveryResponse, 100),
+		VersionInfo:       map[string]string{},
+		url:               p.DiscoveryAddress,
+		Received:          map[string]*discovery.DiscoveryResponse{},
+		RecvWg:            sync.WaitGroup{},
+		cfg:               opts,
+		syncCh:            make(chan string, len(collections.Pilot.All())),
+		sync:              map[string]time.Time{},
+		Sent:              map[string]*discovery.DiscoveryRequest{},
+		initialWatchTypes: []string{},
 	}
 	if opts.Namespace == "" {
 		opts.Namespace = "default"
@@ -484,15 +483,27 @@ func (a *ADSC) hasSynced() bool {
 	if len(a.Sent) == 0 {
 		return false
 	}
-	for k, _ := range a.Sent {
+	for _, k := range a.initialWatchTypes {
 		a.mutex.RLock()
-		t := a.sync[k]
+		t := a.Received[k]
 		a.mutex.RUnlock()
-		if t.IsZero() {
+		if t == nil {
+			log.Infoa("Not synced: ", k)
 			return false
 		}
 	}
 	return true
+}
+
+func (a *ADSC) onReceive(msg *discovery.DiscoveryResponse) {
+	a.mutex.Lock()
+	a.sync[msg.TypeUrl] = time.Now()
+	a.Received[msg.TypeUrl] = msg
+	a.ack(msg)
+	a.mutex.Unlock()
+	select {
+	case a.syncCh <- msg.TypeUrl:
+	}
 }
 
 // handleRecv handles the receiving stream. Returns when connection is closed.
@@ -535,6 +546,8 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 				log.Warna("Failed to unmarshal mesh config", err)
 			}
 			a.Mesh = m
+			a.onReceive(msg)
+
 			if a.LocalCacheDir != "" {
 				// TODO: use jsonpb
 				strResponse, err := json.MarshalIndent(m, "  ", "  ")
@@ -595,25 +608,55 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 
 		// TODO: add hook to inject nacks
 
-		a.mutex.Lock()
-		if len(gvk) == 3 {
-			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
-			a.sync[gt.String()] = time.Now()
-		}
-		a.Received[msg.TypeUrl] = msg
-		a.ack(msg)
-		a.mutex.Unlock()
+		a.onReceive(msg)
 
 		if len(listeners) > 0 {
+			if a.LocalCacheDir != "" {
+				strResponse, err := json.MarshalIndent(listeners, "  ", "  ")
+				if err == nil {
+					err = ioutil.WriteFile(a.LocalCacheDir+"_lds.json", strResponse, 0644)
+					if err != nil {
+						log.Warna("Failed to save ", err)
+					}
+				}
+			}
+
 			a.handleLDS(listeners)
 		}
 		if len(clusters) > 0 {
+			if a.LocalCacheDir != "" {
+				strResponse, err := json.MarshalIndent(clusters, "  ", "  ")
+				if err == nil {
+					err = ioutil.WriteFile(a.LocalCacheDir+"_cds.json", strResponse, 0644)
+					if err != nil {
+						log.Warna("Failed to save ", err)
+					}
+				}
+			}
 			a.handleCDS(clusters)
 		}
 		if len(eds) > 0 {
+			if a.LocalCacheDir != "" {
+				strResponse, err := json.MarshalIndent(eds, "  ", "  ")
+				if err == nil {
+					err = ioutil.WriteFile(a.LocalCacheDir+"_eds.json", strResponse, 0644)
+					if err != nil {
+						log.Warna("Failed to save ", err)
+					}
+				}
+			}
 			a.handleEDS(eds)
 		}
 		if len(routes) > 0 {
+			if a.LocalCacheDir != "" {
+				strResponse, err := json.MarshalIndent(routes, "  ", "  ")
+				if err == nil {
+					err = ioutil.WriteFile(a.LocalCacheDir+"_rds.json", strResponse, 0644)
+					if err != nil {
+						log.Warna("Failed to save ", err)
+					}
+				}
+			}
 			a.handleRDS(routes)
 		}
 		select {
@@ -720,7 +763,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	if len(routes) > 0 {
-		a.sendRsc(routeType, routes)
+		a.sendRsc(v3.RouteType, routes)
 	}
 	a.httpListeners = lh
 	a.tcpListeners = lt
@@ -877,7 +920,7 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&discovery.DiscoveryRequest{
 			Node:    a.node(),
-			TypeUrl: ListenerType,
+			TypeUrl: v3.ListenerType,
 		})
 	}
 
@@ -964,13 +1007,13 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			toDelete := t
 			// legacy names, still used in tests.
 			switch t {
-			case ListenerType:
+			case v3.ListenerType:
 				delete(want, "lds")
 			case v3.ClusterType:
 				delete(want, "cds")
 			case v3.EndpointType:
 				delete(want, "eds")
-			case routeType:
+			case v3.RouteType:
 				delete(want, "rds")
 			}
 			delete(want, toDelete)
@@ -1027,6 +1070,7 @@ func (a *ADSC) EndpointsJSON() string {
 // it will start watching RDS and LDS.
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
+	a.initialWatchTypes = append(a.initialWatchTypes, v3.ClusterType)
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		Node:    a.node(),
 		TypeUrl: v3.ClusterType,
@@ -1035,8 +1079,10 @@ func (a *ADSC) Watch() {
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
 func (a *ADSC) WatchConfig() {
+	t := collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String()
+	a.initialWatchTypes = append(a.initialWatchTypes, t)
 	_ = a.Send(&discovery.DiscoveryRequest{
-		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+		TypeUrl: t,
 	})
 
 	for _, sch := range []collection.Schema{collections.IstioNetworkingV1Alpha3Destinationrules,
@@ -1050,8 +1096,10 @@ func (a *ADSC) WatchConfig() {
 		collections.IstioSecurityV1Beta1Peerauthentications,
 		collections.IstioSecurityV1Beta1Requestauthentications,
 	} {
+		t = sch.Resource().GroupVersionKind().String()
+		a.initialWatchTypes = append(a.initialWatchTypes, t)
 		_ = a.Send(&discovery.DiscoveryRequest{
-			TypeUrl: sch.Resource().GroupVersionKind().String(),
+			TypeUrl: t,
 		})
 	}
 }
@@ -1207,8 +1255,10 @@ func (a *ADSC) reconnect() {
 	var err error
 	if a.adsServiceClient == nil {
 		err = a.connect()
+		log.Warna("CONNECTING ", err)
 	} else {
 		edsstr, err := a.adsServiceClient.StreamAggregatedResources(context.Background())
+		log.Warna("RESTART SERVICE ", err)
 		if err == nil {
 			a.stream = edsstr
 			// first resource in stream needs meta
@@ -1221,7 +1271,7 @@ func (a *ADSC) reconnect() {
 	} else {
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 
-		log.Warna("Connect failed, reconnect after: ", a.cfg.BackoffPolicy.NextBackOff())
+		log.Warna("XXXXX Connect failed, reconnect after: ", a.cfg.BackoffPolicy.NextBackOff())
 		return
 	}
 	a.sendInitial()
