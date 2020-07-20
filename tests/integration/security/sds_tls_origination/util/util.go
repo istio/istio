@@ -167,7 +167,7 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 	})
 
 	var internalClient, externalServer echo.Instance
-	echoboot.NewBuilderOrFail(t, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: clientNamespace,
