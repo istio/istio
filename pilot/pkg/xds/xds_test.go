@@ -1,28 +1,19 @@
 package xds
 
 import (
-	"bytes"
+	"io/ioutil"
+	"path"
 	"testing"
-	"text/template"
 
-	"github.com/Masterminds/sprig"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/structpath"
 )
-
-var configgen = core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
 
 type SidecarTestConfig struct {
 	ImportedNamespaces []string
@@ -156,152 +147,312 @@ spec:
 {{- end }}
 `
 
-func templateToConfig(t test.Failer, tmplString string, input interface{}) []model.Config {
-	t.Helper()
-	tmpl := template.Must(template.New("").Funcs(sprig.TxtFuncMap()).Parse(tmplString))
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, input); err != nil {
-		t.Fatalf("failed to execute template: %v", err)
-	}
-	configs, badKinds, err := crd.ParseInputs(buf.String())
-	if err != nil {
-		t.Fatalf("failed to read config: %v", err)
-	}
-	if len(badKinds) != 0 {
-		t.Fatalf("Got unknown resources: %v", badKinds)
-	}
-	// setup default namespace if not defined
-	for i, c := range configs {
-		if c.Namespace == "" {
-			c.Namespace = "default"
-		}
-		configs[i] = c
-	}
-	return configs
-}
-
-func setupFakeDiscovery(t test.Failer, config string, input interface{}) (*DiscoveryServer, *model.Environment) {
-	cfgs := templateToConfig(t, config, input)
-
-	stop := make(chan struct{})
-	t.Cleanup(func() {
-		close(stop)
-	})
-
-	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
-	env := &model.Environment{}
-	s := NewDiscoveryServer(env, []string{})
-	s.ConfigGenerator = configgen
-
-	configController := memory.NewSyncController(configStore)
-	go configController.Run(stop)
-	serviceDiscovery := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
-	for _, cfg := range cfgs {
-		if _, err := configController.Create(cfg); err != nil {
-			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
+// TestServiceScoping is a high level test ensuring the Sidecar scoping works correctly, especially when
+// there are multiple hostnames that are in different namespaces.
+func TestServiceScoping(t *testing.T) {
+	baseProxy := func() *model.Proxy {
+		return &model.Proxy{
+			Metadata:        &model.NodeMetadata{},
+			ID:              "app.app",
+			Type:            model.SidecarProxy,
+			IPAddresses:     []string{"1.1.1.1"},
+			ConfigNamespace: "app",
 		}
 	}
 
+	t.Run("STATIC", func(t *testing.T) {
+		s := NewFakeDiscoveryServer(t, FakeOptions{
+			ConfigString: scopeConfig,
+			ConfigTemplateInput: SidecarTestConfig{
+				ImportedNamespaces: []string{"./*", "included/*"},
+				Resolution:         "STATIC",
+			},
+		})
+		proxy := s.SetupProxy(baseProxy())
 
-	m := mesh.DefaultMeshConfig()
+		endpoints := ExtractEndpoints(s.Endpoints(proxy))
+		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
+			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
+		}
 
-	env.PushContext = model.NewPushContext()
-	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configStore)
-	env.Watcher = mesh.NewFixedWatcher(&m)
-
-	if err := s.UpdateServiceShards(env.PushContext); err != nil {
-		t.Fatal(err)
-	}
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	return s, env
-}
-
-func setupProxy(proxy *model.Proxy, env *model.Environment) *model.Proxy {
-	proxy.SetSidecarScope(env.PushContext)
-	proxy.SetGatewaysForProxy(env.PushContext)
-	proxy.SetServiceInstances(env.ServiceDiscovery)
-	proxy.DiscoverIPVersions()
-	return proxy
-}
-
-func TestServiceEntryDNS(t *testing.T) {
-	s, env := setupFakeDiscovery(t, scopeConfig, SidecarTestConfig{
-		ImportedNamespaces: []string{"./*"},
-		Resolution:         "STATIC",
-		IngressListener:    false,
+		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+			"0.0.0.0_80",
+			"5.5.5.5_443",
+			"virtualInbound",
+			"virtualOutbound",
+		})
 	})
-	proxy := setupProxy(&model.Proxy{
-		Metadata:        &model.NodeMetadata{},
-		ID:              "app.app",
-		Type:            model.SidecarProxy,
-		IPAddresses:     []string{"1.1.1.1"},
+
+	t.Run("Ingress Listener", func(t *testing.T) {
+		s := NewFakeDiscoveryServer(t, FakeOptions{
+			ConfigString: scopeConfig,
+			ConfigTemplateInput: SidecarTestConfig{
+				ImportedNamespaces: []string{"./*", "included/*"},
+				Resolution:         "STATIC",
+				IngressListener:    true,
+			},
+		})
+		p := baseProxy()
+		// Change the node's IP so that it does not match with any service entry
+		p.IPAddresses = []string{"100.100.100.100"}
+		proxy := s.SetupProxy(p)
+
+		endpoints := ExtractClusterEndpoints(s.Clusters(proxy))
+		eps := endpoints["inbound|9080|custom-http|sidecar.app"]
+		if !listEqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
+			t.Fatalf("expected /var/run/someuds.sock, got %v", eps)
+		}
+
+		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+			"0.0.0.0_80",
+			"5.5.5.5_443",
+			"virtualInbound",
+			"virtualOutbound",
+		})
+	})
+
+	t.Run("DNS", func(t *testing.T) {
+		s := NewFakeDiscoveryServer(t, FakeOptions{
+			ConfigString: scopeConfig,
+			ConfigTemplateInput: SidecarTestConfig{
+				ImportedNamespaces: []string{"./*", "included/*"},
+				Resolution:         "DNS",
+			},
+		})
+		proxy := s.SetupProxy(baseProxy())
+
+		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
+	})
+
+	t.Run("DNS no self import", func(t *testing.T) {
+		s := NewFakeDiscoveryServer(t, FakeOptions{
+			ConfigString: scopeConfig,
+			ConfigTemplateInput: SidecarTestConfig{
+				ImportedNamespaces: []string{"included/*"},
+				Resolution:         "DNS",
+			},
+		})
+		proxy := s.SetupProxy(baseProxy())
+
+		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
+	})
+}
+
+func TestSidecarListeners(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		s := NewFakeDiscoveryServer(t, FakeOptions{})
+		proxy := s.SetupProxy(&model.Proxy{
+			IPAddresses: []string{"10.2.0.1"},
+			ID:          "app3.testns",
+		})
+		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+			Exists("{.resources[?(@.address.socketAddress.portValue==15001)]}").
+			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
+			Equals("virtualOutbound", "{.name}").
+			Equals("0.0.0.0", "{.address.socketAddress.address}").
+			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
+			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
+			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
+			CheckOrFail(t)
+	})
+
+	t.Run("mongo", func(t *testing.T) {
+		s := NewFakeDiscoveryServer(t, FakeOptions{
+			ConfigString: mustReadFile(t, "./tests/testdata/config/se-example.yaml"),
+		})
+		proxy := s.SetupProxy(&model.Proxy{
+			IPAddresses: []string{"10.2.0.1"},
+			ID:          "app3.testns",
+		})
+		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+			Exists("{.resources[?(@.address.socketAddress.portValue==27018)]}").
+			Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").
+			Equals("0.0.0.0", "{.address.socketAddress.address}").
+			// Example doing a struct comparison, note the pain with oneofs....
+			Equals(&core.SocketAddress{
+				Address: "0.0.0.0",
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: uint32(27018),
+				},
+			}, "{.address.socketAddress}").
+			Select("{.filterChains[0].filters[0]}").
+			Equals("envoy.mongo_proxy", "{.name}").
+			Select("{.typedConfig}").
+			Exists("{.statPrefix}").
+			CheckOrFail(t)
+	})
+}
+
+func TestMeshNetworking(t *testing.T) {
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: pod
+  namespace: pod
+spec:
+  hosts:
+  - pod.pod.svc.cluster.local
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 10.10.10.20
+    labels:
+      app: pod
+    network: Kubernetes
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: vm
+spec:
+  hosts:
+  - httpbin.com
+  ports:
+  - number: 7070
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 10.10.10.10
+    labels:
+      app: httpbin
+    network: vm
+`,
+		MeshNetworks: &meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
+			"Kubernetes": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
+					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
+				}},
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw:       &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"},
+					Port:     15443,
+					Locality: "",
+				}},
+			},
+		}},
+	})
+	pod := s.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{Network: "Kubernetes"},
+	})
+	vm := s.SetupProxy(&model.Proxy{
+		IPAddresses:     []string{"10.10.10.10"},
+		ConfigNamespace: "default",
+		Metadata: &model.NodeMetadata{
+			Network:          "vm",
+			InterceptionMode: "NONE",
+		},
+	})
+
+	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|7070||httpbin.com"], []string{"10.10.10.10"})
+	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||pod.pod.svc.cluster.local"], []string{"2.2.2.2"})
+}
+
+func TestEgressProxy(t *testing.T) {
+	s := NewFakeDiscoveryServer(t, FakeOptions{
+		ConfigString: `
+# Add a random endpoint, otherwise there will be no routes to check
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: pod
+spec:
+  hosts:
+  - pod.pod.svc.cluster.local
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 10.10.10.20
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: sidecar-with-egressproxy
+  namespace: app
+spec:
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+    egressProxy:
+      host: foo.bar
+      subset: shiny
+      port:
+        number: 5000
+  egress:
+  - hosts:
+    - "*/*"
+`,
+	})
+	proxy := s.SetupProxy(&model.Proxy{
 		ConfigNamespace: "app",
-	}, env)
+	})
 
-	clusters := configgen.BuildClusters(proxy, env.PushContext)
-	endpoints := extractEndpoints(buildEndpoints(extractEdsClusterNames(clusters), proxy, env.PushContext, s))
-	if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
-		t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
-	}
-
-	assertListeners(t, []string{
+	listeners := s.Listeners(proxy)
+	assertListEqual(t, ExtractListenerNames(listeners), []string{
 		"0.0.0.0_80",
-		"5.5.5.5_443",
 		"virtualInbound",
 		"virtualOutbound",
-	}, configgen.BuildListeners(proxy, env.PushContext))
-}
+	})
 
-func buildEndpoints(clusters []string, proxy *model.Proxy, push *model.PushContext, s *DiscoveryServer) []*endpoint.ClusterLoadAssignment {
-	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
-	for _, c := range clusters {
-		l := s.generateEndpoints(c, proxy, push, nil)
-		loadAssignments = append(loadAssignments, l)
+	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
+
+	found := false
+	for _, f := range ExtractListener("virtualOutbound", listeners).FilterChains {
+		// We want to check the match all filter chain, as this is testing the fallback logic
+		if f.FilterChainMatch != nil {
+			continue
+		}
+		tcp := ExtractTcpProxy(t, f)
+		if tcp.GetCluster() != expectedEgressCluster {
+			t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
+		}
+		found = true
 	}
-	return loadAssignments
-}
+	if !found {
+		t.Fatalf("failed to find tcp proxy")
+	}
 
-func extractEndpoints(endpoints []*endpoint.ClusterLoadAssignment) map[string][]string {
-	got := map[string][]string{}
-	for _, cla := range endpoints {
-		for _, ep := range cla.Endpoints {
-			for _, lb := range ep.LbEndpoints {
-				got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetSocketAddress().Address)
+	found = false
+	routes := s.Routes(proxy)
+	for _, rc := range routes {
+		for _, vh := range rc.GetVirtualHosts() {
+			if vh.GetName() == "allow_any" {
+				for _, r := range vh.GetRoutes() {
+					if expectedEgressCluster == r.GetRoute().GetCluster() {
+						found = true
+						break
+					}
+				}
+				break
 			}
 		}
 	}
-	return got
+	if !found {
+		t.Fatalf("failed to find expected fallthrough route")
+	}
 }
 
-func assertListeners(t test.Failer, expected []string, listeners []*listener.Listener) {
+func assertListEqual(t test.Failer, a, b []string) {
 	t.Helper()
-	got := extractListenerNames(listeners)
-	if !listEqualUnordered(got, expected) {
-		t.Fatalf("expected listeners %v, got %v", expected, listeners)
+	if !listEqualUnordered(a, b) {
+		t.Fatalf("Expected list %v to be equal to %v", a, b)
 	}
 }
 
-func extractListenerNames(ll []*listener.Listener) []string {
-	res := []string{}
-	for _, l := range ll {
-		res = append(res, l.Name)
+func mustReadFile(t *testing.T, f string) string {
+	b, err := ioutil.ReadFile(path.Join(env.IstioSrc, f))
+	if err != nil {
+		t.Fatalf("failed to read %v: %v", f, err)
 	}
-	return res
-}
-
-func extractEdsClusterNames(cl []*cluster.Cluster) []string {
-	res := []string{}
-	for _, c := range cl {
-		switch v := c.ClusterDiscoveryType.(type) {
-		case *cluster.Cluster_Type:
-			if v.Type != cluster.Cluster_EDS {
-				continue
-			}
-		}
-		res = append(res, c.Name)
-	}
-	return res
+	return string(b)
 }
