@@ -30,6 +30,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
 	"istio.io/istio/mixer/pkg/api"
@@ -40,8 +43,6 @@ import (
 	"istio.io/istio/mixer/pkg/loadshedding"
 	"istio.io/istio/mixer/pkg/runtime"
 	runtimeconfig "istio.io/istio/mixer/pkg/runtime/config"
-	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
-	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"istio.io/istio/mixer/pkg/runtime/dispatcher"
 	"istio.io/istio/mixer/pkg/template"
 	"istio.io/istio/pkg/tracing"

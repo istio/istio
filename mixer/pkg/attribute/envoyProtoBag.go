@@ -15,17 +15,19 @@
 package attribute
 
 import (
-	"net"
-	"strings"
 	"fmt"
-	"sync"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"net"
 	"sort"
-	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	"strings"
+	"sync"
 	"time"
+
+	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	mixerpb "istio.io/api/mixer/v1"
 	attr "istio.io/pkg/attribute"
-
 )
 
 // Exports of types for backwards compatibility
@@ -36,8 +38,7 @@ import (
 
 // ProtoBag implements the Bag interface on top of an Attributes proto.
 type EnvoyProtoBag struct {
-	reqMap              map[string]interface{}
-	//proto               *mixerpb.CompressedAttributes
+	reqMap map[string]interface{}
 	globalDict          map[string]int32
 	globalWordList      []string
 	messageDict         map[string]int32
@@ -59,6 +60,16 @@ var envoyProtoBags = sync.Pool{
 	},
 }
 
+func fillAddress(reqMap map[string]interface{}, address *core.Address, name string) {
+	reqMap[name + ".ip"] = []byte(net.ParseIP(address.GetSocketAddress().GetAddress()).To16())
+	reqMap[name + ".port"] = int64(address.GetSocketAddress().GetPortValue())
+}
+
+func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
+	return time.Unix(theTime.Seconds, int64(theTime.Nanos) + int64(durationNanos))
+}
+
+
 // GetProtoBag returns a proto-based attribute bag.
 // When you are done using the proto bag, call the Done method to recycle it.
 func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
@@ -69,38 +80,20 @@ func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 	reqMap := make(map[string]interface{})
 	//TODO account for other protocols
 	reqMap["context.protocol"] = "http"
-	//req_map["context.proxy_version"] = "unknown"
-	reqMap["context.reporter.kind"] = "server"
-	//req_map["context.reporter.uid"] = "unknown"
-	reqMap["destination.ip"] = []byte(net.ParseIP(req.GetAttributes().GetDestination().GetAddress().GetSocketAddress().
-		GetAddress()).To16())
-	reqMap["target.ip"] = []byte(net.ParseIP(req.GetAttributes().GetDestination().GetAddress().GetSocketAddress().
-		GetAddress()).To16())
-	reqMap["destination.port"] = int64(req.GetAttributes().GetDestination().GetAddress().GetSocketAddress().
-		GetPortValue())
+	reqMap["context.reporter.kind"] = "inbound"
+	fillAddress(reqMap, req.GetAttributes().GetDestination().GetAddress(), "destination")
+	fillAddress(reqMap, req.GetAttributes().GetSource().GetAddress(), "source")
 	reqMap["destination.principal"] = req.GetAttributes().GetDestination().GetPrincipal()
 	reqMap["source.principal"] = req.GetAttributes().GetSource().GetPrincipal()
-	reqMap["source.ip"] = []byte(net.ParseIP(req.GetAttributes().GetSource().GetAddress().GetSocketAddress().
-		GetAddress()).To16())
-	reqMap["origin.ip"] = []byte(net.ParseIP(req.GetAttributes().GetSource().GetAddress().GetSocketAddress().
-		GetAddress()).To16())
-	reqMap["source.port"] = int64(req.GetAttributes().GetSource().GetAddress().GetSocketAddress().GetPortValue())
-	//reqMap["source.uid"] = ""
-	//reqMap["destination.uid"] = ""
-	reqMap["request.headers"] = req.GetAttributes().GetRequest().GetHttp().GetHeaders()
+	reqMap["request.headers"] = attr.WrapStringMap(req.GetAttributes().GetRequest().GetHttp().GetHeaders())
 	reqMap["request.host"] = req.GetAttributes().GetRequest().GetHttp().GetHost()
 	reqMap["request.method"] = req.GetAttributes().GetRequest().GetHttp().GetMethod()
 	reqMap["request.path"] = req.GetAttributes().GetRequest().GetHttp().GetPath()
 	reqMap["request.scheme"] = req.GetAttributes().GetRequest().GetHttp().GetScheme()
-	reqMap["request.time"] = time.Unix(int64(req.GetAttributes().GetRequest().GetTime().Seconds),
-		int64(req.GetAttributes().GetRequest().GetTime().Nanos))
-	//reqMap["request.url_path"] = "unknown"
+	reqMap["request.time"] = reformatTime(req.GetAttributes().GetRequest().GetTime(), 0)
 	reqMap["request.useragent"] = req.GetAttributes().GetRequest().GetHttp().GetHeaders()["user-agent"]
 
-
 	pb.reqMap = reqMap
-
-
 
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
 
@@ -109,69 +102,48 @@ func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 
 // GetProtoBag returns a proto-based attribute bag.
 // When you are done using the proto bag, call the Done method to recycle it.
+//num is the index of the entry from the message's batch to create a bag from
 func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
 	// build the message-level dictionary
+	fmt.Println(msg)
+	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
 	if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
-		reqMap["context.protocol"] = ""
-		reqMap["destination.ip"] = []byte(net.ParseIP(httpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamLocalAddress().GetSocketAddress().GetAddress()).To16())
-		reqMap["destination.port"] = int64(httpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamLocalAddress().GetSocketAddress().GetPortValue())
-		reqMap["source.ip"] = []byte(net.ParseIP(httpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamRemoteAddress().GetSocketAddress().GetAddress()).To16())
-		reqMap["source.port"] = int64(httpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamRemoteAddress().GetSocketAddress().GetPortValue())
-		reqMap["source.namespace"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.namespace"].GetStringValue()
-		reqMap["source.principal"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata(
-		)["istio_authn"].GetFields()["source.principal"].GetStringValue()
-		reqMap["source.user"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.user"].GetStringValue()
-		reqMap["request.headers"] = httpLogs.GetLogEntry()[num].GetRequest().GetRequestHeaders()
+		reqMap["context.protocol"] = "http"
+		reqMap["context.reporter.kind"] = "inbound"
+		fillAddress(reqMap, httpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(),
+			"destination")
+		fillAddress(reqMap, httpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
+		reqMap["request.headers"] = attr.WrapStringMap(httpLogs.GetLogEntry()[num].GetRequest().GetRequestHeaders())
 		reqMap["request.host"] = httpLogs.GetLogEntry()[num].GetRequest().GetAuthority()
-		reqMap["request.method"] = httpLogs.GetLogEntry()[num].GetRequest().GetRequestMethod()
+		reqMap["request.method"] = httpLogs.GetLogEntry()[num].GetRequest().GetRequestMethod().String()
 		reqMap["request.path"] = httpLogs.GetLogEntry()[num].GetRequest().GetPath()
 		reqMap["request.scheme"] = httpLogs.GetLogEntry()[num].GetRequest().GetScheme()
-		reqMap["request.time"] = time.Unix(int64(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Seconds),
-			int64(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Nanos))
-		reqMap["request.url_path"] = ""
+		reqMap["request.time"] = reformatTime(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(), 0)
+		//is this the right time
+		reqMap["response.time"] = reformatTime(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(),
+			httpLogs.GetLogEntry()[num].GetCommonProperties().GetTimeToFirstUpstreamRxByte().Nanos)
 		reqMap["request.useragent"] = httpLogs.GetLogEntry()[num].GetRequest().GetUserAgent()
-		reqMap["response.headers"] = httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeaders()
-		reqMap["response.code"] = httpLogs.GetLogEntry()[num].GetResponse().GetResponseCode().GetValue()
-		reqMap["response.size"] = httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes()
-		reqMap["response.total_size"] = httpLogs.GetLogEntry()[num].GetResponse().
-			GetResponseBodyBytes() + httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes()
-		reqMap["context.reporter.kind"] = ""
-
-
+		reqMap["response.headers"] = attr.WrapStringMap(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeaders())
+		reqMap["response.code"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseCode().GetValue())
+		reqMap["response.size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes())
+		reqMap["response.total_size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().
+			GetResponseBodyBytes()) + int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes())
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
-		reqMap["context.protocol"] = ""
-		reqMap["destination.ip"] = []byte(net.ParseIP(tcpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamLocalAddress().GetSocketAddress().GetAddress()).To16())
-		reqMap["destination.port"] = int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamLocalAddress().GetSocketAddress().GetPortValue())
-		reqMap["source.ip"] = []byte(net.ParseIP(tcpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamRemoteAddress().GetSocketAddress().GetAddress()).To16())
-		reqMap["source.port"] = int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetDownstreamRemoteAddress().GetSocketAddress().GetPortValue())
-		reqMap["source.namespace"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.namespace"].GetStringValue()
-		reqMap["source.principal"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata(
-		)["istio_authn"].GetFields()["source.principal"].GetStringValue()
-		reqMap["source.user"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetMetadata().GetFilterMetadata()["istio_authn"].GetFields()["source.user"].GetStringValue()
-		reqMap["request.time"] = time.Unix(int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Seconds),
-			int64(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime().Nanos))
-		reqMap["context.reporter.kind"] = ""
-
+		reqMap["context.protocol"] = "tcp"
+		reqMap["context.reporter.kind"] = "inbound"//inbound or outbound
+		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(), "destination")
+		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
+		reqMap["request.time"] = reformatTime(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(), 0)
+		reqMap["response.time"] = reformatTime(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(),
+			tcpLogs.GetLogEntry()[num].GetCommonProperties().GetTimeToFirstUpstreamRxByte().Nanos)
 	}
 
-	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
-
 	pb.reqMap = reqMap
-
-
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
-
 	return pb
 }
+
 
 // Get returns an attribute value.
 func (pb *EnvoyProtoBag) Get(name string) (interface{}, bool) {
@@ -256,10 +228,6 @@ func (pb *EnvoyProtoBag) Reference(name string, condition attr.Presence) {
 	pb.referencedAttrsMutex.Unlock()
 }
 
-
-
-
-
 // Contains returns true if protobag contains this key.
 func (pb *EnvoyProtoBag) Contains(key string) bool {
 	if _, ok := pb.reqMap[key]; ok {
@@ -305,12 +273,7 @@ func (pb *EnvoyProtoBag) String() string {
 	var sb strings.Builder
 	for _, key := range pb.Names() {
 		val, _ := pb.Get(key)
-		sb.WriteString(fmt.Sprintf("%v : %v\n",key, val))
+		sb.WriteString(fmt.Sprintf("%v : %v\n", key, val))
 	}
 	return sb.String()
 }
-
-
-
-
-
