@@ -21,7 +21,6 @@ import (
 	"os"
 	"testing"
 
-	//"github.com/nsf/jsondiff"
 	"istio.io/istio/cni/deployments/kubernetes/install/test"
 )
 
