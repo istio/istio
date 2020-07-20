@@ -101,6 +101,8 @@ spec:
         traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
 {{- end }}
     spec:
+      # temporary hack to test dns theory
+      dnsPolicy: Default
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
