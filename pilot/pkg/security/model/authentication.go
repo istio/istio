@@ -111,10 +111,61 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath, requestedType strin
 	return cfg
 }
 
+// Preconfigured SDS configs to avoid excessive memory allocations
+var (
+	defaultV3SDSConfig = &tls.SdsSecretConfig{
+		Name: SDSDefaultResourceName,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: features.InitialFetchTimeout,
+		},
+	}
+	rootV3SDSConfig = &tls.SdsSecretConfig{
+		Name: SDSRootResourceName,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType: core.ApiConfigSource_GRPC,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: features.InitialFetchTimeout,
+		},
+	}
+)
+
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath, requestedType string) *tls.SdsSecretConfig {
-	if name == "" || sdsUdsPath == "" {
+func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
+	if name == "" {
 		return nil
+	}
+
+	useV3 := requestedType == v3.ClusterType || requestedType == v3.ListenerType || requestedType == ""
+
+	if name == SDSDefaultResourceName && useV3 {
+		return defaultV3SDSConfig
+	}
+	if name == SDSRootResourceName && useV3 {
+		return rootV3SDSConfig
 	}
 
 	cfg := &tls.SdsSecretConfig{
@@ -135,7 +186,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath, requestedType string) *tls.SdsSe
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
-	if requestedType == v3.ClusterType || requestedType == v3.ListenerType {
+	if useV3 {
 		// For v3 clusters/listeners, send v3 secrets
 		cfg.SdsConfig.ResourceApiVersion = core.ApiVersion_V3
 	}
@@ -177,13 +228,12 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 		// configure server listeners with SDS.
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
-					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath, resourceType),
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), resourceType),
 			},
 		}
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath, resourceType),
+			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), resourceType),
 		}
 	} else {
 		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.

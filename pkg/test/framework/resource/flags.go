@@ -71,6 +71,9 @@ func init() {
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
 		"Number of times to retry tests")
 
+	flag.BoolVar(&settingsFromCommandLine.StableNamespaces, "istio.test.stableNamespaces", settingsFromCommandLine.StableNamespaces,
+		"If set, will use consistent namespace rather than randomly generated. Useful with nocleanup to develop tests.")
+
 	flag.BoolVar(&settingsFromCommandLine.FailOnDeprecation, "istio.test.deprecation_failure", settingsFromCommandLine.FailOnDeprecation,
 		"Make tests fail if any usage of deprecated stuff (e.g. Envoy flags) is detected.")
 }

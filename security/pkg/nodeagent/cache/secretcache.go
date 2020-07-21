@@ -18,6 +18,7 @@ package cache
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -583,8 +584,10 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) {
+
+			// if user not set PROV_CERT Directory Path for client to extract certs from path
+			// we will first check whether the token is expired or not
+			if sc.secOpts.ProvCert == "" && sc.isTokenExpired(&secret) {
 				cacheLog.Debugf("%s token expired", logPrefix)
 				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 				// requiring the client to send another SDS request.
@@ -598,7 +601,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				cacheLog.Debugf("%s token is still valid, reuse token to generate key/cert", logPrefix)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
-				// Most likey this code path may not necessary, since TTL of cert is much longer than token.
+				// Most likely this code path may not necessary, since TTL of cert is much longer than token.
 				// When cert has expired, we could make it simple by assuming token has already expired.
 				ns, err := sc.generateSecret(context.Background(), secret.Token, connKey, now)
 				if err != nil {
@@ -968,6 +971,12 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		var httpRespCode int
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
+			// if cert exists in the file path user provides,
+			// we will use cert instead of the token to do CSR Sign request
+			if sc.certExists() {
+				// if CSR request is without token, set the token to empty
+				exchangedToken = ""
+			}
 			certChainPEM, err = sc.fetcher.CaClient.CSRSign(
 				ctx, reqID, csrPEM, exchangedToken, int64(sc.configOptions.SecretTTL.Seconds()))
 		} else {
@@ -1031,4 +1040,16 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 	}
 	cacheLog.Debugf("Token exchange succeeded for %s", logPrefix)
 	return exchangedTokens[0], nil
+}
+
+func (sc *SecretCache) certExists() bool {
+	if sc.secOpts.ProvCert == "" {
+		return false
+	}
+	_, err := tls.LoadX509KeyPair(sc.secOpts.ProvCert+"/cert-chain.pem", sc.secOpts.ProvCert+"/key.pem")
+	if err != nil {
+		cacheLog.Errorf("cannot load key pair from %s: %s", sc.secOpts.ProvCert, err)
+		return false
+	}
+	return true
 }

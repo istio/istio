@@ -131,9 +131,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time build_images "${PARAMS[*]}"
   time setup_kind_registry
-  time kind_push_images
+  time build_images "${PARAMS[*]}"
 fi
 
 # If a variant is defined, update the tag accordingly

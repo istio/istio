@@ -15,11 +15,17 @@
 package pilot
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"github.com/onsi/gomega"
 
@@ -29,43 +35,80 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
-const (
-	describeSvcAOutput = `Service: a\..*
+var (
+	describeSvcAOutput = regexp.MustCompile(`Service: a\..*
+   Port: http 80/HTTP targets pod port 80
    Port: grpc 7070/GRPC targets pod port 7070
-   Port: http 80/HTTP targets pod port 8090
+   Port: tcp 9090/TCP targets pod port 9090
+   Port: auto-tcp 9091/UnsupportedProtocol targets pod port 9091
+   Port: auto-http 81/UnsupportedProtocol targets pod port 81
+   Port: auto-grpc 7071/UnsupportedProtocol targets pod port 7071
+80 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+80 VirtualService: a\..*
+   when headers are end-user=jason
+80 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
 7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-80 DestinationRule: a\..* for "a"
+9090 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 VirtualService: a\..*
-   when headers are end-user=jason
-`
+9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
+9091 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+81 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+7071 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+`)
 
-	describePodAOutput = `Pod: .*
-   Pod Ports: 7070 \(app\), 8090 \(app\), 8080 \(app\), 3333 \(app\), 15090 \(istio-proxy\)
+	describePodAOutput = regexp.MustCompile(`Pod: .*
+   Pod Ports: 80 \(app\), 7070 \(app\), .* 15090 \(istio-proxy\)
 --------------------
 Service: a\..*
-   Port: grpc 7070\/GRPC targets pod port 7070
-   Port: http 80\/HTTP targets pod port 8090
+   Port: http 80/HTTP targets pod port 80
+   Port: grpc 7070/GRPC targets pod port 7070
+   Port: tcp 9090/TCP targets pod port 9090
+   Port: auto-tcp 9091/UnsupportedProtocol targets pod port 9091
+   Port: auto-http 81/UnsupportedProtocol targets pod port 81
+   Port: auto-grpc 7071/UnsupportedProtocol targets pod port 7071
+80 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+80 VirtualService: a\..*
+   when headers are end-user=jason
+80 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 7070 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
 7070 VirtualService: a\..*
    when headers are end-user=jason
 7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-80 DestinationRule: a\..* for "a"
+9090 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
-80 VirtualService: a\..*
-   when headers are end-user=jason
-`
+9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
+9091 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+81 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+7071 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+`)
 
 	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
 Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
@@ -74,7 +117,7 @@ Next Step: Add related labels to the deployment to align with Istio's requiremen
 )
 
 func TestWait(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.wait").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "default",
@@ -103,7 +146,7 @@ spec:
 // TestVersion does "istioctl version --remote=true" to verify the CLI understands the data plane version data
 func TestVersion(t *testing.T) {
 	framework.
-		NewTest(t).
+		NewTest(t).Features("usability.observability.version").
 		Run(func(ctx framework.TestContext) {
 			cfg := i.Settings()
 
@@ -119,48 +162,18 @@ func TestVersion(t *testing.T) {
 				return
 			}
 
-			ctx.Logf("Did not find control plane version. This may mean components have different versions.")
+			ctx.Fatalf("Did not find control plane version: %v", output)
 
-			// At this point, we expect the version for each component
-			expectedRegexps := []*regexp.Regexp{
-				regexp.MustCompile(`citadel version: [a-z0-9\-]*`),
-				regexp.MustCompile(`client version: [a-z0-9\-]*`),
-				regexp.MustCompile(`egressgateway version: [a-z0-9\-]*`),
-				regexp.MustCompile(`ingressgateway version: [a-z0-9\-]*`),
-				regexp.MustCompile(`istiod version: [a-z0-9\-]*`),
-				regexp.MustCompile(`galley version: [a-z0-9\-]*`),
-				regexp.MustCompile(`policy version: [a-z0-9\-]*`),
-				regexp.MustCompile(`sidecar-injector version: [a-z0-9\-]*`),
-				regexp.MustCompile(`telemetry version: [a-z0-9\-]*`),
-			}
-			for _, regexp := range expectedRegexps {
-				if !regexp.MatchString(output) {
-					ctx.Fatalf("Output didn't match for 'istioctl %s'\n got %v\nwant: %v",
-						strings.Join(args, " "), output, regexp)
-				}
-			}
 		})
 }
 
 func TestDescribe(t *testing.T) {
-	framework.NewTest(t).
-		RunParallel(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-				Prefix: "istioctl-describe",
-				Inject: true,
-			})
-
+	framework.NewTest(t).Features("usability.observability.describe").
+		Run(func(ctx framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
+			ctx.Config().ApplyYAMLOrFail(t, echoNamespace.Name(), deployment)
+			defer ctx.Config().DeleteYAMLOrFail(t, echoNamespace.Name(), deployment)
 
-			var a echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
-				BuildOrFail(ctx)
-
-			if err := a.WaitUntilCallable(a); err != nil {
-				t.Fatal(err)
-			}
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
@@ -168,22 +181,34 @@ func TestDescribe(t *testing.T) {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			var output string
-			var args []string
-			g := gomega.NewGomegaWithT(t)
-
 			// When this test passed the namespace through --namespace it was flakey
 			// because istioctl uses a global variable for namespace, and this test may
 			// run in parallel.
-			args = []string{"--namespace=dummy",
-				"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, ns.Name())}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-			g.Expect(output).To(gomega.MatchRegexp(describePodAOutput))
+			retry.UntilSuccessOrFail(ctx, func() error {
+				args := []string{"--namespace=dummy",
+					"x", "describe", "svc", fmt.Sprintf("a.%s", echoNamespace.Name())}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				if !describeSvcAOutput.MatchString(output) {
+					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
+				}
+				return nil
+			}, retry.Timeout(time.Second*5))
 
-			args = []string{"--namespace=dummy",
-				"x", "describe", "svc", fmt.Sprintf("a.%s", ns.Name())}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-			g.Expect(output).To(gomega.MatchRegexp(describeSvcAOutput))
+			retry.UntilSuccessOrFail(ctx, func() error {
+				args := []string{"--namespace=dummy",
+					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				if !describePodAOutput.MatchString(output) {
+					return fmt.Errorf("output:\n%v\n does not match regex:\n%v", output, describeSvcAOutput)
+				}
+				return nil
+			}, retry.Timeout(time.Second*5))
 		})
 }
 
@@ -203,7 +228,7 @@ func getPodID(i echo.Instance) (string, error) {
 }
 
 func TestAddToAndRemoveFromMesh(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.helpers.add-to-mesh", "usability.helpers.remove-from-mesh").
 		RunParallel(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-add-to-mesh",
@@ -241,18 +266,8 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 }
 
 func TestProxyConfig(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.proxy-config").
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-				Prefix: "istioctl-pc",
-				Inject: true,
-			})
-
-			var a echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
-				BuildOrFail(ctx)
-
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
@@ -265,37 +280,37 @@ func TestProxyConfig(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			args = []string{"--namespace=dummy",
-				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, ns.Name())}
+				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
 
 			args = []string{"--namespace=dummy",
-				"pc", "cluster", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+				"pc", "cluster", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "listener", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+				"pc", "listener", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "route", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+				"pc", "route", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "secret", fmt.Sprintf("%s.%s", podID, ns.Name()), "-o", "json"}
+				"pc", "secret", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
@@ -314,18 +329,8 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 }
 
 func TestProxyStatus(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.proxy-status").
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-				Prefix: "istioctl-ps",
-				Inject: true,
-			})
-
-			var a echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
-				BuildOrFail(ctx)
-
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			podID, err := getPodID(a)
@@ -341,10 +346,24 @@ func TestProxyStatus(t *testing.T) {
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
-			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, ns.Name())))
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, echoNamespace.Name())))
 
 			args = []string{
-				"proxy-status", fmt.Sprintf("%s.%s", podID, ns.Name())}
+				"proxy-status", fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
+			g.Expect(output).To(gomega.ContainSubstring("Routes Match"))
+
+			// test the --file param
+			filename := "ps-configdump.json"
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			dump, err := cs.EnvoyDo(context.TODO(), podID, echoNamespace.Name(), "GET", "config_dump", nil)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			err = ioutil.WriteFile(filename, dump, os.ModePerm)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			args = []string{
+				"proxy-status", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "--file", filename}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
@@ -353,20 +372,11 @@ func TestProxyStatus(t *testing.T) {
 }
 
 func TestAuthZCheck(t *testing.T) {
-	framework.NewTest(t).
+	framework.NewTest(t).Features("usability.observability.authz-check").
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
-				Prefix: "istioctl-authz",
-				Inject: true,
-			})
-
 			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), authPol)
-
-			var a echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, echoConfig(ns, "a")).
-				BuildOrFail(ctx)
+			ctx.Config().ApplyYAMLOrFail(t, echoNamespace.Name(), authPol)
+			defer ctx.Config().DeleteYAMLOrFail(t, echoNamespace.Name(), authPol)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -375,15 +385,18 @@ func TestAuthZCheck(t *testing.T) {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			var output string
-			var args []string
-			g := gomega.NewGomegaWithT(t)
+			args := []string{"experimental", "authz", "check",
+				fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
+			regex := regexp.MustCompile(`noneSDS: default.*\[integ-test\]`)
 
-			args = []string{"experimental", "authz", "check",
-				fmt.Sprintf("%s.%s", podID, ns.Name())}
-			output, _ = istioCtl.InvokeOrFail(t, args)
 			// Verify the output includes a policy "integ-test", which is the policy
 			// loaded above from authz-a.yaml
-			g.Expect(output).To(gomega.MatchRegexp("noneSDS: default.*\\[integ-test\\]"))
+			retry.UntilSuccessOrFail(ctx, func() error {
+				output, _ := istioCtl.InvokeOrFail(t, args)
+				if !regex.MatchString(output) {
+					return fmt.Errorf("%v did not match %v", output, regex)
+				}
+				return nil
+			}, retry.Timeout(time.Second*5))
 		})
 }

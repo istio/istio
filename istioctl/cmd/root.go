@@ -118,6 +118,11 @@ func ConfigAndEnvProcessing() error {
 	return nil
 }
 
+func init() {
+	viper.SetDefault("istioNamespace", controller.IstioNamespace)
+	viper.SetDefault("xds-port", 15012)
+}
+
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
@@ -139,7 +144,6 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
 		"The name of the kubeconfig context to use")
 
-	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", viper.GetString("istioNamespace"),
 		"Istio system namespace")
 

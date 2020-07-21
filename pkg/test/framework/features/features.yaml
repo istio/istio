@@ -44,7 +44,16 @@ features:
       loadbalancing:
   usability:
     observability:
+      describe:
+      version:
+      wait:
       status:
+      proxy-config:
+      proxy-status:
+      authz-check:
+    helpers:
+      add-to-mesh:
+      remove-from-mesh:
   # features that allow users to secure their services and service mesh.
   security:
     peer:
@@ -55,8 +64,10 @@ features:
       tls:
     egress:
       mtls:
+        sds:
       tls:
         filebased:
+        sds:
     control-plane:
       k8s-certs:
       plugin-cert:
