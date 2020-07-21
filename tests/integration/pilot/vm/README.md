@@ -1,15 +1,16 @@
 # Writing Tests for VMs
 
-Support for including VMs in the integration tests has been added to the framework.
 This document describes the integration and extension mechanisms to exercise VM related code.
-The primary goals are to test VM-related code & ensure it works on a range of supported OS types and versions.
+The primary goals are to:
+1. Test VM-related Istio code so that newly submitted commits won't break VM support
+1. Ensure the code works on a range of supported OS types and versions.
 
 **Note: We currently use mock/simulated VMs for testing purposes. In the future, the testing might switch
 to utilize actual compute instances from different providers.**
 
 ## Overview
 
-This section describes the scenarios in which one might want to add a VM test:
+Scenarios in which one might want to add a VM test in this doc:
 1. Testing existing core Istio features such as traffic management, security, telemetry, etc. for **VMs**
 1. Supporting new OS images for VMs
 1. Testing onboarding tools (iptables, certs, istio-sidecar, etc.) and workflows (services, DNS, etc.) to enmesh a VM
@@ -50,11 +51,11 @@ echo.Config{
 
 The default image referenced with `DefaultVMImage` from `vm` package should be used for all pre-submit tests since
 this is the only image available in the pre-submit stage. Using additional images are only possible in
-post-submit tests as shown in the [next section](#add_more_images).
+post-submit tests as shown in the [next section](#scenario-2-supporting-additional-os-images ).
 A complete list of supported additional images can be found in [`util.go`](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go).
 If `VMImage` is not provided while `DeployAsVM` is on, it will default the Docker image to be `DefaultVMImage`.
 
-## <a id="add_more_images">Scenario 2: Supporting Additional OS Images</a>
+## Scenario 2: Supporting Additional OS Images
 
 We list the supported OSes in [util.go](https://github.com/istio/istio/blob/master/tests/integration/pilot/vm/util.go)
 and the images will be created in [prow/lib.sh](https://github.com/istio/istio/blob/master/prow/lib.sh).
