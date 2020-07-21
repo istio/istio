@@ -36,9 +36,9 @@ const (
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
 	// Platforms
-	K8S  = "k8s"
-	GCE  = "gce"
-	Mock = "mock"
+	K8S  = "Kubernetes"
+	GCE  = "GoogleComputeEngine"
+	Mock = "Mock"
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -215,7 +215,8 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(context.Context, string, string, string) (string, time.Time, int, error)
+	ExchangeToken(context.Context, string /*platform*/, string /*trustdomain*/, string /*service account token*/)
+	(string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

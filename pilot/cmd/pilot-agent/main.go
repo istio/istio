@@ -432,8 +432,8 @@ func getDNSDomain(podNamespace, domain string) string {
 }
 
 func init() {
-	proxyCmd.PersistentFlags().StringVar(&platform, "platform", "k8s",
-		"The platform where istio agent runs, options are gcp, k8s ...")
+	proxyCmd.PersistentFlags().StringVar(&platform, "platform", "Kubernetes",
+		"The platform where istio agent runs, options are Kubernetes, GoogleComputeEngine, ...")
 	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
 		string(serviceregistry.Kubernetes),
 		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
