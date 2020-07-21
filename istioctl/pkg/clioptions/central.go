@@ -51,8 +51,6 @@ type CentralControlPlaneOptions struct {
 // (Currently just --endpoint)
 func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command) {
 
-	viper.SetDefault("xds-port", 15012)
-
 	cmd.PersistentFlags().StringVar(&o.Xds, "xds-address", viper.GetString("XDS-ADDRESS"),
 		"XDS Endpoint")
 	cmd.PersistentFlags().StringVar(&o.CertDir, "cert-dir", viper.GetString("CERT-DIR"),
