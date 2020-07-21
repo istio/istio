@@ -60,29 +60,6 @@ func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context)
 
 	sc := r.Message.(*v1alpha3.Sidecar)
 
-	if sc.Localhost != nil {
-		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			msg.NewDeprecated(r, ignoredMessage("Localhost")))
-	}
-
-	for _, ingress := range sc.Ingress {
-		if ingress != nil {
-			if ingress.LocalhostClientTls != nil {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewDeprecated(r, ignoredMessage("Ingress.LocalhostClientTLS")))
-			}
-		}
-	}
-
-	for _, egress := range sc.Egress {
-		if egress != nil {
-			if egress.LocalhostServerTls != nil {
-				ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-					msg.NewDeprecated(r, ignoredMessage("Egress.LocalhostServerTLS")))
-			}
-		}
-	}
-
 	if sc.OutboundTrafficPolicy != nil {
 		if sc.OutboundTrafficPolicy.EgressProxy != nil {
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
