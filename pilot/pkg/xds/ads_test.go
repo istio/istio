@@ -205,6 +205,54 @@ func TestInternalEvents(t *testing.T) {
 
 }
 
+func TestAdsReconnectAfterRestart(t *testing.T) {
+	_, tearDown := initLocalPilotTestEnv(t)
+	defer tearDown()
+	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = sendEDSReq([]string{"outbound|1080||service3.default.svc.cluster.local"}, sidecarID(app3Ip, "app3"), "", "", edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil {
+		t.Fatal("Expected EDS response, but go nil")
+	}
+	if len(res.Resources) != 1 || v3.GetShortType(res.TypeUrl) != v3.EndpointShortType {
+		t.Fatalf("Expected one EDS resource, but got %v %s resources", len(res.Resources), v3.GetShortType(res.TypeUrl))
+	}
+
+	// Close the connection.
+	cancel()
+
+	edsstr, cancel, err = connectADS(util.MockPilotGrpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+
+	// Connect with empty resources.
+	err = sendEDSReq([]string{}, sidecarID(app3Ip, "app3"), res.VersionInfo, res.Nonce, edsstr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = adsReceive(edsstr, 15*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil {
+		t.Fatal("Expected EDS response, but go nil")
+	}
+	if len(res.Resources) != 0 || v3.GetShortType(res.TypeUrl) != v3.EndpointShortType {
+		t.Fatalf("Expected zero EDS resource, but got %v %s resources", len(res.Resources), v3.GetShortType(res.TypeUrl))
+	}
+}
+
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnectWithNonce(t *testing.T) {
 	_, tearDown := initLocalPilotTestEnv(t)
@@ -241,7 +289,12 @@ func TestAdsReconnectWithNonce(t *testing.T) {
 	}
 	res, _ = adsReceive(edsstr, 15*time.Second)
 
-	t.Log("Received ", res)
+	if res == nil {
+		t.Fatal("Expected EDS response, but go nil")
+	}
+	if len(res.Resources) != 1 || v3.GetShortType(res.TypeUrl) != v3.EndpointShortType {
+		t.Fatalf("Expected one EDS resource, but got %v %s resources", len(res.Resources), v3.GetShortType(res.TypeUrl))
+	}
 }
 
 // Regression for envoy restart and overlapping connections
@@ -279,13 +332,17 @@ func TestAdsReconnect(t *testing.T) {
 
 	// event happens
 	xds.AdsPushAll(s.EnvoyXdsServer)
-	// will trigger recompute and push (we may need to make a change once diff is implemented
 
 	m, err := adsReceive(edsstr2, 3*time.Second)
 	if err != nil {
 		t.Fatal("Recv failed", err)
 	}
-	t.Log("Received ", m)
+	if m == nil {
+		t.Fatal("Expected CDS response, but go nil")
+	}
+	if len(m.Resources) == 0 || v3.GetShortType(m.TypeUrl) != v3.ClusterShortType {
+		t.Fatalf("Expected non zero CDS resources, but got %v %s resources", len(m.Resources), v3.GetShortType(m.TypeUrl))
+	}
 }
 
 func sendAndReceivev2(t *testing.T, node string, client AdsClientv2, typeURL string, errMsg string) *xdsapi.DiscoveryResponse {

@@ -208,7 +208,7 @@ else
   ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 fi
 
-# Donwload WebAssembly plugin files
+# Download WebAssembly plugin files
 WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
 for plugin in stats metadata_exchange
 do

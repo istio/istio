@@ -283,7 +283,9 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
   ./operator/cmd/operator \
-  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni \
+  ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/install-cni \
   ./tools/istio-iptables
 
 # List of binaries included in releases
@@ -435,9 +437,9 @@ ${ISTIO_BIN}/go-junit-report:
 # This is just an alias for racetest now
 test: racetest
 
-TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/...
+TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
 # For now, keep a minimal subset. This can be expanded in the future, especially after mixer removal, which has some expensive tests that may OOM.
-BENCH_TAREGTS ?= ./pilot/...
+BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
@@ -445,11 +447,14 @@ racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
-	prow/benchtest.sh run $(BENCH_TAREGTS)
+	prow/benchtest.sh run $(BENCH_TARGETS)
 	prow/benchtest.sh compare
 
 report-benchtest:
 	prow/benchtest.sh report
+
+cni.install-test: docker.install-cni
+	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} ./cni/test/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

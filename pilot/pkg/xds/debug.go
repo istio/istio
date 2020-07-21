@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -344,30 +345,36 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 	return result
 }
 
+type kubernetesConfig struct {
+	model.Config
+}
+
+func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
+	cfg, err := crd.ConvertConfig(k.Config)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(cfg)
+}
+
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
-	_, _ = fmt.Fprintf(w, "\n[\n")
-
-	var err error
+	configs := []kubernetesConfig{}
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {
-			var b []byte
-			b, err = json.MarshalIndent(c, "  ", "  ")
-			if err != nil {
-				// We're done.
-				return true
-			}
-			_, _ = w.Write(b)
-			_, _ = fmt.Fprint(w, ",\n")
+			configs = append(configs, kubernetesConfig{c})
 		}
 		return false
 	})
-
-	if err == nil {
-		_, _ = fmt.Fprint(w, "\n{}]")
+	b, err := json.MarshalIndent(configs, "  ", "  ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(err.Error()))
+		return
 	}
+	w.Header().Add("Content-Type", "application/json")
+	_, _ = w.Write(b)
 }
 
 // Resource debugging.

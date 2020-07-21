@@ -218,11 +218,7 @@ func testSetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return
 	}
-	builder, err := echoboot.NewBuilder(ctx)
-	if err != nil {
-		return
-	}
-	err = builder.
+	err = echoboot.NewBuilder(ctx).
 		With(&clt, echo.Config{
 			Service:   "clt",
 			Namespace: getEchoNamespaceInstance(),

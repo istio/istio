@@ -367,11 +367,15 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstances(namespace string,
+func convertWorkloadEntryToWorkloadInstance(namespace string,
 	we *networking.WorkloadEntry) *model.WorkloadInstance {
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
+		return nil
+	}
+	if net.ParseIP(addr) == nil {
+		// k8s can't use workloads with hostnames in the address field.
 		return nil
 	}
 	tlsMode := getTLSModeFromWorkloadEntry(we)

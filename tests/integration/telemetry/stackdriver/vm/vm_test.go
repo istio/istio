@@ -122,6 +122,8 @@ spec:
 					return err
 				}
 				for _, tt := range ts {
+					// Making resource nil, as test can run on various platforms.
+					tt.Resource = nil
 					if proto.Equal(tt, &wantSrv) {
 						srvReceived = true
 					}

@@ -207,8 +207,8 @@ type Controller struct {
 	nodeInfoMap map[string]kubernetesNode
 	// externalNameSvcInstanceMap stores hostname ==> instance, is used to store instances for ExternalName k8s services
 	externalNameSvcInstanceMap map[host.Name][]*model.ServiceInstance
-	// workdload instances from workload entries  - map of ip -> workload instance
-	workdloadInstancesByIP map[string]*model.WorkloadInstance
+	// workload instances from workload entries  - map of ip -> workload instance
+	workloadInstancesByIP map[string]*model.WorkloadInstance
 
 	// CIDR ranger based on path-compressed prefix trie
 	ranger cidranger.Ranger
@@ -233,7 +233,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeSelectorsForServices:   make(map[host.Name]labels.Instance),
 		nodeInfoMap:                make(map[string]kubernetesNode),
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
-		workdloadInstancesByIP:     make(map[string]*model.WorkloadInstance),
+		workloadInstancesByIP:      make(map[string]*model.WorkloadInstance),
 		networksWatcher:            options.NetworksWatcher,
 		metrics:                    options.Metrics,
 	}
@@ -669,7 +669,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	// workload instances for any other registry
 	var workloadInstancesExist bool
 	c.RLock()
-	workloadInstancesExist = len(c.workdloadInstancesByIP) > 0
+	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
 	c.RUnlock()
 
 	if !workloadInstancesExist || svc.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) ||
@@ -701,10 +701,13 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 
 	// Now get the target Port for this service port
 	targetPort := reqSvcPort
+	targetPortName := ""
 	for _, p := range k8sService.Spec.Ports {
 		if p.Name == servicePort.Name || p.Port == int32(servicePort.Port) {
 			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
 				targetPort = int(p.TargetPort.IntVal)
+			} else {
+				targetPortName = p.TargetPort.StrVal
 			}
 			break
 		}
@@ -713,14 +716,24 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	out := make([]*model.ServiceInstance, 0)
 
 	c.RLock()
-	for _, wi := range c.workdloadInstancesByIP {
+	for _, wi := range c.workloadInstancesByIP {
 		if wi.Namespace != svc.Attributes.Namespace {
 			continue
 		}
 		if selector.SubsetOf(wi.Endpoint.Labels) {
 			// create an instance with endpoint whose service port name matches
 			istioEndpoint := *wi.Endpoint
-			istioEndpoint.EndpointPort = uint32(targetPort)
+			if targetPortName != "" {
+				// This is a named port, find the corresponding port in the port map
+				matchedPort := wi.PortMap[targetPortName]
+				if matchedPort == 0 {
+					// No match found, skip this endpoint
+					continue
+				}
+				istioEndpoint.EndpointPort = matchedPort
+			} else {
+				istioEndpoint.EndpointPort = uint32(targetPort)
+			}
 			istioEndpoint.ServicePortName = servicePort.Name
 			out = append(out, &model.ServiceInstance{
 				Service:     svc,
@@ -737,7 +750,7 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*model.IstioEndpoint {
 	var workloadInstancesExist bool
 	c.RLock()
-	workloadInstancesExist = len(c.workdloadInstancesByIP) > 0
+	workloadInstancesExist = len(c.workloadInstancesByIP) > 0
 	c.RUnlock()
 
 	if !workloadInstancesExist || svc.Resolution != model.ClientSideLB || len(svc.Ports) == 0 {
@@ -776,7 +789,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		proxyIP := proxy.IPAddresses[0]
 
 		pod := c.pods.getPodByIP(proxyIP)
-		if workload, f := c.workdloadInstancesByIP[proxyIP]; f {
+		if workload, f := c.workloadInstancesByIP[proxyIP]; f {
 			var err error
 			out, err = c.hydrateWorkloadInstance(workload)
 			if err != nil {
@@ -873,9 +886,9 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	c.Lock()
 	switch event {
 	case model.EventDelete:
-		delete(c.workdloadInstancesByIP, si.Endpoint.Address)
+		delete(c.workloadInstancesByIP, si.Endpoint.Address)
 	default: // add or update
-		c.workdloadInstancesByIP[si.Endpoint.Address] = si
+		c.workloadInstancesByIP[si.Endpoint.Address] = si
 	}
 	c.Unlock()
 
