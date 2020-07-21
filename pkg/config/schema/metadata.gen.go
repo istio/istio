@@ -382,6 +382,16 @@ snapshots:
       - "k8s/core/v1/secrets"
       - "k8s/core/v1/services"
       - "k8s/core/v1/configmaps"
+      - "istio/config/v1alpha2/adapters"
+      - "istio/config/v1alpha2/httpapispecbindings"
+      - "istio/config/v1alpha2/httpapispecs"
+      - "istio/config/v1alpha2/templates"
+      - "istio/mixer/v1/config/client/quotaspecbindings"
+      - "istio/mixer/v1/config/client/quotaspecs"
+      - "istio/policy/v1beta1/attributemanifests"
+      - "istio/policy/v1beta1/handlers"
+      - "istio/policy/v1beta1/instances"
+      - "istio/policy/v1beta1/rules"
 
 # Configuration for resource types.
 resources:

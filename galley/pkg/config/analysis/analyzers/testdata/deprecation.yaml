@@ -50,3 +50,14 @@ spec:
         number: 9080
   localhost:
     clientTls:
+---
+apiVersion: config.istio.io/v1alpha2
+kind: QuotaSpec
+metadata:
+  name: request-count
+  namespace: istio-system
+spec:
+  rules:
+  - quotas:
+    - charge: 1
+      quota: requestcount
