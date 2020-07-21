@@ -306,7 +306,9 @@ spec:
 `, remoteIstiodAddress.IP.String())
 	if _, err := cluster.AppsV1().Deployments(cfg.ConfigNamespace).Patch(context.TODO(), "istiod", types.ApplyPatchType,
 		[]byte(contents), patchOptions); err != nil {
-		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
+		err := fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
+		scopes.Framework.Errorf("%v", err)
+		return err
 	}
 	return nil
 }
