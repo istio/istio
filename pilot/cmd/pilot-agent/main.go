@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	securityutil "istio.io/istio/pilot/pkg/security/authn/utils"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/network"
@@ -90,7 +89,6 @@ var (
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
@@ -420,17 +418,6 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 		}
 	}
 	spiffe.SetTrustDomain(pilotTrustDomain)
-}
-
-func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
-	var san []string
-	if overrideIdentity == "" {
-		san = append(san, securityutil.GetSAN(ns, defaultSA))
-	} else {
-		san = append(san, securityutil.GetSAN("", overrideIdentity))
-
-	}
-	return san
 }
 
 func getDNSDomain(podNamespace, domain string) string {

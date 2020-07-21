@@ -397,31 +397,6 @@ func (store *istioConfigStore) Gateways(workloadLabels labels.Collection) []Conf
 	return out
 }
 
-// matchWildcardService matches destinationHost to a wildcarded svc.
-// checked values for svc
-//     '*'  matches everything
-//     '*.ns.*'  matches anything in the same namespace
-//		strings of any other form are not matched.
-func matchWildcardService(destinationHost, svc string) bool {
-	if len(svc) == 0 || !strings.Contains(svc, "*") {
-		return false
-	}
-
-	if svc == "*" {
-		return true
-	}
-
-	// check for namespace match with svc like '*.ns.*'
-	// extract match substring by dropping '*'
-	if strings.HasPrefix(svc, "*") && strings.HasSuffix(svc, "*") {
-		return strings.Contains(destinationHost, svc[1:len(svc)-1])
-	}
-
-	log.Warnf("Wildcard pattern '%s' is not allowed. Only '*' or '*.<ns>.*' is allowed.", svc)
-
-	return false
-}
-
 // key creates a key from a reference's name and namespace.
 func key(name, namespace string) string {
 	return name + "/" + namespace

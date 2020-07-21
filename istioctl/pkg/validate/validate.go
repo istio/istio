@@ -48,7 +48,6 @@ var (
 Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
-	errKindNotSupported = errors.New("kind is not supported")
 
 	validFields = map[string]struct{}{
 		"apiVersion": {},
@@ -229,7 +228,7 @@ func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error
 	}
 }
 
-func validateFiles(istioNamespace *string, filenames []string, referential bool, writer io.Writer) error {
+func validateFiles(istioNamespace *string, filenames []string, writer io.Writer) error {
 	if len(filenames) == 0 {
 		return errMissingFilename
 	}
@@ -291,7 +290,7 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(istioNamespace, filenames, referential, c.OutOrStderr())
+			return validateFiles(istioNamespace, filenames, c.OutOrStderr())
 		},
 	}
 
