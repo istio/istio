@@ -82,6 +82,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	}
 
 	l.LogAndPrintf("Removing Istio operator...")
+	// Create an empty IOP for the purpose of populating revision. Apply code requires a non-nil IOP.
 	var iop *iopv1alpha1.IstioOperator
 	if orArgs.revision != "" {
 		emptyiops := &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: orArgs.revision}
@@ -100,13 +101,6 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	}
 	if err := reconciler.DeleteObjectsList(rs); err != nil {
 		l.LogAndFatal(err)
-	}
-
-	if orArgs.revision == "" {
-		if err := deleteNamespace(clientset, orArgs.operatorNamespace); err != nil {
-			l.LogAndFatal(err)
-		}
-		l.LogAndPrint("Deleted namespace " + orArgs.operatorNamespace)
 	}
 
 	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔ ") + "Removal complete")

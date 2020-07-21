@@ -257,11 +257,6 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 	return nil
 }
 
-// deleteNamespace deletes namespace using the given k8s client.
-func deleteNamespace(cs kubernetes.Interface, namespace string) error {
-	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
-}
-
 // saveIOPToCluster saves the state in an IOP CR in the cluster.
 func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) error {
 	obj, err := object.ParseYAMLToK8sObject([]byte(iop))
