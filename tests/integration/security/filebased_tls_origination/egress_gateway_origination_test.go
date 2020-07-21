@@ -162,7 +162,7 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-server
+  name: originate-tls-for-server-filebased-{{.Mode}}
 spec:
   host: "server.{{.AppNamespace}}.svc.cluster.local"
   trafficPolicy:
@@ -180,7 +180,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-server
+  name: originate-tls-for-server-filebased-{{.Mode}}
 spec:
   host: "server.{{.AppNamespace}}.svc.cluster.local"
   trafficPolicy:
@@ -196,7 +196,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-mtls-for-server
+  name: originate-tls-for-server-filebased-{{.Mode}}
 spec:
   host: "server.{{.AppNamespace}}.svc.cluster.local"
   trafficPolicy:
@@ -317,26 +317,34 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio-egressgateway
+  name: istio-egressgateway-filebased
 spec:
   selector:
     istio: egressgateway
   servers:
     - port:
-        number: 80
-        name: http-port-for-tls-origination
-        protocol: HTTP
+        number: 443
+        name: https-filebased
+        protocol: HTTPS
       hosts:
         - server.{{.ServerNamespace}}.svc.cluster.local
+      tls:
+        mode: ISTIO_MUTUAL
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: egressgateway-for-server
+  name: egressgateway-for-server-filebased
 spec:
   host: istio-egressgateway.istio-system.svc.cluster.local
   subsets:
   - name: server
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: ISTIO_MUTUAL
 `
 	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
@@ -347,7 +355,7 @@ spec:
   hosts:
     - server.{{.ServerNamespace}}.svc.cluster.local
   gateways:
-    - istio-egressgateway
+    - istio-egressgateway-filebased
     - mesh
   http:
     - match:
@@ -359,12 +367,12 @@ spec:
             host: istio-egressgateway.istio-system.svc.cluster.local
             subset: server
             port:
-              number: 80
+              number: 443
           weight: 100
     - match:
         - gateways:
             - istio-egressgateway
-          port: 80
+          port: 443
       route:
         - destination:
             host: server.{{.ServerNamespace}}.svc.cluster.local
