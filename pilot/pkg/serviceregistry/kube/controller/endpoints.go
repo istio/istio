@@ -43,7 +43,7 @@ func newEndpointsController(c *Controller, informer coreinformers.EndpointsInfor
 			informer: informer.Informer(),
 		},
 	}
-	registerHandlers(informer.Informer(), c.queue, "Endpoints", endpointsEqual, out.onEvent)
+	registerHandlers(informer.Informer(), c.queue, "Endpoints", out.onEvent, endpointsEqual)
 	return out
 }
 

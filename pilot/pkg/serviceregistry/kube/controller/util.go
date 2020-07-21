@@ -98,6 +98,24 @@ func findPortFromMetadata(svcPort v1.ServicePort, podPorts []model.PodPort) (int
 	return 0, fmt.Errorf("no matching port found for %+v", svcPort)
 }
 
+// get the target Port for this service port
+func findServiceTargetPort(servicePort *model.Port, k8sService *v1.Service) (int, string) {
+	targetPort := 0
+	targetPortName := ""
+	for _, p := range k8sService.Spec.Ports {
+		// TODO(@hzxuzhonghu): check protocol as well as port
+		if p.Name == servicePort.Name || p.Port == int32(servicePort.Port) {
+			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
+				targetPort = int(p.TargetPort.IntVal)
+			} else {
+				targetPortName = p.TargetPort.StrVal
+			}
+			break
+		}
+	}
+	return targetPort, targetPortName
+}
+
 func getPodServices(s listerv1.ServiceLister, pod *v1.Pod) ([]*v1.Service, error) {
 	allServices, err := s.Services(pod.Namespace).List(klabels.Everything())
 	if err != nil {

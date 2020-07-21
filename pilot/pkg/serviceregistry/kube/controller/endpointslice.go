@@ -50,7 +50,7 @@ func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceIn
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", nil, out.onEvent)
+	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 

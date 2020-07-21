@@ -234,7 +234,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
-	registerHandlers(c.serviceInformer, c.queue, "Services", nil, c.onServiceEvent)
+	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
 
 	switch options.EndpointMode {
 	case EndpointsOnly:
@@ -246,7 +246,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	// This is for getting the node IPs of a selected set of nodes
 	c.nodeInformer = kubeClient.KubeInformer().Core().V1().Nodes().Informer()
 	c.nodeLister = kubeClient.KubeInformer().Core().V1().Nodes().Lister()
-	registerHandlers(c.nodeInformer, c.queue, "Nodes", nil, c.onNodeEvent)
+	registerHandlers(c.nodeInformer, c.queue, "Nodes", c.onNodeEvent, nil)
 
 	c.pods = newPodCache(c, kubeClient.KubeInformer().Core().V1().Pods(), func(key string) {
 		item, exists, err := c.endpoints.getInformer().GetStore().GetByKey(key)
@@ -262,7 +262,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return c.endpoints.onEvent(item, model.EventUpdate)
 		})
 	})
-	registerHandlers(c.pods.informer, c.queue, "Pods", nil, c.pods.onEvent)
+	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent, nil)
 
 	return c
 }
@@ -382,8 +382,22 @@ func (c *Controller) onNodeEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
+// Filter func for filtering out objects during update callback
+type FilterOutFunc func(old, cur interface{}) bool
+
 func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otype string,
-	equalsFunc func(old, cur interface{}) bool, handler func(interface{}, model.Event) error) {
+	handler func(interface{}, model.Event) error, filter FilterOutFunc) {
+	if filter == nil {
+		filter = func(old, cur interface{}) bool {
+			oldObj := old.(metav1.Object)
+			newObj := cur.(metav1.Object)
+			// TODO: this is only for test, add resource version for test
+			if oldObj.GetResourceVersion() == "" || newObj.GetResourceVersion() == "" {
+				return false
+			}
+			return oldObj.GetResourceVersion() == newObj.GetResourceVersion()
+		}
+	}
 
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -395,15 +409,7 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				oldObj := old.(metav1.Object)
-				newObj := cur.(metav1.Object)
-				if oldObj.GetResourceVersion() == newObj.GetResourceVersion() {
-					return
-				}
-				// only call handler when:
-				// 1. no equalsFunc specified
-				// 2. object changed
-				if equalsFunc != nil || !equalsFunc(old, cur) {
+				if !filter(old, cur) {
 					incrementEvent(otype, "update")
 					q.Push(func() error {
 						return handler(cur, model.EventUpdate)
@@ -468,7 +474,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		out = append(out, svc)
 	}
 	c.RUnlock()
-	sort.Slice(out, func(i, j int) bool { return out[i].CreationTime.Before(out[j].CreationTime) })
+	sort.Slice(out, func(i, j int) bool { return out[i].Hostname < out[j].Hostname })
 
 	return out, nil
 }
@@ -630,17 +636,9 @@ func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, r
 	}
 
 	// Now get the target Port for this service port
-	targetPort := reqSvcPort
-	targetPortName := ""
-	for _, p := range k8sService.Spec.Ports {
-		if p.Name == servicePort.Name || p.Port == int32(servicePort.Port) {
-			if p.TargetPort.Type == intstr.Int && p.TargetPort.IntVal > 0 {
-				targetPort = int(p.TargetPort.IntVal)
-			} else {
-				targetPortName = p.TargetPort.StrVal
-			}
-			break
-		}
+	targetPort, targetPortName := findServiceTargetPort(servicePort, k8sService)
+	if targetPort == 0 {
+		targetPort = reqSvcPort
 	}
 
 	out := make([]*model.ServiceInstance, 0)
