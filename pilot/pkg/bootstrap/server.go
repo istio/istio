@@ -410,8 +410,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		var err error
 		// Used by validation
 		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
-			config.QPS = args.Config.ControllerOptions.KubernetesAPIQPS
-			config.Burst = args.Config.ControllerOptions.KubernetesAPIBurst
+			config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
+			config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
 		})
 		if err != nil {
 			return fmt.Errorf("failed creating kube config: %v", err)
