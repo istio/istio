@@ -22,16 +22,12 @@ import (
 )
 
 // NewBuilder for Echo Instances.
-func NewBuilder(ctx resource.Context) (b echo.Builder, err error) {
-	return kube.NewBuilder(ctx), nil
+func NewBuilder(ctx resource.Context) echo.Builder {
+	return kube.NewBuilder(ctx)
 }
 
 // NewBuilder for Echo Instances.
 func NewBuilderOrFail(t test.Failer, ctx resource.Context) echo.Builder {
 	t.Helper()
-	b, err := NewBuilder(ctx)
-	if err != nil {
-		t.Fatalf("echo.NewBuilderOrFail: %v", err)
-	}
-	return b
+	return NewBuilder(ctx)
 }
