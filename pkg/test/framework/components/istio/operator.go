@@ -308,6 +308,37 @@ spec:
 		[]byte(contents), patchOptions); err != nil {
 		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
 	}
+
+	if err := retry.UntilSuccess(func() error {
+		pods, err := cluster.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: "istio=pilot"})
+		if err != nil {
+			return err
+		}
+		if len(pods.Items) == 0 {
+			return fmt.Errorf("no istiod pods")
+		}
+		for _, p := range pods.Items {
+			for _, c := range p.Spec.Containers {
+				if c.Name != "discovery" {
+					continue
+				}
+				found := false
+				for _, envVar := range c.Env {
+					if envVar.Name == "ISTIOD_CUSTOM_HOST" {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("%v does not have ISTIOD_CUSTOM_HOST set", p.Name)
+				}
+			}
+		}
+		return nil
+	}, retry.Timeout(90*time.Second)); err != nil {
+		return fmt.Errorf("failed waiting for patched istiod pod to come up in %s: %v", cluster.Name(), err)
+	}
+
 	return nil
 }
 

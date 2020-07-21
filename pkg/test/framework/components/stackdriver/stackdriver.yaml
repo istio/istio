@@ -41,7 +41,7 @@ spec:
         app: stackdriver
     spec:
       containers:
-      - image: gcr.io/istio-testing/fake-stackdriver:2.0
+      - image: gcr.io/istio-testing/fake-stackdriver:4.0
         imagePullPolicy: Always
         name: stackdriver
         ports:

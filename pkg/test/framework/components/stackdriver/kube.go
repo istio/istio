@@ -21,18 +21,20 @@ import (
 	"net/http"
 	"time"
 
-	istioKube "istio.io/istio/pkg/kube"
-	environ "istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
-	testKube "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/scopes"
-
-	"github.com/golang/protobuf/jsonpb"
+	jsonpb "github.com/golang/protobuf/jsonpb"
+	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	ltype "google.golang.org/genproto/googleapis/logging/type"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
 	kubeApiCore "k8s.io/api/core/v1"
+
+	istioKube "istio.io/istio/pkg/kube"
+	environ "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
+	"istio.io/istio/pkg/test/framework/resource"
+	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 const (
@@ -175,9 +177,54 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 		delete(l.Labels, "request_id")
 		delete(l.Labels, "source_name")
 		delete(l.Labels, "destination_name")
+		delete(l.Labels, "connection_id")
 		ret = append(ret, l)
 	}
 	return ret, nil
+}
+
+func (c *kubeComponent) ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error) {
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get("http://" + c.forwarder.Address() + "/trafficassertions")
+	if err != nil {
+		return []*edgespb.TrafficAssertion{}, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return []*edgespb.TrafficAssertion{}, err
+	}
+	var rta edgespb.ReportTrafficAssertionsRequest
+	err = jsonpb.UnmarshalString(string(body), &rta)
+	if err != nil {
+		return []*edgespb.TrafficAssertion{}, err
+	}
+
+	return rta.TrafficAssertions, nil
+}
+
+func (c *kubeComponent) ListTraces() ([]*cloudtracepb.Trace, error) {
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get("http://" + c.forwarder.Address() + "/traces")
+	if err != nil {
+		return []*cloudtracepb.Trace{}, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return []*cloudtracepb.Trace{}, err
+	}
+	var traceResp cloudtracepb.ListTracesResponse
+	err = jsonpb.UnmarshalString(string(body), &traceResp)
+	if err != nil {
+		return []*cloudtracepb.Trace{}, err
+	}
+
+	return traceResp.Traces, nil
 }
 
 func (c *kubeComponent) ID() resource.ID {
