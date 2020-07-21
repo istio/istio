@@ -423,8 +423,8 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	if err != nil {
 		return err
 	}
-	labels := convertToMap(l)
-	annotations := convertToMap(a)
+	labels := convertToStringMap(l)
+	annotations := convertToStringMap(a)
 	opts := &vmServiceOpts{
 		Name:           svcName,
 		Namespace:      ns,
@@ -508,22 +508,29 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 		Location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 	}
 
-	// Because we are placing into an Unstructured, place as a map instead
-	// of structured Istio types.  (The go-client can handle the structured data, but the
-	// fake go-client used for mocking cannot.)
-	b, err := yaml.Marshal(spec)
+	iSpec, err := unstructureIstioType(spec)
 	if err != nil {
 		return err
+	}
+	u.Object["spec"] = iSpec
+
+	return nil
+}
+
+// Because we are placing into an Unstructured, place as a map instead
+// of structured Istio types.  (The go-client can handle the structured data, but the
+// fake go-client used for mocking cannot.)
+func unstructureIstioType(spec interface{}) (map[string]interface{}, error) {
+	b, err := yaml.Marshal(spec)
+	if err != nil {
+		return nil, err
 	}
 	iSpec := map[string]interface{}{}
 	err = yaml.Unmarshal(b, &iSpec)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	u.Object["spec"] = iSpec
-
-	return nil
+	return iSpec, nil
 }
 
 func resourceName(hostShortName string) string {
@@ -545,7 +552,20 @@ func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
 	s.Spec = spec
 }
 
-func convertToMap(s []string) map[string]string {
+func convertToUnsignedInt32Map(s []string) map[string]uint32 {
+	out := make(map[string]uint32, len(s))
+	for _, l := range s {
+		k, v := splitEqual(l)
+		u64, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		out[k] = uint32(u64)
+	}
+	return out
+}
+
+func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {
 		k, v := splitEqual(l)
