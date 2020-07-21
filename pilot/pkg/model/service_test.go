@@ -78,31 +78,31 @@ func TestParseSubsetKey(t *testing.T) {
 
 func TestIsValidSubsetKey(t *testing.T) {
 	cases := []struct {
-		subsetkey string
-		expectErr bool
+		subsetkey   string
+		expectValid bool
 	}{
 		{
-			subsetkey: "outbound|80|subset|hostname",
-			expectErr: false,
+			subsetkey:   "outbound|80|subset|hostname",
+			expectValid: true,
 		},
 		{
-			subsetkey: "outbound|80||hostname",
-			expectErr: false,
+			subsetkey:   "outbound|80||hostname",
+			expectValid: true,
 		},
 		{
-			subsetkey: "outbound|80|subset||hostname",
-			expectErr: true,
+			subsetkey:   "outbound|80|subset|hostname|tunnel-h2",
+			expectValid: true,
 		},
 		{
-			subsetkey: "",
-			expectErr: true,
+			subsetkey:   "",
+			expectValid: false,
 		},
 	}
 
 	for _, c := range cases {
-		err := IsValidSubsetKey(c.subsetkey)
-		if !err != c.expectErr {
-			t.Errorf("got %v but want %v\n", err, c.expectErr)
+		ok := IsValidSubsetKey(c.subsetkey)
+		if ok != c.expectValid {
+			t.Errorf("got %v but want %v\n", ok, c.expectValid)
 		}
 	}
 }

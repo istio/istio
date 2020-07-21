@@ -537,17 +537,21 @@ func (s *Service) External() bool {
 	return s.MeshExternal
 }
 
-// BuildOutboundClusterName generates an outbound cluster name for a given service name, a subset and a port.
+// BuildOutboundClusterName generates an outbound cluster name for a given service name, a subset, a port, and a tunnel type.
+// For back compatibility, if the tunnel is empty,
 // The proxy queries Pilot with this key to obtain the list of instances in a subset.
 func BuildOutboundClusterName(subsetName string, hostname host.Name, port int, tunnelType TunnelType) string {
-	return string(TrafficDirectionOutbound) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname) + "|" + string(tunnelType)
+	nameWithoutTunnel := string(TrafficDirectionOutbound) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname)
+	if tunnelType == TunnelNone {
+		return nameWithoutTunnel
+	}
+	return nameWithoutTunnel + "|" + string(tunnelType)
 }
 
 // BuildInboundClusterName generates an inbound cluster name for a given service name, a subset and a port.
 func BuildInboundClusterName(subsetName string, hostname host.Name, port int) string {
-	return string(TrafficDirectionInbound) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname) +
-		// The inbound cluster is always tunnel none. Add the prefix so that the in and out cluster names are uniform.
-		"|" + string(TunnelNone)
+	// The inbound cluster is always tunnel none. Add the prefix so that the in and out cluster names are uniform.
+	return string(TrafficDirectionInbound) + "|" + strconv.Itoa(port) + "|" + subsetName + "|" + string(hostname)
 }
 
 // BuildDNSSrvSubsetKey generates a unique string referencing service instances for a given service name, a subset and a port.
@@ -560,7 +564,8 @@ func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostnam
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.
 func IsValidSubsetKey(s string) bool {
-	return strings.Count(s, "|") == 4
+	count := strings.Count(s, "|")
+	return count == 3 || count == 4
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
@@ -578,7 +583,7 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 		parts = strings.Split(s, "|")
 	}
 
-	if len(parts) < 5 {
+	if len(parts) < 4 {
 		return
 	}
 
@@ -591,7 +596,11 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	}
 
 	hostname = host.Name(parts[3])
-	tunnelType = TunnelType(parts[4])
+	if len(parts) == 5 {
+		tunnelType = TunnelType(parts[4])
+	} else {
+		tunnelType = TunnelNone
+	}
 	return
 }
 

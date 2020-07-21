@@ -148,13 +148,13 @@ func TestSubsetKey(t *testing.T) {
 			hostname: "hostname",
 			subset:   "subset",
 			port:     80,
-			want:     "outbound|80|subset|hostname|" + string(model.TunnelNone),
+			want:     "outbound|80|subset|hostname",
 		},
 		{
 			hostname: "hostname",
 			subset:   "",
 			port:     80,
-			want:     "outbound|80||hostname|" + string(model.TunnelNone),
+			want:     "outbound|80||hostname",
 		},
 	}
 
