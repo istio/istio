@@ -66,8 +66,6 @@ var (
 		RunE: func(c *cobra.Command, args []string) error {
 			serverArgs.Config.DistributionTrackingEnabled = features.EnableDistributionTracking
 			serverArgs.Config.DistributionCacheRetention = features.DistributionHistoryRetention
-			serverArgs.Config.ControllerOptions.KubernetesAPIQPS = float32(features.KubernetesAPIQPS.Get())
-			serverArgs.Config.ControllerOptions.KubernetesAPIBurst = features.KubernetesAPIBurst.Get()
 			cmd.PrintFlags(c.Flags())
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
@@ -170,6 +168,12 @@ func init() {
 		"HTTP address to use for pilot's self-monitoring information")
 	discoveryCmd.PersistentFlags().BoolVar(&serverArgs.DiscoveryOptions.EnableProfiling, "profile", true,
 		"Enable profiling via web interface host:port/debug/pprof")
+
+	discoveryCmd.PersistentFlags().Float32Var(&serverArgs.Config.ControllerOptions.KubernetesAPIQPS, "kubernetesApiQPS", 20.0,
+		"Maximum QPS when communicating with the kubernetes API")
+
+	discoveryCmd.PersistentFlags().IntVar(&serverArgs.Config.ControllerOptions.KubernetesAPIBurst, "kubernetesApiBurst", 40,
+		"Maximum burst for throttle when communicating with the kubernetes API")
 
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
