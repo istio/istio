@@ -285,14 +285,15 @@ func patchIstiodCustomHost(cfg Config, cluster resource.Cluster) error {
 		return fmt.Errorf("failed getting the istiod address for cluster %s: %v", cluster.Name(), err)
 	}
 
-	patchOptions := kubeApiMeta.PatchOptions{
-		FieldManager: "istio-ci",
-		TypeMeta: kubeApiMeta.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: "apps/v1",
-		},
-	}
-	contents := fmt.Sprintf(`
+	if err := retry.UntilSuccess(func() error {
+		patchOptions := kubeApiMeta.PatchOptions{
+			FieldManager: "istio-ci",
+			TypeMeta: kubeApiMeta.TypeMeta{
+				Kind:       "Deployment",
+				APIVersion: "apps/v1",
+			},
+		}
+		contents := fmt.Sprintf(`
 apiVersion: apps/v1
 kind: Deployment
 spec:
@@ -304,10 +305,13 @@ spec:
         - name: ISTIOD_CUSTOM_HOST
           value: %s
 `, remoteIstiodAddress.IP.String())
-	if _, err := cluster.AppsV1().Deployments(cfg.ConfigNamespace).Patch(context.TODO(), "istiod", types.ApplyPatchType,
-		[]byte(contents), patchOptions); err != nil {
+		_, err := cluster.AppsV1().Deployments(cfg.ConfigNamespace).Patch(context.TODO(), "istiod", types.ApplyPatchType,
+			[]byte(contents), patchOptions)
+		return err
+	}, retry.Timeout(90*time.Second)); err != nil {
 		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
 	}
+
 	return nil
 }
 
