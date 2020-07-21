@@ -154,7 +154,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		fname = e.Config.CustomConfigFile
 	} else {
 		discHost := strings.Split(e.Config.DiscoveryAddress, ":")[0]
-		log.Infof("discHost is %s", discHost)
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
 			Proxy:               &e.Config,
