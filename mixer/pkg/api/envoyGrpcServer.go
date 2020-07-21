@@ -41,7 +41,7 @@ import (
 )
 
 type (
-	grpcServerEnvoy struct {
+	GrpcServerEnvoy struct {
 		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
 		cache      *checkcache.Cache
@@ -56,13 +56,13 @@ type (
 )
 
 func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache,
-	throttler *loadshedding.Throttler) grpcServerEnvoy {
+	throttler *loadshedding.Throttler) GrpcServerEnvoy {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
 		globalDict[list[i]] = int32(i)
 	}
-	return grpcServerEnvoy{
+	return GrpcServerEnvoy{
 		dispatcher:     dispatcher,
 		gp:             gp,
 		globalWordList: list,
@@ -74,7 +74,7 @@ func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool
 
 //Mirrors Mixer Check but instead uses Envoy External Authorization API
 //It enables longevity of OOP adapters
-func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
+func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
 	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: 1.0}) {
 		return nil, grpc.Errorf(codes.Unavailable, "Envoy Server is currently overloaded. Please try again.")
 	}
@@ -108,15 +108,15 @@ func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 		}
 	}
 	envoyCheckBag := attr.GetMutableBag(envoyProtoBag)
-	resp, err := s.checkEnvoy(ctx, req, envoyProtoBag, envoyCheckBag)
+	resp, err := s.checkEnvoy(ctx, envoyProtoBag, envoyCheckBag)
 
 	envoyProtoBag.Done()
 	envoyCheckBag.Done()
 	return resp, err
 }
 
-func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context, req *authzGRPC.CheckRequest,
-	protoBag *attribute.EnvoyProtoBag, checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
+func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context,
+	protoBag attr.Bag, checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
 	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
 		lg.Errora("ExtAuth.Check failed: ", err.Error())
@@ -176,7 +176,7 @@ func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context, req *authzGRPC.CheckRe
 //Access log service should return empty response
 //It is implemented to perform the same functionality as Mixer Report for OOP longevity
 //It uses grpc Access Log Service API
-func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) error {
+func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) error {
 	for {
 		ctx := context.TODO()
 		msg, err := srv.Recv()
@@ -201,11 +201,11 @@ func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 		reportSpan, reportCtx := opentracing.StartSpanFromContext(ctx, "StreamAccessLogsReport")
 		reporter := s.dispatcher.GetReporter(reportCtx)
 		var errors *multierror.Error
-		var protoBag *attribute.EnvoyProtoBag
+		var protoBag attr.Bag
 		var reportBag *attr.MutableBag
 
 		for i := 0; i < totalBags; i++ {
-			lg.Debuga("Dispatching Stream Access Logs Report %d out of %d", i+1, totalBags)
+			lg.Debugf("Dispatching Stream Access Logs Report %d out of %d", i+1, totalBags)
 			span, newctx := opentracing.StartSpanFromContext(reportCtx, fmt.Sprintf("attribute bag %d", i))
 
 			protoBag = attribute.GetEnvoyProtoBagAccessLog(msg, i)

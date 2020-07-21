@@ -16,16 +16,17 @@ package attribute
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"net"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	"github.com/golang/protobuf/ptypes/timestamp"
+
 	mixerpb "istio.io/api/mixer/v1"
 	attr "istio.io/pkg/attribute"
 )
@@ -38,7 +39,7 @@ import (
 
 // ProtoBag implements the Bag interface on top of an Attributes proto.
 type EnvoyProtoBag struct {
-	reqMap map[string]interface{}
+	reqMap              map[string]interface{}
 	globalDict          map[string]int32
 	globalWordList      []string
 	messageDict         map[string]int32
@@ -61,14 +62,13 @@ var envoyProtoBags = sync.Pool{
 }
 
 func fillAddress(reqMap map[string]interface{}, address *core.Address, name string) {
-	reqMap[name + ".ip"] = []byte(net.ParseIP(address.GetSocketAddress().GetAddress()).To16())
-	reqMap[name + ".port"] = int64(address.GetSocketAddress().GetPortValue())
+	reqMap[name+".ip"] = []byte(net.ParseIP(address.GetSocketAddress().GetAddress()).To16())
+	reqMap[name+".port"] = int64(address.GetSocketAddress().GetPortValue())
 }
 
 func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
-	return time.Unix(theTime.Seconds, int64(theTime.Nanos) + int64(durationNanos))
+	return time.Unix(theTime.Seconds, int64(theTime.Nanos)+int64(durationNanos))
 }
-
 
 // GetProtoBag returns a proto-based attribute bag.
 // When you are done using the proto bag, call the Done method to recycle it.
@@ -103,7 +103,7 @@ func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 // GetProtoBag returns a proto-based attribute bag.
 // When you are done using the proto bag, call the Done method to recycle it.
 //num is the index of the entry from the message's batch to create a bag from
-func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
+func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) attr.Bag {
 	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
@@ -130,7 +130,7 @@ func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num i
 			GetResponseBodyBytes()) + int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes())
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
 		reqMap["context.protocol"] = "tcp"
-		reqMap["context.reporter.kind"] = "inbound"//inbound or outbound
+		reqMap["context.reporter.kind"] = "inbound" //inbound or outbound
 		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(), "destination")
 		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
 		reqMap["request.time"] = reformatTime(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(), 0)
@@ -142,7 +142,6 @@ func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num i
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
 	return pb
 }
-
 
 // Get returns an attribute value.
 func (pb *EnvoyProtoBag) Get(name string) (interface{}, bool) {

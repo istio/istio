@@ -311,7 +311,6 @@ func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*m
 			}
 		case mixerpb.INDEPENDENT_ENCODING:
 			if reportBag != nil {
-				fmt.Println(reportBag)
 				reportBag.Done()
 			}
 			if protoBag != nil {
