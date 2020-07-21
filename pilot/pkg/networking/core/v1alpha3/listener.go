@@ -2409,7 +2409,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 	return mergedFilterChains
 }
 
-// isConflict determines whether the incoming filter chain has conflict with existing.
+// isConflict determines whether the incoming filter chain has conflict with existing filter chain.
 func isConflict(existing, incoming *listener.FilterChain) bool {
 	return filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch)
 }
