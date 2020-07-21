@@ -12,7 +12,6 @@ LABEL description="Istio CNI plugin installer."
 COPY istio-cni /opt/cni/bin/
 COPY istio-iptables /opt/cni/bin/
 COPY install-cni /usr/local/bin/
-COPY istio-cni.conf.default /istio-cni.conf.tmp
 
 # Copy over the Repair binary
 COPY istio-cni-repair /opt/cni/bin/
