@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -51,7 +50,7 @@ func newEndpointSliceController(c *Controller, informer v1alpha1.EndpointSliceIn
 		},
 		endpointCache: newEndpointSliceCache(),
 	}
-	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", reflect.DeepEqual, out.onEvent)
+	registerHandlers(informer.Informer(), c.queue, "EndpointSlice", out.onEvent, nil)
 	return out
 }
 
@@ -60,10 +59,6 @@ func (esc *endpointSliceController) getInformer() cache.SharedIndexInformer {
 }
 
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
-	if err := esc.c.checkReadyForEvents(); err != nil {
-		return err
-	}
-
 	ep, ok := curr.(*discoveryv1alpha1.EndpointSlice)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
