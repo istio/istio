@@ -49,32 +49,36 @@ func (b *builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	return b
 }
 
-func (b *builder) Build() error {
+func (b *builder) Build() (echo.Instances, error) {
 	instances, err := b.newInstances()
 	if err != nil {
-		return fmt.Errorf("build instance: %v", err)
+		return nil, fmt.Errorf("build instance: %v", err)
 	}
 
 	if err := b.initializeInstances(instances); err != nil {
-		return fmt.Errorf("initialize instances: %v", err)
+		return nil, fmt.Errorf("initialize instances: %v", err)
 	}
 
 	if err := b.waitUntilAllCallable(instances); err != nil {
-		return fmt.Errorf("wait until callable: %v", err)
+		return nil, fmt.Errorf("wait until callable: %v", err)
 	}
 
 	// Success... update the caller's references.
 	for i, inst := range instances {
-		*b.references[i] = inst
+		if b.references[i] != nil {
+			*b.references[i] = inst
+		}
 	}
-	return nil
+	return instances, nil
 }
 
-func (b *builder) BuildOrFail(t test.Failer) {
+func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
 	t.Helper()
-	if err := b.Build(); err != nil {
+	res, err := b.Build()
+	if err != nil {
 		t.Fatal(err)
 	}
+	return res
 }
 
 func (b *builder) newInstances() ([]echo.Instance, error) {
