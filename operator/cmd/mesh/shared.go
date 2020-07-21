@@ -189,10 +189,10 @@ type applyOptions struct {
 }
 
 func applyManifest(restConfig *rest.Config, client client.Client, manifestStr string,
-	componentName name.ComponentName, opts *applyOptions, l clog.Logger) error {
+	componentName name.ComponentName, opts *applyOptions, iop *v1alpha1.IstioOperator, l clog.Logger) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
 	if err != nil {
 		l.LogAndError(err)
 		return err

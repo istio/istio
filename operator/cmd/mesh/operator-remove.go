@@ -18,8 +18,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 )
 
@@ -32,6 +35,8 @@ type operatorRemoveArgs struct {
 	force bool
 	// operatorNamespace is the namespace the operator controller is installed into.
 	operatorNamespace string
+	// revision is the Istio control plane revision the command targets.
+	revision string
 }
 
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
@@ -40,6 +45,8 @@ func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, "Proceed even with errors")
 	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace,
 		"The namespace the operator controller is installed into")
+	cmd.PersistentFlags().StringVarP(&oiArgs.revision, "revision", "r", "",
+		revisionFlagHelpStr)
 }
 
 func operatorRemoveCmd(rootArgs *rootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
@@ -63,7 +70,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 
-	installed, err := isControllerInstalled(clientset, orArgs.operatorNamespace)
+	installed, err := isControllerInstalled(clientset, orArgs.operatorNamespace, orArgs.revision)
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
@@ -75,17 +82,32 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	}
 
 	l.LogAndPrintf("Removing Istio operator...")
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: args.dryRun, Log: l})
+	var iop *iopv1alpha1.IstioOperator
+	if orArgs.revision != "" {
+		emptyiops := &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: orArgs.revision}
+		iop, err = translate.IOPStoIOP(emptyiops, "", "")
+		if err != nil {
+			l.LogAndFatal(err)
+		}
+	}
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: args.dryRun, Log: l})
 	if err != nil {
 		l.LogAndFatal(err)
 	}
-	if err := reconciler.DeleteComponent(string(name.IstioOperatorComponentName)); err != nil {
+	rs, _, err := reconciler.GetPrunedResources(orArgs.revision, false, string(name.IstioOperatorComponentName))
+	if err != nil {
 		l.LogAndFatal(err)
 	}
-	if err := deleteNamespace(clientset, orArgs.operatorNamespace); err != nil {
+	if err := reconciler.DeleteObjectsList(rs); err != nil {
 		l.LogAndFatal(err)
 	}
-	l.LogAndPrint("Deleted namespace " + orArgs.operatorNamespace)
+
+	if orArgs.revision == "" {
+		if err := deleteNamespace(clientset, orArgs.operatorNamespace); err != nil {
+			l.LogAndFatal(err)
+		}
+		l.LogAndPrint("Deleted namespace " + orArgs.operatorNamespace)
+	}
 
 	l.LogAndPrint(color.New(color.FgGreen).Sprint("✔ ") + "Removal complete")
 }

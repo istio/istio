@@ -4,7 +4,7 @@ metadata:
   namespace: {{.Values.operatorNamespace}}
   labels:
     name: istio-operator
-  name: istio-operator
+  name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 spec:
   ports:
   - name: http-metrics
