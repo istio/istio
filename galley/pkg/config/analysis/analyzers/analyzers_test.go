@@ -88,9 +88,6 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.Deprecated, "VirtualService productpage.foo"},
 			{msg.Deprecated, "Sidecar no-selector.default"},
-			{msg.Deprecated, "Sidecar no-selector.default"},
-			{msg.Deprecated, "Sidecar no-selector.default"},
-			{msg.Deprecated, "Sidecar no-selector.default"},
 			{msg.Deprecated, "QuotaSpec request-count.istio-system"},
 		},
 	},
