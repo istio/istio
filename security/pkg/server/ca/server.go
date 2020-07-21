@@ -32,10 +32,10 @@ import (
 
 	"istio.io/pkg/log"
 
+	pb "istio.io/api/security/v1alpha1"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	pb "istio.io/istio/security/proto"
 )
 
 // Config for Vault prototyping purpose
