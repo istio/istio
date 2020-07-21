@@ -484,10 +484,10 @@ spec:
         - name: config-volume
           configMap:
             name: prometheus
-            optional: true
         - name: file-sd-volume
           configMap:
             name: file-sd-config
+            optional: true
         - name: storage-volume
           emptyDir:
             {}
