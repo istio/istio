@@ -35,7 +35,6 @@ import (
 )
 
 const (
-	expMixerSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"
 	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
@@ -286,14 +285,6 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}
 		})
-	}
-}
-
-func TestGetMixerSAN(t *testing.T) {
-	spiffe.SetTrustDomain("cluster.local")
-	mixerSANs := GetSAN("istio-system", MixerSvcAccName)
-	if strings.Compare(mixerSANs, expMixerSAN) != 0 {
-		t.Errorf("GetMixerSAN() => expected %#v but got %#v", expMixerSAN, mixerSANs[0])
 	}
 }
 

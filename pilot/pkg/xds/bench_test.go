@@ -195,7 +195,7 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 	configs := getConfigsWithCache(t, config)
 	env := buildTestEnv(t, configs)
 
-	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
+	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health})
 	return env, configgen, proxy
 }
 

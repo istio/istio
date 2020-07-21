@@ -64,28 +64,3 @@ webhooks:
     failurePolicy: Fail
     sideEffects: None
     admissionReviewVersions: ["v1", "v1beta1"]
-  - name: mixer.validation.istio.io
-    clientConfig:
-      service:
-        name: istio-galley
-        namespace: istio-system
-        path: "/admitmixer"
-      caBundle: ""
-    rules:
-      - operations:
-          - CREATE
-          - UPDATE
-        apiGroups:
-          - config.istio.io
-        apiVersions:
-          - v1alpha2
-        resources:
-          - rules
-          - attributemanifests
-          - adapters
-          - handlers
-          - instances
-          - templates
-    failurePolicy: Fail
-    sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]

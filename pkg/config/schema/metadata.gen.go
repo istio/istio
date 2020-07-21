@@ -75,31 +75,6 @@ var _metadataYaml = []byte(`# Copyright 2019 Istio Authors
 # The total set of collections, both Istio (i.e. MCP) and K8s (API Server/K8s).
 collections:
   ## Istio collections
-<<<<<<< HEAD
-  - name: "istio/config/v1alpha2/adapters"
-    kind: "adapter"
-    group: "config.istio.io"
-    deprecated: true
-
-  - name: "istio/config/v1alpha2/httpapispecs"
-    kind: "HTTPAPISpec"
-    group: "config.istio.io"
-    pilot: true
-    deprecated: true
-
-  - name: "istio/config/v1alpha2/httpapispecbindings"
-    kind: "HTTPAPISpecBinding"
-    group: "config.istio.io"
-    pilot: true
-    deprecated: true
-
-  - name: "istio/config/v1alpha2/templates"
-    kind: "template"
-    group: "config.istio.io"
-    deprecated: true
-
-=======
->>>>>>> f0ae2b6cd2... cleanup generated code and validation logic
   - name: "istio/mesh/v1alpha1/MeshConfig"
     kind: "MeshConfig"
     group: ""
@@ -108,21 +83,6 @@ collections:
     kind: "MeshNetworks"
     group: ""
 
-<<<<<<< HEAD
-  - name: "istio/mixer/v1/config/client/quotaspecs"
-    kind: "QuotaSpec"
-    group: "config.istio.io"
-    pilot: true
-    deprecated: true
-
-  - name: "istio/mixer/v1/config/client/quotaspecbindings"
-    kind: "QuotaSpecBinding"
-    group: "config.istio.io"
-    pilot: true
-    deprecated: true
-
-=======
->>>>>>> f0ae2b6cd2... cleanup generated code and validation logic
   - name: "istio/networking/v1alpha3/destinationrules"
     kind: "DestinationRule"
     group: "networking.istio.io"
@@ -158,29 +118,6 @@ collections:
     group: "networking.istio.io"
     pilot: true
 
-<<<<<<< HEAD
-  - name: "istio/policy/v1beta1/attributemanifests"
-    kind: "attributemanifest"
-    group: "config.istio.io"
-    deprecated: true
-
-  - name: "istio/policy/v1beta1/instances"
-    kind: "instance"
-    group: "config.istio.io"
-    deprecated: true
-
-  - name: "istio/policy/v1beta1/handlers"
-    kind: "handler"
-    group: "config.istio.io"
-    deprecated: true
-
-  - name: "istio/policy/v1beta1/rules"
-    kind: "rule"
-    group: "config.istio.io"
-    deprecated: true
-
-=======
->>>>>>> f0ae2b6cd2... cleanup generated code and validation logic
   - name: "istio/security/v1beta1/authorizationpolicies"
     kind: "AuthorizationPolicy"
     group: "security.istio.io"
@@ -340,16 +277,6 @@ snapshots:
       - "k8s/core/v1/secrets"
       - "k8s/core/v1/services"
       - "k8s/core/v1/configmaps"
-      - "istio/config/v1alpha2/adapters"
-      - "istio/config/v1alpha2/httpapispecbindings"
-      - "istio/config/v1alpha2/httpapispecs"
-      - "istio/config/v1alpha2/templates"
-      - "istio/mixer/v1/config/client/quotaspecbindings"
-      - "istio/mixer/v1/config/client/quotaspecs"
-      - "istio/policy/v1beta1/attributemanifests"
-      - "istio/policy/v1beta1/handlers"
-      - "istio/policy/v1beta1/instances"
-      - "istio/policy/v1beta1/rules"
 
 # Configuration for resource types.
 resources:

@@ -431,7 +431,7 @@ ${ISTIO_BIN}/go-junit-report:
 test: racetest
 
 TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
-# For now, keep a minimal subset. This can be expanded in the future, especially after mixer removal, which has some expensive tests that may OOM.
+# For now, keep a minimal subset. This can be expanded in the future.
 BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest

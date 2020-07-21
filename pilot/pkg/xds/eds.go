@@ -90,7 +90,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, e.TLSMode, push)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, push)
 
 	return ep
 }

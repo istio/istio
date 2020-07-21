@@ -626,9 +626,6 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
 		}
 
-		if filter.Name == "mixer" {
-			filter = l.FilterChains[len(l.FilterChains)-1].Filters[1]
-		}
 		if filter.Name == "envoy.tcp_proxy" {
 			lt[l.Name] = l
 			config, _ := conversion.MessageToStruct(filter.GetTypedConfig())

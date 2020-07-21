@@ -61,7 +61,7 @@ func init() {
 // Options contains the configuration for the Istio Pilot validation
 // admission controller.
 type Options struct {
-	// Schemas provides a description of all configuration resources excluding mixer types.
+	// Schemas provides a description of all configuration resources.
 	Schemas collection.Schemas
 
 	// DomainSuffix is the DNS domain suffix for Pilot CRD resources,

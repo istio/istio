@@ -40,7 +40,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mixerClient "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -2574,40 +2573,6 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
-	for _, config := range []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind: gvk.QuotaSpec,
-				Name:             limitedSvcName,
-				Namespace:        "default",
-			},
-			Spec: &mixerClient.QuotaSpec{},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind: gvk.QuotaSpecBinding,
-				Name:             limitedSvcName,
-				Namespace:        "default",
-			},
-			Spec: &mixerClient.QuotaSpecBinding{
-				Services: []*mixerClient.IstioService{
-					{
-						Service: "thrift-service.default.svc.cluster.local",
-					},
-				},
-				QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
-					{
-						Name:      "thrift-service",
-						Namespace: "default",
-					},
-				},
-			},
-		},
-	} {
-		if _, err := configStore.Create(config); err != nil {
-			t.Fatal(err)
-		}
-	}
 
 	m := mesh.DefaultMeshConfig()
 	m.ThriftConfig.RateLimitUrl = "ratelimit.svc.cluster.local"

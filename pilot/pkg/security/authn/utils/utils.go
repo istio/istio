@@ -31,10 +31,8 @@ import (
 )
 
 const (
-	// Service accounts for Mixer and Pilot, these are hardcoded values at setup time
+	// Service account for Pilot (hardcoded values at setup time)
 	PilotSvcAccName string = "istio-pilot-service-account"
-
-	MixerSvcAccName string = "istio-mixer-service-account"
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.

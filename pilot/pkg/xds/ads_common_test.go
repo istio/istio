@@ -87,14 +87,6 @@ func TestProxyNeedsPush(t *testing.T) {
 			{
 				Kind: gvk.Sidecar,
 				Name: scName, Namespace: nsName}: {}}, false},
-		{"quotaspec config for sidecar", sidecar, map[model.ConfigKey]struct{}{
-			{
-				Kind: gvk.QuotaSpec,
-				Name: generalName, Namespace: nsName}: {}}, true},
-		{"quotaspec config for gateway", gateway, map[model.ConfigKey]struct{}{
-			{
-				Kind: gvk.QuotaSpec,
-				Name: generalName, Namespace: nsName}: {}}, false},
 		{"invalid config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
 				Kind: resource.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
@@ -204,18 +196,6 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "sidecar updated for gateway proxy",
 			proxy:       gateway,
 			configTypes: []resource.GroupVersionKind{gvk.Sidecar},
-			expect:      map[Type]bool{},
-		},
-		{
-			name:        "quotaSpec updated for sidecar proxy",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.QuotaSpec},
-			expect:      map[Type]bool{LDS: true, RDS: true},
-		},
-		{
-			name:        "quotaSpec updated for gateway",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.QuotaSpec},
 			expect:      map[Type]bool{},
 		},
 		{

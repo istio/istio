@@ -63,8 +63,6 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	if proxyConfig.StatsdUdpAddress != "" {
 		addr, err := network.ResolveAddr(proxyConfig.StatsdUdpAddress)
 		if err != nil {
-			// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
-			// (instead of crashing). Mixer is optional.
 			log.Warnf("resolve StatsdUdpAddress failed: %v", err)
 			proxyConfig.StatsdUdpAddress = ""
 		} else {

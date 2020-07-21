@@ -221,12 +221,6 @@
           "prefix": "listener_manager"
           },
           {
-          "prefix": "http_mixer_filter"
-          },
-          {
-          "prefix": "tcp_mixer_filter"
-          },
-          {
           "prefix": "server"
           },
           {

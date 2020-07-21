@@ -24,9 +24,6 @@ import (
 var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
 	gvk.Gateway: {model.Router},
 	gvk.Sidecar: {model.SidecarProxy},
-
-	gvk.QuotaSpec:        {model.SidecarProxy},
-	gvk.QuotaSpecBinding: {model.SidecarProxy},
 }
 
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
@@ -148,11 +145,6 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case gvk.QuotaSpec,
-				gvk.QuotaSpecBinding:
-				// LDS must be pushed, otherwise RDS is not reloaded
-				out[LDS] = true
-				out[RDS] = true
 			case gvk.AuthorizationPolicy,
 				gvk.RequestAuthentication:
 				out[LDS] = true
@@ -193,9 +185,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
-			case gvk.Sidecar,
-				gvk.QuotaSpec,
-				gvk.QuotaSpecBinding:
+			case gvk.Sidecar:
 				// do not push for gateway
 			case gvk.AuthorizationPolicy,
 				gvk.RequestAuthentication:
