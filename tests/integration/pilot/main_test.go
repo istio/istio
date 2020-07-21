@@ -19,19 +19,16 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	i istio.Instance
-	p pilot.Instance
 
 	// Namespace echo apps will be deployed
 	echoNamespace namespace.Instance
@@ -53,7 +50,6 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
@@ -61,12 +57,6 @@ values:
     meshExpansion:
       enabled: true`
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Setup(func(ctx resource.Context) error {
 			var err error
 			// TODO: allow using an existing namespace to allow repeated runs with 0 setup
