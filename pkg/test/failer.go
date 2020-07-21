@@ -27,4 +27,5 @@ type Failer interface {
 	Fatal(args ...interface{})
 	Fatalf(format string, args ...interface{})
 	Helper()
+	Cleanup(func())
 }

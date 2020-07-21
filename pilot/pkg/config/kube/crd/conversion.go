@@ -104,7 +104,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, error) {
+func ConvertConfig(cfg model.Config) (IstioObject, error) {
 	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
@@ -115,8 +115,8 @@ func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, err
 	}
 	return &IstioKind{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind:       schema.Resource().Kind(),
-			APIVersion: schema.Resource().APIVersion(),
+			Kind:       cfg.GroupVersionKind.Kind,
+			APIVersion: cfg.GroupVersionKind.Group + "/" + cfg.GroupVersionKind.Version,
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:              cfg.Name,

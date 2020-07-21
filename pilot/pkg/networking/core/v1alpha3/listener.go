@@ -2409,8 +2409,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 	return mergedFilterChains
 }
 
-// fallthroughOrConflict determines whether the incoming filter chain has conflict with existing.
-// It also identifies whether the existing filter chain is a fallthrough and hence should be replaced.
+// isConflict determines whether the incoming filter chain has conflict with existing filter chain.
 func isConflict(existing, incoming *listener.FilterChain) bool {
 	return filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch)
 }
