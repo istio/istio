@@ -17,13 +17,14 @@ package deprecation
 import (
 	"fmt"
 
+	k8sext_v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // FieldAnalyzer checks for deprecated Istio types and fields
@@ -31,22 +32,22 @@ type FieldAnalyzer struct{}
 
 var (
 	// Tracks Istio CRDs removed from manifests/charts/base/crds/crd-all.gen.yaml
-	deprecatedCRDs = []v1.CustomResourceDefinitionSpec{
+	deprecatedCRDs = []k8sext_v1.CustomResourceDefinitionSpec{
 		{
 			Group: "rbac.istio.io",
-			Names: v1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
+			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
 		},
 		{
 			Group: "rbac.istio.io",
-			Names: v1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
+			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
 		},
 		{
 			Group: "rbac.istio.io",
-			Names: v1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
+			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
 		},
 		{
 			Group: "rbac.istio.io",
-			Names: v1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
+			Names: k8sext_v1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
 		},
 	}
 )
@@ -95,7 +96,7 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
-	crd := r.Message.(*v1.CustomResourceDefinitionSpec)
+	crd := r.Message.(*k8sext_v1.CustomResourceDefinitionSpec)
 	for _, depCRD := range deprecatedCRDs {
 		if crd.Group == depCRD.Group && crd.Names.Kind == depCRD.Names.Kind {
 			ctx.Report(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
