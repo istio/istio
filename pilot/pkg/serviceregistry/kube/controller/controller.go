@@ -16,13 +16,12 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
@@ -828,33 +827,27 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	// won't be picked up by Prometheus. We update the workload entries' endpoints to a config map so that
 	// Prometheus could mount the map and read the endpoints.
 	wleName := createNameFromAddr(si.Endpoint.Address)
-	fileSDConfig, err := c.client.CoreV1().ConfigMaps("istio-system").
-		Get(context.TODO(), "file-sd-config", metav1.GetOptions{})
-	if err != nil {
-		log.Debugf("Failed to get config map for workload %v: %v",
-			si.Endpoint, err)
-	} else {
-		switch event {
-		case model.EventDelete:
-			if fileSDConfig.Data != nil {
-				delete(fileSDConfig.Data, fmt.Sprintf("%s.yaml", wleName))
-			}
-		default: // add or update
-			if fileSDConfig.Data == nil {
-				fileSDConfig.Data = make(map[string]string)
-			}
-			staticConfig := `
+	fileSDConfig := c.GetOrCreatePromSDConfigMap()
+	switch event {
+	case model.EventDelete:
+		if fileSDConfig.Data != nil {
+			delete(fileSDConfig.Data, fmt.Sprintf("%s.yaml", wleName))
+		}
+	default: // add or update
+		if fileSDConfig.Data == nil {
+			fileSDConfig.Data = make(map[string]string)
+		}
+		staticConfig := `
 - targets:
   - %s
 `
-			fileSDConfig.Data[fmt.Sprintf("%s.yaml", wleName)] = fmt.Sprintf(staticConfig, si.Endpoint.Address)
-		}
-		// Write the update config map back to cluster
-		if _, err := c.client.CoreV1().ConfigMaps("istio-system").Update(context.TODO(), fileSDConfig,
-			metav1.UpdateOptions{}); err != nil {
-			log.Debugf("Failed to update config map for workload %v: %v",
-				si.Endpoint, err)
-		}
+		fileSDConfig.Data[fmt.Sprintf("%s.yaml", wleName)] = fmt.Sprintf(staticConfig, si.Endpoint.Address)
+	}
+	// Write the update config map back to cluster
+	if _, err := c.client.CoreV1().ConfigMaps("istio-system").Update(context.TODO(), fileSDConfig,
+		metav1.UpdateOptions{}); err != nil {
+		log.Debugf("Failed to update config map for workload %v: %v",
+			si.Endpoint, err)
 	}
 	c.Unlock()
 
@@ -1081,6 +1074,24 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-func createNameFromAddr(ip string) string {
-	return strings.ReplaceAll(ip, ".", "-")
+func (c *Controller) GetOrCreatePromSDConfigMap() *v1.ConfigMap {
+	configMap, err := c.client.CoreV1().ConfigMaps("istio-system").
+		Get(context.TODO(), "file-sd-config", metav1.GetOptions{})
+	if err == nil {
+		return configMap
+	}
+	log.Debug("failed to get prometheus service discovery config map, creating one")
+	cfg := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "file-sd-config",
+		},
+		Data: make(map[string]string),
+	}
+	if configMap, err = c.client.CoreV1().ConfigMaps("istio-system").Create(context.TODO(), cfg,
+		metav1.CreateOptions{}); err != nil {
+		if !apierrors.IsAlreadyExists(err) && !apierrors.IsInvalid(err) {
+			log.Debugf("failed to create config map: %v", err)
+		}
+	}
+	return configMap
 }

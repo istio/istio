@@ -27,17 +27,13 @@ import (
 	"sync"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"google.golang.org/grpc/reflection"
 
-	"istio.io/istio/pilot/pkg/status"
-
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	"istio.io/istio/pilot/pkg/status"
 
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
@@ -276,9 +272,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 	if err := s.initDiscoveryService(args); err != nil {
 		return nil, fmt.Errorf("error initializing discovery service: %v", err)
-	}
-	if err := s.createPromSDConfigMap(); err != nil {
-		return nil, fmt.Errorf("error creating prometheus service discovery config map: %v", err)
 	}
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
@@ -1110,26 +1103,4 @@ func (s *Server) initMeshHandlers() {
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
-}
-
-func (s *Server) createPromSDConfigMap() error {
-	log.Info("creating prometheus service discovery config map")
-	if s.kubeClient == nil {
-		log.Info("kube client not available. prometheus service discovery config map creation failed.")
-	} else {
-		cfg := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "file-sd-config",
-			},
-			Data: make(map[string]string),
-		}
-		if _, err := s.kubeClient.CoreV1().ConfigMaps("istio-system").Create(context.TODO(), cfg,
-			metav1.CreateOptions{}); err != nil {
-			if !apierrors.IsAlreadyExists(err) && !apierrors.IsInvalid(err) {
-				return fmt.Errorf("failed to create config map: %v", err)
-			}
-		}
-		log.Info("created prometheus service discovery config map")
-	}
-	return nil
 }

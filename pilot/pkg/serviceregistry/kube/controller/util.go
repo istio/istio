@@ -17,6 +17,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -193,4 +194,8 @@ func nodeEquals(a, b kubernetesNode) bool {
 func isNodePortGatewayService(svc *v1.Service) bool {
 	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
 	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
+}
+
+func createNameFromAddr(ip string) string {
+	return strings.ReplaceAll(ip, ".", "-")
 }
