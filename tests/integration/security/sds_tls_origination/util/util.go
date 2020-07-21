@@ -337,7 +337,7 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-server-sds-{{.Mode}}
+  name: originate-tls-for-server-sds-{{.CredentialName}}
 spec:
   host: "server.{{.ServerNamespace}}.svc.cluster.local"
   trafficPolicy:

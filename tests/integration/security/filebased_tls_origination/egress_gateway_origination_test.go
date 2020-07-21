@@ -162,7 +162,7 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-server-filebased-{{.Mode}}
+  name: originate-tls-for-server-filebased-simple
 spec:
   host: "server.{{.AppNamespace}}.svc.cluster.local"
   trafficPolicy:
@@ -180,7 +180,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-server-filebased-{{.Mode}}
+  name: originate-tls-for-server-filebased-disabled
 spec:
   host: "server.{{.AppNamespace}}.svc.cluster.local"
   trafficPolicy:
@@ -196,7 +196,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-server-filebased-{{.Mode}}
+  name: originate-tls-for-server-filebased-mutual
 spec:
   host: "server.{{.AppNamespace}}.svc.cluster.local"
   trafficPolicy:
