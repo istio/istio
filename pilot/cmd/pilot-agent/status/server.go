@@ -301,7 +301,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := w.Write(agent); err != nil {
 		log.Errorf("failed to write agent metrics: %v", err)
-		appScrapeErrors.Increment()
+		agentScrapeErrors.Increment()
 	}
 }
 
