@@ -345,12 +345,13 @@ spec:
           number: 443
         tls:
           mode: ISTIO_MUTUAL
+          sni: server.{{.ServerNamespace}}.svc.cluster.local
 `
 	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: route-via-egressgateway
+  name: route-via-egressgateway-filebased
 spec:
   hosts:
     - server.{{.ServerNamespace}}.svc.cluster.local
