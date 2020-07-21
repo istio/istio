@@ -1754,8 +1754,6 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	if ev := fx.Wait("eds"); ev == nil {
 		t.Fatal("Timeout incremental eds")
 	}
-	createPromSDConfigMap(t, controller)
-
 	// Simulate adding a workload entry (fired through invocation of WorkloadInstanceHandler)
 	controller.WorkloadInstanceHandler(&model.WorkloadInstance{
 		Namespace: "nsA",
@@ -1841,18 +1839,5 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 			t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
 				gotEndpointIPs, expectedEndpointIPs)
 		}
-	}
-}
-
-func createPromSDConfigMap(t *testing.T, controller *Controller) {
-	cfg := &coreV1.ConfigMap{
-		ObjectMeta: metaV1.ObjectMeta{
-			Name: "file-sd-config",
-		},
-		Data: make(map[string]string),
-	}
-	if _, err := controller.client.CoreV1().ConfigMaps("istio-system").Create(context.TODO(), cfg,
-		metaV1.CreateOptions{}); err != nil {
-		t.Fatalf("Cannot create configmap in namespace \"istio-system\" (error: %v)", err)
 	}
 }
