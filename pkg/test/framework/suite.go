@@ -453,7 +453,7 @@ func initRuntime(s *suiteImpl) error {
 		environmentFactory = newEnvironment
 	}
 
-	if err := configureLogging(settings.CIMode); err != nil {
+	if err := configureLogging(); err != nil {
 		return err
 	}
 
