@@ -18,14 +18,21 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+
+	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/schema/collections"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
 	name           string
+	network        string
 	serviceAccount string
 	filename       string
-	labelsMap      map[string]string
+	ports          []string
 
 	// optional GKE flags
 	gkeProject      string
@@ -45,27 +52,64 @@ func sidecarCommands() *cobra.Command {
 func createGroupCommand() *cobra.Command {
 	createGroupCmd := &cobra.Command{
 		Use:     "create-group",
-		Short:   "Creates a WorkloadGroup YAML artifact",
-		Long:    "Creates a WorkloadGroup YAML artifact for passing to the Kubernetes API server (kubectl apply -f workloadgroup.yaml)",
-		Example: "create-group --name foo --namespace bar --labels app=foobar,version=1 --serviceAccount default",
+		Short:   "Creates a WorkloadGroup YAML artifact representing workload instances",
+		Long:    "Creates a WorkloadGroup YAML artifact representing workload instances for passing to the Kubernetes API server (kubectl apply -f workloadgroup.yaml)",
+		Example: "create-group --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --network local --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
-				return fmt.Errorf("requires a service name")
+				return fmt.Errorf("expecting a service name")
 			}
 			if namespace == "" {
-				return fmt.Errorf("requres a service namespace")
+				return fmt.Errorf("expecting a service namespace")
 			}
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Registering service %s in namespace %s with labels %s using service account %s\n", name, namespace, labelsMap, serviceAccount)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			u := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().APIVersion(),
+					"kind":       collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Kind(),
+					"metadata": map[string]interface{}{
+						"name":      name,
+						"namespace": namespace,
+					},
+				},
+			}
+			spec := &v1alpha3.WorkloadGroup{
+				Labels:         convertToStringMap(labels),
+				Ports:          convertToUnsignedInt32Map(ports),
+				Network:        network,
+				ServiceAccount: serviceAccount,
+			}
+			wgYAML, err := generateWorkloadGroupYAML(u, spec)
+			if err != nil {
+				return err
+			}
+			cmd.OutOrStdout().Write([]byte(wgYAML))
+			return nil
 		},
 	}
-	createGroupCmd.PersistentFlags().StringVar(&name, "name", "", "Service name")
-	createGroupCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Namespace of the service")
-	createGroupCmd.PersistentFlags().StringToStringVarP(&labelsMap, "labels", "l", nil, "List of labels to apply for the service; e.g. -l env=prod,vers=2")
-	createGroupCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "Service account to link to the service")
+	createGroupCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
+	createGroupCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
+	createGroupCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
+	createGroupCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports that the workload instances will expose")
+	createGroupCmd.PersistentFlags().StringVar(&network, "network", "default", "The name of the network for the workload instances")
+	createGroupCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
 	return createGroupCmd
+}
+
+func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *v1alpha3.WorkloadGroup) (string, error) {
+	iSpec, err := unstructureIstioType(spec)
+	if err != nil {
+		return "", err
+	}
+	u.Object["spec"] = iSpec
+
+	wgYAML, err := yaml.Marshal(u.Object)
+	if err != nil {
+		return "", err
+	}
+	return string(wgYAML), nil
 }
 
 func generateConfigCommand() *cobra.Command {

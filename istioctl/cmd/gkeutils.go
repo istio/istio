@@ -99,6 +99,7 @@ const (
 )
 
 // Attempts to access the metadata API through the istiod pod
+// Requires gcloud application credentials (gcloud auth application-default login)
 func gkeConfigFromActive() (project, location, cluster string) {
 	project, _, err := k8sPodsExec("istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ProjectIDEndpoint), nil)
 	if err != nil {
