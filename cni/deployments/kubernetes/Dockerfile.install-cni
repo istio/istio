@@ -9,10 +9,6 @@ FROM docker.io/istio/base:${BASE_VERSION} as default
 
 LABEL description="Istio CNI plugin installer."
 
-RUN apt-get update && apt-get install -qqy --no-install-recommends \
-jq='1.5*' \
-&& rm -rf /var/lib/apt/lists/*
-
 COPY istio-cni /opt/cni/bin/
 COPY istio-iptables /opt/cni/bin/
 COPY install-cni /usr/local/bin/
