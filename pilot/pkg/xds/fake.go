@@ -17,6 +17,7 @@ package xds
 import (
 	"bytes"
 	"reflect"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
@@ -30,6 +31,9 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -40,6 +44,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -47,6 +53,10 @@ import (
 )
 
 type FakeOptions struct {
+	// If provided, these objects will be used directly
+	Objects []runtime.Object
+	// If provided, the yaml string will be parsed and used as objects
+	ObjectString string
 	// If provided, these configs will be used directly
 	Configs []model.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -64,6 +74,23 @@ type FakeDiscoveryServer struct {
 	Discovery   *DiscoveryServer
 	PushContext *model.PushContext
 	Env         *model.Environment
+}
+
+func getObjects(t test.Failer, opts FakeOptions) []runtime.Object {
+	if len(opts.Objects) > 0 {
+		return opts.Objects
+	}
+	decode := scheme.Codecs.UniversalDeserializer().Decode
+	objectStrs := strings.Split(opts.ObjectString, "---")
+	objects := make([]runtime.Object, 0, len(objectStrs))
+	for _, s := range objectStrs {
+		o, _, err := decode([]byte(s), nil, nil)
+		if err != nil {
+			t.Fatalf("failed deserializing kubernetes object: %v", err)
+		}
+		objects = append(objects, o)
+	}
+	return objects
 }
 
 func getConfigs(t test.Failer, opts FakeOptions) []model.Config {
@@ -102,6 +129,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		close(stop)
 	})
 	configs := getConfigs(t, opts)
+	objects := getObjects(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	env := &model.Environment{}
 	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health}
@@ -119,7 +147,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}()
 	configController := memory.NewSyncController(configStore)
 	go configController.Run(stop)
-	serviceDiscovery := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
+	serviceDiscovery := aggregate.NewController()
+	serviceDiscovery.AddRegistry(serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s))
+	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
+		Objects:      objects,
+		ClusterID:    "Kubernetes",
+		DomainSuffix: "cluster.local",
+	})
+	serviceDiscovery.AddRegistry(k8s)
 	for _, cfg := range configs {
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)

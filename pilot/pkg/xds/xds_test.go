@@ -15,9 +15,13 @@
 package xds
 
 import (
+	"bytes"
 	"io/ioutil"
 	"path"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
@@ -371,6 +375,31 @@ spec:
 
 func TestEgressProxy(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{
+		ObjectString: `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-custom-pod
+  namespace: pod
+  labels:
+    app: custom
+    custom-label: val
+stats:
+  hostIP: 1.2.3.4
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-custom-svc
+  namespace: pod
+spec:
+  selector:
+    app: custom
+  ports:
+  - port: 80
+    name: http
+    protocol: HTTP
+`,
 		ConfigString: `
 # Add a random endpoint, otherwise there will be no routes to check
 apiVersion: networking.istio.io/v1alpha3
@@ -469,4 +498,11 @@ func mustReadFile(t *testing.T, f string) string {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
 	return string(b)
+}
+
+func mustParseObject(t *testing.T, o runtime.Object, y string) runtime.Object {
+	if err := yaml.NewYAMLOrJSONDecoder(bytes.NewBufferString(y), len(y)).Decode(o); err != nil {
+		t.Fatalf("failed to unmarshal kubernetes object: %v", err)
+	}
+	return o
 }
