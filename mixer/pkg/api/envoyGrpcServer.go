@@ -15,33 +15,32 @@
 package api
 
 import (
-"context"
-"fmt"
+	"context"
+	"fmt"
 	"io"
 	"time"
 
-"github.com/hashicorp/go-multierror"
-"github.com/opentracing/opentracing-go"
-otlog "github.com/opentracing/opentracing-go/log"
-"google.golang.org/grpc/codes"
-grpc "google.golang.org/grpc/status"
+	"github.com/hashicorp/go-multierror"
+	"github.com/opentracing/opentracing-go"
+	otlog "github.com/opentracing/opentracing-go/log"
+	"google.golang.org/grpc/codes"
+	grpc "google.golang.org/grpc/status"
 
-accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
-authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
+	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 
-rpc "istio.io/gogo-genproto/googleapis/google/rpc"
-"istio.io/istio/mixer/pkg/attribute"
-"istio.io/istio/mixer/pkg/checkcache"
-"istio.io/istio/mixer/pkg/loadshedding"
-"istio.io/istio/mixer/pkg/runtime/dispatcher"
-"istio.io/istio/mixer/pkg/status"
-attr "istio.io/pkg/attribute"
-"istio.io/pkg/pool"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
+	"istio.io/istio/mixer/pkg/attribute"
+	"istio.io/istio/mixer/pkg/checkcache"
+	"istio.io/istio/mixer/pkg/loadshedding"
+	"istio.io/istio/mixer/pkg/runtime/dispatcher"
+	"istio.io/istio/mixer/pkg/status"
+	attr "istio.io/pkg/attribute"
+	"istio.io/pkg/pool"
 )
 
 type (
-
 	grpcServerEnvoy struct {
 		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
@@ -208,7 +207,6 @@ func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 		for i := 0; i < totalBags; i++ {
 			lg.Debuga("Dispatching Stream Access Logs Report %d out of %d", i+1, totalBags)
 			span, newctx := opentracing.StartSpanFromContext(reportCtx, fmt.Sprintf("attribute bag %d", i))
-
 
 			protoBag = attribute.GetEnvoyProtoBagAccessLog(msg, i)
 			reportBag = attr.GetMutableBag(protoBag)
