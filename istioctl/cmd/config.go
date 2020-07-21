@@ -33,7 +33,7 @@ var (
 		"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", controller.IstioNamespace, "istioctl --istioNamespace override"),
 		"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "istioctl --xds-address override"),
 		"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "istioctl --xds-port override"),
-		"xds-san":             env.RegisterStringVar("ISTIOCTL_XDS_SAN", "", "istioctl --xds-san override"),
+		"authority":           env.RegisterStringVar("ISTIOCTL_AUTHORITY", "", "istioctl --authority override"),
 		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "istioctl --cert-dir override"),
 		"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "istioctl --insecure override"),
 		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "istioctl should use experimental subcommand variants"),
