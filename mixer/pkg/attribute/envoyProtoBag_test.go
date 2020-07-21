@@ -14,6 +14,7 @@
 package attribute
 
 import (
+	"istio.io/pkg/log"
 	"net"
 	"testing"
 	"time"
@@ -188,10 +189,10 @@ func EnvoyTestProtoBagContains(t *testing.T) {
 
 }
 
-//func init() {
-//	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-//	o := log.DefaultOptions()
-//	o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
-//	o.SetOutputLevel(scope.Name(), log.DebugLevel)
-//	_ = log.Configure(o)
-//}
+func init() {
+	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
+	o := log.DefaultOptions()
+	o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
+	o.SetOutputLevel(scope.Name(), log.DebugLevel)
+	_ = log.Configure(o)
+}
