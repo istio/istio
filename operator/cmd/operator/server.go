@@ -102,7 +102,7 @@ func run() {
 
 	var mgrOpt manager.Options
 	leaderElectionID := "istio-operator-lock"
-	if operatorRevision, found := os.LookupEnv("REVISION"); found {
+	if operatorRevision, found := os.LookupEnv("REVISION"); found && operatorRevision != "" {
 		leaderElectionID += "-" + operatorRevision
 	}
 	if watchNS != "" {
