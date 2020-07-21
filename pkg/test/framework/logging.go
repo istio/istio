@@ -16,6 +16,9 @@ package framework
 
 import (
 	"flag"
+	"io/ioutil"
+
+	"google.golang.org/grpc/grpclog"
 
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/pkg/log"
@@ -41,6 +44,7 @@ func configureLogging(ciMode bool) error {
 	if ciMode {
 		o.SetOutputLevel(scopes.Framework.Name(), log.DebugLevel)
 	}
-
+	o.LogGrpc = false
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 	return log.Configure(&o)
 }
