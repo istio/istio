@@ -20,16 +20,15 @@ import (
 	"istio.io/istio/tests/integration/multicluster"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	ist                              istio.Instance
-	pilots                           []pilot.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
 )
@@ -40,21 +39,18 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(kube.Setup(func(s *kube.Settings) {
+			// Make all clusters independent
+			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
+			for i := 0; i < len(s.KubeConfig); i++ {
+				idx := resource.ClusterIndex(i)
+				s.ControlPlaneTopology[idx] = idx
+			}
+		})).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))
-			for i, cluster := range ctx.Environment().Clusters() {
-				if pilots[i], err = pilot.New(ctx, pilot.Config{
-					Cluster: cluster,
-				}); err != nil {
-					return err
-				}
-			}
-			return nil
-		}).
 		Run()
 }
 
