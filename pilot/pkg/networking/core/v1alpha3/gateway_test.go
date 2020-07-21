@@ -109,7 +109,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -132,7 +133,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -199,7 +201,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -241,7 +244,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -352,7 +356,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -380,7 +385,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -423,7 +429,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -451,7 +458,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -494,7 +502,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
-										ApiType: core.ApiConfigSource_GRPC,
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
 										GrpcServices: []*core.GrpcService{
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -522,7 +531,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{

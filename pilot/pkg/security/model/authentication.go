@@ -74,6 +74,11 @@ const (
 	AuthnFilterName = "istio_authn"
 )
 
+func useV3Sds(requestedType string) bool {
+	// For v3 clusters/listeners, send v3 secrets
+	return requestedType == v3.ClusterType || requestedType == v3.ListenerType || requestedType == ""
+}
+
 // ConstructSdsSecretConfigWithCustomUds constructs SDS secret configuration for ingress gateway.
 func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath, requestedType string) *tls.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
@@ -85,11 +90,9 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath, requestedType strin
 		StatPrefix: SDSStatPrefix,
 	}
 
-	useV3 := requestedType == v3.ClusterType || requestedType == v3.ListenerType || requestedType == ""
-
 	resourceVersion := core.ApiVersion_AUTO
-	// For v3 clusters/listeners, send v3 secrets
-	if useV3 {
+
+	if useV3Sds(requestedType) {
 		resourceVersion = core.ApiVersion_V3
 	}
 	cfg := &tls.SdsSecretConfig{
@@ -166,7 +169,7 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 		return nil
 	}
 
-	useV3 := requestedType == v3.ClusterType || requestedType == v3.ListenerType || requestedType == ""
+	useV3 := useV3Sds(requestedType)
 
 	if name == SDSDefaultResourceName && useV3 {
 		return defaultV3SDSConfig
