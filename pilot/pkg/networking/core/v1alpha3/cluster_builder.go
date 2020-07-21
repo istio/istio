@@ -77,6 +77,8 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(service, port)
 	}
 
+	// merge with applicable port level traffic policy settings
+	opts.policy = MergeTrafficPolicy(nil, opts.policy, opts.port)
 	// Apply traffic policy for the main default cluster.
 	applyTrafficPolicy(opts)
 
@@ -126,13 +128,11 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		opts.cluster = subsetCluster
 		opts.policy = destinationRule.TrafficPolicy
 		opts.istioMtlsSni = defaultSni
-		applyTrafficPolicy(opts)
 
 		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-		if subset.TrafficPolicy != nil {
-			opts.policy = subset.TrafficPolicy
-			applyTrafficPolicy(opts)
-		}
+		opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+		// Apply traffic policy for the subset cluster.
+		applyTrafficPolicy(opts)
 
 		maybeApplyEdsConfig(subsetCluster, cb.proxy.RequestedTypes.CDS)
 
@@ -140,6 +140,54 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		subsetClusters = append(subsetClusters, subsetCluster)
 	}
 	return subsetClusters
+}
+
+// SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
+	}
+
+	mergedPolicy := original
+	if mergedPolicy == nil {
+		mergedPolicy = &networking.TrafficPolicy{}
+	}
+
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				if p.ConnectionPool != nil {
+					mergedPolicy.ConnectionPool = p.ConnectionPool
+				}
+				if p.OutlierDetection != nil {
+					mergedPolicy.OutlierDetection = p.OutlierDetection
+				}
+				if p.LoadBalancer != nil {
+					mergedPolicy.LoadBalancer = p.LoadBalancer
+				}
+				if p.Tls != nil {
+					mergedPolicy.Tls = p.Tls
+				}
+				break
+			}
+		}
+	}
+	return mergedPolicy
 }
 
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
