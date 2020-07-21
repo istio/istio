@@ -305,6 +305,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		})
 	}
 
+	s.addReadinessProbe("discovery", func() (bool, error) {
+		return s.cachesSynced(), nil
+	})
+
 	return s, nil
 }
 
@@ -704,18 +708,23 @@ func (s *Server) addTerminatingStartFunc(fn startFunc) {
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 	if !cache.WaitForCacheSync(stop, func() bool {
-		if !s.ServiceController().HasSynced() {
-			return false
-		}
-		if !s.configController.HasSynced() {
-			return false
-		}
-		return true
+		return s.cachesSynced()
 	}) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
 
+	return true
+}
+
+// cachesSynced checks whether caches have been synced.
+func (s *Server) cachesSynced() bool {
+	if !s.ServiceController().HasSynced() {
+		return false
+	}
+	if !s.configController.HasSynced() {
+		return false
+	}
 	return true
 }
 
