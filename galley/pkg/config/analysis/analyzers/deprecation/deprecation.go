@@ -23,10 +23,33 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // FieldAnalyzer checks for deprecated Istio types and fields
 type FieldAnalyzer struct{}
+
+var (
+	// Tracks Istio CRDs removed from manifests/charts/base/crds/crd-all.gen.yaml
+	deprecatedCRDs = []v1.CustomResourceDefinitionSpec{
+		{
+			Group: "rbac.istio.io",
+			Names: v1.CustomResourceDefinitionNames{Kind: "ClusterRbacConfig"},
+		},
+		{
+			Group: "rbac.istio.io",
+			Names: v1.CustomResourceDefinitionNames{Kind: "RbacConfig"},
+		},
+		{
+			Group: "rbac.istio.io",
+			Names: v1.CustomResourceDefinitionNames{Kind: "ServiceRole"},
+		},
+		{
+			Group: "rbac.istio.io",
+			Names: v1.CustomResourceDefinitionNames{Kind: "ServiceRoleBinding"},
+		},
+	}
+)
 
 // Currently we don't have an Istio API that tells which Istio API fields are deprecated.
 // Run `find . -name "*.proto" -exec grep -i "deprecated=true" \{\} \; -print`
@@ -34,15 +57,17 @@ type FieldAnalyzer struct{}
 
 // Metadata implements analyzer.Analyzer
 func (*FieldAnalyzer) Metadata() analysis.Metadata {
-	fieldAnalyzers := collection.Names{
+	deprecationInputs := collection.Names{
 		collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		collections.IstioNetworkingV1Alpha3Sidecars.Name(),
+		collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
 	}
 
 	return analysis.Metadata{
 		Name:        "deprecation.DeprecationAnalyzer",
 		Description: "Checks for deprecated Istio types and fields",
-		Inputs:      append(collections.Deprecated.CollectionNames(), fieldAnalyzers...),
+		Inputs: append(deprecationInputs,
+			collections.Deprecated.CollectionNames()...),
 	}
 }
 
@@ -56,12 +81,26 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeSidecar(r, ctx)
 		return true
 	})
+	ctx.ForEach(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
+		fa.analyzeCRD(r, ctx)
+		return true
+	})
 	for _, name := range collections.Deprecated.CollectionNames() {
 		ctx.ForEach(name, func(r *resource.Instance) bool {
 			ctx.Report(name,
 				msg.NewDeprecated(r, crDeprecatedMessage(name.String())))
 			return true
 		})
+	}
+}
+
+func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
+	crd := r.Message.(*v1.CustomResourceDefinitionSpec)
+	for _, depCRD := range deprecatedCRDs {
+		if crd.Group == depCRD.Group && crd.Names.Kind == depCRD.Names.Kind {
+			ctx.Report(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+				msg.NewDeprecated(r, crRemovedMessage(depCRD.Group, depCRD.Names.Kind)))
+		}
 	}
 }
 
@@ -125,5 +164,9 @@ func ignoredMessage(field string) string {
 }
 
 func crDeprecatedMessage(typename string) string {
-	return fmt.Sprintf("Custom resource type %q is deprecated")
+	return fmt.Sprintf("Custom resource type %q is deprecated", typename)
+}
+
+func crRemovedMessage(group, kind string) string {
+	return fmt.Sprintf("Custom resource type %s %s is removed", group, kind)
 }
