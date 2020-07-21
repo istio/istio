@@ -85,7 +85,7 @@ values:
 				{Name: "auto-http", Protocol: protocol.HTTP},
 				{Name: "auto-grpc", Protocol: protocol.GRPC},
 			}
-			if err := echoboot.NewBuilder(ctx).
+			if _, err := echoboot.NewBuilder(ctx).
 				With(&a, echo.Config{
 					Service:   "a",
 					Namespace: echoNamespace,
