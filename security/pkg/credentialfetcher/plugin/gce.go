@@ -24,11 +24,12 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	gcecredLog = log.RegisterScope("gcecred", "GCE credential fetcher for istio agent", 0)
+)
+
 // The plugin object.
 type GCEPlugin struct {
-	// Log scope
-	credlog *log.Scope
-
 	// aud is the unique URI agreed upon by both the instance and the system verifying the instance's identity.
 	// For more info: https://cloud.google.com/compute/docs/instances/verifying-instance-identity
 	aud string
@@ -38,9 +39,8 @@ type GCEPlugin struct {
 }
 
 // CreateGCEPlugin creates a Google credential fetcher plugin. Return the pointer to the created plugin.
-func CreateGCEPlugin(scope *log.Scope, audience, jwtPath string) *GCEPlugin {
+func CreateGCEPlugin(audience, jwtPath string) *GCEPlugin {
 	p := &GCEPlugin{
-		credlog: scope,
 		aud:     audience,
 		jwtPath: jwtPath,
 	}
@@ -58,14 +58,14 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 	uri := fmt.Sprintf("instance/service-accounts/default/identity?audience=%s&format=full", p.aud)
 	token, err := metadata.Get(uri)
 	if err != nil {
-		p.credlog.Errorf("Failed to get vm identity token from metadata server: %v", err)
+		gcecredLog.Errorf("Failed to get vm identity token from metadata server: %v", err)
 		return "", err
 	}
-	p.credlog.Debugf("Got GCE identity token: %d", len(token))
+	gcecredLog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
 	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0600)
 	if err != nil {
-		p.credlog.Errorf("Encountered error when writing vm identity token: %v", err)
+		gcecredLog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err
 	}
 	return token, nil

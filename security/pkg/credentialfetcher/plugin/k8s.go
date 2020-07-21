@@ -21,18 +21,18 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	k8scredLog = log.RegisterScope("k8scred", "k8s credential fetcher for istio agent", 0)
+)
+
 // The plugin object.
 type K8SPlugin struct {
-	// Log scope
-	credlog *log.Scope
-
 	jwtPath string
 }
 
 // CreateK8SPlugin creates a k8s credential fetcher plugin. Return the pointer to the created plugin.
-func CreateK8SPlugin(scope *log.Scope, jwtPath string) *K8SPlugin {
+func CreateK8SPlugin(jwtPath string) *K8SPlugin {
 	p := &K8SPlugin{
-		credlog: scope,
 		jwtPath: jwtPath,
 	}
 	return p
@@ -42,7 +42,7 @@ func CreateK8SPlugin(scope *log.Scope, jwtPath string) *K8SPlugin {
 func (p *K8SPlugin) GetPlatformCredential() (string, error) {
 	token, err := ioutil.ReadFile(p.jwtPath)
 	if err != nil {
-		p.credlog.Errorf("Failed to get k8s jwt token from %s: %v", p.jwtPath, err)
+		k8scredLog.Errorf("Failed to get k8s jwt token from %s: %v", p.jwtPath, err)
 		return "", err
 	}
 	return string(token), nil

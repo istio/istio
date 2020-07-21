@@ -19,22 +19,22 @@ import (
 	"istio.io/pkg/log"
 )
 
+var (
+	mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
+)
+
 // The plugin object.
 type MockPlugin struct {
-	// Log scope
-	credlog *log.Scope
 }
 
 // CreateMockPlugin creates a mock credential fetcher plugin. Return the pointer to the created plugin.
-func CreateMockPlugin(scope *log.Scope) *MockPlugin {
-	p := &MockPlugin{
-		credlog: scope,
-	}
+func CreateMockPlugin() *MockPlugin {
+	p := &MockPlugin{}
 	return p
 }
 
 // GetPlatformCredential returns a constant token string.
 func (p *MockPlugin) GetPlatformCredential() (string, error) {
-	p.credlog.Debugf("mock plugin returns a constant token.")
+	mockcredLog.Debugf("mock plugin returns a constant token.")
 	return "test_token", nil
 }
