@@ -173,7 +173,7 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) 
 }
 
 func safelyParseSubsetKey(key string) (model.TrafficDirection, string, host.Name, int, model.TunnelType) {
-	if len(strings.Split(key, "|")) > 4 {
+	if len(strings.Split(key, "|")) > 3 {
 		return model.ParseSubsetKey(key)
 	}
 	name := host.Name(key)
