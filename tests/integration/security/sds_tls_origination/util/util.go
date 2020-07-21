@@ -282,7 +282,7 @@ spec:
           weight: 100
     - match:
         - gateways:
-            - istio-egressgateway
+            - istio-egressgateway-sds
           port: 443
       route:
         - destination:

@@ -372,7 +372,7 @@ spec:
           weight: 100
     - match:
         - gateways:
-            - istio-egressgateway
+            - istio-egressgateway-filebased
           port: 443
       route:
         - destination:
