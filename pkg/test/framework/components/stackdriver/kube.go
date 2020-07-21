@@ -128,8 +128,12 @@ func (c *kubeComponent) ListTimeSeries() ([]*monitoringpb.TimeSeries, error) {
 	for _, t := range r.TimeSeries {
 		// Remove fields that do not need verification
 		t.Points = nil
-		t.Resource = nil
+		delete(t.Resource.Labels, "cluster_name")
+		delete(t.Resource.Labels, "location")
+		delete(t.Resource.Labels, "project_id")
+		delete(t.Resource.Labels, "pod_name")
 		ret = append(ret, t)
+		t.Metadata = nil
 	}
 	return ret, nil
 }
