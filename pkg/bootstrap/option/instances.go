@@ -244,3 +244,7 @@ func STSEnabled(value bool) Instance {
 func ProvCert(value string) Instance {
 	return newOption("provisioned_cert", value)
 }
+
+func DiscoveryHost(value string) Instance {
+	return newOption("discovery_host", value)
+}
