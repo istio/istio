@@ -2253,7 +2253,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			if rlsURI := opts.push.Mesh.ThriftConfig.RateLimitUrl; rlsURI != "" &&
 				mutable.Listener.TrafficDirection == core.TrafficDirection_OUTBOUND &&
 				pluginParams.Service != nil &&
-				pluginParams.Service.Hostname != "" {
+				pluginParams.Service.Hostname != "" && false { // TODO: restore ability to add thrift quota
 				rateLimitConfig := buildThriftRatelimit(fmt.Sprint(pluginParams.Service.Hostname), opts.push.Mesh.ThriftConfig)
 				rateLimitFilter := &thrift.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",

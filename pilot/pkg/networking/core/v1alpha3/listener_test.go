@@ -2538,6 +2538,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 }
 
 func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
+	t.Skip("thrift rate limiting is disabled")
 	svcName := "thrift-service-unlimited"
 	svcIP := "127.0.22.2"
 	limitedSvcName := "thrift-service"
