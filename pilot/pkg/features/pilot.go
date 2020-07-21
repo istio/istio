@@ -328,10 +328,4 @@ var (
 			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
 			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
 			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
-
-	KubernetesAPIQPS = env.RegisterFloatVar("KUBERNETES_API_QPS", 20.0,
-		"Maximum QPS when communicating with the kubernetes API")
-
-	KubernetesAPIBurst = env.RegisterIntVar("KUBERNETES_API_BURST", 40,
-		"Maximum burst for throttle when communicating with the kubernetes API")
 )
