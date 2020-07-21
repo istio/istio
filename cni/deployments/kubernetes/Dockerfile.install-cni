@@ -1,4 +1,11 @@
-FROM ubuntu:xenial
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/istio/base:${BASE_VERSION} as default
 
 LABEL description="Istio CNI plugin installer."
 

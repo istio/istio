@@ -207,6 +207,7 @@ docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
 	$(DOCKER_RULE)
 
 # CNI
+docker.install-cni: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-repair
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
