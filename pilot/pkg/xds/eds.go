@@ -499,9 +499,11 @@ func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *
 		}
 	}
 
-	lbSettings = policy.LoadBalancer
-	if policy.OutlierDetection != nil {
-		outlierDetectionEnabled = true
+	if policy != nil {
+		lbSettings = policy.LoadBalancer
+		if policy.OutlierDetection != nil {
+			outlierDetectionEnabled = true
+		}
 	}
 
 	return outlierDetectionEnabled, lbSettings

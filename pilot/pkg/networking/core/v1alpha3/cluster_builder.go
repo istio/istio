@@ -126,11 +126,10 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 		// Apply traffic policy for subset cluster with the destination rule traffice policy.
 		opts.cluster = subsetCluster
-		opts.policy = destinationRule.TrafficPolicy
 		opts.istioMtlsSni = defaultSni
 
 		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-		opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+		opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
 		// Apply traffic policy for the subset cluster.
 		applyTrafficPolicy(opts)
 
@@ -142,47 +141,40 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 	return subsetClusters
 }
 
-// SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
 func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
 	if subsetPolicy == nil {
 		return original
 	}
 
-	mergedPolicy := original
+	mergedPolicy := original.DeepCopy()
 	if mergedPolicy == nil {
 		mergedPolicy = &networking.TrafficPolicy{}
 	}
 
 	// Override with subset values.
 	if subsetPolicy.ConnectionPool != nil {
-		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool.DeepCopy()
 	}
 	if subsetPolicy.OutlierDetection != nil {
-		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection.DeepCopy()
 	}
 	if subsetPolicy.LoadBalancer != nil {
-		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer.DeepCopy()
 	}
 	if subsetPolicy.Tls != nil {
-		mergedPolicy.Tls = subsetPolicy.Tls
+		mergedPolicy.Tls = subsetPolicy.Tls.DeepCopy()
 	}
 
 	// Check if port level overrides exist, if yes override with them.
 	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
 		for _, p := range subsetPolicy.PortLevelSettings {
 			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				if p.ConnectionPool != nil {
-					mergedPolicy.ConnectionPool = p.ConnectionPool
-				}
-				if p.OutlierDetection != nil {
-					mergedPolicy.OutlierDetection = p.OutlierDetection
-				}
-				if p.LoadBalancer != nil {
-					mergedPolicy.LoadBalancer = p.LoadBalancer
-				}
-				if p.Tls != nil {
-					mergedPolicy.Tls = p.Tls
-				}
+				// per the docs, port level policies do not inherit and intead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool.DeepCopy()
+				mergedPolicy.OutlierDetection = p.OutlierDetection.DeepCopy()
+				mergedPolicy.LoadBalancer = p.LoadBalancer.DeepCopy()
+				mergedPolicy.Tls = p.Tls.DeepCopy()
 				break
 			}
 		}

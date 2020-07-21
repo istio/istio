@@ -615,6 +615,12 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		if strings.Contains(c.Name, "outbound") {
 			actualOutboundClusterCount++
 			tlsContext := getTLSContext(t, c)
+			if c.Name == "outbound|8080|foobar|foo.example.org" {
+				// per the docs: default values will be applied to fields omitted in port-level traffic policies rather than inheriting
+				// settings specified at the destination level
+				g.Expect(tlsContext).To(BeNil())
+				continue
+			}
 			g.Expect(tlsContext).NotTo(BeNil())
 
 			tlsCerts := tlsContext.CommonTlsContext.TlsCertificates
