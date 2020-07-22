@@ -428,7 +428,7 @@ func createPatch(pod *corev1.Pod, original []byte) ([]byte, error) {
 
 // postProcessPod applies additionally transformations to the pod after merging with the injected template
 // This is generally things that cannot reasonably be added to the template
-func postProcessPod(pod *corev1.Pod, injectedPodSpec corev1.PodSpec, req InjectionParameters) error {
+func postProcessPod(pod *corev1.Pod, injectedPodSpec corev1.Pod, req InjectionParameters) error {
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}
@@ -459,7 +459,7 @@ func postProcessPod(pod *corev1.Pod, injectedPodSpec corev1.PodSpec, req Injecti
 	return nil
 }
 
-func applyMetadata(pod *corev1.Pod, injectedPodSpec corev1.PodSpec, req InjectionParameters) {
+func applyMetadata(pod *corev1.Pod, injectedPodSpec corev1.Pod, req InjectionParameters) {
 	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, req.deployMeta.Name)
 	setIfUnset(pod.Labels, label.TLSMode, model.IstioMutualTLSModeLabel)
 	setIfUnset(pod.Labels, model.IstioCanonicalServiceLabelName, canonicalSvc)
@@ -467,11 +467,17 @@ func applyMetadata(pod *corev1.Pod, injectedPodSpec corev1.PodSpec, req Injectio
 	setIfUnset(pod.Labels, model.IstioCanonicalServiceRevisionLabelName, canonicalRev)
 
 	// Add all additional injected annotations. These are overridden if needed
-	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodSpec, req.version)
+	pod.Annotations[annotation.SidecarStatus.Name] = getInjectionStatus(injectedPodSpec.Spec, req.version)
+
+	for k := range AnnotationValidation {
+		if injectedPodSpec.ObjectMeta.Annotations[k] != "" {
+			pod.Annotations[k] = injectedPodSpec.ObjectMeta.Annotations[k]
+		}
+	}
+
 	for k, v := range req.injectedAnnotations {
 		pod.Annotations[k] = v
 	}
-
 }
 
 // reorderPod ensures containers are properly ordered after merging

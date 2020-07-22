@@ -356,9 +356,9 @@ func TestInjection(t *testing.T) {
 				wantYAMLs := splitYamlFile(wantFilePath, t)
 				for i := 0; i < len(inputYAMLs); i++ {
 					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
-						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i])
+						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], false)
 						t.Run("idempotency", func(t *testing.T) {
-							runWebhook(t, webhook, wantYAMLs[i], wantYAMLs[i])
+							runWebhook(t, webhook, wantYAMLs[i], wantYAMLs[i], true)
 						})
 					})
 				}
@@ -435,10 +435,10 @@ spec:
     fsGroup: 1337
 `
 	// We expect resources to only have limits, since we had the "replace" directive.
-	runWebhook(t, webhook, []byte(pod), []byte(expectedPod))
+	runWebhook(t, webhook, []byte(pod), []byte(expectedPod), false)
 }
 
-func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte) {
+func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, ignoreIstioMetaJSONAnnotationsEnv bool) {
 	// Convert the input YAML to a deployment.
 	inputRaw, err := FromRawToObject(inputYAML)
 	if err != nil {
@@ -479,8 +479,7 @@ func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byt
 		gotPod = inputPod
 	}
 
-	// normalize and compare the patched deployment with the one we expected.
-	if err := normalizeAndCompareDeployments(gotPod, wantPod, t); err != nil {
+	if err := normalizeAndCompareDeployments(gotPod, wantPod, ignoreIstioMetaJSONAnnotationsEnv, t); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -655,6 +654,30 @@ func TestAppendMultusNetwork(t *testing.T) {
                    {"name": "macvlan-conf-2"}
                    , {"name": "istio-cni"}]`,
 		},
+		{
+			name: "json-multiline-additional-fields",
+			in: `[
+                   {"name": "macvlan-conf-1", "another-field": "another-value"},
+                   {"name": "macvlan-conf-2"}
+                   ]`,
+			want: `[
+                   {"name": "macvlan-conf-1", "another-field": "another-value"},
+                   {"name": "macvlan-conf-2"}
+                   , {"name": "istio-cni"}]`,
+		},
+		{
+			name: "json-preconfigured-istio-cni",
+			in: `[
+                   {"name": "macvlan-conf-1"},
+                   {"name": "macvlan-conf-2"},
+                   {"name": "istio-cni", "config": "additional-config"},
+                   ]`,
+			want: `[
+                   {"name": "macvlan-conf-1"},
+                   {"name": "macvlan-conf-2"},
+                   {"name": "istio-cni", "config": "additional-config"},
+                   ]`,
+		},
 	}
 
 	for _, tc := range cases {
@@ -664,6 +687,12 @@ func TestAppendMultusNetwork(t *testing.T) {
 			if actual != tc.want {
 				t.Fatalf("Unexpected result.\nExpected:\n%v\nActual:\n%v", tc.want, actual)
 			}
+			t.Run("idempotency", func(t *testing.T) {
+				actual := appendMultusNetwork(actual, "istio-cni")
+				if actual != tc.want {
+					t.Fatalf("Function is not idempotent.\nExpected:\n%v\nActual:\n%v", tc.want, actual)
+				}
+			})
 		})
 	}
 }

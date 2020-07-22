@@ -233,7 +233,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 
 // RunTemplate renders the sidecar template
 // Returns the raw string template, as well as the parse pod form
-func RunTemplate(params InjectionParameters) ([]byte, *corev1.PodSpec, error) {
+func RunTemplate(params InjectionParameters) ([]byte, *corev1.Pod, error) {
 	metadata := &params.pod.ObjectMeta
 	meshConfig := params.meshConfig
 
@@ -313,11 +313,21 @@ func RunTemplate(params InjectionParameters) ([]byte, *corev1.PodSpec, error) {
 		return nil, nil, err
 	}
 
-	podSpec := corev1.PodSpec{}
-	if err := yaml.Unmarshal(bbuf.Bytes(), &podSpec); err != nil {
+	injectionData := struct {
+		corev1.PodSpec   `json:",inline"`
+		PodRedirectAnnot map[string]string `yaml:"podRedirectAnnot"`
+	}{}
+	if err := yaml.Unmarshal(bbuf.Bytes(), &injectionData); err != nil {
 		return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 	}
-	return bbuf.Bytes(), &podSpec, nil
+
+	pod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: injectionData.PodRedirectAnnot,
+		},
+		Spec: injectionData.PodSpec,
+	}
+	return bbuf.Bytes(), &pod, nil
 }
 
 func stripPod(req InjectionParameters) *corev1.Pod {
