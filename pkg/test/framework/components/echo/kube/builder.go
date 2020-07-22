@@ -97,7 +97,6 @@ func (b *builder) newInstances() ([]echo.Instance, error) {
 }
 
 func (b *builder) initializeInstances(instances []echo.Instance) error {
-	t0 := time.Now()
 	// Wait to receive the k8s Endpoints for each Echo Instance.
 	wg := sync.WaitGroup{}
 	aggregateErrMux := &sync.Mutex{}
