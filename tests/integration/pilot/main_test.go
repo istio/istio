@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -51,15 +52,15 @@ type EchoDeployments struct {
 	namespace namespace.Instance
 
 	// Standard echo app to be used by tests
-	podA echo.Instance
+	podA echo.Instances
 	// Standard echo app to be used by tests
-	podB echo.Instance
+	podB echo.Instances
 	// Headless echo app to be used by tests
-	headless echo.Instance
+	headless echo.Instances
 	// Echo app to be used by tests, with no sidecar injected
-	naked echo.Instance
+	naked echo.Instances
 	// A virtual machine echo app
-	vmA echo.Instance
+	vmA echo.Instances
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -92,49 +93,63 @@ values:
 				p.ServicePort = p.InstancePort
 				headlessPorts[i] = p
 			}
-			if _, err := echoboot.NewBuilder(ctx).
-				With(&apps.podA, echo.Config{
-					Service:   "a",
-					Namespace: apps.namespace,
-					Ports:     echoPorts,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&apps.podB, echo.Config{
-					Service:   "b",
-					Namespace: apps.namespace,
-					Ports:     echoPorts,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&apps.headless, echo.Config{
-					Service:   "headless",
-					Headless:  true,
-					Namespace: apps.namespace,
-					Ports:     headlessPorts,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&apps.vmA, echo.Config{
-					Service:    "vm-a",
-					Namespace:  apps.namespace,
-					Ports:      echoPorts,
-					DeployAsVM: true,
-					Subsets:    []echo.SubsetConfig{{}},
-				}).
-				With(&apps.naked, echo.Config{
-					Service:   "naked",
-					Namespace: apps.namespace,
-					Ports:     echoPorts,
-					Subsets: []echo.SubsetConfig{
-						{
-							Annotations: map[echo.Annotation]*echo.AnnotationValue{
-								echo.SidecarInject: {
-									Value: strconv.FormatBool(false)},
+			builder := echoboot.NewBuilder(ctx)
+			for _, c := range ctx.Clusters() {
+				builder.
+					With(nil, echo.Config{
+						Service:   fmt.Sprintf("a-%d", c.Index()),
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
+						Service:   fmt.Sprintf("b-%d", c.Index()),
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
+						Service:   fmt.Sprintf("headless-%d", c.Index()),
+						Headless:  true,
+						Namespace: apps.namespace,
+						Ports:     headlessPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
+						Service:    fmt.Sprintf("vm-a-%d", c.Index()),
+						Namespace:  apps.namespace,
+						Ports:      echoPorts,
+						DeployAsVM: true,
+						Subsets:    []echo.SubsetConfig{{}},
+						Cluster:    c,
+					}).
+					With(nil, echo.Config{
+						Service:   fmt.Sprintf("naked-%d", c.Index()),
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets: []echo.SubsetConfig{
+							{
+								Annotations: map[echo.Annotation]*echo.AnnotationValue{
+									echo.SidecarInject: {
+										Value: strconv.FormatBool(false)},
+								},
 							},
 						},
-					},
-				}).
-				Build(); err != nil {
+						Cluster: c,
+					})
+			}
+			echos, err := builder.Build()
+			if err != nil {
 				return err
 			}
+			apps.podA = echos.Match(echo.ServicePrefix("a-"))
+			apps.podB = echos.Match(echo.ServicePrefix("b-"))
+			apps.headless = echos.Match(echo.ServicePrefix("headless-"))
+			apps.naked = echos.Match(echo.ServicePrefix("naked-"))
+			apps.vmA = echos.Match(echo.ServicePrefix("vm-a-"))
 			return nil
 		}).
 		Run()

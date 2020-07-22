@@ -180,7 +180,7 @@ func TestDescribe(t *testing.T) {
 			// run in parallel.
 			retry.UntilSuccessOrFail(ctx, func() error {
 				args := []string{"--namespace=dummy",
-					"x", "describe", "svc", fmt.Sprintf("%s.%s", apps.podA.Config().Service, apps.namespace.Name())}
+					"x", "describe", "svc", fmt.Sprintf("%s.%s", apps.podA[0].Config().Service, apps.namespace.Name())}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
@@ -192,7 +192,7 @@ func TestDescribe(t *testing.T) {
 			}, retry.Timeout(time.Second*5))
 
 			retry.UntilSuccessOrFail(ctx, func() error {
-				podID, err := getPodID(apps.podA)
+				podID, err := getPodID(apps.podA[0])
 				if err != nil {
 					return fmt.Errorf("could not get Pod ID: %v", err)
 				}
@@ -270,7 +270,7 @@ func TestProxyConfig(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -334,7 +334,7 @@ func TestProxyStatus(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -382,7 +382,7 @@ func TestAuthZCheck(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
