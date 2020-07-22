@@ -44,3 +44,4 @@ spec:
         number: 443
       tls:
         mode: SIMPLE # initiates HTTPS when accessing www.googleapis.com
+        caCertificates: /etc/ssl/certs/ca-certificates.crt

@@ -11,6 +11,7 @@ spec:
       simple: LEAST_CONN
     tls:
       mode: SIMPLE
+      caCertificates: /etc/ssl/certs/ca-certificates.crt
 ---
 # This will not work: myCA not found, results in rejecting all clusters if the
 # service exists.
