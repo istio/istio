@@ -92,7 +92,7 @@ values:
 			}
 			if _, err := echoboot.NewBuilder(ctx).
 				With(&apps.podA, echo.Config{
-					Service:   "pod-a",
+					Service:   "a",
 					Namespace: apps.namespace,
 					Ports:     echoPorts,
 					Subsets:   []echo.SubsetConfig{{}},

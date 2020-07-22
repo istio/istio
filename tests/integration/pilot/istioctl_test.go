@@ -172,23 +172,18 @@ func TestDescribe(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.describe").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
+			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
 			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), deployment)
 			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), deployment)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-
-			podID, err := getPodID(apps.podA)
-			if err != nil {
-				ctx.Fatalf("Could not get Pod ID: %v", err)
-			}
 
 			// When this test passed the namespace through --namespace it was flakey
 			// because istioctl uses a global variable for namespace, and this test may
 			// run in parallel.
 			retry.UntilSuccessOrFail(ctx, func() error {
 				args := []string{"--namespace=dummy",
-					"x", "describe", "svc", fmt.Sprintf("a.%s", apps.namespace.Name())}
+					"x", "describe", "svc", fmt.Sprintf("%s.%s", apps.podA.Config().Service, apps.namespace.Name())}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
@@ -200,6 +195,10 @@ func TestDescribe(t *testing.T) {
 			}, retry.Timeout(time.Second*5))
 
 			retry.UntilSuccessOrFail(ctx, func() error {
+				podID, err := getPodID(apps.podA)
+				if err != nil {
+					return fmt.Errorf("could not get Pod ID: %v", err)
+				}
 				args := []string{"--namespace=dummy",
 					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
 				output, _, err := istioCtl.Invoke(args)
@@ -380,7 +379,7 @@ func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
+			authPol := file.AsStringOrFail(t, "testdata/authz-a.yaml")
 			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), authPol)
 			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), authPol)
 
