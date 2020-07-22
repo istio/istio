@@ -584,6 +584,11 @@ func TestWebhookInject(t *testing.T) {
 			wantFile:     "TestWebhookInject_probe_rewrite_timeout_retention.patch",
 			templateFile: "TestWebhookInject_probe_rewrite_timeout_retention_template.yaml",
 		},
+		{
+			inputFile:    "TestWebhookInject_podRedirectAnnot.yaml",
+			wantFile:     "TestWebhookInject_podRedirectAnnot.patch",
+			templateFile: "TestWebhookInject_podRedirectAnnot_template.yaml",
+		},
 	}
 
 	for i, c := range cases {

@@ -758,6 +758,7 @@ func (wh *Webhook) inject(ar *kubeApiAdmission.AdmissionReview, path string) *ku
 	}
 
 	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
+	rewriteCniPodSpec(annotations, spec)
 
 	// Add all additional injected annotations
 	for k, v := range wh.Config.InjectedAnnotations {
