@@ -26,11 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
 
 	authentication "istio.io/api/authentication/v1alpha1"
-	mixer "istio.io/api/mixer/v1"
-	mixerclient "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	policy "istio.io/api/policy/v1beta1"
-	clientconfig "istio.io/client-go/pkg/apis/config/v1alpha2"
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -53,7 +50,6 @@ func TestRoundtripFuzzing(t *testing.T) {
 	scheme := runtime.NewScheme()
 	clientnetworkingalpha.AddToScheme(scheme)
 	clientnetworkingbeta.AddToScheme(scheme)
-	clientconfig.AddToScheme(scheme)
 	clientsecurity.AddToScheme(scheme)
 
 	fuzzerFuncs := fuzzer.MergeFuzzerFuncs(metafuzzer.Funcs, fixProtoFuzzer)
@@ -89,20 +85,11 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		func(x *networking.LoadBalancerSettings, c fuzz.Continue) {
 			*x = networking.LoadBalancerSettings{}
 		},
-		func(t *mixerclient.APIKey, c fuzz.Continue) {
-			*t = mixerclient.APIKey{}
-		},
-		func(t *mixer.Attributes_AttributeValue, c fuzz.Continue) {
-			*t = mixer.Attributes_AttributeValue{}
-		},
 		func(t *policy.Authentication, c fuzz.Continue) {
 			*t = policy.Authentication{}
 		},
 		func(t *networking.EnvoyFilter_EnvoyConfigObjectMatch, c fuzz.Continue) {
 			*t = networking.EnvoyFilter_EnvoyConfigObjectMatch{}
-		},
-		func(t *mixerclient.HTTPAPISpecPattern, c fuzz.Continue) {
-			*t = mixerclient.HTTPAPISpecPattern{}
 		},
 		func(t *networking.HTTPFaultInjection_Abort, c fuzz.Continue) {
 			*t = networking.HTTPFaultInjection_Abort{}
@@ -124,9 +111,6 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		},
 		func(t *networking.StringMatch, c fuzz.Continue) {
 			*t = networking.StringMatch{}
-		},
-		func(t *mixerclient.StringMatch, c fuzz.Continue) {
-			*t = mixerclient.StringMatch{}
 		},
 		func(t *authentication.StringMatch, c fuzz.Continue) {
 			*t = authentication.StringMatch{}

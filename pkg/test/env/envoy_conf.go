@@ -162,9 +162,9 @@ func (s *TestSetup) CreateEnvoyConf(path string) error {
 	return tmpl.Execute(f, s)
 }
 
-func toJSON(mixerFilterConfig proto.Message) string {
+func toJSON(filterConfig proto.Message) string {
 	m := jsonpb.Marshaler{OrigName: true}
-	str, err := m.MarshalToString(mixerFilterConfig)
+	str, err := m.MarshalToString(filterConfig)
 	if err != nil {
 		return ""
 	}
