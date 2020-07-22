@@ -41,22 +41,22 @@ func virtualServiceCases() []TrafficTestCase {
 			cases = append(cases,
 				TrafficTestCase{
 					name: "added header",
-					config: `
+					config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-  - b
+  - %s
   http:
   - route:
     - destination:
-        host: b
+        host: %s
     headers:
       request:
         add:
-          istio-custom-header: user-defined-value`,
+          istio-custom-header: user-defined-value`, b.Config().Service, b.Config().Service),
 					call: func() (echoclient.ParsedResponses, error) {
 						return a.Call(echo.CallOptions{Target: b, PortName: "http"})
 					},
@@ -69,14 +69,14 @@ spec:
 				},
 				TrafficTestCase{
 					name: "redirect",
-					config: `
+					config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - %s
   http:
   - match:
     - uri:
@@ -88,7 +88,7 @@ spec:
         exact: /new/path
     route:
     - destination:
-        host: b`,
+        host: %s`, b.Config().Service, b.Config().Service),
 					call: func() (echoclient.ParsedResponses, error) {
 						return a.Call(echo.CallOptions{Target: b, PortName: "http"})
 					},
