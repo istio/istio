@@ -111,14 +111,16 @@ func TestMirroring(t *testing.T) {
 			}
 			for _, src := range ctx.Clusters() {
 				for _, dst := range ctx.Clusters() {
-					runMirrorTest(mirrorTestOptions{
-						ctx:   ctx,
-						cases: cases,
-						instances: [3]echo.Instance{
-							apps.podA.GetOrFail(t, echo.InCluster(src)),
-							apps.podB.GetOrFail(t, echo.InCluster(dst)),
-							apps.podC.GetOrFail(t, echo.InCluster(dst)),
-						},
+					ctx.NewSubTest(fmt.Sprintf("%s->%s", src.Name(), dst.Name())).Run(func(ctx framework.TestContext) {
+						runMirrorTest(mirrorTestOptions{
+							ctx:   ctx,
+							cases: cases,
+							instances: [3]echo.Instance{
+								apps.podA.GetOrFail(t, echo.InCluster(src)),
+								apps.podB.GetOrFail(t, echo.InCluster(dst)),
+								apps.podC.GetOrFail(t, echo.InCluster(dst)),
+							},
+						})
 					})
 				}
 			}
