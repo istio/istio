@@ -126,6 +126,9 @@ type DiscoveryServer struct {
 
 	// InternalGen is notified of connect/disconnect/nack on all connections
 	InternalGen *InternalGen
+
+	// serverReady indicates caches have been synced up and server is ready to process requests.
+	serverReady bool
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -161,6 +164,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
+		serverReady:             false,
 	}
 
 	if features.XDSAuth {
@@ -187,6 +191,19 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// Register v2 and v3 servers
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
 	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
+}
+
+// OnServerReady is called when caches have been synced so that it can process requests.
+func (s *DiscoveryServer) OnServerReady() {
+	s.updateMutex.Lock()
+	s.serverReady = true
+	s.updateMutex.Unlock()
+}
+
+func (s *DiscoveryServer) IsServerReady() bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.serverReady
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
