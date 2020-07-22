@@ -147,6 +147,13 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 		return original
 	}
 
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
+	}
+
+	// use DeepCopy to avoid modifying DestinationRule in push_context directly during cluster build steps
+	// for example: TLS context is currently modified as part of auto-mtls and ISTIO_MUTUAL logic
 	mergedPolicy := original.DeepCopy()
 	if mergedPolicy == nil {
 		mergedPolicy = &networking.TrafficPolicy{}
