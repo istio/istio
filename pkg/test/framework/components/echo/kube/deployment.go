@@ -97,12 +97,7 @@ spec:
 {{- range $name, $value := $subset.Annotations }}
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
 {{- end }}
-{{- if $.IncludeInboundPorts }}
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
-{{- end }}
     spec:
-      # temporary hack to test dns theory
-      dnsPolicy: Default
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
@@ -236,8 +231,20 @@ spec:
         - bash
         - -c
         - |-
-          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
+          # Capture all inbound and outbound traffic
+          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_INBOUND_PORTS=* >> /var/lib/istio/envoy/cluster.env'
+          # Use token auth not certs
+          sudo sh -c 'echo PROV_CERT="" >> /var/lib/istio/envoy/cluster.env'
+          # Block standard inbound ports
+          sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
+          # Capture all DNS traffic in the VM and forward to Envoy
+          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
+
+          # Setup the namespace
+          sudo sh -c 'echo ISTIO_NAMESPACE={{ $.Namespace }} >> /var/lib/istio/envoy/sidecar.env'
+
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
 
           # TODO: run with systemctl?
@@ -254,20 +261,6 @@ spec:
              "{{ $p.Port }}" \
 {{- end }}
         env:
-        # We use token not certs
-        - name: PROV_CERT
-          value: ""
-        # By default we do not capture inbound. For these tests we will mark as capture all
-        - name: ISTIO_INBOUND_PORTS
-          value: "*"
-        # Block standard inbound ports
-        - name: ISTIO_LOCAL_EXCLUDE_PORTS
-          value: "15090,15021,15020"
-        # Capture all DNS traffic in the VM and forward to Envoy
-        - name: ISTIO_META_DNS_CAPTURE
-          value: "ALL"
-        - name: ISTIO_NAMESPACE # start.sh reads this and converts to POD_NAMESPACE
-          value: {{ $.Namespace }}
         {{- range $name, $value := $.Environment }}
         - name: {{ $name }}
           value: "{{ $value }}"
@@ -374,23 +367,22 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 		namespace = cfg.Namespace.Name()
 	}
 	params := map[string]interface{}{
-		"Hub":                 settings.Hub,
-		"Tag":                 settings.Tag,
-		"PullPolicy":          settings.PullPolicy,
-		"Service":             cfg.Service,
-		"Version":             cfg.Version,
-		"Headless":            cfg.Headless,
-		"Locality":            cfg.Locality,
-		"ServiceAccount":      cfg.ServiceAccount,
-		"Ports":               cfg.Ports,
-		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
-		"ContainerPorts":      getContainerPorts(cfg.Ports),
-		"ServiceAnnotations":  cfg.ServiceAnnotations,
-		"IncludeInboundPorts": cfg.IncludeInboundPorts,
-		"Subsets":             cfg.Subsets,
-		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.Cluster.Name(),
-		"Namespace":           namespace,
+		"Hub":                settings.Hub,
+		"Tag":                settings.Tag,
+		"PullPolicy":         settings.PullPolicy,
+		"Service":            cfg.Service,
+		"Version":            cfg.Version,
+		"Headless":           cfg.Headless,
+		"Locality":           cfg.Locality,
+		"ServiceAccount":     cfg.ServiceAccount,
+		"Ports":              cfg.Ports,
+		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
+		"ContainerPorts":     getContainerPorts(cfg.Ports),
+		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"Subsets":            cfg.Subsets,
+		"TLSSettings":        cfg.TLSSettings,
+		"Cluster":            cfg.Cluster.Name(),
+		"Namespace":          namespace,
 		"VM": map[string]interface{}{
 			"Image":      vmImage,
 			"IstiodIP":   istiodIP,

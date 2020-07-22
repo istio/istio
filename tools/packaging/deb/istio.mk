@@ -1,9 +1,8 @@
-# Creates the 2 packages. BUILD_WITH_CONTAINER=1 or in CI/CD
+# Creates the 2 packages. BUILD_WITH_CONTAINER=1 or in CI/CD (BUILD_WITH_CONTAINER=0)
 #
 # Development/manual testing:
-#    BUILD_WITH_CONTAINER=1 make deb
-#    make deb/docker # will create the istio_deb container with istio installed
-#
+#    make deb          - builds debian packaging
+#    make deb/docker   - builds a test docker image
 
 deb: ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb ${ISTIO_OUT_LINUX}/release/istio.deb
 
@@ -88,12 +87,11 @@ ${ISTIO_OUT_LINUX}/release/istio.deb:
 		--description "Istio" \
 		$(ISTIO_FILES)
 
-GEN_CERT ?= go run istio.io/istio/security/tools/generate_cert
 # TODO: use k8s style - /etc/pki/istio/...
 PKI_DIR ?= tests/testdata/certs/cacerts
 VM_PKI_DIR ?= tests/testdata/certs/vm
 
-testcert-gen:
+testcert-gen: ${GEN_CERT}
 	mkdir -p ${PKI_DIR}
 	mkdir -p ${VM_PKI_DIR}
 	${GEN_CERT} -ca  --out-priv ${PKI_DIR}/ca-key.pem --out-cert ${PKI_DIR}/ca-cert.pem  -organization "istio ca"

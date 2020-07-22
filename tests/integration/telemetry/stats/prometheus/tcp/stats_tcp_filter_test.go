@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/mixer"
+	util "istio.io/istio/tests/integration/telemetry"
 	util_prometheus "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 

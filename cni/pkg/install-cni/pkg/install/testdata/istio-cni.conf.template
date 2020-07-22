@@ -1,0 +1,10 @@
+{
+  "cniVersion": "0.3.1",
+  "name": "istio-cni",
+  "type": "istio-cni",
+  "log_level": "__LOG_LEVEL__",
+  "kubernetes": {
+      "kubeconfig": "__KUBECONFIG_FILENAME__",
+      "cni_bin_dir": "/path/cni/bin"
+  }
+}

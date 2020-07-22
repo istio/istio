@@ -49,8 +49,8 @@ type Builder interface {
 
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
-	Build() error
-	BuildOrFail(t test.Failer)
+	Build() (Instances, error)
+	BuildOrFail(t test.Failer) Instances
 }
 
 // Instance is a component that provides access to a deployed echo service.

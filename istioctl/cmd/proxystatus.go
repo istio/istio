@@ -17,6 +17,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+
+	"istio.io/pkg/log"
 
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -46,8 +50,20 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 
 # Retrieve sync diff for a single Envoy and Istiod
 	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+
+# Write proxy config-dump to file, and compare to Istio control plane
+    kubectl port-forward -n istio-system istio-egressgateway-59585c5b9c-ndc59 15000 &
+    curl localhost:15000/config_dump > cd.json
+    istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system --file cd.json
 `,
 		Aliases: []string{"ps"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (len(args) == 0) && (configDumpFile != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("--file can only be used when pod-name is specified")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
@@ -55,13 +71,18 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			}
 			if len(args) > 0 {
 				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				path := "config_dump"
-				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+				var envoyDump []byte
+				if configDumpFile != "" {
+					envoyDump, err = readConfigFile(configDumpFile)
+				} else {
+					path := "config_dump"
+					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+				}
 				if err != nil {
 					return err
 				}
 
-				path = fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
+				path := fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
 				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 				if err != nil {
 					return err
@@ -82,8 +103,31 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	}
 
 	opts.AttachControlPlaneFlags(statusCmd)
+	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	return statusCmd
+}
+
+func readConfigFile(filename string) ([]byte, error) {
+	file := os.Stdin
+	if filename != "-" {
+		var err error
+		file, err = os.Open(filename)
+		if err != nil {
+			return nil, err
+		}
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Errorf("failed to close %s: %s", filename, err)
+		}
+	}()
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {

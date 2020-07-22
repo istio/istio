@@ -59,10 +59,6 @@ type Config struct {
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
 
-	// IncludeInboundPorts provides the ports that inbound listener should capture
-	// "*" means capture all.
-	IncludeInboundPorts string
-
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration

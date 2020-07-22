@@ -37,7 +37,7 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 
 			// TODO: due to issue https://github.com/istio/istio/issues/25286,
 			// currently VM does not work in this test
-			rctx := reachability.CreateContext(ctx, p, false)
+			rctx := reachability.CreateContext(ctx, false)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{

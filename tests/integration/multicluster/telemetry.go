@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // TelemetryTest validates that source and destination labels are collected
@@ -38,36 +37,29 @@ func TelemetryTest(t *testing.T, ns namespace.Instance, feature features.Feature
 			ctx.NewSubTest("telemetry").
 				Run(func(ctx framework.TestContext) {
 					clusters := ctx.Environment().Clusters()
-					services := map[resource.ClusterIndex][]*echo.Instance{}
 					builder := echoboot.NewBuilderOrFail(ctx, ctx)
 					for _, cluster := range clusters {
-						var instance echo.Instance
-						ref := &instance
 						svcName := fmt.Sprintf("echo-%d", cluster.Index())
-						builder = builder.With(ref, newEchoConfig(svcName, ns, cluster))
-						services[cluster.Index()] = append(services[cluster.Index()], ref)
+						builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))
 					}
-					builder.BuildOrFail(ctx)
+					echos := builder.BuildOrFail(ctx)
 
-					for _, srcServices := range services {
-						for _, src := range srcServices {
-							for _, dstServices := range services {
-								src := *src
-								dest := *dstServices[0]
-								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-									src.Config().Service,
-									"http",
-									dest.Config().Service,
-									"http",
-									"/")
+					for _, src := range echos {
+						for _, dest := range echos {
+							src, dest := src, dest
+							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
+								src.Config().Service,
+								"http",
+								dest.Config().Service,
+								"http",
+								"/")
 
-								ctx.NewSubTest(subTestName).
-									RunParallel(func(ctx framework.TestContext) {
-										_ = callOrFail(ctx, src, dest)
-										validateClusterLabelsInStats(src, t)
-										validateClusterLabelsInStats(dest, t)
-									})
-							}
+							ctx.NewSubTest(subTestName).
+								RunParallel(func(ctx framework.TestContext) {
+									_ = callOrFail(ctx, src, dest)
+									validateClusterLabelsInStats(src, t)
+									validateClusterLabelsInStats(dest, t)
+								})
 						}
 					}
 				})
