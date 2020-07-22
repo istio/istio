@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -40,7 +39,6 @@ const (
 
 var (
 	i       istio.Instance
-	p       pilot.Instance
 	ns      namespace.Instance
 	gceInst gcemetadata.Instance
 	sdInst  stackdriver.Instance
@@ -72,12 +70,6 @@ values:
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Setup(testSetup).
 		Run()
 }
