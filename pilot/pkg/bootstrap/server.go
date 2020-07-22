@@ -362,7 +362,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// Inform Discovery Server so that it can start accepting connections.
 	log.Infof("All caches have been synced up, marking server ready")
-	s.EnvoyXdsServer.OnServerReady()
+	s.EnvoyXdsServer.CachesSynced()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {

@@ -193,8 +193,8 @@ func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
-// OnServerReady is called when caches have been synced so that it can process requests.
-func (s *DiscoveryServer) OnServerReady() {
+// CachesSynced is called when caches have been synced so that server can accept connections.
+func (s *DiscoveryServer) CachesSynced() {
 	s.updateMutex.Lock()
 	s.serverReady = true
 	s.updateMutex.Unlock()
