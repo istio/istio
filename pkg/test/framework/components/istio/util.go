@@ -29,18 +29,25 @@ import (
 )
 
 var (
-	dummyValidationRuleTemplate = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
+	dummyValidationVirtualServiceTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: validation-readiness-dummy-rule
+  name: validation-readiness-dummy-virtual-service
   namespace: %s
 spec:
-  match: request.headers["foo"] == "bar"
-  actions:
-  - handler: validation-readiness-dummy
-    instances:
-    - validation-readiness-dummy
+  hosts:
+    - non-existent-host
+  http:
+    - route:
+      - destination:
+          host: non-existent-host
+          subset: v1
+        weight: 75
+      - destination:
+          host: non-existent-host
+          subset: v2
+        weight: 25
 `
 )
 
@@ -50,17 +57,17 @@ var (
 )
 
 func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
-	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
+	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
-		e := ctx.Config(cluster).DeleteYAML("", dummyValidationRule)
+		e := ctx.Config(cluster).DeleteYAML("", dummyValidationVirtualService)
 		if e != nil {
-			scopes.Framework.Warnf("error deleting dummy rule for waiting the validation webhook: %v", e)
+			scopes.Framework.Warnf("error deleting dummy virtual service for waiting the validation webhook: %v", e)
 		}
 	}()
 
-	scopes.Framework.Info("Creating dummy rule to check for validation webhook readiness")
+	scopes.Framework.Info("Creating dummy virtual service to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
-		err := ctx.Config(cluster).ApplyYAML("", dummyValidationRule)
+		err := ctx.Config(cluster).ApplyYAML("", dummyValidationVirtualService)
 		if err == nil {
 			return nil
 		}

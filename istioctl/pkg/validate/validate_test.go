@@ -25,9 +25,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -219,29 +216,6 @@ metadata:
 spec:
   http:
 `
-	validMixerRule = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: valid-rule
-spec:
-  match: request.headers["clnt"] == "abc"
-  actions:
-  - handler: handler-for-valid-rule.denier
-    instances:
-    - instance-for-valid-rule.checknothing`
-	invalidMixerRule = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: valid-rule
-spec:
-  badField: oops
-  match: request.headers["clnt"] == "abc"
-  actions:
-  - handler: handler-for-valid-rule.denier
-    instances:
-    - instance-for-valid-rule.checknothing`
 	invalidYAML = `
 (...!)`
 	validKubernetesYAML = `
@@ -249,12 +223,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-system`
-	invalidMixerKind = `
-apiVersion: config.istio.io/v1alpha2
-kind: instance
-metadata:
-  name: invalid-kind
-spec:`
 	invalidUnsupportedKey = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -332,16 +300,6 @@ func TestValidateResource(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:  "valid mixer configuration",
-			in:    validMixerRule,
-			valid: true,
-		},
-		{
-			name:  "invalid mixer configuration",
-			in:    invalidMixerRule,
-			valid: false,
-		},
-		{
 			name:  "port name missing service",
 			in:    portNameMissingSvc,
 			valid: false,
@@ -405,29 +363,12 @@ func TestValidateResource(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
-			v := &validator{
-				mixerValidator: mixervalidate.NewDefaultValidator(false),
-			}
+			v := &validator{}
 			err := v.validateResource("istio-system", fromYAML(c.in))
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%v", err == nil, c.valid, err)
 			}
 		})
-	}
-}
-
-func TestValidateFiles(t *testing.T) {
-	files := []string{
-		env.IstioSrc + "/mixer/testdata/config/attributes.yaml",
-		env.IstioSrc + "/mixer/template/metric/template.yaml",
-		env.IstioSrc + "/mixer/test/prometheus/prometheus-nosession.yaml",
-		env.IstioSrc + "/samples/httpbin/policy/keyval-template.yaml",
-		env.IstioSrc + "/samples/bookinfo/policy/mixer-rule-deny-ip-crd.yaml",
-	}
-	istioNamespace := "istio-system"
-	b := bytes.Buffer{}
-	if err := validateFiles(&istioNamespace, files, true, &b); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -457,7 +398,6 @@ func createTestFile(t *testing.T, data string) (string, io.Closer) {
 func TestValidateCommand(t *testing.T) {
 	valid := buildMultiDocYAML([]string{validVirtualService, validVirtualService1})
 	invalid := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1})
-	unsupportedMixerRule := buildMultiDocYAML([]string{validVirtualService, validMixerRule})
 
 	validFilename, closeValidFile := createTestFile(t, valid)
 	defer closeValidFile.Close()
@@ -465,17 +405,11 @@ func TestValidateCommand(t *testing.T) {
 	invalidFilename, closeInvalidFile := createTestFile(t, invalid)
 	defer closeInvalidFile.Close()
 
-	unsupportedMixerRuleFilename, closeMixerRuleFile := createTestFile(t, unsupportedMixerRule)
-	defer closeMixerRuleFile.Close()
-
 	invalidYAMLFile, closeInvalidYAMLFile := createTestFile(t, invalidYAML)
 	defer closeInvalidYAMLFile.Close()
 
 	validKubernetesYAMLFile, closeKubernetesYAMLFile := createTestFile(t, validKubernetesYAML)
 	defer closeKubernetesYAMLFile.Close()
-
-	invalidMixerKindFile, closeInvalidMixerKindFile := createTestFile(t, invalidMixerKind)
-	defer closeInvalidMixerKindFile.Close()
 
 	versionLabelMissingDeploymentFile, closeVersionLabelMissingDeploymentFile := createTestFile(t, versionLabelMissingDeployment)
 	defer closeVersionLabelMissingDeploymentFile.Close()
@@ -535,11 +469,6 @@ func TestValidateCommand(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:      "unsupported mixer rule",
-			args:      []string{"--filename", unsupportedMixerRuleFilename},
-			wantError: true,
-		},
-		{
 			name:      "invalid filename",
 			args:      []string{"--filename", "INVALID_FILE_NAME"},
 			wantError: true,
@@ -555,11 +484,6 @@ func TestValidateCommand(t *testing.T) {
 			expectedRegexp: regexp.MustCompile(`^".*" is valid
 $`),
 			wantError: false,
-		},
-		{
-			name:      "invalid Mixer kind",
-			args:      []string{"--filename", invalidMixerKindFile},
-			wantError: true,
 		},
 		{
 			name:           "invalid top-level key",

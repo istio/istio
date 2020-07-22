@@ -420,8 +420,6 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 		switch component {
 		case "statsd-prom-bridge":
 			continue
-		case "mixer":
-			component = pod.Labels["istio-mixer-type"]
 		}
 
 		server := ComponentVersion{

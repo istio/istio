@@ -58,18 +58,6 @@ func TestOptions(t *testing.T) {
 			expected: `[{"exact":"fake"},{"exact":"other"}]`,
 		},
 		{
-			testName: "mixerSAN",
-			key:      "MixerSubjectAltName",
-			option:   option.MixerSubjectAltName([]string{"fake"}),
-			expected: "fake",
-		},
-		{
-			testName: "mixerSAN empty",
-			key:      "MixerSubjectAltName",
-			option:   option.MixerSubjectAltName(make([]string, 0)),
-			expected: nil,
-		},
-		{
 			testName: "nil connect timeout",
 			key:      "connect_timeout",
 			option:   option.ConnectTimeout(nil),

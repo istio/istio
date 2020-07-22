@@ -50,7 +50,6 @@ type ProxyConfig struct {
 	LogLevel            string
 	ComponentLogLevel   string
 	PilotSubjectAltName []string
-	MixerSubjectAltName []string
 	NodeIPs             []string
 	PodName             string
 	PodNamespace        string
@@ -159,7 +158,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			Node:                e.Node,
 			Proxy:               &e.Config,
 			PilotSubjectAltName: e.PilotSubjectAltName,
-			MixerSubjectAltName: e.MixerSubjectAltName,
 			LocalEnv:            os.Environ(),
 			NodeIPs:             e.NodeIPs,
 			PodName:             e.PodName,

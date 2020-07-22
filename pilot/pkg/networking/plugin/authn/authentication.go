@@ -58,7 +58,7 @@ func (Plugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
-// Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
+// Can be used to add additional filters or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {

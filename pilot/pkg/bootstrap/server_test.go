@@ -148,7 +148,7 @@ func TestNewServer(t *testing.T) {
 					FileDir: configDir,
 				}
 
-				// Include all of the default plugins for integration with Mixer, etc.
+				// Include all of the default plugins
 				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 			})

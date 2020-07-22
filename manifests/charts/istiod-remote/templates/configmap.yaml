@@ -1,43 +1,4 @@
 {{- define "mesh" }}
-    {{- if .Values.global.remotePolicyAddress }}
-    {{- if .Values.global.createRemoteSvcEndpoints }}
-    mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
-    {{- else }}
-    mixerCheckServer: {{ .Values.global.remotePolicyAddress }}:15004
-    {{- end }}
-    {{- end }}
-    {{- if .Values.global.remoteTelemetryAddress }}
-    {{- if .Values.global.createRemoteSvcEndpoints }}
-    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
-    {{- else }}
-    mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
-    {{- end }}
-    {{- else }}
-    {{- if .Values.mixer.policy.enabled }}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
-    {{- else }}
-    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
-    {{- end }}
-    {{- end }}
-    {{- if and .Values.telemetry.v1.enabled .Values.telemetry.enabled }}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
-    {{- else }}
-    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
-    {{- end }}
-    {{- end }}
-    {{- end }}
-
-    {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
-    # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
-    sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
-    {{- end }}
-    {{- if .Values.telemetry.v2.enabled }}
-    disableMixerHttpReports: true
-    {{- else }}
-    disableMixerHttpReports: false
-    {{- end }}
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain | quote }}
