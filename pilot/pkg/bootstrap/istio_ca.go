@@ -182,7 +182,8 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
 		true, features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
-		s.multicluster.GetRemoteKubeClient)
+		s.multicluster.GetRemoteKubeClient, features.ExternalCaAddr)
+
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -345,6 +346,24 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
+		}
+	} else if features.ExternalCaAddr != "" {
+		// Case: using external CA for signing Workload CSR with plugged root-cert.pem created by External CA.
+		// "root-cert.pem" is mounted from secret "cacerts".
+		// Ref: https://istio.io/latest/docs/tasks/security/cert-management/plugin-ca-cert/
+
+		log.Infof("Use external CA for signing workload CSR. CAaddr=%v", features.ExternalCaAddr)
+		log.Info("Checking root-cert.pem from secret 'cacerts'")
+		if _, err := os.Stat(rootCertFile); err != nil {
+			log.Errorf("create istiodCA failed, missing root-cert.pem in secret 'cacerts': %v", err)
+			return nil, fmt.Errorf("create istiodCA failed, missing root-cert.pem in secret 'cacerts': %v", err)
+		}
+		s.caBundlePath = rootCertFile
+
+		caOpts, err = ca.NewPluggedCertIstioCAOptions("", "", "",
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL, caRSAKeySize.Get())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create an istiod CA with external CA option: %v", err)
 		}
 	} else {
 		if err == nil {

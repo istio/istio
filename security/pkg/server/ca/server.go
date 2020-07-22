@@ -61,15 +61,17 @@ type CertificateAuthority interface {
 // Server implements IstioCAService and IstioCertificateService and provides the services on the
 // specified port.
 type Server struct {
-	monitoring     monitoringMetrics
-	Authenticators []authenticate.Authenticator
-	hostnames      []string
-	ca             CertificateAuthority
-	serverCertTTL  time.Duration
-	certificate    *tls.Certificate
-	port           int
-	forCA          bool
-	grpcServer     *grpc.Server
+	monitoring       monitoringMetrics
+	Authenticators   []authenticate.Authenticator
+	hostnames        []string
+	ca               CertificateAuthority
+	serverCertTTL    time.Duration
+	certificate      *tls.Certificate
+	port             int
+	forCA            bool
+	grpcServer       *grpc.Server
+	externalCAClient pb.IstioCertificateServiceClient
+	externalCAAddr   string
 }
 
 func getConnectionAddress(ctx context.Context) string {
@@ -98,6 +100,25 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 
 	// TODO: Call authorizer.
 
+	if s.externalCAClient != nil {
+		respCertChain, err := s.externalCAClient.CreateCertificate(ctx, &pb.IstioCertificateRequest{
+			Csr:              request.Csr,
+			ValidityDuration: request.ValidityDuration,
+		})
+
+		if err != nil {
+			serverCaLog.Errorf("forward CSR to External CA error (%v)", err.Error())
+			s.monitoring.GetCertSignError(err.Error()).Increment()
+			return nil, status.Errorf(codes.Aborted, "forward CSR to External CA error (%v)", err)
+		}
+
+		s.monitoring.Success.Increment()
+		serverCaLog.Debug("Workload CSR was successfully signed by External CA")
+
+		return &pb.IstioCertificateResponse{
+			CertChain: respCertChain.CertChain,
+		}, nil
+	}
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	cert, signErr := s.ca.Sign(
 		[]byte(request.Csr), caller.Identities, time.Duration(request.ValidityDuration)*time.Second, false)
@@ -178,14 +199,15 @@ func (s *Server) Run() error {
 // New creates a new instance of `IstioCAServiceServer`.
 func New(ca CertificateAuthority, ttl time.Duration, forCA bool,
 	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string) (*Server, error) {
-	return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy, clusterID, nil, nil)
+	return NewWithGRPC(nil, ca, ttl, forCA, hostlist, port, trustDomain, sdsEnabled, jwtPolicy, clusterID,
+		nil, nil, "")
 }
 
-// New creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
+// NewWithGRPC creates a new instance of `IstioCAServiceServer`, running inside an existing gRPC server.
 func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, forCA bool,
 	hostlist []string, port int, trustDomain string, sdsEnabled bool, jwtPolicy, clusterID string,
 	kubeClient kubernetes.Interface,
-	remoteKubeClientGetter authenticate.RemoteKubeClientGetter) (*Server, error) {
+	remoteKubeClientGetter authenticate.RemoteKubeClientGetter, caAddr string) (*Server, error) {
 
 	if len(hostlist) == 0 {
 		return nil, fmt.Errorf("failed to create grpc server hostlist empty")
@@ -215,8 +237,35 @@ func NewWithGRPC(grpc *grpc.Server, ca CertificateAuthority, ttl time.Duration, 
 		port:           port,
 		grpcServer:     grpc,
 		monitoring:     newMonitoringMetrics(),
+		externalCAAddr: caAddr,
 	}
+	err := server.connectToExternalCAIfEnabled()
+
+	if err != nil {
+		serverCaLog.Errorf("cannot create Istiod CA with external CA options: %v", err)
+		return nil, fmt.Errorf("cannot create Istiod CA with external CA options: %v", err)
+	}
+
 	return server, nil
+}
+func (s *Server) connectToExternalCAIfEnabled() error {
+
+	if s.externalCAAddr == "" {
+		return nil
+	}
+
+	cp := x509.NewCertPool()
+	rootCertBytes := s.ca.GetCAKeyCertBundle().GetRootCertPem()
+	cp.AppendCertsFromPEM(rootCertBytes)
+	transportCreds := credentials.NewTLS(&tls.Config{
+		RootCAs: cp,
+	})
+	conn, err := grpc.Dial(s.externalCAAddr, grpc.WithTransportCredentials(transportCreds))
+	if err != nil {
+		return fmt.Errorf("cannot connect to external CA server: %v", err)
+	}
+	s.externalCAClient = pb.NewIstioCertificateServiceClient(conn)
+	return nil
 }
 
 func (s *Server) createTLSServerOption() grpc.ServerOption {
