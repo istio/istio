@@ -860,12 +860,13 @@ func TestAuthnFilterConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name                    string
-		isGateway               bool
-		skipTrustDomainValidate bool
-		jwtIn                   []*model.Config
-		peerIn                  []*model.Config
-		expected                *http_conn.HttpFilter
+		name                         string
+		isGateway                    bool
+		gatewayServerUsesIstioMutual bool
+		skipTrustDomainValidate      bool
+		jwtIn                        []*model.Config
+		peerIn                       []*model.Config
+		expected                     *http_conn.HttpFilter
 	}{
 		{
 			name: "no-policy",
@@ -889,9 +890,32 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 		},
 		{
-			name:      "no-policy-for-gateway",
+			name:      "no-policy-for-gateway-with-non-istio-mutual-servers",
 			isGateway: true,
 			expected:  nil,
+		},
+		{
+			name:                         "policy-for-gateway-with-istio-mutual-server",
+			isGateway:                    true,
+			gatewayServerUsesIstioMutual: true,
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{
+											Mode: authn_alpha.MutualTls_STRICT,
+										},
+									},
+								},
+							},
+						},
+					}),
+				},
+			},
 		},
 		{
 			name:                    "no-request-authn-rule-skip-trust-domain",
@@ -1143,7 +1167,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 		},
 		{
-			name:      "beta-mtls-for-gateway",
+			name:      "beta-mtls-for-gateway-does-not-respect-mtls-configs",
 			isGateway: true,
 			peerIn: []*model.Config{
 				{
@@ -1201,7 +1225,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			if c.isGateway {
 				proxyType = model.Router
 			}
-			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, 80)
+			got := NewPolicyApplier("root-namespace", c.jwtIn, c.peerIn).AuthNFilter(proxyType, 80, c.gatewayServerUsesIstioMutual)
 			if !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
 			}

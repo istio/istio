@@ -79,8 +79,9 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
-	if proxyType != model.SidecarProxy {
+func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, istio_mutual_gateway bool,
+	config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+	if proxyType != model.SidecarProxy && !istio_mutual_gateway {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
 		return config
 	}
@@ -91,17 +92,33 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	p := config.Policy
 	p.Peers = []*authn_alpha.PeerAuthenticationMethod{}
 
-	effectiveMTLSMode := a.getMutualTLSModeForPort(port)
-	if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
-		mode := authn_alpha.MutualTls_PERMISSIVE
-		if effectiveMTLSMode == model.MTLSStrict {
-			mode = authn_alpha.MutualTls_STRICT
+	if proxyType == model.SidecarProxy {
+		effectiveMTLSMode := a.getMutualTLSModeForPort(port)
+		if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
+			mode := authn_alpha.MutualTls_PERMISSIVE
+			if effectiveMTLSMode == model.MTLSStrict {
+				mode = authn_alpha.MutualTls_STRICT
+			}
+			p.Peers = []*authn_alpha.PeerAuthenticationMethod{
+				{
+					Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+						Mtls: &authn_alpha.MutualTls{
+							Mode: mode,
+						},
+					},
+				},
+			}
 		}
+	} else {
+		// this is for gateway with a server whose TLS mode is ISTIO_MUTUAL
+		// this is effectively the same as strict mode. We dont really
+		// care about permissive or strict here. We simply need to validate that the peer cert is
+		// a proper spiffe cert so that authz policies can use source principal based validations here.
 		p.Peers = []*authn_alpha.PeerAuthenticationMethod{
 			{
 				Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
 					Mtls: &authn_alpha.MutualTls{
-						Mode: mode,
+						Mode: authn_alpha.MutualTls_STRICT,
 					},
 				},
 			},
@@ -149,11 +166,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32, istio_mutual_gateway bool) *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with peer authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, filterConfigProto)
+	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, istio_mutual_gateway, filterConfigProto)
 	// Override the config with request authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
 

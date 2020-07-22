@@ -109,7 +109,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 					routeName := mergedGateway.RouteNamesByServer[server]
 					filterChainOpts = append(filterChainOpts, configgen.createGatewayHTTPFilterChainOpts(builder.node, server,
 						routeName, builder.push.Mesh.SdsUdsPath, proxyConfig))
-					filterChains = append(filterChains, istionetworking.FilterChain{ListenerProtocol: istionetworking.ListenerProtocolHTTP})
+					filterChains = append(filterChains, istionetworking.FilterChain{
+						ListenerProtocol: istionetworking.ListenerProtocolHTTP,
+						GatewayServerTLSMode: server.Tls.Mode,
+					})
 				} else {
 					// passthrough or tcp, yields multiple filter chains
 					tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
