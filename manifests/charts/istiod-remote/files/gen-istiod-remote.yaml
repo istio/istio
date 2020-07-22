@@ -21,7 +21,7 @@ data:
         DNS_AGENT: ""
       tracing:
         zipkin:
-          address: zipkin.istio-system:9411
+          address: zipkin:9411
     enablePrometheusMerge: true
     rootNamespace: istio-system
     trustDomain: cluster.local
@@ -61,7 +61,6 @@ data:
           }
         },
         "defaultTolerations": [],
-        "enableHelmTest": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -90,7 +89,6 @@ data:
         "oneNamespace": false,
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
-        "policyNamespace": "istio-system",
         "priorityClassName": "",
         "prometheusNamespace": "istio-system",
         "proxy": {
@@ -135,8 +133,6 @@ data:
           }
         },
         "remotePilotAddress": "",
-        "remotePolicyAddress": "",
-        "remoteTelemetryAddress": "",
         "sds": {
           "token": {
             "aud": "istio-ca"
@@ -146,7 +142,6 @@ data:
           "servicePort": 0
         },
         "tag": "latest",
-        "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
             "address": "$(HOST_IP):8126"
@@ -162,7 +157,7 @@ data:
             "maxNumberOfMessageEvents": 200
           },
           "zipkin": {
-            "address": ""
+            "address": "zipkin:9411"
           }
         },
         "trustDomain": "cluster.local",

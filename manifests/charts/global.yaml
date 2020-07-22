@@ -20,12 +20,7 @@ global:
   # used (citadel generating the secrets).
   istioNamespace: istio-system
 
-  # Telemetry namespace, including tracing.
-  telemetryNamespace: istio-system
-
   prometheusNamespace: istio-system
-
-  policyNamespace: istio-system
 
   ## End new settings
   ## After this line we have the old Istio settings.
@@ -151,7 +146,7 @@ global:
     zipkin:
       # Host:Port for reporting trace data in zipkin format. If not specified, will default to
       # zipkin service (port 9411) in the same namespace as the other istio components.
-      address: ""
+      address: "zipkin:9411"
     datadog:
       # Host:Port for submitting traces to the Datadog agent.
       address: "$(HOST_IP):8126"
@@ -353,10 +348,6 @@ global:
   # corresponds to the networks in the map of mesh networks.
   network: ""
 
-  # Specifies whether helm test is enabled or not.
-  # This field is set to false by default, so 'helm template ...'
-  # will ignore the helm test yaml files when generating the template
-  enableHelmTest: false
   # Configure whether Operator manages webhook configurations. The current behavior
   # of Istiod is to manage its own webhook configurations.
   # When this option is set as true, Istio Operator, instead of webhooks, manages the
@@ -368,9 +359,7 @@ global:
   createRemoteSvcEndpoints: false
   
   # configure remote pilot and istiod service and endpoint
-  remotePolicyAddress: ""
   remotePilotAddress: ""
-  remoteTelemetryAddress: ""
 
   # Configure the certificate provider for control plane communication.
   # Currently, two providers are supported: "kubernetes" and "istiod".
