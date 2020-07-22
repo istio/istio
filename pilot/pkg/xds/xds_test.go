@@ -15,13 +15,10 @@
 package xds
 
 import (
-	"bytes"
 	"io/ioutil"
+	"istio.io/istio/pkg/config/labels"
 	"path"
 	"testing"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
@@ -304,26 +301,48 @@ func TestSidecarListeners(t *testing.T) {
 
 func TestMeshNetworking(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{
-		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
+		ObjectString: `
+apiVersion: v1
+kind: Pod
 metadata:
-  name: pod
+  name: kubeapp-1234
+  namespace: pod
+  labels:
+    app: kubeapp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeapp
   namespace: pod
 spec:
-  hosts:
-  - pod.pod.svc.cluster.local
+  selector:
+    app: kubeapp
   ports:
-  - number: 80
+  - port: 80
     name: http
-    protocol: HTTP
-  resolution: STATIC
-  location: MESH_INTERNAL
-  endpoints:
-  - address: 10.10.10.20
-    labels:
-      app: pod
-    network: Kubernetes
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: kubeapp
+  namespace: pod
+  labels:
+    app: kubeapp
+subsets:
+- addresses:
+  - ip: 10.10.10.20
+    targetRef:
+      kind: Pod
+      name: kubeapp-1234
+      namespace: pod
+  ports:
+  - port: 80
+    name: http
+    protocol: TCP
+`,
+		ConfigString: `
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -345,7 +364,7 @@ spec:
     network: vm
 `,
 		MeshNetworks: &meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
-			"Kubernetes": {
+			"network-1": {
 				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
 					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
 				}},
@@ -358,7 +377,12 @@ spec:
 		}},
 	})
 	pod := s.SetupProxy(&model.Proxy{
-		Metadata: &model.NodeMetadata{Network: "Kubernetes"},
+		ID: "kubeapp-1234.pod",
+		Metadata: &model.NodeMetadata{
+			Network:   "network-1",
+			ClusterID: "Kubernetes",
+			Labels:    labels.Instance{"app": "kubeapp"},
+		},
 	})
 	vm := s.SetupProxy(&model.Proxy{
 		IPAddresses:     []string{"10.10.10.10"},
@@ -370,36 +394,12 @@ spec:
 	})
 
 	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|7070||httpbin.com"], []string{"10.10.10.10"})
+	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|80||pod.pod.svc.cluster.local"], []string{"10.10.10.20"})
 	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||pod.pod.svc.cluster.local"], []string{"2.2.2.2"})
 }
 
 func TestEgressProxy(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{
-		ObjectString: `
-apiVersion: v1
-kind: Pod
-metadata:
-  name: my-custom-pod
-  namespace: pod
-  labels:
-    app: custom
-    custom-label: val
-stats:
-  hostIP: 1.2.3.4
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-custom-svc
-  namespace: pod
-spec:
-  selector:
-    app: custom
-  ports:
-  - port: 80
-    name: http
-    protocol: HTTP
-`,
 		ConfigString: `
 # Add a random endpoint, otherwise there will be no routes to check
 apiVersion: networking.istio.io/v1alpha3
@@ -498,11 +498,4 @@ func mustReadFile(t *testing.T, f string) string {
 		t.Fatalf("failed to read %v: %v", f, err)
 	}
 	return string(b)
-}
-
-func mustParseObject(t *testing.T, o runtime.Object, y string) runtime.Object {
-	if err := yaml.NewYAMLOrJSONDecoder(bytes.NewBufferString(y), len(y)).Decode(o); err != nil {
-		t.Fatalf("failed to unmarshal kubernetes object: %v", err)
-	}
-	return o
 }
