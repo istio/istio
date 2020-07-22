@@ -531,22 +531,22 @@ func getOutlierDetectionAndLoadBalancerSettings(cfg *model.Config, portNumber in
 	var lbSettings *networkingapi.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}
-	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
-	lbSettings = loadBalancerSettings
-	if outlierDetection != nil {
-		outlierDetectionEnabled = true
-	}
+	policy := networking.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
 
 	for _, subset := range destinationRule.Subsets {
 		if subset.Name == subsetName {
-			_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
-			lbSettings = loadBalancerSettings
-			if outlierDetection != nil {
-				outlierDetectionEnabled = true
-			}
+			policy = networking.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
 			break
 		}
 	}
+
+	if policy != nil {
+		lbSettings = policy.LoadBalancer
+		if policy.OutlierDetection != nil {
+			outlierDetectionEnabled = true
+		}
+	}
+
 	return outlierDetectionEnabled, lbSettings
 }
 

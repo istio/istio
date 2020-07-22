@@ -409,7 +409,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, instance.ServicePort)
+			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
@@ -505,29 +505,16 @@ func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Prox
 }
 
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
-func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
+func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings) {
 	if policy == nil {
 		return nil, nil, nil, nil
 	}
-	// Default to traffic policy's settings.
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
-	// Check if port level overrides exist, if yes override with them.
-	if port != nil && len(policy.PortLevelSettings) > 0 {
-		for _, p := range policy.PortLevelSettings {
-			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				connectionPool = p.ConnectionPool
-				outlierDetection = p.OutlierDetection
-				loadBalancer = p.LoadBalancer
-				tls = p.Tls
-				break
-			}
-		}
-	}
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
@@ -633,7 +620,7 @@ func setH2Options(cluster *cluster.Cluster) {
 }
 
 func applyTrafficPolicy(opts buildClusterOpts) {
-	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
+	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	applyH2Upgrade(opts, connectionPool)
 	applyConnectionPool(opts.push, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
@@ -930,10 +917,6 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 				},
 				defaultTransportSocketMatch,
 			}
-		} else {
-			// Since previous calls to applyTrafficPolicy may have set TransportSocketMatches for a subset cluster
-			// make sure they are reset.  See https://github.com/istio/istio/issues/23910
-			c.TransportSocketMatches = nil
 		}
 	}
 }
