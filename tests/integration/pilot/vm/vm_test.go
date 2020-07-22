@@ -86,8 +86,8 @@ spec:
 				},
 			}
 
-			clusterServiceHostname := "cluster"
-			headlessServiceHostname := "headless"
+			clusterServiceHostname := "c"
+			headlessServiceHostname := "h"
 			var k8sClusterIPService echo.Instance
 			var k8sHeadlessService echo.Instance
 			// builder to build the instances iteratively
