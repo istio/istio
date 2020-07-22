@@ -12,5 +12,42 @@ data:
           "STACKDRIVER_MONITORING_EXPORT_INTERVAL_SECS": "10",
           "MESH_ID": "test-mesh",
         }
-      }
+      },
+      "tracing": {
+        "http": {
+          "name": "envoy.tracers.opencensus",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.config.trace.v3.OpenCensusConfig",
+            "trace_config": {
+              "constant_sampler": {
+                "decision": "ALWAYS_PARENT"
+              },
+              "max_number_of_attributes": "200",
+              "max_number_of_annotations": "200",
+              "max_number_of_message_events": "200",
+              "max_number_of_links": "200"
+            },
+            "stackdriver_exporter_enabled": true,
+            "stackdriver_grpc_service": {
+              "google_grpc": {
+                "target_uri": "stackdriver.{{ .StackdriverNamespace }}.svc.cluster.local:8090",
+                "stat_prefix": "oc_stackdriver_tracer",
+              }
+            },
+            "stackdriver_project_id": "test-project",
+            "incoming_trace_context": [
+              "CLOUD_TRACE_CONTEXT",
+              "TRACE_CONTEXT",
+              "GRPC_TRACE_BIN",
+              "B3"
+            ],
+            "outgoing_trace_context": [
+              "CLOUD_TRACE_CONTEXT",
+              "TRACE_CONTEXT",
+              "GRPC_TRACE_BIN",
+              "B3"
+            ]
+          }
+        }
+      },
     }

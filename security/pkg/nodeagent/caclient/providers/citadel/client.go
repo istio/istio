@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	pb "istio.io/istio/security/proto"
+	pb "istio.io/api/security/v1alpha1"
 	"istio.io/pkg/log"
 )
 
