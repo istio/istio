@@ -213,7 +213,7 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string, resourceType string, mutual bool) {
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string, resourceType string) {
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
@@ -225,19 +225,13 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
-		// Configure validation context it is mutual or subject alt names are given.
-		if len(subjectAltNames) > 0 || mutual {
-			validationContext := &tls.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{},
-			}
-			if mutual {
-				validationContext.CombinedValidationContext.ValidationContextSdsSecretConfig = ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), resourceType)
-			}
-			if len(subjectAltNames) > 0 {
-				validationContext.CombinedValidationContext.DefaultValidationContext = &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)}
-			}
-			tlsContext.ValidationContextType = validationContext
+		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), resourceType),
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+			},
 		}
+
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
 			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), resourceType),
 		}

@@ -429,7 +429,7 @@ func buildGatewayListenerTLSContext(
 	case server.Tls.CredentialName != "":
 		authn_model.ApplyCustomSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls, authn_model.GatewaySdsUdsPath, requestedType)
 	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, requestedType, true)
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, requestedType)
 	case server.Tls.Mode == networking.ServerTLSSettings_MUTUAL || server.Tls.Mode == networking.ServerTLSSettings_SIMPLE:
 		// If certificate files are specified in gateway configuration, use file based SDS.
 		certmetadata := &model.NodeMetadata{
@@ -438,7 +438,7 @@ func buildGatewayListenerTLSContext(
 			TLSServerRootCert:  server.Tls.CaCertificates,
 			SdsEnabled:         true,
 		}
-		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certmetadata, sdsPath, server.Tls.SubjectAltNames, requestedType, server.Tls.Mode == networking.ServerTLSSettings_MUTUAL)
+		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, certmetadata, sdsPath, server.Tls.SubjectAltNames, requestedType)
 	}
 
 	ctx.RequireClientCertificate = proto.BoolFalse
