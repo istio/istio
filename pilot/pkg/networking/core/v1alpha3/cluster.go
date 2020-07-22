@@ -1031,11 +1031,13 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			Sni:              tls.Sni,
 		}
 
-		// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
-		if res.GetRootResourceName() == "" {
+		if res.GetRootResourceName() == "" && features.EnableDefaultToSystemCAValidation.Get() {
 			res = model.SdsCertificateConfig{
-				CaCertificatePath: "/etc/ssl/certs/ca-certificates.crt",
+				CaCertificatePath: features.SystemCAFilePath.Get(),
 			}
+		} else {
+			// If tls.CaCertificate or USE_SYSTEM_CA_FALLBACK is not enabled do no validation
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 		}
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
@@ -1108,11 +1110,13 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), node.RequestedTypes.CDS))
 
-			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
-			if res.GetRootResourceName() == "" {
+			if res.GetRootResourceName() == "" && features.EnableDefaultToSystemCAValidation.Get() {
 				res = model.SdsCertificateConfig{
-					CaCertificatePath: "/etc/ssl/certs/ca-certificates.crt",
+					CaCertificatePath: features.SystemCAFilePath.Get(),
 				}
+			} else {
+				// If tls.CaCertificate or USE_SYSTEM_CA_FALLBACK is not enabled do no validation
+				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			}
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
