@@ -40,7 +40,9 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		installer := install.NewInstaller(cfg)
+		isReady := install.StartServer()
+
+		installer := install.NewInstaller(cfg, isReady)
 
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
