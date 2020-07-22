@@ -103,9 +103,6 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath, requestedType strin
 					},
 				},
 			},
-			// set the fetch timeout to 0 here because workload certs are
-			// guaranteed to exist. while others like gateway certs may not
-			// exist.
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
@@ -196,9 +193,9 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 					},
 				},
 			},
-			// set the fetch timeout to 0 here because workload certs are
-			// guaranteed to exist. while others like gateway certs may not
-			// exist.
+			// set the fetch timeout to 0 here if resource names matched
+			// because workload certs are guaranteed to exist. while others
+			// like gateway certs may not exist.
 			InitialFetchTimeout: fetchTimeout},
 	}
 	if useV3 {
