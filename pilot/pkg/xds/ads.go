@@ -249,9 +249,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	// initialize with empty config, leading to reconnected Envoys loosing
 	// configuration. This is an additional safety check inaddition to adding
 	// cachesSynced logic to readiness probe to handle cases where kube-proxy
-	// ip tables update latencies. See https://github.com/istio/istio/issues/25495.
+	// ip tables update latencies.
+	// See https://github.com/istio/istio/issues/25495.
 	if !s.IsServerReady() {
-		return errors.New("Server is not ready to serve discovery information.")
+		return errors.New("server is not ready to serve discovery information")
 	}
 
 	ctx := stream.Context()
