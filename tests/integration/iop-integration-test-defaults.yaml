@@ -4,13 +4,6 @@ kind: IstioOperator
 spec:
   meshConfig:
     accessLogFile: "/dev/stdout"
-    #defaultConfig:
-    #  proxyMetadata:
-    #    ISTIO_META_DNS_CAPTURE: "ALL"
-  components:
-  addonComponents:
-    prometheus:
-      enabled: false
   values:
     global:
       proxy:
@@ -18,9 +11,6 @@ spec:
           requests:
             cpu: 10m
             memory: 40Mi
-
-    prometheus:
-      scrapeInterval: 5s
 
     gateways:
       istio-ingressgateway:
@@ -42,28 +32,3 @@ spec:
           limits:
             cpu: 100m
             memory: 128Mi
-
-    mixer:
-      policy:
-        replicaCount: 2
-        autoscaleEnabled: false
-        resources:
-          requests:
-            cpu: 10m
-            memory: 100Mi
-          limits:
-            cpu: 100m
-            memory: 100Mi
-      telemetry:
-        loadshedding:
-          mode: disabled
-        resources:
-          requests:
-            cpu: 50m
-            memory: 100Mi
-          limits:
-            cpu: 100m
-            memory: 100Mi
-      adapters:
-        stdio:
-          enabled: true
