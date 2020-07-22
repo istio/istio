@@ -39,70 +39,70 @@ import (
 )
 
 var (
-	describeSvcAOutput = regexp.MustCompile(`Service: a\..*
+	describeSvcAOutput = regexp.MustCompile(`Service: a-0\..*
    Port: http 80/HTTP targets pod port 18080
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
    Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
-80 DestinationRule: a\..* for "a"
+80 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-80 VirtualService: a\..*
+80 VirtualService: a-0\..*
    when headers are end-user=jason
 80 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-7070 DestinationRule: a\..* for "a"
+7070 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-7070 VirtualService: a\..*
+7070 VirtualService: a-0\..*
    when headers are end-user=jason
 7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-9090 DestinationRule: a\..* for "a"
+9090 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
 9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-9091 DestinationRule: a\..* for "a"
+9091 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-81 DestinationRule: a\..* for "a"
+81 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-7071 DestinationRule: a\..* for "a"
+7071 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
 `)
 
-	describePodAOutput = regexp.MustCompile(`Service: a\..*
+	describePodAOutput = regexp.MustCompile(`Service: a-0\..*
    Port: http 80/HTTP targets pod port 18080
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
    Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
-80 DestinationRule: a\..* for "a"
+80 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-80 VirtualService: a\..*
+80 VirtualService: a-0\..*
    when headers are end-user=jason
 80 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-7070 DestinationRule: a\..* for "a"
+7070 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-7070 VirtualService: a\..*
+7070 VirtualService: a-0\..*
    when headers are end-user=jason
 7070 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-9090 DestinationRule: a\..* for "a"
+9090 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
 9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
-9091 DestinationRule: a\..* for "a"
+9091 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-81 DestinationRule: a\..* for "a"
+81 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
-7071 DestinationRule: a\..* for "a"
+7071 DestinationRule: a-0\..* for "a-0"
    Matching subsets: v1
    No Traffic Policy
 `)
@@ -236,7 +236,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			var a echo.Instance
 			echoboot.NewBuilder(ctx).
-				With(&a, echoConfig(ns, "a")).
+				With(&a, echoConfig(ns, "a-0")).
 				BuildOrFail(ctx)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
@@ -247,7 +247,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			// able to remove from mesh when the deployment is auto injected
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "remove-from-mesh", "service", "a"}
+				"x", "remove-from-mesh", "service", "a-0"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(removeFromMeshPodAOutput))
 
@@ -258,7 +258,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			}
 
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
-				"x", "add-to-mesh", "service", "a"}
+				"x", "add-to-mesh", "service", "a-0"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.MatchRegexp(addToMeshPodAOutput))
 		})
