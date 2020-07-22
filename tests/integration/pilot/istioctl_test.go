@@ -173,12 +173,12 @@ func TestDescribe(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "../istioctl/testdata/a.yaml")
-			ctx.Config().ApplyYAMLOrFail(t, echoNamespace.Name(), deployment)
-			defer ctx.Config().DeleteYAMLOrFail(t, echoNamespace.Name(), deployment)
+			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), deployment)
+			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), deployment)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(a)
+			podID, err := getPodID(apps.podA)
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -188,7 +188,7 @@ func TestDescribe(t *testing.T) {
 			// run in parallel.
 			retry.UntilSuccessOrFail(ctx, func() error {
 				args := []string{"--namespace=dummy",
-					"x", "describe", "svc", fmt.Sprintf("a.%s", echoNamespace.Name())}
+					"x", "describe", "svc", fmt.Sprintf("a.%s", apps.namespace.Name())}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
@@ -201,7 +201,7 @@ func TestDescribe(t *testing.T) {
 
 			retry.UntilSuccessOrFail(ctx, func() error {
 				args := []string{"--namespace=dummy",
-					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
+					"x", "describe", "pod", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
@@ -274,7 +274,7 @@ func TestProxyConfig(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(a)
+			podID, err := getPodID(apps.podA)
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -284,37 +284,37 @@ func TestProxyConfig(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 
 			args = []string{"--namespace=dummy",
-				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
+				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
 
 			args = []string{"--namespace=dummy",
-				"pc", "cluster", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
+				"pc", "cluster", fmt.Sprintf("%s.%s", podID, apps.namespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
+				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, apps.namespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "listener", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
+				"pc", "listener", fmt.Sprintf("%s.%s", podID, apps.namespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "route", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
+				"pc", "route", fmt.Sprintf("%s.%s", podID, apps.namespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{"--namespace=dummy",
-				"pc", "secret", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "-o", "json"}
+				"pc", "secret", fmt.Sprintf("%s.%s", podID, apps.namespace.Name()), "-o", "json"}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
@@ -338,7 +338,7 @@ func TestProxyStatus(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(a)
+			podID, err := getPodID(apps.podA)
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -351,10 +351,10 @@ func TestProxyStatus(t *testing.T) {
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			// Just verify pod A is known to Pilot; implicitly this verifies that
 			// the printing code printed it.
-			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, echoNamespace.Name())))
+			g.Expect(output).To(gomega.ContainSubstring(fmt.Sprintf("%s.%s", podID, apps.namespace.Name())))
 
 			args = []string{
-				"proxy-status", fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
+				"proxy-status", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
@@ -363,12 +363,12 @@ func TestProxyStatus(t *testing.T) {
 			// test the --file param
 			filename := "ps-configdump.json"
 			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
-			dump, err := cs.EnvoyDo(context.TODO(), podID, echoNamespace.Name(), "GET", "config_dump", nil)
+			dump, err := cs.EnvoyDo(context.TODO(), podID, apps.namespace.Name(), "GET", "config_dump", nil)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			err = ioutil.WriteFile(filename, dump, os.ModePerm)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			args = []string{
-				"proxy-status", fmt.Sprintf("%s.%s", podID, echoNamespace.Name()), "--file", filename}
+				"proxy-status", fmt.Sprintf("%s.%s", podID, apps.namespace.Name()), "--file", filename}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			g.Expect(output).To(gomega.ContainSubstring("Clusters Match"))
 			g.Expect(output).To(gomega.ContainSubstring("Listeners Match"))
@@ -381,18 +381,18 @@ func TestAuthZCheck(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			authPol := file.AsStringOrFail(t, "../istioctl/testdata/authz-a.yaml")
-			ctx.Config().ApplyYAMLOrFail(t, echoNamespace.Name(), authPol)
-			defer ctx.Config().DeleteYAMLOrFail(t, echoNamespace.Name(), authPol)
+			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), authPol)
+			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), authPol)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
-			podID, err := getPodID(a)
+			podID, err := getPodID(apps.podA)
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
 
 			args := []string{"experimental", "authz", "check",
-				fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
+				fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
 			regex := regexp.MustCompile(`noneSDS: default.*\[integ-test\]`)
 
 			// Verify the output includes a policy "integ-test", which is the policy

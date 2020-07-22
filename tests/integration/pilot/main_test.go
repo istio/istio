@@ -30,19 +30,36 @@ import (
 var (
 	i istio.Instance
 
-	// Namespace echo apps will be deployed
-	echoNamespace namespace.Instance
-
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
 	// its doing something unique to that specific test.
+	apps EchoDeployments
+
+	echoPorts = []echo.Port{
+		{Name: "tcp", Protocol: protocol.TCP, InstancePort: 7070},
+		{Name: "http", Protocol: protocol.HTTP, InstancePort: 8080},
+		{Name: "grpc", Protocol: protocol.GRPC, InstancePort: 9090},
+		{Name: "auto-tcp", Protocol: protocol.TCP, InstancePort: 7071},
+		{Name: "auto-http", Protocol: protocol.HTTP, InstancePort: 8081},
+		{Name: "auto-grpc", Protocol: protocol.GRPC, InstancePort: 9091},
+	}
+)
+
+type EchoDeployments struct {
+	// Namespace echo apps will be deployed
+	namespace namespace.Instance
+
 	// Standard echo app to be used by tests
-	a echo.Instance
+	podA echo.Instance
 	// Standard echo app to be used by tests
-	b echo.Instance
+	podB echo.Instance
+	// Headless echo app to be used by tests
+	headless echo.Instance
 	// Echo app to be used by tests, with no sidecar injected
 	naked echo.Instance
-)
+	// A virtual machine echo app
+	vmA echo.Instance
+}
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
@@ -60,38 +77,50 @@ values:
 		Setup(func(ctx resource.Context) error {
 			var err error
 			// TODO: allow using an existing namespace to allow repeated runs with 0 setup
-			echoNamespace, err = namespace.New(ctx, namespace.Config{
+			apps.namespace, err = namespace.New(ctx, namespace.Config{
 				Prefix: "echo",
 				Inject: true,
 			})
 			if err != nil {
 				return err
 			}
-			ports := []echo.Port{
-				{Name: "http", Protocol: protocol.HTTP},
-				{Name: "grpc", Protocol: protocol.GRPC},
-				{Name: "tcp", Protocol: protocol.TCP},
-				{Name: "auto-tcp", Protocol: protocol.TCP},
-				{Name: "auto-http", Protocol: protocol.HTTP},
-				{Name: "auto-grpc", Protocol: protocol.GRPC},
+			// Headless services don't work with targetPort, set to same port
+			headlessPorts := make([]echo.Port, len(echoPorts))
+			for i, p := range echoPorts {
+				p.ServicePort = p.InstancePort
+				headlessPorts[i] = p
 			}
 			if _, err := echoboot.NewBuilder(ctx).
-				With(&a, echo.Config{
-					Service:   "a",
-					Namespace: echoNamespace,
-					Ports:     ports,
+				With(&apps.podA, echo.Config{
+					Service:   "pod-a",
+					Namespace: apps.namespace,
+					Ports:     echoPorts,
 					Subsets:   []echo.SubsetConfig{{}},
 				}).
-				With(&b, echo.Config{
+				With(&apps.podB, echo.Config{
 					Service:   "b",
-					Namespace: echoNamespace,
-					Ports:     ports,
+					Namespace: apps.namespace,
+					Ports:     echoPorts,
 					Subsets:   []echo.SubsetConfig{{}},
 				}).
-				With(&naked, echo.Config{
+				With(&apps.headless, echo.Config{
+					Service:   "headless",
+					Headless:  true,
+					Namespace: apps.namespace,
+					Ports:     headlessPorts,
+					Subsets:   []echo.SubsetConfig{{}},
+				}).
+				With(&apps.vmA, echo.Config{
+					Service:    "vm-a",
+					Namespace:  apps.namespace,
+					Ports:      echoPorts,
+					DeployAsVM: true,
+					Subsets:    []echo.SubsetConfig{{}},
+				}).
+				With(&apps.naked, echo.Config{
 					Service:   "naked",
-					Namespace: echoNamespace,
-					Ports:     ports,
+					Namespace: apps.namespace,
+					Ports:     echoPorts,
 					Subsets: []echo.SubsetConfig{
 						{
 							Annotations: map[echo.Annotation]*echo.AnnotationValue{

@@ -31,11 +31,6 @@ const (
 	DefaultVMImage = "app_sidecar_ubuntu_bionic"
 )
 
-func GetSupportedOSVersion() []string {
-	return []string{"app_sidecar_ubuntu_xenial", "app_sidecar_ubuntu_focal", "app_sidecar_ubuntu_bionic",
-		"app_sidecar_debian_9", "app_sidecar_debian_10", "app_sidecar_centos_8"}
-}
-
 func SendTraffic(t *testing.T, batchSize int, from, to echo.Instance, hosts []string, weight []int32, errorThreshold float64) {
 	t.Helper()
 	// Send `batchSize` requests and ensure they are distributed as expected.
