@@ -213,15 +213,9 @@ spec:
         domain: ""
         env: {}
         meshExpansionPorts:
-        - name: tcp-pilot-grpc-tls
-          port: 15011
-          targetPort: 15011
         - name: tcp-istiod
           port: 15012
           targetPort: 15012
-        - name: tcp-citadel-grpc-tls
-          port: 8060
-          targetPort: 8060
         - name: tcp-dns-tls
           port: 853
           targetPort: 8853
@@ -346,7 +340,7 @@ spec:
       envSecrets: {}
       image:
         repository: grafana/grafana
-        tag: 7.0.3
+        tag: 7.0.5
       nodeSelector: {}
       persist: false
       podAntiAffinityLabelSelector: []
@@ -467,7 +461,7 @@ spec:
       scrapeInterval: 15s
       security:
         enabled: true
-      tag: v2.18.1
+      tag: v2.19.2
       tolerations: []
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
