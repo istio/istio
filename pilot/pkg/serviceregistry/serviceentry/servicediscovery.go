@@ -442,6 +442,7 @@ type servicesWithEntry struct {
 // the config handlers.
 // This should probably not be used in production code.
 func (s *ServiceEntryStore) ResyncEDS() {
+	s.maybeRefreshIndexes()
 	allInstances := []*model.ServiceInstance{}
 	for _, imap := range s.instances {
 		for _, i := range imap {
