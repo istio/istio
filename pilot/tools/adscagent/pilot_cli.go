@@ -58,13 +58,16 @@ import (
 
 	//	"istio.io/istio/pkg/util/gogoprotomarshal"
 
+	_ "net/http"
+	_ "net/http/pprof"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
 var (
 	// Same as normal agent
-	namespace = env.RegisterStringVar("POD_NAMESPACE", "default", "Pod namespace")
+	namespace = env.RegisterStringVar("POD_NAMESPACE", "dev", "Pod namespace")
 
 	// TODO: labels, PROXY_CONFIG
 
@@ -168,8 +171,11 @@ func main() {
 	})
 	http.HandleFunc("/sub/", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
-		agentc.ADSC.Send(&discovery.DiscoveryRequest{
+		err := agentc.ADSC.Send(&discovery.DiscoveryRequest{
 			TypeUrl: r.URL.Path[5:]})
+		if err != nil {
+			log.Warna("Error sending ", err)
+		}
 	})
 
 	http.ListenAndServe("127.0.0.1:15015", nil)

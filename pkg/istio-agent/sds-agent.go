@@ -134,7 +134,8 @@ type Agent struct {
 	cfg     *AgentConfig
 	secOpts *security.Options
 
-	ADSC *adsc.ADSC
+	ADSC   *adsc.ADSC
+	stopCh <-chan struct{}
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -161,6 +162,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
 		secOpts:     sopts,
+		stopCh:      make(<-chan struct{}),
 	}
 
 	// Fix the defaults - mainly for tests ( main uses env )

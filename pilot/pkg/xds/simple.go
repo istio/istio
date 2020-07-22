@@ -67,6 +67,8 @@ type SimpleServer struct {
 	ConfigStoreCache model.ConfigStoreCache
 
 	m sync.RWMutex
+
+	stop chan struct{}
 }
 
 // Creates an basic, functional discovery server, using the same code as Istiod, but
@@ -100,10 +102,12 @@ func NewXDS() *SimpleServer {
 	store := memory.Make(schemas)
 	s := &SimpleServer{
 		DiscoveryServer: ds,
+		stop:            make(chan struct{}),
 	}
 	s.syncCh = make(chan string, len(schemas.All()))
 	configController := memory.NewController(store)
 	s.MemoryConfigStore = model.MakeIstioStore(configController)
+	go configController.Run(s.stop)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
 	serviceControllers := aggregate.NewController()
@@ -126,7 +130,7 @@ func NewXDS() *SimpleServer {
 	})
 	env.ServiceDiscovery = serviceControllers
 
-	go configController.Run(make(chan struct{}))
+	go configController.Run(s.stop)
 
 	// configStoreCache - with HasSync interface
 	aggregateConfigController, err := configaggregate.MakeCache([]model.ConfigStoreCache{

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/credentials/oauth"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 
@@ -76,10 +77,15 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 	} else {
 		opts = grpc.WithInsecure()
 	}
+	optList := []grpc.DialOption{opts}
+	gcred, err := oauth.NewApplicationDefault(context.Background())
+	if err == nil {
+		optList = append(optList, grpc.WithPerRPCCredentials(gcred))
+	}
 
 	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
 	//  need a way to reconnect.
-	conn, err := grpc.Dial(endpoint, opts)
+	conn, err := grpc.Dial(endpoint, optList...)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
@@ -98,8 +104,11 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	}
 
 	// add Bearer prefix, which is required by Citadel.
-	token = bearerTokenPrefix + token
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
+	pairs := metadata.Pairs("ClusterID", c.clusterID)
+	if token != "" {
+		pairs.Append("Authorization", bearerTokenPrefix+token)
+	}
+	ctx = metadata.NewOutgoingContext(ctx, pairs)
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to create certificate: %v", err)

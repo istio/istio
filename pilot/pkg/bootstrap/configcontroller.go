@@ -236,6 +236,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 			xdsMCP.Store = model.MakeIstioStore(configController)
+			go configController.Run(make(chan struct{}))
 
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
