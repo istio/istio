@@ -17,6 +17,7 @@ package kube
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 
@@ -24,9 +25,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-
-	kubeCore "k8s.io/api/core/v1"
 )
 
 var _ echo.Builder = &builder{}
@@ -49,32 +49,39 @@ func (b *builder) With(i *echo.Instance, cfg echo.Config) echo.Builder {
 	return b
 }
 
-func (b *builder) Build() error {
+func (b *builder) Build() (echo.Instances, error) {
+	t0 := time.Now()
 	instances, err := b.newInstances()
 	if err != nil {
-		return fmt.Errorf("build instance: %v", err)
+		return nil, fmt.Errorf("build instance: %v", err)
 	}
 
 	if err := b.initializeInstances(instances); err != nil {
-		return fmt.Errorf("initialize instances: %v", err)
+		return nil, fmt.Errorf("initialize instances: %v", err)
 	}
+	scopes.Framework.Debugf("initialized echo deployments in %v", time.Since(t0))
 
 	if err := b.waitUntilAllCallable(instances); err != nil {
-		return fmt.Errorf("wait until callable: %v", err)
+		return nil, fmt.Errorf("wait until callable: %v", err)
 	}
+	scopes.Framework.Debugf("echo deployments ready in %v", time.Since(t0))
 
 	// Success... update the caller's references.
 	for i, inst := range instances {
-		*b.references[i] = inst
+		if b.references[i] != nil {
+			*b.references[i] = inst
+		}
 	}
-	return nil
+	return instances, nil
 }
 
-func (b *builder) BuildOrFail(t test.Failer) {
+func (b *builder) BuildOrFail(t test.Failer) echo.Instances {
 	t.Helper()
-	if err := b.Build(); err != nil {
+	res, err := b.Build()
+	if err != nil {
 		t.Fatal(err)
 	}
+	return res
 }
 
 func (b *builder) newInstances() ([]echo.Instance, error) {
@@ -92,13 +99,11 @@ func (b *builder) newInstances() ([]echo.Instance, error) {
 func (b *builder) initializeInstances(instances []echo.Instance) error {
 	// Wait to receive the k8s Endpoints for each Echo Instance.
 	wg := sync.WaitGroup{}
-	instancePods := make([][]kubeCore.Pod, len(instances))
 	aggregateErrMux := &sync.Mutex{}
 	var aggregateErr error
-	for i, inst := range instances {
+	for _, inst := range instances {
 		wg.Add(1)
 
-		instanceIndex := i
 		inst := inst
 		serviceName := inst.Config().Service
 		serviceNamespace := inst.Config().Namespace.Name()
@@ -121,7 +126,11 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 				aggregateErrMux.Unlock()
 				return
 			}
-			instancePods[instanceIndex] = pods
+			if err := inst.(*instance).initialize(pods); err != nil {
+				aggregateErrMux.Lock()
+				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("initialize %v: %v", inst.ID(), err))
+				aggregateErrMux.Unlock()
+			}
 		}()
 	}
 
@@ -131,12 +140,6 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 		return aggregateErr
 	}
 
-	// Initialize the workloads for each instance.
-	for i, inst := range instances {
-		if err := inst.(*instance).initialize(instancePods[i]); err != nil {
-			return fmt.Errorf("initialize %v: %v", inst.ID(), err)
-		}
-	}
 	return nil
 }
 

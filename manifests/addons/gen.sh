@@ -23,7 +23,7 @@ set -eux
 # See samples/addons/README.md for more information
 
 ADDONS="${WD}/../../samples/addons"
-DASHBOARDS="${WD}/../charts/istio-telemetry/grafana/dashboards"
+DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 
 # Set up Kiali. The upstream only has an operator, so we will deploy that

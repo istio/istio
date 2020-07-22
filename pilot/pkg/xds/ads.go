@@ -243,6 +243,18 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 
 // StreamAggregatedResources implements the ADS interface.
 func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	// Check if server is ready to accept clients and process new requests.
+	// Currently ready means caches have been synced and hence can build
+	// clusters correctly. Without this check, InitContext() call below would
+	// initialize with empty config, leading to reconnected Envoys loosing
+	// configuration. This is an additional safety check inaddition to adding
+	// cachesSynced logic to readiness probe to handle cases where kube-proxy
+	// ip tables update latencies.
+	// See https://github.com/istio/istio/issues/25495.
+	if !s.IsServerReady() {
+		return errors.New("server is not ready to serve discovery information")
+	}
+
 	ctx := stream.Context()
 	peerAddr := "0.0.0.0"
 	if peerInfo, ok := peer.FromContext(ctx); ok {

@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.7-dev
+VERSION ?= 1.8-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.7-dev.4
@@ -27,11 +27,6 @@ BASE_VERSION ?= 1.7-dev.4
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
-
-ISTIO_CNI_HUB ?= gcr.io/istio-testing
-export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= latest
-export ISTIO_CNI_TAG
 
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
@@ -278,7 +273,6 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./mixer/cmd/mixs \
   ./mixer/cmd/mixc \
   ./mixer/tools/mixgen \
-  ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
   ./mixer/test/policybackend \
@@ -289,7 +283,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./tools/istio-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -364,6 +358,7 @@ sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.7.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istiod-remote/templates/
 
 # Generate kustomize templates.
 gen-kustomize:

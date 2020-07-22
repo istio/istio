@@ -50,5 +50,6 @@ export REPO_ROOT=/work
     --mount "type=bind,source=${PWD},destination=/work,consistency=cached" \
     --mount "type=volume,source=go,destination=/go,consistency=cached" \
     --mount "type=volume,source=gocache,destination=/gocache,consistency=cached" \
+    --mount "type=volume,source=cache,destination=/home/.cache,consistency=cached" \
     ${CONDITIONAL_HOST_MOUNTS} \
     -w /work "${IMG}" "$@"

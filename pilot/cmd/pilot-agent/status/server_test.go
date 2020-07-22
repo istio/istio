@@ -146,27 +146,27 @@ func TestStats(t *testing.T) {
 		{
 			name: "envoy metric only",
 			envoy: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 			output: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 		},
 		{
 			name: "app metric only",
 			app: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 			output: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 		},
 		{
@@ -182,6 +182,15 @@ my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
 `,
+		},
+		{
+			name:  "agent metric",
+			envoy: ``,
+			app:   ``,
+			// Agent metric is dynamic, so we just check a substring of it not the actual metric
+			output: `
+# TYPE istio_agent_scrapes_total counter
+istio_agent_scrapes_total`,
 		},
 		// When the application and envoy share a metric, Prometheus will fail. This negative check validates this
 		// assumption.
@@ -250,7 +259,7 @@ my_metric{app="bar"} 0
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
-			if rec.Body.String() != tt.output {
+			if !strings.Contains(rec.Body.String(), tt.output) {
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
 			}
 
@@ -266,7 +275,6 @@ my_metric{app="bar"} 0
 }
 
 func TestStatsError(t *testing.T) {
-	rec := httptest.NewRecorder()
 	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -287,12 +295,11 @@ func TestStatsError(t *testing.T) {
 		name  string
 		envoy int
 		app   int
-		resp  int
 	}{
-		{"both pass", passPort, passPort, 200},
-		{"envoy pass", passPort, failPort, 503},
-		{"app pass", failPort, passPort, 503},
-		{"both fail", failPort, failPort, 503},
+		{"both pass", passPort, passPort},
+		{"envoy pass", passPort, failPort},
+		{"app pass", failPort, passPort},
+		{"both fail", failPort, failPort},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -304,6 +311,7 @@ func TestStatsError(t *testing.T) {
 				envoyStatsPort: tt.envoy,
 			}
 			req := &http.Request{}
+			rec := httptest.NewRecorder()
 			server.handleStats(rec, req)
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)

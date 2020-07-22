@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 const mcReachabilitySvcPerCluster = 3
@@ -43,39 +42,32 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, feature features.Feat
 					// the odds of a proxy getting bad configuration and not being able to reach a service in another cluster.
 					// (see https://github.com/istio/istio/issues/23591).
 					clusters := ctx.Environment().Clusters()
-					services := map[resource.ClusterIndex][]*echo.Instance{}
 					builder := echoboot.NewBuilderOrFail(ctx, ctx)
 					for _, cluster := range clusters {
 						for i := 0; i < mcReachabilitySvcPerCluster; i++ {
-							var instance echo.Instance
-							ref := &instance
 							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-							builder = builder.With(ref, newEchoConfig(svcName, ns, cluster))
-							services[cluster.Index()] = append(services[cluster.Index()], ref)
+							builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))
 						}
 					}
-					builder.BuildOrFail(ctx)
+					echos := builder.BuildOrFail(ctx)
 
 					// Now verify that all services in each cluster can hit one service in each cluster.
 					// Calling 1 service per remote cluster makes the number linear rather than quadratic with
 					// respect to len(clusters) * svcPerCluster.
-					for _, srcServices := range services {
-						for _, src := range srcServices {
-							for _, dstServices := range services {
-								src := *src
-								dest := *dstServices[0]
-								subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-									src.Config().Service,
-									"http",
-									dest.Config().Service,
-									"http",
-									"/")
-
-								ctx.NewSubTest(subTestName).
-									RunParallel(func(ctx framework.TestContext) {
-										_ = callOrFail(ctx, src, dest)
-									})
-							}
+					for _, src := range echos {
+						for _, dstCluster := range clusters {
+							src := src
+							dest := echos.GetOrFail(ctx, echo.InCluster(dstCluster))
+							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
+								src.Config().Service,
+								"http",
+								dest.Config().Service,
+								"http",
+								"/")
+							ctx.NewSubTest(subTestName).
+								RunParallel(func(ctx framework.TestContext) {
+									_ = callOrFail(ctx, src, dest)
+								})
 						}
 					}
 				})

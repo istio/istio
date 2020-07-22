@@ -20,7 +20,6 @@ import (
 
 	"google.golang.org/grpc/grpclog"
 
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/pkg/log"
 )
 
@@ -38,13 +37,11 @@ func init() {
 		flag.BoolVar)
 }
 
-func configureLogging(ciMode bool) error {
+func configureLogging() error {
 	o := *logOptionsFromCommandline
 
-	if ciMode {
-		o.SetOutputLevel(scopes.Framework.Name(), log.DebugLevel)
-	}
 	o.LogGrpc = false
 	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
+
 	return log.Configure(&o)
 }

@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/mixer"
+	util "istio.io/istio/tests/integration/telemetry"
 	promUtil "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
@@ -145,7 +145,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		return
 	}
 
-	err = echoboot.NewBuilder(ctx).
+	_, err = echoboot.NewBuilder(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appNsInst,
@@ -182,18 +182,6 @@ func SendTraffic() error {
 		PortName: "http",
 	})
 	return err
-}
-
-func SetupStrictMTLS(ctx resource.Context) error {
-	return ctx.Config().ApplyYAML(appNsInst.Name(), fmt.Sprintf(`
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: default
-  namespace: %s
-spec:
-  mtls:
-    mode: STRICT`, appNsInst.Name()))
 }
 
 func buildQuery(destination string) (sourceQuery, destinationQuery, appQuery string) {
