@@ -119,34 +119,6 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 			}
 		}
 	}
-	mixerDeprecations := []deprecatedSettings{
-		{"Values.telemetry.v1.enabled", "", false},
-		{"Values.global.disablePolicyChecks", "", true},
-		{"MeshConfig.disablePolicyChecks", "", true},
-		{"Values.pilot.policy.enabled", "", false},
-		{"Components.Telemetry.Enabled", "", false},
-		{"Components.Policy.Enabled", "", false},
-	}
-	useMixerSettings := false
-	mds := []string{}
-	for _, d := range mixerDeprecations {
-		v, f, _ := tpath.GetFromStructPath(iop, d.old)
-		if f {
-			switch t := v.(type) {
-			case *v1alpha1.BoolValueForPB:
-				v = t.Value
-			}
-			if v != d.def {
-				useMixerSettings = true
-				mds = append(mds, d.old)
-			}
-		}
-	}
-	const mixerDeprecatedMessage = "! %s is deprecated. Mixer is deprecated and will be removed" +
-		" from Istio with the 1.8 release. Please consult our docs on the replacement."
-	if useMixerSettings {
-		messages = append(messages, fmt.Sprintf(mixerDeprecatedMessage, strings.Join(mds, ", ")))
-	}
 
 	return strings.Join(messages, "\n")
 }

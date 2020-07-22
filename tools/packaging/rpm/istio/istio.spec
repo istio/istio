@@ -112,36 +112,6 @@ This package contains the sidecar-injector program.
 sidecar-injector is the Kubernetes injector for Istio sidecar.
 It belongs to Control Plane.
 
-########### mixs ###############
-%package mixs
-Summary:  The istio mixs
-Requires: istio = %{version}-%{release}
-
-%description mixs
-Istio is an open platform that provides a uniform way to connect, manage
-and secure microservices. Istio supports managing traffic flows between
-microservices, enforcing access policies, and aggregating telemetry data,
-all without requiring changes to the microservice code.
-
-This package contains the mixs program.
-
-mixs is the main mixer (server) component. Belongs to Control Plane.
-
-########### mixc ###############
-%package mixc
-Summary:  The istio mixc
-Requires: istio = %{version}-%{release}
-
-%description mixc
-Istio is an open platform that provides a uniform way to connect, manage
-and secure microservices. Istio supports managing traffic flows between
-microservices, enforcing access policies, and aggregating telemetry data,
-all without requiring changes to the microservice code.
-
-This package contains the mixc program.
-
-mixc is a debug/development CLI tool to interact with Mixer API.
-
 ########### citadel ###############
 %package citadel
 Summary:  Istio Security Component
@@ -217,7 +187,7 @@ cd ISTIO
 export GOPATH=$(pwd)
 
 pushd src/istio.io/istio
-make pilot-discovery pilot-agent istioctl sidecar-injector mixc mixs security galley node_agent istio-iptables istio-clean-iptables
+make pilot-discovery pilot-agent istioctl sidecar-injector security galley node_agent istio-iptables istio-clean-iptables
 
 %if 0%{?with_test_binaries}
 make test-bins
@@ -236,7 +206,7 @@ install -m755 %{SOURCE4} $RPM_BUILD_ROOT/%{_bindir}/istio-node-agent-start.sh
 install -m644 %{SOURCE5} $RPM_BUILD_ROOT/%{_unitdir}/istio.service
 install -m644 %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/istio-auth-node-agent.service
 
-binaries=(pilot-discovery pilot-agent istioctl sidecar-injector mixs mixc istio_ca galley node_agent istio-iptables istio-clean-iptables)
+binaries=(pilot-discovery pilot-agent istioctl sidecar-injector istio_ca galley node_agent istio-iptables istio-clean-iptables)
 pushd .
 cd ISTIO/out/linux_amd64/release
 %if 0%{?with_debug}
@@ -322,12 +292,6 @@ ln -s -T /var/lib/istio /etc/istio 2> /dev/null || :
 
 %files sidecar-injector
 %{_bindir}/sidecar-injector
-
-%files mixs
-%{_bindir}/mixs
-
-%files mixc
-%{_bindir}/mixc
 
 %files citadel
 %{_bindir}/istio_ca

@@ -57,9 +57,6 @@ var (
 	addonEnablementPattern = "AddonComponents.{{.ComponentName}}.Enabled"
 	// specialComponentPath lists cases of component path of values.yaml we need to have special treatment.
 	specialComponentPath = map[string]bool{
-		"mixer":                         true,
-		"mixer.policy":                  true,
-		"mixer.telemetry":               true,
 		"gateways":                      true,
 		"gateways.istio-ingressgateway": true,
 		"gateways.istio-egressgateway":  true,
@@ -456,8 +453,7 @@ apiVersion: apps/v1
 kind: Deployment
 name: %s`
 
-		// need to do special handling for gateways and mixer
-		// ex. because deployment name should be istio-telemetry instead of istio-mixer.telemetry, we need to get rid of the prefix mixer part.
+		// need to do special handling for gateways
 		if specialComponentPath[newPS] && len(newP) > 2 {
 			newPS = newP[1 : len(newP)-1].String()
 		}
