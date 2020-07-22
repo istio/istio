@@ -82,10 +82,11 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 						}
 					}
 					if !found {
-
-						line := util.ErrorLineForFromRegistry(i, j, r)
 						m := msg.NewUnknownMeshNetworksServiceRegistry(r, re.FromRegistry, i)
-						m.SetLine(line)
+
+						if line, ok := util.ErrorLineForFromRegistry(r, i, j); ok {
+							m.Line = line
+						}
 
 						c.Report(collections.IstioMeshV1Alpha1MeshNetworks.Name(), m)
 					}

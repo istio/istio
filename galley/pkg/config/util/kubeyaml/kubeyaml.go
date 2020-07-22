@@ -17,7 +17,6 @@ package kubeyaml
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"strings"
 	"unicode"
@@ -155,47 +154,4 @@ func (r *LineReader) Read() ([]byte, error) {
 	}
 	buffer.WriteByte('\n')
 	return buffer.Bytes(), err
-}
-
-// ConvertToLineNumber converts value in the field to its line number
-func ConvertToLineNumber(line string, lineNumber int) string {
-	resStr := line
-
-	// Find index of ':' and '#'
-	colonInd := strings.Index(resStr, ":")
-	sharpInd := strings.Index(resStr, " #")
-
-	// Skip line with only comments
-	trimStr := strings.TrimSpace(resStr)
-	if len(trimStr) > 0 && trimStr[0] == '#' || len(trimStr) == 0 {
-		return resStr
-	}
-
-	// Remove comments after the line
-	if sharpInd > 0 {
-		resStr = resStr[:sharpInd] + "\n"
-	}
-
-	// Handle the edge case that ":" in the comment
-	if colonInd > sharpInd && sharpInd > 0 {
-		colonInd = -1
-	}
-
-	// If string has ':', change value after ':' to line number
-	if colonInd > 0 && colonInd != len(strings.TrimRight(resStr, " \n"))-1 {
-
-		fieldValueToStr := fmt.Sprintf("%d", lineNumber)
-		resStr = resStr[:colonInd] + ": " + fieldValueToStr + "\n"
-
-	} else if colonInd < 0 {
-
-		// If the value is in a field with the array form, change it to line number
-		spaceInd := 0
-		for resStr[spaceInd] == ' ' || (resStr[spaceInd] == '-' && spaceInd != len(resStr)-1 && resStr[spaceInd+1] == ' ') {
-			spaceInd++
-		}
-		resStr = resStr[:spaceInd] + fmt.Sprintf("%d", lineNumber) + "\n"
-	}
-
-	return resStr
 }

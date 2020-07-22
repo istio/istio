@@ -69,9 +69,11 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.destination.GetHost(), serviceEntryHosts)
 		if s == nil {
 
-			line := util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
 			m := msg.NewReferencedResourceNotFound(r, "host", d.destination.GetHost())
-			m.SetLine(line)
+
+			if line, ok := util.ErrorLineForHostInDestination(r, d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex()); ok {
+				m.Line = line
+			}
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			continue
@@ -83,9 +85,11 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, d.destination.GetHost(), serviceEntryHosts)
 		if s == nil {
 
-			line := util.ErrorLineForHostInHTTPMirror(d.GetServiceIndex(), r)
 			m := msg.NewReferencedResourceNotFound(r, "mirror host", d.destination.GetHost())
-			m.SetLine(line)
+
+			if line, ok := util.ErrorLineForHostInHTTPMirror(r, d.GetServiceIndex()); ok {
+				m.Line = line
+			}
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			continue
@@ -102,14 +106,19 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Desti
 			for _, p := range s.GetPorts() {
 				portNumbers = append(portNumbers, int(p.GetNumber()))
 			}
-			var line int
-			if d.routeRule == "" {
-				line = util.ErrorLineForHostInHTTPMirror(d.GetServiceIndex(), r)
-			} else {
-				line = util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
-			}
+
 			m := msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.destination.GetHost(), portNumbers)
-			m.SetLine(line)
+
+			if d.routeRule == "" {
+				if line, ok := util.ErrorLineForHostInHTTPMirror(r, d.GetServiceIndex()); ok {
+					m.Line = line
+				}
+			} else {
+				if line, ok := util.ErrorLineForHostInDestination(r, d.GetRouteRule(),
+					d.GetServiceIndex(), d.GetDestinationIndex()); ok {
+					m.Line = line
+				}
+			}
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 			return
@@ -127,17 +136,19 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Desti
 		}
 	}
 	if !foundPort {
-
-		var line int
-		if d.routeRule == "" {
-			line = util.ErrorLineForHostInHTTPMirror(d.GetServiceIndex(), r)
-		} else {
-			line = util.ErrorLineForHostInDestination(d.GetRouteRule(), d.GetServiceIndex(), d.GetDestinationIndex(), r)
-		}
-
 		m := msg.NewReferencedResourceNotFound(r, "host:port",
 			fmt.Sprintf("%s:%d", d.destination.GetHost(), d.destination.GetPort().GetNumber()))
-		m.SetLine(line)
+
+		if d.routeRule == "" {
+			if line, ok := util.ErrorLineForHostInHTTPMirror(r, d.GetServiceIndex()); ok {
+				m.Line = line
+			}
+		} else {
+			if line, ok := util.ErrorLineForHostInDestination(r, d.GetRouteRule(),
+				d.GetServiceIndex(), d.GetDestinationIndex()); ok {
+				m.Line = line
+			}
+		}
 
 		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 	}

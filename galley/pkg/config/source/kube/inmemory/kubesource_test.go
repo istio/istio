@@ -15,7 +15,10 @@
 package inmemory
 
 import (
+	"fmt"
 	"testing"
+
+	yamlv3 "gopkg.in/yaml.v3"
 
 	. "github.com/onsi/gomega"
 
@@ -380,4 +383,20 @@ func removeEntryOrigins(resources []*resource.Instance) []*resource.Instance {
 		result[i] = r
 	}
 	return result
+}
+
+func TestBuildFieldPathMap(t *testing.T) {
+	yamlResource := "test: str\nmap:\n  key: value\n  array: [a, b, c, d, e]\n  emptyMap: {}\n  int: 1"
+	g := NewGomegaWithT(t)
+	result := make(map[string]int)
+
+	yamlNode := yamlv3.Node{}
+
+	_ = yamlv3.Unmarshal([]byte(yamlResource), &yamlNode)
+
+	BuildFieldPathMap(yamlNode.Content[0], 1, "", result)
+
+	g.Expect(fmt.Sprintf("%v", result)).To(Equal("map[{.map.array[0]}:4 {.map.array[1]}:4 " +
+		"{.map.array[2]}:4 {.map.array[3]}:4 " +
+		"{.map.array[4]}:4 {.map.emptyMap}:5 {.map.int}:6 {.map.key}:3 {.test}:1]"))
 }

@@ -94,19 +94,29 @@ func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx anal
 
 	// Get line number for different match field
 	var line int
+	var ok bool
 	switch where {
 	case "corsPolicy.allowOrigins":
-		line = util.ErrorLineForHTTPRegexAllowOrigins(p[0].(int), p[1].(int), r)
+		line, ok = util.ErrorLineForHTTPRegexAllowOrigins(r, p[0].(int), p[1].(int))
 	case "queryParams":
-		line = util.ErrorLineForHTTPRegexHeaderAndQueryParams(p[0].(int), p[1].(int), p[2].(string), where, r)
+		line, ok = util.ErrorLineForHTTPRegexHeaderAndQueryParams(r, p[0].(int), p[1].(int), where, p[2].(string))
 	case "headers":
-		line = util.ErrorLineForHTTPRegexHeaderAndQueryParams(p[0].(int), p[1].(int), p[2].(string), where, r)
-	default:
-		line = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(p[0].(int), p[1].(int), where, r)
+		line, ok = util.ErrorLineForHTTPRegexHeaderAndQueryParams(r, p[0].(int), p[1].(int), where, p[2].(string))
+	case "uri":
+		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
+	case "scheme":
+		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
+	case "method":
+		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
+	case "authority":
+		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
 	}
 
 	m := msg.NewInvalidRegexp(r, where, re, err.Error())
-	m.SetLine(line)
+
+	if ok {
+		m.Line = line
+	}
 
 	ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 }

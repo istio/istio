@@ -24,141 +24,120 @@ import (
 )
 
 // ErrorLineForHostInDestination returns the line number of the host in destination
-func ErrorLineForHostInDestination(routeRule string, serviceIndex int, destinationIndex int, r *resource.Instance) int {
-	pathKey := "{.spec." + routeRule + "[" +
-		fmt.Sprintf("%d", serviceIndex) + "].route[" +
-		fmt.Sprintf("%d", destinationIndex) + "].destination.host}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForHostInDestination(r *resource.Instance, routeRule string, serviceIndex, destinationIndex int) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.%s[%d].route[%d].destination.host}", routeRule, serviceIndex, destinationIndex)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForHostInHTTPMirror returns the line number of the host in destination
-func ErrorLineForHostInHTTPMirror(routeRuleIndex int, r *resource.Instance) int {
-	pathKey := "{.spec.http[" + fmt.Sprintf("%d", routeRuleIndex) + "].mirror.host}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForHostInHTTPMirror(r *resource.Instance, routeRuleIndex int) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.http[%d].mirror.host}", routeRuleIndex)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForVSGateway returns the path of the gateway in VirtualService
-func ErrorLineForVSGateway(gatewayIndex int, r *resource.Instance) int {
-	pathKey := "{.spec.gateways[" + fmt.Sprintf("%d", gatewayIndex) + "]}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForVSGateway(r *resource.Instance, gatewayIndex int) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.gateways[%d]}", gatewayIndex)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForHTTPRegexURISchemeMethodAuthority returns the path of the regex match in HttpRoute
-func ErrorLineForHTTPRegexURISchemeMethodAuthority(httpIndex int, matchIndex int, where string, r *resource.Instance) int {
-	pathKey := "{.spec.http[" + fmt.Sprintf("%d", httpIndex) + "]"
-	pathKey += ".match[" + fmt.Sprintf("%d", matchIndex) + "]." + where + ".regex}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForHTTPRegexURISchemeMethodAuthority(r *resource.Instance, httpIndex, matchIndex int, where string) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.http[%d].match[%d].%s.regex}", httpIndex, matchIndex, where)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForHTTPRegexHeaderAndQueryParams returns the path of the regex match in HttpRoute
-func ErrorLineForHTTPRegexHeaderAndQueryParams(httpIndex int, matchIndex int, matchKey string, where string, r *resource.Instance) int {
-	pathKey := "{.spec.http[" + fmt.Sprintf("%d", httpIndex) + "]"
-	pathKey += ".match[" + fmt.Sprintf("%d", matchIndex) + "].headers." + matchKey + ".regex}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForHTTPRegexHeaderAndQueryParams(r *resource.Instance, httpIndex, matchIndex int, where, matchKey string) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.http[%d].match[%d].%s.%s.regex}", httpIndex, matchIndex, where, matchKey)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForHTTPRegexAllowOrigins returns the path of the regex match in HttpRoute
-func ErrorLineForHTTPRegexAllowOrigins(httpIndex int, allowOriginIndex int, r *resource.Instance) int {
-	pathKey := "{.spec.http[" + fmt.Sprintf("%d", httpIndex) + "]"
-	pathKey += ".corsPolicy.allowOrigins[" + fmt.Sprintf("%d", allowOriginIndex) + "].regex}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForHTTPRegexAllowOrigins(r *resource.Instance, httpIndex, allowOriginIndex int) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.http[%d].corsPolicy.allowOrigins[%d].regex}", httpIndex, allowOriginIndex)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForGatewaySelector returns the line number of the gateway selector
-func ErrorLineForWorkLoadSelector(workLoadSelector labels.Selector, r *resource.Instance) int {
-	pathKey := "{.spec.workloadSelector.labels"
+func ErrorLineForWorkLoadSelector(r *resource.Instance, workLoadSelector labels.Selector) (int, bool) {
 	selectorLabel := FindLabelForSelector(workLoadSelector)
-	pathKey += "." + selectorLabel + "}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+	pathKey := fmt.Sprintf("{.spec.workloadSelector.labels.%s}", selectorLabel)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForFromRegistry returns the line number of fromRegistry in the mesh networks
-func ErrorLineForPortInService(portIndex int, r *resource.Instance) int {
-	keyPath := "{.spec.ports[" + fmt.Sprintf("%d", portIndex) + "].port" + "}"
-	line := FindErrorLine(keyPath, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForPortInService(r *resource.Instance, portIndex int) (int, bool) {
+	keyPath := fmt.Sprintf(".spec.ports[%d].port}", portIndex)
+	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForFromRegistry returns the line number of fromRegistry in the mesh networks
-func ErrorLineForFromRegistry(networkName string, endPointIndex int, r *resource.Instance) int {
-	keyPath := "{.networks." + networkName + ".endpoints[" + fmt.Sprintf("%d", endPointIndex) + "]}"
-	line := FindErrorLine(keyPath, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForFromRegistry(r *resource.Instance, networkName string, endPointIndex int) (int, bool) {
+	keyPath := fmt.Sprintf("{.networks.%s.endpoints[%d]}", networkName, endPointIndex)
+	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForContainerImage returns the line number of the image in the container
-func ErrorLineForContainerImage(containerIndex int, r *resource.Instance) int {
-	keyPath := "{.spec.containers[}" + fmt.Sprintf("%d", containerIndex) + "].image}"
-	line := FindErrorLine(keyPath, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForContainerImage(r *resource.Instance, containerIndex int) (int, bool) {
+	keyPath := fmt.Sprintf("{.spec.containers[%d].image}", containerIndex)
+	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForMetaDataNameSpace returns the line number of the metadata.namespace
-func ErrorLineForMetaDataNameSpace(r *resource.Instance) int {
+func ErrorLineForMetaDataNameSpace(r *resource.Instance) (int, bool) {
 	keyPath := "{.metadata.namespace}"
-	line := FindErrorLine(keyPath, r.Origin.GetFieldMap())
-	return line
+	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForMetaDataName returns the line number of the metadata.name
-func ErrorLineForMetaDataName(r *resource.Instance) int {
+func ErrorLineForMetaDataName(r *resource.Instance) (int, bool) {
 	keyPath := "{.metadata.name}"
-	line := FindErrorLine(keyPath, r.Origin.GetFieldMap())
-	return line
+	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForAuthorizationPolicyNameSpace returns the line number of the namespaces for authorizationPolicy
-func ErrorLineForAuthorizationPolicyNameSpace(ruleIndex int, fromIndex int, namespaceIndex int, r *resource.Instance) int {
-	pathKey := "{.spec.rules[" + fmt.Sprintf("%d", ruleIndex) + "].from[" + fmt.Sprintf("%d", fromIndex) +
-		"].source.namespaces[" + fmt.Sprintf("%d", namespaceIndex) + "]}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForAuthorizationPolicyNameSpace(r *resource.Instance, ruleIndex, fromIndex, namespaceIndex int) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.rules[%d].from[%d].source.namespaces[%d]}", ruleIndex, fromIndex, namespaceIndex)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // FinedErrorLineNum returns the error line number with the annotation name and the field map from resource.Origin as the input
-func ErrorLineForAnnotation(annotationName string, r *resource.Instance) int {
-	path := "{.metadata.annotations"
-	path += "." + annotationName + "}"
-	line := FindErrorLine(path, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForAnnotation(r *resource.Instance, annotationName string) (int, bool) {
+	path := fmt.Sprintf("{.metadata.annotations.%s}", annotationName)
+	return FindErrorLine(path, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForGatewaySelector returns the path of the gateway selector
-func ErrorLineForGatewaySelector(gwSelector labels.Selector, r *resource.Instance) int {
-	pathKey := "{.spec.selector"
+func ErrorLineForGatewaySelector(r *resource.Instance, gwSelector labels.Selector) (int, bool) {
 	selectorLabel := FindLabelForSelector(gwSelector)
-	pathKey += "." + selectorLabel + "}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+	pathKey := fmt.Sprintf("{.spec.selector.%s}", selectorLabel)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
 // ErrorLineForCredentialName returns the path of the gateway selector
-func ErrorLineForCredentialName(serverIndex int, r *resource.Instance) int {
-	pathKey := "{.spec.servers[" + fmt.Sprintf("%d", serverIndex) + "].tls.credentialName}"
-	line := FindErrorLine(pathKey, r.Origin.GetFieldMap())
-	return line
+func ErrorLineForCredentialName(r *resource.Instance, serverIndex int) (int, bool) {
+	pathKey := fmt.Sprintf("{.spec.servers[%d].tls.credentialName}", serverIndex)
+	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
 }
 
-// FindErrorLine returns the line number of the input key from the input map
-func FindErrorLine(key string, m map[string]int) int {
+// FindErrorLine returns the line number of the input key from the input map, and true if retrieving successfully,
+// else return -1 and false
+func FindErrorLine(key string, m map[string]int) (int, bool) {
 	var line int
 
 	// Check if the map exists
 	if m == nil {
-		return line
+		return -1, false
 	}
 
+	// Check if the path key exists in the map
 	if v, ok := m[key]; ok {
 		line = v
+	} else {
+		return -1, false
 	}
-	return line
+	return line, true
 }
 
 // FindLabelForSelector returns the label for the k8s labels.Selector

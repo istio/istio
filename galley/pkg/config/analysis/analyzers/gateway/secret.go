@@ -58,8 +58,10 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 
 			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
 			gwSelector := labels.SelectorFromSet(gw.Selector)
-			line := util.ErrorLineForGatewaySelector(gwSelector, r)
-			m.SetLine(line)
+
+			if line, ok := util.ErrorLineForGatewaySelector(r, gwSelector); ok {
+				m.Line = line
+			}
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			return true
@@ -77,10 +79,11 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			}
 
 			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
-
-				line := util.ErrorLineForCredentialName(i, r)
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
-				m.SetLine(line)
+
+				if line, ok := util.ErrorLineForCredentialName(r, i); ok {
+					m.Line = line
+				}
 
 				ctx.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			}

@@ -64,11 +64,13 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 		if !d.checkDestinationSubset(ns, destination.destination, destHostsAndSubsets) {
 
-			line := util.ErrorLineForHostInDestination(destination.GetRouteRule(), destination.GetServiceIndex(),
-				destination.GetDestinationIndex(), r)
 			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
 				fmt.Sprintf("%s+%s", destination.destination.GetHost(), destination.destination.GetSubset()))
-			m.SetLine(line)
+
+			if line, ok := util.ErrorLineForHostInDestination(r, destination.GetRouteRule(), destination.GetServiceIndex(),
+				destination.GetDestinationIndex()); ok {
+				m.Line = line
+			}
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
@@ -79,10 +81,12 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 		if !d.checkDestinationSubset(ns, destination.destination, destHostsAndSubsets) {
 
-			line := util.ErrorLineForHostInHTTPMirror(destination.GetServiceIndex(), r)
 			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
 				fmt.Sprintf("%s+%s", destination.destination.GetHost(), destination.destination.GetSubset()))
-			m.SetLine(line)
+
+			if line, ok := util.ErrorLineForHostInHTTPMirror(r, destination.GetServiceIndex()); ok {
+				m.Line = line
+			}
 
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}

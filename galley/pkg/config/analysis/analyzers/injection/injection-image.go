@@ -113,10 +113,12 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			}
 
 			if container.Image != proxyImage {
-
-				line := util.ErrorLineForContainerImage(i, r)
 				m := msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage)
-				m.SetLine(line)
+
+				if line, ok := util.ErrorLineForContainerImage(r, i); ok {
+					m.Line = line
+				}
+
 				c.Report(collections.K8SCoreV1Pods.Name(), m)
 			}
 		}

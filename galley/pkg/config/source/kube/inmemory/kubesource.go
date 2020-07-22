@@ -333,40 +333,38 @@ func BuildFieldPathMap(yamlElementNode *yamlv3.Node, startLineNum int, curPath s
 		return
 	}
 
-	i := 0
 	NodeContent := yamlElementNode.Content
 	// Iterate content by a step of 2, because in the content array the value is in the key's next index position
-	for i < len(NodeContent)-1 {
+	for i := 0; i < len(NodeContent)-1; i += 2 {
 		// Two condition, i + 1 positions have no content, which means they have the format like "key: value", then build the map
 		// Or i + 1 has contents, which means "key:\n  value...", then perform one more DFS search
 		keyNode := NodeContent[i]
 		valueNode := NodeContent[i+1]
 		pathKeyForMap := curPath + "." + keyNode.Value
-		if len(valueNode.Content) == 0 {
+
+		switch {
+		case len(valueNode.Content) == 0:
+			// Can build map because the value node has no content anymore
 			// minus one because startLineNum starts at line 1, and yamlv3.Node.line also starts at line 1
 			fieldPathMap["{"+pathKeyForMap+"}"] = valueNode.Line + startLineNum - 1
-		} else {
-			// Next iteration for child node
-			if valueNode.Tag == "!!seq" {
-				j := 0
-				for j < len(valueNode.Content) {
-					pathWithIndex := pathKeyForMap + "[" + fmt.Sprintf("%d", j) + "]"
 
-					// Array with values or array with maps
-					if len(valueNode.Content[j].Content) == 0 {
-						fieldPathMap["{"+pathWithIndex+"}"] = valueNode.Content[j].Line + startLineNum - 1
-					} else {
-						BuildFieldPathMap(valueNode.Content[j], startLineNum, pathWithIndex, fieldPathMap)
-					}
+		case valueNode.Tag == "!!seq":
+			j := 0
+			for j < len(valueNode.Content) {
+				pathWithIndex := pathKeyForMap + "[" + fmt.Sprintf("%d", j) + "]"
 
-					j++
+				// Array with values or array with maps
+				if len(valueNode.Content[j].Content) == 0 {
+					fieldPathMap["{"+pathWithIndex+"}"] = valueNode.Content[j].Line + startLineNum - 1
+				} else {
+					BuildFieldPathMap(valueNode.Content[j], startLineNum, pathWithIndex, fieldPathMap)
 				}
-			} else if valueNode.Tag == "!!map" {
-				BuildFieldPathMap(valueNode, startLineNum, pathKeyForMap, fieldPathMap)
+
+				j++
 			}
+
+		case valueNode.Tag == "!!map":
+			BuildFieldPathMap(valueNode, startLineNum, pathKeyForMap, fieldPathMap)
 		}
-
-		i += 2
-
 	}
 }
