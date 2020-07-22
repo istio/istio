@@ -306,7 +306,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.cachesSynced(), nil
+		return s.EnvoyXdsServer.IsServerReady(), nil
 	})
 
 	return s, nil
