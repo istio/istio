@@ -31,6 +31,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -78,7 +79,7 @@ type FakeDiscoveryServer struct {
 
 func getObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 	if len(opts.Objects) > 0 {
-		return opts.Objects
+		return ensureNode(t, opts.Objects)
 	}
 	decode := scheme.Codecs.UniversalDeserializer().Decode
 	objectStrs := strings.Split(opts.ObjectString, "---")
@@ -90,7 +91,37 @@ func getObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 		}
 		objects = append(objects, o)
 	}
-	return objects
+	return ensureNode(t, objects)
+}
+
+const defaultNode = `
+apiVersion: v1
+kind: Node
+metadata:
+  name: default-node
+`
+
+func ensureNode(t test.Failer, objects []runtime.Object) []runtime.Object {
+	// if objects includes a node, use that
+	for _, o := range objects {
+		if o.GetObjectKind().GroupVersionKind().Kind == "Node" {
+			return objects
+		}
+	}
+	// otherwise create one
+	node, _, err := scheme.Codecs.UniversalDeserializer().Decode([]byte(defaultNode), nil, nil)
+	if err != nil {
+		t.Fatalf("failed deserializing default Node: %v", err)
+	}
+	// and ensure pods reference it
+	for _, o := range objects {
+		if pod, ok := o.(*corev1.Pod); ok {
+			if pod.Spec.NodeName == "" {
+				pod.Spec.NodeName = node.(*corev1.Node).Name
+			}
+		}
+	}
+	return append(objects, node)
 }
 
 func getConfigs(t test.Failer, opts FakeOptions) []model.Config {
