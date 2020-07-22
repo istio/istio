@@ -87,6 +87,7 @@ func NewXDS() *SimpleServer {
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
 	ds := NewDiscoveryServer(env, nil)
+	ds.CachesSynced()
 
 	// Config will have a fixed format:
 	// - aggregate store
