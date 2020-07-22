@@ -64,8 +64,6 @@ var (
 	// the subtree of components that must wait for cname to be installed before starting installation themselves.
 	ComponentDependencies = componentNameToListMap{
 		name.PilotComponentName: {
-			name.PolicyComponentName,
-			name.TelemetryComponentName,
 			name.CNIComponentName,
 			name.IngressComponentName,
 			name.EgressComponentName,
