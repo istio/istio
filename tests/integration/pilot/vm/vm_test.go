@@ -91,7 +91,7 @@ spec:
 			var k8sClusterIPService echo.Instance
 			var k8sHeadlessService echo.Instance
 			// builder to build the instances iteratively
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&k8sClusterIPService, echo.Config{
 					Service:   clusterServiceHostname,
 					Namespace: ns,
@@ -103,7 +103,7 @@ spec:
 				// i.e. we simply forward traffic as is. So, when creating the echo instance for the headless
 				// service, set the target port and instance port to be the same so that the server side listens on
 				// the same port as the service port.
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&k8sHeadlessService, echo.Config{
 					Service:   headlessServiceHostname,
 					Namespace: ns,
@@ -122,7 +122,7 @@ spec:
 			// build the VM instances in the array
 			for i, vmImage := range vmImages {
 				var vm echo.Instance
-				echoboot.NewBuilderOrFail(t, ctx).
+				echoboot.NewBuilder(ctx).
 					With(&vm, echo.Config{
 						Service:    fmt.Sprintf("vm-%v", i),
 						Namespace:  ns,

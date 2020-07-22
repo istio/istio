@@ -42,7 +42,7 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, feature features.Feat
 					// the odds of a proxy getting bad configuration and not being able to reach a service in another cluster.
 					// (see https://github.com/istio/istio/issues/23591).
 					clusters := ctx.Environment().Clusters()
-					builder := echoboot.NewBuilderOrFail(ctx, ctx)
+					builder := echoboot.NewBuilder(ctx)
 					for _, cluster := range clusters {
 						for i := 0; i < mcReachabilitySvcPerCluster; i++ {
 							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
