@@ -40,6 +40,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: REVISION
+              value: ""
             - name: OPERATOR_NAME
               value: "istio-operator"
             - name: WAIT_FOR_RESOURCES_TIMEOUT
