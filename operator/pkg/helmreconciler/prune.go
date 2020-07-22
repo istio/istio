@@ -105,11 +105,12 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision 
 	}
 	// TODO(richardwxn): add warning message together with the status
 	if len(pids) != 0 {
-		return errStatus,
-			fmt.Errorf("there are proxies still pointing to the pruned control plane: %s",
-				strings.Join(pids, " "))
+		msg := fmt.Sprintf("there are proxies still pointing to the pruned control plane: %s.",
+			strings.Join(pids, " "))
+		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
+		return st, nil
 	}
-	uslist, _, err := h.GetPrunedResources(revision, false)
+	uslist, _, err := h.GetPrunedResources(revision, false, "")
 	if err != nil {
 		return errStatus, err
 	}
@@ -151,13 +152,17 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 // GetPrunedResources get the list of resources to be removed
 // 1. if includeClusterResources is false, we list the namespaced resources by matching revision and component labels.
 // 2. if includeClusterResources is true, we list the namespaced and cluster resources by component labels only.
+// If componentName is not empty, only resources associated with specific components would be returned
 // UnstructuredList of objects and corresponding list of name kind hash of k8sObjects would be returned
-func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool) (
+func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool, componentName string) (
 	[]*unstructured.UnstructuredList, []string, error) {
 	var resources []string
 	var usList []*unstructured.UnstructuredList
 	labels := map[string]string{
 		label.IstioRev: revision,
+	}
+	if componentName != "" {
+		labels[IstioComponentLabelStr] = componentName
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
 	gvkList := append(NamespacedResources, ClusterCPResources...)
@@ -261,13 +266,6 @@ func (h *HelmReconciler) runForAllTypes(callback func(labels map[string]string, 
 		errs = util.AppendErr(errs, callback(labels, objects))
 	}
 	return errs.ToError()
-}
-
-// DeleteComponent Delete removes all resources associated with componentName.
-func (h *HelmReconciler) DeleteComponent(componentName string) error {
-	return h.runForAllTypes(func(labels map[string]string, objects *unstructured.UnstructuredList) error {
-		return h.deleteResources(map[string]bool{}, labels, componentName, objects, false)
-	})
 }
 
 // deleteResources delete any resources from the given component that are not in the excluded map. Resource

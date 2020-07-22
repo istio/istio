@@ -10,6 +10,9 @@ waitForResourcesTimeout: 300s
 # Used for helm2 to add the CRDs to templates.
 enableCRDTemplates: false
 
+# revision for the operator resources
+revision: ""
+
 # Operator resource defaults
 operator:
   resources:
