@@ -158,7 +158,9 @@ istioctl experimental add-to-mesh deployment productpage-v1`,
 			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer, func(warning string) {
+					fmt.Fprintln(cmd.ErrOrStderr(), warning)
+				})
 		},
 	}
 
@@ -213,7 +215,9 @@ istioctl experimental add-to-mesh service productpage`,
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer, func(warning string) {
+					fmt.Fprintln(cmd.ErrOrStderr(), warning)
+				})
 		},
 	}
 
@@ -307,12 +311,12 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
-	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 			dep.Name, dep.Namespace)
-		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep)
+		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep, warningHandler)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
