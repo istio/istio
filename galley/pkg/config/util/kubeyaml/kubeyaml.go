@@ -90,7 +90,7 @@ func NewYAMLReader(r *bufio.Reader) *YAMLReader {
 	}
 }
 
-// Read returns a full YAML document, a full YAML document with its values replaced by line numbers and its first line number.
+// Read returns a full YAML document and its first line number.
 func (r *YAMLReader) Read() ([]byte, int, error) {
 	var buffer bytes.Buffer
 	startLine := r.currLine + 1
