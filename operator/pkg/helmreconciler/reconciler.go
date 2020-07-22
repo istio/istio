@@ -101,6 +101,9 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		iop = &valuesv1alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
 	}
+	if operatorRevision, found := os.LookupEnv("REVISION"); found {
+		iop.Spec.Revision = operatorRevision
+	}
 	var cs *kubernetes.Clientset
 	var err error
 	if restConfig != nil {
@@ -334,8 +337,12 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	labels := make(map[string]string)
 
 	labels[operatorLabelStr] = operatorReconcileStr
-	labels[OwningResourceName] = crName
-	labels[OwningResourceNamespace] = crNamespace
+	if crName != "" {
+		labels[OwningResourceName] = crName
+	}
+	if crNamespace != "" {
+		labels[OwningResourceNamespace] = crNamespace
+	}
 	labels[istioVersionLabelStr] = version.Info.Version
 
 	return labels, nil

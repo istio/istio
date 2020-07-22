@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
@@ -60,7 +59,6 @@ type TestCase struct {
 // Context is a context for reachability tests.
 type Context struct {
 	ctx           framework.TestContext
-	p             pilot.Instance
 	Namespace     namespace.Instance
 	A, B          echo.Instance
 	Multiversion  echo.Instance
@@ -71,7 +69,7 @@ type Context struct {
 }
 
 // CreateContext creates and initializes reachability context.
-func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Context {
+func CreateContext(ctx framework.TestContext, buildVM bool) Context {
 	ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "reachability",
 		Inject: true,
@@ -115,7 +113,6 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Co
 
 	return Context{
 		ctx:           ctx,
-		p:             p,
 		Namespace:     ns,
 		A:             a,
 		B:             b,

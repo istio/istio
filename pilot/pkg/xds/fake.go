@@ -195,7 +195,7 @@ func (f *FakeDiscoveryServer) Clusters(p *model.Proxy) []*cluster.Cluster {
 func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	for _, c := range ExtractEdsClusterNames(f.Clusters(p)) {
-		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(c, p, f.PushContext, nil))
+		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(createEndpointBuilder(c, p, f.PushContext)))
 	}
 	return loadAssignments
 }

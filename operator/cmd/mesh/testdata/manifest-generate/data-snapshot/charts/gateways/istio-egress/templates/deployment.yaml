@@ -151,6 +151,12 @@ spec:
             value: {{ .Values.global.jwtPolicy }}
           - name: PILOT_CERT_PROVIDER
             value: {{ .Values.global.pilotCertProvider }}
+          - name: CA_ADDR
+          {{- if .Values.global.caAddress }}
+            value: {{ .Values.global.caAddress }}
+          {{- else }}
+            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+          {{- end }}
           - name: NODE_NAME
             valueFrom:
               fieldRef:
@@ -230,6 +236,8 @@ spec:
             mountPath: /var/run/secrets/tokens
             readOnly: true
           {{- end }}
+          - name: gatewaysdsudspath
+            mountPath: /var/run/ingress_gateway
           {{- if .Values.global.mountMtlsCerts }}
           # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
           - name: istio-certs
@@ -242,6 +250,13 @@ spec:
           - name: {{ .name }}
             mountPath: {{ .mountPath | quote }}
             readOnly: true
+          {{- end }}
+          {{- range $gateway.configVolumes }}
+          {{- if .mountPath }}
+          - name: {{ .name }}
+            mountPath: {{ .mountPath | quote }}
+            readOnly: true
+          {{- end }}
           {{- end }}
 {{- if $gateway.additionalContainers }}
 {{ toYaml $gateway.additionalContainers | indent 8 }}
@@ -263,6 +278,8 @@ spec:
                 fieldPath: metadata.annotations
       - name: istio-envoy
         emptyDir: {}
+      - name: gatewaysdsudspath
+        emptyDir: {}
 {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
       - name: istio-token
         projected:
@@ -276,7 +293,7 @@ spec:
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
         secret:
-          secretName: istio.default
+          secretName: istio.istio-egressgateway-service-account
           optional: true
       {{- end }}
       - name: config-volume

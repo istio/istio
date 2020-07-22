@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -117,6 +118,7 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--service-cluster", e.Config.ServiceCluster,
 		"--service-node", e.Node,
 		"--local-address-ip-version", proxyLocalAddressType,
+		"--bootstrap-version", "3",
 		"--log-format-prefix-with-location", "0",
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
 		// this matches Istio log format
@@ -152,6 +154,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.Config.CustomConfigFile
 	} else {
+		discHost := strings.Split(e.Config.DiscoveryAddress, ":")[0]
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
 			Proxy:               &e.Config,
@@ -168,6 +171,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
+			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)

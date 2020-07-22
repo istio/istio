@@ -32,13 +32,13 @@ import (
 
 	"istio.io/istio/security/pkg/pki/util"
 
+	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	pb "istio.io/istio/security/proto"
 )
 
 const csr = `

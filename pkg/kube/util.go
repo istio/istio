@@ -53,8 +53,8 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 
 	//Config loading rules:
 	// 1. kubeconfig if it not empty string
-	// 2. In cluster config if running in-cluster
-	// 3. Config(s) in KUBECONFIG environment variable
+	// 2. Config(s) in KUBECONFIG environment variable
+	// 3. In cluster config if running in-cluster
 	// 4. Use $HOME/.kube/config
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig

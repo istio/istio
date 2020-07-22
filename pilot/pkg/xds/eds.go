@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
@@ -293,88 +294,126 @@ func connectionID(node string) string {
 	return node + "-" + strconv.FormatInt(id, 10)
 }
 
-// loadAssignmentsForClusterIsolated return the endpoints for a proxy in an isolated namespace
+// SubsetToLabels returns the labels associated with a subset of a given service.
+func subsetToLabels(dr *model.Config, subsetName string) labels.Collection {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	if dr == nil {
+		return nil
+	}
+
+	rule := dr.Spec.(*networkingapi.DestinationRule)
+	for _, subset := range rule.Subsets {
+		if subset.Name == subsetName {
+			if len(subset.Labels) == 0 {
+				return nil
+			}
+			return []labels.Instance{subset.Labels}
+		}
+	}
+
+	return nil
+}
+
+// loadAssignmentsForCluster return the endpoints for a cluster
 // Initial implementation is computing the endpoints on the flight - caching will be added as needed, based on
-// perf tests. The logic to compute is based on the current UpdateClusterInc
-func (s *DiscoveryServer) loadAssignmentsForClusterIsolated(proxy *model.Proxy, push *model.PushContext,
-	clusterName string) *endpoint.ClusterLoadAssignment {
-	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+// perf tests.
+func (s *DiscoveryServer) loadAssignmentsForCluster(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
+	subsetLabels := subsetToLabels(b.destinationRule, b.subsetName)
 
-	// TODO: BUG. this code is incorrect if 1.1 isolation is used. With destination rule scoping
-	// (public/private) as well as sidecar scopes allowing import of
-	// specific destination rules, the destination rule for a given
-	// namespace should be determined based on the sidecar scope or the
-	// proxy's config namespace. As such, this code searches through all
-	// destination rules, public and private and returns a completely
-	// arbitrary destination rule's subset labels!
-	subsetLabels := push.SubsetToLabels(proxy, subsetName, hostname)
-
-	push.Mutex.Lock()
-	svc := push.ServiceForHostname(proxy, hostname)
-	push.Mutex.Unlock()
-	if svc == nil {
+	if b.service == nil {
 		// Shouldn't happen here
-		adsLog.Debugf("can not find the service for cluster %s", clusterName)
-		return buildEmptyClusterLoadAssignment(clusterName)
+		adsLog.Debugf("can not find the service for cluster %s", b.clusterName)
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
 	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
 	// EDS to STRICT_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
-	// will update "Connection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check gaurds
+	// will update "Connection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check guards
 	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
 	// automatically.
 	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
-	if svc.Resolution == model.DNSLB {
-		adsLog.Infof("%s has %s in its eds clusters but its resolution now is updated to %v, skipping it.", proxy.ID, clusterName, svc.Resolution)
+	if b.service.Resolution == model.DNSLB {
+		adsLog.Infof("cluster %s in  eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
 		return nil
 	}
 
-	svcPort, f := svc.Ports.GetByPort(port)
+	svcPort, f := b.service.Ports.GetByPort(b.port)
 	if !f {
 		// Shouldn't happen here
-		adsLog.Debugf("can not find the service port %d for cluster %s", port, clusterName)
-		return buildEmptyClusterLoadAssignment(clusterName)
+		adsLog.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
 	// The service was never updated - do the full update
 	s.mutex.RLock()
-	se, f := s.EndpointShardsByService[string(hostname)][svc.Attributes.Namespace]
+	se, f := s.EndpointShardsByService[string(b.hostname)][b.service.Attributes.Namespace]
 	s.mutex.RUnlock()
 	if !f {
 		// Shouldn't happen here
-		adsLog.Debugf("can not find the endpointShards for cluster %s", clusterName)
-		return buildEmptyClusterLoadAssignment(clusterName)
+		adsLog.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
+		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	locEps := buildLocalityLbEndpointsFromShards(proxy, se, svc, svcPort, subsetLabels, clusterName, push)
+	locEps := buildLocalityLbEndpointsFromShards(b, se, svcPort, subsetLabels)
 
 	return &endpoint.ClusterLoadAssignment{
-		ClusterName: clusterName,
+		ClusterName: b.clusterName,
 		Endpoints:   locEps,
 	}
 }
 
-func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Proxy, push *model.PushContext,
-	edsUpdatedServices map[string]struct{}) *endpoint.ClusterLoadAssignment {
-	if edsUpdatedServices != nil {
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-			// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-			// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-			return nil
-		}
+type EndpointBuilder struct {
+	// These fields define the primary key for an endpoint, and can be used as a cache key
+	clusterName     string
+	network         string
+	clusterID       string
+	locality        *core.Locality
+	destinationRule *model.Config
+	service         *model.Service
+
+	// These fields are provided for convenience only
+	subsetName string
+	hostname   host.Name
+	port       int
+	push       *model.PushContext
+}
+
+func createEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
+	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	svc := push.ServiceForHostname(proxy, hostname)
+
+	key := EndpointBuilder{
+		clusterName:     clusterName,
+		network:         proxy.Metadata.Network,
+		clusterID:       proxy.Metadata.ClusterID,
+		locality:        proxy.Locality,
+		service:         svc,
+		destinationRule: push.DestinationRule(proxy, svc),
+
+		push:       push,
+		subsetName: subsetName,
+		hostname:   hostname,
+		port:       port,
 	}
 
-	l := s.loadAssignmentsForClusterIsolated(proxy, push, clusterName)
+	return key
+}
+
+func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
+	l := s.loadAssignmentsForCluster(b)
 	if l == nil {
 		return nil
 	}
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
-	if push.Networks != nil && len(push.Networks.Networks) > 0 {
-		endpoints := EndpointsByNetworkFilter(push, proxy.Metadata.Network, l.Endpoints)
+	if b.push.Networks != nil && len(b.push.Networks.Networks) > 0 {
+		endpoints := EndpointsByNetworkFilter(b.push, b.network, l.Endpoints)
 		filteredCLA := &endpoint.ClusterLoadAssignment{
 			ClusterName: l.ClusterName,
 			Endpoints:   endpoints,
@@ -386,12 +425,12 @@ func (s *DiscoveryServer) generateEndpoints(clusterName string, proxy *model.Pro
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
-	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(push, proxy, clusterName)
-	lbSetting := loadbalancer.GetLocalityLbSetting(push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.destinationRule, b.port, b.subsetName)
+	lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
-		loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, lbSetting, enableFailover)
+		loadbalancer.ApplyLocalityLBSetting(b.locality, l, lbSetting, enableFailover)
 	}
 	return l
 }
@@ -412,7 +451,12 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range w.ResourceNames {
-		l := eds.Server.generateEndpoints(clusterName, proxy, push, edsUpdatedServices)
+		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+		if _, f := edsUpdatedServices[string(hostname)]; f {
+			continue
+		}
+		epb := createEndpointBuilder(clusterName, proxy, push)
+		l := eds.Server.generateEndpoints(epb)
 		if l == nil {
 			continue
 		}
@@ -435,8 +479,16 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters() {
-
-		l := s.generateEndpoints(clusterName, con.node, push, edsUpdatedServices)
+		if edsUpdatedServices != nil {
+			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+				continue
+			}
+		}
+		builder := createEndpointBuilder(clusterName, con.node, push)
+		l := s.generateEndpoints(builder)
 		if l == nil {
 			continue
 		}
@@ -470,25 +522,14 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	return nil
 }
 
-// getDestinationRule gets the DestinationRule for a given hostname. As an optimization, this also gets the service port,
-// which is needed to access the traffic policy from the destination rule.
-func getDestinationRule(push *model.PushContext, proxy *model.Proxy, hostname host.Name) *networkingapi.DestinationRule {
-	cfg := push.DestinationRule(proxy, push.ServiceForHostname(proxy, hostname))
-	if cfg != nil {
-		return cfg.Spec.(*networkingapi.DestinationRule)
+func getOutlierDetectionAndLoadBalancerSettings(cfg *model.Config, portNumber int, subsetName string) (bool, *networkingapi.LoadBalancerSettings) {
+	if cfg == nil {
+		return false, nil
 	}
-	return nil
-}
-
-func getOutlierDetectionAndLoadBalancerSettings(push *model.PushContext, proxy *model.Proxy, clusterName string) (bool, *networkingapi.LoadBalancerSettings) {
-	_, subsetName, hostname, portNumber := model.ParseSubsetKey(clusterName)
+	destinationRule := cfg.Spec.(*networkingapi.DestinationRule)
 	var outlierDetectionEnabled = false
 	var lbSettings *networkingapi.LoadBalancerSettings
 
-	destinationRule := getDestinationRule(push, proxy, hostname)
-	if destinationRule == nil {
-		return false, nil
-	}
 	port := &model.Port{Port: portNumber}
 	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
 	lbSettings = loadBalancerSettings
@@ -530,18 +571,16 @@ func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
 func buildLocalityLbEndpointsFromShards(
-	proxy *model.Proxy,
+	b EndpointBuilder,
 	shards *EndpointShards,
-	svc *model.Service,
 	svcPort *model.Port,
 	epLabels labels.Collection,
-	clusterName string,
-	push *model.PushContext) []*endpoint.LocalityLbEndpoints {
+) []*endpoint.LocalityLbEndpoints {
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := push.IsClusterLocal(svc)
+	isClusterLocal := b.push.IsClusterLocal(b.service)
 
 	shards.mutex.Lock()
 
@@ -550,7 +589,7 @@ func buildLocalityLbEndpointsFromShards(
 	for clusterID, endpoints := range shards.Shards {
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (clusterID != proxy.Metadata.ClusterID) {
+		if isClusterLocal && (clusterID != b.clusterID) {
 			continue
 		}
 
@@ -572,7 +611,7 @@ func buildLocalityLbEndpointsFromShards(
 				localityEpMap[ep.Locality.Label] = locLbEps
 			}
 			if ep.EnvoyEndpoint == nil {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, push)
+				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(ep, b.push)
 			}
 			locLbEps.LbEndpoints = append(locLbEps.LbEndpoints, ep.EnvoyEndpoint)
 
@@ -594,7 +633,7 @@ func buildLocalityLbEndpointsFromShards(
 	}
 
 	if len(locEps) == 0 {
-		push.AddMetric(model.ProxyStatusClusterNoInstances, clusterName, nil, "")
+		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, nil, "")
 	}
 
 	return locEps

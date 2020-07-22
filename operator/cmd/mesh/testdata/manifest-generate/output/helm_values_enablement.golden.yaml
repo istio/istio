@@ -82,6 +82,8 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -172,6 +174,8 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
+        - mountPath: /var/run/ingress_gateway
+          name: gatewaysdsudspath
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/egressgateway-certs
@@ -201,6 +205,8 @@ spec:
         name: podinfo
       - emptyDir: {}
         name: istio-envoy
+      - emptyDir: {}
+        name: gatewaysdsudspath
       - name: istio-token
         projected:
           sources:

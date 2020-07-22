@@ -14,6 +14,8 @@ podLabels:
 # Demo only, so we will have no authentication
 admin:
   existingSecret: true
+ldap:
+  existingSecret: true
 env:
   GF_SECURITY_ADMIN_USER: "-"
   GF_SECURITY_ADMIN_PASSWORD: "-"
@@ -26,7 +28,7 @@ service:
   port: 3000
 
 image:
-  tag: 7.0.2
+  tag: 7.0.5
 
 # Set up out dashboards
 dashboardProviders:
