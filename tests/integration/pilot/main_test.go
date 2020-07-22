@@ -55,6 +55,8 @@ type EchoDeployments struct {
 	podA echo.Instances
 	// Standard echo app to be used by tests
 	podB echo.Instances
+	// Standard echo app to be used by tests
+	podC echo.Instances
 	// Headless echo app to be used by tests
 	headless echo.Instances
 	// Echo app to be used by tests, with no sidecar injected
@@ -111,6 +113,13 @@ values:
 						Cluster:   c,
 					}).
 					With(nil, echo.Config{
+						Service:   fmt.Sprintf("c-%d", c.Index()),
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
 						Service:   fmt.Sprintf("headless-%d", c.Index()),
 						Headless:  true,
 						Namespace: apps.namespace,
@@ -147,6 +156,7 @@ values:
 			}
 			apps.podA = echos.Match(echo.ServicePrefix("a-"))
 			apps.podB = echos.Match(echo.ServicePrefix("b-"))
+			apps.podC = echos.Match(echo.ServicePrefix("c-"))
 			apps.headless = echos.Match(echo.ServicePrefix("headless-"))
 			apps.naked = echos.Match(echo.ServicePrefix("naked-"))
 			apps.vmA = echos.Match(echo.ServicePrefix("vm-a-"))

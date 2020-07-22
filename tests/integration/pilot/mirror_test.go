@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -51,7 +50,17 @@ type VirtualServiceMirrorConfig struct {
 	Namespace  string
 	Absent     bool
 	Percent    float64
+	TargetHost string
 	MirrorHost string
+}
+
+// ExternalServiceMirrorConfig sets up a Sidecar and ServiceEntry to prevent mirrored service from being called directly.
+type ExternalServiceMirrorConfig struct {
+	Namespace     string
+	Domain        string
+	MirrorHost    string
+	MirrorAddress string
+	TargetHost    string
 }
 
 type testCaseMirror struct {
@@ -63,9 +72,11 @@ type testCaseMirror struct {
 
 type mirrorTestOptions struct {
 	t              *testing.T
+	ctx            framework.TestContext
 	cases          []testCaseMirror
 	mirrorHost     string
-	fnInjectConfig func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance)
+	fnInjectConfig func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance) (cleanup func())
+	instances      [3]echo.Instance
 }
 
 var (
@@ -73,34 +84,47 @@ var (
 )
 
 func TestMirroring(t *testing.T) {
-	cases := []testCaseMirror{
-		{
-			name:       "mirror-percent-absent",
-			absent:     true,
-			percentage: 100.0,
-			threshold:  0.0,
-		},
-		{
-			name:       "mirror-50",
-			percentage: 50.0,
-			threshold:  10.0,
-		},
-		{
-			name:       "mirror-10",
-			percentage: 10.0,
-			threshold:  5.0,
-		},
-		{
-			name:       "mirror-0",
-			percentage: 0.0,
-			threshold:  0.0,
-		},
-	}
-
-	runMirrorTest(mirrorTestOptions{
-		t:     t,
-		cases: cases,
-	})
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			cases := []testCaseMirror{
+				{
+					name:       "mirror-percent-absent",
+					absent:     true,
+					percentage: 100.0,
+					threshold:  0.0,
+				},
+				{
+					name:       "mirror-50",
+					percentage: 50.0,
+					threshold:  10.0,
+				},
+				{
+					name:       "mirror-10",
+					percentage: 10.0,
+					threshold:  5.0,
+				},
+				{
+					name:       "mirror-0",
+					percentage: 0.0,
+					threshold:  0.0,
+				},
+			}
+			for _, src := range ctx.Clusters() {
+				for _, dst := range ctx.Clusters() {
+					runMirrorTest(mirrorTestOptions{
+						t:     t,
+						ctx:   ctx,
+						cases: cases,
+						instances: [3]echo.Instance{
+							apps.podA.GetOrFail(t, echo.InCluster(src)),
+							apps.podB.GetOrFail(t, echo.InCluster(dst)),
+							apps.podC.GetOrFail(t, echo.InCluster(dst)),
+						},
+					})
+				}
+			}
+		})
 }
 
 // Tests mirroring to an external service. Uses same topology as the test above, a -> b -> c, with "c" being external.
@@ -114,126 +138,108 @@ func TestMirroring(t *testing.T) {
 
 const (
 	fakeExternalURL = "external-website-url-just-for-testing.extension"
-
-	serviceEntry = `
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: external-service
-spec:
-  hosts:
-  - %s
-  location: MESH_EXTERNAL
-  ports:
-  - name: http
-    number: 80
-    protocol: HTTP
-  - name: grpc
-    number: 7070
-    protocol: GRPC
-  resolution: STATIC
-  endpoints:
-  - address: %s
-`
-
-	sidecar = `
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: restrict-to-service-entry
-spec:
-  egress:
-  - hosts:
-    - "./b.%s.svc.%s"
-    - "*/%s"
-  outboundTrafficPolicy:
-    mode: REGISTRY_ONLY
-`
 )
 
 func TestMirroringExternalService(t *testing.T) {
-	cases := []testCaseMirror{
-		{
-			name:       "mirror-external",
-			absent:     true,
-			percentage: 100.0,
-			threshold:  0.0,
-		},
-	}
-
-	runMirrorTest(mirrorTestOptions{
-		t:          t,
-		cases:      cases,
-		mirrorHost: fakeExternalURL,
-		fnInjectConfig: func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance) {
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(sidecar, ns.Name(),
-				instances[1].Config().Domain, fakeExternalURL))
-			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
-			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
-				t.Fatalf("failed to apply sidecar, %v", err)
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			cases := []testCaseMirror{
+				{
+					name:       "mirror-external",
+					absent:     true,
+					percentage: 100.0,
+					threshold:  0.0,
+				},
 			}
-		},
-	})
+
+			for _, src := range ctx.Clusters() {
+				for _, dst := range ctx.Clusters() {
+					t.Run(fmt.Sprintf("%s->%s", src.Name(), dst.Name()), func(t *testing.T) {
+						if src.NetworkName() != dst.NetworkName() {
+							t.Skip("external serviceentry hack does not work with multi-network")
+						}
+						runMirrorTest(mirrorTestOptions{
+							t:     t,
+							ctx:   ctx,
+							cases: cases,
+							instances: [3]echo.Instance{
+								apps.podA.GetOrFail(t, echo.InCluster(src)),
+								apps.podB.GetOrFail(t, echo.InCluster(dst)),
+								apps.podC.GetOrFail(t, echo.InCluster(dst)),
+							},
+							mirrorHost: fakeExternalURL,
+							fnInjectConfig: func(ns namespace.Instance, ctx resource.Context, instances [3]echo.Instance) func() {
+								cfg := ExternalServiceMirrorConfig{
+									Namespace:     ns.Name(),
+									Domain:        instances[1].Config().Domain,
+									MirrorHost:    fakeExternalURL,
+									MirrorAddress: instances[2].Address(),
+									TargetHost:    instances[1].Config().Service,
+								}
+								deployment := tmpl.EvaluateOrFail(t,
+									file.AsStringOrFail(t, "testdata/traffic-mirroring-external-template.yaml"), cfg)
+								ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
+								if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
+									t.Fatalf("failed to apply sidecar, %v", err)
+								}
+								return func() {
+									ctx.Config().DeleteYAMLOrFail(t, ns.Name(), deployment)
+								}
+							},
+						})
+					})
+				}
+			}
+
+		})
 }
 
 func runMirrorTest(options mirrorTestOptions) {
-	framework.
-		NewTest(options.t).
-		RequiresSingleCluster().
-		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(options.t, ctx, namespace.Config{
-				Prefix: "mirroring",
-				Inject: true,
-			})
+	ctx := options.ctx
+	instances := options.instances
+	if options.fnInjectConfig != nil {
+		cleanup := options.fnInjectConfig(apps.namespace, ctx, instances)
+		defer cleanup()
+	}
 
-			var instances [3]echo.Instance
-			echoboot.NewBuilder(ctx).
-				With(&instances[0], echoConfig(ns, "a")). // client
-				With(&instances[1], echoConfig(ns, "b")). // target
-				With(&instances[2], echoConfig(ns, "c")). // receives mirrored requests
-				BuildOrFail(options.t)
-
-			if options.fnInjectConfig != nil {
-				options.fnInjectConfig(ns, ctx, instances)
+	for _, c := range options.cases {
+		options.t.Run(c.name, func(t *testing.T) {
+			mirrorHost := options.mirrorHost
+			if len(mirrorHost) == 0 {
+				mirrorHost = instances[2].Config().Service
+			}
+			vsc := VirtualServiceMirrorConfig{
+				c.name,
+				apps.namespace.Name(),
+				c.absent,
+				c.percentage,
+				instances[1].Config().Service,
+				mirrorHost,
 			}
 
-			for _, c := range options.cases {
-				options.t.Run(c.name, func(t *testing.T) {
-					mirrorHost := options.mirrorHost
-					if len(mirrorHost) == 0 {
-						mirrorHost = instances[2].Config().Service
-					}
-					vsc := VirtualServiceMirrorConfig{
-						c.name,
-						ns.Name(),
-						c.absent,
-						c.percentage,
-						mirrorHost,
-					}
+			deployment := tmpl.EvaluateOrFail(t,
+				file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
+			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), deployment)
+			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), deployment)
 
-					deployment := tmpl.EvaluateOrFail(t,
-						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					ctx.Config().ApplyYAMLOrFail(t, ns.Name(), deployment)
-					defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), deployment)
+			for _, proto := range mirrorProtocols {
+				t.Run(string(proto), func(t *testing.T) {
+					retry.UntilSuccessOrFail(t, func() error {
+						testID := fmt.Sprintf("%s_%s", t.Name(), util.RandomString(8))
+						if err := sendTrafficMirror(instances, proto, testID); err != nil {
+							return err
+						}
 
-					for _, proto := range mirrorProtocols {
-						t.Run(string(proto), func(t *testing.T) {
-							retry.UntilSuccessOrFail(t, func() error {
-								testID := util.RandomString(16)
-								if err := sendTrafficMirror(instances, proto, testID); err != nil {
-									return err
-								}
-
-								if err := verifyTrafficMirror(instances, c, testID); err != nil {
-									return err
-								}
-								return nil
-							}, retry.Delay(time.Second))
-						})
-					}
+						if err := verifyTrafficMirror(instances, c, testID); err != nil {
+							return err
+						}
+						return nil
+					}, retry.Delay(time.Second))
 				})
 			}
 		})
+	}
 }
 
 func sendTrafficMirror(instances [3]echo.Instance, proto protocol.Instance, testID string) error {
