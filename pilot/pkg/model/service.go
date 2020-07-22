@@ -54,7 +54,7 @@ import (
 // listens on ports 80, 8080
 type Service struct {
 	// Attributes contains additional attributes associated with the service
-	// used mostly by mixer and RBAC for policy enforcement purposes.
+	// used mostly by RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
 
 	// Ports is the set of network ports where the service is listening for

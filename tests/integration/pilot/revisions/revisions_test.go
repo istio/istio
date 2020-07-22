@@ -70,7 +70,7 @@ func TestMultiRevision(t *testing.T) {
 			})
 
 			var client, server echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: stable,

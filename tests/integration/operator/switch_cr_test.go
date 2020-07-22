@@ -243,7 +243,7 @@ func sanityCheck(t *testing.T, ctx resource.Context) {
 		Prefix: "default",
 		Inject: true,
 	})
-	echoboot.NewBuilderOrFail(t, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: test,

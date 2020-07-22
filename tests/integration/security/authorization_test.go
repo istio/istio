@@ -60,7 +60,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 			})
 
 			var a, b, c echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns2, false, nil)).
@@ -119,7 +119,7 @@ func TestAuthorization_JWT(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			var a, b, c, d echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
@@ -194,7 +194,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			})
 
 			var a, bInNS1, cInNS1, cInNS2 echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns1, false, nil)).
 				With(&bInNS1, util.EchoConfig("b", ns1, false, nil)).
 				With(&cInNS1, util.EchoConfig("c", ns1, false, nil)).
@@ -275,7 +275,7 @@ func TestAuthorization_Deny(t *testing.T) {
 			})
 
 			var a, b, c echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
@@ -366,7 +366,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			var a, b, c, d, x echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
@@ -446,7 +446,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			var b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
@@ -518,7 +518,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			})
 
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, echo.Config{
 					Service:   "b",
@@ -632,7 +632,7 @@ func TestAuthorization_TCP(t *testing.T) {
 					InstancePort: 8092,
 				},
 			}
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
@@ -746,7 +746,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 
 			portC := 8090
 			var a, b, c echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", nsA, false, nil)).
 				With(&b, util.EchoConfig("b", nsB, false, nil)).
 				With(&c, echo.Config{
@@ -846,7 +846,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 				Inject: true,
 			})
 			var a, b, c, d echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
@@ -920,7 +920,7 @@ func TestAuthorization_Path(t *testing.T) {
 			}
 
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, echo.Config{
 					Service:   "a",
 					Namespace: ns,

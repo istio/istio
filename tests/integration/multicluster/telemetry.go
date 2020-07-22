@@ -37,7 +37,7 @@ func TelemetryTest(t *testing.T, ns namespace.Instance, feature features.Feature
 			ctx.NewSubTest("telemetry").
 				Run(func(ctx framework.TestContext) {
 					clusters := ctx.Environment().Clusters()
-					builder := echoboot.NewBuilderOrFail(ctx, ctx)
+					builder := echoboot.NewBuilder(ctx)
 					for _, cluster := range clusters {
 						svcName := fmt.Sprintf("echo-%d", cluster.Index())
 						builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))

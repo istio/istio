@@ -67,7 +67,7 @@ func TestTrafficShifting(t *testing.T) {
 			}
 
 			var client, vm echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,

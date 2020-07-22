@@ -239,7 +239,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 			})
 
 			var a echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, echoConfig(ns, "a")).
 				BuildOrFail(ctx)
 

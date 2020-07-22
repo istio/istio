@@ -99,7 +99,7 @@ func CreateContext(ctx framework.TestContext, buildVM bool) Context {
 	vmCfg.VMImage = vm.DefaultVMImage
 	vmCfg.Ports[0].ServicePort = vmCfg.Ports[0].InstancePort
 
-	echoboot.NewBuilderOrFail(ctx, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil)).
 		With(&b, util.EchoConfig("b", ns, false, nil)).
 		With(&multiVersion, cfg).

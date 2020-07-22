@@ -312,7 +312,7 @@ func setupEcho(t *testing.T, ctx resource.Context, mode TrafficPolicy) (echo.Ins
 	})
 
 	var client, dest echo.Instance
-	echoboot.NewBuilderOrFail(t, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: appsNamespace,

@@ -82,7 +82,7 @@ type Config struct {
 	// The namespace in which config, discovery and auto-injector are deployed.
 	ConfigNamespace string
 
-	// The namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed.
+	// The namespace in which kiali, tracing providers, graphana, prometheus are deployed.
 	TelemetryNamespace string
 
 	// The namespace in which istio policy checker is deployed.

@@ -9,10 +9,6 @@ import (
 )
 
 var (
-	HTTPAPISpecBinding = collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().GroupVersionKind()
-	HTTPAPISpec = collections.IstioConfigV1Alpha2Httpapispecs.Resource().GroupVersionKind()
-	QuotaSpecBinding = collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind()
-	QuotaSpec = collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind()
 	DestinationRule = collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind()
 	EnvoyFilter = collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind()
 	Gateway = collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind()

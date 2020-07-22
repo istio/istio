@@ -74,7 +74,7 @@ func TestPrioritized(t *testing.T) {
 					})
 
 					var a, b, c echo.Instance
-					echoboot.NewBuilderOrFail(ctx, ctx).
+					echoboot.NewBuilder(ctx).
 						With(&a, echoConfig(ns, "a")).
 						With(&b, echoConfig(ns, "b")).
 						With(&c, echoConfig(ns, "c")).
@@ -110,7 +110,7 @@ func TestPrioritized(t *testing.T) {
 					})
 
 					var a, b, c echo.Instance
-					echoboot.NewBuilderOrFail(ctx, ctx).
+					echoboot.NewBuilder(ctx).
 						With(&a, echoConfig(ns, "a")).
 						With(&b, echoConfig(ns, "b")).
 						With(&c, echoConfig(ns, "c")).
