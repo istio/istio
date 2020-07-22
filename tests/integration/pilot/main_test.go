@@ -36,12 +36,12 @@ var (
 	apps EchoDeployments
 
 	echoPorts = []echo.Port{
-		{Name: "tcp", Protocol: protocol.TCP, InstancePort: 7070},
-		{Name: "http", Protocol: protocol.HTTP, InstancePort: 8080},
-		{Name: "grpc", Protocol: protocol.GRPC, InstancePort: 9090},
-		{Name: "auto-tcp", Protocol: protocol.TCP, InstancePort: 7071},
-		{Name: "auto-http", Protocol: protocol.HTTP, InstancePort: 8081},
-		{Name: "auto-grpc", Protocol: protocol.GRPC, InstancePort: 9091},
+		{Name: "http", Protocol: protocol.HTTP, InstancePort: 18080},
+		{Name: "grpc", Protocol: protocol.GRPC, InstancePort: 17070},
+		{Name: "tcp", Protocol: protocol.TCP, InstancePort: 19090},
+		{Name: "auto-tcp", Protocol: protocol.TCP, InstancePort: 19091},
+		{Name: "auto-http", Protocol: protocol.HTTP, InstancePort: 18081},
+		{Name: "auto-grpc", Protocol: protocol.GRPC, InstancePort: 17071},
 	}
 )
 

@@ -124,7 +124,7 @@ spec:
   hosts:
   - %s
   location: MESH_EXTERNAL
-  echoPorts:
+  ports:
   - name: http
     number: 80
     protocol: HTTP

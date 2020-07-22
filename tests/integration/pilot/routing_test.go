@@ -168,9 +168,6 @@ func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
 		for _, destination := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
-			//if client == destination {
-			//	continue
-			//}
 			for _, call := range []struct {
 				// The port we call
 				port string
