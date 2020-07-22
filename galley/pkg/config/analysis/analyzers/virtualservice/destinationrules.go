@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// DestinationRuleAnalyzer checks the destination rules associated with each virtual service
+// DestinationRuleAnalyzer checks the Destination rules associated with each virtual service
 type DestinationRuleAnalyzer struct{}
 
 var _ analysis.Analyzer = &DestinationRuleAnalyzer{}
@@ -35,7 +35,7 @@ var _ analysis.Analyzer = &DestinationRuleAnalyzer{}
 func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.DestinationRuleAnalyzer",
-		Description: "Checks the destination rules associated with each virtual service",
+		Description: "Checks the Destination rules associated with each virtual service",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
@@ -45,7 +45,7 @@ func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
-	// To avoid repeated iteration, precompute the set of existing destination host+subset combinations
+	// To avoid repeated iteration, precompute the set of existing Destination host+subset combinations
 	destHostsAndSubsets := initDestHostsAndSubsets(ctx)
 
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
@@ -62,13 +62,13 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 	for _, destination := range getRouteDestinations(vs) {
 
-		if !d.checkDestinationSubset(ns, destination.destination, destHostsAndSubsets) {
+		if !d.checkDestinationSubset(ns, destination.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
-				fmt.Sprintf("%s+%s", destination.destination.GetHost(), destination.destination.GetSubset()))
+				fmt.Sprintf("%s+%s", destination.Destination.GetHost(), destination.Destination.GetSubset()))
 
-			if line, ok := util.ErrorLineForHostInDestination(r, destination.GetRouteRule(), destination.GetServiceIndex(),
-				destination.GetDestinationIndex()); ok {
+			if line, ok := util.ErrorLineForHostInDestination(r, destination.RouteRule, destination.ServiceIndex,
+				destination.DestinationIndex); ok {
 				m.Line = line
 			}
 
@@ -79,12 +79,12 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 	for _, destination := range getHTTPMirrorDestinations(vs) {
 
-		if !d.checkDestinationSubset(ns, destination.destination, destHostsAndSubsets) {
+		if !d.checkDestinationSubset(ns, destination.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
-				fmt.Sprintf("%s+%s", destination.destination.GetHost(), destination.destination.GetSubset()))
+				fmt.Sprintf("%s+%s", destination.Destination.GetHost(), destination.Destination.GetSubset()))
 
-			if line, ok := util.ErrorLineForHostInHTTPMirror(r, destination.GetServiceIndex()); ok {
+			if line, ok := util.ErrorLineForHostInHTTPMirror(r, destination.ServiceIndex); ok {
 				m.Line = line
 			}
 

@@ -17,29 +17,13 @@ import (
 	"istio.io/api/networking/v1alpha3"
 )
 
-// Destination is created because the index of the destination along with the destination object are needed
-// for calculating the destination path in the YAML resource
+// Destination is created because the index of the Destination along with the Destination object are needed
+// for calculating the Destination path in the YAML resource
 type Destination struct {
-	routeRule        string
-	serviceIndex     int
-	destinationIndex int
-	destination      *v1alpha3.Destination
-}
-
-func (d *Destination) GetRouteRule() string {
-	return d.routeRule
-}
-
-func (d *Destination) GetServiceIndex() int {
-	return d.serviceIndex
-}
-
-func (d *Destination) GetDestinationIndex() int {
-	return d.destinationIndex
-}
-
-func (d *Destination) GetDestination() *v1alpha3.Destination {
-	return d.destination
+	RouteRule        string
+	ServiceIndex     int
+	DestinationIndex int
+	Destination      *v1alpha3.Destination
 }
 
 func getRouteDestinations(vs *v1alpha3.VirtualService) []*Destination {
@@ -47,30 +31,30 @@ func getRouteDestinations(vs *v1alpha3.VirtualService) []*Destination {
 	for i, r := range vs.GetTcp() {
 		for j, rd := range r.GetRoute() {
 			destinations = append(destinations, &Destination{
-				routeRule:        "tcp",
-				serviceIndex:     i,
-				destinationIndex: j,
-				destination:      rd.GetDestination(),
+				RouteRule:        "tcp",
+				ServiceIndex:     i,
+				DestinationIndex: j,
+				Destination:      rd.GetDestination(),
 			})
 		}
 	}
 	for i, r := range vs.GetTls() {
 		for j, rd := range r.GetRoute() {
 			destinations = append(destinations, &Destination{
-				routeRule:        "tls",
-				serviceIndex:     i,
-				destinationIndex: j,
-				destination:      rd.GetDestination(),
+				RouteRule:        "tls",
+				ServiceIndex:     i,
+				DestinationIndex: j,
+				Destination:      rd.GetDestination(),
 			})
 		}
 	}
 	for i, r := range vs.GetHttp() {
 		for j, rd := range r.GetRoute() {
 			destinations = append(destinations, &Destination{
-				routeRule:        "http",
-				serviceIndex:     i,
-				destinationIndex: j,
-				destination:      rd.GetDestination(),
+				RouteRule:        "http",
+				ServiceIndex:     i,
+				DestinationIndex: j,
+				Destination:      rd.GetDestination(),
 			})
 		}
 	}
@@ -84,8 +68,8 @@ func getHTTPMirrorDestinations(vs *v1alpha3.VirtualService) []*Destination {
 	for i, r := range vs.GetHttp() {
 		if m := r.GetMirror(); m != nil {
 			destinations = append(destinations, &Destination{
-				serviceIndex: i,
-				destination:  m,
+				ServiceIndex: i,
+				Destination:  m,
 			})
 		}
 	}
