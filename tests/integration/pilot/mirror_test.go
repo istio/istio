@@ -71,7 +71,6 @@ type testCaseMirror struct {
 }
 
 type mirrorTestOptions struct {
-	t              *testing.T
 	ctx            framework.TestContext
 	cases          []testCaseMirror
 	mirrorHost     string
@@ -113,7 +112,6 @@ func TestMirroring(t *testing.T) {
 			for _, src := range ctx.Clusters() {
 				for _, dst := range ctx.Clusters() {
 					runMirrorTest(mirrorTestOptions{
-						t:     t,
 						ctx:   ctx,
 						cases: cases,
 						instances: [3]echo.Instance{
@@ -160,7 +158,6 @@ func TestMirroringExternalService(t *testing.T) {
 							t.Skip("external serviceentry hack does not work with multi-network")
 						}
 						runMirrorTest(mirrorTestOptions{
-							t:     t,
 							ctx:   ctx,
 							cases: cases,
 							instances: [3]echo.Instance{
@@ -204,7 +201,7 @@ func runMirrorTest(options mirrorTestOptions) {
 	}
 
 	for _, c := range options.cases {
-		options.t.Run(c.name, func(t *testing.T) {
+		options.ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
 			mirrorHost := options.mirrorHost
 			if len(mirrorHost) == 0 {
 				mirrorHost = instances[2].Config().Service
@@ -218,15 +215,15 @@ func runMirrorTest(options mirrorTestOptions) {
 				mirrorHost,
 			}
 
-			deployment := tmpl.EvaluateOrFail(t,
-				file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), deployment)
-			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), deployment)
+			deployment := tmpl.EvaluateOrFail(ctx,
+				file.AsStringOrFail(ctx, "testdata/traffic-mirroring-template.yaml"), vsc)
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), deployment)
+			defer ctx.Config().DeleteYAMLOrFail(ctx, apps.namespace.Name(), deployment)
 
 			for _, proto := range mirrorProtocols {
-				t.Run(string(proto), func(t *testing.T) {
-					retry.UntilSuccessOrFail(t, func() error {
-						testID := fmt.Sprintf("%s_%s", t.Name(), util.RandomString(8))
+				ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
+					retry.UntilSuccessOrFail(ctx, func() error {
+						testID := fmt.Sprintf("%s_%s", ctx.Name(), util.RandomString(8))
 						if err := sendTrafficMirror(instances, proto, testID); err != nil {
 							return err
 						}
