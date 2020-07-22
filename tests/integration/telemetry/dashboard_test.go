@@ -292,7 +292,7 @@ func setupDashboardTest(t framework.TestContext) {
 
 	var instance echo.Instance
 	echoboot.
-		NewBuilderOrFail(t, t).
+		NewBuilder(t).
 		With(&instance, echo.Config{
 			Service:   "server",
 			Namespace: ns,

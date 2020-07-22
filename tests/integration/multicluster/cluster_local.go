@@ -44,7 +44,7 @@ func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, feature f
 							// Deploy src only in local, but dst in all clusters. dst in remote clusters shouldn't be hit
 							srcName, dstName := fmt.Sprintf("src-%d", i), fmt.Sprintf("dst-%d", i)
 							var src, dst echo.Instance
-							builder := echoboot.NewBuilderOrFail(ctx, ctx).
+							builder := echoboot.NewBuilder(ctx).
 								With(&src, newEchoConfig(srcName, clusterLocalNS, local)).
 								With(&dst, newEchoConfig(dstName, clusterLocalNS, local))
 							for j, remoteCluster := range clusters {

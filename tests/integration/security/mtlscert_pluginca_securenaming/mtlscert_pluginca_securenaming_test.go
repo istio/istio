@@ -117,7 +117,7 @@ func TestMTLSCertPluginCASecureNaming(t *testing.T) {
 				return checkCACert(ctx, t, testNamespace)
 			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", testNamespace, false, nil)).
 				With(&b, util.EchoConfig("b", testNamespace, false, nil)).
 				BuildOrFail(t)
