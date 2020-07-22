@@ -351,13 +351,6 @@ global:
   # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false
 
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
-  # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: true
-
-  # Settings for remote cluster.
-  createRemoteSvcEndpoints: false
-
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
   jwtPolicy: "third-party-jwt"

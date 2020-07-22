@@ -191,7 +191,6 @@ spec:
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: true
       tracer:
         lightstep: {}
         zipkin: {}
@@ -282,9 +281,6 @@ spec:
 
       istio-ingressgateway:
         autoscaleEnabled: true
-        applicationPorts: ""
-        debug: info
-        domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
         zvpn: {}
@@ -317,6 +313,4 @@ spec:
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
-    # TODO: derive from operator API
-    version: ""
     clusterResources: true

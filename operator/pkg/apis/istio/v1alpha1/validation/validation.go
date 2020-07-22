@@ -16,10 +16,12 @@ package validation
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"unicode"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"istio.io/api/operator/v1alpha1"
 
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -47,6 +49,10 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
 	}
+
+	s, _ := (&jsonpb.Marshaler{EmitDefaults: true}).MarshalToString(values)
+	fmt.Println(s)
+	os.Exit(1)
 	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	// TODO: change back to return err when have other validation cases, warning for automtls check only.
 	if err := validateFeatures(values, iopls).ToError(); err != nil {
@@ -86,7 +92,6 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.global.enableTracing", "meshConfig.enableTracing", false},
 		{"Values.global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
 		{"Values.global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
-		{"Values.global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
 		{"Values.global.proxy.concurrency", "meshConfig.defaultConfig.concurrency", uint32(0)},
 		{"Values.global.proxy.envoyAccessLogService", "meshConfig.defaultConfig.envoyAccessLogService", nil},
 		{"Values.global.proxy.envoyAccessLogService.enabled", "meshConfig.enableEnvoyAccessLogService", nil},

@@ -47,9 +47,6 @@ gateways:
     cpu:
       targetAverageUtilization: 80
 
-    drainDuration: 45s
-    connectTimeout: 10s
-
     serviceAnnotations: {}
     podAnnotations: {}
     type: ClusterIP # change to NodePort or LoadBalancer if need be
