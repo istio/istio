@@ -28,11 +28,6 @@ export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
 
-ISTIO_CNI_HUB ?= gcr.io/istio-testing
-export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= latest
-export ISTIO_CNI_TAG
-
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
 FILES_TO_CLEAN:=
