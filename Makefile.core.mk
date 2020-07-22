@@ -30,7 +30,7 @@ export GOSUMDB ?= sum.golang.org
 
 ISTIO_CNI_HUB ?= gcr.io/istio-testing
 export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= latest
+ISTIO_CNI_TAG ?= 1.7-dev
 export ISTIO_CNI_TAG
 
 # cumulatively track the directories/files to delete after a clean

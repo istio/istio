@@ -32,7 +32,7 @@ func addOperatorDumpFlags(cmd *cobra.Command, args *operatorDumpArgs) {
 		hub = "gcr.io/istio-testing"
 	}
 	if tag == "" {
-		tag = "latest"
+		tag = "1.7-dev"
 	}
 	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, "The hub for the operator controller image")
 	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, "The tag for the operator controller image")

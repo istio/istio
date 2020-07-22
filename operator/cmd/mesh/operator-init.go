@@ -41,7 +41,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 		hub = "gcr.io/istio-testing"
 	}
 	if tag == "" {
-		tag = "latest"
+		tag = "1.7-dev"
 	}
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", "Path to file containing IstioOperator custom resource")
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")

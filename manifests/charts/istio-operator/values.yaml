@@ -1,5 +1,5 @@
 hub: gcr.io/istio-testing
-tag: latest
+tag: 1.7-dev
 
 operatorNamespace: istio-operator
 
