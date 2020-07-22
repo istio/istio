@@ -35,10 +35,13 @@ type TrafficTestCase struct {
 }
 
 func virtualServiceCases() []TrafficTestCase {
-	cases := []TrafficTestCase{
-		{
-			name: "added header",
-			config: `
+	cases := make([]TrafficTestCase, 0)
+	for _, a := range apps.podA {
+		for _, b := range apps.podB {
+			cases = append(cases,
+				TrafficTestCase{
+					name: "added header",
+					config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -54,19 +57,19 @@ spec:
       request:
         add:
           istio-custom-header: user-defined-value`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA[0].Call(echo.CallOptions{Target: apps.podB[0], PortName: "http"})
-			},
-			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].RawResponse["Istio-Custom-Header"] != "user-defined-value" {
-					return fmt.Errorf("missing request header, have %+v", response[0].RawResponse)
-				}
-				return nil
-			},
-		},
-		{
-			name: "redirect",
-			config: `
+					call: func() (echoclient.ParsedResponses, error) {
+						return a.Call(echo.CallOptions{Target: b, PortName: "http"})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						if response[0].RawResponse["Istio-Custom-Header"] != "user-defined-value" {
+							return fmt.Errorf("missing request header, have %+v", response[0].RawResponse)
+						}
+						return nil
+					},
+				},
+				TrafficTestCase{
+					name: "redirect",
+					config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -86,81 +89,77 @@ spec:
     route:
     - destination:
         host: b`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA[0].Call(echo.CallOptions{Target: apps.podB[0], PortName: "http"})
-			},
-			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].URL != "/new/path" {
-					return fmt.Errorf("incorrect URL, have %+v %+v", response[0].RawResponse["URL"], response[0].URL)
+					call: func() (echoclient.ParsedResponses, error) {
+						return a.Call(echo.CallOptions{Target: b, PortName: "http"})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						if response[0].URL != "/new/path" {
+							return fmt.Errorf("incorrect URL, have %+v %+v", response[0].RawResponse["URL"], response[0].URL)
+						}
+						return nil
+					},
+				},
+			)
+			for _, naked := range apps.naked {
+				bSvc, nakedSvc := b.Config().Service, naked.Config().Service
+				for _, split := range []int{50, 80} {
+					split := split
+					cases = append(cases, TrafficTestCase{
+						name:   fmt.Sprintf("shifting-%d", split),
+						config: splitConfig(bSvc, nakedSvc, split),
+						call: func() (echoclient.ParsedResponses, error) {
+							return a.Call(echo.CallOptions{Target: b, PortName: "http", Count: 100})
+						},
+						validator: func(responses echoclient.ParsedResponses) error {
+							if err := responses.CheckOK(); err != nil {
+								return err
+							}
+							hitCount := map[string]int{}
+							errorThreshold := 10
+							for _, r := range responses {
+								for _, h := range []string{bSvc, nakedSvc} {
+									if strings.HasPrefix(r.Hostname, h+"-") {
+										hitCount[h]++
+										break
+									}
+								}
+							}
+							if !almostEquals(hitCount[bSvc], split, errorThreshold) {
+								return fmt.Errorf("expected %v calls to b, got %v", split, hitCount["b"])
+							}
+							if !almostEquals(hitCount[nakedSvc], 100-split, errorThreshold) {
+								return fmt.Errorf("expected %v calls to naked, got %v", 100-split, hitCount["naked"])
+							}
+							return nil
+						},
+					})
 				}
-				return nil
-			},
-		},
+
+			}
+		}
 	}
-	splits := []map[string]int{
-		{
-			"b":     50,
-			"vm-a":  25,
-			"naked": 25,
-		},
-		{
-			"b":     80,
-			"vm-a":  10,
-			"naked": 10,
-		},
-	}
-	for _, split := range splits {
-		split := split
-		cases = append(cases, TrafficTestCase{
-			name: fmt.Sprintf("shifting-%d", split["b"]),
-			config: fmt.Sprintf(`
+
+	return cases
+}
+
+func splitConfig(a, b string, split int) string {
+	return fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: default
 spec:
   hosts:
-    - b
+    - %s
   http:
   - route:
     - destination:
-        host: b
+        host: %s
       weight: %d
     - destination:
-        host: naked
+        host: %s
       weight: %d
-    - destination:
-        host: vm-a
-      weight: %d
-`, split["b"], split["naked"], split["vm-a"]),
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA[0].Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: 100})
-			},
-			validator: func(responses echoclient.ParsedResponses) error {
-				if err := responses.CheckOK(); err != nil {
-					return err
-				}
-				hitCount := map[string]int{}
-				errorThreshold := 10
-				for _, r := range responses {
-					for _, h := range []string{"b", "naked", "vm-a"} {
-						if strings.HasPrefix(r.Hostname, h+"-") {
-							hitCount[h]++
-							break
-						}
-					}
-				}
-
-				for _, h := range []string{"b", "naked", "vm-a"} {
-					if !almostEquals(hitCount[h], split[h], errorThreshold) {
-						return fmt.Errorf("expected %v calls to %q, got %v", split[h], h, hitCount[h])
-					}
-				}
-				return nil
-			},
-		})
-	}
-	return cases
+`, a, a, split, b, 100-split)
 }
 
 // Todo merge with security TestReachability code
