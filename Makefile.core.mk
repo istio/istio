@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.7-dev
+VERSION ?= 1.8-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.7-dev.4
@@ -363,6 +363,7 @@ sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.7.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istiod-remote/templates/
 
 # Generate kustomize templates.
 gen-kustomize:
