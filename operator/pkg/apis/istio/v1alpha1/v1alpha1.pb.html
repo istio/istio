@@ -1049,17 +1049,6 @@ No
 No
 </td>
 </tr>
-<tr id="GlobalConfig-configNamespace">
-<td><code>configNamespace</code></td>
-<td><code>string</code></td>
-<td>
-<p>Specifies the namespace for the configuration and validation component.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="GlobalConfig-configRootNamespace">
 <td><code>configRootNamespace</code></td>
 <td><code>string</code></td>
@@ -2156,19 +2145,6 @@ No
 No
 </td>
 </tr>
-<tr id="PilotConfig-sidecar">
-<td><code>sidecar</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-<p>Controls whether a sidecar proxy is installed in the Pilot pod.</p>
-
-<p>Setting to true installs a proxy in the Pilot pod, used primarily for collecting Pilot telemetry.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="PilotConfig-traceSampling">
 <td><code>traceSampling</code></td>
 <td><code>double</code></td>
@@ -2261,26 +2237,6 @@ env:
   ENV<em>VAR</em>1: value1
   ENV<em>VAR</em>2: value2</p>
 
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="PilotConfig-policy">
-<td><code>policy</code></td>
-<td><code><a href="#PilotPolicyConfig">PilotPolicyConfig</a></code></td>
-<td>
-<p>Controls whether Istio policy is applied to Pilot.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="PilotConfig-appNamespaces">
-<td><code>appNamespaces</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
 </td>
 <td>
 No
@@ -2401,28 +2357,6 @@ No
 <p>K8s node selector.</p>
 
 <p>See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="PilotConfig-podAntiAffinityLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>See EgressGatewayConfig.</p>
-
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="PilotConfig-podAntiAffinityTermLabelSelector" class="deprecated ">
-<td><code>podAntiAffinityTermLabelSelector</code></td>
-<td><code><a href="#TypeSliceOfMapStringInterface">TypeSliceOfMapStringInterface</a></code></td>
-<td>
-<p>See EgressGatewayConfig.</p>
 
 </td>
 <td>

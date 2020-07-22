@@ -48,8 +48,6 @@ data:
         "caAddress": "",
         "centralIstiod": false,
         "configValidation": true,
-        "controlPlaneSecurityEnabled": true,
-        "createRemoteSvcEndpoints": false,
         "defaultConfigVisibilitySettings": [],
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
@@ -90,7 +88,6 @@ data:
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
         "priorityClassName": "",
-        "prometheusNamespace": "istio-system",
         "proxy": {
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",

@@ -59,7 +59,7 @@ func DefaultProxyConfig() meshconfig.ProxyConfig {
 		Tracing: &meshconfig.Tracing{
 			Tracer: &meshconfig.Tracing_Zipkin_{
 				Zipkin: &meshconfig.Tracing_Zipkin{
-					Address: "zipkin.istio-system:9411",
+					Address: "zipkin:9411",
 				},
 			},
 		},

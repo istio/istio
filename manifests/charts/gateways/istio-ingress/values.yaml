@@ -45,14 +45,9 @@ gateways:
         cpu: 2000m
         memory: 1024Mi
 
-    # Debug level for envoy. Can be set to 'debug'
-    debug: info
-
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
     serviceAnnotations: {}
-
-    domain: ""
 
     # Enable cross-cluster access using SNI matching
     zvpn:
@@ -95,11 +90,8 @@ gateways:
     externalTrafficPolicy: ""
 
     ingressPorts: []
-    hosts: []
     additionalContainers: []
     configVolumes: []
-    certificates: false
-    tls: false
 
     ### Advanced options ############
     env:

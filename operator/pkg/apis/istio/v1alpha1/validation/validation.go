@@ -16,12 +16,10 @@ package validation
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"unicode"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"istio.io/api/operator/v1alpha1"
 
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -50,9 +48,6 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 		return util.NewErrs(err), ""
 	}
 
-	s, _ := (&jsonpb.Marshaler{EmitDefaults: true}).MarshalToString(values)
-	fmt.Println(s)
-	os.Exit(1)
 	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	// TODO: change back to return err when have other validation cases, warning for automtls check only.
 	if err := validateFeatures(values, iopls).ToError(); err != nil {

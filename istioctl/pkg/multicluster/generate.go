@@ -71,7 +71,7 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 			},
 		},
 		Global: &operatorV1alpha1.GlobalConfig{
-			MeshNetworks:                meshNetworksJSON,
+			MeshNetworks: meshNetworksJSON,
 			MultiCluster: &operatorV1alpha1.MultiClusterConfig{
 				ClusterName: current.clusterName,
 			},
