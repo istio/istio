@@ -1,10 +1,10 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: a
+  name: a-0
 spec:
   hosts:
-  - a
+  - a-0
   http:
   # (This 'match' clause started as a work-around, because WaitUntilCallable() times out if
   # all destinations have a subset.  We are now using it for testing.)
@@ -14,19 +14,19 @@ spec:
           exact: jason
     route:
     - destination:
-        host: a
+        host: a-0
   # Fallthrough
   - route:
     - destination:
-        host: a
+        host: a-0
         subset: v1
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: a
+  name: a-0
 spec:
-  host: a
+  host: a-0
   subsets:
   - name: v1
     labels:
