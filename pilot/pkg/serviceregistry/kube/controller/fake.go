@@ -15,7 +15,8 @@
 package controller
 
 import (
-	"fmt"
+	"errors"
+	
 	klabels "k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"time"
@@ -139,7 +140,7 @@ type FakeController struct {
 func (f *FakeController) ResyncEndpoints() error {
 	e, ok := f.endpoints.(*endpointsController)
 	if !ok {
-		return fmt.Errorf("ResyncEndpoints only works for Endpoints mode")
+		return errors.New("cannot run ResyncEndpoints; EndpointsMode must be EndpointsOnly")
 	}
 	eps, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).List(klabels.Everything())
 	if err != nil {
