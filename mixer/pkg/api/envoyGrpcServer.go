@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/opentracing/opentracing-go"
-	otlog "github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
 
@@ -41,7 +39,7 @@ import (
 )
 
 type (
-	GrpcServerEnvoy struct {
+	grpcServerEnvoy struct {
 		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
 		cache      *checkcache.Cache
@@ -56,13 +54,13 @@ type (
 )
 
 func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache,
-	throttler *loadshedding.Throttler) GrpcServerEnvoy {
+	throttler *loadshedding.Throttler) grpcServerEnvoy {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
 		globalDict[list[i]] = int32(i)
 	}
-	return GrpcServerEnvoy{
+	return grpcServerEnvoy{
 		dispatcher:     dispatcher,
 		gp:             gp,
 		globalWordList: list,
@@ -72,37 +70,50 @@ func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool
 	}
 }
 
-//Mirrors Mixer Check but instead uses Envoy External Authorization API
-//It enables longevity of OOP adapters
-func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
+// Mirrors Mixer Check but instead uses Envoy External Authorization API
+// It enables longevity of OOP adapters
+//https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/filter/http/ext_authz/v2/ext_authz.proto
+func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
 	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: 1.0}) {
 		return nil, grpc.Errorf(codes.Unavailable, "Envoy Server is currently overloaded. Please try again.")
 	}
 
 	envoyProtoBag := attribute.GetEnvoyProtoBagAuthz(req)
-
 	if s.cache != nil {
 		if value, ok := s.cache.Get(envoyProtoBag); ok {
-			resp := &authzGRPC.CheckResponse{
-				Status: &rpcstatus.Status{
-					Code: value.StatusCode,
-				},
-				HttpResponse: &authzGRPC.CheckResponse_OkResponse{
-					OkResponse: &authzGRPC.OkHttpResponse{},
-				},
-			}
-			valueForOK := rpc.Status{
+			var resp *authzGRPC.CheckResponse
+			cacheStatus := rpc.Status{
 				Code:    value.StatusCode,
 				Message: value.StatusMessage,
 			}
-			if status.IsOK(valueForOK) {
-				lg.Debug("ExtAuth.Check approved from cache")
+			if status.IsOK(cacheStatus) {
+				lg.Debug("ExtAuthz.Check approved")
+				resp = &authzGRPC.CheckResponse{
+					Status: &rpcstatus.Status{
+						Code: value.StatusCode,
+						Message: value.StatusMessage,
+					},
+					HttpResponse: &authzGRPC.CheckResponse_OkResponse{
+						OkResponse: &authzGRPC.OkHttpResponse{},
+					},
+				}
 			} else {
-				lg.Debugf("ExtAuth.Check denied from cache: %v", resp.Status)
+				lg.Debugf("ExtAuthz.Check denied: %v", value.StatusCode)
+				resp = &authzGRPC.CheckResponse{
+					Status: &rpcstatus.Status{
+						Code: value.StatusCode,
+						Message: value.StatusMessage,
+					},
+					HttpResponse: &authzGRPC.CheckResponse_DeniedResponse{
+						DeniedResponse: &authzGRPC.DeniedHttpResponse{},
+					},
+				}
+
 			}
 
-			if !status.IsOK(valueForOK) {
-				// we found a cached result and no quotas to allocate, so we're outta here
+			lg.Debugf("ExtAuthz.Check() status from cache: %v", resp.Status)
+
+			if !status.IsOK(cacheStatus) {
 				return resp, nil
 			}
 		}
@@ -115,42 +126,42 @@ func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 	return resp, err
 }
 
-func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context,
+func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context,
 	protoBag attr.Bag, checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
 	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
-		lg.Errora("ExtAuth.Check failed: ", err.Error())
+		lg.Errora("ExtAuthz.Check failed: ", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
 	lg.Debug("Dispatching to main adapters after running processors")
-	lg.Debuga("ExtAuth.Check Attribute Bag: \n", checkBag)
-	lg.Debug("Dispatching ExtAuth.Check")
-	// snapshot the state after we've called the APAs so that we can reuse it
-	// for every check + quota call.
+	lg.Debuga("ExtAuthz.Check Attribute Bag: \n", checkBag)
+	lg.Debug("Dispatching ExtAuthz.Check")
 
 	cr, err := s.dispatcher.Check(ctx, checkBag)
 	if err != nil {
 		err = fmt.Errorf("performing check operation failed: %v", err)
-		lg.Errora("ExtAuth.Check failed: ", err.Error())
+		lg.Errora("ExtAuthz.Check failed: ", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 	var resp *authzGRPC.CheckResponse
 	if status.IsOK(cr.Status) {
-		lg.Debug("ExtAuth.Check approved")
+		lg.Debug("ExtAuthz.Check approved")
 		resp = &authzGRPC.CheckResponse{
 			Status: &rpcstatus.Status{
 				Code: cr.Status.Code,
+				Message: cr.Status.Message,
 			},
 			HttpResponse: &authzGRPC.CheckResponse_OkResponse{
 				OkResponse: &authzGRPC.OkHttpResponse{},
 			},
 		}
 	} else {
-		lg.Debugf("ExtAuth.Check denied: %v", cr.Status)
+		lg.Debugf("ExtAuthz.Check denied: %v", cr.Status)
 		resp = &authzGRPC.CheckResponse{
 			Status: &rpcstatus.Status{
 				Code: cr.Status.Code,
+				Message: cr.Status.Message,
 			},
 			HttpResponse: &authzGRPC.CheckResponse_DeniedResponse{
 				DeniedResponse: &authzGRPC.DeniedHttpResponse{},
@@ -173,12 +184,12 @@ func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context,
 	return resp, nil
 }
 
-//Access log service should return empty response
-//It is implemented to perform the same functionality as Mixer Report for OOP longevity
-//It uses grpc Access Log Service API
-func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) error {
+// Access log service should return empty response
+// It is implemented to perform the same functionality as Mixer Report for OOP longevity
+// It uses grpc Access Log Service API https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto
+func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) error {
 	for {
-		ctx := context.TODO()
+		ctx := context.Background()
 		msg, err := srv.Recv()
 		if err == io.EOF {
 			return grpc.Error(codes.OK, "")
@@ -198,25 +209,23 @@ func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 			return grpc.Errorf(codes.Unavailable, "Server is currently overloaded. Please try again.")
 		}
 
-		reportSpan, reportCtx := opentracing.StartSpanFromContext(ctx, "StreamAccessLogsReport")
-		reporter := s.dispatcher.GetReporter(reportCtx)
+		reporter := s.dispatcher.GetReporter(ctx)
 		var errors *multierror.Error
-		var protoBag attr.Bag
+		var protoBag *attribute.EnvoyProtoBag
 		var reportBag *attr.MutableBag
 
 		for i := 0; i < totalBags; i++ {
 			lg.Debugf("Dispatching Stream Access Logs Report %d out of %d", i+1, totalBags)
-			span, newctx := opentracing.StartSpanFromContext(reportCtx, fmt.Sprintf("attribute bag %d", i))
 
 			protoBag = attribute.GetEnvoyProtoBagAccessLog(msg, i)
 			reportBag = attr.GetMutableBag(protoBag)
-			if err := dispatchSingleReport(newctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
-				span.LogFields(otlog.String("error", err.Error()))
-				span.Finish()
+			if err := dispatchSingleReport(ctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
 				errors = multierror.Append(errors, err)
 				continue
 			}
-			span.Finish()
+			if destinationNamespace, ok := reportBag.Get("destination.namespace"); ok {
+				protoBag.AddNamespaceDependentAttributes(fmt.Sprintf("%v", destinationNamespace))
+			}
 
 			if reportBag != nil {
 				reportBag.Done()
@@ -232,13 +241,7 @@ func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 		reporter.Done()
 
 		if errors != nil {
-			reportSpan.LogFields(otlog.String("error", errors.Error()))
-		}
-		reportSpan.Finish()
-
-		if errors != nil {
 			lg.Errora("Stream Access Log failed: ", errors.Error())
-			return grpc.Errorf(codes.Unknown, errors.Error())
 		}
 	}
 }

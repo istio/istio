@@ -31,13 +31,8 @@ import (
 	attr "istio.io/pkg/attribute"
 )
 
-// Exports of types for backwards compatibility
-//type (
-//	Bag        = attr.Bag
-//	MutableBag = attr.MutableBag
-//)
 
-// ProtoBag implements the Bag interface on top of an Attributes proto.
+// EnvoyProtoBag implements the Bag interface on top of an Attributes proto.
 type EnvoyProtoBag struct {
 	reqMap              map[string]interface{}
 	globalDict          map[string]int32
@@ -51,7 +46,6 @@ type EnvoyProtoBag struct {
 	referencedAttrsMutex sync.Mutex
 }
 
-// referencedAttrsSize is the size of referenced attributes.
 
 var envoyProtoBags = sync.Pool{
 	New: func() interface{} {
@@ -70,10 +64,9 @@ func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
 	return time.Unix(theTime.Seconds, int64(theTime.Nanos)+int64(durationNanos))
 }
 
-// GetProtoBag returns a proto-based attribute bag.
+// GetProtoBagAuthz returns an attribute bag for an Ext-Authz Check Request.
 // When you are done using the proto bag, call the Done method to recycle it.
 func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
-	//, globalDict map[string]int32,	globalWordList []string) *EnvoyProtoBag {
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 
 	// build the message-level dictionary
@@ -100,10 +93,10 @@ func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 	return pb
 }
 
-// GetProtoBag returns a proto-based attribute bag.
+// GetEnvoyProtoBagAccessLog returns an attribute bag from a StreamAccessLogsMessage
 // When you are done using the proto bag, call the Done method to recycle it.
 //num is the index of the entry from the message's batch to create a bag from
-func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) attr.Bag {
+func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
 	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
@@ -113,6 +106,10 @@ func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num i
 		fillAddress(reqMap, httpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(),
 			"destination")
 		fillAddress(reqMap, httpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
+		reqMap["destination.principal"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().
+			GetLocalCertificateProperties().GetSubjectAltName()[0].GetUri()
+		reqMap["source.principal"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().
+			GetPeerCertificateProperties().GetSubjectAltName()[0].GetUri()
 		reqMap["request.headers"] = attr.WrapStringMap(httpLogs.GetLogEntry()[num].GetRequest().GetRequestHeaders())
 		reqMap["request.host"] = httpLogs.GetLogEntry()[num].GetRequest().GetAuthority()
 		reqMap["request.method"] = httpLogs.GetLogEntry()[num].GetRequest().GetRequestMethod().String()
@@ -128,20 +125,65 @@ func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num i
 		reqMap["response.size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes())
 		reqMap["response.total_size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().
 			GetResponseBodyBytes()) + int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes())
+		reqMap["UPSTREAM_CLUSTER"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
+		//reqMap["context.proxy_error_code"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags()
+		reqMap["connection.requested_server_name"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().GetTlsSniHostname()
+
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
 		reqMap["context.protocol"] = "tcp"
-		reqMap["context.reporter.kind"] = "inbound" //inbound or outbound
+		reqMap["context.reporter.kind"] = "inbound"
 		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(), "destination")
 		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
 		reqMap["request.time"] = reformatTime(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(), 0)
 		reqMap["response.time"] = reformatTime(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(),
 			tcpLogs.GetLogEntry()[num].GetCommonProperties().GetTimeToFirstUpstreamRxByte().Nanos)
+		reqMap["connection.requested_server_name"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().
+			GetTlsProperties().GetTlsSniHostname()
+		reqMap["connection.received.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetReceivedBytes()
+		reqMap["connection.sent.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetSentBytes()
+		reqMap["UPSTREAM_CLUSTER"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
+		//reqMap["context.proxy_error_code"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags()
+		//needs to be converted to proper format
 	}
 
 	pb.reqMap = reqMap
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
 	return pb
 }
+
+//fills in destination.service.name and destination.service.host after the initial bag has been built
+func (pb *EnvoyProtoBag) AddNamespaceDependentAttributes(destinationNamespace string) {
+	upstreamCluster := pb.reqMap["UPSTREAM_CLUSTER"]
+	parts := strings.Split(fmt.Sprintf("%v", upstreamCluster), "|")
+	var host string
+	if len(parts) == 4 {
+		host = parts[3]
+	} else {
+		host = fmt.Sprintf("%v", pb.reqMap["request.host"])
+	}
+	pb.reqMap["destination.service.host"] = host
+	namePos := strings.IndexAny(host, ".:")
+	if namePos == -1 {
+		pb.reqMap["destination.service.name"] = host
+		return
+	} else if host[namePos] == ':' {
+		pb.reqMap["destination.service.name"] = host[0:namePos]
+		return
+	}
+	namespacePos := strings.IndexAny(host[namePos + 1:], ".:")
+	var serviceNamespace string
+	if namespacePos == -1 {
+		serviceNamespace = host[namePos:]
+	} else {
+		serviceNamespace = host[namePos + 1:namespacePos + namePos + 1]
+	}
+	if serviceNamespace == destinationNamespace {
+		pb.reqMap["destination.service.name"] = host[0:namePos]
+	} else {
+		pb.reqMap["destination.service.name"] = host
+	}
+}
+
 
 // Get returns an attribute value.
 func (pb *EnvoyProtoBag) Get(name string) (interface{}, bool) {
