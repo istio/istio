@@ -160,7 +160,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		close(stop)
 	})
 	configs := getConfigs(t, opts)
-	objects := getObjects(t, opts)
+	k8sObjects := getObjects(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	env := &model.Environment{}
 	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health}
@@ -195,7 +195,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	serviceDiscovery.AddRegistry(se)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		Objects:         objects,
+		Objects:         k8sObjects,
 		ClusterID:       "Kubernetes",
 		DomainSuffix:    "cluster.local",
 		XDSUpdater:      s,
@@ -208,7 +208,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		}
 	}
 	se.ResyncEDS()
-
+	_ = k8s.ResyncEndpoints()
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatal(err)
 	}

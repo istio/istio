@@ -15,6 +15,9 @@
 package controller
 
 import (
+	"fmt"
+	klabels "k8s.io/apimachinery/pkg/labels"
+	listerv1 "k8s.io/client-go/listers/core/v1"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -129,7 +132,30 @@ type FakeControllerOptions struct {
 	XDSUpdater        model.XDSUpdater
 }
 
-func NewFakeControllerWithOptions(opts FakeControllerOptions) (*Controller, *FakeXdsUpdater) {
+type FakeController struct {
+	*Controller
+}
+
+func (f *FakeController) ResyncEndpoints() error {
+	e, ok := f.endpoints.(*endpointsController)
+	if !ok {
+		return fmt.Errorf("ResyncEndpoints only works for Endpoints mode")
+	}
+	eps, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).List(klabels.Everything())
+	if err != nil {
+		return err
+	}
+	// endpoint processing may beat services
+	for _, ep := range eps {
+		err = f.endpoints.onEvent(ep, model.EventAdd)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = NewFakeXDS()
@@ -164,9 +190,10 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*Controller, *Fak
 	clients.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
 	cache.WaitForCacheSync(c.stop, c.pods.informer.HasSynced, c.serviceInformer.HasSynced, c.endpoints.HasSynced)
+
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
 		fx = x
 	}
-	return c, fx
+	return &FakeController{c}, fx
 }
