@@ -140,7 +140,7 @@ global:
     zipkin:
       # Host:Port for reporting trace data in zipkin format. If not specified, will default to
       # zipkin service (port 9411) in the same namespace as the other istio components.
-      address: "zipkin:9411"
+      address: ""
     datadog:
       # Host:Port for submitting traces to the Datadog agent.
       address: "$(HOST_IP):8126"

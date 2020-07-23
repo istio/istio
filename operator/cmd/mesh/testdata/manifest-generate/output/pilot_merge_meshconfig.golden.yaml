@@ -22,7 +22,7 @@ data:
         TERMINATION_DRAIN_DURATION_SECONDS: "120"
       tracing:
         zipkin:
-          address: zipkin:9411
+          address: zipkin.istio-system:9411
     enablePrometheusMerge: true
     mixerCheckServer: foo:1234
     outboundTrafficPolicy:

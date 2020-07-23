@@ -21,7 +21,7 @@ data:
         DNS_AGENT: ""
       tracing:
         zipkin:
-          address: zipkin:9411
+          address: zipkin.istio-system:9411
     enablePrometheusMerge: true
     rootNamespace: istio-system
     trustDomain: cluster.local
@@ -154,7 +154,7 @@ data:
             "maxNumberOfMessageEvents": 200
           },
           "zipkin": {
-            "address": "zipkin:9411"
+            "address": ""
           }
         },
         "trustDomain": "cluster.local",
