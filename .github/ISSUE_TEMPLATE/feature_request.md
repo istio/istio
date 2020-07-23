@@ -11,21 +11,21 @@ about: Suggest an idea to improve Istio
 
 **Affected product area (please put an X in all that apply)**
 
-[ ] Configuration Infrastructure
-[ ] Docs
-[ ] Installation
-[ ] Networking
-[ ] Performance and Scalability
-[ ] Policies and Telemetry
-[ ] Security
-[ ] Test and Release
-[ ] User Experience
-[ ] Developer Infrastructure
+- [ ] Configuration Infrastructure
+- [ ] Docs
+- [ ] Installation
+- [ ] Networking
+- [ ] Performance and Scalability
+- [ ] Policies and Telemetry
+- [ ] Security
+- [ ] Test and Release
+- [ ] User Experience
+- [ ] Developer Infrastructure
 
 **Affected features (please put an X in all that apply)**
 
-[ ] Multi Cluster
-[ ] Virtual Machine
-[ ] Multi Control Plane
+- [ ] Multi Cluster
+- [ ] Virtual Machine
+- [ ] Multi Control Plane
 
 **Additional context**
