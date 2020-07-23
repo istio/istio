@@ -16,7 +16,6 @@ package xds
 
 import (
 	"bytes"
-	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"reflect"
 	"strings"
 	"text/template"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
@@ -195,10 +195,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	serviceDiscovery.AddRegistry(se)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		Objects:      objects,
-		ClusterID:    "Kubernetes",
-		DomainSuffix: "cluster.local",
-		XDSUpdater:   s,
+		Objects:         objects,
+		ClusterID:       "Kubernetes",
+		DomainSuffix:    "cluster.local",
+		XDSUpdater:      s,
 		NetworksWatcher: env,
 	})
 	serviceDiscovery.AddRegistry(k8s)

@@ -15,10 +15,11 @@
 package xds
 
 import (
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"io/ioutil"
 	"path"
 	"testing"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
