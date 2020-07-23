@@ -38,7 +38,7 @@ components:
 values:
   cni:
      hub: gcr.io/istio-testing
-     tag: latest
+     tag: 1.5-dev
 `
 		})).
 		Run()
