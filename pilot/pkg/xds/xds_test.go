@@ -15,11 +15,10 @@
 package xds
 
 import (
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"io/ioutil"
 	"path"
 	"testing"
-
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -394,8 +393,8 @@ spec:
 	})
 
 	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|7070||httpbin.com"], []string{"10.10.10.10"})
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|80||pod.pod.svc.cluster.local"], []string{"10.10.10.20"})
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||pod.pod.svc.cluster.local"], []string{"2.2.2.2"})
+	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|80||kubeapp.pod.svc.cluster.local"], []string{"10.10.10.20"})
+	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||kubeapp.pod.svc.cluster.local"], []string{"2.2.2.2"})
 }
 
 func TestEgressProxy(t *testing.T) {
