@@ -103,9 +103,6 @@ type Agent struct {
 	// If set, this is the Citadel client, used to retrieve certificates.
 	CitadelClient security.Client
 
-	// FileMountedCerts indicates whether the proxy is using file mounted certs.
-	FileMountedCerts bool
-
 	// Expected SAN for the discovery address, for tests.
 	XDSSAN string
 
@@ -206,7 +203,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		sa.secOpts.TLSEnabled = false
 	}
 	// If proxy is using file mounted certs, JWT token is not needed.
-	sa.secOpts.UseLocalJWT = !sa.FileMountedCerts
+	sa.secOpts.UseLocalJWT = !sa.secOpts.FileMountedCerts
 
 	// Init the XDS proxy part of the agent.
 	sa.initXDS()
