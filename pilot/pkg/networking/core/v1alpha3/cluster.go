@@ -1118,6 +1118,10 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 				},
 				defaultTransportSocketMatch,
 			}
+		} else {
+			// Since previous calls to applyTrafficPolicy may have set TransportSocketMatches for a subset cluster
+			// make sure they are reset.  See https://github.com/istio/istio/issues/23910
+			cluster.TransportSocketMatches = nil
 		}
 	}
 }
