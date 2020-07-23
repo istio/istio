@@ -39,7 +39,7 @@ components:
   cni:
      enabled: true
      hub: gcr.io/istio-testing
-     tag: latest
+     tag: 1.6-dev
      namespace: kube-system
 `
 		})).
