@@ -33,6 +33,7 @@ func GetAdditionVMImages() []string {
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
