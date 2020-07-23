@@ -328,6 +328,15 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv4Rules(ipv4RangesIn
 	}
 }
 
+func (iptConfigurator *IptablesConfigurator) shortCircuitKubeInternalInterface() {
+	for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
+		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
+		if iptConfigurator.cfg.EnableInboundIPv6 {
+			iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
+		}
+	}
+}
+
 func (iptConfigurator *IptablesConfigurator) run() {
 	defer func() {
 		// Best effort since we don't know if the commands exist
@@ -337,7 +346,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		}
 	}()
 
-	//
 	// Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
 	// need to split them in different arrays one for ipv4 and one for ipv6
 	// in order to not to fail
@@ -369,6 +377,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		//TODO: (abhide): Move this out of this method
 		iptConfigurator.ext.RunOrFail(constants.IP, "-6", "addr", "add", "::6/128", "dev", "lo")
 	}
+
+	// Do not capture internal interface.
+	iptConfigurator.shortCircuitKubeInternalInterface()
 
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
 	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOINBOUND, constants.NAT, "-p", constants.TCP, "--dport",
@@ -455,10 +466,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv4RangesExclude.IPNets {
 		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
-	}
-
-	for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
-		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 	}
 
 	iptConfigurator.handleOutboundPortsInclude()
