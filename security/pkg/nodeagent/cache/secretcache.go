@@ -1043,8 +1043,8 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 
 // useCertToRotate checks if we can use cert instead of token to do CSR.
 func (sc *SecretCache) useCertToRotate() bool {
-	// Google CA does not support using cert to rotate today.
-	if sc.secOpts.CAProviderName == "GoogleCA" {
+	// Check if CA requires a token in CSR
+	if sc.secOpts.UseTokenForCSR {
 		return false
 	}
 	if sc.secOpts.ProvCert == "" {
