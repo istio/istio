@@ -121,10 +121,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	go configController.Run(stop)
 	serviceDiscovery := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	for _, cfg := range configs {
-		if _, err := configController.Create(cfg); err != nil {
+		if _, err := configStore.Create(cfg); err != nil {
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
 	}
+	serviceDiscovery.ResyncEDS()
 
 	m := opts.MeshConfig
 	if m == nil {
@@ -164,6 +165,10 @@ func (f *FakeDiscoveryServer) SetupProxy(p *model.Proxy) *model.Proxy {
 	}
 	if p.Metadata == nil {
 		p.Metadata = &model.NodeMetadata{}
+	}
+	if p.Metadata.IstioVersion == "" {
+		p.Metadata.IstioVersion = "1.8.0"
+		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
 	}
 	if p.Type == "" {
 		p.Type = model.SidecarProxy
