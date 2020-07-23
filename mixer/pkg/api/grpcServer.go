@@ -234,6 +234,7 @@ var reportResp = &mixerpb.ReportResponse{}
 
 // Report is the entry point for the external Report method
 func (s *grpcServer) Report(ctx context.Context, req *mixerpb.ReportRequest) (*mixerpb.ReportResponse, error) {
+	
 	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: float64(len(req.Attributes))}) {
 		return nil, grpc.Errorf(codes.Unavailable, "Server is currently overloaded. Please try again.")
 	}
