@@ -205,9 +205,6 @@ func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 			totalBags = len(tcpLogs.GetLogEntry())
 		}
 
-		if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: float64(totalBags)}) {
-			return grpc.Errorf(codes.Unavailable, "Server is currently overloaded. Please try again.")
-		}
 
 		reporter := s.dispatcher.GetReporter(ctx)
 		var errors *multierror.Error
