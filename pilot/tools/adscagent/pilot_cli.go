@@ -41,9 +41,14 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	golangjsonpb "github.com/golang/protobuf/jsonpb"
 	"istio.io/api/mesh/v1alpha1"
 	//"io/ioutil"
 	//"istio.io/istio/pilot/pkg/model"
@@ -53,13 +58,16 @@ import (
 
 	//	"istio.io/istio/pkg/util/gogoprotomarshal"
 
+	_ "net/http"
+	_ "net/http/pprof"
+
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
 var (
 	// Same as normal agent
-	namespace = env.RegisterStringVar("POD_NAMESPACE", "default", "Pod namespace")
+	namespace = env.RegisterStringVar("POD_NAMESPACE", "dev", "Pod namespace")
 
 	// TODO: labels, PROXY_CONFIG
 
@@ -148,5 +156,27 @@ func main() {
 	//	log.Errorf("Cannot write output to file %q", *outputFile)
 	//}
 
-	select {}
+	http.HandleFunc("/dump", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		for t, v := range agentc.ADSC.Received {
+			vs, err := (&golangjsonpb.Marshaler{Indent: "  "}).MarshalToString(v)
+			if err != nil {
+				vs, err = (&gogojsonpb.Marshaler{Indent: "  "}).MarshalToString(v)
+				if err != nil {
+					vs = err.Error()
+				}
+			}
+			fmt.Fprintf(w, "\"%s\":%v \n", t, vs)
+		}
+	})
+	http.HandleFunc("/sub/", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		err := agentc.ADSC.Send(&discovery.DiscoveryRequest{
+			TypeUrl: r.URL.Path[5:]})
+		if err != nil {
+			log.Warna("Error sending ", err)
+		}
+	})
+
+	http.ListenAndServe("127.0.0.1:15015", nil)
 }

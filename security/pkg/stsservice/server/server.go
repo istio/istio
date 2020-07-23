@@ -24,6 +24,7 @@ import (
 	"net/http/httputil"
 
 	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -41,6 +42,11 @@ const (
 )
 
 var stsServerLog = log.RegisterScope("stsserver", "STS service debugging", 0)
+
+var (
+	stsDirect = env.RegisterBoolVar("STS_DIRECT", true,
+		"Return the original token - to allow envoy to use the K8S token directly")
+)
 
 // error code sent in a STS error response. A full list of error code is
 // defined in https://tools.ietf.org/html/rfc6749#section-5.2.
@@ -107,6 +113,18 @@ func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 		// If request is invalid, the error code must be "invalid_request".
 		// https://tools.ietf.org/html/draft-ietf-oauth-token-exchange-16#section-2.2.2.
 		s.sendErrorResponse(w, invalidRequest, validationError)
+		return
+	}
+	if stsDirect.Get() {
+		tokInfo := &stsservice.StsResponseParameters{
+			AccessToken: reqParam.SubjectToken,
+			TokenType:   "Bearer",
+		}
+		statusJSON, err := json.MarshalIndent(tokInfo, "", " ")
+		if err != nil {
+			stsServerLog.Warna("Failed to marshal", err)
+		}
+		s.sendSuccessfulResponse(w, statusJSON)
 		return
 	}
 	tokenDataJSON, genError := s.tokenManager.GenerateToken(reqParam)

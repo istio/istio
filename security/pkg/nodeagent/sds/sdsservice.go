@@ -284,7 +284,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			defer releaseResourcePerConn(s, conID, resourceName)
 
 			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
-			if s.localJWT {
+			if s.localJWT && s.jwtPath != "" {
 				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
 				tok, err := ioutil.ReadFile(s.jwtPath)
 				if err != nil {
@@ -292,17 +292,6 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 					return err
 				}
 				token = string(tok)
-			} else if s.outputKeyCertToDir != "" {
-				// Using existing certs and the new SDS - skipToken case is for the old node agent.
-			} else if !s.skipToken {
-				ctx = stream.Context()
-				t, err := getCredentialToken(ctx)
-				if err != nil {
-					sdsServiceLog.Errorf("%s Close connection. Failed to get credential token from "+
-						"incoming request: %v", conIDresourceNamePrefix, err)
-					return err
-				}
-				token = t
 			}
 
 			// Update metrics.

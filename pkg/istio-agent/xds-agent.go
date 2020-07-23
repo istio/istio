@@ -145,6 +145,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	ads.Store = sa.xdsServer.MemoryConfigStore
 	ads.Registry = sa.xdsServer.DiscoveryServer.MemRegistry
 
+	go sa.xdsServer.DiscoveryServer.Start(sa.stopCh)
 	ads.Start()
 	sa.ADSC = ads
 

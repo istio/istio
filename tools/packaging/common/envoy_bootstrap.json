@@ -145,9 +145,31 @@
       "transport_api_version": "V3",
       "grpc_services": [
         {
+        {{ if .call_credentials }}
+        "google_grpc": {
+          "target_uri": "{{ .discovery_address }}",
+          "stat_prefix": "googlegrpcxds",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "{{- .provisioned_cert }}"
+              }
+            }
+          },
+          "call_credentials": {
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "./var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "scope": "https://www.googleapis.com/auth/cloud-platform",
+              }
+           }
+       }
+         {{ else }}
           "envoy_grpc": {
             "cluster_name": "{{ .discovery_address }}"
           }
+        {{ end }}
         }
       ]
     }
@@ -218,8 +240,8 @@
             }]
           }]
         }
-      },
-      {
+      } {{ if .call_credentials }}{{ else }}
+       , {
         "name": "{{ .discovery_address }}",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -299,6 +321,7 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
+      {{ end }}
       {{ if .zipkin }}
       ,
       {

@@ -244,3 +244,11 @@ func STSEnabled(value bool) Instance {
 func ProvCert(value string) Instance {
 	return newOption("provisioned_cert", value)
 }
+
+// CallCredentials will trigger the google_grpc XDS interface, with the given
+// call credentials.
+// access_token doesn't work - it's a literal token, rotation will not work
+//
+func CallCredentials(value string) Instance {
+	return newOption("call_credentials", value)
+}

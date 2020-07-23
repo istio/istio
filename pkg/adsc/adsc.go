@@ -33,6 +33,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/grpc/keepalive"
 	"istio.io/istio/pkg/config/schema/collection"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -404,6 +405,7 @@ func (a *ADSC) connect() error {
 		creds := credentials.NewTLS(tlsCfg)
 		opts := []grpc.DialOption{
 			grpc.WithTransportCredentials(creds),
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 20 * time.Second}),
 		}
 		a.conn, err = grpc.Dial(a.url, opts...)
 		if err != nil {
@@ -503,6 +505,7 @@ func (a *ADSC) onReceive(msg *discovery.DiscoveryResponse) {
 	a.mutex.Unlock()
 	select {
 	case a.syncCh <- msg.TypeUrl:
+	default:
 	}
 }
 
@@ -517,13 +520,16 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 				a.RecvWg.Done()
 				a.Close()
 				a.WaitClear()
-				a.Updates <- ""
-				a.XDSUpdates <- nil
-			} else {
-				a.Updates <- ""
-				a.XDSUpdates <- nil
 			}
 			a.stream.CloseSend()
+			select {
+			case a.Updates <- "":
+			default:
+			}
+			select {
+			case a.XDSUpdates <- nil:
+			default:
+			}
 
 			return
 		}
@@ -1253,9 +1259,10 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 // Reconnect attempts to connect, with backoff in case of failure.
 func (a *ADSC) reconnect() {
 	var err error
+	t0 := time.Now()
 	if a.adsServiceClient == nil {
 		err = a.connect()
-		log.Warna("CONNECTING ", err)
+		log.Warna("ADSC CONNECTING ", err)
 	} else {
 		edsstr, err := a.adsServiceClient.StreamAggregatedResources(context.Background())
 		log.Warna("RESTART SERVICE ", err)
@@ -1277,6 +1284,7 @@ func (a *ADSC) reconnect() {
 	a.sendInitial()
 	a.handleRecv(false)
 	// Connection closed, try to reconnect
+	log.Warna("XXXXX Connect DONE, duration: ", time.Since(t0))
 	time.AfterFunc(100*time.Millisecond, a.reconnect)
 }
 
