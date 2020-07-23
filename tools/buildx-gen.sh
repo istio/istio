@@ -71,6 +71,7 @@ target "$image-$variant" {
     context = "${out}/${file}"
     dockerfile = "Dockerfile.$image"
     tags = ["${HUB}/${image}:${tag}"]
+    cache-from = ["gcr.io/istio-testing/${image}:latest"]
     args = {
       BASE_VERSION = "${BASE_VERSION}"
       BASE_DISTRIBUTION = "${variant}"
