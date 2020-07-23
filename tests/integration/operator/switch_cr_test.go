@@ -105,50 +105,7 @@ func TestController(t *testing.T) {
 			}
 			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
 			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
-			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "")
 			installWithCRFile(t, ctx, cs, s, istioCtl, "demo", "")
-
-			postTestCleanup(t, cs)
-		})
-}
-
-func TestControllerWithRevision(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			workDir, err := ctx.CreateTmpDirectory("operator-controller-test-revision")
-			if err != nil {
-				t.Fatal("failed to create test directory")
-			}
-			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
-			s, err := image.SettingsFromCommandLine()
-			if err != nil {
-				t.Fatal(err)
-			}
-			cleanupInClusterCRs(t, cs)
-			initCmd := []string{
-				"operator", "init",
-				"--hub=" + s.Hub,
-				"--tag=" + s.Tag,
-				"--manifests=" + ManifestPath,
-			}
-			istioCtl.InvokeOrFail(t, initCmd)
-
-			if _, err := cs.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
-				ObjectMeta: kubeApiMeta.ObjectMeta{
-					Name: IstioNamespace,
-				},
-			}, kubeApiMeta.CreateOptions{}); err != nil {
-				_, err := cs.CoreV1().Namespaces().Get(context.TODO(), IstioNamespace, kubeApiMeta.GetOptions{})
-				if err == nil {
-					log.Info("istio namespace already exist")
-				} else {
-					t.Errorf("failed to create istio namespace: %v", err)
-				}
-			}
-			iopCRFile = filepath.Join(workDir, "iop_cr.yaml")
-			// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
 			installWithCRFile(t, ctx, cs, s, istioCtl, "default", "")
 
 			initCmd = []string{
@@ -162,7 +119,6 @@ func TestControllerWithRevision(t *testing.T) {
 			istioCtl.InvokeOrFail(t, initCmd)
 
 			verifyInstallation(t, ctx, istioCtl, "default", CanaryRevisionName, cs)
-			// cleanup created resources
 			postTestCleanup(t, cs)
 		})
 }
