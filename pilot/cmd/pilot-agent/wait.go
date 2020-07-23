@@ -20,10 +20,14 @@ import (
 	"net/http"
 	"time"
 
+	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/pkg/envoy"
 	"istio.io/pkg/log"
 )
+
+const envoyAdminPort = 15000
 
 var (
 	timeoutSeconds       int
@@ -57,6 +61,16 @@ var (
 )
 
 func checkIfReady(client *http.Client, url string) error {
+	// Check if the Envoy Proxy Server is in LIVE state
+	info, err := envoy.GetServerInfo(envoyAdminPort)
+	if err != nil {
+		return err
+	}
+	if info.State != envoyAdmin.ServerInfo_LIVE {
+		return fmt.Errorf("envoy not live. Server State: %d", info.State)
+	}
+
+	// Check if waitCmd URL returns a 200 OK response code
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
