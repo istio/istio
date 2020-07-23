@@ -95,7 +95,7 @@ func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 
 // AccessLogProtoBag returns an attribute bag from a StreamAccessLogsMessage
 // When you are done using the proto bag, call the Done method to recycle it.
-//num is the index of the entry from the message's batch to create a bag from
+// num is the index of the entry from the message's batch to create a bag from
 func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
 	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
