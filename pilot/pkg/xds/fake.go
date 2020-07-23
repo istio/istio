@@ -81,16 +81,20 @@ func getObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 	if len(opts.Objects) > 0 {
 		return ensureNode(t, opts.Objects)
 	}
-	decode := scheme.Codecs.UniversalDeserializer().Decode
-	objectStrs := strings.Split(opts.ObjectString, "---")
-	objects := make([]runtime.Object, 0, len(objectStrs))
-	for _, s := range objectStrs {
-		o, _, err := decode([]byte(s), nil, nil)
-		if err != nil {
-			t.Fatalf("failed deserializing kubernetes object: %v", err)
+
+	objects := make([]runtime.Object, 0)
+	if len(opts.ObjectString) > 0 {
+		decode := scheme.Codecs.UniversalDeserializer().Decode
+		objectStrs := strings.Split(opts.ObjectString, "---")
+		for _, s := range objectStrs {
+			o, _, err := decode([]byte(s), nil, nil)
+			if err != nil {
+				t.Fatalf("failed deserializing kubernetes object: %v", err)
+			}
+			objects = append(objects, o)
 		}
-		objects = append(objects, o)
 	}
+
 	return ensureNode(t, objects)
 }
 
