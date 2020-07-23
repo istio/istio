@@ -78,7 +78,7 @@ func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 		return nil, grpc.Errorf(codes.Unavailable, "Envoy Server is currently overloaded. Please try again.")
 	}
 
-	envoyProtoBag := attribute.GetEnvoyProtoBagAuthz(req)
+	envoyProtoBag := attribute.AuthzProtoBag(req)
 	if s.cache != nil {
 		if value, ok := s.cache.Get(envoyProtoBag); ok {
 			var resp *authzGRPC.CheckResponse
@@ -214,7 +214,7 @@ func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 		for i := 0; i < totalBags; i++ {
 			lg.Debugf("Dispatching Stream Access Logs Report %d out of %d", i+1, totalBags)
 
-			protoBag = attribute.GetEnvoyProtoBagAccessLog(msg, i)
+			protoBag = attribute.AccessLogProtoBag(msg, i)
 			reportBag = attr.GetMutableBag(protoBag)
 			if err := dispatchSingleReport(ctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
 				errors = multierror.Append(errors, err)

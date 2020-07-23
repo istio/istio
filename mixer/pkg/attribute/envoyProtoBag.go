@@ -64,9 +64,9 @@ func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
 	return time.Unix(theTime.Seconds, int64(theTime.Nanos)+int64(durationNanos))
 }
 
-// GetProtoBagAuthz returns an attribute bag for an Ext-Authz Check Request.
+// AuthzProtoBag returns an attribute bag for an Ext-Authz Check Request.
 // When you are done using the proto bag, call the Done method to recycle it.
-func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
+func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 
 	// build the message-level dictionary
@@ -93,10 +93,10 @@ func GetEnvoyProtoBagAuthz(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 	return pb
 }
 
-// GetEnvoyProtoBagAccessLog returns an attribute bag from a StreamAccessLogsMessage
+// AccessLogProtoBag returns an attribute bag from a StreamAccessLogsMessage
 // When you are done using the proto bag, call the Done method to recycle it.
 //num is the index of the entry from the message's batch to create a bag from
-func GetEnvoyProtoBagAccessLog(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
+func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
 	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
