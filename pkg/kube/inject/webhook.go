@@ -821,13 +821,13 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var reviewResponse *kubeApiAdmission.AdmissionResponse
-	ar := kubeApiAdmission.AdmissionReview{
+	ar := &kubeApiAdmission.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "admission.k8s.io/v1",
 			Kind:       "AdmissionReview",
 		},
 	}
-	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+	if _, _, err := deserializer.Decode(body, nil, ar); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {

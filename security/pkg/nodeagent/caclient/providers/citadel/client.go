@@ -91,7 +91,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
-
+	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return c, nil
 }
@@ -109,7 +109,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 	if token != "" {
 		pairs.Append("Authorization", bearerTokenPrefix+token)
 	}
-	ctx = metadata.NewOutgoingContext(ctx, pairs)
+
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to create certificate: %v", err)
@@ -176,4 +176,40 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
+}
+
+func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
+	var opts grpc.DialOption
+	var err error
+	if c.enableTLS {
+		opts, err = c.getTLSDialOption()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		opts = grpc.WithInsecure()
+	}
+
+	conn, err := grpc.Dial(c.caEndpoint, opts)
+	if err != nil {
+		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.caEndpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", c.caEndpoint)
+	}
+
+	return conn, nil
+}
+
+func (c *citadelClient) reconnect() error {
+	err := c.conn.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close connection")
+	}
+
+	conn, err := c.buildConnection()
+	if err != nil {
+		return err
+	}
+	c.conn = conn
+	c.client = pb.NewIstioCertificateServiceClient(conn)
+	return err
 }

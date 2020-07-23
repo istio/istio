@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 

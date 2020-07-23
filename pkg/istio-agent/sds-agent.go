@@ -129,8 +129,9 @@ type Agent struct {
 	cfg     *AgentConfig
 	secOpts *security.Options
 
-	ADSC   *adsc.ADSC
-	stopCh <-chan struct{}
+	stopCh chan struct{}
+
+	ADSC *adsc.ADSC
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -157,7 +158,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
 		secOpts:     sopts,
-		stopCh:      make(<-chan struct{}),
+		stopCh: make(chan struct{}),
 	}
 
 	// Fix the defaults - mainly for tests ( main uses env )
@@ -206,7 +207,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 
 	// Next to the envoy config, writeable dir (mounted as mem)
 	sa.secOpts.WorkloadUDSPath = LocalSDS
-	sa.secOpts.CertsDir = sa.CertsPath
 	// Set TLSEnabled if the ControlPlaneAuthPolicy is set to MUTUAL_TLS
 	if sa.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
 		sa.secOpts.TLSEnabled = true
