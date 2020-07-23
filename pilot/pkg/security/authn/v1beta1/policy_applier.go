@@ -79,9 +79,9 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, istio_mutual_gateway bool,
+func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, istioMutualGateway bool,
 	config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
-	if proxyType != model.SidecarProxy && !istio_mutual_gateway {
+	if proxyType != model.SidecarProxy && !istioMutualGateway {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
 		return config
 	}
@@ -166,11 +166,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32, istio_mutual_gateway bool) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32, istioMutualGateway bool) *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with peer authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, istio_mutual_gateway, filterConfigProto)
+	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, istioMutualGateway, filterConfigProto)
 	// Override the config with request authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
 

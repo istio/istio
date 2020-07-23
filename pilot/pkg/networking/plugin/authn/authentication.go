@@ -19,6 +19,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+
 	networkingapi "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -86,11 +87,11 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			istio_mutual_gateway := false
+			istioMutualGateway := false
 			if in.Node.Type == model.Router {
-				istio_mutual_gateway = mutable.FilterChains[i].GatewayServerTLSMode == networkingapi.ServerTLSSettings_ISTIO_MUTUAL
+				istioMutualGateway = mutable.FilterChains[i].GatewayServerTLSMode == networkingapi.ServerTLSSettings_ISTIO_MUTUAL
 			}
-			if filter := applier.AuthNFilter(in.Node.Type, endpointPort, istio_mutual_gateway); filter != nil {
+			if filter := applier.AuthNFilter(in.Node.Type, endpointPort, istioMutualGateway); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}
