@@ -92,33 +92,30 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	p := config.Policy
 	p.Peers = []*authn_alpha.PeerAuthenticationMethod{}
 
+	var effectiveMTLSMode model.MutualTLSMode
 	if proxyType == model.SidecarProxy {
-		effectiveMTLSMode := a.getMutualTLSModeForPort(port)
-		if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
-			mode := authn_alpha.MutualTls_PERMISSIVE
-			if effectiveMTLSMode == model.MTLSStrict {
-				mode = authn_alpha.MutualTls_STRICT
-			}
-			p.Peers = []*authn_alpha.PeerAuthenticationMethod{
-				{
-					Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
-						Mtls: &authn_alpha.MutualTls{
-							Mode: mode,
-						},
-					},
-				},
-			}
-		}
+		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
 	} else {
 		// this is for gateway with a server whose TLS mode is ISTIO_MUTUAL
 		// this is effectively the same as strict mode. We dont really
 		// care about permissive or strict here. We simply need to validate that the peer cert is
 		// a proper spiffe cert so that authz policies can use source principal based validations here.
+		effectiveMTLSMode = model.MTLSStrict
+		// we should accept traffic from any trust domain. We expect the use of authZ policies to
+		// restrict which domains are actually allowed.
+		config.SkipValidateTrustDomain = true
+	}
+
+	if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
+		mode := authn_alpha.MutualTls_PERMISSIVE
+		if effectiveMTLSMode == model.MTLSStrict {
+			mode = authn_alpha.MutualTls_STRICT
+		}
 		p.Peers = []*authn_alpha.PeerAuthenticationMethod{
 			{
 				Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
 					Mtls: &authn_alpha.MutualTls{
-						Mode: authn_alpha.MutualTls_STRICT,
+						Mode: mode,
 					},
 				},
 			},

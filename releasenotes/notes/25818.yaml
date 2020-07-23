@@ -27,8 +27,7 @@ issue:
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
-releaseNotes: |
-*Fixed* an issue preventing the use of source principal based authorization at Istio Gateway when the Server's TLS mode is ISTIO_MUTUAL.
+releaseNotes: Fixed an issue preventing the use of source principal based authorization at Istio Gateway when the Server's TLS mode is ISTIO_MUTUAL.
 
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes. 
