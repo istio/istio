@@ -73,21 +73,6 @@ type Options struct {
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
 
-	// The Vault CA address.
-	VaultAddress string
-
-	// The Vault auth path.
-	VaultAuthPath string
-
-	// The Vault role.
-	VaultRole string
-
-	// The Vault sign CSR path.
-	VaultSignCsrPath string
-
-	// The Vault TLS root certificate.
-	VaultTLSRootCert string
-
 	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
 	GrpcServer *grpc.Server
 
@@ -113,26 +98,61 @@ type Options struct {
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
-	// Location of JWTPath to connect to CA.
+	// ------ Vault-specific config ---------
+
+	// The Vault CA address.
+	VaultAddress string
+
+	// The Vault auth path.
+	VaultAuthPath string
+
+	// The Vault role.
+	VaultRole string
+
+	// The Vault sign CSR path.
+	VaultSignCsrPath string
+
+	// The Vault TLS root certificate.
+	VaultTLSRootCert string
+
+	// -------------- Settings for signing the workload certificate -----------
+
+	// Location of token used to authenticate to the CA. If ProvCert is set and certificates are
+	// found, this will be ignored.
 	JWTPath string
 
-	// OutputKeyCertToDir is the directory for output the key and certificate
+	// OutputKeyCertToDir (env: OUTPUT_CERTS) is the directory for output the key and certificate.
+	// If not set, the private key and cert will be in memory and made available to Envoy using SDS.
+	//
+	// For VMs must be set to the same value with PROV_CERT to enable auto-refresh of the certificate.
+	// If the PROV_CERT is long lived or rotated by an external tool - this should be empty or have
+	// a different value.
 	OutputKeyCertToDir string
 
-	// ProvCert is the directory for client to provide the key and certificate to server
-	// when do mtls
-	ProvCert string
-
-	// Existing certs, for VM or existing certificates
-	CertsDir string
-
 	// ProvCert is a directory containing existing certificates.
-	// The certificates will be exchanged for fresh certificates - "FileMountedCerts"
-	// are used directly.
+	// The certificates will be used to authenticate with the server (CA_ADDR) and
+	// exchanged for fresh certificates.
+	//
+	// Not used if "FileMountedCerts" is set
 	//
 	// This can be used for long-lived certs that are exchanged for short-lived ones, or
 	// to refresh shorter lived certs when set to same value with OutputKeyCertToDir.
+	//
+	// The certificate in this dir will only be used for communication with the CA_ADDR,
+	// the XDS server and all other communication will use the returned certificate and a fresh
+	// key.
+	//
+	// Set using "PROV_CERT" environment. If no private key/certificate is found, token will be used.
 	ProvCert string
+
+	// FileMountedCerts indicates whether the proxy is using file
+	// mounted certs created by a foreign CA. Refresh is managed by the external
+	// CA, by updating the Secret or VM file. We will watch the file for changes
+	// or check before the cert expires. This assumes the certs are in the
+	// well-known ./etc/certs location.
+	FileMountedCerts bool
+
+	// -----------------
 
 	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
 	TLSEnabled bool
@@ -147,13 +167,6 @@ type Options struct {
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
 	ECCSigAlg string
-
-	// FileMountedCerts indicates whether the proxy is using file
-	// mounted certs created by a foreign CA. Refresh is managed by the external
-	// CA, by updating the Secret or VM file. We will watch the file for changes
-	// or check before the cert expires. This assumes the certs are in the
-	// well-known ./etc/certs location.
-	FileMountedCerts bool
 
 	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
 	// Determines the root CA file to use for connecting to CA gRPC:
