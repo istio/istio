@@ -1031,17 +1031,17 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			Sni:              tls.Sni,
 		}
 
+		// if tls.CaCertificate == "" && SYSTEM_CA_FALLBACK is enabled
 		if res.GetRootResourceName() == "" && features.EnableDefaultToSystemCAValidation.Get() {
 			res = model.SdsCertificateConfig{
-				CaCertificatePath: features.SystemCAFilePath.Get(),
+				CaCertificatePath: features.DestinationRuleSystemCAFilePath.Get(),
 			}
-		} else {
-			// If tls.CaCertificate or USE_SYSTEM_CA_FALLBACK is not enabled do no validation
-			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
-			tlsContext.Sni = tls.Sni
 		}
 
-		if res.GetRootResourceName() != "" {
+		// If tls.CaCertificate or USE_SYSTEM_CA_FALLBACK is not enabled do no validation
+		if res.GetRootResourceName() == "" {
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
+		} else {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
@@ -1114,17 +1114,17 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), node.RequestedTypes.CDS))
 
+			// if tls.CaCertificate == "" && SYSTEM_CA_FALLBACK is enabled
 			if res.GetRootResourceName() == "" && features.EnableDefaultToSystemCAValidation.Get() {
 				res = model.SdsCertificateConfig{
-					CaCertificatePath: features.SystemCAFilePath.Get(),
+					CaCertificatePath: features.DestinationRuleSystemCAFilePath.Get(),
 				}
-			} else {
-				// If tls.CaCertificate or USE_SYSTEM_CA_FALLBACK is not enabled do no validation
-				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
-				tlsContext.Sni = tls.Sni
 			}
 
-			if res.GetRootResourceName() != "" {
+			// If tls.CaCertificate or USE_SYSTEM_CA_FALLBACK is not enabled do no validation
+			if res.GetRootResourceName() == "" {
+				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
+			} else {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},

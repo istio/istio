@@ -330,10 +330,14 @@ var (
 			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
 
 	EnableDefaultToSystemCAValidation = env.RegisterBoolVar("USE_SYSTEM_CA_FALLBACK", false,
-		"Description exists.",
+		"If enabled, if no TLS CaCertificates are set in DestinationRule API when origination TLS of mode"+
+			"SIMPLE or MUTUAL, use System CA certificates to validate presented server certificate during TLS handshake."+
+			"User can override the System CA certificate path to use by setting DESTINATION_RULE_DEFAULT_CERT.",
 	)
 
-	SystemCAFilePath = env.RegisterStringVar("SYSTEM_CA_FILE_PATH", "/etc/ssl/certs/ca-certificates.crt",
-		"Description exists,",
+	DestinationRuleSystemCAFilePath = env.RegisterStringVar("DESTINATION_RULE_DEFAULT_CERT", "/etc/ssl/certs/ca-certificates.crt",
+		"When USE_SYSTEM_CA_FALLBACK is enabled, while originating TLS connection of mode SIMPLE or MUTUAL, "+
+			"and no CaCertificates are provided for upstream host in DestinationRule. Fallback to use System CA certificates"+
+			"available at this path to validate sever certificate presented during TLS handshake",
 	)
 )
