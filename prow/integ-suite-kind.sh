@@ -112,7 +112,7 @@ fi
 export IP_FAMILY="${IP_FAMILY:-ipv4}"
 
 # Setup junit report and verbose logging
-export T="${T:-"-v"}"
+export T="${T:-"-v -count=1"}"
 export CI="true"
 
 make init
