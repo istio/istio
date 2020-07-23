@@ -237,15 +237,14 @@ func ProvCert(value string) Instance {
 	return newOption("provisioned_cert", value)
 }
 
-<<<<<<< HEAD
 // CallCredentials will trigger the google_grpc XDS interface, with the given
 // call credentials.
 // access_token doesn't work - it's a literal token, rotation will not work
 //
 func CallCredentials(value string) Instance {
 	return newOption("call_credentials", value)
-=======
+}
+
 func DiscoveryHost(value string) Instance {
 	return newOption("discovery_host", value)
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 }

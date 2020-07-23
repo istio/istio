@@ -360,16 +360,7 @@ func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
 
 // Config debugging.
 func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
-<<<<<<< HEAD
-	w.Header().Add("Content-Type", "application/json")
-	_, _ = fmt.Fprintf(w, "\n[\n")
-
-	log.Warna("XXX ", req.Header)
-
-	var err error
-=======
 	configs := []kubernetesConfig{}
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	s.Env.IstioConfigStore.Schemas().ForEach(func(schema collection.Schema) bool {
 		cfg, _ := s.Env.IstioConfigStore.List(schema.Resource().GroupVersionKind(), "")
 		for _, c := range cfg {

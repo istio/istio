@@ -68,29 +68,7 @@ func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID stri
 		clusterID:     clusterID,
 	}
 
-<<<<<<< HEAD
-	var opts grpc.DialOption
-	var err error
-	if tls {
-		opts, err = c.getTLSDialOption()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		opts = grpc.WithInsecure()
-	}
-	optList := []grpc.DialOption{opts}
-	gcred, err := oauth.NewApplicationDefault(context.Background())
-	if err == nil {
-		optList = append(optList, grpc.WithPerRPCCredentials(gcred))
-	}
-
-	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
-	//  need a way to reconnect.
-	conn, err := grpc.Dial(endpoint, optList...)
-=======
 	conn, err := c.buildConnection()
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
@@ -119,15 +97,12 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		}
 	}
 
-<<<<<<< HEAD
 	// add Bearer prefix, which is required by Citadel.
 	pairs := metadata.Pairs("ClusterID", c.clusterID)
 	if token != "" {
 		pairs.Append("Authorization", bearerTokenPrefix+token)
 	}
 	ctx = metadata.NewOutgoingContext(ctx, pairs)
-=======
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to create certificate: %v", err)
@@ -207,8 +182,13 @@ func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
 	} else {
 		opts = grpc.WithInsecure()
 	}
+	optList := []grpc.DialOption{opts}
+	gcred, err := oauth.NewApplicationDefault(context.Background())
+	if err == nil {
+		optList = append(optList, grpc.WithPerRPCCredentials(gcred))
+	}
 
-	conn, err := grpc.Dial(c.caEndpoint, opts)
+	conn, err := grpc.Dial(c.caEndpoint, optList...)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.caEndpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", c.caEndpoint)

@@ -93,14 +93,11 @@ type Agent struct {
 	// CertPath is set with the location of the certs, or empty if mounted certs are not present.
 	CertsPath string
 
-<<<<<<< HEAD
 	// RequireCerts is set if the agent requires certificates:
 	// - if controlPlaneAuthEnabled is set
 	// - port of discovery server is not 15010 (the plain text default) or 443 (plain TLS).
 	RequireCerts bool
 
-=======
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	// RootCert is the CA root certificate. It is loaded part of detecting the
 	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
 	// CA. If not set it should be assumed we are using a public certificate (like ACME).

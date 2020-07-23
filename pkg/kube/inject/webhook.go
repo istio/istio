@@ -820,11 +820,6 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
-<<<<<<< HEAD
-	var reviewResponse *v1beta1.AdmissionResponse
-	ar := &v1beta1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(body, nil, ar); err != nil {
-=======
 	var reviewResponse *kubeApiAdmission.AdmissionResponse
 	ar := kubeApiAdmission.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{
@@ -833,7 +828,6 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
@@ -841,24 +835,12 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		reviewResponse = wh.inject(ar, path)
 	}
 
-<<<<<<< HEAD
-	x, _ := json.Marshal(ar)
-	log.Info(string(x))
-	log.Infoa("Headers: ", r.Header)
-		log.Infoa("TLS: ", r.TLS)
-	if r.TLS != nil {
-		log.Infoa("TLS: ", r.TLS.PeerCertificates)
-
-	}
-	response := v1beta1.AdmissionReview{}
-=======
 	response := kubeApiAdmission.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "admission.k8s.io/v1",
 			Kind:       "AdmissionReview",
 		},
 	}
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		if ar.Request != nil {

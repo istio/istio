@@ -88,12 +88,8 @@ var (
 
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
-<<<<<<< HEAD
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "Pod namespace")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
-=======
-	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
->>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 

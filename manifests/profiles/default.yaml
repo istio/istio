@@ -4,7 +4,7 @@ metadata:
   namespace: istio-system
 spec:
   hub: gcr.io/istio-testing
-  tag: latest
+  tag: 1.7-dev
 
   # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
