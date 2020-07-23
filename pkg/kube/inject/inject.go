@@ -35,6 +35,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/label"
 
@@ -143,6 +144,10 @@ const (
 const (
 	// ProxyContainerName is used by e2e integration tests for fetching logs
 	ProxyContainerName = "istio-proxy"
+
+	// ValidationContainerName is the name of the init container that validates
+	// if CNI has made the necessary changes to iptables
+	ValidationContainerName = "istio-validation"
 )
 
 // SidecarInjectionSpec collects all container types and volumes for
@@ -150,13 +155,14 @@ const (
 type SidecarInjectionSpec struct {
 	// RewriteHTTPProbe indicates whether Kubernetes HTTP prober in the PodSpec
 	// will be rewritten to be redirected by pilot agent.
-	PodRedirectAnnot    map[string]string             `yaml:"podRedirectAnnot"`
-	RewriteAppHTTPProbe bool                          `yaml:"rewriteAppHTTPProbe"`
-	InitContainers      []corev1.Container            `yaml:"initContainers"`
-	Containers          []corev1.Container            `yaml:"containers"`
-	Volumes             []corev1.Volume               `yaml:"volumes"`
-	DNSConfig           *corev1.PodDNSConfig          `yaml:"dnsConfig"`
-	ImagePullSecrets    []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
+	PodRedirectAnnot                map[string]string             `yaml:"podRedirectAnnot"`
+	RewriteAppHTTPProbe             bool                          `yaml:"rewriteAppHTTPProbe"`
+	HoldApplicationUntilProxyStarts bool                          `yaml:"holdApplicationUntilProxyStarts"`
+	InitContainers                  []corev1.Container            `yaml:"initContainers"`
+	Containers                      []corev1.Container            `yaml:"containers"`
+	Volumes                         []corev1.Volume               `yaml:"volumes"`
+	DNSConfig                       *corev1.PodDNSConfig          `yaml:"dnsConfig"`
+	ImagePullSecrets                []corev1.LocalObjectReference `yaml:"imagePullSecrets"`
 }
 
 // SidecarTemplateData is the data object to which the templated
@@ -590,6 +596,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	if err != nil {
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
 	}
+	sic.HoldApplicationUntilProxyStarts, _, _ = unstructured.NestedBool(data.Values, "global", "proxy", "holdApplicationUntilProxyStarts")
 	return &sic, string(statusAnnotationValue), nil
 }
 
@@ -611,7 +618,8 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
+// nolint: lll
+func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -629,7 +637,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision stri
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
+			outObject, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -670,7 +678,8 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 }
 
 // IntoObject convert the incoming resources into Injected resources
-func IntoObject(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+// nolint: lll
+func IntoObject(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -691,7 +700,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 				return nil, err
 			}
 
-			r, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
+			r, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -756,17 +765,17 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n",
-			name)
+		warningHandler(fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
+			name))
 		return out, nil
 	}
 
-	//skip injection for injected pods
+	// skip injection for injected pods
 	if len(podSpec.Containers) > 1 {
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName {
-				_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n",
-					name, ProxyContainerName)
+				warningHandler(fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
+					name, ProxyContainerName))
 				return out, nil
 			}
 		}
@@ -788,7 +797,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 
 	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
 
-	podSpec.Containers = append(podSpec.Containers, spec.Containers...)
+	podSpec.Containers = injectContainers(podSpec.Containers, spec)
 	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
 
 	podSpec.DNSConfig = spec.DNSConfig
@@ -833,6 +842,29 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	}
 
 	return out, nil
+}
+
+func injectContainers(target []corev1.Container, sic *SidecarInjectionSpec) []corev1.Container {
+	containersToInject := sic.Containers
+	if sic.HoldApplicationUntilProxyStarts {
+		// inject sidecar at start of spec.containers
+		proxyIndex := -1
+		for i, c := range containersToInject {
+			if c.Name == ProxyContainerName {
+				proxyIndex = i
+				break
+			}
+		}
+		if proxyIndex != -1 {
+			result := make([]corev1.Container, 1, len(target)+len(containersToInject))
+			result[0] = containersToInject[proxyIndex]
+			result = append(result, target...)
+			result = append(result, containersToInject[:proxyIndex]...)
+			result = append(result, containersToInject[proxyIndex+1:]...)
+			return result
+		}
+	}
+	return append(target, containersToInject...)
 }
 
 func getPortsForContainer(container corev1.Container) []string {

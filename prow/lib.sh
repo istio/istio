@@ -70,21 +70,31 @@ function download_untar_istio_release() {
   tar -xzf "${dir}/istio-${tag}-linux.tar.gz" -C "${dir}"
 }
 
+function buildx-create() {
+  export DOCKER_CLI_EXPERIMENTAL=enabled
+  if ! docker buildx ls | grep -q container-builder; then
+    docker buildx create --driver-opt network=host --name container-builder
+  fi
+  docker buildx use container-builder
+}
+
 function build_images() {
   SELECT_TEST="${1}"
+
+  buildx-create
+
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
 
   # use ubuntu:bionic to test vms by default
-  targets+="docker.app docker.app_sidecar_ubuntu_bionic docker.test_policybackend "
+  targets+="docker.app docker.app_sidecar_ubuntu_bionic "
   if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
     targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
     targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 "
   fi
-  targets+="docker.mixer "
   targets+="docker.operator "
   targets+="docker.install-cni "
-  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
+  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx.pushx
 }
 
 # Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.
@@ -105,11 +115,6 @@ function setup_kind_registry() {
       kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
     done
   done
-}
-
-# Pushes images to local kind registry
-function kind_push_images() {
-  docker images "${HUB}/*:${TAG}*" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
 }
 
 function cleanup_kind_cluster() {

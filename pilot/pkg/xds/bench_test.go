@@ -35,18 +35,14 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -188,23 +184,24 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.6.0",
+			IstioVersion: "1.8.0",
+			SdsEnabled:   true,
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
 		ConfigNamespace: "default",
 	}
 
-	configs := getConfigs(t, config)
+	configs := getConfigsWithCache(t, config)
 	env := buildTestEnv(t, configs)
 
-	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
+	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health})
 	return env, configgen, proxy
 }
 
 var configCache = map[ConfigInput][]model.Config{}
 
-func getConfigs(t testing.TB, input ConfigInput) []model.Config {
+func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
 	// Config setup is slow for large tests. Cache this and return from cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
@@ -219,9 +216,12 @@ func getConfigs(t testing.TB, input ConfigInput) []model.Config {
 	if err := tmpl.ExecuteTemplate(&buf, configName+".yaml", input); err != nil {
 		t.Fatalf("failed to execute template: %v", err)
 	}
-	configs, _, err := crd.ParseInputs(buf.String())
+	configs, badKinds, err := crd.ParseInputs(buf.String())
 	if err != nil {
 		t.Fatalf("failed to read config: %v", err)
+	}
+	if len(badKinds) != 0 {
+		t.Fatalf("Got unknown resources: %v", badKinds)
 	}
 	// setup default namespace if not defined
 	for i, c := range configs {
@@ -289,6 +289,10 @@ var testCases = []ConfigInput{
 		Services: 100,
 	},
 	{
+		Name:     "tls",
+		Services: 100,
+	},
+	{
 		Name:     "telemetry",
 		Services: 100,
 	},
@@ -351,7 +355,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 				if len(r) == 0 {
 					b.Fatal("Got no routes!")
 				}
-				response = routeDiscoveryResponse(r, "", "", v2.RouteType)
+				response = routeDiscoveryResponse(r, "", "", v3.RouteType)
 			}
 			logDebug(b, response)
 		})
@@ -402,11 +406,10 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 		endpoints int
 		services  int
 	}{
-		{100, 1},
+		{1, 100},
+		{10, 10},
+		{100, 10},
 		{1000, 1},
-		{10000, 1},
-		{100, 100},
-		{1000, 100},
 	}
 	adsLog.SetOutputLevel(log.WarnLevel)
 	var response interface{}
@@ -424,23 +427,12 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				// This should correlate to pushEds()
-				// TODO directly call pushEeds, but mock/skip the grpc send
-
 				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.loadAssignmentsForClusterIsolated(proxy, push, fmt.Sprintf("outbound|80||foo-%d.com", svc))
-
-					if l == nil {
-						continue
-					}
-
-					l = util.CloneClusterLoadAssignment(l)
-
-					loadbalancer.ApplyLocalityLBSetting(proxy.Locality, l, s.Env.Mesh().LocalityLbSetting, true)
+					l := s.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v2.EndpointType)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v3.EndpointType)
 			}
 		})
 	}

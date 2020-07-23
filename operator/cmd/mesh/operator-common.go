@@ -39,6 +39,8 @@ type operatorCommonArgs struct {
 	istioNamespace string
 	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	manifestsPath string
+	// revision is the Istio control plane revision the command targets.
+	revision string
 }
 
 const (
@@ -48,8 +50,12 @@ const (
 )
 
 // isControllerInstalled reports whether an operator deployment exists in the given namespace.
-func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string) (bool, error) {
-	return deploymentExists(cs, operatorNamespace, operatorResourceName)
+func isControllerInstalled(cs kubernetes.Interface, operatorNamespace string, revision string) (bool, error) {
+	orn := operatorResourceName
+	if revision != "" {
+		orn += "-" + revision
+	}
+	return deploymentExists(cs, operatorNamespace, orn)
 }
 
 // renderOperatorManifest renders a manifest to install the operator with the given input arguments.
@@ -70,6 +76,7 @@ istioNamespace: {{.IstioNamespace}}
 watchedNamespaces: {{.WatchedNamespaces}}
 hub: {{.Hub}}
 tag: {{.Tag}}
+revision: {{if .Revision }} {{.Revision}} {{else}} "" {{end}}
 `
 
 	tv := struct {
@@ -78,12 +85,14 @@ tag: {{.Tag}}
 		WatchedNamespaces string
 		Hub               string
 		Tag               string
+		Revision          string
 	}{
 		OperatorNamespace: ocArgs.operatorNamespace,
 		IstioNamespace:    ocArgs.istioNamespace,
 		WatchedNamespaces: ocArgs.watchedNamespaces,
 		Hub:               ocArgs.hub,
 		Tag:               ocArgs.tag,
+		Revision:          ocArgs.revision,
 	}
 	vals, err := util.RenderTemplate(tmpl, tv)
 	if err != nil {

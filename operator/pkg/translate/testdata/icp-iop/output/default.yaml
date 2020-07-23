@@ -447,51 +447,6 @@ spec:
         enabled: false
         private_key_file: /kiali-cert/key.pem
       tag: v1.9
-    mixer:
-      adapters:
-        kubernetesenv:
-          enabled: true
-        prometheus:
-          enabled: true
-          metricsExpiryDuration: 10m
-        stackdriver:
-          auth:
-            apiKey: ""
-            appCredentials: false
-            serviceAccountPath: ""
-          enabled: false
-          tracer:
-            enabled: false
-            sampleProbability: 1
-        stdio:
-          enabled: false
-          outputAsJson: false
-        useAdapterCRDs: false
-      policy:
-        adapters:
-          kubernetesenv:
-            enabled: true
-          useAdapterCRDs: false
-        autoscaleEnabled: true
-        image: mixer
-        sessionAffinityEnabled: false
-      telemetry:
-        autoscaleEnabled: true
-        env:
-          GOMAXPROCS: "6"
-        image: mixer
-        loadshedding:
-          latencyThreshold: 100ms
-          mode: enforce
-        nodeSelector: {}
-        podAntiAffinityLabelSelector: []
-        podAntiAffinityTermLabelSelector: []
-        replicaCount: 1
-        reportBatchMaxEntries: 100
-        reportBatchMaxTime: 1s
-        sessionAffinityEnabled: false
-        tolerations: []
-        useMCP: true
     pilot:
       appNamespaces: []
       autoscaleEnabled: true

@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
+
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
@@ -307,6 +308,37 @@ spec:
 		[]byte(contents), patchOptions); err != nil {
 		return fmt.Errorf("failed to patch istiod with ISTIOD_CUSTOM_HOST: %v", err)
 	}
+
+	if err := retry.UntilSuccess(func() error {
+		pods, err := cluster.CoreV1().Pods(cfg.SystemNamespace).List(context.TODO(), kubeApiMeta.ListOptions{LabelSelector: "istio=pilot"})
+		if err != nil {
+			return err
+		}
+		if len(pods.Items) == 0 {
+			return fmt.Errorf("no istiod pods")
+		}
+		for _, p := range pods.Items {
+			for _, c := range p.Spec.Containers {
+				if c.Name != "discovery" {
+					continue
+				}
+				found := false
+				for _, envVar := range c.Env {
+					if envVar.Name == "ISTIOD_CUSTOM_HOST" {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("%v does not have ISTIOD_CUSTOM_HOST set", p.Name)
+				}
+			}
+		}
+		return nil
+	}, retry.Timeout(90*time.Second)); err != nil {
+		return fmt.Errorf("failed waiting for patched istiod pod to come up in %s: %v", cluster.Name(), err)
+	}
+
 	return nil
 }
 
@@ -315,7 +347,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 
 	operatorCfg := &pkgAPI.IstioOperator{}
 	if err := gogoprotomarshal.ApplyYAML(operatorYaml, operatorCfg); err != nil {
-		return fmt.Errorf("failed to unmsarshal base iop: %v", err)
+		return fmt.Errorf("failed to unmarshal base iop: %v, %v", err, operatorYaml)
 	}
 	var values = &pkgAPI.Values{}
 	if operatorCfg.Spec.Values != nil {
@@ -324,7 +356,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 			return fmt.Errorf("failed to marshal base values: %v", err)
 		}
 		if err := gogoprotomarshal.ApplyYAML(string(valuesYml), values); err != nil {
-			return fmt.Errorf("failed to unmsarshal base values: %v", err)
+			return fmt.Errorf("failed to unmarshal base values: %v", err)
 		}
 	}
 

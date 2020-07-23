@@ -226,19 +226,19 @@ $ gcloud logging read "resource.type=gce_instance AND jsonPayload.SYSLOG_IDENTIF
     - creates service-account `istio-cni` with `ClusterRoleBinding` to allow gets on pods' info
 
 - `install-cni` container
-    - copies `istio-cni` binary and `istio-iptables.sh` to `/opt/cni/bin`
-    - creates kubeconfig for the service account the pod is run under
+    - copies `istio-cni` binary and `istio-iptables` to `/opt/cni/bin`
+    - creates kubeconfig for the service account the pod runs under
     - injects the CNI plugin config to the config file pointed to by CNI_CONF_NAME env var
         - example: `CNI_CONF_NAME: 10-calico.conflist`
-        - `jq` is used to insert `CNI_NETWORK_CONFIG` into the `plugins` list in `/etc/cni/net.d/${CNI_CONF_NAME}`
+        - the program inserts `CNI_NETWORK_CONFIG` into the `plugins` list in `/etc/cni/net.d/${CNI_CONF_NAME}`
 
 - `istio-cni`
     - CNI plugin executable copied to `/opt/cni/bin`
     - currently implemented for k8s only
     - on pod add, determines whether pod should have netns setup to redirect to Istio proxy
-        - if so, calls `istio-iptables.sh` with params to setup pod netns
+        - if so, calls `istio-iptables` with params to setup pod netns
 
-- [istio-iptables.sh](tools/istio-cni-docker.mk)
+- [istio-iptables](tools/istio-cni-docker.mk)
     - sets up iptables to redirect a list of ports to the port envoy will listen
 
 ### Background
@@ -280,7 +280,7 @@ Specifically:
     - [RBAC](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/rbac.yaml)
         - this creates the service account the CNI plugin is configured to use to access the kube-api-server
 
-The installation script `install-cni.sh` injects the `istio-cni` plugin config at the end of the CNI plugin chain
+The installation program `install-cni` injects the `istio-cni` plugin config at the end of the CNI plugin chain
 config.  It creates or modifies the file from the configmap created by the Kubernetes manifest.
 
 #### Plugin Logic
@@ -293,7 +293,7 @@ Workflow:
     1. If excluded, ignore the pod and return prevResult
 1. Setup redirect rules for the pods:
     1. Get the port list from pods definition
-    1. Setup iptables with required port list: `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables.sh ...`
+    1. Setup iptables with required port list: `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables ...`
 
     Following conditions will prevent the redirect rules to be setup in the pods:
 

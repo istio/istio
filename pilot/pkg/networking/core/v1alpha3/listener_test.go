@@ -40,7 +40,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mixerClient "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -49,7 +48,6 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
@@ -408,7 +406,6 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
-	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	svc.Resolution = model.Passthrough
 	services := []*model.Service{svc}
 
@@ -419,7 +416,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		numListenersOnServicePort int
 	}{
 		{
-			name: "gen a listener per instance",
+			name: "gen a listener per IP instance",
 			instances: []*model.ServiceInstance{
 				// This instance is the proxy itself, will not gen a outbound listener for it.
 				buildServiceInstance(services[0], "1.1.1.1"),
@@ -428,6 +425,13 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
 			numListenersOnServicePort: 3,
+		},
+		{
+			name: "no listeners for DNS instance",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(services[0], "example.com"),
+			},
+			numListenersOnServicePort: 0,
 		},
 	}
 	for _, tt := range tests {
@@ -2108,6 +2112,10 @@ func (p *fakePlugin) OnOutboundListener(in *plugin.InputParams, mutable *istione
 	return nil
 }
 
+func (p *fakePlugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
+	return nil
+}
+
 func (p *fakePlugin) OnInboundListener(in *plugin.InputParams, mutable *istionetworking.MutableObjects) error {
 	return nil
 }
@@ -2237,7 +2245,7 @@ func buildService(hostname string, ip string, protocol protocol.Instance, creati
 				Protocol: protocol,
 			},
 		},
-		Resolution: model.Passthrough,
+		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 		},
@@ -2257,7 +2265,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 				Protocol: protocol,
 			},
 		},
-		Resolution: model.Passthrough,
+		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 		},
@@ -2334,7 +2342,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	return env
 }
 
-func TestAppendListenerFallthroughRoute(t *testing.T) {
+func TestAppendListenerFallthroughRouteForCompleteListener(t *testing.T) {
 	push := &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{},
 	}
@@ -2380,20 +2388,18 @@ func TestAppendListenerFallthroughRoute(t *testing.T) {
 			hostname: util.PassthroughCluster,
 		},
 	}
+	configgen := NewConfigGenerator([]plugin.Plugin{})
 	for idx := range tests {
 		t.Run(tests[idx].name, func(t *testing.T) {
-			appendListenerFallthroughRoute(tests[idx].listener, tests[idx].listenerOpts,
-				tests[idx].node, nil)
-			if len(tests[idx].listenerOpts.filterChainOpts) != 1 {
-				t.Errorf("Expected exactly 1 filter chain options")
+			configgen.appendListenerFallthroughRouteForCompleteListener(tests[idx].listener,
+				tests[idx].node, push)
+			if len(tests[idx].listener.FilterChains) != 1 {
+				t.Errorf("Expected exactly 1 filter chain")
 			}
-			if !tests[idx].listenerOpts.filterChainOpts[0].isFallThrough {
-				t.Errorf("Expected fall through to be set")
-			}
-			if len(tests[idx].listenerOpts.filterChainOpts[0].networkFilters) != 1 {
+			if len(tests[idx].listener.FilterChains[0].Filters) != 1 {
 				t.Errorf("Expected exactly 1 network filter in the chain")
 			}
-			filter := tests[idx].listenerOpts.filterChainOpts[0].networkFilters[0]
+			filter := tests[idx].listener.FilterChains[0].Filters[0]
 			var tcpProxy tcp.TcpProxy
 			cfg := filter.GetTypedConfig()
 			_ = ptypes.UnmarshalAny(cfg, &tcpProxy)
@@ -2496,12 +2502,11 @@ func TestMergeTCPFilterChains(t *testing.T) {
 		},
 	}
 
-	insertFallthroughMetadata(listenerMap["0.0.0.0_443"].listener.FilterChains[2])
-
 	incomingFilterChains := []*listener.FilterChain{
 		{
-			FilterChainMatch: &listener.FilterChainMatch{},
-			// This is not a valid config, just for test
+			FilterChainMatch: &listener.FilterChainMatch{
+				ServerNames: []string{"bar.com"},
+			}, // This is not a valid config, just for test
 			Filters: []*listener.Filter{tcpProxyFilter2},
 		},
 	}
@@ -2520,19 +2525,20 @@ func TestMergeTCPFilterChains(t *testing.T) {
 
 	out := mergeTCPFilterChains(incomingFilterChains, params, "0.0.0.0_443", listenerMap)
 
-	if len(out) != 3 {
+	if len(out) != 4 {
 		t.Errorf("Got %d filter chains, expected 3", len(out))
 	}
 	if !isMatchAllFilterChain(out[2]) {
 		t.Errorf("The last filter chain  %#v is not wildcard matching", out[2])
 	}
 
-	if !reflect.DeepEqual(out[2].Filters, incomingFilterChains[0].Filters) {
+	if !reflect.DeepEqual(out[3].Filters, incomingFilterChains[0].Filters) {
 		t.Errorf("got %v\nwant %v\ndiff %v", out[2].Filters, incomingFilterChains[0].Filters, cmp.Diff(out[2].Filters, incomingFilterChains[0].Filters))
 	}
 }
 
 func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/25725")
 	svcName := "thrift-service-unlimited"
 	svcIP := "127.0.22.2"
 	limitedSvcName := "thrift-service"
@@ -2568,40 +2574,6 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	serviceDiscovery := memregistry.NewServiceDiscovery(services)
 
 	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
-	for _, config := range []model.Config{
-		{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind: gvk.QuotaSpec,
-				Name:             limitedSvcName,
-				Namespace:        "default",
-			},
-			Spec: &mixerClient.QuotaSpec{},
-		},
-		{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind: gvk.QuotaSpecBinding,
-				Name:             limitedSvcName,
-				Namespace:        "default",
-			},
-			Spec: &mixerClient.QuotaSpecBinding{
-				Services: []*mixerClient.IstioService{
-					{
-						Service: "thrift-service.default.svc.cluster.local",
-					},
-				},
-				QuotaSpecs: []*mixerClient.QuotaSpecBinding_QuotaSpecReference{
-					{
-						Name:      "thrift-service",
-						Namespace: "default",
-					},
-				},
-			},
-		},
-	} {
-		if _, err := configStore.Create(config); err != nil {
-			t.Fatal(err)
-		}
-	}
 
 	m := mesh.DefaultMeshConfig()
 	m.ThriftConfig.RateLimitUrl = "ratelimit.svc.cluster.local"

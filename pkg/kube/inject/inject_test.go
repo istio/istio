@@ -32,6 +32,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 )
 
+var (
+	nullWarningHandler = func(_ string) {}
+)
+
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		in         string
@@ -40,7 +44,7 @@ func TestIntoResourceFile(t *testing.T) {
 		inFilePath string
 		mesh       func(m *meshapi.MeshConfig)
 	}{
-		//"testdata/hello.yaml" is tested in http_test.go (with debug)
+		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
 			in:   "hello.yaml",
 			want: "hello.yaml.injected",
@@ -300,6 +304,14 @@ func TestIntoResourceFile(t *testing.T) {
 				`values.istio_cni.chained=false`,
 			},
 		},
+		{
+			// Verifies that HoldApplicationUntilProxyStarts in MeshConfig puts sidecar in front
+			in:   "hello.yaml",
+			want: "hello.proxyHoldsApplication.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
 	}
 
 	for i, c := range cases {
@@ -319,7 +331,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got, nullWarningHandler); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -427,7 +439,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got, nullWarningHandler); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -480,7 +492,7 @@ func TestInvalidAnnotations(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err == nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got, nullWarningHandler); err == nil {
 				t.Fatalf("expected error")
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
 				t.Fatalf("unexpected error: %v", err)

@@ -53,6 +53,10 @@ type Settings struct {
 	// This should not be depended on as a primary means for reducing test flakes.
 	Retries int
 
+	// If enabled, namespaces will be reused rather than created with dynamic names each time.
+	// This is useful when combined with NoCleanup, to allow quickly iterating on tests.
+	StableNamespaces bool
+
 	// The label selector that the user has specified.
 	SelectorString string
 

@@ -53,7 +53,7 @@ func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, vers
 	rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)
 
 	if s.DebugConfigs {
-		con.CDSClusters = rawClusters
+		con.XdsClusters = rawClusters
 	}
 	response := cdsDiscoveryResponse(rawClusters, push.Version, con.node.RequestedTypes.CDS)
 	err := con.send(response)

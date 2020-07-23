@@ -82,8 +82,8 @@ var (
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1beta1", Kind: name.RoleStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.MutatingWebhookConfigurationStr},
-		{Group: "admissionregistration.k8s.io", Version: "v1beta1", Kind: name.ValidatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.MutatingWebhookConfigurationStr},
+		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.ValidatingWebhookConfigurationStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 		{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: name.CRDStr},
@@ -197,7 +197,9 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		log.Errorf("error getting IstioOperator iop: %s", err)
 		return reconcile.Result{}, err
 	}
-
+	if iop.Spec == nil {
+		iop.Spec = &v1alpha1.IstioOperatorSpec{Profile: name.DefaultProfileName}
+	}
 	deleted := iop.GetDeletionTimestamp() != nil
 	finalizers := sets.NewString(iop.GetFinalizers()...)
 	if deleted {

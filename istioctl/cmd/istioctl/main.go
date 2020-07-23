@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	// import all known client auth plugins
@@ -24,6 +25,12 @@ import (
 )
 
 func main() {
+	if err := cmd.ConfigAndEnvProcessing(); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not initialize: %v\n", err)
+		exitCode := cmd.GetExitCode(err)
+		os.Exit(exitCode)
+	}
+
 	rootCmd := cmd.GetRootCmd(os.Args[1:])
 
 	if err := rootCmd.Execute(); err != nil {

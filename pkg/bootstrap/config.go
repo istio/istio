@@ -51,7 +51,7 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// required stats are used by readiness checks.
-	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc,wasm"
+	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
@@ -82,7 +82,6 @@ type Config struct {
 	Proxy               *meshAPI.ProxyConfig
 	PlatEnv             platform.Environment
 	PilotSubjectAltName []string
-	MixerSubjectAltName []string
 	LocalEnv            []string
 	NodeIPs             []string
 	PodName             string
@@ -94,6 +93,7 @@ type Config struct {
 	OutlierLogPath      string
 	PilotCertProvider   string
 	ProvCert            string
+	DiscoveryHost       string
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -117,13 +117,16 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PodNamespace(cfg.PodNamespace),
 		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
-		option.MixerSubjectAltName(cfg.MixerSubjectAltName),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath),
 		option.ProvCert(cfg.ProvCert),
+<<<<<<< HEAD
 		option.CallCredentials("test"))
+=======
+		option.DiscoveryHost(cfg.DiscoveryHost))
+>>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 
 	if cfg.STSPort > 0 {
 		opts = append(opts,
@@ -509,6 +512,9 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(pc)
 
+	// Add all instance labels with lower precedence than pod labels
+	extractInstanceLabels(plat, meta)
+
 	// Add all pod labels found from filesystem
 	// These are typically volume mounted by the downward API
 	lbls, err := readPodLabels()
@@ -524,6 +530,21 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 	}
 
 	return meta, untypedMeta, nil
+}
+
+// Extracts instance labels for the platform into model.NodeMetadata.Labels
+// only if not running on Kubernetes
+func extractInstanceLabels(plat platform.Environment, meta *model.BootstrapNodeMetadata) {
+	if plat == nil || meta == nil || plat.IsKubernetes() {
+		return
+	}
+	instanceLabels := plat.Labels()
+	if meta.Labels == nil {
+		meta.Labels = map[string]string{}
+	}
+	for k, v := range instanceLabels {
+		meta.Labels[k] = v
+	}
 }
 
 func readPodLabels() (map[string]string, error) {

@@ -179,6 +179,7 @@ func TestMirroringExternalService(t *testing.T) {
 func runMirrorTest(options mirrorTestOptions) {
 	framework.
 		NewTest(options.t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(options.t, ctx, namespace.Config{
 				Prefix: "mirroring",
@@ -186,7 +187,7 @@ func runMirrorTest(options mirrorTestOptions) {
 			})
 
 			var instances [3]echo.Instance
-			echoboot.NewBuilderOrFail(options.t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&instances[0], echoConfig(ns, "a")). // client
 				With(&instances[1], echoConfig(ns, "b")). // target
 				With(&instances[2], echoConfig(ns, "c")). // receives mirrored requests

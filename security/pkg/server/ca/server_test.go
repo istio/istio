@@ -32,13 +32,13 @@ import (
 
 	"istio.io/istio/security/pkg/pki/util"
 
+	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/pki/ca"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	mockutil "istio.io/istio/security/pkg/pki/util/mock"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	pb "istio.io/istio/security/proto"
 )
 
 const csr = `
@@ -451,10 +451,11 @@ func TestGetServerCertificate(t *testing.T) {
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
+	rsaKeySize := 2048
 
 	for id, tc := range cases {
 		caopts, err := ca.NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
-			defaultWorkloadCertTTL, maxWorkloadCertTTL)
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 		if err != nil {
 			t.Fatalf("%s: Failed to create a plugged-cert CA Options: %v", id, err)
 		}

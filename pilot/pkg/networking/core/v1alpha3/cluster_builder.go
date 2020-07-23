@@ -77,6 +77,8 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(service, port)
 	}
 
+	// merge with applicable port level traffic policy settings
+	opts.policy = MergeTrafficPolicy(nil, opts.policy, opts.port)
 	// Apply traffic policy for the main default cluster.
 	applyTrafficPolicy(opts)
 
@@ -124,15 +126,12 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 		// Apply traffic policy for subset cluster with the destination rule traffice policy.
 		opts.cluster = subsetCluster
-		opts.policy = destinationRule.TrafficPolicy
 		opts.istioMtlsSni = defaultSni
-		applyTrafficPolicy(opts)
 
 		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-		if subset.TrafficPolicy != nil {
-			opts.policy = subset.TrafficPolicy
-			applyTrafficPolicy(opts)
-		}
+		opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
+		// Apply traffic policy for the subset cluster.
+		applyTrafficPolicy(opts)
 
 		maybeApplyEdsConfig(subsetCluster, cb.proxy.RequestedTypes.CDS)
 
@@ -140,6 +139,54 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		subsetClusters = append(subsetClusters, subsetCluster)
 	}
 	return subsetClusters
+}
+
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
+	}
+
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
+	}
+
+	// use DeepCopy to avoid modifying DestinationRule in push_context directly during cluster build steps
+	// for example: TLS context is currently modified as part of auto-mtls and ISTIO_MUTUAL logic
+	mergedPolicy := original.DeepCopy()
+	if mergedPolicy == nil {
+		mergedPolicy = &networking.TrafficPolicy{}
+	}
+
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool.DeepCopy()
+	}
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection.DeepCopy()
+	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer.DeepCopy()
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls.DeepCopy()
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				// per the docs, port level policies do not inherit and intead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool.DeepCopy()
+				mergedPolicy.OutlierDetection = p.OutlierDetection.DeepCopy()
+				mergedPolicy.LoadBalancer = p.LoadBalancer.DeepCopy()
+				mergedPolicy.Tls = p.Tls.DeepCopy()
+				break
+			}
+		}
+	}
+	return mergedPolicy
 }
 
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
@@ -233,7 +280,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, cb.push)
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, cb.push)
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}

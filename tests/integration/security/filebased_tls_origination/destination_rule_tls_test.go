@@ -46,7 +46,7 @@ func mustReadFile(t *testing.T, f string) string {
 func TestDestinationRuleTls(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.egress.mtls").
+		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "tls",
@@ -71,7 +71,7 @@ spec:
 `)
 
 			var client, server echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,

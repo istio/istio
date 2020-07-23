@@ -78,7 +78,7 @@ func TestGateway(t *testing.T) {
 				Inject: true,
 			})
 			var instance echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&instance, echo.Config{
 					Service:   "server",
 					Namespace: ns,
@@ -168,7 +168,7 @@ func TestIngress(t *testing.T) {
 				Inject: true,
 			})
 			var instance echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&instance, echo.Config{
 					Service:   "server",
 					Namespace: ns,
@@ -189,10 +189,10 @@ func TestIngress(t *testing.T) {
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName}, ingress.TLS, ingressutil.IngressCredentialA, false)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName})
 			credName2 := "k8s-ingress-secret-bar"
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB, false)
-			defer ingressutil.DeleteIngressKubeSecret(t, ctx, []string{credName2})
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName2})
 
 			if err := ctx.Config().ApplyYAML(ns.Name(), `
 apiVersion: networking.k8s.io/v1beta1

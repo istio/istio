@@ -350,6 +350,16 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
+	for _, r := range c.GetRegistries() {
+		if err := r.AppendWorkloadHandler(f); err != nil {
+			log.Infof("Fail to append workload handler to adapter %s", r.Provider())
+			return err
+		}
+	}
+	return nil
+}
+
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	for _, r := range c.GetRegistries() {

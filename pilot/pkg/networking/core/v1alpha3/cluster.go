@@ -409,7 +409,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, instance.ServicePort)
+			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
@@ -505,29 +505,16 @@ func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Prox
 }
 
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
-func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
+func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings) {
 	if policy == nil {
 		return nil, nil, nil, nil
 	}
-	// Default to traffic policy's settings.
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
-	// Check if port level overrides exist, if yes override with them.
-	if port != nil && len(policy.PortLevelSettings) > 0 {
-		for _, p := range policy.PortLevelSettings {
-			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				connectionPool = p.ConnectionPool
-				outlierDetection = p.OutlierDetection
-				loadBalancer = p.LoadBalancer
-				tls = p.Tls
-				break
-			}
-		}
-	}
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
@@ -633,8 +620,7 @@ func setH2Options(cluster *cluster.Cluster) {
 }
 
 func applyTrafficPolicy(opts buildClusterOpts) {
-	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
-
+	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	applyH2Upgrade(opts, connectionPool)
 	applyConnectionPool(opts.push, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
@@ -744,6 +730,10 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 
 	out := &cluster.OutlierDetection{}
+
+	// SuccessRate based outlier detection should be disabled.
+	out.EnforcingSuccessRate = &wrappers.UInt32Value{Value: 0}
+
 	if e := outlier.Consecutive_5XxErrors; e != nil {
 		v := e.GetValue()
 
@@ -936,7 +926,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 	c := opts.cluster
 	proxy := opts.proxy
 
-	tlsContext := &auth.UpstreamTlsContext{}
+	var tlsContext *auth.UpstreamTlsContext
 
 	switch tls.Mode {
 	case networking.ClientTLSSettings_DISABLE:
@@ -976,13 +966,12 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		} else {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, opts.push.Mesh.SdsUdsPath, node.RequestedTypes.CDS))
+				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, node.RequestedTypes.CDS))
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName,
-						opts.push.Mesh.SdsUdsPath, node.RequestedTypes.CDS),
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, node.RequestedTypes.CDS),
 				},
 			}
 		}
@@ -1014,9 +1003,8 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
 		}
-
 	case networking.ClientTLSSettings_SIMPLE:
-		if tls.CredentialName != "" {
+		if tls.CredentialName != "" && proxy.Type == model.Router {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
@@ -1051,7 +1039,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath, node.RequestedTypes.CDS),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), node.RequestedTypes.CDS),
 				},
 			}
 		}
@@ -1062,7 +1050,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		}
 
 	case networking.ClientTLSSettings_MUTUAL:
-		if tls.CredentialName != "" {
+		if tls.CredentialName != "" && proxy.Type == model.Router {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
@@ -1118,7 +1106,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
 			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath, node.RequestedTypes.CDS))
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), node.RequestedTypes.CDS))
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
 			if res.GetRootResourceName() == "" {
@@ -1128,7 +1116,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath, node.RequestedTypes.CDS),
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), node.RequestedTypes.CDS),
 					},
 				}
 			}

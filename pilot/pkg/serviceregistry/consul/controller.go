@@ -226,6 +226,11 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
+	// Consul does not support workload handlers
+	return nil
+}
+
 // GetIstioServiceAccounts implements model.ServiceAccounts operation TODO
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	// Need to get service account of service registered with consul

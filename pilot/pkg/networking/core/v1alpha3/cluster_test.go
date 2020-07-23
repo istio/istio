@@ -22,6 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
+
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -612,6 +615,12 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		if strings.Contains(c.Name, "outbound") {
 			actualOutboundClusterCount++
 			tlsContext := getTLSContext(t, c)
+			if c.Name == "outbound|8080|foobar|foo.example.org" {
+				// per the docs: default values will be applied to fields omitted in port-level traffic policies rather than inheriting
+				// settings specified at the destination level
+				g.Expect(tlsContext).To(BeNil())
+				continue
+			}
 			g.Expect(tlsContext).NotTo(BeNil())
 
 			tlsCerts := tlsContext.CommonTlsContext.TlsCertificates
@@ -1057,9 +1066,16 @@ func TestApplyOutlierDetection(t *testing.T) {
 		o    *cluster.OutlierDetection
 	}{
 		{
+			"Nil outlier detection",
+			nil,
+			nil,
+		},
+		{
 			"No outlier detection is set",
 			&networking.OutlierDetection{},
-			&cluster.OutlierDetection{},
+			&cluster.OutlierDetection{
+				EnforcingSuccessRate: &wrappers.UInt32Value{Value: 0},
+			},
 		},
 		{
 			"Consecutive gateway and 5xx errors are set",
@@ -1072,6 +1088,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 				EnforcingConsecutive_5Xx:           &wrappers.UInt32Value{Value: 100},
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1082,6 +1099,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1092,6 +1110,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 3},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1102,6 +1121,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				ConsecutiveGatewayFailure:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutiveGatewayFailure: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:               &wrappers.UInt32Value{Value: 0},
 			},
 		},
 		{
@@ -1112,6 +1132,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 			&cluster.OutlierDetection{
 				Consecutive_5Xx:          &wrappers.UInt32Value{Value: 0},
 				EnforcingConsecutive_5Xx: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:     &wrappers.UInt32Value{Value: 0},
 			},
 		},
 	}
@@ -1810,6 +1831,53 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	}
 }
 
+func TestAutoMTLSClusterSubsets(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	destRule := &networking.DestinationRule{
+		Host: TestServiceNHostname,
+		Subsets: []*networking.Subset{
+			{
+				Name: "foobar",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRequestsPerConnection: 1,
+						},
+					},
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+							Tls: &networking.ClientTLSSettings{
+								Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+								Sni:  "custom.sni.com",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	testMesh.EnableAutoMtls.Value = true
+
+	clusters, err := buildTestClusters(TestServiceNHostname, 0, model.SidecarProxy, nil, testMesh, destRule)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	tlsContext := getTLSContext(t, clusters[1])
+	g.Expect(tlsContext).ToNot(BeNil())
+	g.Expect(tlsContext.GetSni()).To(Equal("custom.sni.com"))
+	g.Expect(clusters[1].TransportSocketMatches).To(HaveLen(0))
+
+	for _, i := range []int{0, 2, 3} {
+		g.Expect(getTLSContext(t, clusters[i])).To(BeNil())
+		g.Expect(clusters[i].TransportSocketMatches).To(HaveLen(2))
+	}
+
+}
+
 func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -2475,7 +2543,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2485,6 +2554,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -2497,7 +2567,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2507,6 +2578,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -2595,7 +2667,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2605,6 +2678,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -2659,7 +2733,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2669,6 +2744,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -2725,7 +2801,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -2735,6 +2812,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3010,7 +3088,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -3020,6 +3099,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -3075,7 +3155,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -3085,6 +3166,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -3097,7 +3179,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -3107,6 +3190,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3126,6 +3210,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
@@ -3158,7 +3243,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -3171,6 +3257,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3191,6 +3278,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
@@ -3220,7 +3308,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -3233,6 +3322,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3253,6 +3343,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
@@ -3281,7 +3372,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -3294,6 +3386,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -3308,7 +3401,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -3321,6 +3415,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3341,6 +3436,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
 				},
 				push: &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
@@ -3368,7 +3464,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
-											ApiType: core.ApiConfigSource_GRPC,
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
 											GrpcServices: []*core.GrpcService{
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -3381,6 +3478,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
+									ResourceApiVersion:  core.ApiVersion_V3,
 									InitialFetchTimeout: features.InitialFetchTimeout,
 								},
 							},
@@ -3393,7 +3491,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -3406,6 +3505,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
+										ResourceApiVersion:  core.ApiVersion_V3,
 										InitialFetchTimeout: features.InitialFetchTimeout,
 									},
 								},
@@ -3420,12 +3520,14 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node, tc.certValidationContext)
-		if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
-			t.Errorf("test case %s: expecting:\n err=%v but got err=%v", tc.name, tc.result.err, err)
-		} else if !reflect.DeepEqual(tc.result.tlsContext, ret) {
-			t.Errorf("test case %s: expecting:\n %v but got:\n %v", tc.name, tc.result.tlsContext, ret)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node, tc.certValidationContext)
+			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
+				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
+			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
+				t.Errorf("got diff: `%v", diff)
+			}
+		})
 	}
 }
 

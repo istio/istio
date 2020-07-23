@@ -570,13 +570,13 @@ spec:
               config:
                 configuration: |
                   {
-                    "log_window_duration": {{ .Values.telemetry.v2.accessLogPolicy.logWindowDuration }}
+                    "log_window_duration": {{ .Values.telemetry.v2.accessLogPolicy.logWindowDuration | quote }}
                   }
                 vm_config:
                   runtime: envoy.wasm.runtime.null
                   code:
                     local: { inline_string: "envoy.wasm.access_log_policy" }
 ---
-{{- end}}
-{{- end}}
-{{- end}}
+{{- end }}
+{{- end }}
+{{- end }}

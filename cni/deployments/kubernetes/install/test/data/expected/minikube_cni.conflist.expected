@@ -1,36 +1,36 @@
 {
+  "cniVersion": "0.3.1",
+  "name": "k8s-pod-network",
   "plugins": [
     {
-      "name": "rkt.kubernetes.io",
-      "type": "bridge",
-      "bridge": "mybridge",
-      "mtu": 1460,
       "addIf": "true",
-      "isGateway": true,
+      "bridge": "mybridge",
       "ipMasq": true,
       "ipam": {
-        "type": "host-local",
-        "subnet": "10.1.0.0/16",
         "gateway": "10.1.0.1",
         "routes": [
           {
             "dst": "0.0.0.0/0"
           }
-        ]
-      }
+        ],
+        "subnet": "10.1.0.0/16",
+        "type": "host-local"
+      },
+      "isGateway": true,
+      "mtu": 1460,
+      "name": "rkt.kubernetes.io",
+      "type": "bridge"
     },
     {
-      "type": "istio-cni",
-      "log_level": "info",
       "kubernetes": {
-        "kubeconfig": "/etc/cni/net.d/ZZZ-istio-cni-kubeconfig",
         "cni_bin_dir": "/opt/cni/bin",
         "exclude_namespaces": [
           "istio-system"
-        ]
-      }
+        ],
+        "kubeconfig": "/etc/cni/net.d/ZZZ-istio-cni-kubeconfig"
+      },
+      "log_level": "info",
+      "type": "istio-cni"
     }
-  ],
-  "name": "k8s-pod-network",
-  "cniVersion": "0.3.0"
+  ]
 }

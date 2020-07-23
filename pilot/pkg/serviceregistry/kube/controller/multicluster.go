@@ -130,13 +130,14 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
 
+	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
+	// because when endpoints update `XDSUpdater.EDSUpdate` has already been called.
 	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
-	_ = kubectl.AppendInstanceHandler(func(si *model.ServiceInstance, ev model.Event) { m.updateHandler(si.Service) })
 
 	go kubectl.Run(stopCh)
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 	if m.fetchCaRoot != nil {
-		nc := NewNamespaceController(m.fetchCaRoot, options, clients.Kube())
+		nc := NewNamespaceController(m.fetchCaRoot, clients)
 		go nc.Run(stopCh)
 		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clients.Kube(), stopCh)
 		valicationWebhookController := webhooks.CreateValidationWebhookController(clients, webhookConfigName,

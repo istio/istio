@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	securityutil "istio.io/istio/pilot/pkg/security/authn/utils"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/network"
@@ -72,7 +71,6 @@ var (
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
 	trustDomain        string
-	mixerIdentity      string
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -90,8 +88,12 @@ var (
 
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
+<<<<<<< HEAD
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "Pod namespace")
 	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
+=======
+	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
+>>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
@@ -99,6 +101,11 @@ var (
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
+	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
+	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
+	// with extra SAN (labels, etc) in data path.
+	provCert = env.RegisterStringVar("PROV_CERT", "",
+		"Set to a directory containing provisioned certs, for VMs").Get()
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
@@ -249,6 +256,7 @@ var (
 			secOpts := &security.Options{
 				PilotCertProvider:  pilotCertProvider,
 				OutputKeyCertToDir: outputKeyCertToDir,
+				ProvCert:           provCert,
 				JWTPath:            jwtPath,
 				ClusterID:          clusterIDVar.Get(),
 				FileMountedCerts:   fileMountedCertsEnv,
@@ -282,16 +290,9 @@ var (
 			sa := istio_agent.NewAgent(&proxyConfig,
 				&istio_agent.AgentConfig{}, secOpts)
 
-			// Connection to Istiod secure port
-			if sa.RequireCerts {
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
-			}
-
-			var pilotSAN, mixerSAN []string
+			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
-				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), securityutil.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
@@ -376,7 +377,6 @@ var (
 				LogLevel:            proxyLogLevel,
 				ComponentLogLevel:   proxyComponentLogLevel,
 				PilotSubjectAltName: pilotSAN,
-				MixerSubjectAltName: mixerSAN,
 				NodeIPs:             role.IPAddresses,
 				PodName:             podName,
 				PodNamespace:        podNamespace,
@@ -409,7 +409,7 @@ var (
 	}
 )
 
-// explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
+// explicitly set the trustdomain so the pilot SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(podNamespace string, domain string) {
 	pilotTrustDomain := trustDomain
@@ -425,17 +425,6 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 		}
 	}
 	spiffe.SetTrustDomain(pilotTrustDomain)
-}
-
-func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
-	var san []string
-	if overrideIdentity == "" {
-		san = append(san, securityutil.GetSAN(ns, defaultSA))
-	} else {
-		san = append(san, securityutil.GetSAN("", overrideIdentity))
-
-	}
-	return san
 }
 
 func getDNSDomain(podNamespace, domain string) string {
@@ -464,8 +453,6 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
-		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+

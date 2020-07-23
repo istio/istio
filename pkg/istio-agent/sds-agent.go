@@ -93,11 +93,14 @@ type Agent struct {
 	// CertPath is set with the location of the certs, or empty if mounted certs are not present.
 	CertsPath string
 
+<<<<<<< HEAD
 	// RequireCerts is set if the agent requires certificates:
 	// - if controlPlaneAuthEnabled is set
 	// - port of discovery server is not 15010 (the plain text default) or 443 (plain TLS).
 	RequireCerts bool
 
+=======
+>>>>>>> c37d4187c0e6c4908945ea436ec6f13b2d4b6572
 	// RootCert is the CA root certificate. It is loaded part of detecting the
 	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
 	// CA. If not set it should be assumed we are using a public certificate (like ACME).
@@ -174,11 +177,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 
 	sa.SDSAddress = "unix:" + LocalSDS
 
-	_, discPort, err := net.SplitHostPort(discAddr)
-	if err != nil {
-		log.Fatalf("Invalid discovery address %v %v", discAddr, err)
-	}
-
 	// Auth logic for istio-agent to Cert provider:
 	// - if PROV_CERT is set, it'll be included in the TLS context sent to the server
 	//   This is a 'provisioning certificate' - long lived, managed by a tool, exchanged for
@@ -214,21 +212,15 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		sa.secOpts.CAEndpoint = discAddr
 	}
 
-	// TODO: tls should be required in all cases except ":15010" port - it is mainly for debugging/tests.
-	if proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
-		sa.RequireCerts = true
-	}
-
-	// Istiod uses a fixed, defined port for K8S-signed certificates.
-	// TODO do not special case port 15012
-	if discPort == "15012" {
-		sa.RequireCerts = true
-	}
-
 	// Next to the envoy config, writeable dir (mounted as mem)
 	sa.secOpts.WorkloadUDSPath = LocalSDS
 	sa.secOpts.CertsDir = sa.CertsPath
-	sa.secOpts.TLSEnabled = sa.RequireCerts
+	// Set TLSEnabled if the ControlPlaneAuthPolicy is set to MUTUAL_TLS
+	if sa.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
+		sa.secOpts.TLSEnabled = true
+	} else {
+		sa.secOpts.TLSEnabled = false
+	}
 	// If proxy is using file mounted certs, JWT token is not needed.
 	if sa.secOpts.FileMountedCerts {
 		sa.secOpts.UseLocalJWT = false

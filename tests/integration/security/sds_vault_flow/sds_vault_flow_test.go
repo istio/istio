@@ -50,7 +50,7 @@ func TestSdsVaultCaFlow(t *testing.T) {
 			})
 
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)

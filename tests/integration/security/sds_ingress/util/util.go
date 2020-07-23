@@ -118,9 +118,9 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 	}, retry.Timeout(time.Second*5))
 }
 
-// DeleteIngressKubeSecret deletes a secret
+// DeleteKubeSecret deletes a secret
 // nolint: interfacer
-func DeleteIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string) {
+func DeleteKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -289,7 +289,7 @@ func SetupTest(ctx framework.TestContext) namespace.Instance {
 		Inject: true,
 	})
 	var a echo.Instance
-	echoboot.NewBuilderOrFail(ctx, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&a, echo.Config{
 			Service:   "server",
 			Namespace: serverNs,
@@ -393,7 +393,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance) { 
 		credNames = append(credNames, cred)
 	}
 	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, false)
-	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
 	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
@@ -433,7 +433,7 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance) { /
 		credNames = append(credNames, cred)
 	}
 	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, false)
-	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
 	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{

@@ -18,7 +18,10 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	buildversion "istio.io/pkg/version"
 )
@@ -56,6 +59,8 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "",
+		revisionFlagHelpStr)
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
@@ -79,7 +84,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
-	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace)
+	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace, oiArgs.common.revision)
 	if already {
 		l.LogAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
 	}
@@ -105,8 +110,16 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
+	var iop *iopv1alpha1.IstioOperator
+	if oiArgs.common.revision != "" {
+		emptyiops := &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: oiArgs.common.revision}
+		iop, err = translate.IOPStoIOP(emptyiops, "", "")
+		if err != nil {
+			l.LogAndFatal(err)
+		}
+	}
 
-	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, l); err != nil {
+	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -115,7 +128,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 			l.LogAndFatal(err)
 
 		}
-		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, l); err != nil {
+		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 			l.LogAndFatal(err)
 		}
 	}

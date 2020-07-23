@@ -23,7 +23,7 @@ set -eux
 # See samples/addons/README.md for more information
 
 ADDONS="${WD}/../../samples/addons"
-DASHBOARDS="${WD}/../charts/istio-telemetry/grafana/dashboards"
+DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 
 # Set up Kiali. The upstream only has an operator, so we will deploy that
@@ -70,7 +70,6 @@ helm3 template prometheus stable/prometheus \
   kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
     --from-file=pilot-dashboard.json="${DASHBOARDS}/pilot-dashboard.json" \
-    --from-file=mixer-dashboard.json="${DASHBOARDS}/mixer-dashboard.json" \
     --from-file=istio-performance-dashboard.json="${DASHBOARDS}/istio-performance-dashboard.json"
 
   echo -e "\n---\n"

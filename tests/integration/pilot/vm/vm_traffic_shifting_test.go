@@ -59,16 +59,15 @@ func TestTrafficShifting(t *testing.T) {
 
 			ports := []echo.Port{
 				{
-					Name:     "http",
-					Protocol: protocol.HTTP,
-					// Due to a bug in WorkloadEntry, service port must equal target port for now
-					InstancePort: 8090,
+					Name:         "http",
+					Protocol:     protocol.HTTP,
 					ServicePort:  8090,
+					InstancePort: 10090,
 				},
 			}
 
 			var client, vm echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,

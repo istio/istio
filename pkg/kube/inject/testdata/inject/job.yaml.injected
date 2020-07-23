@@ -79,10 +79,7 @@ spec:
             [
             ]
         - name: ISTIO_META_APP_CONTAINERS
-          value: |-
-            [
-                pi
-            ]
+          value: pi
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE

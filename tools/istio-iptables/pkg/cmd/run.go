@@ -76,7 +76,7 @@ func (iptConfigurator *IptablesConfigurator) separateV4V6(cidrList string) (Netw
 	for _, ipRange := range split(cidrList) {
 		ip, ipNet, err := net.ParseCIDR(ipRange)
 		if err != nil {
-			_, err = fmt.Fprintf(os.Stderr, "Ignoring error for bug compatibility with istio-iptables.sh: %s\n", err.Error())
+			_, err = fmt.Fprintf(os.Stderr, "Ignoring error for bug compatibility with istio-iptables: %s\n", err.Error())
 			if err != nil {
 				return ipv4Ranges, ipv6Ranges, err
 			}
@@ -382,8 +382,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	if redirectDNS {
 		iptConfigurator.iptables.AppendRuleV4(
 			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
-		iptConfigurator.iptables.AppendRuleV6(
-			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
+		if iptConfigurator.cfg.EnableInboundIPv6 {
+			iptConfigurator.iptables.AppendRuleV6(
+				constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
+		}
 	}
 
 	// Use this chain also for redirecting inbound traffic to the common Envoy port

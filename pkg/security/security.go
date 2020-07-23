@@ -119,6 +119,10 @@ type Options struct {
 	// OutputKeyCertToDir is the directory for output the key and certificate
 	OutputKeyCertToDir string
 
+	// ProvCert is the directory for client to provide the key and certificate to server
+	// when do mtls
+	ProvCert string
+
 	// Existing certs, for VM or existing certificates
 	CertsDir string
 

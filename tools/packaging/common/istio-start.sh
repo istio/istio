@@ -21,8 +21,9 @@
 set -e
 
 # Match pilot/docker/Dockerfile.proxyv2
-export ISTIO_META_ISTIO_VERSION="1.7.0"
+export ISTIO_META_ISTIO_VERSION="1.8.0"
 
+set -a
 # Load optional config variables
 ISTIO_SIDECAR_CONFIG=${ISTIO_SIDECAR_CONFIG:-/var/lib/istio/envoy/sidecar.env}
 if [[ -r ${ISTIO_SIDECAR_CONFIG} ]]; then
@@ -35,9 +36,8 @@ ISTIO_CLUSTER_CONFIG=${ISTIO_CLUSTER_CONFIG:-/var/lib/istio/envoy/cluster.env}
 if [[ -r ${ISTIO_CLUSTER_CONFIG} ]]; then
   # shellcheck disable=SC1090
   . "$ISTIO_CLUSTER_CONFIG"
-  # Make sure the documented configuration variables are exported
-  export ISTIO_CP_AUTH ISTIO_SERVICE_CIDR ISTIO_INBOUND_PORTS ISTIO_LOCAL_EXCLUDE_PORTS ISTIO_LOCAL_EXCLUDE_PORTS
 fi
+set +a
 
 # Set defaults
 ISTIO_BIN_BASE=${ISTIO_BIN_BASE:-/usr/local/bin}
