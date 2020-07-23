@@ -152,14 +152,14 @@ func TestIPReuse(t *testing.T) {
 	}
 }
 
-func createPod(t *testing.T, c *Controller, ip, name string) {
+func createPod(t *testing.T, c *FakeController, ip, name string) {
 	addPods(t, c, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
 	if err := waitForPod(c, ip); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func waitForPod(c *Controller, ip string) error {
+func waitForPod(c *FakeController, ip string) error {
 	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		c.pods.RLock()
 		defer c.pods.RUnlock()

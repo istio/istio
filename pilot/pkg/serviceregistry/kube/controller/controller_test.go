@@ -905,7 +905,7 @@ func TestController_Service(t *testing.T) {
 		})
 	}
 }
-
+//
 func TestExternalNameServiceInstances(t *testing.T) {
 	for mode, name := range EndpointModeNames {
 		mode := mode
@@ -1208,7 +1208,7 @@ func createServiceWithTargetPorts(controller *Controller, name, namespace string
 	}
 }
 
-func createService(controller *Controller, name, namespace string, annotations map[string]string,
+func createService(controller *FakeController, name, namespace string, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T) {
 
 	svcPorts := make([]coreV1.ServicePort, 0)
@@ -1239,7 +1239,7 @@ func createService(controller *Controller, name, namespace string, annotations m
 	}
 }
 
-func createServiceWithoutClusterIP(controller *Controller, name, namespace string, annotations map[string]string,
+func createServiceWithoutClusterIP(controller *FakeController, name, namespace string, annotations map[string]string,
 	ports []int32, selector map[string]string, t *testing.T) {
 
 	svcPorts := make([]coreV1.ServicePort, 0)
@@ -1271,7 +1271,7 @@ func createServiceWithoutClusterIP(controller *Controller, name, namespace strin
 }
 
 // nolint: unparam
-func createExternalNameService(controller *Controller, name, namespace string,
+func createExternalNameService(controller *FakeController, name, namespace string,
 	ports []int32, externalName string, t *testing.T, xdsEvents <-chan FakeXdsEvent) *coreV1.Service {
 
 	defer func() {
@@ -1305,7 +1305,7 @@ func createExternalNameService(controller *Controller, name, namespace string,
 	return service
 }
 
-func deleteExternalNameService(controller *Controller, name, namespace string, t *testing.T, xdsEvents <-chan FakeXdsEvent) {
+func deleteExternalNameService(controller *FakeController, name, namespace string, t *testing.T, xdsEvents <-chan FakeXdsEvent) {
 
 	defer func() {
 		<-xdsEvents
@@ -1317,7 +1317,7 @@ func deleteExternalNameService(controller *Controller, name, namespace string, t
 	}
 }
 
-func addPods(t *testing.T, controller *Controller, pods ...*coreV1.Pod) {
+func addPods(t *testing.T, controller *FakeController, pods ...*coreV1.Pod) {
 	for _, pod := range pods {
 		p, _ := controller.client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metaV1.GetOptions{})
 		var newPod *coreV1.Pod
