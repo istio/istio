@@ -82,7 +82,7 @@ var (
 )
 
 func TestListInvalidGroupVersionKind(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	clientSet := fake.NewSimpleClientset()
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, controller2.Options{})
@@ -94,7 +94,7 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 }
 
 func TestListGatewayResourceType(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	clientSet := fake.NewSimpleClientset()
 	store := memory.NewController(memory.Make(collections.All))
@@ -143,7 +143,7 @@ func TestListGatewayResourceType(t *testing.T) {
 }
 
 func TestListVirtualServiceResourceType(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	clientSet := fake.NewSimpleClientset()
 	store := memory.NewController(memory.Make(collections.All))

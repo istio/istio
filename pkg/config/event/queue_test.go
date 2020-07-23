@@ -25,7 +25,7 @@ import (
 )
 
 func TestQueue_Empty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	q := &queue{}
 
@@ -37,7 +37,7 @@ func TestQueue_Empty(t *testing.T) {
 }
 
 func TestQueueWrapEmpty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	for i := 0; i < 100; i++ {
 		a := wrap(i, 0)
@@ -53,7 +53,7 @@ func TestQueue_Expand_And_Use(t *testing.T) {
 	popCtr := 0
 	for max := 1; max < 513; max++ {
 		t.Run(fmt.Sprintf("M%d", max), func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			g.Expect(q.isEmpty()).To(BeTrue())
 			g.Expect(q.size()).To(Equal(0))

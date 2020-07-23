@@ -247,7 +247,7 @@ func TestAddToAndRemoveFromMesh(t *testing.T) {
 
 			var output string
 			var args []string
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 
 			// able to remove from mesh when the deployment is auto injected
 			args = []string{fmt.Sprintf("--namespace=%s", ns.Name()),
@@ -281,7 +281,7 @@ func TestProxyConfig(t *testing.T) {
 
 			var output string
 			var args []string
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 
 			args = []string{"--namespace=dummy",
 				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, echoNamespace.Name())}
@@ -345,7 +345,7 @@ func TestProxyStatus(t *testing.T) {
 
 			var output string
 			var args []string
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 
 			args = []string{"proxy-status"}
 			output, _ = istioCtl.InvokeOrFail(t, args)

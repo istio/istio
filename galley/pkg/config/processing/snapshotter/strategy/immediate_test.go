@@ -21,7 +21,7 @@ import (
 )
 
 func TestNewImmediate(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	s := NewImmediate()
 
 	var changed bool
