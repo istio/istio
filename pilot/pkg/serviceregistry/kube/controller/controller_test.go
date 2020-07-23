@@ -1063,7 +1063,7 @@ func TestController_ExternalNameService(t *testing.T) {
 	}
 }
 
-func createEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
+func createEndpoints(controller *FakeController, name, namespace string, portNames, ips []string, t *testing.T) {
 	var portNum int32 = 1001
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
@@ -1135,7 +1135,7 @@ func createEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 }
 
-func updateEndpoints(controller *Controller, name, namespace string, portNames, ips []string, t *testing.T) {
+func updateEndpoints(controller *FakeController, name, namespace string, portNames, ips []string, t *testing.T) {
 	var portNum int32 = 1001
 	eas := make([]coreV1.EndpointAddress, 0)
 	for _, ip := range ips {
@@ -1186,7 +1186,7 @@ func updateEndpoints(controller *Controller, name, namespace string, portNames, 
 	}
 }
 
-func createServiceWithTargetPorts(controller *Controller, name, namespace string, annotations map[string]string,
+func createServiceWithTargetPorts(controller *FakeController, name, namespace string, annotations map[string]string,
 	svcPorts []coreV1.ServicePort, selector map[string]string, t *testing.T) {
 	service := &coreV1.Service{
 		ObjectMeta: metaV1.ObjectMeta{
@@ -1384,7 +1384,7 @@ func generateNode(name string, labels map[string]string) *coreV1.Node {
 	}
 }
 
-func addNodes(t *testing.T, controller *Controller, nodes ...*coreV1.Node) {
+func addNodes(t *testing.T, controller *FakeController, nodes ...*coreV1.Node) {
 	fakeClient := controller.client
 
 	for _, node := range nodes {
