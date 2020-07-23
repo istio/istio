@@ -178,12 +178,27 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}()
 	configController := memory.NewSyncController(configStore)
 	go configController.Run(stop)
+
+	m := opts.MeshConfig
+	if m == nil {
+		def := mesh.DefaultMeshConfig()
+		m = &def
+	}
+
 	serviceDiscovery := aggregate.NewController()
+	env.PushContext = model.NewPushContext()
+	env.ServiceDiscovery = serviceDiscovery
+	env.IstioConfigStore = model.MakeIstioStore(configStore)
+	env.Watcher = mesh.NewFixedWatcher(m)
+	env.NetworksWatcher = mesh.NewFixedNetworksWatcher(opts.MeshNetworks)
+
 	serviceDiscovery.AddRegistry(serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s))
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
 		Objects:      objects,
 		ClusterID:    "Kubernetes",
 		DomainSuffix: "cluster.local",
+		XDSUpdater:   s,
+		NetworksWatcher: env,
 	})
 	serviceDiscovery.AddRegistry(k8s)
 	for _, cfg := range configs {
@@ -193,22 +208,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	serviceDiscovery.ResyncEDS()
 
-	m := opts.MeshConfig
-	if m == nil {
-		def := mesh.DefaultMeshConfig()
-		m = &def
-	}
-
-	env.PushContext = model.NewPushContext()
-	env.ServiceDiscovery = serviceDiscovery
-	env.IstioConfigStore = model.MakeIstioStore(configStore)
-	env.Watcher = mesh.NewFixedWatcher(m)
-	env.NetworksWatcher = mesh.NewFixedNetworksWatcher(opts.MeshNetworks)
-
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.UpdateServiceShards(env.PushContext); err != nil {
 		t.Fatal(err)
 	}
 

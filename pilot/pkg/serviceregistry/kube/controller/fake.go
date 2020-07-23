@@ -126,10 +126,14 @@ type FakeControllerOptions struct {
 	ClusterID         string
 	WatchedNamespaces string
 	DomainSuffix      string
+	XDSUpdater        model.XDSUpdater
 }
 
 func NewFakeControllerWithOptions(opts FakeControllerOptions) (*Controller, *FakeXdsUpdater) {
-	fx := NewFakeXDS()
+	xdsUpdater := opts.XDSUpdater
+	if xdsUpdater == nil {
+		xdsUpdater = NewFakeXDS()
+	}
 
 	domainSuffix := defaultFakeDomainSuffix
 	if opts.DomainSuffix != "" {
@@ -140,7 +144,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*Controller, *Fak
 		WatchedNamespaces: opts.WatchedNamespaces, // default is all namespaces
 		ResyncPeriod:      1 * time.Second,
 		DomainSuffix:      domainSuffix,
-		XDSUpdater:        fx,
+		XDSUpdater:        xdsUpdater,
 		Metrics:           &model.Environment{},
 		NetworksWatcher:   opts.NetworksWatcher,
 		EndpointMode:      opts.Mode,
@@ -160,5 +164,9 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*Controller, *Fak
 	clients.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
 	cache.WaitForCacheSync(c.stop, c.pods.informer.HasSynced, c.serviceInformer.HasSynced, c.endpoints.HasSynced)
+	var fx *FakeXdsUpdater
+	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
+		fx = x
+	}
 	return c, fx
 }

@@ -315,6 +315,7 @@ metadata:
   name: kubeapp
   namespace: pod
 spec:
+  clusterIP: 1.2.3.4
   selector:
     app: kubeapp
   ports:
@@ -391,7 +392,6 @@ spec:
 			InterceptionMode: "NONE",
 		},
 	})
-
 	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|7070||httpbin.com"], []string{"10.10.10.10"})
 	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|80||kubeapp.pod.svc.cluster.local"], []string{"10.10.10.20"})
 	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||kubeapp.pod.svc.cluster.local"], []string{"2.2.2.2"})
