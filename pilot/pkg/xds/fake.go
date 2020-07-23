@@ -16,6 +16,7 @@ package xds
 
 import (
 	"bytes"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"reflect"
 	"strings"
 	"text/template"
@@ -47,7 +48,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
@@ -192,7 +192,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	env.Watcher = mesh.NewFixedWatcher(m)
 	env.NetworksWatcher = mesh.NewFixedNetworksWatcher(opts.MeshNetworks)
 
-	serviceDiscovery.AddRegistry(serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s))
+	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
+	serviceDiscovery.AddRegistry(se)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
 		Objects:      objects,
 		ClusterID:    "Kubernetes",
@@ -206,7 +207,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
 	}
-	serviceDiscovery.ResyncEDS()
+	se.ResyncEDS()
 
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatal(err)
