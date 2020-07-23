@@ -430,7 +430,7 @@ func buildGatewayListenerTLSContext(
 		authn_model.ApplyCustomSDSToServerCommonTLSContext(ctx.CommonTlsContext, server.Tls, authn_model.GatewaySdsUdsPath, requestedType)
 	case server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
 		authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, requestedType)
-	case server.Tls.Mode == networking.ServerTLSSettings_MUTUAL || server.Tls.Mode == networking.ServerTLSSettings_SIMPLE:
+	default:
 		// If certificate files are specified in gateway configuration, use file based SDS.
 		certmetadata := &model.NodeMetadata{
 			TLSServerCertChain: server.Tls.ServerCertificate,
