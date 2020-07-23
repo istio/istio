@@ -48,7 +48,6 @@ import (
 
 const (
 	testService = "test"
-	resync      = 1 * time.Second
 )
 
 func TestServices(t *testing.T) {
@@ -84,7 +83,7 @@ func TestServices(t *testing.T) {
 			t.Parallel()
 			ns := "ns-test"
 
-			hostname := kube.ServiceHostname(testService, ns, domainSuffix)
+			hostname := kube.ServiceHostname(testService, ns, defaultFakeDomainSuffix)
 
 			var sds model.ServiceDiscovery = ctl
 			// "test", ports: http-example on 80
@@ -153,7 +152,7 @@ func TestServices(t *testing.T) {
 				t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Endpoint.Network)
 			}
 
-			missing := kube.ServiceHostname("does-not-exist", ns, domainSuffix)
+			missing := kube.ServiceHostname("does-not-exist", ns, defaultFakeDomainSuffix)
 			svc, err = sds.GetService(missing)
 			if err != nil {
 				t.Fatalf("GetService(%q) encountered unexpected error: %v", missing, err)
@@ -394,7 +393,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				t.Fatalf("GetProxyServiceInstances() expected 1 instance, got %d", len(serviceInstances))
 			}
 
-			hostname := kube.ServiceHostname("svc1", "nsa", domainSuffix)
+			hostname := kube.ServiceHostname("svc1", "nsa", defaultFakeDomainSuffix)
 			if serviceInstances[0].Service.Hostname != hostname {
 				t.Fatalf("GetProxyServiceInstances() wrong service instance returned => hostname %q, want %q",
 					serviceInstances[0].Service.Hostname, hostname)
@@ -740,7 +739,7 @@ func TestGetProxyServiceInstancesWithMultiIPsAndTargetPorts(t *testing.T) {
 
 func TestController_GetIstioServiceAccounts(t *testing.T) {
 	oldTrustDomain := spiffe.GetTrustDomain()
-	spiffe.SetTrustDomain(domainSuffix)
+	spiffe.SetTrustDomain(defaultFakeDomainSuffix)
 	defer spiffe.SetTrustDomain(oldTrustDomain)
 
 	for mode, name := range EndpointModeNames {
@@ -787,7 +786,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 			// We expect only one EDS update with Endpoints.
 			<-fx.Events
 
-			hostname := kube.ServiceHostname("svc1", "nsA", domainSuffix)
+			hostname := kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix)
 			svc, err := controller.GetService(hostname)
 			if err != nil {
 				t.Fatalf("failed to get service: %v", err)
@@ -803,7 +802,7 @@ func TestController_GetIstioServiceAccounts(t *testing.T) {
 				t.Fatalf("Unexpected service accounts %v (expecting %v)", sa, expected)
 			}
 
-			hostname = kube.ServiceHostname("svc2", "nsA", domainSuffix)
+			hostname = kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix)
 			svc, err = controller.GetService(hostname)
 			if err != nil {
 				t.Fatalf("failed to get service: %v", err)
@@ -843,7 +842,7 @@ func TestController_Service(t *testing.T) {
 
 			expectedSvcList := []*model.Service{
 				{
-					Hostname: kube.ServiceHostname("svc1", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 					Address:  "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -854,7 +853,7 @@ func TestController_Service(t *testing.T) {
 					},
 				},
 				{
-					Hostname: kube.ServiceHostname("svc2", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 					Address:  "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -865,7 +864,7 @@ func TestController_Service(t *testing.T) {
 					},
 				},
 				{
-					Hostname: kube.ServiceHostname("svc3", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
 					Address:  "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -876,7 +875,7 @@ func TestController_Service(t *testing.T) {
 					},
 				},
 				{
-					Hostname: kube.ServiceHostname("svc4", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
 					Address:  "10.0.0.1",
 					Ports: model.PortList{
 						&model.Port{
@@ -952,18 +951,18 @@ func TestController_ExternalNameService(t *testing.T) {
 
 			k8sSvcs := []*coreV1.Service{
 				createExternalNameService(controller, "svc1", "nsA",
-					[]int32{8080}, "test-app-1.test.svc."+domainSuffix, t, fx.Events),
+					[]int32{8080}, "test-app-1.test.svc."+defaultFakeDomainSuffix, t, fx.Events),
 				createExternalNameService(controller, "svc2", "nsA",
-					[]int32{8081}, "test-app-2.test.svc."+domainSuffix, t, fx.Events),
+					[]int32{8081}, "test-app-2.test.svc."+defaultFakeDomainSuffix, t, fx.Events),
 				createExternalNameService(controller, "svc3", "nsA",
-					[]int32{8082}, "test-app-3.test.pod."+domainSuffix, t, fx.Events),
+					[]int32{8082}, "test-app-3.test.pod."+defaultFakeDomainSuffix, t, fx.Events),
 				createExternalNameService(controller, "svc4", "nsA",
 					[]int32{8083}, "g.co", t, fx.Events),
 			}
 
 			expectedSvcList := []*model.Service{
 				{
-					Hostname: kube.ServiceHostname("svc1", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc1", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -975,7 +974,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Resolution:   model.DNSLB,
 				},
 				{
-					Hostname: kube.ServiceHostname("svc2", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc2", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -987,7 +986,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Resolution:   model.DNSLB,
 				},
 				{
-					Hostname: kube.ServiceHostname("svc3", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc3", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
@@ -999,7 +998,7 @@ func TestController_ExternalNameService(t *testing.T) {
 					Resolution:   model.DNSLB,
 				},
 				{
-					Hostname: kube.ServiceHostname("svc4", "nsA", domainSuffix),
+					Hostname: kube.ServiceHostname("svc4", "nsA", defaultFakeDomainSuffix),
 					Ports: model.PortList{
 						&model.Port{
 							Name:     "tcp-port",
