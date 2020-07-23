@@ -16,7 +16,6 @@ package xds
 
 import (
 	"io/ioutil"
-	"istio.io/istio/pkg/config/labels"
 	"path"
 	"testing"
 
@@ -25,6 +24,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
