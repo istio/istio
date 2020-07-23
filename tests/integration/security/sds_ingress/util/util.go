@@ -24,6 +24,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -103,7 +104,13 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred, isCompoundAndNotGeneric)
 		_, err := cluster.CoreV1().Secrets(systemNS.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err != nil {
-			t.Fatalf("Failed to create secret (error: %s)", err)
+			if errors.IsAlreadyExists(err) {
+				if _, err := cluster.CoreV1().Secrets(systemNS.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					t.Fatalf("Failed to update secret (error: %s)", err)
+				}
+			} else {
+				t.Fatalf("Failed to update secret (error: %s)", err)
+			}
 		}
 	}
 	// Check if Kubernetes secret is ready

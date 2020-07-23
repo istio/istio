@@ -12,89 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ingress
+package pilot
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/ingress"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-var (
-	i    istio.Instance
-	ingr ingress.Instance
-)
-
-// TestMain defines the entrypoint for pilot tests using a standard Istio installation.
-// If a test requires a custom install it should go into its own package, otherwise it should go
-// here to reuse a single install across tests.
-func TestMain(m *testing.M) {
-	framework.
-		NewSuite(m).
-		Label(label.CustomSetup).
-
-		// IngressClass is only present in 1.18+
-		RequireEnvironmentVersion("1.18").
-		RequireSingleCluster().
-		Setup(func(ctx resource.Context) (err error) {
-			if err := ctx.Config().ApplyYAMLDir("", "testdata"); err != nil {
-				return err
-			}
-			return nil
-		}).
-		Setup(istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.Values["pilot.env.PILOT_ENABLED_SERVICE_APIS"] = "true"
-		})).
-		Setup(func(ctx resource.Context) (err error) {
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: i,
-			}); err != nil {
-				return err
-			}
-			return nil
-		}).
-		Run()
-}
 
 func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "gateway",
-				Inject: true,
-			})
-			var instance echo.Instance
-			echoboot.NewBuilder(ctx).
-				With(&instance, echo.Config{
-					Service:   "server",
-					Namespace: ns,
-					Subsets:   []echo.SubsetConfig{{}},
-					Ports: []echo.Port{
-						{
-							Name:     "http",
-							Protocol: protocol.HTTP,
-							// We use a port > 1024 to not require root
-							InstancePort: 8090,
-						},
-					},
-				}).
-				BuildOrFail(t)
-			instance.Address()
-			if err := ctx.Config().ApplyYAML(ns.Name(), `
+			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+			if err != nil {
+				ctx.Fatal(err)
+			}
+			ctx.Config().ApplyYAMLOrFail(ctx, "", string(crd))
+
+			ctx.Config().ApplyYAMLOrFail(ctx, echoNamespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -114,8 +57,7 @@ spec:
       name: domain.example
     port: 80
     protocol: HTTP
-    routes:
-      namespaceSelector: {}
+    routes: {}
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -131,12 +73,9 @@ spec:
       action:
         forwardTo:
           targetRef:
-            name: server
+            name: b
             group: ""
-            resource: ""`,
-			); err != nil {
-				t.Fatal(err)
-			}
+            resource: ""`)
 
 			if err := retry.UntilSuccess(func() error {
 				resp, err := ingr.Call(ingress.CallOptions{
@@ -163,28 +102,6 @@ func TestIngress(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "ingress",
-				Inject: true,
-			})
-			var instance echo.Instance
-			echoboot.NewBuilder(ctx).
-				With(&instance, echo.Config{
-					Service:   "server",
-					Namespace: ns,
-					Subsets:   []echo.SubsetConfig{{}},
-					Ports: []echo.Port{
-						{
-							Name:     "http-test-port",
-							Protocol: protocol.HTTP,
-							// We use a port > 1024 to not require root
-							InstancePort: 8090,
-						},
-					},
-				}).
-				BuildOrFail(t)
-			instance.Address()
-
 			// Set up secret contain some TLS certs for *.example.com
 			// we will define one for foo.example.com and one for bar.example.com, to ensure both can co-exist
 			credName := "k8s-ingress-secret-foo"
@@ -194,7 +111,7 @@ func TestIngress(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName2})
 
-			if err := ctx.Config().ApplyYAML(ns.Name(), `
+			if err := ctx.Config().ApplyYAML(echoNamespace.Name(), `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:
@@ -217,11 +134,11 @@ spec:
         paths:
           - path: /test/namedport
             backend:
-              serviceName: server
-              servicePort: http-test-port
+              serviceName: b
+              servicePort: http
           - path: /test
             backend:
-              serviceName: server
+              serviceName: b
               servicePort: 80`,
 			); err != nil {
 				t.Fatal(err)
