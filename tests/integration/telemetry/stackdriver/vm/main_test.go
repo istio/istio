@@ -65,7 +65,6 @@ values:
     meshExpansion:
       enabled: true`
 			cfg.Values["telemetry.enabled"] = "true"
-			cfg.Values["telemetry.v1.enabled"] = "false"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
