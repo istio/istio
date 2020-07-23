@@ -86,7 +86,7 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 func doIstioMutualTest(
 	ctx framework.TestContext, ns namespace.Instance, configPath, expectedResp string) {
 	var client echo.Instance
-	echoboot.NewBuilderOrFail(ctx, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
 	ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))

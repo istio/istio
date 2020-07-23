@@ -20,7 +20,6 @@ const (
 	CNINetDir            = "cni-net-dir"
 	CNIConfName          = "cni-conf-name"
 	ChainedCNIPlugin     = "chained-cni-plugin"
-	Sleep                = "sleep"
 	CNINetworkConfigFile = "cni-network-config-file"
 	CNINetworkConfig     = "cni-network-config"
 	LogLevel             = "log-level"
@@ -39,4 +38,9 @@ const (
 	SecondaryBinDir       = "/host/secondary-bin-dir"
 	ServiceAccountPath    = "/var/run/secrets/kubernetes.io/serviceaccount"
 	DefaultKubeconfigMode = 0600
+
+	// K8s liveness and readiness endpoints
+	LivenessEndpoint  = "/healthz"
+	ReadinessEndpoint = "/readyz"
+	Port              = "8000"
 )

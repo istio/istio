@@ -119,7 +119,7 @@ const (
 
 	// EnvoyTextLogFormat format for envoy text based access logs for Istio 1.3 onwards
 	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% \"%DYNAMIC_METADATA(istio.mixer:status)%\" " +
+		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
 		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
@@ -318,7 +318,6 @@ var (
 			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
 			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"istio_policy_status":               {Kind: &structpb.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
 			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
@@ -1177,7 +1176,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
-	// there is no mixer for http_proxy
 	mutable := &istionetworking.MutableObjects{
 		Listener:     l,
 		FilterChains: []istionetworking.FilterChain{{}},
@@ -2245,23 +2243,17 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 		mutable.Listener.FilterChains[i].Name = opt.filterChainName
 
 		if opt.thriftOpts != nil && features.EnableThriftFilter {
-			var quotas []model.Config
 			// Add the TCP filters first.. and then the Thrift filter
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
 			thriftProxies[i] = buildThriftProxy(opt.thriftOpts)
-
-			if pluginParams.Service != nil {
-				quotas = opts.push.QuotaSpecByDestination(pluginParams.Service.Hostname)
-			}
 
 			// If the RLS service was provided, add the RLS to the Thrift filter
 			// chain. Rate limiting is only applied client-side.
 			if rlsURI := opts.push.Mesh.ThriftConfig.RateLimitUrl; rlsURI != "" &&
 				mutable.Listener.TrafficDirection == core.TrafficDirection_OUTBOUND &&
 				pluginParams.Service != nil &&
-				pluginParams.Service.Hostname != "" &&
-				len(quotas) > 0 {
+				pluginParams.Service.Hostname != "" && false { // TODO: restore ability to add thrift quota
 				rateLimitConfig := buildThriftRatelimit(fmt.Sprint(pluginParams.Service.Hostname), opts.push.Mesh.ThriftConfig)
 				rateLimitFilter := &thrift.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",
@@ -2285,9 +2277,9 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 				len(thriftProxies[i].ThriftFilters), mutable.Listener.Name, i)
 		} else if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
-			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
+			// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
 			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
-			// codec is used by RBAC or mixer later.
+			// codec is used by RBAC later.
 
 			if len(opt.networkFilters) > 0 {
 				// this is the terminating filter

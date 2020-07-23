@@ -27,7 +27,7 @@ func init() {
 	flag.StringVar(&settingsFromCommandline.ConfigNamespace, "istio.test.kube.configNamespace", settingsFromCommandline.ConfigNamespace,
 		"Specifies the namespace in which config, discovery and auto-injector are deployed.")
 	flag.StringVar(&settingsFromCommandline.TelemetryNamespace, "istio.test.kube.telemetryNamespace", settingsFromCommandline.TelemetryNamespace,
-		"Specifies the namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed.")
+		"Specifies the namespace in which kiali, tracing providers, graphana, prometheus are deployed.")
 	flag.StringVar(&settingsFromCommandline.PolicyNamespace, "istio.test.kube.policyNamespace", settingsFromCommandline.PolicyNamespace,
 		"Specifies the namespace in which istio policy checker is deployed.")
 	flag.StringVar(&settingsFromCommandline.IngressNamespace, "istio.test.kube.ingressNamespace", settingsFromCommandline.IngressNamespace,

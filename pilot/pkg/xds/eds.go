@@ -90,7 +90,7 @@ func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endp
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
-	ep.Metadata = util.BuildLbEndpointMetadata(e.UID, e.Network, e.TLSMode, push)
+	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, push)
 
 	return ep
 }
@@ -531,22 +531,22 @@ func getOutlierDetectionAndLoadBalancerSettings(cfg *model.Config, portNumber in
 	var lbSettings *networkingapi.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}
-	_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, port)
-	lbSettings = loadBalancerSettings
-	if outlierDetection != nil {
-		outlierDetectionEnabled = true
-	}
+	policy := networking.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
 
 	for _, subset := range destinationRule.Subsets {
 		if subset.Name == subsetName {
-			_, outlierDetection, loadBalancerSettings, _ := networking.SelectTrafficPolicyComponents(subset.TrafficPolicy, port)
-			lbSettings = loadBalancerSettings
-			if outlierDetection != nil {
-				outlierDetectionEnabled = true
-			}
+			policy = networking.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
 			break
 		}
 	}
+
+	if policy != nil {
+		lbSettings = policy.LoadBalancer
+		if policy.OutlierDetection != nil {
+			outlierDetectionEnabled = true
+		}
+	}
+
 	return outlierDetectionEnabled, lbSettings
 }
 

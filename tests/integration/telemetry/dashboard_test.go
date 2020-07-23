@@ -106,14 +106,6 @@ var (
 				"container_fs_usage_bytes",
 			},
 		},
-		{
-			"istio-grafana-dashboards",
-			"mixer-dashboard.json",
-			[]string{
-				// Exclude all metrics -- mixer is disabled by default
-				"_",
-			},
-		},
 	}
 )
 
@@ -300,7 +292,7 @@ func setupDashboardTest(t framework.TestContext) {
 
 	var instance echo.Instance
 	echoboot.
-		NewBuilderOrFail(t, t).
+		NewBuilder(t).
 		With(&instance, echo.Config{
 			Service:   "server",
 			Namespace: ns,

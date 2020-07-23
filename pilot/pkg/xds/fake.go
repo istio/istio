@@ -104,7 +104,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	configs := getConfigs(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	env := &model.Environment{}
-	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer}
+	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health}
 	s := NewDiscoveryServer(env, plugins)
 	go func() {
 		for {

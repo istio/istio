@@ -187,7 +187,7 @@ func runMirrorTest(options mirrorTestOptions) {
 			})
 
 			var instances [3]echo.Instance
-			echoboot.NewBuilderOrFail(options.t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&instances[0], echoConfig(ns, "a")). // client
 				With(&instances[1], echoConfig(ns, "b")). // target
 				With(&instances[2], echoConfig(ns, "c")). // receives mirrored requests

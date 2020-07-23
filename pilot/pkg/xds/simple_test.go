@@ -185,7 +185,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 		})
 
-		// "local" service points to the current host and the in-process mixer http test endpoint
+		// "local" service points to the current host
 		hostname = "local.default.svc.cluster.local"
 		server.EnvoyXdsServer.MemRegistry.AddService(hostname, &model.Service{
 			Hostname: hostname,

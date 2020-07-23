@@ -90,8 +90,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		EnableEnvoyAccessLogService: false,
 		ReportBatchMaxEntries:       100,
 		ReportBatchMaxTime:          types.DurationProto(1 * time.Second),
-		DisableMixerHttpReports:     true,
-		DisablePolicyChecks:         true,
 		ProtocolDetectionTimeout:    types.DurationProto(5 * time.Second),
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
@@ -107,21 +105,16 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		Certificates:  []*meshconfig.Certificate{},
 		DefaultConfig: &proxyConfig,
 
-		// Not set in the default mesh config - code defaults.
-		MixerCheckServer:                  "",
-		MixerReportServer:                 "",
-		PolicyCheckFailOpen:               false,
-		SidecarToTelemetrySessionAffinity: false,
-		RootNamespace:                     constants.IstioSystemNamespace,
-		ProxyListenPort:                   15001,
-		ConnectTimeout:                    types.DurationProto(10 * time.Second),
-		EnableSdsTokenMount:               false,
-		DefaultServiceExportTo:            []string{"*"},
-		DefaultVirtualServiceExportTo:     []string{"*"},
-		DefaultDestinationRuleExportTo:    []string{"*"},
-		DnsRefreshRate:                    types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
-		ThriftConfig:                      &meshconfig.MeshConfig_ThriftConfig{},
-		ServiceSettings:                   make([]*meshconfig.MeshConfig_ServiceSettings, 0),
+		RootNamespace:                  constants.IstioSystemNamespace,
+		ProxyListenPort:                15001,
+		ConnectTimeout:                 types.DurationProto(10 * time.Second),
+		EnableSdsTokenMount:            false,
+		DefaultServiceExportTo:         []string{"*"},
+		DefaultVirtualServiceExportTo:  []string{"*"},
+		DefaultDestinationRuleExportTo: []string{"*"},
+		DnsRefreshRate:                 types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
+		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
+		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 	}
 }
 

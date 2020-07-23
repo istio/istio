@@ -51,7 +51,7 @@ const (
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
 	// required stats are used by readiness checks.
-	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,http_mixer_filter,tcp_mixer_filter,server,cluster.xds-grpc,wasm"
+	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 
 	// Prefixes of V2 metrics.
 	// "reporter" prefix is for istio standard metrics.
@@ -82,7 +82,6 @@ type Config struct {
 	Proxy               *meshAPI.ProxyConfig
 	PlatEnv             platform.Environment
 	PilotSubjectAltName []string
-	MixerSubjectAltName []string
 	LocalEnv            []string
 	NodeIPs             []string
 	PodName             string
@@ -118,7 +117,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PodNamespace(cfg.PodNamespace),
 		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
-		option.MixerSubjectAltName(cfg.MixerSubjectAltName),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),

@@ -64,7 +64,7 @@ func TestRequestAuthentication(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
 			var a, b, c, d, e echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
@@ -307,7 +307,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), ingressCfgs...)
 
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)

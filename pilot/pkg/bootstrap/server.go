@@ -81,7 +81,6 @@ var (
 		plugin.Authn,
 		plugin.Authz,
 		plugin.Health,
-		plugin.Mixer,
 	}
 )
 
@@ -305,6 +304,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		})
 	}
 
+	s.addReadinessProbe("discovery", func() (bool, error) {
+		return s.EnvoyXdsServer.IsServerReady(), nil
+	})
+
 	return s, nil
 }
 
@@ -356,10 +359,9 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		return fmt.Errorf("failed to sync cache")
 	}
 
-	// Trigger a push, so that the global push context is updated with the new config and Pilot's local Envoy
-	// also is updated with new config.
-	log.Infof("All caches have been synced up, triggering a push")
-	s.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+	// Inform Discovery Server so that it can start accepting connections.
+	log.Infof("All caches have been synced up, marking server ready")
+	s.EnvoyXdsServer.CachesSynced()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
@@ -703,19 +705,22 @@ func (s *Server) addTerminatingStartFunc(fn startFunc) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
-	if !cache.WaitForCacheSync(stop, func() bool {
-		if !s.ServiceController().HasSynced() {
-			return false
-		}
-		if !s.configController.HasSynced() {
-			return false
-		}
-		return true
-	}) {
+	if !cache.WaitForCacheSync(stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
 
+	return true
+}
+
+// cachesSynced checks whether caches have been synced.
+func (s *Server) cachesSynced() bool {
+	if !s.ServiceController().HasSynced() {
+		return false
+	}
+	if !s.configController.HasSynced() {
+		return false
+	}
 	return true
 }
 

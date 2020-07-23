@@ -20,7 +20,6 @@ import (
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
@@ -45,10 +44,9 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
-		MixerValidator: validate.NewDefaultValidator(false),
-		Schemas:        collections.Istio,
-		DomainSuffix:   args.RegistryOptions.KubeOptions.DomainSuffix,
-		Mux:            s.httpsMux,
+		Schemas:      collections.Istio,
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
+		Mux:          s.httpsMux,
 	}
 	whServer, err := server.New(params)
 	if err != nil {
