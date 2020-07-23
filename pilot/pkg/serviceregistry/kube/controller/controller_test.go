@@ -905,6 +905,7 @@ func TestController_Service(t *testing.T) {
 		})
 	}
 }
+
 //
 func TestExternalNameServiceInstances(t *testing.T) {
 	for mode, name := range EndpointModeNames {

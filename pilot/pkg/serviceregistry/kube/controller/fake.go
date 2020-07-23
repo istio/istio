@@ -16,10 +16,10 @@ package controller
 
 import (
 	"errors"
-	
+	"time"
+
 	klabels "k8s.io/apimachinery/pkg/labels"
 	listerv1 "k8s.io/client-go/listers/core/v1"
-	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
