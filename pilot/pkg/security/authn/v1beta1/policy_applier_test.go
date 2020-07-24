@@ -913,6 +913,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 								},
 							},
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1012,6 +1013,51 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+					}),
+				},
+			},
+		},
+		{
+			name:                         "beta-jwt-for-gateway-with-istio-mutual",
+			isGateway:                    true,
+			gatewayServerUsesIstioMutual: true,
+			jwtIn: []*model.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "https://secret.foo.com",
+								JwksUri: jwksURI,
+							},
+						},
+					},
+				},
+			},
+			expected: &http_conn.HttpFilter{
+				Name: "istio_authn",
+				ConfigType: &http_conn.HttpFilter_TypedConfig{
+					TypedConfig: pilotutil.MessageToAny(&authn_filter.FilterConfig{
+						Policy: &authn_alpha.Policy{
+							Peers: []*authn_alpha.PeerAuthenticationMethod{
+								{
+									Params: &authn_alpha.PeerAuthenticationMethod_Mtls{
+										Mtls: &authn_alpha.MutualTls{
+											Mode: authn_alpha.MutualTls_STRICT,
+										},
+									},
+								},
+							},
+							Origins: []*authn_alpha.OriginAuthenticationMethod{
+								{
+									Jwt: &authn_alpha.Jwt{
+										Issuer: "https://secret.foo.com",
+									},
+								},
+							},
+							OriginIsOptional: true,
+							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
+						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
