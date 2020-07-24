@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"os"
 	"path"
 	"path/filepath"
@@ -63,6 +63,7 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string]string
+	ingress         map[resource.ClusterIndex]ingress.Instance
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -100,6 +101,16 @@ var leaderElectionConfigMaps = []string{
 	leaderelection.IngressController,
 	leaderelection.NamespaceController,
 	leaderelection.ValidationController,
+}
+
+func (i *operatorComponent) Ingress(cluster resource.Cluster) ingress.Instance {
+	if _, ok := i.ingress[cluster.Index()]; !ok {
+		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
+			Namespace: i.settings.IngressNamespace,
+			Cluster:   cluster,
+		})
+	}
+	return i.ingress[cluster.Index()]
 }
 
 func (i *operatorComponent) Close() (err error) {
@@ -160,6 +171,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		settings:        cfg,
 		ctx:             ctx,
 		installManifest: map[string]string{},
+		ingress:         map[resource.ClusterIndex]ingress.Instance{},
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -208,7 +220,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			})
 			if isCentralIstio(env, cfg) && env.IsControlPlaneCluster(cluster) {
 				errG.Go(func() error {
-					return patchIstiodCustomHost(cfg, cluster)
+					return patchIstiodCustomHost(i, cfg, cluster)
 				})
 			}
 		}
@@ -275,14 +287,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func patchIstiodCustomHost(cfg Config, cluster resource.Cluster) error {
-	var remoteIstiodAddress net.TCPAddr
-	if err := retry.UntilSuccess(func() error {
-		var err error
-		remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, cluster, false)
+func patchIstiodCustomHost(i *operatorComponent, cfg Config, cluster resource.Cluster) error {
+	remoteIstiodAddress, err := i.RemoteDiscoveryAddress(cluster)
+	if err != nil {
 		return err
-	}, retry.Timeout(90*time.Second)); err != nil {
-		return fmt.Errorf("failed getting the istiod address for cluster %s: %v", cluster.Name(), err)
 	}
 
 	patchOptions := kubeApiMeta.PatchOptions{
@@ -466,17 +474,9 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
-			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
+			remoteIstiodAddress, err := c.RemoteDiscoveryAddress(cluster)
 			if err != nil {
-				return fmt.Errorf("failed getting control plane cluster for cluster %s: %v", cluster.Name(), err)
-			}
-			var remoteIstiodAddress net.TCPAddr
-			if err := retry.UntilSuccess(func() error {
-				var err error
-				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster, false)
 				return err
-			}, retry.Timeout(1*time.Minute)); err != nil {
-				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
 			}
 			installSettings = append(installSettings,
 				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),

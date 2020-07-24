@@ -15,18 +15,17 @@
 package istio
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"time"
-
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/resource"
 
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+const discoveryPort = 15012
 
 var (
 	dummyValidationVirtualServiceTemplate = `
@@ -51,11 +50,6 @@ spec:
 `
 )
 
-var (
-	igwServiceName = "istio-ingressgateway"
-	discoveryPort  = 15012
-)
-
 func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
 	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
@@ -76,48 +70,15 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 	}, retry.Timeout(time.Minute))
 }
 
-func GetRemoteDiscoveryAddress(namespace string, cluster resource.Cluster, useNodePort bool) (net.TCPAddr, error) {
-	svc, err := cluster.CoreV1().Services(namespace).Get(context.TODO(), igwServiceName, kubeApiMeta.GetOptions{})
+func (i *operatorComponent) RemoteDiscoveryAddress(cluster resource.Cluster) (net.TCPAddr, error) {
+	cp, err := i.environment.GetControlPlaneCluster(cluster)
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
-
-	// if useNodePort is set, we look for the node port service. This is generally used on kind or k8s without a LB
-	// and that do not have metallb installed
-	if useNodePort {
-		pods, err := cluster.PodsForSelector(context.TODO(), namespace, "istio=ingressgateway")
-		if err != nil {
-			return net.TCPAddr{}, err
-		}
-		if len(pods.Items) == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no ingress pod found")
-		}
-		ip := pods.Items[0].Status.HostIP
-		if ip == "" {
-			return net.TCPAddr{}, fmt.Errorf("no Host IP available on the ingress node yet")
-		}
-		if len(svc.Spec.Ports) == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no ports found in service istio-ingressgateway")
-		}
-
-		var nodePort int32
-		for _, svcPort := range svc.Spec.Ports {
-			if svcPort.Protocol == "TCP" && svcPort.Port == int32(discoveryPort) {
-				nodePort = svcPort.NodePort
-				break
-			}
-		}
-		if nodePort == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no port found in service: istio-ingressgateway")
-		}
-		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, nil
+	addr := i.Ingress(cp).HTTPSAddress()
+	if addr.IP.String() == "<nil>" {
+		return net.TCPAddr{}, fmt.Errorf("failed to get ingressImpl IP for %s", cp.Name())
 	}
-
-	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
-	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-		return net.TCPAddr{}, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
-	}
-
-	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: discoveryPort}, nil
+	addr.Port = discoveryPort
+	return addr, nil
 }

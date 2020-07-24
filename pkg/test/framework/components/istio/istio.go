@@ -15,6 +15,9 @@
 package istio
 
 import (
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"net"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -24,6 +27,16 @@ import (
 // Instance represents a deployed Istio instance
 type Instance interface {
 	resource.Resource
+
+	// Instance returns a client for interacting with the ingress-gateway in a given cluster. If a nil cluster is provided,
+	// the first configured cluster will be used.
+	Ingress(cluster resource.Cluster) ingress.Instance
+
+	// RemoteDiscoveryAddress gets the address on which the discovery server that controls the given cluster can be
+	// reached from outside the discovery service's cluster. An error may be returned if there is no discovery service
+	// in the primary cluster for the given cluster or if the ingress in the primary cluster does not have an external
+	// IP.
+	RemoteDiscoveryAddress(cluster resource.Cluster) (net.TCPAddr, error)
 
 	Settings() Config
 }

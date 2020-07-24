@@ -16,10 +16,10 @@ package tracing
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/zipkin"
@@ -60,10 +60,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNsInst, Cfg: bookinfo.BookInfo}); err != nil {
 		return
 	}
-	ingInst, err = ingress.New(ctx, ingress.Config{Istio: ist})
-	if err != nil {
-		return
-	}
+	ingInst = ist.Ingress(ctx.Clusters().Default())
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{})
 	if err != nil {
 		return

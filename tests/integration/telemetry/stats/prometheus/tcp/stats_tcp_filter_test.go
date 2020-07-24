@@ -16,12 +16,12 @@ package tcp
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -121,10 +121,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB}); err != nil {
 		return err
 	}
-	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
-	if err != nil {
-		return err
-	}
+	ing = ist.Ingress(ctx.Clusters().Default())
 	prom, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return err

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"strings"
 	"testing"
 	"text/template"
@@ -36,7 +37,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
@@ -218,7 +218,6 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 			Cert:       tlsCtx.Cert,
 			CallType:   callType,
 			Address:    endpointAddress,
-			Timeout:    time.Second,
 		})
 		errorMatch := true
 		if err != nil {
@@ -403,9 +402,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance) { 
 	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
-	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
-		Istio: inst,
-	})
+	ing := inst.Ingress(ctx.Clusters().Default())
 	tlsContext := TLSContext{
 		CaCert:     CaCertA,
 		PrivateKey: TLSClientKeyA,
@@ -443,9 +440,7 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance) { /
 	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
-	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
-		Istio: inst,
-	})
+	ing := inst.Ingress(ctx.Clusters().Default())
 	tlsContext := TLSContext{
 		CaCert: CaCertA,
 	}
