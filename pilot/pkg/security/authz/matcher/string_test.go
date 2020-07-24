@@ -23,18 +23,21 @@ import (
 
 func TestStringMatcherWithPrefix(t *testing.T) {
 	testCases := []struct {
-		name string
-		v    string
-		want *matcherpb.StringMatcher
+		name   string
+		v      string
+		prefix string
+		want   *matcherpb.StringMatcher
 	}{
 		{
-			name: "wildcardAsRequired",
-			v:    "*",
-			want: StringMatcherRegex(".+"),
+			name:   "wildcardAsRequired",
+			v:      "*",
+			prefix: "abc",
+			want:   StringMatcherRegex(".+"),
 		},
 		{
-			name: "prefix",
-			v:    "-prefix-*",
+			name:   "prefix",
+			v:      "-prefix-*",
+			prefix: "abc",
 			want: &matcherpb.StringMatcher{
 				MatchPattern: &matcherpb.StringMatcher_Prefix{
 					Prefix: "abc-prefix-",
@@ -42,17 +45,25 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 			},
 		},
 		{
-			name: "suffix",
-			v:    "*-suffix",
+			name:   "suffix-empty-prefix",
+			v:      "*-suffix",
+			prefix: "",
 			want: &matcherpb.StringMatcher{
 				MatchPattern: &matcherpb.StringMatcher_Suffix{
-					Suffix: "abc-suffix",
+					Suffix: "-suffix",
 				},
 			},
 		},
 		{
-			name: "exact",
-			v:    "-exact",
+			name:   "suffix",
+			v:      "*-suffix",
+			prefix: "abc",
+			want:   StringMatcherRegex("abc.*-suffix"),
+		},
+		{
+			name:   "exact",
+			v:      "-exact",
+			prefix: "abc",
 			want: &matcherpb.StringMatcher{
 				MatchPattern: &matcherpb.StringMatcher_Exact{
 					Exact: "abc-exact",
@@ -63,7 +74,7 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := StringMatcherWithPrefix(tc.v, "abc")
+			actual := StringMatcherWithPrefix(tc.v, tc.prefix)
 			if !reflect.DeepEqual(*actual, *tc.want) {
 				t.Errorf("want %s but got %s", tc.want.String(), actual.String())
 			}

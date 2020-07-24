@@ -715,9 +715,17 @@ func TestAuthorization_TCP(t *testing.T) {
 				// - request to port http-8090 should be denied because the port is matched.
 				// - request to http port 8091 should be allowed because the port is not matched.
 				// - request to tcp port 8092 should be allowed because the port is not matched.
+				// - request from b should be denied because the principal is matched
+				// - request from x should be denied because the namespace is matched
 				newTestCase(a, c, "http-8090", false, scheme.HTTP),
 				newTestCase(a, c, "http-8091", true, scheme.HTTP),
 				newTestCase(a, c, "tcp", true, scheme.TCP),
+				newTestCase(b, c, "http-8090", false, scheme.HTTP),
+				newTestCase(b, c, "http-8091", false, scheme.HTTP),
+				newTestCase(b, c, "tcp", false, scheme.TCP),
+				newTestCase(x, c, "http-8090", false, scheme.HTTP),
+				newTestCase(x, c, "http-8091", false, scheme.HTTP),
+				newTestCase(x, c, "tcp", false, scheme.TCP),
 
 				// The policy on workload d denies request from service account a and workloads in namespace 2:
 				// - request from a to d should be denied because it has service account a.
