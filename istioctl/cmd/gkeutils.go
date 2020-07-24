@@ -20,6 +20,8 @@ import (
 	"regexp"
 	"time"
 
+	"istio.io/pkg/log"
+
 	container "cloud.google.com/go/container/apiv1"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -66,15 +68,14 @@ func gkeConfig() (project, location, clusterName string, cluster *containerpb.Cl
 	project, location, clusterName = gkeConfigFromContext()
 	cluster, err = gkeCluster(project, location, clusterName)
 	if err == nil {
-		fmt.Printf("inferred (project, location, cluster) from kubectl context: (%s, %s, %s)\n", project, location, clusterName)
+		log.Debugf("inferred (project, location, cluster) from kubectl context: (%s, %s, %s)\n", project, location, clusterName)
 		return
 	}
 
 	project, location, clusterName = gkeConfigFromActive()
 	cluster, err = gkeCluster(project, location, clusterName)
 	if err == nil {
-		fmt.Printf("inferred (project, location, cluster) from metadata server: (%s, %s, %s)\n", project, location, clusterName)
-
+		log.Debugf("inferred (project, location, cluster) from metadata server: (%s, %s, %s)\n", project, location, clusterName)
 	}
 	return
 }

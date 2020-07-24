@@ -93,6 +93,7 @@ func k8sPod(name, namespace string) (*v1.Pod, error) {
 }
 
 // Execs a command inside a kubernetes pod and returns stdout and stderr
+// nolint: unparam
 func k8sPodsExec(name, namespace, command string, stdin io.Reader) (sout, serr string, err error) {
 	pod, err := k8sPod(name, namespace)
 	if err != nil {

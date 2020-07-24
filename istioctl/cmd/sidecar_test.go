@@ -77,16 +77,47 @@ func TestCreateGroup(t *testing.T) {
 			expectedOutput:    defaultYAML,
 		},
 		{
-			description:       "valid case - create full workload group",
-			args:              strings.Split("experimental sidecar create-group --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --network local --serviceAccount test", " "),
+			description: "valid case - create full workload group",
+			args: strings.Split("experimental sidecar create-group --name foo --namespace bar --labels app=foo,bar=baz "+
+				"--ports grpc=3550,http=8080 --network local --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
 		{
-			description:       "valid case - create full workload group with shortnames",
-			args:              strings.Split("experimental sidecar create-group --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080 --network local --serviceAccount test", " "),
+			description: "valid case - create full workload group with shortnames",
+			args: strings.Split("experimental sidecar create-group --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
+				" --network local --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
+		},
+	}
+
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.description), func(t *testing.T) {
+			verifyAddToMeshOutput(t, c)
+		})
+	}
+}
+
+func TestGenerateConfig(t *testing.T) {
+	cases := []testcase{
+		{
+			description:       "Invalid command args - missing input file and output filename",
+			args:              strings.Split("experimental sidecar generate-config", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
+		},
+		{
+			description:       "Invalid command args - missing output filename",
+			args:              strings.Split("experimental sidecar generate-config --file fname", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting an output filename\n",
+		},
+		{
+			description:       "Invalid command args - missing input file",
+			args:              strings.Split("experimental sidecar generate-config -output ./config", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
 		},
 	}
 
