@@ -459,37 +459,32 @@ func conditionallyConvertToIstioMtls(
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
 	clusterDiscoveryType cluster.Cluster_DiscoveryType) (*networking.ClientTLSSettings, mtlsContextType) {
-	mtlsCtx := userSupplied
-	if tls == nil {
-		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
-			return nil, mtlsCtx
+	if tls != nil {
+		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
+			// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
+			// user specified SNIs in the istio mtls settings are useful when routing via gateways
+			sniToUse := tls.Sni
+			if len(sniToUse) == 0 {
+				sniToUse = sni
+			}
+			subjectAltNamesToUse := tls.SubjectAltNames
+			if len(subjectAltNamesToUse) == 0 {
+				subjectAltNamesToUse = serviceAccounts
+			}
+			return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), userSupplied
 		}
-		// Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`
-		// We don't know whether headless service instance has sidecar injected or not.
-		if clusterDiscoveryType == cluster.Cluster_ORIGINAL_DST {
-			return nil, mtlsCtx
-		}
+		return tls, userSupplied
+	}
 
-		mtlsCtx = autoDetected
-		// we will setup transport sockets later
-		tls = &networking.ClientTLSSettings{
-			Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
-		}
+	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
+		return nil, userSupplied
 	}
-	if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
-		// user specified SNIs in the istio mtls settings are useful when routing via gateways
-		sniToUse := tls.Sni
-		if len(sniToUse) == 0 {
-			sniToUse = sni
-		}
-		subjectAltNamesToUse := tls.SubjectAltNames
-		if len(subjectAltNamesToUse) == 0 {
-			subjectAltNamesToUse = serviceAccounts
-		}
-		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), mtlsCtx
+	// Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`
+	// We don't know whether headless service instance has sidecar injected or not.
+	if clusterDiscoveryType == cluster.Cluster_ORIGINAL_DST {
+		return nil, userSupplied
 	}
-	return tls, mtlsCtx
+	return buildIstioMutualTLS(serviceAccounts, sni, proxy), autoDetected
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
