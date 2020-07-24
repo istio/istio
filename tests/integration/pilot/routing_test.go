@@ -276,7 +276,6 @@ func vmTestCases(ctx framework.TestContext, vm echo.Instances) []TrafficTestCase
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
