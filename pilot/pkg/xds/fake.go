@@ -31,7 +31,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -55,9 +54,9 @@ import (
 
 type FakeOptions struct {
 	// If provided, these objects will be used directly
-	Objects []runtime.Object
+	KubernetesObjects []runtime.Object
 	// If provided, the yaml string will be parsed and used as objects
-	ObjectString string
+	KubernetesObjectString string
 	// If provided, these configs will be used directly
 	Configs []model.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -77,15 +76,15 @@ type FakeDiscoveryServer struct {
 	Env         *model.Environment
 }
 
-func getObjects(t test.Failer, opts FakeOptions) []runtime.Object {
-	if len(opts.Objects) > 0 {
-		return ensureNode(t, opts.Objects)
+func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
+	if len(opts.KubernetesObjects) > 0 {
+		return opts.KubernetesObjects
 	}
 
 	objects := make([]runtime.Object, 0)
-	if len(opts.ObjectString) > 0 {
+	if len(opts.KubernetesObjectString) > 0 {
 		decode := scheme.Codecs.UniversalDeserializer().Decode
-		objectStrs := strings.Split(opts.ObjectString, "---")
+		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
 		for _, s := range objectStrs {
 			o, _, err := decode([]byte(s), nil, nil)
 			if err != nil {
@@ -95,37 +94,7 @@ func getObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 		}
 	}
 
-	return ensureNode(t, objects)
-}
-
-const defaultNode = `
-apiVersion: v1
-kind: Node
-metadata:
-  name: default-node
-`
-
-func ensureNode(t test.Failer, objects []runtime.Object) []runtime.Object {
-	// if objects includes a node, use that
-	for _, o := range objects {
-		if o.GetObjectKind().GroupVersionKind().Kind == "Node" {
-			return objects
-		}
-	}
-	// otherwise create one
-	node, _, err := scheme.Codecs.UniversalDeserializer().Decode([]byte(defaultNode), nil, nil)
-	if err != nil {
-		t.Fatalf("failed deserializing default Node: %v", err)
-	}
-	// and ensure pods reference it
-	for _, o := range objects {
-		if pod, ok := o.(*corev1.Pod); ok {
-			if pod.Spec.NodeName == "" {
-				pod.Spec.NodeName = node.(*corev1.Node).Name
-			}
-		}
-	}
-	return append(objects, node)
+	return objects
 }
 
 func getConfigs(t test.Failer, opts FakeOptions) []model.Config {
@@ -164,7 +133,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		close(stop)
 	})
 	configs := getConfigs(t, opts)
-	k8sObjects := getObjects(t, opts)
+	k8sObjects := getKubernetesObjects(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	env := &model.Environment{}
 	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health}
@@ -211,8 +180,13 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
 	}
+	if err := s.UpdateServiceShards(env.PushContext); err != nil {
+		t.Fatal(err)
+	}
 	se.ResyncEDS()
-	_ = k8s.ResyncEndpoints()
+	if err := k8s.ResyncEndpoints(); err != nil {
+		t.Fatal(err)
+	}
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatal(err)
 	}

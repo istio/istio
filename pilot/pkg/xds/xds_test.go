@@ -301,7 +301,7 @@ func TestSidecarListeners(t *testing.T) {
 
 func TestMeshNetworking(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{
-		ObjectString: `
+		KubernetesObjectString: `
 apiVersion: v1
 kind: Pod
 metadata:
