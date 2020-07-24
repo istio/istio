@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package galley
+package pilot
 
 import (
 	"fmt"
@@ -47,6 +47,7 @@ var analyzerFoundIssuesError = cmd.AnalyzerFoundIssuesError{}
 func TestEmptyCluster(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -68,6 +69,7 @@ func TestEmptyCluster(t *testing.T) {
 func TestFileOnly(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -93,6 +95,7 @@ func TestFileOnly(t *testing.T) {
 func TestDirectoryWithoutRecursion(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -116,6 +119,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 func TestDirectoryWithRecursion(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -136,6 +140,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 func TestInvalidFileError(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -163,6 +168,7 @@ func TestInvalidFileError(t *testing.T) {
 func TestJsonInputFile(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -184,6 +190,7 @@ func TestJsonInputFile(t *testing.T) {
 func TestJsonOutput(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -225,6 +232,7 @@ func TestJsonOutput(t *testing.T) {
 func TestKubeOnly(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -233,7 +241,7 @@ func TestKubeOnly(t *testing.T) {
 				Inject: true,
 			})
 
-			applyFileOrFail(t, ns.Name(), gatewayFile)
+			defer applyFileOrFail(ctx, ns.Name(), gatewayFile).Delete()
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -247,6 +255,7 @@ func TestKubeOnly(t *testing.T) {
 func TestFileAndKubeCombined(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -255,7 +264,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 				Inject: true,
 			})
 
-			applyFileOrFail(t, ns.Name(), virtualServiceFile)
+			defer applyFileOrFail(ctx, ns.Name(), virtualServiceFile).Delete()
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -270,6 +279,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 func TestAllNamespaces(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -282,8 +292,8 @@ func TestAllNamespaces(t *testing.T) {
 				Inject: true,
 			})
 
-			applyFileOrFail(t, ns1.Name(), gatewayFile)
-			applyFileOrFail(t, ns2.Name(), gatewayFile)
+			defer applyFileOrFail(ctx, ns1.Name(), gatewayFile).Delete()
+			defer applyFileOrFail(ctx, ns2.Name(), gatewayFile).Delete()
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -312,6 +322,7 @@ func TestAllNamespaces(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	framework.
 		NewTest(t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
@@ -387,9 +398,24 @@ func istioctlWithStderr(t *testing.T, i istioctl.Instance, ns string, useKube bo
 	return i.Invoke(args)
 }
 
-func applyFileOrFail(t *testing.T, ns, filename string) {
-	t.Helper()
-	if err := cluster.ApplyYAMLFiles(ns, filename); err != nil {
-		t.Fatal(err)
+func applyFileOrFail(ctx framework.TestContext, ns, filename string) interface {
+	Delete()
+} {
+	ctx.Helper()
+	if err := ctx.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
+		ctx.Fatal(err)
 	}
+	return &cleanup{
+		func() {
+			ctx.Clusters().Default().DeleteYAMLFiles(ns, filename)
+		},
+	}
+}
+
+type cleanup struct {
+	close func()
+}
+
+func (c *cleanup) Delete() {
+	c.close()
 }
