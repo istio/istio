@@ -120,7 +120,7 @@ func (a *analyzerMock) getAnalyzeCalls() []*Snapshot {
 }
 
 func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	u := &updaterMock{}
 	a := &analyzerMock{
@@ -187,7 +187,7 @@ func TestAnalyzeAndDistributeSnapshots(t *testing.T) {
 }
 
 func TestAnalyzeNamespaceMessageHasNoResource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	a := &analyzerMock{
@@ -217,7 +217,7 @@ func TestAnalyzeNamespaceMessageHasNoResource(t *testing.T) {
 }
 
 func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	a := &analyzerMock{
@@ -253,7 +253,7 @@ func TestAnalyzeNamespaceMessageHasOriginWithNoNamespace(t *testing.T) {
 }
 
 func TestAnalyzeSortsMessages(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	r1 := &resource.Instance{
@@ -298,7 +298,7 @@ func TestAnalyzeSortsMessages(t *testing.T) {
 }
 
 func TestAnalyzeSuppressesMessages(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	r1 := &resource.Instance{
@@ -349,7 +349,7 @@ func TestAnalyzeSuppressesMessages(t *testing.T) {
 }
 
 func TestAnalyzeSuppressesMessagesWithWildcards(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	u := &updaterMock{waitTimeout: 1 * time.Second}
 	// r1 and r2 have the same prefix, but r3 does not
@@ -452,7 +452,7 @@ func TestAnalyzeSuppressesMessagesWhenResourceIsAnnotated(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			u := &updaterMock{waitTimeout: 1 * time.Second}
 			r := &resource.Instance{
 				Metadata: resource.Metadata{

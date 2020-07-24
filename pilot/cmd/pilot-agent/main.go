@@ -140,6 +140,7 @@ var (
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
 	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
+	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -215,8 +216,6 @@ var (
 			if len(role.ID) == 0 {
 				if registryID == serviceregistry.Kubernetes {
 					role.ID = podName + "." + podNamespace
-				} else if registryID == serviceregistry.Consul {
-					role.ID = role.IPAddresses[0] + ".service.consul"
 				} else {
 					role.ID = role.IPAddresses[0]
 				}
@@ -256,6 +255,7 @@ var (
 				ClusterID:          clusterIDVar.Get(),
 				FileMountedCerts:   fileMountedCertsEnv,
 				CAEndpoint:         caEndpointEnv,
+				UseTokenForCSR:     useTokenForCSREnv,
 			}
 			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
@@ -410,9 +410,6 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 		if registryID == serviceregistry.Kubernetes &&
 			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
 			pilotTrustDomain = constants.DefaultKubernetesDomain
-		} else if registryID == serviceregistry.Consul &&
-			(domain == "service.consul" || domain == "") {
-			pilotTrustDomain = ""
 		} else {
 			pilotTrustDomain = domain
 		}
@@ -424,8 +421,6 @@ func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
 		if registryID == serviceregistry.Kubernetes {
 			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
-		} else if registryID == serviceregistry.Consul {
-			domain = "service.consul"
 		} else {
 			domain = ""
 		}
@@ -436,8 +431,8 @@ func getDNSDomain(podNamespace, domain string) string {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
 		string(serviceregistry.Kubernetes),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
+			serviceregistry.Kubernetes, serviceregistry.Mock))
 	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",

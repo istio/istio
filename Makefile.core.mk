@@ -30,7 +30,6 @@ export GOSUMDB ?= sum.golang.org
 
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
-FILES_TO_CLEAN:=
 
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
@@ -452,7 +451,6 @@ cni.install-test: docker.install-cni
 
 clean: ## Cleans all the intermediate files and folders previously generated.
 	rm -rf $(DIRS_TO_CLEAN)
-	rm -f $(FILES_TO_CLEAN)
 
 #-----------------------------------------------------------------------------
 # Target: docker
@@ -463,9 +461,6 @@ clean: ## Cleans all the intermediate files and folders previously generated.
 include tools/istio-docker.mk
 
 push: docker.push ## Build and push docker images to registry defined by $HUB and $TAG
-
-FILES_TO_CLEAN+=install/consul/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

@@ -27,7 +27,7 @@ import (
 )
 
 func TestSimpleTransformerProvider(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	input := basicmeta.K8SCollection1
 	output := basicmeta.Collection2

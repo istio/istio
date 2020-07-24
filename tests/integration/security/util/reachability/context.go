@@ -20,8 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/tests/integration/pilot/vm"
-
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -96,8 +94,6 @@ func CreateContext(ctx framework.TestContext, buildVM bool) Context {
 
 	// for test cases that have `buildVM` off, vm will function like a regular pod
 	vmCfg.DeployAsVM = buildVM
-	vmCfg.VMImage = vm.DefaultVMImage
-	vmCfg.Ports[0].ServicePort = vmCfg.Ports[0].InstancePort
 
 	echoboot.NewBuilder(ctx).
 		With(&a, util.EchoConfig("a", ns, false, nil)).

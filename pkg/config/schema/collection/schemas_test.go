@@ -41,7 +41,7 @@ var (
 )
 
 func TestSchemas_Basic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := collection.Builder{
 		Name:     "foo",
@@ -54,7 +54,7 @@ func TestSchemas_Basic(t *testing.T) {
 }
 
 func TestSchemas_MustAdd(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).To(BeNil())
@@ -69,7 +69,7 @@ func TestSchemas_MustAdd(t *testing.T) {
 }
 
 func TestSchemas_MustRegister_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).NotTo(BeNil())
@@ -85,7 +85,7 @@ func TestSchemas_MustRegister_Panic(t *testing.T) {
 }
 
 func TestSchemas_Find(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := collection.Builder{
 		Name:     "foo",
@@ -103,7 +103,7 @@ func TestSchemas_Find(t *testing.T) {
 }
 
 func TestSchemas_MustFind(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).To(BeNil())
@@ -124,7 +124,7 @@ func TestSchemas_MustFind(t *testing.T) {
 }
 
 func TestSchemas_MustFind_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).NotTo(BeNil())
@@ -144,7 +144,7 @@ func TestSchemas_MustFind_Panic(t *testing.T) {
 }
 
 func TestSchema_FindByGroupVersionKind(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := collection.Builder{
 		Name: "foo",
@@ -177,7 +177,7 @@ func TestSchema_FindByGroupVersionKind(t *testing.T) {
 }
 
 func TestSchema_MustFindByGroupVersionKind(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	b := collection.NewSchemasBuilder()
 
 	s := collection.Builder{
@@ -204,7 +204,7 @@ func TestSchema_MustFindByGroupVersionKind(t *testing.T) {
 }
 
 func TestSchema_MustFindByGroupVersionKind_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	defer func() {
 		r := recover()
@@ -220,7 +220,7 @@ func TestSchema_MustFindByGroupVersionKind_Panic(t *testing.T) {
 }
 
 func TestSchemas_CollectionNames(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	b := collection.NewSchemasBuilder()
 
 	s1 := collection.Builder{
@@ -240,7 +240,7 @@ func TestSchemas_CollectionNames(t *testing.T) {
 }
 
 func TestSchemas_Kinds(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := collection.SchemasFor(
 		collection.Builder{
@@ -293,7 +293,7 @@ func TestSchemas_Validate(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			b := collection.NewSchemasBuilder()
 			for _, s := range c.schemas {
 				b.MustAdd(s)
@@ -309,7 +309,7 @@ func TestSchemas_Validate(t *testing.T) {
 }
 
 func TestSchemas_Validate_Error(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	b := collection.NewSchemasBuilder()
 
 	s1 := collection.Builder{
@@ -371,7 +371,7 @@ func TestSchemas_ForEach(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			actual := c.actual()
 			g.Expect(actual).To(Equal(c.expected))
 		})
@@ -379,7 +379,7 @@ func TestSchemas_ForEach(t *testing.T) {
 }
 
 func TestSchemas_Remove(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	foo := collection.Builder{
 		Name:     "foo",
@@ -401,7 +401,7 @@ func TestSchemas_Remove(t *testing.T) {
 }
 
 func TestSchemas_Add(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	foo := collection.Builder{
 		Name:     "foo",

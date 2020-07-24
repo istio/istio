@@ -55,7 +55,7 @@ import (
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			m := ast.Metadata{}
 			for _, p := range c.packages {
@@ -74,7 +74,7 @@ import (
 }
 
 func TestApplyTemplate_Error(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	_, err := applyTemplate(staticCollectionsTemplate, struct{}{})
 	g.Expect(err).ToNot(BeNil())

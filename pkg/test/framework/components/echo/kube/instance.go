@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -113,7 +114,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 		if err != nil {
 			return nil, err
 		}
-		if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), &kubeCore.Secret{
+		secret := &kubeCore.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cfg.Service + "-istio-token",
 				Namespace: cfg.Namespace.Name(),
@@ -121,8 +122,15 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 			Data: map[string][]byte{
 				"istio-token": []byte(token),
 			},
-		}, metav1.CreateOptions{}); err != nil {
-			return nil, err
+		}
+		if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+			if kerrors.IsAlreadyExists(err) {
+				if _, err := c.cluster.CoreV1().Secrets(cfg.Namespace.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 	}
 

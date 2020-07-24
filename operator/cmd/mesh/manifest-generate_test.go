@@ -39,7 +39,7 @@ import (
 )
 
 const (
-	istioTestVersion = "istio-1.6.0"
+	istioTestVersion = "istio-1.7.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
@@ -78,7 +78,7 @@ type testGroup []struct {
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	objs, err := runManifestCommands("component_hub_tag", "", liveCharts)
 	if err != nil {
@@ -115,7 +115,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 }
 
 func TestManifestGenerateGateways(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	flags := "-s components.ingressGateways.[0].k8s.resources.requests.memory=999Mi " +
 		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m"
@@ -170,7 +170,7 @@ func TestManifestGenerateGateways(t *testing.T) {
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	objss, err := runManifestCommands("istiod_remote", "", liveCharts)
 	if err != nil {
@@ -211,7 +211,7 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 }
 
 func TestManifestGenerateAllOff(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	m, _, err := generateManifest("all_off", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +224,7 @@ func TestManifestGenerateAllOff(t *testing.T) {
 }
 
 func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	// Change profile from empty to minimal using flag.
 	m, _, err := generateManifest("empty", "-s profile=minimal", liveCharts)
 	if err != nil {
@@ -239,7 +239,7 @@ func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
 }
 
 func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	m, _, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts)
 	if err != nil {
 		t.Fatal(err)
@@ -256,7 +256,7 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 }
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts)
 	if err != nil {
 		t.Fatal(err)
