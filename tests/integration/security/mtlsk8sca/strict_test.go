@@ -47,7 +47,7 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 						// Exclude calls to the headless service.
 						// Auto mtls does not apply to headless service, because for headless service
 						// the cluster discovery type is ORIGINAL_DST, and it will not apply upstream tls setting
-						return opts.Target != rctx.Headless
+						return !rctx.IsHeadless(opts.Target)
 					},
 					ExpectSuccess: func(src echo.Instance, opts echo.CallOptions) bool {
 						// When mTLS is in STRICT mode, DR's TLS settings are default to mTLS so the result would
@@ -58,7 +58,7 @@ func TestMtlsStrictK8sCA(t *testing.T) {
 						}
 
 						// If source is naked, and destination is not, expect failure.
-						return !(src == rctx.Naked && opts.Target != rctx.Naked)
+						return !(rctx.IsNaked(src) && !rctx.IsNaked(opts.Target))
 					},
 				},
 				{
