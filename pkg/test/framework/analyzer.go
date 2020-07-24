@@ -47,6 +47,7 @@ type suiteAnalyzer struct {
 	osExit func(int)
 
 	commonAnalyzer
+	skipLabels         label.Set
 	envFactoryCalls    int
 	requiredEnvVersion string
 }
@@ -70,6 +71,11 @@ func (s *suiteAnalyzer) EnvironmentFactory(fn resource.EnvironmentFactory) Suite
 
 func (s *suiteAnalyzer) Label(labels ...label.Instance) Suite {
 	s.labels = s.labels.Add(labels...)
+	return s
+}
+
+func (s *suiteAnalyzer) SkipLabel(labels ...label.Instance) Suite {
+	s.skipLabels = s.skipLabels.Add(labels...)
 	return s
 }
 
@@ -125,6 +131,7 @@ func (s *suiteAnalyzer) track() *suiteAnalysis {
 		SuiteID:          s.testID,
 		SkipReason:       s.skip,
 		Labels:           s.labels.All(),
+		SkipLabels:       s.skipLabels.All(),
 		MultiCluster:     s.maxClusters != 1,
 		MultiClusterOnly: s.minCusters > 1,
 		Tests:            map[string]*testAnalysis{},

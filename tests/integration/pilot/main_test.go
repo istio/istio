@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -80,6 +81,7 @@ type EchoDeployments struct {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		SkipLabel(label.Multicluster).
 		Setup(func(ctx resource.Context) (err error) {
 			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
 			if err != nil {
