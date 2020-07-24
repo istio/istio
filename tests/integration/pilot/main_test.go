@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"testing"
@@ -51,6 +52,8 @@ var (
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	namespace namespace.Instance
+	// Namespace where external echo app will be deployed
+	externalNamespace namespace.Instance
 
 	// Standard echo app to be used by tests
 	podA echo.Instance
@@ -58,10 +61,17 @@ type EchoDeployments struct {
 	podB echo.Instance
 	// Headless echo app to be used by tests
 	headless echo.Instance
+	// Standard echo app to be used by tests
+	podC echo.Instance
 	// Echo app to be used by tests, with no sidecar injected
 	naked echo.Instance
 	// A virtual machine echo app
 	vmA echo.Instance
+
+	// Echo app to be used by tests, with no sidecar injected
+	external echo.Instance
+	// Fake hostname of external service
+	externalHost string
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -89,10 +99,16 @@ values:
 		})).
 		Setup(func(ctx resource.Context) error {
 			var err error
-			// TODO: allow using an existing namespace to allow repeated runs with 0 setup
 			apps.namespace, err = namespace.New(ctx, namespace.Config{
 				Prefix: "echo",
 				Inject: true,
+			})
+			if err != nil {
+				return err
+			}
+			apps.externalNamespace, err = namespace.New(ctx, namespace.Config{
+				Prefix: "external",
+				Inject: false,
 			})
 			if err != nil {
 				return err
@@ -112,6 +128,12 @@ values:
 				}).
 				With(&apps.podB, echo.Config{
 					Service:   "b",
+					Namespace: apps.namespace,
+					Ports:     echoPorts,
+					Subsets:   []echo.SubsetConfig{{}},
+				}).
+				With(&apps.podC, echo.Config{
+					Service:   "c",
 					Namespace: apps.namespace,
 					Ports:     echoPorts,
 					Subsets:   []echo.SubsetConfig{{}},
@@ -142,6 +164,22 @@ values:
 							},
 						},
 					},
+				}).Build(); err != nil {
+				return err
+			}
+			if _, err := echoboot.NewBuilder(ctx).
+				With(&apps.external, echo.Config{
+					Service:   "external",
+					Namespace: apps.externalNamespace,
+					Ports:     echoPorts,
+					Subsets: []echo.SubsetConfig{
+						{
+							Annotations: map[echo.Annotation]*echo.AnnotationValue{
+								echo.SidecarInject: {
+									Value: strconv.FormatBool(false)},
+							},
+						},
+					},
 				}).
 				Build(); err != nil {
 				return err
@@ -152,6 +190,40 @@ values:
 			if ingr, err = ingress.New(ctx, ingress.Config{
 				Istio: i,
 			}); err != nil {
+				return err
+			}
+
+			apps.externalHost = "fake.example.com"
+			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-to-namespace
+spec:
+  egress:
+  - hosts:
+    - "./*"
+    - "istio-system/*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-service
+spec:
+  hosts:
+  - %s
+  location: MESH_EXTERNAL
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: grpc
+    number: 7070
+    protocol: GRPC
+  resolution: DNS
+  endpoints:
+  - address: external.%s
+`, apps.externalHost, apps.externalNamespace.Name())); err != nil {
 				return err
 			}
 			return nil
