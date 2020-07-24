@@ -523,9 +523,9 @@ func applyManifest(c *operatorComponent, installSettings []string, istioCtl isti
 	}
 	c.saveInstallManifest(clusterName, out)
 
-	// Actually run the manifest apply command
+	// Actually run the install command
 	cmd := []string{
-		"manifest", "apply",
+		"install",
 		"--skip-confirmation",
 	}
 	cmd = append(cmd, installSettings...)
