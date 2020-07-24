@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"io/ioutil"
 	"strconv"
 	"testing"
 
@@ -22,13 +23,15 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
-	i istio.Instance
+	i    istio.Instance
+	ingr ingress.Instance
 
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
 	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
@@ -67,12 +70,22 @@ type EchoDeployments struct {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Setup(func(ctx resource.Context) (err error) {
+			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
+			if err != nil {
+				return err
+			}
+			return ctx.Config().ApplyYAML("", string(crd))
+		}).
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   global:
     meshExpansion:
-      enabled: true`
+      enabled: true
+  pilot:
+    env:
+      PILOT_ENABLED_SERVICE_APIS: "true"`
 		})).
 		Setup(func(ctx resource.Context) error {
 			var err error
@@ -131,6 +144,14 @@ values:
 					},
 				}).
 				Build(); err != nil {
+				return err
+			}
+			return nil
+		}).
+		Setup(func(ctx resource.Context) (err error) {
+			if ingr, err = ingress.New(ctx, ingress.Config{
+				Istio: i,
+			}); err != nil {
 				return err
 			}
 			return nil
