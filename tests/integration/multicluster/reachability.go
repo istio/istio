@@ -27,10 +27,10 @@ import (
 )
 
 // ReachabilityTest tests that services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, ns namespace.Instance, feature features.Feature) {
+func ReachabilityTest(t *testing.T, ns namespace.Instance, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
-		Features(feature).
+		Features(features...).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {

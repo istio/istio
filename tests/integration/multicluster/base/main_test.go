@@ -12,12 +12,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package remote
+package base
 
 import (
 	"testing"
-
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 
 	"istio.io/istio/tests/integration/multicluster"
 
@@ -25,11 +23,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
-	clustersByNetwork                map[string][]*kube.Cluster
 	ist                              istio.Instance
 	clusterLocalNS, mcReachabilityNS namespace.Instance
 	controlPlaneValues               string
@@ -41,20 +37,6 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
-		Setup(func(ctx resource.Context) error {
-			clustersByNetwork = ctx.Environment().(*kube.Environment).ClustersByNetwork()
-			return nil
-		}).
-		Setup(kube.Setup(func(s *kube.Settings) {
-			// Make all clusters in a network use the same control plane
-			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
-			for _, clusters := range clustersByNetwork {
-				primary := clusters[0]
-				for _, c := range clusters {
-					s.ControlPlaneTopology[c.Index()] = primary.Index()
-				}
-			}
-		})).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues
@@ -63,13 +45,13 @@ func TestMain(m *testing.M) {
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, "installation.multicluster.remote")
+	multicluster.ReachabilityTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, "installation.multicluster.remote")
+	multicluster.ClusterLocalTest(t, clusterLocalNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestTelemetry(t *testing.T) {
-	multicluster.TelemetryTest(t, mcReachabilityNS, "installation.multicluster.remote")
+	multicluster.TelemetryTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
