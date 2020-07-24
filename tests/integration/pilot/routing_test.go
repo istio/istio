@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/features"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +33,7 @@ type TrafficTestCase struct {
 	config    string
 	call      func() (echoclient.ParsedResponses, error)
 	validator func(echoclient.ParsedResponses) error
+	features  []features.Feature
 }
 
 func virtualServiceCases() []TrafficTestCase {
@@ -68,7 +70,8 @@ spec:
 					},
 				},
 				TrafficTestCase{
-					name: "redirect",
+					name:     "redirect",
+					features: []features.Feature{"traffic.routing"},
 					config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -105,8 +108,9 @@ spec:
 				for _, split := range []int{50, 80} {
 					split := split
 					cases = append(cases, TrafficTestCase{
-						name:   fmt.Sprintf("shifting-%d", split),
-						config: splitConfig(bSvc, nakedSvc, split),
+						name:     fmt.Sprintf("shifting-%d", split),
+						features: []features.Feature{"traffic.shifting"},
+						config:   splitConfig(bSvc, nakedSvc, split),
 						call: func() (echoclient.ParsedResponses, error) {
 							return a.Call(echo.CallOptions{Target: b, PortName: "http", Count: 100})
 						},
@@ -185,7 +189,8 @@ func protocolSniffingCases() []TrafficTestCase {
 				{"auto-grpc", scheme.GRPC},
 			} {
 				cases = append(cases, TrafficTestCase{
-					name: fmt.Sprintf("%v %v %v", call.port, client.Config().Service, destination.Config().Service),
+					name:     fmt.Sprintf("%v %v %v", call.port, client.Config().Service, destination.Config().Service),
+					features: []features.Feature{"traffic.routing"},
 					call: func() (echoclient.ParsedResponses, error) {
 						return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme})
 					},
@@ -250,7 +255,8 @@ func vmTestCases(ctx framework.TestContext, vm echo.Instances) []TrafficTestCase
 		for _, c := range vmCases {
 			c := c
 			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("%s_%s", name, c.name),
+				name:     fmt.Sprintf("%s_%s", name, c.name),
+				features: []features.Feature{"traffic.reachability.vm"},
 				call: func() (echoclient.ParsedResponses, error) {
 					return c.from.Call(echo.CallOptions{
 						Target:   c.to,
@@ -270,6 +276,7 @@ func vmTestCases(ctx framework.TestContext, vm echo.Instances) []TrafficTestCase
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("traffic").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
@@ -287,7 +294,7 @@ func TestTraffic(t *testing.T) {
 }
 
 func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
-	ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
+	ctx.NewSubTest(tt.name).Features(tt.features...).Run(func(ctx framework.TestContext) {
 		if len(tt.config) > 0 {
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, apps.namespace.Name(), tt.config)

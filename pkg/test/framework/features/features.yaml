@@ -36,6 +36,7 @@ features:
   # features relating to controlling the traffic of the service mesh.
   traffic:
     reachability:
+      vm:
     shifting:
     routing:
     short-circuiting:
