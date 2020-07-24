@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validation
+package validation_test
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -23,6 +24,10 @@ import (
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
+	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/pkg/test/env"
 )
 
 func TestValidateConfig(t *testing.T) {
@@ -62,12 +67,39 @@ func TestValidateConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err, warnings := ValidateConfig(false, tt.value)
+			err, warnings := validation.ValidateConfig(false, tt.value)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if tt.warnings != warnings {
 				t.Fatalf("expected warnings: %q got %q", tt.warnings, warnings)
+			}
+		})
+	}
+}
+
+func TestValidateProfiles(t *testing.T) {
+	manifests := filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath)
+	profiles, err := helm.ListProfiles(manifests)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(profiles) < 2 {
+		// Just ensure we find some profiles, in case this code breaks
+		t.Fatalf("Maybe have failed getting profiles, got %v", profiles)
+	}
+	for _, tt := range profiles {
+		t.Run(tt, func(t *testing.T) {
+			_, s, err := manifest.GenIOPSFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			verr, warnings := validation.ValidateConfig(false, s)
+			if verr != nil {
+				t.Fatalf("got error validating: %v", verr)
+			}
+			if warnings != "" {
+				t.Fatalf("got warning validating: %v", warnings)
 			}
 		})
 	}
@@ -96,7 +128,7 @@ func TestValidate(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		err := validateSubTypes(reflect.ValueOf(tt.toValidate).Elem(), false, tt.toValidate, nil)
+		err := validation.ValidateSubTypes(reflect.ValueOf(tt.toValidate).Elem(), false, tt.toValidate, nil)
 		if len(err) != 0 && tt.validated {
 			t.Fatalf("Test %s failed with errors: %+v but supposed to succeed", tt.name, err)
 		}

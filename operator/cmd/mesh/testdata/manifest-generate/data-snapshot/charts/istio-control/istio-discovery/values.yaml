@@ -22,9 +22,6 @@ pilot:
       cpu: 500m
       memory: 2048Mi
 
-  # Applications namespace list pilot manages
-  appNamespaces: []
-
   env: {}
 
   cpu:
@@ -36,7 +33,6 @@ pilot:
   enableProtocolSniffingForInbound: true
 
   nodeSelector: {}
-  tolerations: []
   podAnnotations: {}
 
   # You can use jwksResolverExtraRootCA to provide a root certificate
@@ -51,27 +47,6 @@ pilot:
     subscribedResources: []
 
   plugins: []
-
-  # Specify the pod anti-affinity that allows you to constrain which nodes
-  # your pod is eligible to be scheduled based on labels on pods that are
-  # already running on the node rather than based on labels on nodes.
-  # There are currently two types of anti-affinity:
-  #    "requiredDuringSchedulingIgnoredDuringExecution"
-  #    "preferredDuringSchedulingIgnoredDuringExecution"
-  # which denote "hard" vs. "soft" requirements, you can define your values
-  # in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-  # correspondingly.
-  # For example:
-  # podAntiAffinityLabelSelector:
-  # - key: security
-  #   operator: In
-  #   values: S1,S2
-  #   topologyKey: "kubernetes.io/hostname"
-  # This pod anti-affinity rule says that the pod requires not to be scheduled
-  # onto a node if that node is already running a pod with label having key
-  # "security" and value "S1".
-  podAntiAffinityLabelSelector: []
-  podAntiAffinityTermLabelSelector: []
 
   # The following is used to limit how long a sidecar can be connected
   # to a pilot. It balances out load across pilot instances at the cost of
@@ -88,13 +63,6 @@ pilot:
   # If false, pilot wil use default values (by default) or user-supplied values.
   configMap: true
 
-
-## Mixer settings
-mixer:
-  telemetry:
-    sessionAffinityEnabled: false
-  policy:
-    enabled: false
 
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
@@ -136,11 +104,8 @@ sidecarInjectorWebhook:
 
 telemetry:
   enabled: true
-  v1:
-    # Set true to enable Mixer based telemetry
-    enabled: false
   v2:
-    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # For Null VM case now.
     # This also enables metadata exchange.
     enabled: true
     metadataExchange:
@@ -373,8 +338,6 @@ global:
 
   # configure remote pilot and istiod service and endpoint
   remotePilotAddress: ""
-  remotePolicyAddress: ""
-  remoteTelemetryAddress: ""
 
   ##############################################################################################
   # The following values are found in other charts. To effectively modify these values, make   #
@@ -387,13 +350,6 @@ global:
 
   # One central istiod controls all remote clusters: disabled by default
   centralIstiod: false
-
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
-  # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: true
-
-  # Settings for remote cluster.
-  createRemoteSvcEndpoints: false
 
   # Configure the policy for validating JWT.
   # Currently, two options are supported: "third-party-jwt" and "first-party-jwt".
@@ -473,10 +429,6 @@ global:
   # As some platforms may not have kubernetes signing APIs,
   # Istiod is the default
   pilotCertProvider: istiod
-
-  # Namespaces for Istio components
-  telemetryNamespace: istio-system
-  policyNamespace: istio-system
 
   sds:
     # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.

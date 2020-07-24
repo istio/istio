@@ -191,20 +191,11 @@ spec:
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: true
       tracer:
-        lightstep:
-          address: ""                # example: lightstep-satellite:443
-          accessToken: ""            # example: abcdefg1234567
-        zipkin:
-          address: ""
-        datadog:
-          address: "$(HOST_IP):8126"
-        stackdriver:
-          debug: false
-          maxNumberOfAttributes: 200
-          maxNumberOfAnnotations: 200
-          maxNumberOfMessageEvents: 200
+        lightstep: {}
+        zipkin: {}
+        datadog: {}
+        stackdriver: {}
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -235,7 +226,6 @@ spec:
       sts:
         servicePort: 0
       meshNetworks: {}
-      enableHelmTest: false
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
@@ -247,27 +237,18 @@ spec:
       replicaCount: 1
       image: pilot
       traceSampling: 1.0
-      configNamespace: istio-config
-      appNamespaces: []
       env: {}
       cpu:
         targetAverageUtilization: 80
       nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
       configMap: true
-      policy:
-        enabled: false
 
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
         enabled: true
         metadataExchange: {}
@@ -300,9 +281,6 @@ spec:
 
       istio-ingressgateway:
         autoscaleEnabled: true
-        applicationPorts: ""
-        debug: info
-        domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
         zvpn: {}
@@ -335,6 +313,4 @@ spec:
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
-    # TODO: derive from operator API
-    version: ""
     clusterResources: true
