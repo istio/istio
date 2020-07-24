@@ -56,7 +56,7 @@ rpm/fpm:
 		--license Apache \
 		--vendor istio.io \
 		--maintainer istio@istio.io \
-		--after-install tools/packaging/deb/postinst.sh \
+		--after-install tools/packaging/postinst.sh \
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
 		--config-files /var/lib/istio/envoy/sidecar.env \
 		--description "Istio Sidecar" \
@@ -72,7 +72,7 @@ deb/fpm:
 		--license Apache \
 		--vendor istio.io \
 		--maintainer istio@istio.io \
-		--after-install tools/packaging/deb/postinst.sh \
+		--after-install tools/packaging/postinst.sh \
 		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
 		--config-files /var/lib/istio/envoy/sidecar.env \
 		--description "Istio Sidecar" \
