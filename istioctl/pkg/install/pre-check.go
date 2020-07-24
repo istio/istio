@@ -435,7 +435,7 @@ func NewPrecheckCommand() *cobra.Command {
 func findIstios(client dynamic.Interface) ([]istioInstall, error) {
 	retval := make([]istioInstall, 0)
 
-	// First, look for IstioOperator CRs left by 'istioctl manifest apply' or 'kubectl apply'
+	// First, look for IstioOperator CRs left by 'istioctl install' or 'kubectl apply'
 	iops, err := allOperatorsInCluster(client)
 	if err != nil {
 		return retval, err
