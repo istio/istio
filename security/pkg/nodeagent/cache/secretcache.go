@@ -971,9 +971,8 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		var httpRespCode int
 		if isCSR {
 			requestErrorString = fmt.Sprintf("%s CSR", logPrefix)
-			// if cert exists in the file path user provides,
-			// we will use cert instead of the token to do CSR Sign request
-			if sc.certExists() {
+			// Check if we can use cert instead of the token to do CSR Sign request.
+			if sc.useCertToRotate() {
 				// if CSR request is without token, set the token to empty
 				exchangedToken = ""
 			}
@@ -1042,10 +1041,16 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 	return exchangedTokens[0], nil
 }
 
-func (sc *SecretCache) certExists() bool {
+// useCertToRotate checks if we can use cert instead of token to do CSR.
+func (sc *SecretCache) useCertToRotate() bool {
+	// Check if CA requires a token in CSR
+	if sc.secOpts.UseTokenForCSR {
+		return false
+	}
 	if sc.secOpts.ProvCert == "" {
 		return false
 	}
+	// Check if cert exists.
 	_, err := tls.LoadX509KeyPair(sc.secOpts.ProvCert+"/cert-chain.pem", sc.secOpts.ProvCert+"/key.pem")
 	if err != nil {
 		cacheLog.Errorf("cannot load key pair from %s: %s", sc.secOpts.ProvCert, err)
