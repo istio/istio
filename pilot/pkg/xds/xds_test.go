@@ -414,7 +414,7 @@ spec:
 		},
 	})
 	vm := s.SetupProxy(&model.Proxy{
-		ID: "vm",
+		ID:              "vm",
 		IPAddresses:     []string{"10.10.10.10"},
 		ConfigNamespace: "default",
 		Metadata: &model.NodeMetadata{
