@@ -256,7 +256,7 @@ func vmTestCases(ctx framework.TestContext, vm echo.Instances) []TrafficTestCase
 			c := c
 			cases = append(cases, TrafficTestCase{
 				name:     fmt.Sprintf("%s_%s", name, c.name),
-				features: []features.Feature{"traffic.reachability.vm"},
+				features: []features.Feature{"traffic.reachability"},
 				call: func() (echoclient.ParsedResponses, error) {
 					return c.from.Call(echo.CallOptions{
 						Target:   c.to,

@@ -144,7 +144,7 @@ const (
 func TestMirroringExternalService(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.mirroring.external").
+		Features("traffic.mirroring").
 		Run(func(ctx framework.TestContext) {
 			cases := []testCaseMirror{
 				{
