@@ -69,9 +69,7 @@ spec:
       tls:
          mode: ISTIO_MUTUAL
       hosts:
-        - "a-only.com"
-        - "jwt-only.com"
-        - "jwt-and-a-only.com"
+        - "*"
 ---
 
 apiVersion: networking.istio.io/v1alpha3
