@@ -170,7 +170,8 @@ func (client mockPromAPI) Flags(ctx context.Context) (promv1.FlagsResult, error)
 	return nil, nil
 }
 
-func (client mockPromAPI) LabelValues(ctx context.Context, label string, startTime time.Time, endTime time.Time) (prometheus_model.LabelValues, promv1.Warnings, error) {
+func (client mockPromAPI) LabelValues(_ context.Context, _ string,
+	_ time.Time, _ time.Time) (prometheus_model.LabelValues, promv1.Warnings, error) {
 	return nil, nil, nil
 }
 
