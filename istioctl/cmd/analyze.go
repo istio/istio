@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +26,6 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 
-	"github.com/ghodss/yaml"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
@@ -50,12 +48,7 @@ type AnalyzerFoundIssuesError struct{}
 // FileParseError indicates a provided file was unable to be parsed.
 type FileParseError struct{}
 
-const (
-	FileParseString = "Some files couldn't be parsed."
-	LogOutput       = "log"
-	JSONOutput      = "json"
-	YamlOutput      = "yaml"
-)
+const FileParseString = "Some files couldn't be parsed."
 
 func (f AnalyzerFoundIssuesError) Error() string {
 	var sb strings.Builder
@@ -84,26 +77,11 @@ var (
 
 	termEnvVar = env.RegisterStringVar("TERM", "", "Specifies terminal type.  Use 'dumb' to suppress color output")
 
-	colorPrefixes = map[diag.Level]string{
-		diag.Info:    "",           // no special color for info messages
-		diag.Warning: "\033[33m",   // yellow
-		diag.Error:   "\033[1;31m", // bold red
-	}
-
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
 
 // Analyze command
 func Analyze() *cobra.Command {
-	// Validate the output format before doing potentially expensive work to fail earlier
-	msgOutputFormats := map[string]bool{LogOutput: true, JSONOutput: true, YamlOutput: true}
-	var msgOutputFormatKeys []string
-
-	for k := range msgOutputFormats {
-		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
-	}
-	sort.Strings(msgOutputFormatKeys)
-
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
@@ -132,7 +110,7 @@ istioctl analyze -L
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
-			_, ok := msgOutputFormats[msgOutputFormat]
+			_, ok := diag.MsgOutputFormats[msgOutputFormat]
 			if !ok {
 				return CommandParseError{
 					fmt.Errorf("%s not a valid option for format. See istioctl analyze --help", msgOutputFormat),
@@ -250,39 +228,32 @@ istioctl analyze -L
 				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			// Filter outputMessages by specified level, and append a ref arg to the doc URL
-			var outputMessages diag.Messages
-			for _, m := range result.Messages {
-				if m.Type.Level().IsWorseThanOrEqualTo(outputLevel.Level) {
-					m.DocRef = "istioctl-analyze"
-					outputMessages = append(outputMessages, m)
-				}
-			}
+			// Append a ref arg to the doc URL, and filter outputMessages by specified level
+			outputMessages := result.Messages.SetDocRef("istioctl-analyze").Filter(outputLevel.Level)
 
 			var returnError error
-			switch msgOutputFormat {
-			case LogOutput:
-				// Print validation message output, or a line indicating that none were found
-				if len(outputMessages) == 0 {
-					if parseErrors == 0 {
-						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
-					} else {
-						fileOrFiles := "files"
-						if parseErrors == 1 {
-							fileOrFiles = "file"
-						}
-						fmt.Fprintf(cmd.ErrOrStderr(),
-							"No validation issues found when analyzing %s (but %d %s could not be parsed).\n",
-							analyzeTargetAsString(),
-							parseErrors,
-							fileOrFiles,
-						)
-					}
+			if len(outputMessages) == 0 {
+				if parseErrors == 0 {
+					fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
 				} else {
-					for _, m := range outputMessages {
-						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
+					fileOrFiles := "files"
+					if parseErrors == 1 {
+						fileOrFiles = "file"
 					}
+					fmt.Fprintf(cmd.ErrOrStderr(),
+						"No validation issues found when analyzing %s (but %d %s could not be parsed).\n",
+						analyzeTargetAsString(),
+						parseErrors,
+						fileOrFiles,
+					)
 				}
+
+			} else {
+				output, err := outputMessages.Print(msgOutputFormat, colorize)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), output)
 
 				// Return code is based on the unfiltered validation message list/parse errors
 				// We're intentionally keeping failure threshold and output threshold decoupled for now
@@ -290,23 +261,7 @@ istioctl analyze -L
 				if returnError == nil && parseErrors > 0 {
 					returnError = FileParseError{}
 				}
-
-			case JSONOutput:
-				jsonOutput, err := json.MarshalIndent(outputMessages, "", "\t")
-				if err != nil {
-					return err
-				}
-				fmt.Fprintln(cmd.OutOrStdout(), string(jsonOutput))
-			case YamlOutput:
-				yamlOutput, err := yaml.Marshal(outputMessages)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintln(cmd.OutOrStdout(), string(yamlOutput))
-			default: // This should never happen since we validate this already
-				panic(fmt.Sprintf("%q not found in output format switch statement post validate?", msgOutputFormat))
 			}
-
 			return returnError
 		},
 	}
@@ -323,8 +278,8 @@ istioctl analyze -L
 		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
 	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
-	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", LogOutput,
-		fmt.Sprintf("Output format: one of %v", msgOutputFormatKeys))
+	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", diag.LogFormat,
+		fmt.Sprintf("Output format: one of %v", diag.MsgOutputFormatKeys))
 	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
 		"Overrides the mesh config values to use for analysis.")
 	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
@@ -420,40 +375,6 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		return nil
 	})
 	return readers, err
-}
-
-func colorPrefix(m diag.Message) string {
-	if !colorize {
-		return ""
-	}
-
-	prefix, ok := colorPrefixes[m.Type.Level()]
-	if !ok {
-		return ""
-	}
-
-	return prefix
-}
-
-func colorSuffix() string {
-	if !colorize {
-		return ""
-	}
-
-	return "\033[0m"
-}
-
-func renderMessage(m diag.Message) string {
-	origin := ""
-	if m.Resource != nil {
-		loc := ""
-		if m.Resource.Origin.Reference() != nil {
-			loc = " " + m.Resource.Origin.Reference().String()
-		}
-		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
-	}
-	return fmt.Sprintf(
-		"%s%v%s [%v]%s %s", colorPrefix(m), m.Type.Level(), colorSuffix(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
 }
 
 func istioctlColorDefault(cmd *cobra.Command) bool {
@@ -558,5 +479,5 @@ func analyzeTargetAsString() string {
 
 // TODO: Refactor output writer so that it is smart enough to know when to output what.
 func isJSONorYAMLOutputFormat() bool {
-	return msgOutputFormat == JSONOutput || msgOutputFormat == YamlOutput
+	return msgOutputFormat == diag.JsonFormat || msgOutputFormat == diag.YamlFormat
 }

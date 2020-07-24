@@ -114,6 +114,149 @@ func TestMessages_SortedCopy(t *testing.T) {
 	g.Expect(newMsgs).To(Equal(expectedMsgs))
 }
 
+func TestMessages_SetRefDoc(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		testResource("B"),
+		"B",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Info, "C1", "Template: %q"),
+		testResource("B"),
+		"B",
+	)
+
+	msgs := Messages{firstMsg, secondMsg}
+	msgs.SetDocRef("istioctl-awesome")
+
+	getDocURL := func(msg Message) string {
+		return msg.Unstructured(false)["documentation_url"].(string)
+	}
+
+	g.Expect(getDocURL(msgs[0])).To(Equal("https://istio.io/docs/reference/config/analysis/B1?ref=istioctl-awesome"))
+	g.Expect(getDocURL(msgs[1])).To(Equal("https://istio.io/docs/reference/config/analysis/C1?ref=istioctl-awesome"))
+}
+
+func TestMessages_Filter(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		testResource("B"),
+		"B",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Info, "A1", "Template: %q"),
+		testResource("B"),
+		"B",
+	)
+	thirdMsg := NewMessage(
+		NewMessageType(Warning, "C1", "Template: %q"),
+		testResource("B"),
+		"B",
+	)
+
+	msgs := Messages{firstMsg, secondMsg, thirdMsg}
+	filteredMsgs := msgs.Filter(Warning)
+	expectedMsgs := Messages{firstMsg, thirdMsg}
+
+	g.Expect(filteredMsgs).To(Equal(expectedMsgs))
+}
+
+func TestMessages_PrintLog(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Explosion accident: %v"),
+		testResource("SoapBubble"),
+		"the bubble is too big",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Warning, "C1", "Collapse accident: %v"),
+		testResource("GrandCastle"),
+		"the castle is too old",
+	)
+
+	msgs := Messages{firstMsg, secondMsg}
+	output, _ := msgs.Print(LogFormat, false)
+
+	g.Expect(output).To(Equal(
+		"Error [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
+			"Warn [C1] (GrandCastle) Collapse accident: the castle is too old",
+	))
+}
+
+func TestMessages_PrintJson(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Explosion accident: %v"),
+		testResource("SoapBubble"),
+		"the bubble is too big",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Warning, "C1", "Collapse accident: %v"),
+		testResource("GrandCastle"),
+		"the castle is too old",
+	)
+
+	msgs := Messages{firstMsg, secondMsg}
+	output, _ := msgs.Print(JsonFormat, false)
+
+	expectedOutput := `[
+	{
+		"code": "B1",
+		"documentation_url": "https://istio.io/docs/reference/config/analysis/B1",
+		"level": "Error",
+		"message": "Explosion accident: the bubble is too big",
+		"origin": "SoapBubble"
+	},
+	{
+		"code": "C1",
+		"documentation_url": "https://istio.io/docs/reference/config/analysis/C1",
+		"level": "Warn",
+		"message": "Collapse accident: the castle is too old",
+		"origin": "GrandCastle"
+	}
+]`
+
+	g.Expect(output).To(Equal(expectedOutput))
+}
+
+func TestMessages_PrintYaml(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Explosion accident: %v"),
+		testResource("SoapBubble"),
+		"the bubble is too big",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Warning, "C1", "Collapse accident: %v"),
+		testResource("GrandCastle"),
+		"the castle is too old",
+	)
+
+	msgs := Messages{firstMsg, secondMsg}
+	output, _ := msgs.Print(YamlFormat, false)
+
+	expectedOutput := `- code: B1
+  documentation_url: https://istio.io/docs/reference/config/analysis/B1
+  level: Error
+  message: 'Explosion accident: the bubble is too big'
+  origin: SoapBubble
+- code: C1
+  documentation_url: https://istio.io/docs/reference/config/analysis/C1
+  level: Warn
+  message: 'Collapse accident: the castle is too old'
+  origin: GrandCastle
+`
+
+	g.Expect(output).To(Equal(expectedOutput))
+}
+
 func testResource(name string) *resource.Instance {
 	return &resource.Instance{
 		Metadata: resource.Metadata{

@@ -24,6 +24,14 @@ import (
 // DocPrefix is the root URL for validation message docs
 const DocPrefix = "https://istio.io/docs/reference/config/analysis"
 
+var (
+	colorPrefixes = map[Level]string{
+		Info:    "",           // no special color for info messages
+		Warning: "\033[33m",   // yellow
+		Error:   "\033[1;31m", // bold red
+	}
+)
+
 // MessageType is a type of diagnostic message
 type MessageType struct {
 	// The level of the message.
@@ -86,16 +94,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 
 // String implements io.Stringer
 func (m *Message) String() string {
-	origin := ""
-	if m.Resource != nil {
-		loc := ""
-		if m.Resource.Origin.Reference() != nil {
-			loc = " " + m.Resource.Origin.Reference().String()
-		}
-		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
-	}
-	return fmt.Sprintf(
-		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+	return m.Render(false)
 }
 
 // MarshalJSON satisfies the Marshaler interface
@@ -119,4 +118,40 @@ func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message
 		Resource:   r,
 		Parameters: p,
 	}
+}
+
+// Render turns a Message instance into a string with an option of
+// colored bash output
+func (m *Message) Render(colorize bool) string {
+	origin := ""
+	if m.Resource != nil {
+		loc := ""
+		if m.Resource.Origin.Reference() != nil {
+			loc = " " + m.Resource.Origin.Reference().String()
+		}
+		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
+	}
+	return fmt.Sprintf("%s%v%s [%v]%s %s",
+		m.colorPrefix(colorize), m.Type.Level(), m.colorSuffix(colorize),
+		m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...),
+	)
+}
+
+func (m *Message) colorPrefix(colorize bool) string {
+	if !colorize {
+		return ""
+	}
+
+	prefix, ok := colorPrefixes[m.Type.Level()]
+	if !ok {
+		return ""
+	}
+	return prefix
+}
+
+func (m *Message) colorSuffix(colorize bool) string {
+	if !colorize {
+		return ""
+	}
+	return "\033[0m"
 }

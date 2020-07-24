@@ -14,7 +14,32 @@
 
 package diag
 
-import "sort"
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/ghodss/yaml"
+)
+
+const (
+	LogFormat  = "log"
+	JsonFormat = "json"
+	YamlFormat = "yaml"
+)
+
+var (
+	MsgOutputFormatKeys = []string{LogFormat, JsonFormat, YamlFormat}
+	MsgOutputFormats    = make(map[string]bool)
+)
+
+func init() {
+	sort.Strings(MsgOutputFormatKeys)
+	for _, key := range MsgOutputFormatKeys {
+		MsgOutputFormats[key] = true
+	}
+}
 
 // Messages is a slice of Message items.
 type Messages []Message
@@ -61,4 +86,58 @@ func (ms *Messages) SortedDedupedCopy() Messages {
 		deduped = append(deduped, m)
 	}
 	return deduped
+}
+
+// SetDocRef
+func (ms *Messages) SetDocRef(docRef string) *Messages {
+	for i := range *ms {
+		(*ms)[i].DocRef = docRef
+	}
+	return ms
+}
+
+// Filter
+func (ms *Messages) Filter(outputLevel Level) Messages {
+	var outputMessages Messages
+	for _, m := range *ms {
+		if m.Type.Level().IsWorseThanOrEqualTo(outputLevel) {
+			outputMessages = append(outputMessages, m)
+		}
+	}
+	return outputMessages
+}
+
+// Print
+func (ms *Messages) Print(format string, colorize bool) (string, error) {
+	switch format {
+	case LogFormat:
+		return ms.PrintLog(colorize)
+	case JsonFormat:
+		return ms.PrintJson()
+	case YamlFormat:
+		return ms.PrintYaml()
+	default:
+		return "", fmt.Errorf("invalid format, expected one of %v but got %q", MsgOutputFormatKeys, format)
+	}
+}
+
+// PrintLog
+func (ms *Messages) PrintLog(colorize bool) (string, error) {
+	var logOutput []string
+	for _, m := range *ms {
+		logOutput = append(logOutput, m.Render(colorize))
+	}
+	return strings.Join(logOutput, "\n"), nil
+}
+
+// PrintJson
+func (ms *Messages) PrintJson() (string, error) {
+	jsonOutput, err := json.MarshalIndent(*ms, "", "\t")
+	return string(jsonOutput), err
+}
+
+// PrintYaml
+func (ms *Messages) PrintYaml() (string, error) {
+	yamlOutput, err := yaml.Marshal(*ms)
+	return string(yamlOutput), err
 }
