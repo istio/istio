@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/pilot/vm"
 )
 
 func TestVMTelemetry(t *testing.T) {
@@ -94,7 +93,6 @@ spec:
 					Namespace:     ns,
 					Ports:         ports,
 					DeployAsVM:    true,
-					VMImage:       vm.DefaultVMImage,
 					VMEnvironment: vmEnv,
 				}).
 				BuildOrFail(t)
