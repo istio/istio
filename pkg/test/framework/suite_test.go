@@ -61,7 +61,7 @@ func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getS
 
 func TestSuite_Basic(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var runCalled bool
 	var runSkipped bool
@@ -85,7 +85,7 @@ func TestSuite_Basic(t *testing.T) {
 
 func TestSuite_Label_SuiteFilter(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var runSkipped bool
 	runFn := func(ctx *suiteContext) int {
@@ -107,7 +107,7 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 
 func TestSuite_Label_SuiteAllow(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var runCalled bool
 	var runSkipped bool
@@ -199,7 +199,7 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			defer cleanupRT()
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			var runCalled bool
 			var runSkipped bool
@@ -235,7 +235,7 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 
 func TestSuite_Setup(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var runCalled bool
 	var runSkipped bool
@@ -261,7 +261,7 @@ func TestSuite_Setup(t *testing.T) {
 
 func TestSuite_SetupFail(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var runCalled bool
 	runFn := func(ctx *suiteContext) int {
@@ -284,7 +284,7 @@ func TestSuite_SetupFail(t *testing.T) {
 
 func TestSuite_SetupFail_Dump(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var runCalled bool
 	runFn := func(_ *suiteContext) int {
@@ -310,7 +310,7 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 
 func TestSuite_DoubleInit_Error(t *testing.T) {
 	defer cleanupRT()
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var waitForRun1 sync.WaitGroup
 	waitForRun1.Add(1)
@@ -376,7 +376,7 @@ func TestSuite_GetResource(t *testing.T) {
 	}
 
 	t.Run("struct reference", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		var ref *resource.FakeResource
 		tracked := &resource.FakeResource{IDValue: "1"}
 		// notice that we pass **fakeCluster:
@@ -387,7 +387,7 @@ func TestSuite_GetResource(t *testing.T) {
 		g.Expect(tracked).To(Equal(ref))
 	})
 	t.Run("interface reference", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		var ref OtherInterface
 		tracked := &resource.FakeResource{IDValue: "1"}
 		err := act(&ref, tracked)
@@ -395,7 +395,7 @@ func TestSuite_GetResource(t *testing.T) {
 		g.Expect(tracked).To(Equal(ref))
 	})
 	t.Run("slice reference", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		existing := &resource.FakeResource{IDValue: "1"}
 		tracked := &resource.FakeResource{IDValue: "2"}
 		ref := []OtherInterface{existing}
@@ -406,7 +406,7 @@ func TestSuite_GetResource(t *testing.T) {
 		g.Expect(tracked).To(Equal(ref[1]))
 	})
 	t.Run("non pointer ref", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		err := act(resource.FakeResource{}, &resource.FakeResource{})
 		g.Expect(err).NotTo(BeNil())
 	})
@@ -441,7 +441,7 @@ func TestDeriveSuiteName(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.caller, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			actual := deriveSuiteName(c.caller)
 			g.Expect(actual).To(Equal(c.expected))
 		})

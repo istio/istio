@@ -70,7 +70,7 @@ func (a *testAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func TestAbortWithNoSources(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -80,7 +80,7 @@ func TestAbortWithNoSources(t *testing.T) {
 }
 
 func TestAnalyzersRun(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -110,7 +110,7 @@ func TestAnalyzersRun(t *testing.T) {
 }
 
 func TestFilterOutputByNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -135,7 +135,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mk := mock.NewKube()
 
@@ -149,7 +149,7 @@ func TestAddRunningKubeSource(t *testing.T) {
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	istioNamespace := resource.Namespace("istio-system")
 
@@ -184,7 +184,7 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
@@ -208,7 +208,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 }
 
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
@@ -221,7 +221,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 }
 
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
@@ -245,7 +245,7 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 }
 
 func TestResourceFiltering(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set up mock apiServer so we can peek at the options it gets started with
 	prevApiserverNew := apiserverNew

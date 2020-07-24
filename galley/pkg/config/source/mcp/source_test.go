@@ -25,7 +25,7 @@ import (
 )
 
 func TestApplyUnknownCollection(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewSource(collection.SchemasFor())
 	s.Start()
@@ -38,7 +38,7 @@ func TestApplyUnknownCollection(t *testing.T) {
 }
 
 func TestApply(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewSource(collection.SchemasFor(testCollection))
 	s.Start()

@@ -24,7 +24,7 @@ import (
 )
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	role = &model.Proxy{}
 	role.DNSDomain = ""
 	registryID = serviceregistry.Kubernetes
@@ -35,7 +35,7 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 }
 
 func TestPilotDefaultDomainConsul(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	role := &model.Proxy{}
 	role.DNSDomain = ""
 	registryID = serviceregistry.Consul
@@ -46,7 +46,7 @@ func TestPilotDefaultDomainConsul(t *testing.T) {
 }
 
 func TestPilotDefaultDomainOthers(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	role = &model.Proxy{}
 	role.DNSDomain = ""
 	registryID = serviceregistry.Mock
@@ -57,7 +57,7 @@ func TestPilotDefaultDomainOthers(t *testing.T) {
 }
 
 func TestPilotDomain(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	role.DNSDomain = "my.domain"
 	registryID = serviceregistry.Mock
 

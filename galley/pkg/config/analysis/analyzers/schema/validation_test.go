@@ -33,7 +33,7 @@ import (
 )
 
 func TestCorrectArgs(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	m1 := &v1alpha3.VirtualService{}
 
@@ -81,12 +81,12 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	a := ValidationAnalyzer{s: testSchema}
 
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		g.Expect(a.Metadata().Inputs).To(ConsistOf(testCol))
 	})
 
 	t.Run("NoErrors", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
 				{
@@ -99,7 +99,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 
 	t.Run("SingleError", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
@@ -115,7 +115,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 
 	t.Run("MultiError", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
 				{

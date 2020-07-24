@@ -33,13 +33,13 @@ import (
 )
 
 func TestNewWatcherWithBadInputShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	_, err := mesh.NewWatcher(filewatcher.NewWatcher(), "")
 	g.Expect(err).ToNot(BeNil())
 }
 
 func TestWatcherShouldNotifyHandlers(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	path := newTempFile(t)
 	defer removeSilent(path)

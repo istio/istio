@@ -48,7 +48,7 @@ func TestEmptyCluster(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -69,7 +69,7 @@ func TestFileOnly(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -94,7 +94,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -117,7 +117,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -137,7 +137,7 @@ func TestInvalidFileError(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -164,7 +164,7 @@ func TestJsonInputFile(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -185,7 +185,7 @@ func TestJsonOutput(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -226,7 +226,7 @@ func TestKubeOnly(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -248,7 +248,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -271,7 +271,7 @@ func TestAllNamespaces(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns1 := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze-1",
@@ -313,7 +313,7 @@ func TestTimeout(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "istioctl-analyze",

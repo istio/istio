@@ -34,7 +34,7 @@ import (
 )
 
 func TestAggregateStoreBasicMake(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	schema1 := collections.K8SServiceApisV1Alpha1Httproutes
 	schema2 := collections.K8SServiceApisV1Alpha1Gatewayclasses
@@ -52,7 +52,7 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 }
 
 func TestAggregateStoreMakeValidationFailure(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	store1 := memory.Make(collection.SchemasFor(schemaFor("SomeConfig", "broken message name")))
 
@@ -64,7 +64,7 @@ func TestAggregateStoreMakeValidationFailure(t *testing.T) {
 }
 
 func TestAggregateStoreGet(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	store1 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Gatewayclasses))
 	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Gatewayclasses))
@@ -88,7 +88,7 @@ func TestAggregateStoreGet(t *testing.T) {
 }
 
 func TestAggregateStoreList(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	store1 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
 	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
@@ -121,7 +121,7 @@ func TestAggregateStoreList(t *testing.T) {
 }
 
 func TestAggregateStoreFails(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	store1 := memory.Make(collection.SchemasFor(schemaFor("OtherConfig", "istio.networking.v1alpha3.Gateway")))
 
@@ -131,14 +131,14 @@ func TestAggregateStoreFails(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	t.Run("Fails to Delete", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		err = store.Delete(resource.GroupVersionKind{Kind: "not"}, "gonna", "work")
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
 	})
 
 	t.Run("Fails to Create", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		c, err := store.Create(model.Config{})
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
@@ -146,7 +146,7 @@ func TestAggregateStoreFails(t *testing.T) {
 	})
 
 	t.Run("Fails to Update", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		c, err := store.Update(model.Config{})
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))

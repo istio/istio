@@ -24,7 +24,7 @@ import (
 )
 
 func TestMessage_String(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
 	m := NewMessage(mt, nil, "Feta")
 
@@ -32,7 +32,7 @@ func TestMessage_String(t *testing.T) {
 }
 
 func TestMessageWithResource_String(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
 	m := NewMessage(mt, &resource.Instance{Origin: testOrigin{name: "toppings/cheese", ref: testReference{"path/to/file"}}}, "Feta")
 
@@ -40,7 +40,7 @@ func TestMessageWithResource_String(t *testing.T) {
 }
 
 func TestMessage_Unstructured(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
 	m := NewMessage(mt, nil, "Feta")
 
@@ -54,7 +54,7 @@ func TestMessage_Unstructured(t *testing.T) {
 }
 
 func TestMessageWithDocRef(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
 	m := NewMessage(mt, nil, "Feta")
 	m.DocRef = "test-ref"
@@ -62,7 +62,7 @@ func TestMessageWithDocRef(t *testing.T) {
 }
 
 func TestMessage_JSON(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
 	m := NewMessage(mt, &resource.Instance{Origin: testOrigin{name: "toppings/cheese", ref: testReference{"path/to/file"}}}, "Feta")
 

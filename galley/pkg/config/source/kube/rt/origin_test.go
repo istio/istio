@@ -55,7 +55,7 @@ func TestPositionString(t *testing.T) {
 	}
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			p := Position{Filename: tc.filename, Line: tc.line}
 			g.Expect(p.String()).To(Equal(tc.output))

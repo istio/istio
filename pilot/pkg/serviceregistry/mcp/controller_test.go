@@ -105,7 +105,7 @@ var (
 )
 
 func TestOptions(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	controller := mcp.NewController(testControllerOptions)
 
@@ -129,21 +129,21 @@ func TestOptions(t *testing.T) {
 }
 
 func TestHasSynced(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	g.Expect(controller.HasSynced()).To(BeFalse())
 }
 
 func TestConfigDescriptor(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 	schemas := controller.Schemas()
 	g.Expect(schemas.CollectionNames()).Should(ConsistOf(collections.Pilot.CollectionNames()))
 }
 
 func TestListInvalidType(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	c, err := controller.List(resource.GroupVersionKind{Kind: "bad-type"}, "some-phony-name-space.com")
@@ -153,7 +153,7 @@ func TestListInvalidType(t *testing.T) {
 }
 
 func TestListCorrectTypeNoData(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	c, err := controller.List(gvk.VirtualService,
@@ -163,7 +163,7 @@ func TestListCorrectTypeNoData(t *testing.T) {
 }
 
 func TestListAllNameSpace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -204,7 +204,7 @@ func TestListAllNameSpace(t *testing.T) {
 }
 
 func TestListSpecificNameSpace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	messages := convertToResources(g,
@@ -239,7 +239,7 @@ func TestListSpecificNameSpace(t *testing.T) {
 }
 
 func TestApplyInvalidType(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
@@ -257,7 +257,7 @@ func TestApplyInvalidType(t *testing.T) {
 }
 
 func TestApplyValidTypeWithNoNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	var createAndCheckGateway = func(g *GomegaWithT, controller mcp.Controller, port uint32) {
@@ -300,7 +300,7 @@ func TestApplyValidTypeWithNoNamespace(t *testing.T) {
 }
 
 func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
@@ -324,7 +324,7 @@ func TestApplyMetadataNameIncludesNamespace(t *testing.T) {
 }
 
 func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g,
@@ -348,7 +348,7 @@ func TestApplyMetadataNameWithoutNamespace(t *testing.T) {
 }
 
 func TestApplyChangeNoObjects(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -385,7 +385,7 @@ func TestApplyChangeNoObjects(t *testing.T) {
 }
 
 func TestApplyConfigUpdate(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -408,7 +408,7 @@ func TestApplyConfigUpdate(t *testing.T) {
 }
 
 func TestInvalidResource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	gw := proto.Clone(gateway).(*networking.Gateway)
@@ -431,7 +431,7 @@ func TestInvalidResource(t *testing.T) {
 }
 
 func TestInvalidResource_BadTimestamp(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
 	message := convertToResource(g, collections.IstioNetworkingV1Alpha3Gateways.Resource().Proto(), gateway)
@@ -738,7 +738,7 @@ func (f *FakeXdsUpdater) ProxyUpdate(_, _ string) {
 }
 
 func TestApplyIncrementalChangeRemove(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
@@ -811,7 +811,7 @@ func TestApplyIncrementalChangeRemove(t *testing.T) {
 }
 
 func TestApplyIncrementalChange(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	fx := NewFakeXDS()
 	testControllerOptions.XDSUpdater = fx
