@@ -302,7 +302,7 @@ func (s *suiteImpl) run() (errLevel int) {
 
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
 	// if not, simply exit now.
-	if ctx.Settings().Selector.Selects(s.skipLabels) {
+	if len(s.skipLabels) > 0 && ctx.Settings().Selector.Selects(s.skipLabels) {
 		s.Skip(fmt.Sprintf("Skip Label match: skipLabels=%v, selector=%v",
 			s.skipLabels,
 			ctx.Settings().Selector))
