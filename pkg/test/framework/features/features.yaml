@@ -41,6 +41,7 @@ features:
     routing:
     short-circuiting:
     mirroring:
+      external:
     ingress:
       loadbalancing:
   usability:

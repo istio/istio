@@ -85,6 +85,7 @@ var (
 func TestMirroring(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("traffic.mirroring").
 		Run(func(ctx framework.TestContext) {
 			cases := []testCaseMirror{
 				{
@@ -143,6 +144,7 @@ const (
 func TestMirroringExternalService(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("traffic.mirroring.external").
 		Run(func(ctx framework.TestContext) {
 			cases := []testCaseMirror{
 				{
