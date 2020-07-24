@@ -28,8 +28,6 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-
-	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )
 
 var (
