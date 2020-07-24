@@ -52,6 +52,7 @@
 {{- $originalMesh := include "mesh" . | fromYaml }}
 {{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
 
+{{- if not .Values.global.centralIstiod }}
 {{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -79,4 +80,5 @@ data:
 {{- include "mesh" . }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}
