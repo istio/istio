@@ -36,8 +36,8 @@ func getKey(jwksFile string, t *testing.T) interface{} {
 	if err != nil {
 		t.Fatalf("failed to parse jwks: %s", err)
 	}
-	key, err := jwks.Keys[0].Materialize()
-	if err != nil {
+	var key interface{}
+	if err := jwks.Keys[0].Raw(&key); err != nil {
 		t.Fatalf("failed to materialize jwks: %s", err)
 	}
 	return key
