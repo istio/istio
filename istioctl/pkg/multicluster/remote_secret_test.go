@@ -652,7 +652,7 @@ users:
 }
 
 func TestRemoteSecretOptions(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	o := RemoteSecretOptions{}
 	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)

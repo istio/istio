@@ -23,7 +23,7 @@ import (
 )
 
 func TestMessages_Sort(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -60,7 +60,7 @@ func TestMessages_Sort(t *testing.T) {
 }
 
 func TestMessages_SortWithNilOrigin(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -87,7 +87,7 @@ func TestMessages_SortWithNilOrigin(t *testing.T) {
 }
 
 func TestMessages_SortedCopy(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),

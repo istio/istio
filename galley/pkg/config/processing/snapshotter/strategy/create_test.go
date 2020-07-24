@@ -22,7 +22,7 @@ import (
 )
 
 func TestCreate_Immediate(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, err := Create(immediate)
 	g.Expect(err).To(BeNil())
@@ -31,7 +31,7 @@ func TestCreate_Immediate(t *testing.T) {
 }
 
 func TestCreate_Debounce(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, err := Create(debounce)
 	g.Expect(err).To(BeNil())
@@ -40,7 +40,7 @@ func TestCreate_Debounce(t *testing.T) {
 }
 
 func TestCreate_Unknown(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	_, err := Create("foo")
 	g.Expect(err).NotTo(BeNil())

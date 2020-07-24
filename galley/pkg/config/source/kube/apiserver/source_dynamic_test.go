@@ -74,7 +74,7 @@ func TestStartTwice(t *testing.T) {
 }
 
 func TestStartStop_WithStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -106,7 +106,7 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -133,7 +133,7 @@ func TestReport(t *testing.T) {
 }
 
 func TestEvents(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -195,7 +195,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -300,7 +300,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 }
 
 func TestEvents_NonAddEvent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -326,7 +326,7 @@ func TestEvents_NonAddEvent(t *testing.T) {
 }
 
 func TestEvents_NoneForDisabled(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -399,7 +399,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 }
 
 func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	defer func() {
 		r := recover()
