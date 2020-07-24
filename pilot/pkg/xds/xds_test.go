@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path"
 	"testing"
@@ -344,6 +345,25 @@ subsets:
     protocol: TCP
 `,
 		ConfigString: `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: se-pod
+  namespace: pod
+spec:
+  hosts:
+  - se-pod.pod.svc.cluster.local
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 10.10.10.30
+    labels:
+      app: se-pod
+    network: network-1
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -377,6 +397,14 @@ spec:
 			},
 		}},
 	})
+	se := s.SetupProxy(&model.Proxy{
+		ID: "se-pod.pod",
+		Metadata: &model.NodeMetadata{
+			Network:   "network-1",
+			ClusterID: "Kubernetes",
+			Labels:    labels.Instance{"app": "se-pod"},
+		},
+	})
 	pod := s.SetupProxy(&model.Proxy{
 		ID: "kubeapp-1234.pod",
 		Metadata: &model.NodeMetadata{
@@ -386,6 +414,7 @@ spec:
 		},
 	})
 	vm := s.SetupProxy(&model.Proxy{
+		ID: "vm",
 		IPAddresses:     []string{"10.10.10.10"},
 		ConfigNamespace: "default",
 		Metadata: &model.NodeMetadata{
@@ -393,9 +422,45 @@ spec:
 			InterceptionMode: "NONE",
 		},
 	})
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|7070||httpbin.com"], []string{"10.10.10.10"})
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|80||kubeapp.pod.svc.cluster.local"], []string{"10.10.10.20"})
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||kubeapp.pod.svc.cluster.local"], []string{"2.2.2.2"})
+
+	tests := []struct {
+		p      *model.Proxy
+		expect map[string]string
+	}{
+		{
+			p: pod,
+			expect: map[string]string{
+				"outbound|7070||httpbin.com":                 "10.10.10.10",
+				"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
+				"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+			},
+		},
+		{
+			p: se,
+			expect: map[string]string{
+				"outbound|7070||httpbin.com":                 "10.10.10.10",
+				"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
+				"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+			},
+		},
+		{
+			p: vm,
+			expect: map[string]string{
+				"outbound|7070||httpbin.com":                 "10.10.10.10",
+				"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
+				"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		eps := ExtractEndpoints(s.Endpoints(tt.p))
+		for c, ip := range tt.expect {
+			t.Run(fmt.Sprintf("%s from %s", c, vm.ID), func(t *testing.T) {
+				assertListEqual(t, eps[c], []string{ip})
+			})
+		}
+	}
 }
 
 func TestEgressProxy(t *testing.T) {
