@@ -34,7 +34,7 @@ import (
 
 const (
 	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
-	// in the last manifest apply operation.
+	// in the last install operation.
 	installedSpecCRPrefix = "installed-state"
 )
 

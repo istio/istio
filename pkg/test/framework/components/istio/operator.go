@@ -523,15 +523,15 @@ func applyManifest(c *operatorComponent, installSettings []string, istioCtl isti
 	}
 	c.saveInstallManifest(clusterName, out)
 
-	// Actually run the manifest apply command
+	// Actually run the install command
 	cmd := []string{
-		"manifest", "apply",
+		"install",
 		"--skip-confirmation",
 	}
 	cmd = append(cmd, installSettings...)
 	scopes.Framework.Infof("Running istio control plane on cluster %s %v", clusterName, cmd)
 	if _, _, err := istioCtl.Invoke(cmd); err != nil {
-		return fmt.Errorf("manifest apply failed: %v", err)
+		return fmt.Errorf("install failed: %v", err)
 	}
 	return nil
 }
