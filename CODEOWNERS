@@ -15,7 +15,6 @@ Makefile*                                                        @istio/wg-test-
 /manifests/                                                      @istio/wg-environments-maintainers
 /operator/                                                       @istio/wg-environments-maintainers
 /pilot/                                                          @istio/wg-networking-maintainers
-/pilot/cmd/pilot-agent/                                          @istio/wg-networking-maintainers @istio/wg-security-maintainers
 /pilot/pkg/security/                                             @istio/wg-security-maintainers
 /pilot/pkg/config/                                               @istio/wg-networking-maintainers
 /pilot/pkg/networking/plugin/authn/                              @istio/wg-security-maintainers
