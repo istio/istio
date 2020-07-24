@@ -81,6 +81,8 @@ type Suite interface {
 	EnvironmentFactory(fn resource.EnvironmentFactory) Suite
 	// Label all the tests in suite with the given labels
 	Label(labels ...label.Instance) Suite
+	// SkipLabel will skip the suite if any of the given labels are selected
+	SkipLabel(labels ...label.Instance) Suite
 	// Skip marks a suite as skipped with the given reason. This will prevent any setup functions from occurring.
 	Skip(reason string) Suite
 	// RequireMinClusters ensures that the current environment contains at least the given number of clusters.
@@ -106,6 +108,7 @@ type suiteImpl struct {
 	mRun        mRunFn
 	osExit      func(int)
 	labels      label.Set
+	skipLabels  label.Set
 
 	requireFns []resource.SetupFn
 	setupFns   []resource.SetupFn
@@ -177,6 +180,11 @@ func (s *suiteImpl) EnvironmentFactory(fn resource.EnvironmentFactory) Suite {
 
 func (s *suiteImpl) Label(labels ...label.Instance) Suite {
 	s.labels = s.labels.Add(labels...)
+	return s
+}
+
+func (s *suiteImpl) SkipLabel(labels ...label.Instance) Suite {
+	s.skipLabels = s.skipLabels.Add(labels...)
 	return s
 }
 
@@ -294,6 +302,12 @@ func (s *suiteImpl) run() (errLevel int) {
 
 	// Before starting, check whether the current set of labels & label selectors will ever allow us to run tests.
 	// if not, simply exit now.
+	if ctx.Settings().Selector.Selects(s.skipLabels) {
+		s.Skip(fmt.Sprintf("Skip Label match: skipLabels=%v, selector=%v",
+			s.skipLabels,
+			ctx.Settings().Selector))
+		return s.doSkip(ctx)
+	}
 	if ctx.Settings().Selector.Excludes(s.labels) {
 		s.Skip(fmt.Sprintf("Label mismatch: labels=%v, selector=%v",
 			s.labels,

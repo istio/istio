@@ -15,6 +15,7 @@
 package pilot
 
 import (
+	"istio.io/istio/pkg/test/framework/label"
 	"strconv"
 	"testing"
 
@@ -67,6 +68,7 @@ type EchoDeployments struct {
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		SkipLabel(label.Multicluster).
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:

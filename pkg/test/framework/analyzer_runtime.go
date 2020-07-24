@@ -92,6 +92,7 @@ type suiteAnalysis struct {
 	SuiteID          string                   `yaml:"suiteID"`
 	SkipReason       string                   `yaml:"skipReason,omitempty"`
 	Labels           []label.Instance         `yaml:"labels,omitempty"`
+	SkipLabels       []label.Instance         `yaml:"skipLabels,omitempty"`
 	MultiCluster     bool                     `yaml:"multicluster,omitempty"`
 	MultiClusterOnly bool                     `yaml:"multiclusterOnly,omitempty"`
 	Tests            map[string]*testAnalysis `yaml:"tests"`
