@@ -37,7 +37,7 @@ func TestGateway(t *testing.T) {
 			}
 			ctx.Config().ApplyYAMLOrFail(ctx, "", string(crd))
 
-			ctx.Config().ApplyYAMLOrFail(ctx, echoNamespace.Name(), `
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -111,7 +111,7 @@ func TestIngress(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, ctx, []string{credName2}, ingress.TLS, ingressutil.IngressCredentialB, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName2})
 
-			if err := ctx.Config().ApplyYAML(echoNamespace.Name(), `
+			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:
