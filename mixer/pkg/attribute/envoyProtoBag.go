@@ -31,7 +31,6 @@ import (
 	attr "istio.io/pkg/attribute"
 )
 
-
 // EnvoyProtoBag implements the Bag interface on top of an Attributes proto.
 type EnvoyProtoBag struct {
 	reqMap              map[string]interface{}
@@ -45,7 +44,6 @@ type EnvoyProtoBag struct {
 	referencedAttrs      map[attr.Reference]attr.Presence
 	referencedAttrsMutex sync.Mutex
 }
-
 
 var envoyProtoBags = sync.Pool{
 	New: func() interface{} {
@@ -123,11 +121,11 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 		reqMap["response.headers"] = attr.WrapStringMap(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeaders())
 		reqMap["response.code"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseCode().GetValue())
 		reqMap["response.size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes())
-		reqMap["response.total_size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().
-			GetResponseBodyBytes()) + int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes())
+		reqMap["response.total_size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes()) +
+			int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes())
 		reqMap["UPSTREAM_CLUSTER"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
-		//reqMap["context.proxy_error_code"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags()
 		reqMap["connection.requested_server_name"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().GetTlsSniHostname()
+		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(httpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
 
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
 		reqMap["context.protocol"] = "tcp"
@@ -142,8 +140,7 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 		reqMap["connection.received.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetReceivedBytes()
 		reqMap["connection.sent.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetSentBytes()
 		reqMap["UPSTREAM_CLUSTER"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
-		//reqMap["context.proxy_error_code"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags()
-		//needs to be converted to proper format
+		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
 	}
 
 	pb.reqMap = reqMap
@@ -170,12 +167,12 @@ func (pb *EnvoyProtoBag) AddNamespaceDependentAttributes(destinationNamespace st
 		pb.reqMap["destination.service.name"] = host[0:namePos]
 		return
 	}
-	namespacePos := strings.IndexAny(host[namePos + 1:], ".:")
+	namespacePos := strings.IndexAny(host[namePos+1:], ".:")
 	var serviceNamespace string
 	if namespacePos == -1 {
 		serviceNamespace = host[namePos:]
 	} else {
-		serviceNamespace = host[namePos + 1:namespacePos + namePos + 1]
+		serviceNamespace = host[namePos+1 : namespacePos+namePos+1]
 	}
 	if serviceNamespace == destinationNamespace {
 		pb.reqMap["destination.service.name"] = host[0:namePos]
@@ -183,7 +180,6 @@ func (pb *EnvoyProtoBag) AddNamespaceDependentAttributes(destinationNamespace st
 		pb.reqMap["destination.service.name"] = host
 	}
 }
-
 
 // Get returns an attribute value.
 func (pb *EnvoyProtoBag) Get(name string) (interface{}, bool) {

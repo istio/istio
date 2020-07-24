@@ -39,7 +39,7 @@ import (
 )
 
 type (
-	grpcServerEnvoy struct {
+	GrpcServerEnvoy struct {
 		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
 		cache      *checkcache.Cache
@@ -54,13 +54,13 @@ type (
 )
 
 func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache,
-	throttler *loadshedding.Throttler) grpcServerEnvoy {
+	throttler *loadshedding.Throttler) GrpcServerEnvoy {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
 		globalDict[list[i]] = int32(i)
 	}
-	return grpcServerEnvoy{
+	return GrpcServerEnvoy{
 		dispatcher:     dispatcher,
 		gp:             gp,
 		globalWordList: list,
@@ -73,7 +73,7 @@ func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool
 // Mirrors Mixer Check but instead uses Envoy External Authorization API
 // It enables longevity of OOP adapters
 //https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/filter/http/ext_authz/v2/ext_authz.proto
-func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
+func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
 	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: 1.0}) {
 		return nil, grpc.Errorf(codes.Unavailable, "Envoy Server is currently overloaded. Please try again.")
 	}
@@ -90,7 +90,7 @@ func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 				lg.Debug("ExtAuthz.Check approved")
 				resp = &authzGRPC.CheckResponse{
 					Status: &rpcstatus.Status{
-						Code: value.StatusCode,
+						Code:    value.StatusCode,
 						Message: value.StatusMessage,
 					},
 					HttpResponse: &authzGRPC.CheckResponse_OkResponse{
@@ -101,7 +101,7 @@ func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 				lg.Debugf("ExtAuthz.Check denied: %v", value.StatusCode)
 				resp = &authzGRPC.CheckResponse{
 					Status: &rpcstatus.Status{
-						Code: value.StatusCode,
+						Code:    value.StatusCode,
 						Message: value.StatusMessage,
 					},
 					HttpResponse: &authzGRPC.CheckResponse_DeniedResponse{
@@ -126,8 +126,8 @@ func (s *grpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 	return resp, err
 }
 
-func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context,
-	protoBag attr.Bag, checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
+func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag attr.Bag, checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
+
 	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
 		lg.Errora("ExtAuthz.Check failed: ", err.Error())
@@ -149,7 +149,7 @@ func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context,
 		lg.Debug("ExtAuthz.Check approved")
 		resp = &authzGRPC.CheckResponse{
 			Status: &rpcstatus.Status{
-				Code: cr.Status.Code,
+				Code:    cr.Status.Code,
 				Message: cr.Status.Message,
 			},
 			HttpResponse: &authzGRPC.CheckResponse_OkResponse{
@@ -160,7 +160,7 @@ func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context,
 		lg.Debugf("ExtAuthz.Check denied: %v", cr.Status)
 		resp = &authzGRPC.CheckResponse{
 			Status: &rpcstatus.Status{
-				Code: cr.Status.Code,
+				Code:    cr.Status.Code,
 				Message: cr.Status.Message,
 			},
 			HttpResponse: &authzGRPC.CheckResponse_DeniedResponse{
@@ -187,7 +187,7 @@ func (s *grpcServerEnvoy) checkEnvoy(ctx context.Context,
 // Access log service should return empty response
 // It is implemented to perform the same functionality as Mixer Report for OOP longevity
 // It uses grpc Access Log Service API https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto
-func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) error {
+func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) error {
 	for {
 		ctx := context.Background()
 		msg, err := srv.Recv()
@@ -204,7 +204,6 @@ func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 		} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
 			totalBags = len(tcpLogs.GetLogEntry())
 		}
-
 
 		reporter := s.dispatcher.GetReporter(ctx)
 		var errors *multierror.Error
@@ -223,7 +222,6 @@ func (s *grpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 			if destinationNamespace, ok := reportBag.Get("destination.namespace"); ok {
 				protoBag.AddNamespaceDependentAttributes(fmt.Sprintf("%v", destinationNamespace))
 			}
-
 			if reportBag != nil {
 				reportBag.Done()
 			}

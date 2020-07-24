@@ -14,7 +14,6 @@
 package attribute
 
 import (
-	"istio.io/pkg/log"
 	"net"
 	"testing"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 
 	attr "istio.io/pkg/attribute"
+	"istio.io/pkg/log"
 )
 
 func TestBagEnvoy(t *testing.T) {
@@ -72,7 +72,7 @@ func TestBagEnvoy(t *testing.T) {
 			},
 		},
 	}
-	ab := GetEnvoyProtoBagAuthz(attrs)
+	ab := AuthzProtoBag(attrs)
 
 	results := []struct {
 		name  string
@@ -122,7 +122,7 @@ func TestBagEnvoy(t *testing.T) {
 }
 
 func envoyMutableBagFromProtoForTesing() *attr.MutableBag {
-	b := GetEnvoyProtoBagAuthz(envoyProtoAttrsForTesting())
+	b := AuthzProtoBag(envoyProtoAttrsForTesting())
 	return attr.GetMutableBag(b)
 }
 
