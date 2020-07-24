@@ -210,7 +210,7 @@ func vmTestCases(ctx framework.TestContext, vm echo.Instances) []TrafficTestCase
 	testCases := map[string][]vmTestCase{}
 	for _, src := range ctx.Clusters() {
 		for _, dst := range ctx.Clusters() {
-			srcVm := vm.GetOrFail(ctx, echo.InCluster(src))
+			srcVM := vm.GetOrFail(ctx, echo.InCluster(src))
 			dstA := apps.podA.GetOrFail(ctx, echo.InCluster(dst))
 			testCases[fmt.Sprintf("%s-%s", src.Name(), dst.Name())] = []vmTestCase{
 				{
@@ -220,25 +220,25 @@ func vmTestCases(ctx framework.TestContext, vm echo.Instances) []TrafficTestCase
 				},
 				{
 					name: "dns: VM to k8s cluster IP service fqdn host",
-					from: srcVm,
+					from: srcVM,
 					to:   dstA,
 					host: dstA.Config().FQDN(),
 				},
 				{
 					name: "dns: VM to k8s cluster IP service name.namespace host",
-					from: srcVm,
+					from: srcVM,
 					to:   dstA,
 					host: dstA.Config().Service + "." + apps.namespace.Name(),
 				},
 				{
 					name: "dns: VM to k8s cluster IP service short name host",
-					from: srcVm,
+					from: srcVM,
 					to:   dstA,
 					host: dstA.Config().Service,
 				},
 				{
 					name: "dns: VM to k8s headless service",
-					from: srcVm,
+					from: srcVM,
 					to:   apps.headless.GetOrFail(ctx, echo.InCluster(dst)),
 				},
 			}
