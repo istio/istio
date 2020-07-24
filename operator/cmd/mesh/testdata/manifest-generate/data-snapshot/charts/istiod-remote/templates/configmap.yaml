@@ -1,56 +1,8 @@
-{{- define "mesh" }}
-    {{- if .Values.global.remotePolicyAddress }}
-    {{- if .Values.global.createRemoteSvcEndpoints }}
-    mixerCheckServer: istio-policy.{{ .Release.Namespace }}:15004
-    {{- else }}
-    mixerCheckServer: {{ .Values.global.remotePolicyAddress }}:15004
-    {{- end }}
-    {{- end }}
-    {{- if .Values.global.remoteTelemetryAddress }}
-    {{- if .Values.global.createRemoteSvcEndpoints }}
-    mixerReportServer: istio-telemetry.{{ .Release.Namespace }}:15004
-    {{- else }}
-    mixerReportServer: {{ .Values.global.remoteTelemetryAddress }}:15004
-    {{- end }}
-    {{- else }}
-    {{- if .Values.mixer.policy.enabled }}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
-    {{- else }}
-    mixerCheckServer: istio-policy.{{ .Values.global.policyNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
-    {{- end }}
-    {{- end }}
-    {{- if and .Values.telemetry.v1.enabled .Values.telemetry.enabled }}
-    {{- if .Values.global.controlPlaneSecurityEnabled }}
-    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:15004
-    {{- else }}
-    mixerReportServer: istio-telemetry.{{ .Values.global.telemetryNamespace }}.svc.{{ .Values.global.proxy.clusterDomain }}:9091
-    {{- end }}
-    {{- end }}
-    {{- end }}
 
-    {{- if .Values.mixer.telemetry.sessionAffinityEnabled }}
-    # sidecarToTelemetrySessionAffinity will create a STRICT_DNS type cluster for istio-telemetry.
-    sidecarToTelemetrySessionAffinity: {{ .Values.mixer.telemetry.sessionAffinityEnabled }}
-    {{- end }}
-    {{- if .Values.telemetry.v2.enabled }}
-    disableMixerHttpReports: true
-    {{- else }}
-    disableMixerHttpReports: false
-    {{- end }}
+{{- define "mesh" }}
     # The trust domain corresponds to the trust root of a system.
     # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
     trustDomain: {{ .Values.global.trustDomain | quote }}
-
-    {{- if .Values.global.useMCP }}
-    configSources:
-    {{- if .Values.pilot.configSource.subscribedResources }}
-      subscribedResources:
-    {{- range .Values.pilot.configSource.subscribedResources }}
-        - {{ . }}
-    {{- end }}
-    {{- end }}
-    {{- end }}
 
     defaultConfig:
       tracing:
@@ -63,15 +15,11 @@
       {{- else if eq .Values.global.proxy.tracer "zipkin" }}
         zipkin:
           # Address of the Zipkin collector
-        {{- if .Values.global.tracer.zipkin.address }}
-          address: {{ .Values.global.tracer.zipkin.address }}
-        {{- else }}
-          address: zipkin.{{ .Values.global.telemetryNamespace }}:9411
-        {{- end }}
+          address: {{ .Values.global.tracer.zipkin.address | default (print "zipkin." .Values.global.istioNamespace ":9411") }}
       {{- else if eq .Values.global.proxy.tracer "datadog" }}
         datadog:
           # Address of the Datadog Agent
-          address: {{ .Values.global.tracer.datadog.address }}
+          address: {{ .Values.global.tracer.datadog.address | default "$(HOST_IP):8126" }}
       {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
         stackdriver:
           # enables trace output to stdout.
@@ -80,15 +28,15 @@
         {{- end }}
         {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
           # The global default max number of attributes per span.
-          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes | default "200" }}
         {{- end }}
         {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
           # The global default max number of annotation events per span.
-          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations | default "200" }}
         {{- end }}
         {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
           # The global default max number of message events per span.
-          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents | default "200" }}
         {{- end }}
       {{- end }}
 
@@ -104,7 +52,6 @@
 {{- $originalMesh := include "mesh" . | fromYaml }}
 {{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
 
-{{- if not .Values.global.centralIstiod }}
 {{- if .Values.pilot.configMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -132,5 +79,4 @@ data:
 {{- include "mesh" . }}
 {{- end }}
 ---
-{{- end }}
 {{- end }}

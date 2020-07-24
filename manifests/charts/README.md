@@ -113,16 +113,12 @@ and it is recommended to have Pilot running in each region and in multiple avail
 
 ```bash
 iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
-            --set global.istioNamespace=istio-system \
-            --set global.telemetryNamespace=istio-telemetry \
-            --set global.policyNamespace=istio-policy
+            --set global.istioNamespace=istio-system
 
 # Second istio-discovery, using master version of istio
 TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
             --set policy.enable=false \
-            --set global.istioNamespace=istio-master \
-            --set global.telemetryNamespace=istio-telemetry-master \
-            --set global.policyNamespace=istio-policy-master
+            --set global.istioNamespace=istio-master
 ```
 
 ### Gateways
@@ -133,32 +129,6 @@ Since the domain certificates are stored in the gateway namespace, it is recomme
 gateway in a dedicated namespace and restrict access.
 
 For large-scale gateways it is optionally possible to use a dedicated pilot in the gateway namespace.
-
-### Telemetry
-
-```bash
-iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/
-iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ \
-        --set global.istioNamespace=istio-system \
-        --set global.telemetryNamespace=istio-telemetry \
-        --set global.policyNamespace=istio-policy
-
-TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
-TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
-        --set global.istioNamespace=istio-master \
-        --set global.telemetryNamespace=istio-telemetry-master \
-        --set global.policyNamespace=istio-policy-master
-```
-
-### Kiali
-
-```bash
-iop istio-telemetry kiali $IBASE/istio-telemetry/kiali \
-        --set global.istioNamespace=istio-system \
-        --set global.telemetryNamespace=istio-telemetry \
-        --set global.policyNamespace=istio-policy \
-        --set global.prometheusNamespace=istio-telemetry
-```
 
 ### Additional test templates
 

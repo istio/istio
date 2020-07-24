@@ -61,6 +61,15 @@ spec:
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
           command: ["install-cni"]
           env:
 {{- if .Values.cni.cniConfFileName }}
