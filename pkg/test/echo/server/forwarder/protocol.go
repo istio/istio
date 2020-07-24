@@ -121,8 +121,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		grpcConn, err := cfg.Dialer.GRPC(ctx,
 			address,
 			security,
-			grpc.WithAuthority(authority),
-			grpc.WithBlock())
+			grpc.WithAuthority(authority))
 		if err != nil {
 			return nil, err
 		}
