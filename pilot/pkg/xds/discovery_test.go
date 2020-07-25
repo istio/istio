@@ -27,8 +27,10 @@ import (
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func createProxies(n int) []*Connection {
@@ -305,6 +307,145 @@ func TestDebounce(t *testing.T) {
 
 			close(stopCh)
 			wg.Wait()
+		})
+	}
+}
+
+func TestShouldRespond(t *testing.T) {
+
+	tests := []struct {
+		name       string
+		connection *Connection
+		metric     monitoring.Metric
+		request    *discovery.DiscoveryRequest
+		response   bool
+	}{
+		{
+			name: "initial request",
+			connection: &Connection{
+				node: &model.Proxy{
+					Active: map[string]*model.WatchedResource{},
+				},
+			},
+			metric: monitoring.NewSum("test", "test reject metric"),
+			request: &discovery.DiscoveryRequest{
+				TypeUrl: v3.ClusterType,
+			},
+			response: true,
+		},
+		{
+			name: "ack",
+			connection: &Connection{
+				node: &model.Proxy{
+					Active: map[string]*model.WatchedResource{
+						v3.ClusterShortType: {
+							VersionSent: "v1",
+							NonceSent:   "nonce",
+						},
+					},
+				},
+			},
+			metric: monitoring.NewSum("test", "test reject metric"),
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+			},
+			response: false,
+		},
+		{
+			name: "nack",
+			connection: &Connection{
+				node: &model.Proxy{
+					Active: map[string]*model.WatchedResource{
+						v3.ClusterShortType: {
+							VersionSent: "v1",
+							NonceSent:   "nonce",
+						},
+					},
+				},
+			},
+			metric: monitoring.NewSum("test", "test reject metric"),
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				VersionInfo:   "v1",
+				ResponseNonce: "stale nonce",
+			},
+			response: false,
+		},
+		{
+			name: "reconnect",
+			connection: &Connection{
+				node: &model.Proxy{
+					Active: map[string]*model.WatchedResource{},
+				},
+			},
+			metric: monitoring.NewSum("test", "test reject metric"),
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				VersionInfo:   "v1",
+				ResponseNonce: "reconnect nonce",
+			},
+			response: true,
+		},
+		{
+			name: "resources change",
+			connection: &Connection{
+				node: &model.Proxy{
+					Active: map[string]*model.WatchedResource{
+						v3.EndpointShortType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"cluster1"},
+						},
+					},
+				},
+			},
+			metric: monitoring.NewSum("test", "test reject metric"),
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointShortType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{"cluster1", "cluster2"},
+			},
+			response: true,
+		},
+		{
+			name: "ack with same resources",
+			connection: &Connection{
+				node: &model.Proxy{
+					Active: map[string]*model.WatchedResource{
+						v3.EndpointShortType: {
+							VersionSent:   "v1",
+							NonceSent:     "nonce",
+							ResourceNames: []string{"cluster2", "cluster1"},
+						},
+					},
+				},
+			},
+			metric: monitoring.NewSum("test", "test reject metric"),
+			request: &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointShortType,
+				VersionInfo:   "v1",
+				ResponseNonce: "nonce",
+				ResourceNames: []string{"cluster1", "cluster2"},
+			},
+			response: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := NewFakeDiscoveryServer(t, FakeOptions{})
+			if response := s.Discovery.shouldRespond(tt.connection, tt.metric, tt.request); response != tt.response {
+				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
+			}
+			if tt.name != "reconnect" && tt.response {
+				if tt.connection.node.Active[v3.GetShortType(tt.request.TypeUrl)].VersionAcked != tt.request.VersionInfo &&
+					tt.connection.node.Active[v3.GetShortType(tt.request.TypeUrl)].NonceAcked != tt.request.ResponseNonce {
+					t.Fatalf("Version & Nonce not updated properly")
+				}
+			}
 		})
 	}
 }
