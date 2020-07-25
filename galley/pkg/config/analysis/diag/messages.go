@@ -88,7 +88,7 @@ func (ms *Messages) SortedDedupedCopy() Messages {
 	return deduped
 }
 
-// SetDocRef
+// SetDocRef sets the doc URL reference tracker for the messages
 func (ms *Messages) SetDocRef(docRef string) *Messages {
 	for i := range *ms {
 		(*ms)[i].DocRef = docRef
@@ -96,7 +96,7 @@ func (ms *Messages) SetDocRef(docRef string) *Messages {
 	return ms
 }
 
-// Filter
+// Filter only keeps messages at or above the specified output level
 func (ms *Messages) Filter(outputLevel Level) Messages {
 	var outputMessages Messages
 	for _, m := range *ms {
@@ -107,7 +107,7 @@ func (ms *Messages) Filter(outputLevel Level) Messages {
 	return outputMessages
 }
 
-// Print
+// Print output messages in the specified format with color options
 func (ms *Messages) Print(format string, colorize bool) (string, error) {
 	switch format {
 	case LogFormat:
@@ -121,7 +121,7 @@ func (ms *Messages) Print(format string, colorize bool) (string, error) {
 	}
 }
 
-// PrintLog
+// PrintLog outputs messages in the log format
 func (ms *Messages) PrintLog(colorize bool) (string, error) {
 	var logOutput []string
 	for _, m := range *ms {
@@ -130,13 +130,13 @@ func (ms *Messages) PrintLog(colorize bool) (string, error) {
 	return strings.Join(logOutput, "\n"), nil
 }
 
-// PrintJson
+// PrintJson outputs messages in the json format
 func (ms *Messages) PrintJson() (string, error) {
 	jsonOutput, err := json.MarshalIndent(*ms, "", "\t")
 	return string(jsonOutput), err
 }
 
-// PrintYaml
+// PrintYaml outputs messages in the yaml format
 func (ms *Messages) PrintYaml() (string, error) {
 	yamlOutput, err := yaml.Marshal(*ms)
 	return string(yamlOutput), err
