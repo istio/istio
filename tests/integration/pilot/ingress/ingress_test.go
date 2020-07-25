@@ -158,11 +158,23 @@ spec:
 		})
 }
 
+func skipIfIngressClassUnsupported(ctx framework.TestContext) {
+	ver, err := ctx.Clusters().Default().GetKubernetesVersion()
+	if err != nil {
+		ctx.Fatalf("failed to get Kubernetes version: %v", err)
+	}
+	serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+	if serverVersion < "1.18" {
+		ctx.Skip("IngressClass not supported")
+	}
+}
+
 // TestIngress tests that we can route using standard Kubernetes Ingress objects.
 func TestIngress(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			skipIfIngressClassUnsupported(ctx)
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "ingress",
 				Inject: true,
