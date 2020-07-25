@@ -72,7 +72,6 @@ var (
 	role               = &model.Proxy{}
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
-	trustDomain        string
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -123,6 +122,10 @@ var (
 	// This is also disabled by presence of the SDS socket directory
 	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
 		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
+
+	// TODO: This is already present in ProxyConfig !!!
+	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
+		"The trust domain for spiffe certificates").Get()
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
@@ -263,7 +266,7 @@ var (
 			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
 			secOpts.CAProviderName = caProviderEnv
 
-			secOpts.TrustDomain = trustDomain
+			secOpts.TrustDomain = trustDomainEnv
 			secOpts.Pkcs8Keys = pkcs8KeysEnv
 			secOpts.ECCSigAlg = eccSigAlgEnv
 			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
@@ -276,11 +279,11 @@ var (
 			secOpts.EvictionDuration = 0
 			secOpts.AlwaysValidTokenFlag = (platform == security.K8S)
 
-			credFetcher, err := credentialfetcher.NewCredFetcher(platform, trustDomain, jwtPath)
+			credFetcher, err := credentialfetcher.NewCredFetcher(platform, secOpts.TrustDomain, jwtPath)
 			if err != nil {
 				return fmt.Errorf("failed to create credential fetcher: %v", err)
 			}
-			log.Infof("Start credential fetcher on %s platform in %s trust domain", platform, trustDomain)
+			log.Infof("Start credential fetcher on %s platform in %s trust domain", platform, secOpts.TrustDomain)
 			secOpts.CredFetcher = credFetcher
 
 			sa := istio_agent.NewAgent(&proxyConfig,
@@ -337,7 +340,7 @@ var (
 					localHostAddr = localHostIPv6
 				}
 				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{Platform: platform, TrustDomain: trustDomain})
+					tokenmanager.Config{Platform: platform, TrustDomain: secOpts.TrustDomain})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,
@@ -408,7 +411,7 @@ var (
 // explicitly set the trustdomain so the pilot SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(podNamespace string, domain string) {
-	pilotTrustDomain := trustDomain
+	pilotTrustDomain := trustDomainEnv
 	if len(pilotTrustDomain) == 0 {
 		if registryID == serviceregistry.Kubernetes &&
 			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
@@ -444,8 +447,6 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
-	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
-		"The domain to use for identities")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
