@@ -284,6 +284,10 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 		portNames := make(map[string]bool)
 
 		for _, s := range value.Servers {
+			if s == nil {
+				errs = appendErrors(errs, fmt.Errorf("server may not be nil"))
+				continue
+			}
 			if s.Port != nil {
 				if portNames[s.Port.Name] {
 					errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
@@ -296,6 +300,9 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 	})
 
 func validateServer(server *networking.Server) (errs error) {
+	if server == nil {
+		return fmt.Errorf("cannot have nil server")
+	}
 	if len(server.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
@@ -407,6 +414,10 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
+			if subset == nil {
+				errs = appendErrors(errs, errors.New("subset may not be null"))
+				continue
+			}
 			errs = appendErrors(errs, validateSubset(subset))
 		}
 
@@ -498,6 +509,10 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 		}
 
 		for _, cp := range rule.ConfigPatches {
+			if cp == nil {
+				errs = appendErrors(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: golint,stylecheck
+				continue
+			}
 			if cp.ApplyTo == networking.EnvoyFilter_INVALID {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
 				continue
@@ -658,6 +673,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 
 		portMap := make(map[uint32]struct{})
 		for _, i := range rule.Ingress {
+			if i == nil {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: ingress may not be null"))
+				continue
+			}
 			if i.Port == nil {
 				errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
 				continue
@@ -701,6 +720,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		udsMap := make(map[string]struct{})
 		catchAllEgressListenerFound := false
 		for index, i := range rule.Egress {
+			if i == nil {
+				errs = appendErrors(errs, errors.New("egress listener may not be null"))
+				continue
+			}
 			// there can be only one catch all egress listener with empty port, and it should be the last listener.
 			if i.Port == nil {
 				if !catchAllEgressListenerFound {
@@ -958,6 +981,10 @@ func validateSubset(subset *networking.Subset) error {
 
 func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
 	for _, t := range pls {
+		if t == nil {
+			errs = appendErrors(errs, fmt.Errorf("traffic policy may not be null"))
+			continue
+		}
 		if t.Port == nil {
 			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
 		}
@@ -1310,10 +1337,18 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 		var errs error
 		for i, rule := range in.GetRules() {
+			if rule == nil {
+				errs = appendErrors(errs, fmt.Errorf("`rule` must not be null, found at rule %d in %s.%s", i, name, namespace))
+				continue
+			}
 			if rule.From != nil && len(rule.From) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 			}
 			for _, from := range rule.From {
+				if from == nil {
+					errs = appendErrors(errs, fmt.Errorf("`from` must not be null, found at rule %d in %s.%s", i, name, namespace))
+					continue
+				}
 				if from.Source == nil {
 					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
@@ -1338,6 +1373,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 			}
 			for _, to := range rule.To {
+				if to == nil {
+					errs = appendErrors(errs, fmt.Errorf("`to` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					continue
+				}
 				if to.Operation == nil {
 					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
@@ -1417,6 +1456,10 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 
 	for _, location := range rule.FromHeaders {
+		if location == nil {
+			errs = multierror.Append(errs, errors.New("location header name must be non-null"))
+			continue
+		}
 		if len(location.Name) == 0 {
 			errs = multierror.Append(errs, errors.New("location header name must be non-empty string"))
 		}
@@ -1542,6 +1585,10 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
 		for _, httpRoute := range virtualService.Http {
+			if httpRoute == nil {
+				errs = appendErrors(errs, errors.New("http route may not be null"))
+				continue
+			}
 			if !appliesToGateway && httpRoute.Delegate != nil {
 				errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
 			}
@@ -1576,6 +1623,10 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 }
 
 func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs error) {
+	if match == nil {
+		errs = appendErrors(errs, errors.New("TLS match may not be null"))
+		return
+	}
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	} else {
@@ -1631,6 +1682,10 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 }
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
+	if match == nil {
+		errs = multierror.Append(errs, errors.New("tcp match may not be nil"))
+		return
+	}
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
@@ -1784,6 +1839,10 @@ func validateGatewayNames(gatewayNames []string) (errs error) {
 func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
+		if weight == nil {
+			errs = multierror.Append(errs, errors.New("weight may not be nil"))
+			continue
+		}
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
@@ -1821,6 +1880,10 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
+		if weight == nil {
+			errs = multierror.Append(errs, errors.New("weight may not be nil"))
+			continue
+		}
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
@@ -2100,6 +2163,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		servicePortNumbers := make(map[uint32]bool)
 		servicePorts := make(map[string]bool, len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
+			if port == nil {
+				errs = appendErrors(errs, fmt.Errorf("service entry port may not be null"))
+				continue
+			}
 			if servicePorts[port.Name] {
 				errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 			}
@@ -2197,6 +2264,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		}
 
 		for _, port := range serviceEntry.Ports {
+			if port == nil {
+				errs = appendErrors(errs, errors.New("port may not be null"))
+				continue
+			}
 			errs = appendErrors(errs,
 				ValidatePortName(port.Name),
 				ValidateProtocol(port.Protocol),
