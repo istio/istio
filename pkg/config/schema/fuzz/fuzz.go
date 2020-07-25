@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package roundtrip
+package fuzz
 
 import (
 	"bytes"
@@ -45,7 +45,7 @@ type InstallFunc func(scheme *runtime.Scheme)
 
 var FuzzIters = flag.Int("fuzz-iters", 100, "How many fuzzing iterations to do.")
 
-func SpecificKind(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Scheme, fuzzer *fuzz.Fuzzer) {
+func RoundTrip(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Scheme, fuzzer *fuzz.Fuzzer) {
 	// Try a few times, since runTest uses random values.
 	for i := 0; i < *FuzzIters; i++ {
 		roundTripOfExternalType(t, scheme, fuzzer, gvk)
@@ -53,6 +53,24 @@ func SpecificKind(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Sch
 			break
 		}
 	}
+}
+
+// nolint: interfacer
+func Fuzz(t *testing.T, gvk schema.GroupVersionKind, scheme *runtime.Scheme, fuzzer *fuzz.Fuzzer) runtime.Object {
+	object, err := scheme.New(gvk)
+	if err != nil {
+		t.Fatalf("Couldn't make a %v? %v", gvk, err)
+	}
+	typeAcc, err := apimeta.TypeAccessor(object)
+	if err != nil {
+		t.Fatalf("%q is not a TypeMeta and cannot be tested - add it to nonRoundTrippableInternalTypes: %v", gvk, err)
+	}
+
+	fuzzInternalObject(t, fuzzer, object)
+
+	typeAcc.SetKind(gvk.Kind)
+	typeAcc.SetAPIVersion(gvk.GroupVersion().String())
+	return object
 }
 
 // fuzzInternalObject fuzzes an arbitrary runtime object using the appropriate
@@ -71,19 +89,7 @@ func fuzzInternalObject(t *testing.T, fuzzer *fuzz.Fuzzer, object runtime.Object
 }
 
 func roundTripOfExternalType(t *testing.T, scheme *runtime.Scheme, fuzzer *fuzz.Fuzzer, externalGVK schema.GroupVersionKind) {
-	object, err := scheme.New(externalGVK)
-	if err != nil {
-		t.Fatalf("Couldn't make a %v? %v", externalGVK, err)
-	}
-	typeAcc, err := apimeta.TypeAccessor(object)
-	if err != nil {
-		t.Fatalf("%q is not a TypeMeta and cannot be tested - add it to nonRoundTrippableInternalTypes: %v", externalGVK, err)
-	}
-
-	fuzzInternalObject(t, fuzzer, object)
-
-	typeAcc.SetKind(externalGVK.Kind)
-	typeAcc.SetAPIVersion(externalGVK.GroupVersion().String())
+	object := Fuzz(t, externalGVK, scheme, fuzzer)
 
 	roundTrip(t, scheme, json.NewSerializer(json.DefaultMetaFactory, scheme, scheme, false), object)
 }
