@@ -92,6 +92,19 @@ func k8sPod(name, namespace string) (*v1.Pod, error) {
 	return nil, fmt.Errorf("pod with name %s not found in namespace %s", name, namespace)
 }
 
+// Returns a kubernetes config map in a namespace
+func k8sConfigMap(name, namespace string) (*v1.ConfigMap, error) {
+	clientset, err := k8sClientset()
+	if err != nil {
+		return nil, err
+	}
+	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return cm, nil
+}
+
 // Execs a command inside a kubernetes pod and returns stdout and stderr
 // nolint: unparam
 func k8sPodsExec(name, namespace, command string, stdin io.Reader) (sout, serr string, err error) {
