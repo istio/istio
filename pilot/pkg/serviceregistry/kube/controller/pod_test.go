@@ -108,7 +108,7 @@ func TestPodCache(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
 	defer c.Stop()
 	initTestEnv(t, c.client, fx)
 
@@ -152,14 +152,14 @@ func TestIPReuse(t *testing.T) {
 	}
 }
 
-func createPod(t *testing.T, c *Controller, ip, name string) {
+func createPod(t *testing.T, c *FakeController, ip, name string) {
 	addPods(t, c, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
 	if err := waitForPod(c, ip); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func waitForPod(c *Controller, ip string) error {
+func waitForPod(c *FakeController, ip string) error {
 	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		c.pods.RLock()
 		defer c.pods.RUnlock()
@@ -171,9 +171,9 @@ func waitForPod(c *Controller, ip string) error {
 }
 
 func testPodCache(t *testing.T) {
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{
-		mode:              EndpointsOnly,
-		watchedNamespaces: "nsa,nsb",
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{
+		Mode:              EndpointsOnly,
+		WatchedNamespaces: "nsa,nsb",
 	})
 	defer c.Stop()
 
@@ -227,7 +227,7 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
 	defer c.Stop()
 
 	ns := "default"

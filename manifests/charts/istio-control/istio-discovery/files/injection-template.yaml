@@ -415,13 +415,6 @@ template: |
       optional: true
       secretName: lightstep.cacert
   {{- end }}
-  {{- if .Values.global.podDNSSearchNamespaces }}
-  dnsConfig:
-    searches:
-      {{- range .Values.global.podDNSSearchNamespaces }}
-      - {{ render . }}
-      {{- end }}
-  {{- end }}
   podRedirectAnnot:
   {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
   {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}

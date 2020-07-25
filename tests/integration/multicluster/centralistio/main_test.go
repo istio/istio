@@ -36,7 +36,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Multicluster).
+		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
 		Setup(kube.Setup(func(s *kube.Settings) {

@@ -34,17 +34,6 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
 }
 
-func TestPilotDefaultDomainConsul(t *testing.T) {
-	g := gomega.NewWithT(t)
-	role := &model.Proxy{}
-	role.DNSDomain = ""
-	registryID = serviceregistry.Consul
-
-	domain := getDNSDomain("", role.DNSDomain)
-
-	g.Expect(domain).To(gomega.Equal("service.consul"))
-}
-
 func TestPilotDefaultDomainOthers(t *testing.T) {
 	g := gomega.NewWithT(t)
 	role = &model.Proxy{}

@@ -47,7 +47,8 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
 	}
-	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
+
+	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	// TODO: change back to return err when have other validation cases, warning for automtls check only.
 	if err := validateFeatures(values, iopls).ToError(); err != nil {
 		warningMessage = fmt.Sprintf("feature validation warning: %v\n", err.Error())
@@ -86,7 +87,6 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.global.enableTracing", "meshConfig.enableTracing", false},
 		{"Values.global.proxy.accessLogFormat", "meshConfig.accessLogFormat", ""},
 		{"Values.global.proxy.accessLogFile", "meshConfig.accessLogFile", ""},
-		{"Values.global.proxy.accessLogEncoding", "meshConfig.accessLogEncoding", valuesv1alpha1.AccessLogEncoding_JSON},
 		{"Values.global.proxy.concurrency", "meshConfig.defaultConfig.concurrency", uint32(0)},
 		{"Values.global.proxy.envoyAccessLogService", "meshConfig.defaultConfig.envoyAccessLogService", nil},
 		{"Values.global.proxy.envoyAccessLogService.enabled", "meshConfig.enableEnvoyAccessLogService", nil},
@@ -99,6 +99,14 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.tracing.enabled", "the samples/addons/ deployments", false},
 		{"Values.kiali.enabled", "the samples/addons/ deployments", false},
 		{"Values.prometheus.enabled", "the samples/addons/ deployments", false},
+		{"Values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
+		{"Values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", ""},
+		{"Values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil},
+		{"Values.global.tracer.stackdriver.debug", "meshConfig.defaultConfig.tracing.stackdriver.debug", false},
+		{"Values.global.tracer.stackdriver.maxNumberOfAttributes", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes", 0},
+		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0},
+		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
+		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
 		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
@@ -128,7 +136,7 @@ func validateFeatures(_ *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSpec) u
 	return nil
 }
 
-func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
+func ValidateSubTypes(e reflect.Value, failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
 	// Dealing with receiver pointer and receiver value
 	ptr := e
 	k := e.Kind()
@@ -177,7 +185,7 @@ func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *val
 		if util.IsNilOrInvalidValue(val) {
 			continue
 		}
-		validationErrors = append(validationErrors, validateSubTypes(e.Field(i), failOnMissingValidation, values, iopls)...)
+		validationErrors = append(validationErrors, ValidateSubTypes(e.Field(i), failOnMissingValidation, values, iopls)...)
 	}
 
 	return validationErrors
@@ -186,7 +194,7 @@ func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *val
 func processSlice(e reflect.Value, failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
 	var validationErrors util.Errors
 	for i := 0; i < e.Len(); i++ {
-		validationErrors = append(validationErrors, validateSubTypes(e.Index(i), failOnMissingValidation, values, iopls)...)
+		validationErrors = append(validationErrors, ValidateSubTypes(e.Index(i), failOnMissingValidation, values, iopls)...)
 	}
 
 	return validationErrors
@@ -196,7 +204,7 @@ func processMap(e reflect.Value, failOnMissingValidation bool, values *valuesv1a
 	var validationErrors util.Errors
 	for _, k := range e.MapKeys() {
 		v := e.MapIndex(k)
-		validationErrors = append(validationErrors, validateSubTypes(v, failOnMissingValidation, values, iopls)...)
+		validationErrors = append(validationErrors, ValidateSubTypes(v, failOnMissingValidation, values, iopls)...)
 	}
 
 	return validationErrors

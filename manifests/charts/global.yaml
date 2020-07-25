@@ -20,13 +20,6 @@ global:
   # used (citadel generating the secrets).
   istioNamespace: istio-system
 
-  # Telemetry namespace, including tracing.
-  telemetryNamespace: istio-system
-
-  prometheusNamespace: istio-system
-
-  policyNamespace: istio-system
-
   ## End new settings
   ## After this line we have the old Istio settings.
 
@@ -130,10 +123,6 @@ global:
   # Specify image pull policy if default behavior isn't desired.
   # Default behavior: latest images will be Always else IfNotPresent.
   imagePullPolicy: ""
-
-  # controlPlaneMtls enabled. Will result in delays starting the pods while secrets are
-  # propagated, not recommended for tests.
-  controlPlaneSecurityEnabled: true
 
   # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
   mountMtlsCerts: false
@@ -353,10 +342,6 @@ global:
   # corresponds to the networks in the map of mesh networks.
   network: ""
 
-  # Specifies whether helm test is enabled or not.
-  # This field is set to false by default, so 'helm template ...'
-  # will ignore the helm test yaml files when generating the template
-  enableHelmTest: false
   # Configure whether Operator manages webhook configurations. The current behavior
   # of Istiod is to manage its own webhook configurations.
   # When this option is set as true, Istio Operator, instead of webhooks, manages the
@@ -364,13 +349,8 @@ global:
   # own webhook configurations.
   operatorManageWebhooks: false
 
-  # Settings for remote cluster.
-  createRemoteSvcEndpoints: false
-  
   # configure remote pilot and istiod service and endpoint
-  remotePolicyAddress: ""
   remotePilotAddress: ""
-  remoteTelemetryAddress: ""
 
   # Configure the certificate provider for control plane communication.
   # Currently, two providers are supported: "kubernetes" and "istiod".
@@ -388,10 +368,6 @@ global:
 # When set to 'false', all cluster-wide resources will be omitted, and are expected to be installed
 # at the same time with the CRDs.
 clusterResources: true
-
-# Version is set as 'version' label and part of the resource names when installing.
-# It is used to support multiple version in same namespace, similar with normal app traffic shift.
-version: ""
 
 meshConfig:
   enablePrometheusMerge: true

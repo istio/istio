@@ -637,7 +637,7 @@ func TestBuildStatPrefix(t *testing.T) {
 			"",
 			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
 			model.ServiceAttributes{
-				ServiceRegistry: string(serviceregistry.Consul),
+				ServiceRegistry: serviceregistry.External,
 				Name:            "foo",
 				Namespace:       "bar",
 			},
