@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -300,15 +302,57 @@ func TestSidecarListeners(t *testing.T) {
 
 func TestMeshNetworking(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{
+		KubernetesObjectString: `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubeapp-1234
+  namespace: pod
+  labels:
+    app: kubeapp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeapp
+  namespace: pod
+spec:
+  clusterIP: 1.2.3.4
+  selector:
+    app: kubeapp
+  ports:
+  - port: 80
+    name: http
+    protocol: TCP
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: kubeapp
+  namespace: pod
+  labels:
+    app: kubeapp
+subsets:
+- addresses:
+  - ip: 10.10.10.20
+    targetRef:
+      kind: Pod
+      name: kubeapp-1234
+      namespace: pod
+  ports:
+  - port: 80
+    name: http
+    protocol: TCP
+`,
 		ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: pod
+  name: se-pod
   namespace: pod
 spec:
   hosts:
-  - pod.pod.svc.cluster.local
+  - se-pod.pod.svc.cluster.local
   ports:
   - number: 80
     name: http
@@ -316,10 +360,10 @@ spec:
   resolution: STATIC
   location: MESH_INTERNAL
   endpoints:
-  - address: 10.10.10.20
+  - address: 10.10.10.30
     labels:
-      app: pod
-    network: Kubernetes
+      app: se-pod
+    network: network-1
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -341,7 +385,7 @@ spec:
     network: vm
 `,
 		MeshNetworks: &meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
-			"Kubernetes": {
+			"network-1": {
 				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
 					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
 				}},
@@ -353,10 +397,24 @@ spec:
 			},
 		}},
 	})
+	se := s.SetupProxy(&model.Proxy{
+		ID: "se-pod.pod",
+		Metadata: &model.NodeMetadata{
+			Network:   "network-1",
+			ClusterID: "Kubernetes",
+			Labels:    labels.Instance{"app": "se-pod"},
+		},
+	})
 	pod := s.SetupProxy(&model.Proxy{
-		Metadata: &model.NodeMetadata{Network: "Kubernetes"},
+		ID: "kubeapp-1234.pod",
+		Metadata: &model.NodeMetadata{
+			Network:   "network-1",
+			ClusterID: "Kubernetes",
+			Labels:    labels.Instance{"app": "kubeapp"},
+		},
 	})
 	vm := s.SetupProxy(&model.Proxy{
+		ID:              "vm",
 		IPAddresses:     []string{"10.10.10.10"},
 		ConfigNamespace: "default",
 		Metadata: &model.NodeMetadata{
@@ -365,8 +423,44 @@ spec:
 		},
 	})
 
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(pod))["outbound|7070||httpbin.com"], []string{"10.10.10.10"})
-	assertListEqual(t, ExtractEndpoints(s.Endpoints(vm))["outbound|80||pod.pod.svc.cluster.local"], []string{"2.2.2.2"})
+	tests := []struct {
+		p      *model.Proxy
+		expect map[string]string
+	}{
+		{
+			p: pod,
+			expect: map[string]string{
+				"outbound|7070||httpbin.com":                 "10.10.10.10",
+				"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
+				"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+			},
+		},
+		{
+			p: se,
+			expect: map[string]string{
+				"outbound|7070||httpbin.com":                 "10.10.10.10",
+				"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
+				"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+			},
+		},
+		{
+			p: vm,
+			expect: map[string]string{
+				"outbound|7070||httpbin.com":                 "10.10.10.10",
+				"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
+				"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		eps := ExtractEndpoints(s.Endpoints(tt.p))
+		for c, ip := range tt.expect {
+			t.Run(fmt.Sprintf("%s from %s", c, vm.ID), func(t *testing.T) {
+				assertListEqual(t, eps[c], []string{ip})
+			})
+		}
+	}
 }
 
 func TestEgressProxy(t *testing.T) {
