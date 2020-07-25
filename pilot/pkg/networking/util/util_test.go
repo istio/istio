@@ -631,19 +631,6 @@ func TestBuildStatPrefix(t *testing.T) {
 			"reviews.namespace1.7443",
 		},
 		{
-			"Service from non k8s registry",
-			"%SERVICE%.%SERVICE_PORT%",
-			"reviews.hostname.consul",
-			"",
-			&model.Port{Name: "grpc-svc", Port: 7443, Protocol: "GRPC"},
-			model.ServiceAttributes{
-				ServiceRegistry: serviceregistry.External,
-				Name:            "foo",
-				Namespace:       "bar",
-			},
-			"reviews.hostname.consul.7443",
-		},
-		{
 			"Service FQDN only pattern",
 			"%SERVICE_FQDN%",
 			"reviews.default.svc.cluster.local",
