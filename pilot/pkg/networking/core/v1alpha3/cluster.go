@@ -447,10 +447,10 @@ const (
 	autoDetected
 )
 
-// conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+// maybeBuildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 // If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
 // creates and populates the config as if they are set as ISTIO_MUTUAL.
-func conditionallyConvertToIstioMtls(
+func maybeBuildAutoMtlsSettings(
 	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
 	sni string,
@@ -460,20 +460,22 @@ func conditionallyConvertToIstioMtls(
 	serviceMTLSMode model.MutualTLSMode,
 	clusterDiscoveryType cluster.Cluster_DiscoveryType) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
-		if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
-			// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
-			// user specified SNIs in the istio mtls settings are useful when routing via gateways
-			sniToUse := tls.Sni
-			if len(sniToUse) == 0 {
-				sniToUse = sni
-			}
-			subjectAltNamesToUse := tls.SubjectAltNames
-			if len(subjectAltNamesToUse) == 0 {
-				subjectAltNamesToUse = serviceAccounts
-			}
-			return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), userSupplied
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return tls, userSupplied
 		}
-		return tls, userSupplied
+
+		// Update TLS settings for ISTIO_MUTUAL.
+		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
+		// user specified SNIs in the istio mtls settings are useful when routing via gateways.
+		sniToUse := tls.Sni
+		if len(sniToUse) == 0 {
+			sniToUse = sni
+		}
+		subjectAltNamesToUse := tls.SubjectAltNames
+		if len(subjectAltNamesToUse) == 0 {
+			subjectAltNamesToUse = serviceAccounts
+		}
+		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), userSupplied
 	}
 
 	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
@@ -484,6 +486,7 @@ func conditionallyConvertToIstioMtls(
 	if clusterDiscoveryType == cluster.Cluster_ORIGINAL_DST {
 		return nil, userSupplied
 	}
+	// Build settings for auto MTLS.
 	return buildIstioMutualTLS(serviceAccounts, sni, proxy), autoDetected
 }
 
@@ -624,7 +627,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+		tls, mtlsCtxType = maybeBuildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
 	}
