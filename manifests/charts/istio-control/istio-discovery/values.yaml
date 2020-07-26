@@ -64,13 +64,6 @@ pilot:
   configMap: true
 
 
-## Mixer settings
-mixer:
-  telemetry:
-    sessionAffinityEnabled: false
-  policy:
-    enabled: false
-
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
@@ -111,11 +104,8 @@ sidecarInjectorWebhook:
 
 telemetry:
   enabled: true
-  v1:
-    # Set true to enable Mixer based telemetry
-    enabled: false
   v2:
-    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # For Null VM case now.
     # This also enables metadata exchange.
     enabled: true
     metadataExchange:

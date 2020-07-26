@@ -130,43 +130,6 @@ gateway in a dedicated namespace and restrict access.
 
 For large-scale gateways it is optionally possible to use a dedicated pilot in the gateway namespace.
 
-<<<<<<< HEAD
-### Telemetry
-
-```bash
-iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/
-iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
-        --set global.istioNamespace=istio-system \
-        --set global.telemetryNamespace=istio-telemetry \
-        --set global.policyNamespace=istio-policy
-iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ \
-        --set global.istioNamespace=istio-system \
-        --set global.telemetryNamespace=istio-telemetry \
-        --set global.policyNamespace=istio-policy
-
-TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
-TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
-        --set global.istioNamespace=istio-master \
-        --set global.telemetryNamespace=istio-telemetry-master \
-        --set global.policyNamespace=istio-policy-master
-TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
-        --set global.istioNamespace=istio-master \
-        --set global.telemetryNamespace=istio-telemetry-master \
-        --set global.policyNamespace=istio-policy-master
-```
-
-### Kiali
-
-```bash
-iop istio-telemetry kiali $IBASE/istio-telemetry/kiali \
-        --set global.istioNamespace=istio-system \
-        --set global.telemetryNamespace=istio-telemetry \
-        --set global.policyNamespace=istio-policy \
-        --set global.prometheusNamespace=istio-telemetry
-```
-
-=======
->>>>>>> 78fa9a988acdda70785b0dd5b1ea1b30cb89e1bc
 ### Additional test templates
 
 A number of helm test setups are general-purpose and should be installable in any cluster, to confirm
