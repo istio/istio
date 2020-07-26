@@ -153,6 +153,8 @@ func (f *FakeController) ResyncEndpoints() error {
 		// endpoint updates are skipped when the service is not there yet
 		if host, svc, ns := e.getServiceInfo(ep); host != "" {
 			_ = retry.UntilSuccess(func() error {
+				f.RLock()
+				defer f.RUnlock()
 				if f.servicesMap[host] == nil {
 					return fmt.Errorf("waiting for service %s in %s to be populated", svc, ns)
 				}
