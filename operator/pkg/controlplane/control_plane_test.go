@@ -97,6 +97,18 @@ func TestNewIstioOperator(t *testing.T) {
 							ComponentName: name.PilotComponentName,
 						},
 					},
+					&component.PolicyComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options:       coreComponentOptions,
+							ComponentName: name.PolicyComponentName,
+						},
+					},
+					&component.TelemetryComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.TelemetryComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
 					&component.CNIComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							ComponentName: name.CNIComponentName,
@@ -155,6 +167,18 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 							ComponentName: name.PilotComponentName,
 						},
 					},
+					&component.PolicyComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options:       coreComponentOptions,
+							ComponentName: name.PolicyComponentName,
+						},
+					},
+					&component.TelemetryComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.TelemetryComponentName,
+							Options:       coreComponentOptions,
+						},
+					},
 					&component.CNIComponent{
 						CommonComponentFields: &component.CommonComponentFields{
 							ComponentName: name.CNIComponentName,
@@ -168,6 +192,8 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 			wantErrs: []error{
 				fmt.Errorf("component Base not started in RenderManifest"),
 				fmt.Errorf("component Pilot not started in RenderManifest"),
+				fmt.Errorf("component Policy not started in RenderManifest"),
+				fmt.Errorf("component Telemetry not started in RenderManifest"),
 				fmt.Errorf("component Cni not started in RenderManifest"),
 			},
 		},
@@ -189,6 +215,18 @@ func TestIstioOperator_RenderManifest(t *testing.T) {
 							},
 							ResourceName:  "test-resource",
 							ComponentName: name.PilotComponentName,
+						},
+					},
+					&component.PolicyComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							Options:       coreComponentOptions,
+							ComponentName: name.PolicyComponentName,
+						},
+					},
+					&component.TelemetryComponent{
+						CommonComponentFields: &component.CommonComponentFields{
+							ComponentName: name.TelemetryComponentName,
+							Options:       coreComponentOptions,
 						},
 					},
 					&component.CNIComponent{

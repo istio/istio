@@ -108,7 +108,9 @@ func NewTranslator() *Translator {
 			"MeshConfig":  {OutPath: "meshConfig"},
 		},
 		GlobalNamespaces: map[name.ComponentName]string{
-			name.PilotComponentName: "istioNamespace",
+			name.PilotComponentName:     "istioNamespace",
+			name.TelemetryComponentName: "telemetryNamespace",
+			name.PolicyComponentName:    "policyNamespace",
 		},
 		ComponentMaps: map[name.ComponentName]*ComponentMaps{
 			name.IstioBaseComponentName: {
@@ -122,6 +124,20 @@ func NewTranslator() *Translator {
 				ContainerName:        "discovery",
 				HelmSubdir:           "istio-control/istio-discovery",
 				ToHelmValuesTreeRoot: "pilot",
+			},
+			name.PolicyComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-policy",
+				ContainerName:        "mixer",
+				HelmSubdir:           "istio-policy",
+				ToHelmValuesTreeRoot: "mixer.policy",
+			},
+			name.TelemetryComponentName: {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-telemetry",
+				ContainerName:        "mixer",
+				HelmSubdir:           "istio-telemetry/mixer-telemetry",
+				ToHelmValuesTreeRoot: "mixer.telemetry",
 			},
 			name.IngressComponentName: {
 				ResourceType:         "Deployment",
@@ -155,6 +171,42 @@ func NewTranslator() *Translator {
 				ContainerName:        "coredns",
 				HelmSubdir:           "istiocoredns",
 				ToHelmValuesTreeRoot: "istiocoredns",
+			},
+			name.ComponentName("Tracing"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "istio-tracing",
+				ContainerName:        "jaeger",
+				HelmSubdir:           "istio-telemetry/tracing",
+				ToHelmValuesTreeRoot: "tracing.jaeger",
+			},
+			name.ComponentName("PrometheusOperator"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "prometheus",
+				ContainerName:        "prometheus",
+				HelmSubdir:           "istio-telemetry/prometheusOperator",
+				ToHelmValuesTreeRoot: "prometheus",
+				SkipReverseTranslate: true,
+			},
+			name.ComponentName("Kiali"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "kiali",
+				ContainerName:        "kiali",
+				HelmSubdir:           "istio-telemetry/kiali",
+				ToHelmValuesTreeRoot: "kiali",
+			},
+			name.ComponentName("Grafana"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "grafana",
+				ContainerName:        "grafana",
+				HelmSubdir:           "istio-telemetry/grafana",
+				ToHelmValuesTreeRoot: "grafana",
+			},
+			name.ComponentName("Prometheus"): {
+				ResourceType:         "Deployment",
+				ResourceName:         "prometheus",
+				ContainerName:        "prometheus",
+				HelmSubdir:           "istio-telemetry/prometheus",
+				ToHelmValuesTreeRoot: "prometheus",
 			},
 		},
 		// nolint: lll

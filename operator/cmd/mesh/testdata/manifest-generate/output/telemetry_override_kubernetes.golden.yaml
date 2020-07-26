@@ -1,0 +1,418 @@
+apiVersion: config.istio.io/v1alpha2
+kind: handler
+metadata:
+  labels:
+    app: istio-telemetry
+    release: istio
+  name: prometheus
+  namespace: istio-system
+spec:
+  compiledAdapter: prometheus
+  params:
+    metrics:
+    - instance_name: requestcount.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - new_metric
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - grpc_response_status
+      - response_code
+      - response_flags
+      - connection_security_policy
+      name: requests_total
+    - buckets:
+        explicit_buckets:
+          bounds:
+          - 0.005
+          - 0.01
+          - 0.025
+          - 0.05
+          - 0.1
+          - 0.25
+          - 0.5
+          - 1
+          - 2.5
+          - 5
+          - 10
+      instance_name: requestduration.instance.istio-system
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - grpc_response_status
+      - response_flags
+      - connection_security_policy
+      name: request_duration_seconds
+    - buckets:
+        exponentialBuckets:
+          growthFactor: 10
+          numFiniteBuckets: 8
+          scale: 1
+      instance_name: requestsize.instance.istio-system
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - grpc_response_status
+      - response_flags
+      - connection_security_policy
+      name: request_bytes
+    - buckets:
+        exponentialBuckets:
+          growthFactor: 10
+          numFiniteBuckets: 8
+          scale: 1
+      instance_name: responsesize.instance.istio-system
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - grpc_response_status
+      - response_flags
+      - connection_security_policy
+      name: response_bytes
+    - instance_name: tcpbytesent.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+      name: tcp_sent_bytes_total
+    - instance_name: tcpbytereceived.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+      name: tcp_received_bytes_total
+    - instance_name: tcpconnectionsopened.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+      name: tcp_connections_opened_total
+    - instance_name: tcpconnectionsclosed.instance.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_security_policy
+      - response_flags
+      name: tcp_connections_closed_total
+    metricsExpirationPolicy:
+      metricsExpiryDuration: 10m
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: istio-mixer
+    istio: mixer
+    release: istio
+  name: istio-telemetry
+  namespace: istio-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio: mixer
+      istio-mixer-type: telemetry
+  strategy:
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: telemetry
+        istio: mixer
+        istio-mixer-type: telemetry
+    spec:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - ppc64le
+            weight: 2
+          - preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - s390x
+            weight: 2
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - ppc64le
+                - s390x
+      containers:
+      - args:
+        - --monitoringPort=15014
+        - --address
+        - unix:///sock/mixer.socket
+        - --log_output_level=default:info
+        - --configStoreURL=k8s://
+        - --configDefaultNamespace=istio-system
+        - --useAdapterCRDs=false
+        - --useTemplateCRDs=false
+        - --trace_zipkin_url=http://zipkin.istio-telemetry:1234/api/v1/spans
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: GOMAXPROCS
+          value: "6"
+        image: gcr.io/istio-testing/mixer:latest
+        livenessProbe:
+          httpGet:
+            path: /version
+            port: 15014
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        name: mixer
+        ports:
+        - containerPort: 9091
+        - containerPort: 15014
+        - containerPort: 42422
+        resources:
+          limits:
+            cpu: 4800m
+            memory: 4G
+          requests:
+            cpu: 1000m
+            memory: 1G
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+        volumeMounts:
+        - mountPath: /sock
+          name: uds-socket
+        - mountPath: /var/run/secrets/istio.io/telemetry/adapter
+          name: telemetry-adapter-secret
+          readOnly: true
+      - args:
+        - proxy
+        - --domain
+        - $(POD_NAMESPACE).svc.cluster.local
+        - --serviceCluster
+        - istio-telemetry
+        - --templateFile
+        - /var/lib/envoy/envoy.yaml.tmpl
+        - --controlPlaneAuthPolicy
+        - MUTUAL_TLS
+        - --trust-domain=cluster.local
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: JWT_POLICY
+          value: third-party-jwt
+        - name: PILOT_CERT_PROVIDER
+          value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-proxy
+        ports:
+        - containerPort: 15004
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: /etc/istio/config
+          name: config-volume
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+          readOnly: true
+        - mountPath: /var/lib/envoy
+          name: telemetry-envoy-config
+        - mountPath: /sock
+          name: uds-socket
+      securityContext:
+        fsGroup: 1337
+      serviceAccountName: istio-mixer-service-account
+      volumes:
+      - configMap:
+          name: istio
+          optional: true
+        name: config-volume
+      - configMap:
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
+      - name: istio-certs
+        secret:
+          optional: true
+          secretName: istio.istio-mixer-service-account
+      - emptyDir: {}
+        name: uds-socket
+      - name: telemetry-adapter-secret
+        secret:
+          optional: true
+          secretName: telemetry-adapter-secret
+      - configMap:
+          name: telemetry-envoy-config
+        name: telemetry-envoy-config
+---

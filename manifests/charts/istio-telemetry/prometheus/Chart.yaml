@@ -1,0 +1,8 @@
+apiVersion: v1
+description: A Helm chart for Kubernetes
+name: prometheus
+version: 1.1.0
+appVersion: 2.8.0
+tillerVersion: ">=2.7.2"
+keywords:
+  - istio-addon

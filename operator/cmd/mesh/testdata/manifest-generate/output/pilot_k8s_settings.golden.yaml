@@ -63,8 +63,6 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.serviceAccountName
-        - name: KUBECONFIG
-          value: /var/run/secrets/remote/config
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
@@ -117,9 +115,6 @@ spec:
         - mountPath: /etc/cacerts
           name: cacerts
           readOnly: true
-        - mountPath: /var/run/secrets/remote
-          name: istio-kubeconfig
-          readOnly: true
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
@@ -143,10 +138,6 @@ spec:
         secret:
           optional: true
           secretName: cacerts
-      - name: istio-kubeconfig
-        secret:
-          optional: true
-          secretName: istio-kubeconfig
       - configMap:
           name: istio-sidecar-injector
         name: inject

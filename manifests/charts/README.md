@@ -138,12 +138,20 @@ For large-scale gateways it is optionally possible to use a dedicated pilot in t
 
 ```bash
 iop istio-telemetry istio-grafana $IBASE/istio-telemetry/grafana/
+iop istio-telemetry istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
+        --set global.istioNamespace=istio-system \
+        --set global.telemetryNamespace=istio-telemetry \
+        --set global.policyNamespace=istio-policy
 iop istio-telemetry istio-prometheus $IBASE/istio-telemetry/prometheus/ \
         --set global.istioNamespace=istio-system \
         --set global.telemetryNamespace=istio-telemetry \
         --set global.policyNamespace=istio-policy
 
 TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-grafana $IBASE/istio-telemetry/grafana/ \
+TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-mixer $IBASE/istio-telemetry/mixer-telemetry/ \
+        --set global.istioNamespace=istio-master \
+        --set global.telemetryNamespace=istio-telemetry-master \
+        --set global.policyNamespace=istio-policy-master
 TAG=latest HUB=gcr.io/istio-testing iop istio-telemetry-master istio-prometheus $IBASE/istio-telemetry/prometheus/ \
         --set global.istioNamespace=istio-master \
         --set global.telemetryNamespace=istio-telemetry-master \

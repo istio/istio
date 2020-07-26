@@ -121,8 +121,64 @@ spec:
             maxUnavailable: 25%
     policy:
       enabled: false
+      k8s:
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-policy
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
     telemetry:
       enabled: false
+      k8s:
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: GOMAXPROCS
+          value: "6"
+        hpaSpec:
+          maxReplicas: 5
+          metrics:
+          - resource:
+              name: cpu
+              targetAverageUtilization: 80
+            type: Resource
+          minReplicas: 1
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: istio-telemetry
+        replicaCount: 1
+        resources:
+          limits:
+            cpu: 4800m
+            memory: 4G
+          requests:
+            cpu: 1000m
+            memory: 1G
+        strategy:
+          rollingUpdate:
+            maxSurge: 100%
+            maxUnavailable: 25%
   hub: gcr.io/istio-testing
 
   meshConfig:
@@ -157,9 +213,15 @@ spec:
         domain: ""
         env: {}
         meshExpansionPorts:
+        - name: tcp-pilot-grpc-tls
+          port: 15011
+          targetPort: 15011
         - name: tcp-istiod
           port: 15012
           targetPort: 15012
+        - name: tcp-citadel-grpc-tls
+          port: 8060
+          targetPort: 8060
         - name: tcp-dns-tls
           port: 853
           targetPort: 8853
@@ -263,12 +325,115 @@ spec:
           address: ""
       trustDomain: cluster.local
       useMCP: false
+    grafana:
+      accessMode: ReadWriteMany
+      contextPath: /grafana
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+          - disableDeletion: false
+            folder: istio
+            name: istio
+            options:
+              path: /var/lib/grafana/dashboards/istio
+            orgId: 1
+            type: file
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+      env: {}
+      envSecrets: {}
+      image:
+        repository: grafana/grafana
+        tag: 7.0.3
+      nodeSelector: {}
+      persist: false
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+      security:
+        enabled: false
+        passphraseKey: passphrase
+        secretName: grafana
+        usernameKey: username
+      service:
+        annotations: {}
+        externalPort: 3000
+        name: http
+        type: ClusterIP
+      storageClassName: ""
+      tolerations: []
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
       coreDNSTag: 1.6.2
     istiodRemote:
       injectionURL: ""
+    kiali:
+      contextPath: /kiali
+      createDemoSecret: false
+      dashboard:
+        auth:
+          strategy: login
+        grafanaInClusterURL: http://grafana:3000
+        jaegerInClusterURL: http://tracing/jaeger
+        passphraseKey: passphrase
+        secretName: kiali
+        usernameKey: username
+        viewOnlyMode: false
+      hub: quay.io/kiali
+      nodeSelector: {}
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+      security:
+        cert_file: /kiali-cert/cert-chain.pem
+        enabled: false
+        private_key_file: /kiali-cert/key.pem
+      service:
+        annotations: {}
+      tag: v1.18
+    mixer:
+      adapters:
+        kubernetesenv:
+          enabled: true
+        prometheus:
+          enabled: true
+          metricsExpiryDuration: 10m
+        stackdriver:
+          auth:
+            apiKey: ""
+            appCredentials: false
+            serviceAccountPath: ""
+          enabled: false
+          tracer:
+            enabled: false
+            sampleProbability: 1
+        stdio:
+          enabled: false
+          outputAsJson: false
+        useAdapterCRDs: false
+      policy:
+        adapters:
+          kubernetesenv:
+            enabled: true
+          useAdapterCRDs: false
+        autoscaleEnabled: true
+        image: mixer
+        sessionAffinityEnabled: false
+      telemetry:
+        autoscaleEnabled: true
+        env:
+          GOMAXPROCS: "6"
+        image: mixer
+        loadshedding:
+          latencyThreshold: 100ms
+          mode: enforce
+        nodeSelector: {}
+        podAntiAffinityLabelSelector: []
+        podAntiAffinityTermLabelSelector: []
+        replicaCount: 1
+        sessionAffinityEnabled: false
+        tolerations: []
     pilot:
       appNamespaces: []
       autoscaleEnabled: true
@@ -291,6 +456,19 @@ spec:
       replicaCount: 1
       tolerations: []
       traceSampling: 1
+    prometheus:
+      contextPath: /prometheus
+      hub: docker.io/prom
+      nodeSelector: {}
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+      provisionPrometheusCert: true
+      retention: 6h
+      scrapeInterval: 15s
+      security:
+        enabled: true
+      tag: v2.18.1
+      tolerations: []
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
       injectLabel: istio-injection
@@ -313,5 +491,53 @@ spec:
           logging: false
           monitoring: false
           topology: false
+    tracing:
+      jaeger:
+        accessMode: ReadWriteMany
+        hub: docker.io/jaegertracing
+        memory:
+          max_traces: 50000
+        persist: false
+        spanStorageType: badger
+        storageClassName: ""
+        tag: "1.18"
+      nodeSelector: {}
+      opencensus:
+        exporters:
+          stackdriver:
+            enable_tracing: true
+        hub: docker.io/omnition
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: 200m
+            memory: 400Mi
+        tag: 0.1.9
+      podAntiAffinityLabelSelector: []
+      podAntiAffinityTermLabelSelector: []
+      provider: jaeger
+      service:
+        annotations: {}
+        externalPort: 9411
+        name: http-query
+        type: ClusterIP
+      zipkin:
+        hub: docker.io/openzipkin
+        javaOptsHeap: 700
+        maxSpans: 500000
+        node:
+          cpus: 2
+        probeStartupDelay: 10
+        queryPort: 9411
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2048Mi
+          requests:
+            cpu: 150m
+            memory: 900Mi
+        tag: 2.20.0
     version: ""
 

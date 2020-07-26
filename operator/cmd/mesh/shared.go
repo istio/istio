@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package mesh contains types and functions.
+// Package mesh contains types and functions that are used across the full
+// set of mixer commands.
 package mesh
 
 import (

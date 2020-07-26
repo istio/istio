@@ -77,6 +77,26 @@ type testGroup []struct {
 	chartSource                 chartSourceType
 }
 
+func TestManifestGeneratePrometheus(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	objss, err := runManifestCommands("prometheus", "", liveCharts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"ClusterRole::prometheus-istio-system",
+		"ClusterRoleBinding::prometheus-istio-system",
+		"ConfigMap:istio-system:prometheus",
+		"Deployment:istio-system:prometheus",
+		"Service:istio-system:prometheus",
+		"ServiceAccount:istio-system:prometheus",
+	}
+	for _, objs := range objss {
+		g.Expect(objs.keySlice).Should(ContainElements(want))
+	}
+}
+
 func TestManifestGenerateComponentHubTag(t *testing.T) {
 	g := NewGomegaWithT(t)
 
@@ -91,6 +111,14 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 		want           string
 	}{
 		{
+			deploymentName: "prometheus",
+			want:           "docker.io/prometheus:1.1.1",
+		},
+		{
+			deploymentName: "grafana",
+			want:           "grafana/grafana:1.2.3",
+		},
+		{
 			deploymentName: "istio-ingressgateway",
 			containerName:  "istio-proxy",
 			want:           "istio-spec.hub/proxyv2:istio-spec.tag",
@@ -99,6 +127,10 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 			deploymentName: "istiod",
 			containerName:  "discovery",
 			want:           "component.pilot.hub/pilot:2",
+		},
+		{
+			deploymentName: "kiali",
+			want:           "docker.io/testing/kiali:v1.18",
 		},
 	}
 
@@ -340,6 +372,30 @@ func TestManifestGeneratePilot(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateTelemetry(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc: "all_off",
+		},
+		{
+			desc:       "telemetry_default",
+			diffIgnore: "",
+		},
+		{
+			desc:       "telemetry_k8s_settings",
+			diffSelect: "Deployment:*:istio-telemetry, HorizontalPodAutoscaler:*:istio-telemetry",
+		},
+		{
+			desc:       "telemetry_override_values",
+			diffSelect: "handler:*:prometheus",
+		},
+		{
+			desc:       "telemetry_override_kubernetes",
+			diffSelect: "Deployment:*:istio-telemetry, handler:*:prometheus",
+		},
+	})
+}
+
 func TestManifestGenerateGateway(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
@@ -349,13 +405,23 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateAddonK8SOverride(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "addon_k8s_override",
+			diffSelect: "Service:*:prometheus, Deployment:*:prometheus, Service:*:kiali",
+		},
+	})
+}
+
 // TestManifestGenerateHelmValues tests whether enabling components through the values passthrough interface works as
 // expected i.e. without requiring enablement also in IstioOperator API.
 func TestManifestGenerateHelmValues(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
-			desc:       "helm_values_enablement",
-			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway",
+			desc: "helm_values_enablement",
+			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway," +
+				" Deployment:*:kiali, Service:*:kiali, Deployment:*:prometheus, Service:*:prometheus",
 		},
 	})
 }
@@ -397,18 +463,18 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 
 func TestMultiICPSFiles(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
-	inPathOverride := filepath.Join(testDataDir, "input/helm_values_enablement.yaml")
+	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
 	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	outPath := filepath.Join(testDataDir, "output/helm_values_enablement"+goldenFileSuffixHideChangesInReview)
+	outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
 
 	want, err := readFile(outPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	diffSelect := "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway"
+	diffSelect := "handler:*:prometheus"
 	got, err = compare.FilterManifest(got, diffSelect, "")
 	if err != nil {
 		t.Errorf("error selecting from output manifest: %v", err)

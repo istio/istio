@@ -352,8 +352,11 @@ spec:
       useMCP: true
     telemetry:
       enabled: true
+      v1:
+        enabled: true
       v2:
-        # For Null VM case now. If enabled, will also enable metadata exchange and stats filter.
+        # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+        # also enable metadata exchange and stats filter.
         enabled: false
         # prometheus stats filter settings.
         prometheus:
@@ -368,6 +371,53 @@ spec:
           #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
 
           configOverride: {}
+    mixer:
+      adapters:
+        stdio:
+          enabled: false
+          outputAsJson: false
+        prometheus:
+          enabled: true
+          metricsExpiryDuration: 10m
+        kubernetesenv:
+          enabled: true
+        stackdriver:
+          enabled: false
+          auth:
+            appCredentials: false
+            apiKey: ""
+            serviceAccountPath: ""
+          tracer:
+            enabled: false
+            sampleProbability: 1
+        useAdapterCRDs: false
+
+      telemetry:
+        image: mixer
+        replicaCount: 1
+        autoscaleEnabled: true
+        sessionAffinityEnabled: false
+        loadshedding:
+          mode: enforce
+          latencyThreshold: 100ms
+        reportBatchMaxEntries: 100
+        reportBatchMaxTime: 1s
+        useMCP: true
+        env:
+          GOMAXPROCS: "6"
+        nodeSelector: {}
+        tolerations: []
+        podAntiAffinityLabelSelector: []
+        podAntiAffinityTermLabelSelector: []
+
+      policy:
+        autoscaleEnabled: true
+        image: mixer
+        sessionAffinityEnabled: false
+        adapters:
+          kubernetesenv:
+            enabled: true
+          useAdapterCRDs: false
 
     security:
       image: citadel

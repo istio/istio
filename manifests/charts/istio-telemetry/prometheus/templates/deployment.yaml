@@ -1,0 +1,220 @@
+# TODO: the original template has service account, roles, etc
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: prometheus
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.prometheus.replicaCount }}
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        release: {{ .Release.Name }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.prometheus.podAnnotations }}
+{{ toYaml .Values.prometheus.podAnnotations | indent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: prometheus
+{{- if .Values.global.priorityClassName }}
+      priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+      containers:
+        - name: prometheus
+          image: "{{ .Values.prometheus.hub }}/{{ .Values.prometheus.image }}:{{ .Values.prometheus.tag }}"
+{{- if .Values.global.imagePullPolicy }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+{{- end }}
+          args:
+            - '--storage.tsdb.retention={{ .Values.prometheus.retention }}'
+            - '--config.file=/etc/prometheus/prometheus.yml'
+          ports:
+            - containerPort: 9090
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+          resources:
+{{- if .Values.prometheus.resources }}
+{{ toYaml .Values.prometheus.resources | indent 12 }}
+{{- else }}
+{{ toYaml .Values.global.defaultResources | indent 12 }}
+{{- end }}
+          volumeMounts:
+          - name: config-volume
+            mountPath: /etc/prometheus
+          {{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
+          - mountPath: /etc/istio-certs
+            name: istio-certs
+          {{- end }}
+
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
+        - name: istio-proxy
+{{- if contains "/" .Values.global.proxy.image }}
+          image: "{{ .Values.global.proxy.image }}"
+{{- else }}
+          image: "{{ .Values.global.hub }}/{{ .Values.global.proxy.image | default "proxyv2" }}:{{ .Values.global.tag }}"
+{{- end }}
+          ports:
+            - containerPort: 15090
+              protocol: TCP
+              name: http-envoy-prom
+          args:
+            - proxy
+            - sidecar
+            - --domain
+            - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
+            - "istio-proxy-prometheus"
+            {{- if .Values.global.proxy.logLevel }}
+            - --proxyLogLevel={{ .Values.global.proxy.logLevel }}
+            {{- end}}
+            {{- if .Values.global.proxy.componentLogLevel }}
+            - --proxyComponentLogLevel={{ .Values.global.proxy.componentLogLevel }}
+            {{- end}}
+            - --controlPlaneAuthPolicy
+            - NONE
+              {{- if .Values.global.trustDomain }}
+            - --trust-domain={{ .Values.global.trustDomain }}
+              {{- end }}
+              {{- if .Values.global.logAsJson }}
+            - --log_as_json
+              {{- end }}
+          env:
+            - name: OUTPUT_CERTS
+              value: "/etc/istio-certs"
+            - name: JWT_POLICY
+              value: {{ .Values.global.jwtPolicy }}
+            - name: PILOT_CERT_PROVIDER
+              value: {{ .Values.global.pilotCertProvider }}
+            # Temp, pending PR to make it default or based on the istiodAddr env
+            - name: CA_ADDR
+              {{- if .Values.global.caAddress }}
+              value: {{ .Values.global.caAddress }}
+              {{- else }}
+              value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+              {{- end }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+              {{- if .Values.global.network }}
+            - name: ISTIO_META_NETWORK
+              value: "{{ .Values.global.network }}"
+              {{- end }}
+              {{- if .Values.global.meshID }}
+            - name: ISTIO_META_MESH_ID
+              value: "{{ .Values.global.meshID }}"
+              {{- else if .Values.global.trustDomain }}
+            - name: ISTIO_META_MESH_ID
+              value: "{{ .Values.global.trustDomain }}"
+              {{- end }}
+            - name: ISTIO_META_CLUSTER_ID
+              value: "{{ .Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+            {{- range $key, $value := .Values.meshConfig.defaultConfig.proxyMetadata }}
+            - name: {{ $key }}
+              value: "{{ $value }}"
+            {{- end }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "Always" }}
+          readinessProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz/ready
+              port: 15020
+              scheme: HTTP
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            timeoutSeconds: 1
+          volumeMounts:
+              {{- if eq .Values.global.pilotCertProvider "istiod" }}
+            - mountPath: /var/run/secrets/istio
+              name: istiod-ca-cert
+              {{- end }}
+            - mountPath: /etc/istio/proxy
+              name: istio-envoy
+              {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+            - mountPath: /var/run/secrets/tokens
+              name: istio-token
+              {{- end }}
+            - mountPath: /etc/istio-certs/
+              name: istio-certs
+            - name: istio-config-volume
+              mountPath: /etc/istio/config
+{{- end }}
+
+      volumes:
+      - name: istio-config-volume
+        configMap:
+          name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+          optional: true
+      - name: config-volume
+        configMap:
+          name: prometheus
+
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
+      - name: istio-certs
+        emptyDir:
+          medium: Memory
+{{- end }}
+
+{{- if and .Values.prometheus.provisionPrometheusCert (not .Values.meshConfig.enablePrometheusMerge) }}
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+        {{- if eq .Values.global.jwtPolicy "third-party-jwt" }}
+      - name: istio-token
+        projected:
+          defaultMode: 420
+          sources:
+            - serviceAccountToken:
+                path: istio-token
+                expirationSeconds: 43200
+                audience: {{ .Values.global.sds.token.aud }}
+        {{- end }}
+        {{- if eq .Values.global.pilotCertProvider "istiod" }}
+      - name: istiod-ca-cert
+        configMap:
+          defaultMode: 420
+          name: istio-ca-root-cert
+        {{- end }}
+{{- end }}
+
+      affinity:
+      {{- include "nodeaffinity" . | indent 6 }}
+      {{- include "podAntiAffinity" . | indent 6 }}
+{{- if .Values.prometheus.tolerations }}
+      tolerations:
+{{ toYaml .Values.prometheus.tolerations | indent 6 }}
+{{- else if .Values.global.defaultTolerations }}
+      tolerations:
+{{ toYaml .Values.global.defaultTolerations | indent 6 }}
+{{- end }}

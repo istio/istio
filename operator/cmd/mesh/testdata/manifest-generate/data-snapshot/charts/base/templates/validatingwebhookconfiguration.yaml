@@ -1,4 +1,3 @@
-{{- if .Values.global.configValidation }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -39,4 +38,3 @@ webhooks:
     sideEffects: None
     admissionReviewVersions: ["v1", "v1beta1"]
 ---
-{{- end }}

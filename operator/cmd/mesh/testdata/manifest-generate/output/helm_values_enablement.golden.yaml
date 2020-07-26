@@ -82,8 +82,6 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
-        - name: CA_ADDR
-          value: istiod.istio-system.svc:15012
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -174,8 +172,6 @@ spec:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
           readOnly: true
-        - mountPath: /var/run/ingress_gateway
-          name: gatewaysdsudspath
         - mountPath: /etc/istio/pod
           name: podinfo
         - mountPath: /etc/istio/egressgateway-certs
@@ -205,8 +201,6 @@ spec:
         name: podinfo
       - emptyDir: {}
         name: istio-envoy
-      - emptyDir: {}
-        name: gatewaysdsudspath
       - name: istio-token
         projected:
           sources:
@@ -226,6 +220,118 @@ spec:
         secret:
           optional: true
           secretName: istio-egressgateway-ca-certs
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiali
+  namespace: istio-system
+  labels:
+    app: kiali
+    release: istio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kiali
+  template:
+    metadata:
+      name: kiali
+      labels:
+        app: kiali
+        release: istio
+      annotations:
+        sidecar.istio.io/inject: "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        kiali.io/runtimes: go,kiali
+    spec:
+      serviceAccountName: kiali-service-account
+      containers:
+      - image: "quay.io/kiali/kiali:v1.18"
+        name: kiali
+        command:
+        - "/opt/kiali/kiali"
+        - "-config"
+        - "/kiali-configuration/config.yaml"
+        - "-v"
+        - "3"
+        readinessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme: 'HTTP'
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /kiali/healthz
+            port: 20001
+            scheme: 'HTTP'
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        env:
+        - name: ACTIVE_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: kiali-configuration
+          mountPath: "/kiali-configuration"
+        - name: kiali-cert
+          mountPath: "/kiali-cert"
+        - name: kiali-secret
+          mountPath: "/kiali-secret"
+        resources:
+          requests:
+            cpu: 10m
+      volumes:
+      - name: kiali-configuration
+        configMap:
+          name: kiali
+      - name: kiali-cert
+        secret:
+          secretName: istio.kiali-service-account
+          optional: true      
+      - name: kiali-secret
+        secret:
+          secretName: kiali
+          optional: true
+      affinity:      
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+                - "ppc64le"
+                - "s390x"
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "amd64"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "ppc64le"
+          - weight: 2
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - "s390x"
 ---
 
 
@@ -252,4 +358,24 @@ spec:
     app: istio-egressgateway
     istio: egressgateway
   type: ClusterIP
+---
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiali
+  namespace: istio-system
+  annotations:
+  labels:
+    app: kiali
+    release: istio
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-kiali
+      protocol: TCP
+      port: 20001
+  selector:
+    app: kiali
 ---

@@ -4,3 +4,7 @@ kind: IstioOperator
 spec:
   components:
     ingressGateways:
+
+  addonComponents:
+    prometheus:
+      enabled: false

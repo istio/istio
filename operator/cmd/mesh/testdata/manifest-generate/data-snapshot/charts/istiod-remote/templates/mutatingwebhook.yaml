@@ -23,16 +23,16 @@ webhooks:
         name: istiod
         namespace: {{ .Values.global.istioNamespace }}
         path: "/inject"
-      {{- end }}
+      {{- end }}      
       caBundle: {{ .Values.sidecarInjectorWebhook.caBundle }}
-    sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
         apiVersions: ["v1"]
         resources: ["pods"]
     failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
     namespaceSelector:
 {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
       matchExpressions:
@@ -68,14 +68,6 @@ webhooks:
         operator: NotIn
         values:
         - "false"
-{{- else if .Values.revision }}
-      matchExpressions:
-      - key: "sidecar.istio.io/inject"
-        operator: DoesNotExist
-      - key: istio.io/rev
-        operator: In
-        values:
-        - {{ .Values.revision }}
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"

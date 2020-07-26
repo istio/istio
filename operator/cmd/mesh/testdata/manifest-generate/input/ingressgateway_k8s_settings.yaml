@@ -4,6 +4,8 @@ spec:
   components:
     pilot:
       enabled: false
+    policy:
+      enabled: false
     ingressGateways:
     - namespace: istio-system
       name: istio-ingressgateway
@@ -17,3 +19,5 @@ spec:
             targetPort: 1234
         serviceAnnotations:
           manifest-generate: "testserviceAnnotation"
+    telemetry:
+      enabled: false
