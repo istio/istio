@@ -1175,24 +1175,24 @@ var (
 
 	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
 	PilotServiceApi = collection.NewSchemasBuilder().
-			MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
-			MustAdd(IstioConfigV1Alpha2Httpapispecs).
-			MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
-			MustAdd(IstioMixerV1ConfigClientQuotaspecs).
-			MustAdd(IstioNetworkingV1Alpha3Destinationrules).
-			MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
-			MustAdd(IstioNetworkingV1Alpha3Gateways).
-			MustAdd(IstioNetworkingV1Alpha3Serviceentries).
-			MustAdd(IstioNetworkingV1Alpha3Sidecars).
-			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
-			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
-			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
-			MustAdd(IstioSecurityV1Beta1Peerauthentications).
-			MustAdd(IstioSecurityV1Beta1Requestauthentications).
-			MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
-			MustAdd(K8SServiceApisV1Alpha1Gateways).
-			MustAdd(K8SServiceApisV1Alpha1Httproutes).
-			MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
-			Build()
+		//MustAdd(IstioConfigV1Alpha2Httpapispecbindings).
+		//MustAdd(IstioConfigV1Alpha2Httpapispecs).
+		//MustAdd(IstioMixerV1ConfigClientQuotaspecbindings).
+		//MustAdd(IstioMixerV1ConfigClientQuotaspecs).
+		MustAdd(IstioNetworkingV1Alpha3Destinationrules).
+		MustAdd(IstioNetworkingV1Alpha3Envoyfilters).
+		MustAdd(IstioNetworkingV1Alpha3Gateways).
+		MustAdd(IstioNetworkingV1Alpha3Serviceentries).
+		MustAdd(IstioNetworkingV1Alpha3Sidecars).
+		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
+		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		//MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
+		//MustAdd(IstioSecurityV1Beta1Peerauthentications).
+		//MustAdd(IstioSecurityV1Beta1Requestauthentications).
+		//MustAdd(K8SServiceApisV1Alpha1Gatewayclasses).
+		//MustAdd(K8SServiceApisV1Alpha1Gateways).
+		//MustAdd(K8SServiceApisV1Alpha1Httproutes).
+		//MustAdd(K8SServiceApisV1Alpha1Tcproutes).
+		//MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
+		Build()
 )
