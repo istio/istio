@@ -76,7 +76,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	gatewayNames := map[string]bool{"some-gateway": true}
 
 	t.Run("for virtual service", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
 		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
@@ -97,7 +97,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		dt := features.DefaultRequestTimeout
 		features.DefaultRequestTimeout = ptypes.DurationProto(1 * time.Second)
@@ -119,7 +119,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with timeout", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeout, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -137,7 +137,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with disabled timeout", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeoutDisabled, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -154,7 +154,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
 		for _, r := range routes {
@@ -167,7 +167,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRouteWeightedDestination, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -181,7 +181,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with multi prefix catch all route", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllMultiPrefixRoute, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -195,7 +195,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -212,7 +212,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with regex matching on URI with 1.6 proxy", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node16, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -229,7 +229,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -244,7 +244,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -260,7 +260,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with presence matching on header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -277,7 +277,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with presence matching on header and without_header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -298,7 +298,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cset := createVirtualServiceWithRegexMatchingForAllCasesOnHeader()
 
 		for _, c := range cset {
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 			routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, *c, serviceRegistry, 8080, gatewayNames)
 			// Valiate routes.
 			for _, r := range routes {
@@ -315,7 +315,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with source namespace matching", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		fooNode := *node
 		fooNode.Metadata = &model.NodeMetadata{
@@ -344,7 +344,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		ttl := types.Duration{Nanos: 100}
 		meshConfig := mesh.DefaultMeshConfig()
@@ -399,7 +399,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with query param based ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
@@ -449,7 +449,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with subsets with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		virtualService := model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -498,7 +498,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		virtualService := model.Config{ConfigMeta: model.ConfigMeta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
@@ -544,7 +544,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with subsets and top level traffic policy with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		virtualService := model.Config{
 			ConfigMeta: model.ConfigMeta{
@@ -594,7 +594,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("port selector based traffic policy", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
@@ -633,7 +633,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for header operations", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithHeaderOperations,
 			serviceRegistry, 8080, gatewayNames)
@@ -718,7 +718,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for redirect code", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirect,
 			serviceRegistry, 8080, gatewayNames)
@@ -737,7 +737,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for redirect and header manipulation", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirectAndSetHeader,
 			serviceRegistry, 8080, gatewayNames)
@@ -761,7 +761,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for no virtualservice but has destinationrule with consistentHash loadbalancer", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Mesh: &meshConfig,
@@ -778,7 +778,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
 	})
 	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Mesh: &meshConfig,

@@ -26,25 +26,26 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 )
 
-const mcReachabilitySvcPerCluster = 3
-
 // ReachabilityTest tests that services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, ns namespace.Instance, feature features.Feature) {
+func ReachabilityTest(t *testing.T, ns namespace.Instance, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
-		Features(feature).
+		Features(features...).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {
-					// Deploy services in different clusters.
-					// There are multiple instances in each cluster to tease out cases where proxies inconsistently
-					// use different discovery server. Spinning up more services and therefore more proxies increases
-					// the odds of a proxy getting bad configuration and not being able to reach a service in another cluster.
-					// (see https://github.com/istio/istio/issues/23591).
-					clusters := ctx.Environment().Clusters()
+					clusters := ctx.Clusters()
+					// Running multiple instances in each cluster teases out cases where proxies inconsistently
+					// use wrong different discovery server. For higher numbers of clusters, we already end up
+					// running plenty of services. (see https://github.com/istio/istio/issues/23591).
+					svcPerCluster := 5 - len(clusters)
+					if svcPerCluster < 1 {
+						svcPerCluster = 1
+					}
+
 					builder := echoboot.NewBuilder(ctx)
 					for _, cluster := range clusters {
-						for i := 0; i < mcReachabilitySvcPerCluster; i++ {
+						for i := 0; i < svcPerCluster; i++ {
 							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
 							builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))
 						}

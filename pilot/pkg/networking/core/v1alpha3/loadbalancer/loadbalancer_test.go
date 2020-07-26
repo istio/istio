@@ -80,7 +80,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: all priorities", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
 		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
@@ -106,7 +106,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: priorities with gaps", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
 		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
@@ -132,7 +132,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: priorities with some nil localities", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallClusterWithNilLocalities()
 		ApplyLocalityLBSetting(locality, cluster.LoadAssignment, env.Mesh().LocalityLbSetting, true)
@@ -159,7 +159,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: with locality lb disabled", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		cluster := buildSmallClusterWithNilLocalities()
 		lbsetting := &networking.LocalityLoadBalancerSetting{
 			Enabled: &types.BoolValue{Value: false},

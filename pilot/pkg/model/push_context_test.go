@@ -914,7 +914,7 @@ func TestIsClusterLocal(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
 			push := &PushContext{

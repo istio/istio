@@ -29,10 +29,10 @@ import (
 
 // TelemetryTest validates that source and destination labels are collected
 // for multicluster traffic.
-func TelemetryTest(t *testing.T, ns namespace.Instance, feature features.Feature) {
+func TelemetryTest(t *testing.T, ns namespace.Instance, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
-		Features(feature).
+		Features(features...).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("telemetry").
 				Run(func(ctx framework.TestContext) {

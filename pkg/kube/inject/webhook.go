@@ -30,6 +30,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
+
 	"istio.io/api/label"
 
 	"istio.io/api/annotation"
@@ -676,10 +677,6 @@ func toAdmissionResponse(err error) *kubeApiAdmission.AdmissionResponse {
 func (wh *Webhook) inject(ar *kubeApiAdmission.AdmissionReview, path string) *kubeApiAdmission.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
-
-	// TODO: URGENT, invalid request testing for injector !!!!
-	// - catch throwables, don't crash the server !!!
-
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
 		handleError(fmt.Sprintf("Could not unmarshal raw object: %v %s", err,
 			string(req.Object.Raw)))
@@ -821,18 +818,18 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var reviewResponse *kubeApiAdmission.AdmissionResponse
-	ar := &kubeApiAdmission.AdmissionReview{
+	ar := kubeApiAdmission.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "admission.k8s.io/v1",
 			Kind:       "AdmissionReview",
 		},
 	}
-	if _, _, err := deserializer.Decode(body, nil, ar); err != nil {
+	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		log.Debugf("AdmissionRequest for path=%s\n", path)
-		reviewResponse = wh.inject(ar, path)
+		reviewResponse = wh.inject(&ar, path)
 	}
 
 	x, _ := json.Marshal(ar)

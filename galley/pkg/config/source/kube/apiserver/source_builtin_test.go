@@ -60,7 +60,7 @@ var (
 )
 
 func TestBasic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -101,7 +101,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestNodes(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -169,7 +169,7 @@ func TestNodes(t *testing.T) {
 }
 
 func TestPods(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -247,7 +247,7 @@ func TestPods(t *testing.T) {
 }
 
 func TestServices(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -320,7 +320,7 @@ func TestServices(t *testing.T) {
 }
 
 func TestEndpoints(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()

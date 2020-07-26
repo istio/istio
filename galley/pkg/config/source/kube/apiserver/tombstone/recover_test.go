@@ -27,7 +27,7 @@ import (
 )
 
 func TestRecoverySuccessful(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	expected := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "mynode",
@@ -40,13 +40,13 @@ func TestRecoverySuccessful(t *testing.T) {
 }
 
 func TestUnkownTypeShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	obj := tombstone.RecoverResource(&struct{}{})
 	g.Expect(obj).To(BeNil())
 }
 
 func TestUnkownTombstoneObjectShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	obj := tombstone.RecoverResource(cache.DeletedFinalStateUnknown{
 		Obj: &struct{}{},
 	})

@@ -35,7 +35,7 @@ import (
 )
 
 func TestFsSource_NoInitialFile(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	file := setupDir(t, nil)
 
@@ -76,7 +76,7 @@ func TestFsSource_NoInitialFile(t *testing.T) {
 }
 
 func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	file := setupDir(t, nil)
 
@@ -130,7 +130,7 @@ func TestFsSource_NoInitialFile_UpdateAfterStart(t *testing.T) {
 }
 
 func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
@@ -186,7 +186,7 @@ func TestFsSource_InitialFile_UpdateAfterStart(t *testing.T) {
 }
 
 func TestFsSource_InitialFile(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
@@ -229,7 +229,7 @@ func TestFsSource_InitialFile(t *testing.T) {
 }
 
 func TestFsSource_StartStopStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
@@ -278,7 +278,7 @@ func TestFsSource_StartStopStart(t *testing.T) {
 }
 
 func TestFsSource_FileRemoved_NoChange(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
@@ -327,7 +327,7 @@ func TestFsSource_FileRemoved_NoChange(t *testing.T) {
 
 func TestFsSource_BogusFile_NoChange(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/15987")
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"
@@ -376,7 +376,7 @@ func TestFsSource_BogusFile_NoChange(t *testing.T) {
 }
 
 func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	p, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
@@ -390,7 +390,7 @@ func setupDir(t *testing.T, m *v1alpha1.MeshConfig) string {
 }
 
 func writeMeshCfg(t *testing.T, file string, m *v1alpha1.MeshConfig) { // nolint:interfacer
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(m)
 	g.Expect(err).To(BeNil())
 	err = ioutil.WriteFile(file, []byte(s), os.ModePerm)
@@ -398,7 +398,7 @@ func writeMeshCfg(t *testing.T, file string, m *v1alpha1.MeshConfig) { // nolint
 }
 
 func TestFsSource_InvalidPath(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	file := setupDir(t, nil)
 	file = path.Join(file, "bogus")
@@ -408,7 +408,7 @@ func TestFsSource_InvalidPath(t *testing.T) {
 }
 
 func TestFsSource_YamlToJSONError(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mcfg := DefaultMeshConfig()
 	mcfg.IngressClass = "foo"

@@ -348,10 +348,7 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	var useDefault bool
-
-	// Explicit annotation
 	var inject bool
-
 	switch strings.ToLower(annos[annotation.SidecarInject.Name]) {
 	// http://yaml.org/type/bool.html
 	case "y", "yes", "true", "on":

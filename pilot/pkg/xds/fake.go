@@ -17,6 +17,7 @@ package xds
 import (
 	"bytes"
 	"reflect"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
@@ -30,6 +31,9 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -40,6 +44,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -47,6 +53,10 @@ import (
 )
 
 type FakeOptions struct {
+	// If provided, these objects will be used directly
+	KubernetesObjects []runtime.Object
+	// If provided, the yaml string will be parsed and used as objects
+	KubernetesObjectString string
 	// If provided, these configs will be used directly
 	Configs []model.Config
 	// If provided, the yaml string will be parsed and used as configs
@@ -64,6 +74,27 @@ type FakeDiscoveryServer struct {
 	Discovery   *DiscoveryServer
 	PushContext *model.PushContext
 	Env         *model.Environment
+}
+
+func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
+	if len(opts.KubernetesObjects) > 0 {
+		return opts.KubernetesObjects
+	}
+
+	objects := make([]runtime.Object, 0)
+	if len(opts.KubernetesObjectString) > 0 {
+		decode := scheme.Codecs.UniversalDeserializer().Decode
+		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
+		for _, s := range objectStrs {
+			o, _, err := decode([]byte(s), nil, nil)
+			if err != nil {
+				t.Fatalf("failed deserializing kubernetes object: %v", err)
+			}
+			objects = append(objects, o)
+		}
+	}
+
+	return objects
 }
 
 func getConfigs(t test.Failer, opts FakeOptions) []model.Config {
@@ -102,6 +133,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		close(stop)
 	})
 	configs := getConfigs(t, opts)
+	k8sObjects := getKubernetesObjects(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	env := &model.Environment{}
 	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health}
@@ -119,12 +151,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}()
 	configController := memory.NewSyncController(configStore)
 	go configController.Run(stop)
-	serviceDiscovery := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
-	for _, cfg := range configs {
-		if _, err := configController.Create(cfg); err != nil {
-			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
-		}
-	}
 
 	m := opts.MeshConfig
 	if m == nil {
@@ -132,16 +158,36 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		m = &def
 	}
 
+	serviceDiscovery := aggregate.NewController()
 	env.PushContext = model.NewPushContext()
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configStore)
 	env.Watcher = mesh.NewFixedWatcher(m)
 	env.NetworksWatcher = mesh.NewFixedNetworksWatcher(opts.MeshNetworks)
 
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
+	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
+	serviceDiscovery.AddRegistry(se)
+	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
+		Objects:         k8sObjects,
+		ClusterID:       "Kubernetes",
+		DomainSuffix:    "cluster.local",
+		XDSUpdater:      s,
+		NetworksWatcher: env,
+	})
+	serviceDiscovery.AddRegistry(k8s)
+	for _, cfg := range configs {
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
+		}
 	}
 	if err := s.UpdateServiceShards(env.PushContext); err != nil {
+		t.Fatal(err)
+	}
+	se.ResyncEDS()
+	if err := k8s.ResyncEndpoints(); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -164,6 +210,10 @@ func (f *FakeDiscoveryServer) SetupProxy(p *model.Proxy) *model.Proxy {
 	}
 	if p.Metadata == nil {
 		p.Metadata = &model.NodeMetadata{}
+	}
+	if p.Metadata.IstioVersion == "" {
+		p.Metadata.IstioVersion = "1.8.0"
+		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
 	}
 	if p.Type == "" {
 		p.Type = model.SidecarProxy

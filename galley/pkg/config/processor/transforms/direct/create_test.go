@@ -28,7 +28,7 @@ import (
 )
 
 func TestDirect_Input_Output(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, _, _ := setup(g)
 
@@ -37,7 +37,7 @@ func TestDirect_Input_Output(t *testing.T) {
 }
 
 func TestDirect_AddSync(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -53,7 +53,7 @@ func TestDirect_AddSync(t *testing.T) {
 }
 
 func TestDirect_SyncAdd(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -69,7 +69,7 @@ func TestDirect_SyncAdd(t *testing.T) {
 }
 
 func TestDirect_AddUpdateDelete(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -90,7 +90,7 @@ func TestDirect_AddUpdateDelete(t *testing.T) {
 }
 
 func TestDirect_SyncReset(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -107,7 +107,7 @@ func TestDirect_SyncReset(t *testing.T) {
 }
 
 func TestDirect_InvalidEventKind(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -123,7 +123,7 @@ func TestDirect_InvalidEventKind(t *testing.T) {
 }
 
 func TestDirect_NoListeners(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xforms := GetProviders(basicmeta.MustGet()).Create(processing.ProcessorOptions{})
 	g.Expect(xforms).To(HaveLen(1))
@@ -143,7 +143,7 @@ func TestDirect_NoListeners(t *testing.T) {
 }
 
 func TestDirect_DoubleStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -161,7 +161,7 @@ func TestDirect_DoubleStart(t *testing.T) {
 }
 
 func TestDirect_DoubleStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -184,7 +184,7 @@ func TestDirect_DoubleStop(t *testing.T) {
 }
 
 func TestDirect_StartStopStartStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 
@@ -218,7 +218,7 @@ func TestDirect_StartStopStartStop(t *testing.T) {
 }
 
 func TestDirect_InvalidEvent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	xform, src, acc := setup(g)
 

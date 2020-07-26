@@ -156,7 +156,7 @@ var (
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			s, err := StaticCollections(c.packageName, c.m)
 			if c.err != "" {

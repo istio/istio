@@ -27,7 +27,7 @@ import (
 )
 
 func TestBuffer_Basics(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
@@ -46,7 +46,7 @@ func TestBuffer_Basics(t *testing.T) {
 }
 
 func TestBuffer_Clear(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
@@ -63,7 +63,7 @@ func TestBuffer_Clear(t *testing.T) {
 }
 
 func TestBuffer_DoubleProcess(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
@@ -100,7 +100,7 @@ func TestBuffer_DoubleProcess(t *testing.T) {
 }
 
 func TestBuffer_Stress(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}

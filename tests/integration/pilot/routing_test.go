@@ -55,7 +55,7 @@ spec:
         add:
           istio-custom-header: user-defined-value`,
 			call: func() (echoclient.ParsedResponses, error) {
-				return a.Call(echo.CallOptions{Target: b, PortName: "http"})
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
 				if response[0].RawResponse["Istio-Custom-Header"] != "user-defined-value" {
@@ -87,7 +87,7 @@ spec:
     - destination:
         host: b`,
 			call: func() (echoclient.ParsedResponses, error) {
-				return a.Call(echo.CallOptions{Target: b, PortName: "http"})
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
 				if response[0].URL != "/new/path" {
@@ -97,11 +97,22 @@ spec:
 			},
 		},
 	}
-
-	for _, split := range []int{50, 80} {
+	splits := []map[string]int{
+		{
+			"b":     50,
+			"vm-a":  25,
+			"naked": 25,
+		},
+		{
+			"b":     80,
+			"vm-a":  10,
+			"naked": 10,
+		},
+	}
+	for _, split := range splits {
 		split := split
 		cases = append(cases, TrafficTestCase{
-			name: fmt.Sprintf("shifting-%d", split),
+			name: fmt.Sprintf("shifting-%d", split["b"]),
 			config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -118,9 +129,12 @@ spec:
     - destination:
         host: naked
       weight: %d
-`, split, 100-split),
+    - destination:
+        host: vm-a
+      weight: %d
+`, split["b"], split["naked"], split["vm-a"]),
 			call: func() (echoclient.ParsedResponses, error) {
-				return a.Call(echo.CallOptions{Target: b, PortName: "http", Count: 100})
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Count: 100})
 			},
 			validator: func(responses echoclient.ParsedResponses) error {
 				if err := responses.CheckOK(); err != nil {
@@ -129,18 +143,18 @@ spec:
 				hitCount := map[string]int{}
 				errorThreshold := 10
 				for _, r := range responses {
-					for _, h := range []string{"b", "naked"} {
+					for _, h := range []string{"b", "naked", "vm-a"} {
 						if strings.HasPrefix(r.Hostname, h+"-") {
 							hitCount[h]++
 							break
 						}
 					}
 				}
-				if !almostEquals(hitCount["b"], split, errorThreshold) {
-					return fmt.Errorf("expected %v calls to b, got %v", split, hitCount["b"])
-				}
-				if !almostEquals(hitCount["naked"], 100-split, errorThreshold) {
-					return fmt.Errorf("expected %v calls to naked, got %v", 100-split, hitCount["naked"])
+
+				for _, h := range []string{"b", "naked", "vm-a"} {
+					if !almostEquals(hitCount[h], split[h], errorThreshold) {
+						return fmt.Errorf("expected %v calls to %q, got %v", split[h], h, hitCount[h])
+					}
 				}
 				return nil
 			},
@@ -149,32 +163,91 @@ spec:
 	return cases
 }
 
+// Todo merge with security TestReachability code
 func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, client := range []echo.Instance{a, naked} {
-		for _, call := range []struct {
-			// The port we call
-			port string
-			// The actual type of traffic we send to the port
-			scheme scheme.Instance
-		}{
-			{"http", scheme.HTTP},
-			{"auto-http", scheme.HTTP},
-			{"tcp", scheme.TCP},
-			{"auto-tcp", scheme.TCP},
-			{"grpc", scheme.GRPC},
-			{"auto-grpc", scheme.GRPC},
-		} {
-			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("sniffing %v", call.port),
-				call: func() (echoclient.ParsedResponses, error) {
-					return client.Call(echo.CallOptions{Target: b, PortName: call.port, Scheme: call.scheme})
-				},
-				validator: func(responses echoclient.ParsedResponses) error {
-					return responses.CheckOK()
-				},
-			})
+	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
+		for _, destination := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
+			for _, call := range []struct {
+				// The port we call
+				port string
+				// The actual type of traffic we send to the port
+				scheme scheme.Instance
+			}{
+				{"http", scheme.HTTP},
+				{"auto-http", scheme.HTTP},
+				{"tcp", scheme.TCP},
+				{"auto-tcp", scheme.TCP},
+				{"grpc", scheme.GRPC},
+				{"auto-grpc", scheme.GRPC},
+			} {
+				cases = append(cases, TrafficTestCase{
+					name: fmt.Sprintf("%v %v %v", call.port, client.Config().Service, destination.Config().Service),
+					call: func() (echoclient.ParsedResponses, error) {
+						return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme})
+					},
+					validator: func(responses echoclient.ParsedResponses) error {
+						return responses.CheckOK()
+					},
+				})
+			}
 		}
+	}
+	return cases
+}
+
+func vmTestCases(vm echo.Instance) []TrafficTestCase {
+	testCases := []struct {
+		name string
+		from echo.Instance
+		to   echo.Instance
+		host string
+	}{
+		{
+			name: "k8s to vm",
+			from: apps.podA,
+			to:   vm,
+		},
+		{
+			name: "dns: VM to k8s cluster IP service fqdn host",
+			from: vm,
+			to:   apps.podA,
+			host: apps.podA.Config().FQDN(),
+		},
+		{
+			name: "dns: VM to k8s cluster IP service name.namespace host",
+			from: vm,
+			to:   apps.podA,
+			host: apps.podA.Config().Service + "." + apps.namespace.Name(),
+		},
+		{
+			name: "dns: VM to k8s cluster IP service short name host",
+			from: vm,
+			to:   apps.podA,
+			host: apps.podA.Config().Service,
+		},
+		{
+			name: "dns: VM to k8s headless service",
+			from: vm,
+			to:   apps.headless,
+		},
+	}
+	cases := []TrafficTestCase{}
+	for _, c := range testCases {
+		c := c
+		cases = append(cases, TrafficTestCase{
+			name: c.name,
+			call: func() (echoclient.ParsedResponses, error) {
+				return c.from.Call(echo.CallOptions{
+					Target:   c.to,
+					PortName: "http",
+					Host:     c.host,
+				})
+			},
+			validator: func(responses echoclient.ParsedResponses) error {
+				return responses.CheckOK()
+			},
+		})
 	}
 	return cases
 }
@@ -184,26 +257,35 @@ func TestTraffic(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-			cases := []TrafficTestCase{}
-			cases = append(cases, virtualServiceCases()...)
-			cases = append(cases, protocolSniffingCases()...)
-			for _, tt := range cases {
-				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
-					if len(tt.config) > 0 {
-						ctx.Config().ApplyYAMLOrFail(ctx, echoNamespace.Name(), tt.config)
-						defer ctx.Config().DeleteYAMLOrFail(ctx, echoNamespace.Name(), tt.config)
+			cases := map[string][]TrafficTestCase{}
+			cases["virtualservice"] = virtualServiceCases()
+			cases["sniffing"] = protocolSniffingCases()
+			cases["vm"] = vmTestCases(apps.vmA)
+			for n, tts := range cases {
+				ctx.NewSubTest(n).Run(func(ctx framework.TestContext) {
+					for _, tt := range tts {
+						ExecuteTrafficTest(ctx, tt)
 					}
-					retry.UntilSuccessOrFail(ctx, func() error {
-						resp, err := tt.call()
-						if err != nil {
-							ctx.Logf("call for %v failed, retrying: %v", tt.name, err)
-							return err
-						}
-						return tt.validator(resp)
-					}, retry.Delay(time.Millisecond*100))
 				})
 			}
 		})
+}
+
+func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
+	ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
+		if len(tt.config) > 0 {
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
+			defer ctx.Config().DeleteYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
+		}
+		retry.UntilSuccessOrFail(ctx, func() error {
+			resp, err := tt.call()
+			if err != nil {
+				ctx.Logf("call for %v failed, retrying: %v", tt.name, err)
+				return err
+			}
+			return tt.validator(resp)
+		}, retry.Delay(time.Millisecond*100))
+	})
 }
 
 func almostEquals(a, b, precision int) bool {

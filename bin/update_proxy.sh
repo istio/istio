@@ -17,7 +17,7 @@
 # Update the Proxy SHA in istio.deps with the first argument
 set -e
 
-UPDATE_BRANCH=${UPDATE_BRANCH:-"release-1.7"}
+UPDATE_BRANCH=${UPDATE_BRANCH:-"master"}
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")

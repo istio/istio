@@ -89,9 +89,6 @@ type Agent struct {
 	// May also be a https address.
 	SDSAddress string
 
-	// CertPath is set with the location of the certs, or empty if mounted certs are not present.
-	CertsPath string
-
 	// RootCert is the CA root certificate. It is loaded part of detecting the
 	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
 	// CA. If not set it should be assumed we are using a public certificate (like ACME).

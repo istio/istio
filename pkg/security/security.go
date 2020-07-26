@@ -59,7 +59,6 @@ type Options struct {
 
 	// CAEndpoint is the CA endpoint to which node agent sends CSR request.
 	//
-	// From CA_ADDR
 	// Based on port:
 	// - 443 - plain TLS
 	// - 15012 - mTLS, using the mounted cert or fallback paths
@@ -72,6 +71,21 @@ type Options struct {
 	// TrustDomain corresponds to the trust root of a system.
 	// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
 	TrustDomain string
+
+	// The Vault CA address.
+	VaultAddress string
+
+	// The Vault auth path.
+	VaultAuthPath string
+
+	// The Vault role.
+	VaultRole string
+
+	// The Vault sign CSR path.
+	VaultSignCsrPath string
+
+	// The Vault TLS root certificate.
+	VaultTLSRootCert string
 
 	// GrpcServer is an already configured (shared) grpc server. If set, the agent will just register on the server.
 	GrpcServer *grpc.Server
@@ -98,27 +112,7 @@ type Options struct {
 	// Whether to generate PKCS#8 private keys.
 	Pkcs8Keys bool
 
-	// ------ Vault-specific config ---------
-
-	// The Vault CA address.
-	VaultAddress string
-
-	// The Vault auth path.
-	VaultAuthPath string
-
-	// The Vault role.
-	VaultRole string
-
-	// The Vault sign CSR path.
-	VaultSignCsrPath string
-
-	// The Vault TLS root certificate.
-	VaultTLSRootCert string
-
-	// -------------- Settings for signing the workload certificate -----------
-
-	// Location of token used to authenticate to the CA. If ProvCert is set and certificates are
-	// found, this will be ignored.
+	// Location of JWTPath to connect to CA.
 	JWTPath string
 
 	// OutputKeyCertToDir (env: OUTPUT_CERTS) is the directory for output the key and certificate.

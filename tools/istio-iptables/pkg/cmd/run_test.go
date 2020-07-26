@@ -47,6 +47,38 @@ func constructTestConfig() *config.Config {
 	}
 }
 
+func TestShortCircuitInternalIterface(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.InboundPortsInclude = ""
+	cfg.EnableInboundIPv6 = true
+	cfg.KubevirtInterfaces = "eth0,eth1"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.shortCircuitKubeInternalInterface()
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV6())
+	expected := []string{
+		"ip6tables -t nat -I PREROUTING 1 -i eth0 -j RETURN",
+		"ip6tables -t nat -I PREROUTING 1 -i eth1 -j RETURN",
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+
+	cfg.EnableInboundIPv6 = false
+	iptConfigurator = NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	iptConfigurator.shortCircuitKubeInternalInterface()
+	actual = FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected = []string{
+		"iptables -t nat -I PREROUTING 1 -i eth0 -j RETURN",
+		"iptables -t nat -I PREROUTING 1 -i eth1 -j RETURN",
+	}
+
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+}
+
 func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 	cfg := constructTestConfig()
 	cfg.InboundPortsInclude = ""

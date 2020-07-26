@@ -48,7 +48,7 @@ spec:
 `
 
 func TestProcessor(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	meshSrc := mesh.NewInmemoryMeshCfg()
 	src := inmemory.NewKubeSource(schema.MustGet().KubeCollections())

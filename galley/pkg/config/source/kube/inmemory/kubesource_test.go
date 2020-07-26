@@ -29,7 +29,7 @@ import (
 )
 
 func TestKubeSource_ApplyContent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, acc := setupKubeSource()
 	s.Start()
@@ -52,7 +52,7 @@ func TestKubeSource_ApplyContent(t *testing.T) {
 }
 
 func TestKubeSource_ApplyContent_BeforeStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, acc := setupKubeSource()
 	defer s.Stop()
@@ -75,7 +75,7 @@ func TestKubeSource_ApplyContent_BeforeStart(t *testing.T) {
 }
 
 func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, acc := setupKubeSource()
 	s.Start()
@@ -115,7 +115,7 @@ func TestKubeSource_ApplyContent_Unchanged0Add1(t *testing.T) {
 }
 
 func TestKubeSource_RemoveContent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, acc := setupKubeSource()
 	s.Start()
@@ -158,7 +158,7 @@ func TestKubeSource_RemoveContent(t *testing.T) {
 }
 
 func TestKubeSource_Clear(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, acc := setupKubeSource()
 	s.Start()
@@ -193,7 +193,7 @@ func TestKubeSource_Clear(t *testing.T) {
 }
 
 func TestKubeSource_UnparseableSegment(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, _ := setupKubeSource()
 	s.Start()
@@ -209,7 +209,7 @@ func TestKubeSource_UnparseableSegment(t *testing.T) {
 }
 
 func TestKubeSource_Unrecognized(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, _ := setupKubeSource()
 	s.Start()
@@ -225,7 +225,7 @@ func TestKubeSource_Unrecognized(t *testing.T) {
 }
 
 func TestKubeSource_UnparseableResource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, _ := setupKubeSource()
 	s.Start()
@@ -240,7 +240,7 @@ func TestKubeSource_UnparseableResource(t *testing.T) {
 }
 
 func TestKubeSource_NonStringKey(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, _ := setupKubeSource()
 	s.Start()
@@ -255,7 +255,7 @@ func TestKubeSource_NonStringKey(t *testing.T) {
 }
 
 func TestKubeSource_Service(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, _ := setupKubeSourceWithK8sMeta()
 	s.Start()
@@ -270,7 +270,7 @@ func TestKubeSource_Service(t *testing.T) {
 }
 
 func TestSameNameDifferentKind(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	meta := basicmeta.MustGet2().KubeCollections()
 	col1 := meta.MustFind(basicmeta.K8SCollection1.Name().String())
@@ -294,7 +294,7 @@ func TestSameNameDifferentKind(t *testing.T) {
 }
 
 func TestKubeSource_DefaultNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, _ := setupKubeSource()
 	s.Start()
@@ -314,7 +314,7 @@ func TestKubeSource_DefaultNamespace(t *testing.T) {
 }
 
 func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewKubeSource(basicmeta.MustGet2().KubeCollections())
 	acc := &fixtures.Accumulator{}
@@ -334,7 +334,7 @@ func TestKubeSource_DefaultNamespaceSkipClusterScoped(t *testing.T) {
 }
 
 func TestKubeSource_CanHandleDocumentSeparatorInComments(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, _ := setupKubeSource()
 	s.Start()

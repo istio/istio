@@ -100,7 +100,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			testName = "override"
 		}
 		t.Run(testName, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
 				&networking.DestinationRule{
 					Host: "*.example.org",
@@ -135,7 +135,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 }
 
 func TestCommonHttpProtocolOptions(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cases := []struct {
 		direction                  model.TrafficDirection
@@ -450,7 +450,7 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 }
 
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	ttl := types.Duration{Nanos: 100}
 	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
@@ -484,7 +484,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 }
 
 func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	ttl := types.Duration{Nanos: 100}
 	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
@@ -541,7 +541,7 @@ func withClusterLocalHosts(m meshconfig.MeshConfig, hosts ...string) meshconfig.
 }
 
 func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	clusters, err := buildSniTestClustersForSidecar("foo.com")
 	g.Expect(err).NotTo(HaveOccurred())
@@ -567,7 +567,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	expectedClientCertPath := "/clientCertFromNodeMetadata.pem"
 	expectedRootCertPath := "/clientRootCertFromNodeMetadata.pem"
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	envoyMetadata := &model.NodeMetadata{
 		TLSClientCertChain: expectedClientCertPath,
@@ -673,7 +673,7 @@ func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta 
 }
 
 func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Do not set tcp_keepalive anywhere
 	clusters, err := buildTestClustersWithTCPKeepalive(None)
@@ -775,7 +775,7 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*cluster.Cluste
 }
 
 func TestClusterMetadata(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	destRule := &networking.DestinationRule{
 		Host: "*.example.org",
@@ -1031,7 +1031,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 }
 
 func TestDisablePanicThresholdAsDefault(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	outliers := []*networking.OutlierDetection{
 		// Unset MinHealthPercent
@@ -1058,7 +1058,7 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 }
 
 func TestApplyOutlierDetection(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	tests := []struct {
 		name string
@@ -1154,7 +1154,7 @@ func TestApplyOutlierDetection(t *testing.T) {
 }
 
 func TestStatNamePattern(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	statConfigMesh := meshconfig.MeshConfig{
 		ConnectTimeout: &types.Duration{
@@ -1179,7 +1179,7 @@ func TestStatNamePattern(t *testing.T) {
 }
 
 func TestDuplicateClusters(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
 		&core.Locality{}, testMesh,
@@ -1191,7 +1191,7 @@ func TestDuplicateClusters(t *testing.T) {
 }
 
 func TestSidecarLocalityLB(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1280,7 +1280,7 @@ func TestSidecarLocalityLB(t *testing.T) {
 }
 
 func TestLocalityLBDestinationRuleOverride(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1344,7 +1344,7 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 }
 
 func TestGatewayLocalityLB(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
 		Distribute: []*networking.LocalityLoadBalancerSetting_Distribute{
@@ -1502,7 +1502,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 }
 
 func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	clusters, err := buildTestClusters("*.example.org", model.Passthrough, model.SidecarProxy, nil, testMesh,
 		&networking.DestinationRule{
@@ -1522,7 +1522,7 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 }
 
 func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	clusters, err := buildTestClusters("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
 		&networking.DestinationRule{
@@ -1543,7 +1543,7 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 }
 
 func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
@@ -1566,7 +1566,7 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 }
 
 func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
@@ -1613,7 +1613,7 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 }
 
 func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	proxy := &model.Proxy{
 		Metadata:     &model.NodeMetadata{},
@@ -1752,7 +1752,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 }
 
 func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
@@ -1787,7 +1787,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 }
 
 func TestRedisProtocolClusterAtGateway(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
@@ -1832,7 +1832,7 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 }
 
 func TestAutoMTLSClusterSubsets(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	destRule := &networking.DestinationRule{
 		Host: TestServiceNHostname,
@@ -1879,7 +1879,7 @@ func TestAutoMTLSClusterSubsets(t *testing.T) {
 }
 
 func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	destRule := &networking.DestinationRule{
 		Host: TestServiceNHostname,
@@ -3547,7 +3547,7 @@ func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 }
 
 func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cfg := NewConfigGenerator([]plugin.Plugin{})
 	service := &model.Service{
