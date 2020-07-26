@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -131,11 +132,11 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return fmt.Errorf("failed to create reconciler: %v", err)
 		}
-		objectsList, tp, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge, "")
+		objectsList, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge, "")
 		if err != nil {
 			return err
 		}
-		preCheckWarnings(cmd, uiArgs, uiArgs.revision, tp, l)
+		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, l)
 
 		if err := h.DeleteObjectsList(objectsList); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
@@ -168,7 +169,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
 func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
-	rev string, resourcesList []string, l *clog.ConsoleLogger) {
+	rev string, resourcesList []*unstructured.UnstructuredList, l *clog.ConsoleLogger) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
 		l.LogAndError(err.Error())
@@ -181,14 +182,17 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 		if resourcesList != nil {
 			needConfirmation = true
 			message += fmt.Sprintf("The following resources will be pruned from the cluster: %s\n",
-				strings.Join(resourcesList, ", "))
+				constructResourceListOutput(resourcesList))
 		}
 		if len(pids) != 0 {
 			needConfirmation = true
-			message += fmt.Sprintf("There are still proxies pointing to the control plane revision %s:\n%s."+
-				" If you proceed with the uninstall, these proxies will become detached from any control plane"+
-				" and will not function correctly. ",
-				uiArgs.revision, strings.Join(pids, " \n"))
+			message += fmt.Sprintf("There are still %d proxies pointing to the control plane revision %s:\n", len(pids), uiArgs.revision)
+			// just print the count only if there is a large list of proxies
+			if len(pids) <= 30 {
+				message += fmt.Sprintf("%s\n", strings.Join(pids, "\n"))
+			}
+			message += "If you proceed with the uninstall, these proxies will become detached from any control plane" +
+				" and will not function correctly. "
 		}
 	}
 	if uiArgs.skipConfirmation {
@@ -200,4 +204,23 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 		cmd.Print("Cancelled.\n")
 		os.Exit(1)
 	}
+}
+
+// constructResourceListOutput is a helper function to construct the output of to be removed resources list
+func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList) string {
+	kindNameMap := make(map[string][]string)
+	for _, usList := range resourcesList {
+		for _, o := range usList.Items {
+			nameList := kindNameMap[o.GetKind()]
+			if nameList == nil {
+				kindNameMap[o.GetKind()] = []string{}
+			}
+			kindNameMap[o.GetKind()] = append(kindNameMap[o.GetKind()], o.GetName())
+		}
+	}
+	var output string
+	for kind, name := range kindNameMap {
+		output += fmt.Sprintf("%s: %s. ", kind, strings.Join(name, ", "))
+	}
+	return output
 }
