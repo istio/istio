@@ -1,0 +1,25 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: source-whitelist
+  namespace: istio-system
+spec:
+  adapter: listbackend-nosession
+  params:
+    overrides: ["mysource", "mysource2"]  # overrides provide a static list
+    blacklist: false
+  connection:
+    address: "listadapter:8080"
+---
+
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: listchecker-oop
+  namespace: istio-system
+spec:
+  actions:
+  - handler: source-whitelist.istio-system
+    instances:
+    - source-info
+---

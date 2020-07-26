@@ -1,0 +1,79 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: Fluentd
+// $description: Adapter that delivers logs to a Fluentd daemon.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/fluentd.html
+// $supported_templates: logentry
+// $aliases:
+// $  - /docs/reference/config/adapters/fluentd.html
+
+// The `fluentd` adapter is designed to deliver Istio log entries to a
+// listening [fluentd](https://www.fluentd.org) daemon.
+//
+// This adapter supports the [logentry template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/logentry/).
+package adapter.fluentd.config;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// Configuration parameters for the fluentd adapter.
+//
+// This adapter accepts logentry instance. It then routes
+// those logentries to a listening fluentd daemon with minimal
+// transformation. Fluentd uses a "tag" for all logs. The "Name" of
+// the logentry is used as the "tag", unless the logentry already has
+// a variable "tag".
+message Params {
+  // Address of listening fluentd daemon. Example: fluentd-server:24224
+  // Default value is localhost:24224
+  string address = 1;
+
+  // Convert attributes of type duration to integers of unit ms in
+  // logs. Default behaviour is a string representation including
+  // unit.
+  bool integer_duration = 2;
+
+  // Controls the size of the queue of log entries awaiting processing by the
+  // data push goroutine. This impacts the overall size of the backlog of
+  // log entries that the handler will accept. If the handler falls behind and
+  // the number of outstanding instances exceeds this limit, the handler will
+  // begin to drop log entries.
+  // Defaults to 1024.
+  int64 instance_buffer_size = 3;
+
+  // Controls the number of data bytes that are encoded and buffered by the handler before
+  // they are pushed to the fluentd backend. This impacts the size and frequency of requests
+  // sent to the fluentd backend. Once the buffer exceeds this limit, the handler will attempt to push
+  // data to the backend.
+  // Defaults to 8,388,608 (8 MiB).
+  int64 max_batch_size_bytes = 4;
+
+  // Duration interval for pushing batched data to the fluentd backend. At least once every duration,
+  // the handler will attempt to push data.
+  // Default to 1m.
+  google.protobuf.Duration push_interval_duration = 5 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
+
+  // Timeout duration for pushing batched data to the fluentd backend. If a request takes longer than 
+  // the configured timeout, the request will be cancelled and dropped.
+  // Default to 1m.
+  google.protobuf.Duration push_timeout_duration = 6 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
+}

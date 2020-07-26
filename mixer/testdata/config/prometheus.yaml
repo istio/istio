@@ -1,0 +1,253 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: handler
+metadata:
+  name: prometheus
+  namespace: istio-system
+spec:
+  compiledAdapter: prometheus
+  params:
+    # metricsExpirationPolicy:
+    #   metricsExpiryDuration: "15s"
+    #   expiryCheckIntervalDuration: "5s"
+    metrics:
+    - name: requests_total
+      instance_name: requestcount.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - connection_mtls
+    - name: request_duration_seconds
+      instance_name: requestduration.metric.istio-system
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - connection_mtls
+      buckets:
+        explicit_buckets:
+          bounds: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+    - name: request_bytes
+      instance_name: requestsize.metric.istio-system
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - connection_mtls
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    - name: response_bytes
+      instance_name: responsesize.metric.istio-system
+      kind: DISTRIBUTION
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - request_protocol
+      - response_code
+      - connection_mtls
+      buckets:
+        exponentialBuckets:
+          numFiniteBuckets: 8
+          scale: 1
+          growthFactor: 10
+    - name: tcp_sent_bytes_total
+      instance_name: tcpbytesent.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_mtls
+    - name: tcp_received_bytes_total
+      instance_name: tcpbytereceived.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_mtls
+    - name: tcp_connections_opened_total
+      instance_name: tcpconnectionsopened.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_mtls
+    - name: tcp_connections_closed_total
+      instance_name: tcpconnectionsclosed.metric.istio-system
+      kind: COUNTER
+      label_names:
+      - reporter
+      - source_app
+      - source_namespace
+      - source_principal
+      - source_workload
+      - source_workload_namespace
+      - source_version
+      - destination_app
+      - destination_namespace
+      - destination_principal
+      - destination_workload
+      - destination_workload_namespace
+      - destination_version
+      - destination_service
+      - destination_service_name
+      - destination_service_namespace
+      - connection_mtls
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promhttp
+  namespace: istio-system
+spec:
+  match: (context.protocol == "http" || context.protocol == "grpc") && (match((request.useragent | "-"), "kube-probe*") == false) && (match((request.useragent | "-"), "Prometheus*") == false)
+  actions:
+  - handler: prometheus
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcp
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp"
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpbytesent.metric
+    - tcpbytereceived.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionopen
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "open")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsopened.metric
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: promtcpconnectionclosed
+  namespace: istio-system
+spec:
+  match: context.protocol == "tcp" && ((connection.event | "na") == "closed")
+  actions:
+  - handler: prometheus
+    instances:
+    - tcpconnectionsclosed.metric

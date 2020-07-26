@@ -1,0 +1,65 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: API Key
+// $description: A template that represents a single API key.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/templates/apikey.html
+// $aliases:
+// $  - /docs/reference/config/template/apikey.html
+
+// The `apikey` template represents a single API key, which is used for authorization checks.
+//
+// Example config:
+//
+// ```yaml
+// apiVersion: "config.istio.io/v1alpha2"
+// kind: instance
+// metadata:
+//   name: validate-apikey
+//   namespace: istio-system
+// spec:
+//   compiledTemplate: apikey
+//   params:
+//     api: api.service | ""
+//     api_version: api.version | ""
+//     api_operation: api.operation | ""
+//     api_key: api.key | ""
+//     timestamp: request.time
+// ```
+package apiKey;
+
+import "policy/v1beta1/type.proto";
+import "mixer/adapter/model/v1beta1/extensions.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_CHECK;
+
+// The `apikey` template represents a single API key, used to authorize API calls.
+message Template {
+    // The API being called (api.service).
+    string api = 1;
+
+    // The version of the API (api.version).
+    string api_version = 2;
+
+    // The API operation is being called.
+    string api_operation = 3;
+
+    // API key used in API call.
+    string api_key = 4;
+
+    // Timestamp of API call.
+    istio.policy.v1beta1.TimeStamp timestamp = 5;
+}

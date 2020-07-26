@@ -306,18 +306,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				return nil
 			}
 
-			var warnings []string
-			retval := inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig,
-				reader, writer, func(warning string) {
-					warnings = append(warnings, warning)
-				})
-			if len(warnings) > 0 {
-				fmt.Fprintln(c.ErrOrStderr())
-			}
-			for _, warning := range warnings {
-				fmt.Fprintln(c.ErrOrStderr(), warning)
-			}
-			return retval
+			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig, reader, writer)
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;

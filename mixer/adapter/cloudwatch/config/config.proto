@@ -1,0 +1,99 @@
+// Copyright 2018 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY Type, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: CloudWatch
+// $description: Adapter for cloudwatch metrics.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/cloudwatch.html
+// $supported_templates: logentry
+// $supported_templates: metric
+// $aliases:
+// $  - /docs/reference/config/adapters/cloudwatch.html
+
+// The CloudWatch adapter enables Istio to deliver metrics to
+// [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/).
+// [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/) and logs to
+// [Amazon CloudWatchLogs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html).
+//
+// To push metrics and logs to CloudWatch using this adapter you must provide AWS credentials to the AWS SDK.
+// (see [AWS docs](https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/setup-credentials.html)).
+//
+// The handler configuration must contain the same metrics as the instance configuration.
+// The metrics specified in both instance and handler configurations will be sent to CloudWatch.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+package adapter.cloudwatch.config;
+
+option go_package="config";
+
+// Configuration for the `cloudwatch` adapter.
+message Params {
+    // CloudWatch metric namespace.
+    string namespace = 1;
+
+    // A map of Istio metric name to CloudWatch metric info.
+    map<string, MetricDatum> metric_info = 2;
+
+    // CloudWatch metric format.
+    message MetricDatum {
+      enum Unit {
+        None = 0;
+        Seconds = 1;
+        Microseconds = 2;
+        Milliseconds = 3;
+        Count = 4;
+        Bytes = 5;
+        Kilobytes = 6;
+        Megabytes = 7;
+        Gigabytes = 8;
+        Terabytes = 9;
+        Bits = 10;
+        Kilobits = 11;
+        Megabits = 12;
+        Gigabits = 13;
+        Terabits = 14;
+        Percent = 15;
+        Bytes_Second = 16;
+        Kilobytes_Second = 17;
+        Megabytes_Second = 18;
+        Gigabytes_Second = 19;
+        Terabytes_Second = 20;
+        Bits_Second = 21;
+        Kilobits_Second = 22;
+        Megabits_Second = 23;
+        Gigabits_Second = 24;
+        Terabits_Second = 25;
+        Count_Second = 26;
+      }
+      // The unit of the metric. Must be valid cloudwatch unit value.
+      // [CloudWatch docs](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html)
+      Unit unit = 3;
+    }
+
+    // The name of the log group in cloudwatchlogs.
+    string log_group_name = 4;
+
+     // The name of the log stream in cloudwatchlogs.
+    string log_stream_name = 5;
+
+     // A map of Istio logentry name to CloudWatch logentry info.
+    map<string, LogInfo> logs = 6;
+
+     message LogInfo{
+      // A golang text/template template that will be executed to construct the payload for this log entry.
+      // It will be given the full set of variables for the log to use to construct its result.
+      string payload_template = 1;
+    }
+}

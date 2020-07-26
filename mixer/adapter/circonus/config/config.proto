@@ -1,0 +1,61 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: Circonus
+// $description: Adapter for circonus.com's monitoring solution.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/circonus.html
+// $supported_templates: metric
+// $aliases:
+// $  - /docs/reference/config/adapters/circonus.html
+
+// The `circonus` adapter enables Istio to deliver metric data to the
+// [Circonus](https://www.circonus.com) monitoring backend.
+//
+// This adapter supports the [metric template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/metric/).
+package adapter.circonus.config;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+
+// Configuration format for the Circonus adapter.
+message Params {
+    // Circonus SubmissionURL to HTTPTrap check
+    string submission_url = 1;
+    google.protobuf.Duration submission_interval = 2 [(gogoproto.nullable)=false, (gogoproto.stdduration) = true];
+
+    // Describes how to represent a metric
+    message MetricInfo {
+
+        // name
+        string name = 1;
+
+        // The type of metric.
+        enum Type {
+            UNKNOWN = 0;
+            COUNTER = 1;
+            GAUGE = 2;
+            DISTRIBUTION = 3;
+        }
+        Type type = 2;
+    }
+
+   repeated MetricInfo metrics = 3;
+}

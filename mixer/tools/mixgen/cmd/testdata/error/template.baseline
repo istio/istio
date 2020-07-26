@@ -1,0 +1,3 @@
+errors during parsing:
+Error: testdata/error/template.proto: package name missing.
+Error: testdata/error/template.proto: message 'Template' not defined.

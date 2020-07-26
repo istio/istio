@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync/atomic"
 
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/pkg/errors"
@@ -33,17 +32,15 @@ import (
 
 type Installer struct {
 	cfg                *config.Config
-	isReady            *atomic.Value
 	saToken            string
 	kubeconfigFilepath string
 	cniConfigFilepath  string
 }
 
 // NewInstaller returns an instance of Installer with the given config
-func NewInstaller(cfg *config.Config, isReady *atomic.Value) *Installer {
+func NewInstaller(cfg *config.Config) *Installer {
 	return &Installer{
-		cfg:     cfg,
-		isReady: isReady,
+		cfg: cfg,
 	}
 }
 
@@ -67,10 +64,10 @@ func (in *Installer) Run(ctx context.Context) (err error) {
 			return
 		}
 
-		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath, in.isReady); err != nil {
+		if err = sleepCheckInstall(ctx, in.cfg, in.cniConfigFilepath); err != nil {
 			return
 		}
-		// Invalid config; pod set to "NotReady"
+
 		log.Info("Restarting...")
 	}
 }
@@ -153,10 +150,9 @@ func readServiceAccountToken() (string, error) {
 	return string(token), nil
 }
 
-// sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
-// If an error occurs or context is canceled, the function will return the error.
-// Returning from this function will set the pod to "NotReady".
-func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepath string, isReady *atomic.Value) error {
+// sleepCheckInstall blocks until an invalid configuration is detected and returns nil
+// or returns an error if an error occurs or context is canceled.
+func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepath string) error {
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
 	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.MountedCNINetDir)
@@ -164,31 +160,17 @@ func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepat
 		return err
 	}
 	defer func() {
-		SetNotReady(isReady)
 		_ = watcher.Close()
 	}()
 
 	for {
 		if checkErr := checkInstall(cfg, cniConfigFilepath); checkErr != nil {
-			// Pod set to "NotReady" due to invalid configuration
 			log.Infof("Invalid configuration. %v", checkErr)
 			return nil
 		}
-		// Check if file has been modified or if an error has occurred during checkInstall before setting isReady to true
-		select {
-		case <-fileModified:
-			return nil
-		case err := <-errChan:
+		// Valid configuration; Wait for modifications before checking again
+		if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
 			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			// Valid configuration; set isReady to true and wait for modifications before checking again
-			SetReady(isReady)
-			if err = util.WaitForFileMod(ctx, fileModified, errChan); err != nil {
-				// Pod set to "NotReady" before termination
-				return err
-			}
 		}
 	}
 }

@@ -1,0 +1,90 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// $title: Memory quota
+// $description: Adapter for a simple in-memory quota management system.
+// $location: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/memquota.html
+// $supported_templates: quota
+// $aliases:
+// $  - /docs/reference/config/adapters/memquota.html
+
+// The `memquota` adapter can be used to support Istio's quota management
+// system. Although functional, this adapter is not intended for production
+// use and is suited for local testing only. The reason for this limitation
+// is that this adapter can only be used in meshes where there is a single
+// instance of Mixer running for the whole mesh (i.e. non-HA configuration)
+// and if that single instance crashes, all outstanding quota values will
+// be lost.
+//
+// This adapter supports the [quota template](https://istio.io/docs/reference/config/policy-and-telemetry/templates/quota/).
+package adapter.memquota.config;
+
+import "google/protobuf/duration.proto";
+import "gogoproto/gogo.proto";
+
+option go_package="config";
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.equal_all) = false;
+option (gogoproto.gostring_all) = false;
+option (gogoproto.stable_marshaler_all) = true;
+
+// Configuration format for the `memquota` adapter.
+message Params {
+
+	// Defines a quota's limit and duration.
+	message Quota {
+		option (gogoproto.goproto_getters) = true;
+
+		// The name of the quota
+		string name = 1;
+
+		// The upper limit for this quota.
+		int64 max_amount = 2;
+
+		// The amount of time allocated quota remains valid before it is
+		// automatically released. This is only meaningful for rate limit
+		// quotas, otherwise the value must be zero.
+		google.protobuf.Duration valid_duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+
+		// Overrides associated with this quota.
+		// The first matching override is applied.
+		repeated Override overrides = 4 [(gogoproto.nullable) = false];
+	}
+
+	// Defines an override value for a quota. If no override matches
+	// a particular quota request, the default for the quota is used.
+	message Override {
+		option (gogoproto.goproto_getters) = true;
+
+		// The specific dimensions for which this override applies.
+		// String representation of instance dimensions is used to check against configured dimensions.
+		map<string, string> dimensions = 1;
+
+		// The upper limit for this quota.
+		int64 max_amount = 2;
+
+		// The amount of time allocated quota remains valid before it is
+		// automatically released. This is only meaningful for rate limit
+		// quotas, otherwise the value must be zero.
+		google.protobuf.Duration valid_duration = 3 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+	}
+
+	// The set of known quotas.
+	repeated Quota quotas = 1 [(gogoproto.nullable) = false];
+
+	// Minimum number of seconds that deduplication is possible for a given operation.
+	google.protobuf.Duration min_deduplication_duration = 2 [(gogoproto.nullable) = false, (gogoproto.stdduration) = true];
+}

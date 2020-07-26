@@ -1,0 +1,52 @@
+// Copyright 2019 Istio Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package SampleApa;
+
+import "mixer/adapter/model/v1beta1/extensions.proto";
+import "policy/v1beta1/type.proto";
+
+option (istio.mixer.adapter.model.v1beta1.template_variety) = TEMPLATE_VARIETY_ATTRIBUTE_GENERATOR;
+
+message Template {
+    int64 int64Primitive = 1;
+
+    bool boolPrimitive = 2;
+
+    double doublePrimitive = 3;
+
+    string stringPrimitive = 4;
+}
+
+message OutputTemplate {
+    int64 int64Primitive = 1;
+
+    bool boolPrimitive = 2;
+
+    double doublePrimitive = 3;
+
+    string stringPrimitive = 4;
+
+    map<string, string> stringMap = 5;
+
+    istio.policy.v1beta1.IPAddress ip = 6;
+
+    istio.policy.v1beta1.Duration duration = 7;
+
+    istio.policy.v1beta1.TimeStamp timestamp = 8;
+
+    istio.policy.v1beta1.DNSName dns = 9;
+}

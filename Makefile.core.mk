@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.8-dev
+VERSION ?= 1.7-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.7-dev.5
@@ -270,8 +270,13 @@ buildcache:
 BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pilot/cmd/pilot-agent \
+  ./mixer/cmd/mixs \
+  ./mixer/cmd/mixc \
+  ./mixer/tools/mixgen \
+  ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
+  ./mixer/test/policybackend \
   ./operator/cmd/operator \
   ./cni/cmd/istio-cni \
   ./cni/cmd/istio-cni-repair \
@@ -279,7 +284,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./tools/istio-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl
+RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -322,11 +327,13 @@ lint-helm-global:
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
+	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
-	@envvarlinter galley istioctl pilot security
+	@envvarlinter galley istioctl mixer pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
+	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen-charts:
@@ -352,7 +359,6 @@ sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.7.yaml manifests/charts/istiod-remote/templates/
-	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istiod-remote/templates/
 
 # Generate kustomize templates.
 gen-kustomize:
@@ -426,8 +432,8 @@ ${ISTIO_BIN}/go-junit-report:
 # This is just an alias for racetest now
 test: racetest
 
-TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
-# For now, keep a minimal subset. This can be expanded in the future.
+TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
+# For now, keep a minimal subset. This can be expanded in the future, especially after mixer removal, which has some expensive tests that may OOM.
 BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest

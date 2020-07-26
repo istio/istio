@@ -1,0 +1,47 @@
+apiVersion: "config.istio.io/v1alpha2"
+kind: dogstatsd
+metadata:
+  name: handler
+  namespace: istio-system
+spec:
+  address: "localhost:8125"
+  prefix: "istio."
+  global_tags:
+    service_mesh: istio
+  sample_rate: 1.0
+  metrics:
+    requestcount.metric.istio-system:
+      name: requestcount
+      type: COUNTER
+      tags:
+        my: "istio_metric"
+    requestduration.metric.istio-system:
+      name: requestduration
+      type: DISTRIBUTION
+      tags:
+        my: "istio_metric"
+    requestsize.metric.istio-system:
+      name: requestsize
+      type: DISTRIBUTION
+      tags:
+        my: "istio_metric"
+    responsesize.metric.istio-system:
+      name: responsesize
+      type: DISTRIBUTION
+      tags:
+        my: "istio_metric"
+---
+apiVersion: "config.istio.io/v1alpha2"
+kind: rule
+metadata:
+  name: doghttp
+  namespace: istio-system
+spec:
+  match: context.protocol == "http" || context.protocol == "grpc"
+  actions:
+  - handler: handler.dogstatsd
+    instances:
+    - requestcount.metric
+    - requestduration.metric
+    - requestsize.metric
+    - responsesize.metric
