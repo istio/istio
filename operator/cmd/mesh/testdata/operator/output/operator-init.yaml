@@ -143,6 +143,16 @@ spec:
           command:
           - operator
           - server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsUser: 1337
+            runAsNonRoot: true
           imagePullPolicy: IfNotPresent
           resources:
             limits:
@@ -164,6 +174,8 @@ spec:
               value: "operator-test-namespace"
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: "300s"
+            - name: REVISION
+              value: ""
 ---
 apiVersion: v1
 kind: Namespace

@@ -47,6 +47,19 @@
             {{ else }}
               "google_compute_engine": {}
             {{ end }}
+            },
+            "channel_args": {
+              "args": {
+                "grpc.http2.max_pings_without_data": {
+                  "int_value": 0
+                },
+                "grpc.keepalive_time_ms": {
+                  "int_value": 10000
+                },
+                "grpc.keepalive_timeout_ms": {
+                  "int_value": 20000
+                }
+              }
             }
           },
           "initial_metadata": [
@@ -89,6 +102,19 @@
             {{ else }}
               "google_compute_engine": {}
             {{ end }}
+            },
+            "channel_args": {
+              "args": {
+                "grpc.http2.max_pings_without_data": {
+                  "int_value": 0
+                },
+                "grpc.keepalive_time_ms": {
+                  "int_value": 10000
+                },
+                "grpc.keepalive_timeout_ms": {
+                  "int_value": 20000
+                }
+              }
             }
           },
           "initial_metadata": [

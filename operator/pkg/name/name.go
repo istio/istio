@@ -95,8 +95,6 @@ const (
 	// are used for struct traversal.
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
-	PolicyComponentName    ComponentName = "Policy"
-	TelemetryComponentName ComponentName = "Telemetry"
 
 	CNIComponentName ComponentName = "Cni"
 
@@ -124,8 +122,6 @@ var (
 	AllCoreComponentNames = []ComponentName{
 		IstioBaseComponentName,
 		PilotComponentName,
-		PolicyComponentName,
-		TelemetryComponentName,
 		CNIComponentName,
 		IstiodRemoteComponentName,
 	}
@@ -152,8 +148,6 @@ var (
 	userFacingComponentNames = map[ComponentName]string{
 		IstioBaseComponentName:          "Istio core",
 		PilotComponentName:              "Istiod",
-		PolicyComponentName:             "Policy",
-		TelemetryComponentName:          "Telemetry",
 		CNIComponentName:                "CNI",
 		IngressComponentName:            "Ingress gateways",
 		EgressComponentName:             "Egress gateways",

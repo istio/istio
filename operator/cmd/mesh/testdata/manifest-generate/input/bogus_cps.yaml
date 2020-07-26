@@ -5,6 +5,6 @@ metadata:
 spec:
   values:
     global:
-      controlPlaneSecurityEnabled:
+      mountMtlsCerts:
     pilot:
       autoscaleEnabled:

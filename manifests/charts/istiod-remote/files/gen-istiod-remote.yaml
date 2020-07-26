@@ -49,8 +49,6 @@ data:
         "caAddress": "",
         "centralIstiod": false,
         "configValidation": true,
-        "controlPlaneSecurityEnabled": true,
-        "createRemoteSvcEndpoints": false,
         "defaultConfigVisibilitySettings": [],
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
@@ -62,7 +60,6 @@ data:
           }
         },
         "defaultTolerations": [],
-        "enableHelmTest": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -91,9 +88,7 @@ data:
         "oneNamespace": false,
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
-        "policyNamespace": "istio-system",
         "priorityClassName": "",
-        "prometheusNamespace": "istio-system",
         "proxy": {
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
@@ -136,8 +131,6 @@ data:
           }
         },
         "remotePilotAddress": "",
-        "remotePolicyAddress": "",
-        "remoteTelemetryAddress": "",
         "sds": {
           "token": {
             "aud": "istio-ca"
@@ -147,7 +140,6 @@ data:
           "servicePort": 0
         },
         "tag": "latest",
-        "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
             "address": "$(HOST_IP):8126"
@@ -613,13 +605,6 @@ data:
         secret:
           optional: true
           secretName: lightstep.cacert
-      {{- end }}
-      {{- if .Values.global.podDNSSearchNamespaces }}
-      dnsConfig:
-        searches:
-          {{- range .Values.global.podDNSSearchNamespaces }}
-          - {{ render . }}
-          {{- end }}
       {{- end }}
       podRedirectAnnot:
       {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}

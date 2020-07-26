@@ -113,16 +113,12 @@ and it is recommended to have Pilot running in each region and in multiple avail
 
 ```bash
 iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
-            --set global.istioNamespace=istio-system \
-            --set global.telemetryNamespace=istio-telemetry \
-            --set global.policyNamespace=istio-policy
+            --set global.istioNamespace=istio-system
 
 # Second istio-discovery, using master version of istio
 TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
             --set policy.enable=false \
-            --set global.istioNamespace=istio-master \
-            --set global.telemetryNamespace=istio-telemetry-master \
-            --set global.policyNamespace=istio-policy-master
+            --set global.istioNamespace=istio-master
 ```
 
 ### Gateways
@@ -134,6 +130,7 @@ gateway in a dedicated namespace and restrict access.
 
 For large-scale gateways it is optionally possible to use a dedicated pilot in the gateway namespace.
 
+<<<<<<< HEAD
 ### Telemetry
 
 ```bash
@@ -168,6 +165,8 @@ iop istio-telemetry kiali $IBASE/istio-telemetry/kiali \
         --set global.prometheusNamespace=istio-telemetry
 ```
 
+=======
+>>>>>>> 78fa9a988acdda70785b0dd5b1ea1b30cb89e1bc
 ### Additional test templates
 
 A number of helm test setups are general-purpose and should be installable in any cluster, to confirm

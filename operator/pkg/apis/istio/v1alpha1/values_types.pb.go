@@ -23,38 +23,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// Throttling behavior for mixer.
-type Mode int32
-
-const (
-	// Removes throttling behavior for mixer.
-	Mode_disabled Mode = 0
-	// Enables an advisory mode for throttling behavior for mixer.
-	Mode_log_only Mode = 1
-	// Turn on throttling behavior for mixer.
-	Mode_enforce Mode = 2
-)
-
-var Mode_name = map[int32]string{
-	0: "disabled",
-	1: "log_only",
-	2: "enforce",
-}
-
-var Mode_value = map[string]int32{
-	"disabled": 0,
-	"log_only": 1,
-	"enforce":  2,
-}
-
-func (x Mode) String() string {
-	return proto.EnumName(Mode_name, int32(x))
-}
-
-func (Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{0}
-}
-
 // Mode for the ingress controller.
 type IngressControllerMode int32
 
@@ -88,33 +56,7 @@ func (x IngressControllerMode) String() string {
 }
 
 func (IngressControllerMode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{1}
-}
-
-// Configures the access log for sidecar to JSON or TEXT
-type AccessLogEncoding int32
-
-const (
-	AccessLogEncoding_JSON AccessLogEncoding = 0
-	AccessLogEncoding_TEXT AccessLogEncoding = 1
-)
-
-var AccessLogEncoding_name = map[int32]string{
-	0: "JSON",
-	1: "TEXT",
-}
-
-var AccessLogEncoding_value = map[string]int32{
-	"JSON": 0,
-	"TEXT": 1,
-}
-
-func (x AccessLogEncoding) String() string {
-	return proto.EnumName(AccessLogEncoding_name, int32(x))
-}
-
-func (AccessLogEncoding) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{2}
+	return fileDescriptor_261260e22432516f, []int{0}
 }
 
 // Specifies which tracer to use.
@@ -146,7 +88,7 @@ func (x Tracer) String() string {
 }
 
 func (Tracer) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{3}
+	return fileDescriptor_261260e22432516f, []int{1}
 }
 
 // Specifies the sidecar's default behavior when handling outbound traffic from the application.
@@ -174,7 +116,7 @@ func (x OutboundTrafficPolicyConfig_Mode) String() string {
 }
 
 func (OutboundTrafficPolicyConfig_Mode) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{27, 0}
+	return fileDescriptor_261260e22432516f, []int{19, 0}
 }
 
 // ArchConfig specifies the pod scheduling target architecture(amd64, ppc64le, s390x) for all the Istio control plane components.
@@ -870,13 +812,11 @@ type EgressGatewayConfig struct {
 	// maxReplicas setting for HorizontalPodAutoscaler.
 	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
 	// minReplicas setting for HorizontalPodAutoscaler.
-	AutoscaleMin   uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	ConnectTimeout string `protobuf:"bytes,4,opt,name=connectTimeout,proto3" json:"connectTimeout,omitempty"`
+	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
 	// K8s utilization setting for HorizontalPodAutoscaler target.
 	//
 	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-	Cpu           *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"` // Deprecated: Do not use.
-	DrainDuration *types.Duration             `protobuf:"bytes,6,opt,name=drainDuration,proto3" json:"drainDuration,omitempty"`
+	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"` // Deprecated: Do not use.
 	// Controls whether an egress gateway is enabled.
 	Enabled *protobuf.BoolValue `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
@@ -990,24 +930,10 @@ func (m *EgressGatewayConfig) GetAutoscaleMin() uint32 {
 	return 0
 }
 
-func (m *EgressGatewayConfig) GetConnectTimeout() string {
-	if m != nil {
-		return m.ConnectTimeout
-	}
-	return ""
-}
-
 // Deprecated: Do not use.
 func (m *EgressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
 	if m != nil {
 		return m.Cpu
-	}
-	return nil
-}
-
-func (m *EgressGatewayConfig) GetDrainDuration() *types.Duration {
-	if m != nil {
-		return m.DrainDuration
 	}
 	return nil
 }
@@ -1272,14 +1198,10 @@ type GlobalConfig struct {
 	//   1 - Least preferred
 	//   2 - No preference
 	//   3 - Most preferred
-	Arch *ArchConfig `protobuf:"bytes,1,opt,name=arch,proto3" json:"arch,omitempty"`
-	// Specifies the namespace for the configuration and validation component.
-	ConfigNamespace     string `protobuf:"bytes,2,opt,name=configNamespace,proto3" json:"configNamespace,omitempty"`
-	ConfigRootNamespace string `protobuf:"bytes,50,opt,name=configRootNamespace,proto3" json:"configRootNamespace,omitempty"`
+	Arch                *ArchConfig `protobuf:"bytes,1,opt,name=arch,proto3" json:"arch,omitempty"`
+	ConfigRootNamespace string      `protobuf:"bytes,50,opt,name=configRootNamespace,proto3" json:"configRootNamespace,omitempty"`
 	// Controls whether the server-side validation is enabled.
-	ConfigValidation *protobuf.BoolValue `protobuf:"bytes,3,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
-	// Controls whether the MTLS for communication between the control plane components is enabled.
-	ControlPlaneSecurityEnabled     *protobuf.BoolValue `protobuf:"bytes,4,opt,name=controlPlaneSecurityEnabled,proto3" json:"controlPlaneSecurityEnabled,omitempty"`
+	ConfigValidation                *protobuf.BoolValue `protobuf:"bytes,3,opt,name=configValidation,proto3" json:"configValidation,omitempty"`
 	DefaultConfigVisibilitySettings []string            `protobuf:"bytes,52,rep,name=defaultConfigVisibilitySettings,proto3" json:"defaultConfigVisibilitySettings,omitempty"`
 	// Default k8s node selector for all the Istio control plane components
 	//
@@ -1292,12 +1214,6 @@ type GlobalConfig struct {
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
 	DefaultResources   *DefaultResourcesConfig        `protobuf:"bytes,9,opt,name=defaultResources,proto3" json:"defaultResources,omitempty"`      // Deprecated: Do not use.
 	DefaultTolerations []map[string]interface{} `protobuf:"bytes,55,opt,name=defaultTolerations,proto3" json:"defaultTolerations,omitempty"` // Deprecated: Do not use.
-	// Controls whether the helm test templates are enabled.
-	EnableHelmTest *protobuf.BoolValue `protobuf:"bytes,10,opt,name=enableHelmTest,proto3" json:"enableHelmTest,omitempty"`
-	// Controls whether the distributed tracing for the applications is enabled.
-	//
-	// See https://opentracing.io/docs/overview/what-is-tracing/
-	EnableTracing *protobuf.BoolValue `protobuf:"bytes,11,opt,name=enableTracing,proto3" json:"enableTracing,omitempty"`
 	// Specifies the docker hub for Istio images.
 	Hub string `protobuf:"bytes,12,opt,name=hub,proto3" json:"hub,omitempty"`
 	// Specifies the image pull policy for the Istio images. one of Always, Never, IfNotPresent.
@@ -1307,27 +1223,8 @@ type GlobalConfig struct {
 	ImagePullPolicy  string   `protobuf:"bytes,13,opt,name=imagePullPolicy,proto3" json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets []string `protobuf:"bytes,37,rep,name=imagePullSecrets,proto3" json:"imagePullSecrets,omitempty"`
 	// Specifies the default namespace for the Istio control plane components.
-	IstioNamespace string `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
-	// Specifies the global locality load balancing settings.
-	// Locality-weighted load balancing allows administrators to control the distribution of traffic to
-	// endpoints based on the localities of where the traffic originates and where it will terminate.
-	// Please set either failover or distribute configuration but not both.
-	//
-	// localityLbSetting:
-	//   distribute:
-	//   - from: "us-central1/*"
-	//     to:
-	//       "us-central1/*": 80
-	//       "us-central2/*": 20
-	//
-	// localityLbSetting:
-	//   failover:
-	//   - from: us-east
-	//     to: eu-west
-	//   - from: us-west
-	//     to: us-east
-	LocalityLbSetting map[string]interface{} `protobuf:"bytes,15,opt,name=localityLbSetting,proto3" json:"localityLbSetting,omitempty"`
-	LogAsJson         *protobuf.BoolValue     `protobuf:"bytes,36,opt,name=logAsJson,proto3" json:"logAsJson,omitempty"`
+	IstioNamespace string              `protobuf:"bytes,14,opt,name=istioNamespace,proto3" json:"istioNamespace,omitempty"`
+	LogAsJson      *protobuf.BoolValue `protobuf:"bytes,36,opt,name=logAsJson,proto3" json:"logAsJson,omitempty"`
 	// Specifies the global logging level settings for the Istio control plane components.
 	Logging *GlobalLoggingConfig `protobuf:"bytes,17,opt,name=logging,proto3" json:"logging,omitempty"`
 	// Specifies the Configuration for Istio mesh expansion to bare metal.
@@ -1361,8 +1258,6 @@ type GlobalConfig struct {
 	//       port: 443
 	//
 	MeshNetworks map[string]interface{} `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
-	// Specifies the monitor port number for all Istio control plane components.
-	MonitoringPort uint32 `protobuf:"varint,20,opt,name=monitoringPort,proto3" json:"monitoringPort,omitempty"`
 	// Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
 	MultiCluster *MultiClusterConfig `protobuf:"bytes,22,opt,name=multiCluster,proto3" json:"multiCluster,omitempty"`
 	Network      string              `protobuf:"bytes,39,opt,name=network,proto3" json:"network,omitempty"`
@@ -1377,17 +1272,10 @@ type GlobalConfig struct {
 	// If set it to false, the controller watches all namespaces.
 	OneNamespace           *protobuf.BoolValue `protobuf:"bytes,23,opt,name=oneNamespace,proto3" json:"oneNamespace,omitempty"`
 	OperatorManageWebhooks *protobuf.BoolValue `protobuf:"bytes,41,opt,name=operatorManageWebhooks,proto3" json:"operatorManageWebhooks,omitempty"`
-	// Controls the default behavior of the sidecar for handling outbound traffic from the application.
-	OutboundTrafficPolicy *OutboundTrafficPolicyConfig `protobuf:"bytes,24,opt,name=outboundTrafficPolicy,proto3" json:"outboundTrafficPolicy,omitempty"`
-	// Controls whether to allow traffic in cases when the mixer policy service cannot be reached.
-	PolicyCheckFailOpen *protobuf.BoolValue `protobuf:"bytes,25,opt,name=policyCheckFailOpen,proto3" json:"policyCheckFailOpen,omitempty"`
-	// Specifies the namespace for the policy component.
-	PolicyNamespace string `protobuf:"bytes,26,opt,name=policyNamespace,proto3" json:"policyNamespace,omitempty"`
 	// Specifies the k8s priorityClassName for the istio control plane components.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-	PriorityClassName   string `protobuf:"bytes,27,opt,name=priorityClassName,proto3" json:"priorityClassName,omitempty"` // Deprecated: Do not use.
-	PrometheusNamespace string `protobuf:"bytes,51,opt,name=prometheusNamespace,proto3" json:"prometheusNamespace,omitempty"`
+	PriorityClassName string `protobuf:"bytes,27,opt,name=priorityClassName,proto3" json:"priorityClassName,omitempty"` // Deprecated: Do not use.
 	// Specifies how proxies are configured within Istio.
 	Proxy *ProxyConfig `protobuf:"bytes,28,opt,name=proxy,proto3" json:"proxy,omitempty"`
 	// Specifies the Configuration for proxy_init container which sets the pods' networking to intercept the inbound/outbound traffic.
@@ -1396,29 +1284,14 @@ type GlobalConfig struct {
 	Sds *SDSConfig `protobuf:"bytes,30,opt,name=sds,proto3" json:"sds,omitempty"`
 	// Specifies the tag for the Istio docker images.
 	Tag interface{} `protobuf:"bytes,31,opt,name=tag,proto3" json:"tag,omitempty"`
-	// Specifies the namespace for the telemetry component.
-	TelemetryNamespace string `protobuf:"bytes,32,opt,name=telemetryNamespace,proto3" json:"telemetryNamespace,omitempty"`
 	// Specifies the Configuration for each of the supported tracers.
 	Tracer *TracerConfig `protobuf:"bytes,33,opt,name=tracer,proto3" json:"tracer,omitempty"`
 	// Specifies the trust domain that corresponds to the root cert of CA.
 	TrustDomain string `protobuf:"bytes,34,opt,name=trustDomain,proto3" json:"trustDomain,omitempty"`
-	// The trust domain aliases represent the aliases of trustDomain.
-	TrustDomainAliases []string `protobuf:"bytes,42,rep,name=trustDomainAliases,proto3" json:"trustDomainAliases,omitempty"`
 	// Controls whether to use of Mesh Configuration Protocol to distribute configuration.
 	UseMCP *protobuf.BoolValue `protobuf:"bytes,35,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
-	// Settings for remote cluster.
-	// Controls whether to use the Istio remote control plane
-	IstioRemote              *protobuf.BoolValue `protobuf:"bytes,44,opt,name=istioRemote,proto3" json:"istioRemote,omitempty"`
-	CreateRemoteSvcEndpoints *protobuf.BoolValue `protobuf:"bytes,45,opt,name=createRemoteSvcEndpoints,proto3" json:"createRemoteSvcEndpoints,omitempty"`
-	// If set, a selector-less service and endpoint for istio-pilot are created with the remotePilotAddress IP,
-	// which ensures the istio-pilot. is DNS resolvable in the remote cluster.
-	RemotePilotCreateSvcEndpoint *protobuf.BoolValue `protobuf:"bytes,46,opt,name=remotePilotCreateSvcEndpoint,proto3" json:"remotePilotCreateSvcEndpoint,omitempty"`
-	// Specifies the Istio control plane’s policy Pod IP address or remote cluster DNS resolvable hostname.
-	RemotePolicyAddress string `protobuf:"bytes,47,opt,name=remotePolicyAddress,proto3" json:"remotePolicyAddress,omitempty"`
 	// Specifies the Istio control plane’s pilot Pod IP address or remote cluster DNS resolvable hostname.
 	RemotePilotAddress string `protobuf:"bytes,48,opt,name=remotePilotAddress,proto3" json:"remotePilotAddress,omitempty"`
-	// Specifies the Istio control plane’s telemetry Pod IP address or remote cluster DNS resolvable hostname
-	RemoteTelemetryAddress string `protobuf:"bytes,49,opt,name=remoteTelemetryAddress,proto3" json:"remoteTelemetryAddress,omitempty"`
 	// Specifies the configution of istiod
 	Istiod *IstiodConfig `protobuf:"bytes,54,opt,name=istiod,proto3" json:"istiod,omitempty"`
 	// Configure the Pilot certificate provider.
@@ -1473,13 +1346,6 @@ func (m *GlobalConfig) GetArch() *ArchConfig {
 	return nil
 }
 
-func (m *GlobalConfig) GetConfigNamespace() string {
-	if m != nil {
-		return m.ConfigNamespace
-	}
-	return ""
-}
-
 func (m *GlobalConfig) GetConfigRootNamespace() string {
 	if m != nil {
 		return m.ConfigRootNamespace
@@ -1490,13 +1356,6 @@ func (m *GlobalConfig) GetConfigRootNamespace() string {
 func (m *GlobalConfig) GetConfigValidation() *protobuf.BoolValue {
 	if m != nil {
 		return m.ConfigValidation
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetControlPlaneSecurityEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.ControlPlaneSecurityEnabled
 	}
 	return nil
 }
@@ -1540,20 +1399,6 @@ func (m *GlobalConfig) GetDefaultTolerations() []map[string]interface{} {
 	return nil
 }
 
-func (m *GlobalConfig) GetEnableHelmTest() *protobuf.BoolValue {
-	if m != nil {
-		return m.EnableHelmTest
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetEnableTracing() *protobuf.BoolValue {
-	if m != nil {
-		return m.EnableTracing
-	}
-	return nil
-}
-
 func (m *GlobalConfig) GetHub() string {
 	if m != nil {
 		return m.Hub
@@ -1580,13 +1425,6 @@ func (m *GlobalConfig) GetIstioNamespace() string {
 		return m.IstioNamespace
 	}
 	return ""
-}
-
-func (m *GlobalConfig) GetLocalityLbSetting() map[string]interface{} {
-	if m != nil {
-		return m.LocalityLbSetting
-	}
-	return nil
 }
 
 func (m *GlobalConfig) GetLogAsJson() *protobuf.BoolValue {
@@ -1622,13 +1460,6 @@ func (m *GlobalConfig) GetMeshNetworks() map[string]interface{} {
 		return m.MeshNetworks
 	}
 	return nil
-}
-
-func (m *GlobalConfig) GetMonitoringPort() uint32 {
-	if m != nil {
-		return m.MonitoringPort
-	}
-	return 0
 }
 
 func (m *GlobalConfig) GetMultiCluster() *MultiClusterConfig {
@@ -1673,38 +1504,10 @@ func (m *GlobalConfig) GetOperatorManageWebhooks() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *GlobalConfig) GetOutboundTrafficPolicy() *OutboundTrafficPolicyConfig {
-	if m != nil {
-		return m.OutboundTrafficPolicy
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetPolicyCheckFailOpen() *protobuf.BoolValue {
-	if m != nil {
-		return m.PolicyCheckFailOpen
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetPolicyNamespace() string {
-	if m != nil {
-		return m.PolicyNamespace
-	}
-	return ""
-}
-
 // Deprecated: Do not use.
 func (m *GlobalConfig) GetPriorityClassName() string {
 	if m != nil {
 		return m.PriorityClassName
-	}
-	return ""
-}
-
-func (m *GlobalConfig) GetPrometheusNamespace() string {
-	if m != nil {
-		return m.PrometheusNamespace
 	}
 	return ""
 }
@@ -1737,13 +1540,6 @@ func (m *GlobalConfig) GetTag() interface{} {
 	return nil
 }
 
-func (m *GlobalConfig) GetTelemetryNamespace() string {
-	if m != nil {
-		return m.TelemetryNamespace
-	}
-	return ""
-}
-
 func (m *GlobalConfig) GetTracer() *TracerConfig {
 	if m != nil {
 		return m.Tracer
@@ -1758,13 +1554,6 @@ func (m *GlobalConfig) GetTrustDomain() string {
 	return ""
 }
 
-func (m *GlobalConfig) GetTrustDomainAliases() []string {
-	if m != nil {
-		return m.TrustDomainAliases
-	}
-	return nil
-}
-
 func (m *GlobalConfig) GetUseMCP() *protobuf.BoolValue {
 	if m != nil {
 		return m.UseMCP
@@ -1772,44 +1561,9 @@ func (m *GlobalConfig) GetUseMCP() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *GlobalConfig) GetIstioRemote() *protobuf.BoolValue {
-	if m != nil {
-		return m.IstioRemote
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetCreateRemoteSvcEndpoints() *protobuf.BoolValue {
-	if m != nil {
-		return m.CreateRemoteSvcEndpoints
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetRemotePilotCreateSvcEndpoint() *protobuf.BoolValue {
-	if m != nil {
-		return m.RemotePilotCreateSvcEndpoint
-	}
-	return nil
-}
-
-func (m *GlobalConfig) GetRemotePolicyAddress() string {
-	if m != nil {
-		return m.RemotePolicyAddress
-	}
-	return ""
-}
-
 func (m *GlobalConfig) GetRemotePilotAddress() string {
 	if m != nil {
 		return m.RemotePilotAddress
-	}
-	return ""
-}
-
-func (m *GlobalConfig) GetRemoteTelemetryAddress() string {
-	if m != nil {
-		return m.RemoteTelemetryAddress
 	}
 	return ""
 }
@@ -1999,23 +1753,16 @@ type IngressGatewayConfig struct {
 	// maxReplicas setting for HorizontalPodAutoscaler.
 	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
 	// minReplicas setting for HorizontalPodAutoscaler.
-	AutoscaleMin   uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	ConnectTimeout string `protobuf:"bytes,4,opt,name=connectTimeout,proto3" json:"connectTimeout,omitempty"`
+	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
 	// K8s utilization setting for HorizontalPodAutoscaler target.
 	//
 	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 	Cpu           *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"` // Deprecated: Do not use.
 	CustomService *protobuf.BoolValue         `protobuf:"bytes,6,opt,name=customService,proto3" json:"customService,omitempty"`
-	Debug         string                      `protobuf:"bytes,7,opt,name=debug,proto3" json:"debug,omitempty"`
-	Domain        string                      `protobuf:"bytes,8,opt,name=domain,proto3" json:"domain,omitempty"`
-	DrainDuration *types.Duration             `protobuf:"bytes,9,opt,name=drainDuration,proto3" json:"drainDuration,omitempty"`
 	// Controls whether an ingress gateway is enabled.
 	Enabled *protobuf.BoolValue `protobuf:"bytes,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
 	Env                      map[string]interface{} `protobuf:"bytes,11,opt,name=env,proto3" json:"env,omitempty"`
-	ExternalIPs              []string                `protobuf:"bytes,12,rep,name=externalIPs,proto3" json:"externalIPs,omitempty"`
-	K8SIngress               *protobuf.BoolValue     `protobuf:"bytes,13,opt,name=k8sIngress,proto3" json:"k8sIngress,omitempty"`
-	K8SIngressHttps          *protobuf.BoolValue     `protobuf:"bytes,14,opt,name=k8sIngressHttps,proto3" json:"k8sIngressHttps,omitempty"`
 	Labels                   *GatewayLabelsConfig    `protobuf:"bytes,15,opt,name=labels,proto3" json:"labels,omitempty"`
 	LoadBalancerIP           string                  `protobuf:"bytes,16,opt,name=loadBalancerIP,proto3" json:"loadBalancerIP,omitempty"`
 	LoadBalancerSourceRanges []string                `protobuf:"bytes,17,rep,name=loadBalancerSourceRanges,proto3" json:"loadBalancerSourceRanges,omitempty"`
@@ -2041,8 +1788,6 @@ type IngressGatewayConfig struct {
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
 	Resources map[string]interface{} `protobuf:"bytes,25,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	// Secret Discovery Service (SDS) Configuration for ingress gateway.
-	Sds *IngressGatewaySdsConfig `protobuf:"bytes,26,opt,name=sds,proto3" json:"sds,omitempty"`
 	// Config for secret volume mounts.
 	SecretVolumes []*SecretVolume `protobuf:"bytes,27,rep,name=secretVolumes,proto3" json:"secretVolumes,omitempty"`
 	// Annotations to add to the egress gateway service.
@@ -2056,23 +1801,16 @@ type IngressGatewayConfig struct {
 	// K8s rolling update strategy
 	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,31,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"` // Deprecated: Do not use.
 	// K8s rolling update strategy
-	RollingMaxUnavailable *IntOrStringForPB `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
-	// Ports to explicitly check for readiness
-	ApplicationPorts       string                         `protobuf:"bytes,33,opt,name=applicationPorts,proto3" json:"applicationPorts,omitempty"`
-	ExternalTrafficPolicy  string                         `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
-	Tolerations            []map[string]interface{} `protobuf:"bytes,35,opt,name=tolerations,proto3" json:"tolerations,omitempty"` // Deprecated: Do not use.
-	IngressPorts           []map[string]interface{} `protobuf:"bytes,36,opt,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
-	AdditionalContainers   []map[string]interface{} `protobuf:"bytes,37,opt,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
-	ConfigVolumes          []map[string]interface{} `protobuf:"bytes,38,opt,name=configVolumes,proto3" json:"configVolumes,omitempty"`
-	Certificates           *protobuf.BoolValue            `protobuf:"bytes,39,opt,name=certificates,proto3" json:"certificates,omitempty"`
-	Tls                    *protobuf.BoolValue            `protobuf:"bytes,40,opt,name=tls,proto3" json:"tls,omitempty"`
-	TelemetryAddonGateways map[string]interface{}        `protobuf:"bytes,41,opt,name=telemetry_addon_gateways,json=telemetryAddonGateways,proto3" json:"telemetry_addon_gateways,omitempty"`
-	Hosts                  []map[string]interface{} `protobuf:"bytes,42,opt,name=hosts,proto3" json:"hosts,omitempty"`
-	TelemetryDomainName    string                         `protobuf:"bytes,43,opt,name=telemetry_domain_name,json=telemetryDomainName,proto3" json:"telemetry_domain_name,omitempty"`
-	RunAsRoot              *protobuf.BoolValue            `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
-	XXX_NoUnkeyedLiteral   struct{}                       `json:"-"`
-	XXX_unrecognized       []byte                         `json:"-"`
-	XXX_sizecache          int32                          `json:"-"`
+	RollingMaxUnavailable *IntOrStringForPB          `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
+	ExternalTrafficPolicy string                         `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
+	Tolerations           []map[string]interface{} `protobuf:"bytes,35,opt,name=tolerations,proto3" json:"tolerations,omitempty"` // Deprecated: Do not use.
+	IngressPorts          []map[string]interface{} `protobuf:"bytes,36,opt,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
+	AdditionalContainers  []map[string]interface{} `protobuf:"bytes,37,opt,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
+	ConfigVolumes         []map[string]interface{} `protobuf:"bytes,38,opt,name=configVolumes,proto3" json:"configVolumes,omitempty"`
+	RunAsRoot             *protobuf.BoolValue            `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
+	XXX_NoUnkeyedLiteral  struct{}                       `json:"-"`
+	XXX_unrecognized      []byte                         `json:"-"`
+	XXX_sizecache         int32                          `json:"-"`
 }
 
 func (m *IngressGatewayConfig) Reset()         { *m = IngressGatewayConfig{} }
@@ -2120,13 +1858,6 @@ func (m *IngressGatewayConfig) GetAutoscaleMin() uint32 {
 	return 0
 }
 
-func (m *IngressGatewayConfig) GetConnectTimeout() string {
-	if m != nil {
-		return m.ConnectTimeout
-	}
-	return ""
-}
-
 // Deprecated: Do not use.
 func (m *IngressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
 	if m != nil {
@@ -2142,27 +1873,6 @@ func (m *IngressGatewayConfig) GetCustomService() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetDebug() string {
-	if m != nil {
-		return m.Debug
-	}
-	return ""
-}
-
-func (m *IngressGatewayConfig) GetDomain() string {
-	if m != nil {
-		return m.Domain
-	}
-	return ""
-}
-
-func (m *IngressGatewayConfig) GetDrainDuration() *types.Duration {
-	if m != nil {
-		return m.DrainDuration
-	}
-	return nil
-}
-
 func (m *IngressGatewayConfig) GetEnabled() *protobuf.BoolValue {
 	if m != nil {
 		return m.Enabled
@@ -2173,27 +1883,6 @@ func (m *IngressGatewayConfig) GetEnabled() *protobuf.BoolValue {
 func (m *IngressGatewayConfig) GetEnv() map[string]interface{} {
 	if m != nil {
 		return m.Env
-	}
-	return nil
-}
-
-func (m *IngressGatewayConfig) GetExternalIPs() []string {
-	if m != nil {
-		return m.ExternalIPs
-	}
-	return nil
-}
-
-func (m *IngressGatewayConfig) GetK8SIngress() *protobuf.BoolValue {
-	if m != nil {
-		return m.K8SIngress
-	}
-	return nil
-}
-
-func (m *IngressGatewayConfig) GetK8SIngressHttps() *protobuf.BoolValue {
-	if m != nil {
-		return m.K8SIngressHttps
 	}
 	return nil
 }
@@ -2288,13 +1977,6 @@ func (m *IngressGatewayConfig) GetResources() map[string]interface{} {
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetSds() *IngressGatewaySdsConfig {
-	if m != nil {
-		return m.Sds
-	}
-	return nil
-}
-
 func (m *IngressGatewayConfig) GetSecretVolumes() []*SecretVolume {
 	if m != nil {
 		return m.SecretVolumes
@@ -2339,13 +2021,6 @@ func (m *IngressGatewayConfig) GetRollingMaxUnavailable() *IntOrStringForPB {
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetApplicationPorts() string {
-	if m != nil {
-		return m.ApplicationPorts
-	}
-	return ""
-}
-
 func (m *IngressGatewayConfig) GetExternalTrafficPolicy() string {
 	if m != nil {
 		return m.ExternalTrafficPolicy
@@ -2382,106 +2057,9 @@ func (m *IngressGatewayConfig) GetConfigVolumes() []map[string]interface{} {
 	return nil
 }
 
-func (m *IngressGatewayConfig) GetCertificates() *protobuf.BoolValue {
-	if m != nil {
-		return m.Certificates
-	}
-	return nil
-}
-
-func (m *IngressGatewayConfig) GetTls() *protobuf.BoolValue {
-	if m != nil {
-		return m.Tls
-	}
-	return nil
-}
-
-func (m *IngressGatewayConfig) GetTelemetryAddonGateways() map[string]interface{} {
-	if m != nil {
-		return m.TelemetryAddonGateways
-	}
-	return nil
-}
-
-func (m *IngressGatewayConfig) GetHosts() []map[string]interface{} {
-	if m != nil {
-		return m.Hosts
-	}
-	return nil
-}
-
-func (m *IngressGatewayConfig) GetTelemetryDomainName() string {
-	if m != nil {
-		return m.TelemetryDomainName
-	}
-	return ""
-}
-
 func (m *IngressGatewayConfig) GetRunAsRoot() *protobuf.BoolValue {
 	if m != nil {
 		return m.RunAsRoot
-	}
-	return nil
-}
-
-// Secret Discovery Service (SDS) Configuration for ingress gateway.
-type IngressGatewaySdsConfig struct {
-	// If true, ingress gateway fetches credentials from SDS server to handle TLS connections.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// SDS server that watches kubernetes secrets and provisions credentials to ingress gateway.
-	// This server runs in the same pod as ingress gateway.
-	Image string `protobuf:"bytes,2,opt,name=image,proto3" json:"image,omitempty"`
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources            *Resources `protobuf:"bytes,3,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
-}
-
-func (m *IngressGatewaySdsConfig) Reset()         { *m = IngressGatewaySdsConfig{} }
-func (m *IngressGatewaySdsConfig) String() string { return proto.CompactTextString(m) }
-func (*IngressGatewaySdsConfig) ProtoMessage()    {}
-func (*IngressGatewaySdsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{16}
-}
-func (m *IngressGatewaySdsConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_IngressGatewaySdsConfig.Unmarshal(m, b)
-}
-func (m *IngressGatewaySdsConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_IngressGatewaySdsConfig.Marshal(b, m, deterministic)
-}
-func (m *IngressGatewaySdsConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_IngressGatewaySdsConfig.Merge(m, src)
-}
-func (m *IngressGatewaySdsConfig) XXX_Size() int {
-	return xxx_messageInfo_IngressGatewaySdsConfig.Size(m)
-}
-func (m *IngressGatewaySdsConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_IngressGatewaySdsConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_IngressGatewaySdsConfig proto.InternalMessageInfo
-
-func (m *IngressGatewaySdsConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *IngressGatewaySdsConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *IngressGatewaySdsConfig) GetResources() *Resources {
-	if m != nil {
-		return m.Resources
 	}
 	return nil
 }
@@ -2500,7 +2078,7 @@ func (m *IngressGatewayZvpnConfig) Reset()         { *m = IngressGatewayZvpnConf
 func (m *IngressGatewayZvpnConfig) String() string { return proto.CompactTextString(m) }
 func (*IngressGatewayZvpnConfig) ProtoMessage()    {}
 func (*IngressGatewayZvpnConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{17}
+	return fileDescriptor_261260e22432516f, []int{16}
 }
 func (m *IngressGatewayZvpnConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IngressGatewayZvpnConfig.Unmarshal(m, b)
@@ -2534,95 +2112,6 @@ func (m *IngressGatewayZvpnConfig) GetSuffix() string {
 	return ""
 }
 
-// Configuration for Kubernetes environment adapter in mixer.
-type KubernetesEnvMixerAdapterConfig struct {
-	// Enables the Kubernetes env adapter in Mixer.
-	//
-	// See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/kubernetesenv/
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *KubernetesEnvMixerAdapterConfig) Reset()         { *m = KubernetesEnvMixerAdapterConfig{} }
-func (m *KubernetesEnvMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
-func (*KubernetesEnvMixerAdapterConfig) ProtoMessage()    {}
-func (*KubernetesEnvMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{18}
-}
-func (m *KubernetesEnvMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KubernetesEnvMixerAdapterConfig.Unmarshal(m, b)
-}
-func (m *KubernetesEnvMixerAdapterConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KubernetesEnvMixerAdapterConfig.Marshal(b, m, deterministic)
-}
-func (m *KubernetesEnvMixerAdapterConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KubernetesEnvMixerAdapterConfig.Merge(m, src)
-}
-func (m *KubernetesEnvMixerAdapterConfig) XXX_Size() int {
-	return xxx_messageInfo_KubernetesEnvMixerAdapterConfig.Size(m)
-}
-func (m *KubernetesEnvMixerAdapterConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_KubernetesEnvMixerAdapterConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_KubernetesEnvMixerAdapterConfig proto.InternalMessageInfo
-
-func (m *KubernetesEnvMixerAdapterConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-// Configuration for when mixer starts rejecting grpc requests.
-type LoadSheddingConfig struct {
-	LatencyThreshold     string   `protobuf:"bytes,1,opt,name=latencyThreshold,proto3" json:"latencyThreshold,omitempty"`
-	Mode                 Mode     `protobuf:"varint,2,opt,name=mode,proto3,enum=v1alpha1.Mode" json:"mode,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *LoadSheddingConfig) Reset()         { *m = LoadSheddingConfig{} }
-func (m *LoadSheddingConfig) String() string { return proto.CompactTextString(m) }
-func (*LoadSheddingConfig) ProtoMessage()    {}
-func (*LoadSheddingConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{19}
-}
-func (m *LoadSheddingConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_LoadSheddingConfig.Unmarshal(m, b)
-}
-func (m *LoadSheddingConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_LoadSheddingConfig.Marshal(b, m, deterministic)
-}
-func (m *LoadSheddingConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_LoadSheddingConfig.Merge(m, src)
-}
-func (m *LoadSheddingConfig) XXX_Size() int {
-	return xxx_messageInfo_LoadSheddingConfig.Size(m)
-}
-func (m *LoadSheddingConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_LoadSheddingConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_LoadSheddingConfig proto.InternalMessageInfo
-
-func (m *LoadSheddingConfig) GetLatencyThreshold() string {
-	if m != nil {
-		return m.LatencyThreshold
-	}
-	return ""
-}
-
-func (m *LoadSheddingConfig) GetMode() Mode {
-	if m != nil {
-		return m.Mode
-	}
-	return Mode_disabled
-}
-
 // Configuration for Istio mesh expansion to bare metal.
 type MeshExpansionConfig struct {
 	// Exposes Pilot and Citadel mTLS on the ingress gateway.
@@ -2638,7 +2127,7 @@ func (m *MeshExpansionConfig) Reset()         { *m = MeshExpansionConfig{} }
 func (m *MeshExpansionConfig) String() string { return proto.CompactTextString(m) }
 func (*MeshExpansionConfig) ProtoMessage()    {}
 func (*MeshExpansionConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{20}
+	return fileDescriptor_261260e22432516f, []int{17}
 }
 func (m *MeshExpansionConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MeshExpansionConfig.Unmarshal(m, b)
@@ -2672,691 +2161,6 @@ func (m *MeshExpansionConfig) GetUseILB() *protobuf.BoolValue {
 	return nil
 }
 
-// Configuration for Mixer Telemetry adapters.
-type MixerTelemetryAdaptersConfig struct {
-	// Configuration for Kubernetes environment adapter in mixer.
-	Kubernetesenv *KubernetesEnvMixerAdapterConfig `protobuf:"bytes,1,opt,name=kubernetesenv,proto3" json:"kubernetesenv,omitempty"`
-	// Configuration for Prometheus adapter in mixer.
-	Prometheus *PrometheusMixerAdapterConfig `protobuf:"bytes,2,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
-	// Configuration for stdio adapter in mixer, recommended for debug usage only.
-	Stdio *StdioMixerAdapterConfig `protobuf:"bytes,3,opt,name=stdio,proto3" json:"stdio,omitempty"`
-	//
-	Stackdriver *StackdriverMixerAdapterConfig `protobuf:"bytes,4,opt,name=stackdriver,proto3" json:"stackdriver,omitempty"`
-	// Sets the --useAdapterCRDs mixer startup argument.
-	UseAdapterCRDs       *protobuf.BoolValue `protobuf:"bytes,5,opt,name=useAdapterCRDs,proto3" json:"useAdapterCRDs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *MixerTelemetryAdaptersConfig) Reset()         { *m = MixerTelemetryAdaptersConfig{} }
-func (m *MixerTelemetryAdaptersConfig) String() string { return proto.CompactTextString(m) }
-func (*MixerTelemetryAdaptersConfig) ProtoMessage()    {}
-func (*MixerTelemetryAdaptersConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{21}
-}
-func (m *MixerTelemetryAdaptersConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_MixerTelemetryAdaptersConfig.Unmarshal(m, b)
-}
-func (m *MixerTelemetryAdaptersConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_MixerTelemetryAdaptersConfig.Marshal(b, m, deterministic)
-}
-func (m *MixerTelemetryAdaptersConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MixerTelemetryAdaptersConfig.Merge(m, src)
-}
-func (m *MixerTelemetryAdaptersConfig) XXX_Size() int {
-	return xxx_messageInfo_MixerTelemetryAdaptersConfig.Size(m)
-}
-func (m *MixerTelemetryAdaptersConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MixerTelemetryAdaptersConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MixerTelemetryAdaptersConfig proto.InternalMessageInfo
-
-func (m *MixerTelemetryAdaptersConfig) GetKubernetesenv() *KubernetesEnvMixerAdapterConfig {
-	if m != nil {
-		return m.Kubernetesenv
-	}
-	return nil
-}
-
-func (m *MixerTelemetryAdaptersConfig) GetPrometheus() *PrometheusMixerAdapterConfig {
-	if m != nil {
-		return m.Prometheus
-	}
-	return nil
-}
-
-func (m *MixerTelemetryAdaptersConfig) GetStdio() *StdioMixerAdapterConfig {
-	if m != nil {
-		return m.Stdio
-	}
-	return nil
-}
-
-func (m *MixerTelemetryAdaptersConfig) GetStackdriver() *StackdriverMixerAdapterConfig {
-	if m != nil {
-		return m.Stackdriver
-	}
-	return nil
-}
-
-func (m *MixerTelemetryAdaptersConfig) GetUseAdapterCRDs() *protobuf.BoolValue {
-	if m != nil {
-		return m.UseAdapterCRDs
-	}
-	return nil
-}
-
-// Configuration for Mixer Policy adapters.
-type MixerPolicyAdaptersConfig struct {
-	// Configuration for Kubernetes environment adapter in mixer.
-	Kubernetesenv *KubernetesEnvMixerAdapterConfig `protobuf:"bytes,1,opt,name=kubernetesenv,proto3" json:"kubernetesenv,omitempty"`
-	// Configuration for Prometheus adapter in mixer.
-	Prometheus *PrometheusMixerAdapterConfig `protobuf:"bytes,2,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
-	// Configuration for stdio adapter in mixer, recommended for debug usage only.
-	Stdio *StdioMixerAdapterConfig `protobuf:"bytes,3,opt,name=stdio,proto3" json:"stdio,omitempty"`
-	//
-	Stackdriver *StackdriverMixerAdapterConfig `protobuf:"bytes,4,opt,name=stackdriver,proto3" json:"stackdriver,omitempty"`
-	// Sets the --useAdapterCRDs mixer startup argument.
-	UseAdapterCRDs       *protobuf.BoolValue `protobuf:"bytes,5,opt,name=useAdapterCRDs,proto3" json:"useAdapterCRDs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *MixerPolicyAdaptersConfig) Reset()         { *m = MixerPolicyAdaptersConfig{} }
-func (m *MixerPolicyAdaptersConfig) String() string { return proto.CompactTextString(m) }
-func (*MixerPolicyAdaptersConfig) ProtoMessage()    {}
-func (*MixerPolicyAdaptersConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{22}
-}
-func (m *MixerPolicyAdaptersConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_MixerPolicyAdaptersConfig.Unmarshal(m, b)
-}
-func (m *MixerPolicyAdaptersConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_MixerPolicyAdaptersConfig.Marshal(b, m, deterministic)
-}
-func (m *MixerPolicyAdaptersConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MixerPolicyAdaptersConfig.Merge(m, src)
-}
-func (m *MixerPolicyAdaptersConfig) XXX_Size() int {
-	return xxx_messageInfo_MixerPolicyAdaptersConfig.Size(m)
-}
-func (m *MixerPolicyAdaptersConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MixerPolicyAdaptersConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MixerPolicyAdaptersConfig proto.InternalMessageInfo
-
-func (m *MixerPolicyAdaptersConfig) GetKubernetesenv() *KubernetesEnvMixerAdapterConfig {
-	if m != nil {
-		return m.Kubernetesenv
-	}
-	return nil
-}
-
-func (m *MixerPolicyAdaptersConfig) GetPrometheus() *PrometheusMixerAdapterConfig {
-	if m != nil {
-		return m.Prometheus
-	}
-	return nil
-}
-
-func (m *MixerPolicyAdaptersConfig) GetStdio() *StdioMixerAdapterConfig {
-	if m != nil {
-		return m.Stdio
-	}
-	return nil
-}
-
-func (m *MixerPolicyAdaptersConfig) GetStackdriver() *StackdriverMixerAdapterConfig {
-	if m != nil {
-		return m.Stackdriver
-	}
-	return nil
-}
-
-func (m *MixerPolicyAdaptersConfig) GetUseAdapterCRDs() *protobuf.BoolValue {
-	if m != nil {
-		return m.UseAdapterCRDs
-	}
-	return nil
-}
-
-// Configuration for Mixer.
-type MixerConfig struct {
-	// MixerPolicyConfig is set of configurations for Mixer Policy
-	Policy *MixerPolicyConfig `protobuf:"bytes,1,opt,name=policy,proto3" json:"policy,omitempty"`
-	// MixerTelemetryConfig is set of configurations for Mixer Telemetry
-	Telemetry *MixerTelemetryConfig `protobuf:"bytes,2,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
-	// Configuration for different mixer adapters.
-	Adapters             *MixerTelemetryAdaptersConfig `protobuf:"bytes,3,opt,name=adapters,proto3" json:"adapters,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                      `json:"-"`
-	XXX_unrecognized     []byte                        `json:"-"`
-	XXX_sizecache        int32                         `json:"-"`
-}
-
-func (m *MixerConfig) Reset()         { *m = MixerConfig{} }
-func (m *MixerConfig) String() string { return proto.CompactTextString(m) }
-func (*MixerConfig) ProtoMessage()    {}
-func (*MixerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{23}
-}
-func (m *MixerConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_MixerConfig.Unmarshal(m, b)
-}
-func (m *MixerConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_MixerConfig.Marshal(b, m, deterministic)
-}
-func (m *MixerConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MixerConfig.Merge(m, src)
-}
-func (m *MixerConfig) XXX_Size() int {
-	return xxx_messageInfo_MixerConfig.Size(m)
-}
-func (m *MixerConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MixerConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MixerConfig proto.InternalMessageInfo
-
-func (m *MixerConfig) GetPolicy() *MixerPolicyConfig {
-	if m != nil {
-		return m.Policy
-	}
-	return nil
-}
-
-func (m *MixerConfig) GetTelemetry() *MixerTelemetryConfig {
-	if m != nil {
-		return m.Telemetry
-	}
-	return nil
-}
-
-func (m *MixerConfig) GetAdapters() *MixerTelemetryAdaptersConfig {
-	if m != nil {
-		return m.Adapters
-	}
-	return nil
-}
-
-// Configuration for Mixer Policy.
-type MixerPolicyConfig struct {
-	// Controls whether a HorizontalPodAutoscaler is installed for Mixer Policy.
-	AutoscaleEnabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	// Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.
-	AutoscaleMax uint32 `protobuf:"varint,2,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	// Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Policy.
-	AutoscaleMin uint32 `protobuf:"varint,3,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	// Target CPU utilization used in HorizontalPodAutoscaler.
-	//
-	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,4,opt,name=cpu,proto3" json:"cpu,omitempty"` // Deprecated: Do not use.
-	// Controls whether Mixer Policy is enabled
-	Enabled *protobuf.BoolValue `protobuf:"bytes,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Image name used for Mixer Policy.
-	//
-	// This can be set either to image name if hub is also set, or can be set to the full hub:name string.
-	//
-	// Examples: custom-mixer, docker.io/someuser:custom-mixer
-	Image string `protobuf:"bytes,6,opt,name=image,proto3" json:"image,omitempty"`
-	// K8s annotations to attach to mixer policy deployment
-	//
-	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations map[string]interface{} `protobuf:"bytes,7,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	// Number of replicas in the Mixer Policy Deployment
-	ReplicaCount uint32 `protobuf:"varint,8,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"` // Deprecated: Do not use.
-	// Configuration for different mixer adapters.
-	Adapters *MixerPolicyAdaptersConfig `protobuf:"bytes,9,opt,name=adapters,proto3" json:"adapters,omitempty"`
-	// Controls whether to enable the sticky session setting when choosing backend pods.
-	SessionAffinityEnabled *protobuf.BoolValue `protobuf:"bytes,10,opt,name=sessionAffinityEnabled,proto3" json:"sessionAffinityEnabled,omitempty"`
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources *Resources `protobuf:"bytes,11,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	// K8s rolling update strategy
-	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,12,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"` // Deprecated: Do not use.
-	// K8s rolling update strategy
-	RollingMaxUnavailable            *IntOrStringForPB          `protobuf:"bytes,13,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`                       // Deprecated: Do not use.
-	PodAntiAffinityLabelSelector     []map[string]interface{} `protobuf:"bytes,14,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`         // Deprecated: Do not use.
-	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,15,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"` // Deprecated: Do not use.
-	// K8s node selector.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector map[string]interface{} `protobuf:"bytes,16,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"` // Deprecated: Do not use.
-	// Environment variables passed to the Mixer container.
-	//
-	// Examples:
-	// env:
-	//   ENV_VAR_1: value1
-	//   ENV_VAR_2: value2
-	Env                  map[string]interface{}        `protobuf:"bytes,17,opt,name=env,proto3" json:"env,omitempty"`
-	Tolerations          []map[string]interface{} `protobuf:"bytes,18,opt,name=tolerations,proto3" json:"tolerations,omitempty"` // Deprecated: Do not use.
-	Hub                  string                         `protobuf:"bytes,19,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                  interface{}                 `protobuf:"bytes,20,opt,name=tag,proto3" json:"tag,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                       `json:"-"`
-	XXX_unrecognized     []byte                         `json:"-"`
-	XXX_sizecache        int32                          `json:"-"`
-}
-
-func (m *MixerPolicyConfig) Reset()         { *m = MixerPolicyConfig{} }
-func (m *MixerPolicyConfig) String() string { return proto.CompactTextString(m) }
-func (*MixerPolicyConfig) ProtoMessage()    {}
-func (*MixerPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{24}
-}
-func (m *MixerPolicyConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_MixerPolicyConfig.Unmarshal(m, b)
-}
-func (m *MixerPolicyConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_MixerPolicyConfig.Marshal(b, m, deterministic)
-}
-func (m *MixerPolicyConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MixerPolicyConfig.Merge(m, src)
-}
-func (m *MixerPolicyConfig) XXX_Size() int {
-	return xxx_messageInfo_MixerPolicyConfig.Size(m)
-}
-func (m *MixerPolicyConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MixerPolicyConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MixerPolicyConfig proto.InternalMessageInfo
-
-func (m *MixerPolicyConfig) GetAutoscaleEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.AutoscaleEnabled
-	}
-	return nil
-}
-
-func (m *MixerPolicyConfig) GetAutoscaleMax() uint32 {
-	if m != nil {
-		return m.AutoscaleMax
-	}
-	return 0
-}
-
-func (m *MixerPolicyConfig) GetAutoscaleMin() uint32 {
-	if m != nil {
-		return m.AutoscaleMin
-	}
-	return 0
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetCpu() *CPUTargetUtilizationConfig {
-	if m != nil {
-		return m.Cpu
-	}
-	return nil
-}
-
-func (m *MixerPolicyConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *MixerPolicyConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetPodAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.PodAnnotations
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetReplicaCount() uint32 {
-	if m != nil {
-		return m.ReplicaCount
-	}
-	return 0
-}
-
-func (m *MixerPolicyConfig) GetAdapters() *MixerPolicyAdaptersConfig {
-	if m != nil {
-		return m.Adapters
-	}
-	return nil
-}
-
-func (m *MixerPolicyConfig) GetSessionAffinityEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.SessionAffinityEnabled
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetResources() *Resources {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetRollingMaxSurge() *IntOrStringForPB {
-	if m != nil {
-		return m.RollingMaxSurge
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetRollingMaxUnavailable() *IntOrStringForPB {
-	if m != nil {
-		return m.RollingMaxUnavailable
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityTermLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetNodeSelector() map[string]interface{} {
-	if m != nil {
-		return m.NodeSelector
-	}
-	return nil
-}
-
-func (m *MixerPolicyConfig) GetEnv() map[string]interface{} {
-	if m != nil {
-		return m.Env
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerPolicyConfig) GetTolerations() []map[string]interface{} {
-	if m != nil {
-		return m.Tolerations
-	}
-	return nil
-}
-
-func (m *MixerPolicyConfig) GetHub() string {
-	if m != nil {
-		return m.Hub
-	}
-	return ""
-}
-
-func (m *MixerPolicyConfig) GetTag() interface{} {
-	if m != nil {
-		return m.Tag
-	}
-	return nil
-}
-
-// Configuration for Mixer Telemetry.
-type MixerTelemetryConfig struct {
-	// Controls whether a HorizontalPodAutoscaler is installed for Mixer Telemetry.
-	AutoscaleEnabled *protobuf.BoolValue `protobuf:"bytes,2,opt,name=autoscaleEnabled,proto3" json:"autoscaleEnabled,omitempty"`
-	// Maximum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.
-	AutoscaleMax uint32 `protobuf:"varint,3,opt,name=autoscaleMax,proto3" json:"autoscaleMax,omitempty"`
-	// Minimum number of replicas in the HorizontalPodAutoscaler for Mixer Telemetry.
-	AutoscaleMin uint32 `protobuf:"varint,4,opt,name=autoscaleMin,proto3" json:"autoscaleMin,omitempty"`
-	// Target CPU utilization used in HorizontalPodAutoscaler.
-	//
-	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"` // Deprecated: Do not use.
-	// Controls whether Mixer Telemetry is enabled.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,6,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Environment variables passed to the Mixer container.
-	//
-	// Examples:
-	// env:
-	//   ENV_VAR_1: value1
-	//   ENV_VAR_2: value2
-	Env map[string]interface{} `protobuf:"bytes,7,opt,name=env,proto3" json:"env,omitempty"`
-	// Image name used for Mixer Telemetry.
-	//
-	// This can be set either to image name if hub is also set, or can be set to the full hub:name string.
-	//
-	// Examples: custom-mixer, docker.io/someuser:custom-mixer
-	Image string `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
-	// LoadSheddingConfig configs when mixer starts rejecting grpc requests.
-	Loadshedding *LoadSheddingConfig `protobuf:"bytes,9,opt,name=loadshedding,proto3" json:"loadshedding,omitempty"`
-	// K8s node selector.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"` // Deprecated: Do not use.
-	// K8s annotations to attach to mixer telemetry deployment
-	//
-	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations map[string]interface{} `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	// Number of replicas in the Mixer Telemetry Deployment.
-	ReplicaCount uint32 `protobuf:"varint,12,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"` // Deprecated: Do not use.
-	// K8s rolling update strategy
-	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,15,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"` // Deprecated: Do not use.
-	// K8s rolling update strategy
-	RollingMaxUnavailable *IntOrStringForPB `protobuf:"bytes,16,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
-	// Controls whether to use of Mesh Configuration Protocol to distribute configuration.
-	UseMCP *protobuf.BoolValue `protobuf:"bytes,17,opt,name=useMCP,proto3" json:"useMCP,omitempty"`
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources *Resources `protobuf:"bytes,13,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	// Controls whether to enable the sticky session setting when choosing backend pods.
-	SessionAffinityEnabled           *protobuf.BoolValue            `protobuf:"bytes,14,opt,name=sessionAffinityEnabled,proto3" json:"sessionAffinityEnabled,omitempty"`
-	PodAntiAffinityLabelSelector     []map[string]interface{} `protobuf:"bytes,20,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`         // Deprecated: Do not use.
-	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,21,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"` // Deprecated: Do not use.
-	Tolerations                      []map[string]interface{} `protobuf:"bytes,22,opt,name=tolerations,proto3" json:"tolerations,omitempty"`                                           // Deprecated: Do not use.
-	Hub                              string                         `protobuf:"bytes,23,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                              interface{}                 `protobuf:"bytes,24,opt,name=tag,proto3" json:"tag,omitempty"`
-	XXX_NoUnkeyedLiteral             struct{}                       `json:"-"`
-	XXX_unrecognized                 []byte                         `json:"-"`
-	XXX_sizecache                    int32                          `json:"-"`
-}
-
-func (m *MixerTelemetryConfig) Reset()         { *m = MixerTelemetryConfig{} }
-func (m *MixerTelemetryConfig) String() string { return proto.CompactTextString(m) }
-func (*MixerTelemetryConfig) ProtoMessage()    {}
-func (*MixerTelemetryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{25}
-}
-func (m *MixerTelemetryConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_MixerTelemetryConfig.Unmarshal(m, b)
-}
-func (m *MixerTelemetryConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_MixerTelemetryConfig.Marshal(b, m, deterministic)
-}
-func (m *MixerTelemetryConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MixerTelemetryConfig.Merge(m, src)
-}
-func (m *MixerTelemetryConfig) XXX_Size() int {
-	return xxx_messageInfo_MixerTelemetryConfig.Size(m)
-}
-func (m *MixerTelemetryConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_MixerTelemetryConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_MixerTelemetryConfig proto.InternalMessageInfo
-
-func (m *MixerTelemetryConfig) GetAutoscaleEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.AutoscaleEnabled
-	}
-	return nil
-}
-
-func (m *MixerTelemetryConfig) GetAutoscaleMax() uint32 {
-	if m != nil {
-		return m.AutoscaleMax
-	}
-	return 0
-}
-
-func (m *MixerTelemetryConfig) GetAutoscaleMin() uint32 {
-	if m != nil {
-		return m.AutoscaleMin
-	}
-	return 0
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetCpu() *CPUTargetUtilizationConfig {
-	if m != nil {
-		return m.Cpu
-	}
-	return nil
-}
-
-func (m *MixerTelemetryConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *MixerTelemetryConfig) GetEnv() map[string]interface{} {
-	if m != nil {
-		return m.Env
-	}
-	return nil
-}
-
-func (m *MixerTelemetryConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
-func (m *MixerTelemetryConfig) GetLoadshedding() *LoadSheddingConfig {
-	if m != nil {
-		return m.Loadshedding
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetNodeSelector() map[string]interface{} {
-	if m != nil {
-		return m.NodeSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetPodAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.PodAnnotations
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetReplicaCount() uint32 {
-	if m != nil {
-		return m.ReplicaCount
-	}
-	return 0
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetRollingMaxSurge() *IntOrStringForPB {
-	if m != nil {
-		return m.RollingMaxSurge
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetRollingMaxUnavailable() *IntOrStringForPB {
-	if m != nil {
-		return m.RollingMaxUnavailable
-	}
-	return nil
-}
-
-func (m *MixerTelemetryConfig) GetUseMCP() *protobuf.BoolValue {
-	if m != nil {
-		return m.UseMCP
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetResources() *Resources {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-func (m *MixerTelemetryConfig) GetSessionAffinityEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.SessionAffinityEnabled
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityTermLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *MixerTelemetryConfig) GetTolerations() []map[string]interface{} {
-	if m != nil {
-		return m.Tolerations
-	}
-	return nil
-}
-
-func (m *MixerTelemetryConfig) GetHub() string {
-	if m != nil {
-		return m.Hub
-	}
-	return ""
-}
-
-func (m *MixerTelemetryConfig) GetTag() interface{} {
-	if m != nil {
-		return m.Tag
-	}
-	return nil
-}
-
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
 type MultiClusterConfig struct {
 	// Enables the connection between two kubernetes clusters via their respective ingressgateway services.
@@ -3372,7 +2176,7 @@ func (m *MultiClusterConfig) Reset()         { *m = MultiClusterConfig{} }
 func (m *MultiClusterConfig) String() string { return proto.CompactTextString(m) }
 func (*MultiClusterConfig) ProtoMessage()    {}
 func (*MultiClusterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{26}
+	return fileDescriptor_261260e22432516f, []int{18}
 }
 func (m *MultiClusterConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MultiClusterConfig.Unmarshal(m, b)
@@ -3418,7 +2222,7 @@ func (m *OutboundTrafficPolicyConfig) Reset()         { *m = OutboundTrafficPoli
 func (m *OutboundTrafficPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*OutboundTrafficPolicyConfig) ProtoMessage()    {}
 func (*OutboundTrafficPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{27}
+	return fileDescriptor_261260e22432516f, []int{19}
 }
 func (m *OutboundTrafficPolicyConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_OutboundTrafficPolicyConfig.Unmarshal(m, b)
@@ -3463,10 +2267,6 @@ type PilotConfig struct {
 	//
 	// Examples: custom-pilot, docker.io/someuser:custom-pilot
 	Image string `protobuf:"bytes,6,opt,name=image,proto3" json:"image,omitempty"`
-	// Controls whether a sidecar proxy is installed in the Pilot pod.
-	//
-	// Setting to true installs a proxy in the Pilot pod, used primarily for collecting Pilot telemetry.
-	Sidecar *protobuf.BoolValue `protobuf:"bytes,7,opt,name=sidecar,proto3" json:"sidecar,omitempty"`
 	// Trace sampling fraction.
 	//
 	// Used to set the fraction of time that traces are sampled. Higher values are more accurate but add CPU overhead.
@@ -3497,10 +2297,6 @@ type PilotConfig struct {
 	//
 	// See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 	DeploymentLabels map[string]interface{} `protobuf:"bytes,14,opt,name=deploymentLabels,proto3" json:"deploymentLabels,omitempty"`
-	// See EgressGatewayConfig.
-	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,16,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"` // Deprecated: Do not use.
-	// See EgressGatewayConfig.
-	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,17,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"` // Deprecated: Do not use.
 	// Configuration settings passed to Pilot as a ConfigMap.
 	//
 	// This controls whether the mesh config map, generated from values.yaml is generated.
@@ -3517,15 +2313,12 @@ type PilotConfig struct {
 	//   ENV_VAR_1: value1
 	//   ENV_VAR_2: value2
 	Env map[string]interface{} `protobuf:"bytes,21,opt,name=env,proto3" json:"env,omitempty"`
-	// Controls whether Istio policy is applied to Pilot.
-	Policy *PilotPolicyConfig `protobuf:"bytes,22,opt,name=policy,proto3" json:"policy,omitempty"`
 	// K8s rolling update strategy
 	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,24,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"` // Deprecated: Do not use.
 	// K8s rolling update strategy
 	RollingMaxUnavailable *IntOrStringForPB `protobuf:"bytes,25,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
 	//
-	Tolerations   []map[string]interface{} `protobuf:"bytes,26,opt,name=tolerations,proto3" json:"tolerations,omitempty"` // Deprecated: Do not use.
-	AppNamespaces []map[string]interface{} `protobuf:"bytes,27,opt,name=appNamespaces,proto3" json:"appNamespaces,omitempty"`
+	Tolerations []map[string]interface{} `protobuf:"bytes,26,opt,name=tolerations,proto3" json:"tolerations,omitempty"` // Deprecated: Do not use.
 	// if protocol sniffing is enabled for outbound
 	EnableProtocolSniffingForOutbound *protobuf.BoolValue `protobuf:"bytes,28,opt,name=enableProtocolSniffingForOutbound,proto3" json:"enableProtocolSniffingForOutbound,omitempty"`
 	// if protocol sniffing is enabled for inbound
@@ -3551,7 +2344,7 @@ func (m *PilotConfig) Reset()         { *m = PilotConfig{} }
 func (m *PilotConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotConfig) ProtoMessage()    {}
 func (*PilotConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{28}
+	return fileDescriptor_261260e22432516f, []int{20}
 }
 func (m *PilotConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PilotConfig.Unmarshal(m, b)
@@ -3614,13 +2407,6 @@ func (m *PilotConfig) GetImage() string {
 	return ""
 }
 
-func (m *PilotConfig) GetSidecar() *protobuf.BoolValue {
-	if m != nil {
-		return m.Sidecar
-	}
-	return nil
-}
-
 func (m *PilotConfig) GetTraceSampling() float64 {
 	if m != nil {
 		return m.TraceSampling
@@ -3673,22 +2459,6 @@ func (m *PilotConfig) GetDeploymentLabels() map[string]interface{} {
 	return nil
 }
 
-// Deprecated: Do not use.
-func (m *PilotConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PilotConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityTermLabelSelector
-	}
-	return nil
-}
-
 func (m *PilotConfig) GetConfigMap() *protobuf.BoolValue {
 	if m != nil {
 		return m.ConfigMap
@@ -3706,13 +2476,6 @@ func (m *PilotConfig) GetUseMCP() *protobuf.BoolValue {
 func (m *PilotConfig) GetEnv() map[string]interface{} {
 	if m != nil {
 		return m.Env
-	}
-	return nil
-}
-
-func (m *PilotConfig) GetPolicy() *PilotPolicyConfig {
-	if m != nil {
-		return m.Policy
 	}
 	return nil
 }
@@ -3737,13 +2500,6 @@ func (m *PilotConfig) GetRollingMaxUnavailable() *IntOrStringForPB {
 func (m *PilotConfig) GetTolerations() []map[string]interface{} {
 	if m != nil {
 		return m.Tolerations
-	}
-	return nil
-}
-
-func (m *PilotConfig) GetAppNamespaces() []map[string]interface{} {
-	if m != nil {
-		return m.AppNamespaces
 	}
 	return nil
 }
@@ -3825,7 +2581,7 @@ func (m *PilotIngressConfig) Reset()         { *m = PilotIngressConfig{} }
 func (m *PilotIngressConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotIngressConfig) ProtoMessage()    {}
 func (*PilotIngressConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{29}
+	return fileDescriptor_261260e22432516f, []int{21}
 }
 func (m *PilotIngressConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PilotIngressConfig.Unmarshal(m, b)
@@ -3879,7 +2635,7 @@ func (m *PilotPolicyConfig) Reset()         { *m = PilotPolicyConfig{} }
 func (m *PilotPolicyConfig) String() string { return proto.CompactTextString(m) }
 func (*PilotPolicyConfig) ProtoMessage()    {}
 func (*PilotPolicyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{30}
+	return fileDescriptor_261260e22432516f, []int{22}
 }
 func (m *PilotPolicyConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PilotPolicyConfig.Unmarshal(m, b)
@@ -3910,8 +2666,6 @@ func (m *PilotPolicyConfig) GetEnabled() *protobuf.BoolValue {
 type TelemetryConfig struct {
 	// Controls whether telemetry is exported for Pilot.
 	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Use telemetry v1.
-	V1 *TelemetryV1Config `protobuf:"bytes,2,opt,name=v1,proto3" json:"v1,omitempty"`
 	// Use telemetry v2.
 	V2                   *TelemetryV2Config `protobuf:"bytes,3,opt,name=v2,proto3" json:"v2,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
@@ -3923,7 +2677,7 @@ func (m *TelemetryConfig) Reset()         { *m = TelemetryConfig{} }
 func (m *TelemetryConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryConfig) ProtoMessage()    {}
 func (*TelemetryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{31}
+	return fileDescriptor_261260e22432516f, []int{23}
 }
 func (m *TelemetryConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TelemetryConfig.Unmarshal(m, b)
@@ -3950,56 +2704,9 @@ func (m *TelemetryConfig) GetEnabled() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *TelemetryConfig) GetV1() *TelemetryV1Config {
-	if m != nil {
-		return m.V1
-	}
-	return nil
-}
-
 func (m *TelemetryConfig) GetV2() *TelemetryV2Config {
 	if m != nil {
 		return m.V2
-	}
-	return nil
-}
-
-// Controls whether pilot will configure telemetry v1.
-type TelemetryV1Config struct {
-	// Controls whether pilot will configure telemetry v1.
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *TelemetryV1Config) Reset()         { *m = TelemetryV1Config{} }
-func (m *TelemetryV1Config) String() string { return proto.CompactTextString(m) }
-func (*TelemetryV1Config) ProtoMessage()    {}
-func (*TelemetryV1Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{32}
-}
-func (m *TelemetryV1Config) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TelemetryV1Config.Unmarshal(m, b)
-}
-func (m *TelemetryV1Config) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TelemetryV1Config.Marshal(b, m, deterministic)
-}
-func (m *TelemetryV1Config) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TelemetryV1Config.Merge(m, src)
-}
-func (m *TelemetryV1Config) XXX_Size() int {
-	return xxx_messageInfo_TelemetryV1Config.Size(m)
-}
-func (m *TelemetryV1Config) XXX_DiscardUnknown() {
-	xxx_messageInfo_TelemetryV1Config.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TelemetryV1Config proto.InternalMessageInfo
-
-func (m *TelemetryV1Config) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
 	}
 	return nil
 }
@@ -4021,7 +2728,7 @@ func (m *TelemetryV2Config) Reset()         { *m = TelemetryV2Config{} }
 func (m *TelemetryV2Config) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2Config) ProtoMessage()    {}
 func (*TelemetryV2Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{33}
+	return fileDescriptor_261260e22432516f, []int{24}
 }
 func (m *TelemetryV2Config) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TelemetryV2Config.Unmarshal(m, b)
@@ -4088,7 +2795,7 @@ func (m *TelemetryV2MetadataExchangeConfig) Reset()         { *m = TelemetryV2Me
 func (m *TelemetryV2MetadataExchangeConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2MetadataExchangeConfig) ProtoMessage()    {}
 func (*TelemetryV2MetadataExchangeConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{34}
+	return fileDescriptor_261260e22432516f, []int{25}
 }
 func (m *TelemetryV2MetadataExchangeConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TelemetryV2MetadataExchangeConfig.Unmarshal(m, b)
@@ -4130,7 +2837,7 @@ func (m *TelemetryV2PrometheusConfig) Reset()         { *m = TelemetryV2Promethe
 func (m *TelemetryV2PrometheusConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2PrometheusConfig) ProtoMessage()    {}
 func (*TelemetryV2PrometheusConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{35}
+	return fileDescriptor_261260e22432516f, []int{26}
 }
 func (m *TelemetryV2PrometheusConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TelemetryV2PrometheusConfig.Unmarshal(m, b)
@@ -4181,7 +2888,7 @@ func (m *TelemetryV2StackDriverConfig) Reset()         { *m = TelemetryV2StackDr
 func (m *TelemetryV2StackDriverConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2StackDriverConfig) ProtoMessage()    {}
 func (*TelemetryV2StackDriverConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{36}
+	return fileDescriptor_261260e22432516f, []int{27}
 }
 func (m *TelemetryV2StackDriverConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TelemetryV2StackDriverConfig.Unmarshal(m, b)
@@ -4258,7 +2965,7 @@ func (m *TelemetryV2AccessLogPolicyFilterConfig) Reset() {
 func (m *TelemetryV2AccessLogPolicyFilterConfig) String() string { return proto.CompactTextString(m) }
 func (*TelemetryV2AccessLogPolicyFilterConfig) ProtoMessage()    {}
 func (*TelemetryV2AccessLogPolicyFilterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{37}
+	return fileDescriptor_261260e22432516f, []int{28}
 }
 func (m *TelemetryV2AccessLogPolicyFilterConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TelemetryV2AccessLogPolicyFilterConfig.Unmarshal(m, b)
@@ -4307,7 +3014,7 @@ func (m *PilotConfigSource) Reset()         { *m = PilotConfigSource{} }
 func (m *PilotConfigSource) String() string { return proto.CompactTextString(m) }
 func (*PilotConfigSource) ProtoMessage()    {}
 func (*PilotConfigSource) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{38}
+	return fileDescriptor_261260e22432516f, []int{29}
 }
 func (m *PilotConfigSource) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PilotConfigSource.Unmarshal(m, b)
@@ -4353,7 +3060,7 @@ func (m *PortsConfig) Reset()         { *m = PortsConfig{} }
 func (m *PortsConfig) String() string { return proto.CompactTextString(m) }
 func (*PortsConfig) ProtoMessage()    {}
 func (*PortsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{39}
+	return fileDescriptor_261260e22432516f, []int{30}
 }
 func (m *PortsConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PortsConfig.Unmarshal(m, b)
@@ -4397,395 +3104,6 @@ func (m *PortsConfig) GetNodePort() int32 {
 func (m *PortsConfig) GetTargetPort() int32 {
 	if m != nil {
 		return m.TargetPort
-	}
-	return 0
-}
-
-// Configuration for Prometheus.
-type PrometheusConfig struct {
-	CreatePrometheusResource         *protobuf.BoolValue            `protobuf:"bytes,1,opt,name=createPrometheusResource,proto3" json:"createPrometheusResource,omitempty"`
-	Enabled                          *protobuf.BoolValue            `protobuf:"bytes,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ReplicaCount                     uint32                         `protobuf:"varint,3,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"` // Deprecated: Do not use.
-	Hub                              string                         `protobuf:"bytes,4,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                              interface{}                 `protobuf:"bytes,5,opt,name=tag,proto3" json:"tag,omitempty"`
-	Retention                        string                         `protobuf:"bytes,6,opt,name=retention,proto3" json:"retention,omitempty"`
-	NodeSelector                     map[string]interface{}        `protobuf:"bytes,7,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"` // Deprecated: Do not use.
-	ScrapeInterval                   *types.Duration                `protobuf:"bytes,8,opt,name=scrapeInterval,proto3" json:"scrapeInterval,omitempty"`
-	ContextPath                      string                         `protobuf:"bytes,9,opt,name=contextPath,proto3" json:"contextPath,omitempty"`
-	Service                          *PrometheusServiceConfig       `protobuf:"bytes,11,opt,name=service,proto3" json:"service,omitempty"`
-	Security                         *PrometheusSecurityConfig      `protobuf:"bytes,12,opt,name=security,proto3" json:"security,omitempty"`
-	Tolerations                      []map[string]interface{} `protobuf:"bytes,13,opt,name=tolerations,proto3" json:"tolerations,omitempty"`                                           // Deprecated: Do not use.
-	PodAntiAffinityLabelSelector     []map[string]interface{} `protobuf:"bytes,14,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`         // Deprecated: Do not use.
-	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,15,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"` // Deprecated: Do not use.
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources   *Resources                     `protobuf:"bytes,16,opt,name=resources,proto3" json:"resources,omitempty"`     // Deprecated: Do not use.
-	Datasources []map[string]interface{} `protobuf:"bytes,17,opt,name=datasources,proto3" json:"datasources,omitempty"` // Deprecated: Do not use.
-	// K8s annotations for pods.
-	//
-	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations map[string]interface{} `protobuf:"bytes,18,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	Image          string                  `protobuf:"bytes,19,opt,name=image,proto3" json:"image,omitempty"`                   // Deprecated: Do not use.
-	// Configure whether provisions a certificate to Prometheus through Istio Agent.
-	// When this option is set as true, a sidecar is deployed along Prometheus to
-	// provision a certificate through Istio Agent to Prometheus. The provisioned certificate
-	// is shared with Prometheus through mounted files.
-	// When this option is set as false, this certificate provisioning mechanism is disabled.
-	ProvisionPrometheusCert *protobuf.BoolValue `protobuf:"bytes,20,opt,name=provisionPrometheusCert,proto3" json:"provisionPrometheusCert,omitempty"`
-	XXX_NoUnkeyedLiteral    struct{}            `json:"-"`
-	XXX_unrecognized        []byte              `json:"-"`
-	XXX_sizecache           int32               `json:"-"`
-}
-
-func (m *PrometheusConfig) Reset()         { *m = PrometheusConfig{} }
-func (m *PrometheusConfig) String() string { return proto.CompactTextString(m) }
-func (*PrometheusConfig) ProtoMessage()    {}
-func (*PrometheusConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{40}
-}
-func (m *PrometheusConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PrometheusConfig.Unmarshal(m, b)
-}
-func (m *PrometheusConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PrometheusConfig.Marshal(b, m, deterministic)
-}
-func (m *PrometheusConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PrometheusConfig.Merge(m, src)
-}
-func (m *PrometheusConfig) XXX_Size() int {
-	return xxx_messageInfo_PrometheusConfig.Size(m)
-}
-func (m *PrometheusConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_PrometheusConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PrometheusConfig proto.InternalMessageInfo
-
-func (m *PrometheusConfig) GetCreatePrometheusResource() *protobuf.BoolValue {
-	if m != nil {
-		return m.CreatePrometheusResource
-	}
-	return nil
-}
-
-func (m *PrometheusConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetReplicaCount() uint32 {
-	if m != nil {
-		return m.ReplicaCount
-	}
-	return 0
-}
-
-func (m *PrometheusConfig) GetHub() string {
-	if m != nil {
-		return m.Hub
-	}
-	return ""
-}
-
-func (m *PrometheusConfig) GetTag() interface{} {
-	if m != nil {
-		return m.Tag
-	}
-	return nil
-}
-
-func (m *PrometheusConfig) GetRetention() string {
-	if m != nil {
-		return m.Retention
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetNodeSelector() map[string]interface{} {
-	if m != nil {
-		return m.NodeSelector
-	}
-	return nil
-}
-
-func (m *PrometheusConfig) GetScrapeInterval() *types.Duration {
-	if m != nil {
-		return m.ScrapeInterval
-	}
-	return nil
-}
-
-func (m *PrometheusConfig) GetContextPath() string {
-	if m != nil {
-		return m.ContextPath
-	}
-	return ""
-}
-
-func (m *PrometheusConfig) GetService() *PrometheusServiceConfig {
-	if m != nil {
-		return m.Service
-	}
-	return nil
-}
-
-func (m *PrometheusConfig) GetSecurity() *PrometheusSecurityConfig {
-	if m != nil {
-		return m.Security
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetTolerations() []map[string]interface{} {
-	if m != nil {
-		return m.Tolerations
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityTermLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetResources() *Resources {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetDatasources() []map[string]interface{} {
-	if m != nil {
-		return m.Datasources
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetPodAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.PodAnnotations
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *PrometheusConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
-func (m *PrometheusConfig) GetProvisionPrometheusCert() *protobuf.BoolValue {
-	if m != nil {
-		return m.ProvisionPrometheusCert
-	}
-	return nil
-}
-
-// Configuration for Prometheus adapter in mixer.
-type PrometheusMixerAdapterConfig struct {
-	// Enables the Prometheus adapter in Mixer.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Sets the duration after which Prometheus registry purges a metric.
-	//
-	// See: https://istio.io/docs/reference/config/policy-and-telemetry/adapters/prometheus/#Params
-	MetricsExpiryDuration *types.Duration `protobuf:"bytes,2,opt,name=metricsExpiryDuration,proto3" json:"metricsExpiryDuration,omitempty"`
-	XXX_NoUnkeyedLiteral  struct{}        `json:"-"`
-	XXX_unrecognized      []byte          `json:"-"`
-	XXX_sizecache         int32           `json:"-"`
-}
-
-func (m *PrometheusMixerAdapterConfig) Reset()         { *m = PrometheusMixerAdapterConfig{} }
-func (m *PrometheusMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
-func (*PrometheusMixerAdapterConfig) ProtoMessage()    {}
-func (*PrometheusMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{41}
-}
-func (m *PrometheusMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PrometheusMixerAdapterConfig.Unmarshal(m, b)
-}
-func (m *PrometheusMixerAdapterConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PrometheusMixerAdapterConfig.Marshal(b, m, deterministic)
-}
-func (m *PrometheusMixerAdapterConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PrometheusMixerAdapterConfig.Merge(m, src)
-}
-func (m *PrometheusMixerAdapterConfig) XXX_Size() int {
-	return xxx_messageInfo_PrometheusMixerAdapterConfig.Size(m)
-}
-func (m *PrometheusMixerAdapterConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_PrometheusMixerAdapterConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PrometheusMixerAdapterConfig proto.InternalMessageInfo
-
-func (m *PrometheusMixerAdapterConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *PrometheusMixerAdapterConfig) GetMetricsExpiryDuration() *types.Duration {
-	if m != nil {
-		return m.MetricsExpiryDuration
-	}
-	return nil
-}
-
-// Configuration for Prometheus adapter security.
-type PrometheusSecurityConfig struct {
-	// Controls whether Prometheus security is enabled.
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *PrometheusSecurityConfig) Reset()         { *m = PrometheusSecurityConfig{} }
-func (m *PrometheusSecurityConfig) String() string { return proto.CompactTextString(m) }
-func (*PrometheusSecurityConfig) ProtoMessage()    {}
-func (*PrometheusSecurityConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{42}
-}
-func (m *PrometheusSecurityConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PrometheusSecurityConfig.Unmarshal(m, b)
-}
-func (m *PrometheusSecurityConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PrometheusSecurityConfig.Marshal(b, m, deterministic)
-}
-func (m *PrometheusSecurityConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PrometheusSecurityConfig.Merge(m, src)
-}
-func (m *PrometheusSecurityConfig) XXX_Size() int {
-	return xxx_messageInfo_PrometheusSecurityConfig.Size(m)
-}
-func (m *PrometheusSecurityConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_PrometheusSecurityConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PrometheusSecurityConfig proto.InternalMessageInfo
-
-func (m *PrometheusSecurityConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-// Configuration for Prometheus adapter service.
-type PrometheusServiceConfig struct {
-	Annotations          map[string]interface{}          `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
-	NodePort             *PrometheusServiceNodePortConfig `protobuf:"bytes,2,opt,name=nodePort,proto3" json:"nodePort,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                         `json:"-"`
-	XXX_unrecognized     []byte                           `json:"-"`
-	XXX_sizecache        int32                            `json:"-"`
-}
-
-func (m *PrometheusServiceConfig) Reset()         { *m = PrometheusServiceConfig{} }
-func (m *PrometheusServiceConfig) String() string { return proto.CompactTextString(m) }
-func (*PrometheusServiceConfig) ProtoMessage()    {}
-func (*PrometheusServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{43}
-}
-func (m *PrometheusServiceConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PrometheusServiceConfig.Unmarshal(m, b)
-}
-func (m *PrometheusServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PrometheusServiceConfig.Marshal(b, m, deterministic)
-}
-func (m *PrometheusServiceConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PrometheusServiceConfig.Merge(m, src)
-}
-func (m *PrometheusServiceConfig) XXX_Size() int {
-	return xxx_messageInfo_PrometheusServiceConfig.Size(m)
-}
-func (m *PrometheusServiceConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_PrometheusServiceConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PrometheusServiceConfig proto.InternalMessageInfo
-
-func (m *PrometheusServiceConfig) GetAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.Annotations
-	}
-	return nil
-}
-
-func (m *PrometheusServiceConfig) GetNodePort() *PrometheusServiceNodePortConfig {
-	if m != nil {
-		return m.NodePort
-	}
-	return nil
-}
-
-// Configuration for Prometheus Service NodePort.
-type PrometheusServiceNodePortConfig struct {
-	// Controls whether Prometheus NodePort config is enabled.
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Port                 uint32              `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *PrometheusServiceNodePortConfig) Reset()         { *m = PrometheusServiceNodePortConfig{} }
-func (m *PrometheusServiceNodePortConfig) String() string { return proto.CompactTextString(m) }
-func (*PrometheusServiceNodePortConfig) ProtoMessage()    {}
-func (*PrometheusServiceNodePortConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{44}
-}
-func (m *PrometheusServiceNodePortConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PrometheusServiceNodePortConfig.Unmarshal(m, b)
-}
-func (m *PrometheusServiceNodePortConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PrometheusServiceNodePortConfig.Marshal(b, m, deterministic)
-}
-func (m *PrometheusServiceNodePortConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PrometheusServiceNodePortConfig.Merge(m, src)
-}
-func (m *PrometheusServiceNodePortConfig) XXX_Size() int {
-	return xxx_messageInfo_PrometheusServiceNodePortConfig.Size(m)
-}
-func (m *PrometheusServiceNodePortConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_PrometheusServiceNodePortConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PrometheusServiceNodePortConfig proto.InternalMessageInfo
-
-func (m *PrometheusServiceNodePortConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *PrometheusServiceNodePortConfig) GetPort() uint32 {
-	if m != nil {
-		return m.Port
 	}
 	return 0
 }
@@ -4852,7 +3170,7 @@ func (m *ProxyConfig) Reset()         { *m = ProxyConfig{} }
 func (m *ProxyConfig) String() string { return proto.CompactTextString(m) }
 func (*ProxyConfig) ProtoMessage()    {}
 func (*ProxyConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{45}
+	return fileDescriptor_261260e22432516f, []int{31}
 }
 func (m *ProxyConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProxyConfig.Unmarshal(m, b)
@@ -5023,7 +3341,7 @@ func (m *ProxyInitConfig) Reset()         { *m = ProxyInitConfig{} }
 func (m *ProxyInitConfig) String() string { return proto.CompactTextString(m) }
 func (*ProxyInitConfig) ProtoMessage()    {}
 func (*ProxyInitConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{46}
+	return fileDescriptor_261260e22432516f, []int{32}
 }
 func (m *ProxyInitConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ProxyInitConfig.Unmarshal(m, b)
@@ -5071,7 +3389,7 @@ func (m *ResourcesRequestsConfig) Reset()         { *m = ResourcesRequestsConfig
 func (m *ResourcesRequestsConfig) String() string { return proto.CompactTextString(m) }
 func (*ResourcesRequestsConfig) ProtoMessage()    {}
 func (*ResourcesRequestsConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{47}
+	return fileDescriptor_261260e22432516f, []int{33}
 }
 func (m *ResourcesRequestsConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResourcesRequestsConfig.Unmarshal(m, b)
@@ -5117,7 +3435,7 @@ func (m *SDSConfig) Reset()         { *m = SDSConfig{} }
 func (m *SDSConfig) String() string { return proto.CompactTextString(m) }
 func (*SDSConfig) ProtoMessage()    {}
 func (*SDSConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{48}
+	return fileDescriptor_261260e22432516f, []int{34}
 }
 func (m *SDSConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SDSConfig.Unmarshal(m, b)
@@ -5161,7 +3479,7 @@ func (m *SecretVolume) Reset()         { *m = SecretVolume{} }
 func (m *SecretVolume) String() string { return proto.CompactTextString(m) }
 func (*SecretVolume) ProtoMessage()    {}
 func (*SecretVolume) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{49}
+	return fileDescriptor_261260e22432516f, []int{35}
 }
 func (m *SecretVolume) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SecretVolume.Unmarshal(m, b)
@@ -5217,7 +3535,7 @@ func (m *ServiceConfig) Reset()         { *m = ServiceConfig{} }
 func (m *ServiceConfig) String() string { return proto.CompactTextString(m) }
 func (*ServiceConfig) ProtoMessage()    {}
 func (*ServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{50}
+	return fileDescriptor_261260e22432516f, []int{36}
 }
 func (m *ServiceConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ServiceConfig.Unmarshal(m, b)
@@ -5296,7 +3614,7 @@ func (m *SidecarInjectorConfig) Reset()         { *m = SidecarInjectorConfig{} }
 func (m *SidecarInjectorConfig) String() string { return proto.CompactTextString(m) }
 func (*SidecarInjectorConfig) ProtoMessage()    {}
 func (*SidecarInjectorConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{51}
+	return fileDescriptor_261260e22432516f, []int{37}
 }
 func (m *SidecarInjectorConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SidecarInjectorConfig.Unmarshal(m, b)
@@ -5372,314 +3690,6 @@ func (m *SidecarInjectorConfig) GetInjectionURL() string {
 	return ""
 }
 
-// Configuration for stdio adapter in mixer, recommended for debug usage only.
-type StdioMixerAdapterConfig struct {
-	// Enable stdio adapter to output logs and metrics to local machine.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Whether to output a console-friendly or json-friendly format.
-	OutputAsJson         *protobuf.BoolValue `protobuf:"bytes,2,opt,name=outputAsJson,proto3" json:"outputAsJson,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *StdioMixerAdapterConfig) Reset()         { *m = StdioMixerAdapterConfig{} }
-func (m *StdioMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
-func (*StdioMixerAdapterConfig) ProtoMessage()    {}
-func (*StdioMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{52}
-}
-func (m *StdioMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StdioMixerAdapterConfig.Unmarshal(m, b)
-}
-func (m *StdioMixerAdapterConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StdioMixerAdapterConfig.Marshal(b, m, deterministic)
-}
-func (m *StdioMixerAdapterConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StdioMixerAdapterConfig.Merge(m, src)
-}
-func (m *StdioMixerAdapterConfig) XXX_Size() int {
-	return xxx_messageInfo_StdioMixerAdapterConfig.Size(m)
-}
-func (m *StdioMixerAdapterConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_StdioMixerAdapterConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StdioMixerAdapterConfig proto.InternalMessageInfo
-
-func (m *StdioMixerAdapterConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *StdioMixerAdapterConfig) GetOutputAsJson() *protobuf.BoolValue {
-	if m != nil {
-		return m.OutputAsJson
-	}
-	return nil
-}
-
-// Configuration for stackdriver adapter in mixer.
-type StackdriverMixerAdapterConfig struct {
-	Enabled              *protobuf.BoolValue                          `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Auth                 *StackdriverAuthConfig                       `protobuf:"bytes,2,opt,name=auth,proto3" json:"auth,omitempty"`
-	Tracer               *StackdriverTracerConfig                     `protobuf:"bytes,3,opt,name=tracer,proto3" json:"tracer,omitempty"`
-	ContextGraph         *StackdriverContextGraph                     `protobuf:"bytes,4,opt,name=contextGraph,proto3" json:"contextGraph,omitempty"`
-	Logging              *StackdriverMixerAdapterConfig_EnabledConfig `protobuf:"bytes,5,opt,name=logging,proto3" json:"logging,omitempty"`
-	Metrics              *StackdriverMixerAdapterConfig_EnabledConfig `protobuf:"bytes,6,opt,name=metrics,proto3" json:"metrics,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                                     `json:"-"`
-	XXX_unrecognized     []byte                                       `json:"-"`
-	XXX_sizecache        int32                                        `json:"-"`
-}
-
-func (m *StackdriverMixerAdapterConfig) Reset()         { *m = StackdriverMixerAdapterConfig{} }
-func (m *StackdriverMixerAdapterConfig) String() string { return proto.CompactTextString(m) }
-func (*StackdriverMixerAdapterConfig) ProtoMessage()    {}
-func (*StackdriverMixerAdapterConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{53}
-}
-func (m *StackdriverMixerAdapterConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StackdriverMixerAdapterConfig.Unmarshal(m, b)
-}
-func (m *StackdriverMixerAdapterConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StackdriverMixerAdapterConfig.Marshal(b, m, deterministic)
-}
-func (m *StackdriverMixerAdapterConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StackdriverMixerAdapterConfig.Merge(m, src)
-}
-func (m *StackdriverMixerAdapterConfig) XXX_Size() int {
-	return xxx_messageInfo_StackdriverMixerAdapterConfig.Size(m)
-}
-func (m *StackdriverMixerAdapterConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_StackdriverMixerAdapterConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StackdriverMixerAdapterConfig proto.InternalMessageInfo
-
-func (m *StackdriverMixerAdapterConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *StackdriverMixerAdapterConfig) GetAuth() *StackdriverAuthConfig {
-	if m != nil {
-		return m.Auth
-	}
-	return nil
-}
-
-func (m *StackdriverMixerAdapterConfig) GetTracer() *StackdriverTracerConfig {
-	if m != nil {
-		return m.Tracer
-	}
-	return nil
-}
-
-func (m *StackdriverMixerAdapterConfig) GetContextGraph() *StackdriverContextGraph {
-	if m != nil {
-		return m.ContextGraph
-	}
-	return nil
-}
-
-func (m *StackdriverMixerAdapterConfig) GetLogging() *StackdriverMixerAdapterConfig_EnabledConfig {
-	if m != nil {
-		return m.Logging
-	}
-	return nil
-}
-
-func (m *StackdriverMixerAdapterConfig) GetMetrics() *StackdriverMixerAdapterConfig_EnabledConfig {
-	if m != nil {
-		return m.Metrics
-	}
-	return nil
-}
-
-type StackdriverMixerAdapterConfig_EnabledConfig struct {
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) Reset() {
-	*m = StackdriverMixerAdapterConfig_EnabledConfig{}
-}
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) String() string {
-	return proto.CompactTextString(m)
-}
-func (*StackdriverMixerAdapterConfig_EnabledConfig) ProtoMessage() {}
-func (*StackdriverMixerAdapterConfig_EnabledConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{53, 0}
-}
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StackdriverMixerAdapterConfig_EnabledConfig.Unmarshal(m, b)
-}
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StackdriverMixerAdapterConfig_EnabledConfig.Marshal(b, m, deterministic)
-}
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StackdriverMixerAdapterConfig_EnabledConfig.Merge(m, src)
-}
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) XXX_Size() int {
-	return xxx_messageInfo_StackdriverMixerAdapterConfig_EnabledConfig.Size(m)
-}
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_StackdriverMixerAdapterConfig_EnabledConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StackdriverMixerAdapterConfig_EnabledConfig proto.InternalMessageInfo
-
-func (m *StackdriverMixerAdapterConfig_EnabledConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-type StackdriverAuthConfig struct {
-	AppCredentials       *protobuf.BoolValue `protobuf:"bytes,1,opt,name=appCredentials,proto3" json:"appCredentials,omitempty"`
-	ApiKey               string              `protobuf:"bytes,2,opt,name=apiKey,proto3" json:"apiKey,omitempty"`
-	ServiceAccountPath   string              `protobuf:"bytes,3,opt,name=serviceAccountPath,proto3" json:"serviceAccountPath,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *StackdriverAuthConfig) Reset()         { *m = StackdriverAuthConfig{} }
-func (m *StackdriverAuthConfig) String() string { return proto.CompactTextString(m) }
-func (*StackdriverAuthConfig) ProtoMessage()    {}
-func (*StackdriverAuthConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{54}
-}
-func (m *StackdriverAuthConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StackdriverAuthConfig.Unmarshal(m, b)
-}
-func (m *StackdriverAuthConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StackdriverAuthConfig.Marshal(b, m, deterministic)
-}
-func (m *StackdriverAuthConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StackdriverAuthConfig.Merge(m, src)
-}
-func (m *StackdriverAuthConfig) XXX_Size() int {
-	return xxx_messageInfo_StackdriverAuthConfig.Size(m)
-}
-func (m *StackdriverAuthConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_StackdriverAuthConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StackdriverAuthConfig proto.InternalMessageInfo
-
-func (m *StackdriverAuthConfig) GetAppCredentials() *protobuf.BoolValue {
-	if m != nil {
-		return m.AppCredentials
-	}
-	return nil
-}
-
-func (m *StackdriverAuthConfig) GetApiKey() string {
-	if m != nil {
-		return m.ApiKey
-	}
-	return ""
-}
-
-func (m *StackdriverAuthConfig) GetServiceAccountPath() string {
-	if m != nil {
-		return m.ServiceAccountPath
-	}
-	return ""
-}
-
-type StackdriverTracerConfig struct {
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	SampleProbability    uint32              `protobuf:"varint,2,opt,name=sampleProbability,proto3" json:"sampleProbability,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *StackdriverTracerConfig) Reset()         { *m = StackdriverTracerConfig{} }
-func (m *StackdriverTracerConfig) String() string { return proto.CompactTextString(m) }
-func (*StackdriverTracerConfig) ProtoMessage()    {}
-func (*StackdriverTracerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{55}
-}
-func (m *StackdriverTracerConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StackdriverTracerConfig.Unmarshal(m, b)
-}
-func (m *StackdriverTracerConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StackdriverTracerConfig.Marshal(b, m, deterministic)
-}
-func (m *StackdriverTracerConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StackdriverTracerConfig.Merge(m, src)
-}
-func (m *StackdriverTracerConfig) XXX_Size() int {
-	return xxx_messageInfo_StackdriverTracerConfig.Size(m)
-}
-func (m *StackdriverTracerConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_StackdriverTracerConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StackdriverTracerConfig proto.InternalMessageInfo
-
-func (m *StackdriverTracerConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *StackdriverTracerConfig) GetSampleProbability() uint32 {
-	if m != nil {
-		return m.SampleProbability
-	}
-	return 0
-}
-
-type StackdriverContextGraph struct {
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *StackdriverContextGraph) Reset()         { *m = StackdriverContextGraph{} }
-func (m *StackdriverContextGraph) String() string { return proto.CompactTextString(m) }
-func (*StackdriverContextGraph) ProtoMessage()    {}
-func (*StackdriverContextGraph) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{56}
-}
-func (m *StackdriverContextGraph) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StackdriverContextGraph.Unmarshal(m, b)
-}
-func (m *StackdriverContextGraph) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StackdriverContextGraph.Marshal(b, m, deterministic)
-}
-func (m *StackdriverContextGraph) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StackdriverContextGraph.Merge(m, src)
-}
-func (m *StackdriverContextGraph) XXX_Size() int {
-	return xxx_messageInfo_StackdriverContextGraph.Size(m)
-}
-func (m *StackdriverContextGraph) XXX_DiscardUnknown() {
-	xxx_messageInfo_StackdriverContextGraph.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_StackdriverContextGraph proto.InternalMessageInfo
-
-func (m *StackdriverContextGraph) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
 // Configuration for each of the supported tracers.
 type TracerConfig struct {
 	// Configuration for the datadog tracing service.
@@ -5699,7 +3709,7 @@ func (m *TracerConfig) Reset()         { *m = TracerConfig{} }
 func (m *TracerConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerConfig) ProtoMessage()    {}
 func (*TracerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{57}
+	return fileDescriptor_261260e22432516f, []int{38}
 }
 func (m *TracerConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TracerConfig.Unmarshal(m, b)
@@ -5760,7 +3770,7 @@ func (m *TracerDatadogConfig) Reset()         { *m = TracerDatadogConfig{} }
 func (m *TracerDatadogConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerDatadogConfig) ProtoMessage()    {}
 func (*TracerDatadogConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{58}
+	return fileDescriptor_261260e22432516f, []int{39}
 }
 func (m *TracerDatadogConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TracerDatadogConfig.Unmarshal(m, b)
@@ -5802,7 +3812,7 @@ func (m *TracerLightStepConfig) Reset()         { *m = TracerLightStepConfig{} }
 func (m *TracerLightStepConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerLightStepConfig) ProtoMessage()    {}
 func (*TracerLightStepConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{59}
+	return fileDescriptor_261260e22432516f, []int{40}
 }
 func (m *TracerLightStepConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TracerLightStepConfig.Unmarshal(m, b)
@@ -5851,7 +3861,7 @@ func (m *TracerZipkinConfig) Reset()         { *m = TracerZipkinConfig{} }
 func (m *TracerZipkinConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerZipkinConfig) ProtoMessage()    {}
 func (*TracerZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{60}
+	return fileDescriptor_261260e22432516f, []int{41}
 }
 func (m *TracerZipkinConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TracerZipkinConfig.Unmarshal(m, b)
@@ -5897,7 +3907,7 @@ func (m *TracerStackdriverConfig) Reset()         { *m = TracerStackdriverConfig
 func (m *TracerStackdriverConfig) String() string { return proto.CompactTextString(m) }
 func (*TracerStackdriverConfig) ProtoMessage()    {}
 func (*TracerStackdriverConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{61}
+	return fileDescriptor_261260e22432516f, []int{42}
 }
 func (m *TracerStackdriverConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_TracerStackdriverConfig.Unmarshal(m, b)
@@ -5945,1020 +3955,6 @@ func (m *TracerStackdriverConfig) GetMaxNumberOfMessageEvents() uint32 {
 	return 0
 }
 
-// Configurations for different tracing system to be installed.
-type TracingConfig struct {
-	// Enables tracing systems installation.
-	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// Defines Configuration for addon Jaeger tracing.
-	Jaeger *TracingJaegerConfig `protobuf:"bytes,3,opt,name=jaeger,proto3" json:"jaeger,omitempty"`
-	// K8s node selector.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector map[string]interface{} `protobuf:"bytes,4,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"` // Deprecated: Do not use.
-	// Configures which tracing system to be installed.
-	Provider string `protobuf:"bytes,5,opt,name=provider,proto3" json:"provider,omitempty"`
-	// Controls K8s service for addon tracing components.
-	Service *ServiceConfig `protobuf:"bytes,6,opt,name=service,proto3" json:"service,omitempty"`
-	// Defines Configuration for addon Zipkin tracing.
-	Zipkin      *TracingZipkinConfig     `protobuf:"bytes,7,opt,name=zipkin,proto3" json:"zipkin,omitempty"`
-	Opencensus  *TracingOpencensusConfig `protobuf:"bytes,8,opt,name=opencensus,proto3" json:"opencensus,omitempty"`
-	ContextPath string                   `protobuf:"bytes,9,opt,name=contextPath,proto3" json:"contextPath,omitempty"`
-	// See EgressGatewayConfig.
-	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"` // Deprecated: Do not use.
-	// See EgressGatewayConfig.
-	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,14,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"` // Deprecated: Do not use.
-	Tolerations                      []map[string]interface{} `protobuf:"bytes,15,opt,name=tolerations,proto3" json:"tolerations,omitempty"`                                           // Deprecated: Do not use.
-	XXX_NoUnkeyedLiteral             struct{}                       `json:"-"`
-	XXX_unrecognized                 []byte                         `json:"-"`
-	XXX_sizecache                    int32                          `json:"-"`
-}
-
-func (m *TracingConfig) Reset()         { *m = TracingConfig{} }
-func (m *TracingConfig) String() string { return proto.CompactTextString(m) }
-func (*TracingConfig) ProtoMessage()    {}
-func (*TracingConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{62}
-}
-func (m *TracingConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TracingConfig.Unmarshal(m, b)
-}
-func (m *TracingConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TracingConfig.Marshal(b, m, deterministic)
-}
-func (m *TracingConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TracingConfig.Merge(m, src)
-}
-func (m *TracingConfig) XXX_Size() int {
-	return xxx_messageInfo_TracingConfig.Size(m)
-}
-func (m *TracingConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_TracingConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TracingConfig proto.InternalMessageInfo
-
-func (m *TracingConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *TracingConfig) GetJaeger() *TracingJaegerConfig {
-	if m != nil {
-		return m.Jaeger
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *TracingConfig) GetNodeSelector() map[string]interface{} {
-	if m != nil {
-		return m.NodeSelector
-	}
-	return nil
-}
-
-func (m *TracingConfig) GetProvider() string {
-	if m != nil {
-		return m.Provider
-	}
-	return ""
-}
-
-func (m *TracingConfig) GetService() *ServiceConfig {
-	if m != nil {
-		return m.Service
-	}
-	return nil
-}
-
-func (m *TracingConfig) GetZipkin() *TracingZipkinConfig {
-	if m != nil {
-		return m.Zipkin
-	}
-	return nil
-}
-
-func (m *TracingConfig) GetOpencensus() *TracingOpencensusConfig {
-	if m != nil {
-		return m.Opencensus
-	}
-	return nil
-}
-
-func (m *TracingConfig) GetContextPath() string {
-	if m != nil {
-		return m.ContextPath
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *TracingConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *TracingConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityTermLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *TracingConfig) GetTolerations() []map[string]interface{} {
-	if m != nil {
-		return m.Tolerations
-	}
-	return nil
-}
-
-type TracingOpencensusConfig struct {
-	// Image hub for Opencensus tracing deployment.
-	Hub string `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	// Image tag for Opencensus tracing deployment.
-	Tag       interface{}                    `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
-	Exporters *TracingOpencensusExportersConfig `protobuf:"bytes,3,opt,name=exporters,proto3" json:"exporters,omitempty"`
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources map[string]interface{} `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	// K8s annotations for pods.
-	//
-	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations       map[string]interface{} `protobuf:"bytes,6,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
-}
-
-func (m *TracingOpencensusConfig) Reset()         { *m = TracingOpencensusConfig{} }
-func (m *TracingOpencensusConfig) String() string { return proto.CompactTextString(m) }
-func (*TracingOpencensusConfig) ProtoMessage()    {}
-func (*TracingOpencensusConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{63}
-}
-func (m *TracingOpencensusConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TracingOpencensusConfig.Unmarshal(m, b)
-}
-func (m *TracingOpencensusConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TracingOpencensusConfig.Marshal(b, m, deterministic)
-}
-func (m *TracingOpencensusConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TracingOpencensusConfig.Merge(m, src)
-}
-func (m *TracingOpencensusConfig) XXX_Size() int {
-	return xxx_messageInfo_TracingOpencensusConfig.Size(m)
-}
-func (m *TracingOpencensusConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_TracingOpencensusConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TracingOpencensusConfig proto.InternalMessageInfo
-
-func (m *TracingOpencensusConfig) GetHub() string {
-	if m != nil {
-		return m.Hub
-	}
-	return ""
-}
-
-func (m *TracingOpencensusConfig) GetTag() interface{} {
-	if m != nil {
-		return m.Tag
-	}
-	return nil
-}
-
-func (m *TracingOpencensusConfig) GetExporters() *TracingOpencensusExportersConfig {
-	if m != nil {
-		return m.Exporters
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *TracingOpencensusConfig) GetResources() map[string]interface{} {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *TracingOpencensusConfig) GetPodAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.PodAnnotations
-	}
-	return nil
-}
-
-type TracingOpencensusExportersConfig struct {
-	Stackdriver          map[string]interface{} `protobuf:"bytes,1,opt,name=stackdriver,proto3" json:"stackdriver,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
-}
-
-func (m *TracingOpencensusExportersConfig) Reset()         { *m = TracingOpencensusExportersConfig{} }
-func (m *TracingOpencensusExportersConfig) String() string { return proto.CompactTextString(m) }
-func (*TracingOpencensusExportersConfig) ProtoMessage()    {}
-func (*TracingOpencensusExportersConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{64}
-}
-func (m *TracingOpencensusExportersConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TracingOpencensusExportersConfig.Unmarshal(m, b)
-}
-func (m *TracingOpencensusExportersConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TracingOpencensusExportersConfig.Marshal(b, m, deterministic)
-}
-func (m *TracingOpencensusExportersConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TracingOpencensusExportersConfig.Merge(m, src)
-}
-func (m *TracingOpencensusExportersConfig) XXX_Size() int {
-	return xxx_messageInfo_TracingOpencensusExportersConfig.Size(m)
-}
-func (m *TracingOpencensusExportersConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_TracingOpencensusExportersConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TracingOpencensusExportersConfig proto.InternalMessageInfo
-
-func (m *TracingOpencensusExportersConfig) GetStackdriver() map[string]interface{} {
-	if m != nil {
-		return m.Stackdriver
-	}
-	return nil
-}
-
-// Configuration for addon Jaeger tracing.
-type TracingJaegerConfig struct {
-	// Image hub for Jaeger tracing deployment.
-	Hub string `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	// Image tag for Jaeger tracing deployment.
-	Tag   interface{} `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
-	Image string         `protobuf:"bytes,10,opt,name=image,proto3" json:"image,omitempty"`
-	// Configures Jaeger in-memory storage setting.
-	Memory           *TracingJaegerMemoryConfig `protobuf:"bytes,3,opt,name=memory,proto3" json:"memory,omitempty"`
-	SpanStorageType  string                     `protobuf:"bytes,4,opt,name=spanStorageType,proto3" json:"spanStorageType,omitempty"`
-	Persist          *protobuf.BoolValue        `protobuf:"bytes,5,opt,name=persist,proto3" json:"persist,omitempty"`
-	StorageClassName string                     `protobuf:"bytes,6,opt,name=storageClassName,proto3" json:"storageClassName,omitempty"`
-	AccessMode       string                     `protobuf:"bytes,7,opt,name=accessMode,proto3" json:"accessMode,omitempty"`
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources map[string]interface{} `protobuf:"bytes,8,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	// K8s annotations for pods.
-	//
-	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations       map[string]interface{} `protobuf:"bytes,9,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
-}
-
-func (m *TracingJaegerConfig) Reset()         { *m = TracingJaegerConfig{} }
-func (m *TracingJaegerConfig) String() string { return proto.CompactTextString(m) }
-func (*TracingJaegerConfig) ProtoMessage()    {}
-func (*TracingJaegerConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{65}
-}
-func (m *TracingJaegerConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TracingJaegerConfig.Unmarshal(m, b)
-}
-func (m *TracingJaegerConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TracingJaegerConfig.Marshal(b, m, deterministic)
-}
-func (m *TracingJaegerConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TracingJaegerConfig.Merge(m, src)
-}
-func (m *TracingJaegerConfig) XXX_Size() int {
-	return xxx_messageInfo_TracingJaegerConfig.Size(m)
-}
-func (m *TracingJaegerConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_TracingJaegerConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TracingJaegerConfig proto.InternalMessageInfo
-
-func (m *TracingJaegerConfig) GetHub() string {
-	if m != nil {
-		return m.Hub
-	}
-	return ""
-}
-
-func (m *TracingJaegerConfig) GetTag() interface{} {
-	if m != nil {
-		return m.Tag
-	}
-	return nil
-}
-
-func (m *TracingJaegerConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
-func (m *TracingJaegerConfig) GetMemory() *TracingJaegerMemoryConfig {
-	if m != nil {
-		return m.Memory
-	}
-	return nil
-}
-
-func (m *TracingJaegerConfig) GetSpanStorageType() string {
-	if m != nil {
-		return m.SpanStorageType
-	}
-	return ""
-}
-
-func (m *TracingJaegerConfig) GetPersist() *protobuf.BoolValue {
-	if m != nil {
-		return m.Persist
-	}
-	return nil
-}
-
-func (m *TracingJaegerConfig) GetStorageClassName() string {
-	if m != nil {
-		return m.StorageClassName
-	}
-	return ""
-}
-
-func (m *TracingJaegerConfig) GetAccessMode() string {
-	if m != nil {
-		return m.AccessMode
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *TracingJaegerConfig) GetResources() map[string]interface{} {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *TracingJaegerConfig) GetPodAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.PodAnnotations
-	}
-	return nil
-}
-
-// Configuration for Jaeger in-memory storage setting.
-type TracingJaegerMemoryConfig struct {
-	// Set limit of the amount of traces stored in memory for Jaeger
-	MaxTraces            uint32   `protobuf:"varint,1,opt,name=max_traces,json=maxTraces,proto3" json:"max_traces,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TracingJaegerMemoryConfig) Reset()         { *m = TracingJaegerMemoryConfig{} }
-func (m *TracingJaegerMemoryConfig) String() string { return proto.CompactTextString(m) }
-func (*TracingJaegerMemoryConfig) ProtoMessage()    {}
-func (*TracingJaegerMemoryConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{66}
-}
-func (m *TracingJaegerMemoryConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TracingJaegerMemoryConfig.Unmarshal(m, b)
-}
-func (m *TracingJaegerMemoryConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TracingJaegerMemoryConfig.Marshal(b, m, deterministic)
-}
-func (m *TracingJaegerMemoryConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TracingJaegerMemoryConfig.Merge(m, src)
-}
-func (m *TracingJaegerMemoryConfig) XXX_Size() int {
-	return xxx_messageInfo_TracingJaegerMemoryConfig.Size(m)
-}
-func (m *TracingJaegerMemoryConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_TracingJaegerMemoryConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TracingJaegerMemoryConfig proto.InternalMessageInfo
-
-func (m *TracingJaegerMemoryConfig) GetMaxTraces() uint32 {
-	if m != nil {
-		return m.MaxTraces
-	}
-	return 0
-}
-
-// Configuration for Zipkin.
-type TracingZipkinConfig struct {
-	// Image hub for Zipkin tracing deployment.
-	Hub string `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	// Image tag for Zipkin tracing deployment.
-	Tag   interface{} `protobuf:"bytes,2,opt,name=tag,proto3" json:"tag,omitempty"`
-	Image string         `protobuf:"bytes,9,opt,name=image,proto3" json:"image,omitempty"`
-	// InitialDelaySeconds of readiness probe for Zipkin deployment
-	ProbeStartupDelay uint32 `protobuf:"varint,3,opt,name=probeStartupDelay,proto3" json:"probeStartupDelay,omitempty"`
-	// InitialDelaySeconds of liveness probe for Zipkin deployment
-	LivenessProbeStartupDelay uint32 `protobuf:"varint,11,opt,name=livenessProbeStartupDelay,proto3" json:"livenessProbeStartupDelay,omitempty"`
-	// Container port for Zipkin deployment
-	QueryPort uint32 `protobuf:"varint,4,opt,name=queryPort,proto3" json:"queryPort,omitempty"`
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources *Resources `protobuf:"bytes,5,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	// Configure java heap opts for Zipkin deployment
-	JavaOptsHeap uint32 `protobuf:"varint,6,opt,name=javaOptsHeap,proto3" json:"javaOptsHeap,omitempty"`
-	// Configures number of max spans to keep in Zipkin memory storage.
-	//
-	// Example: A safe estimate is 1K of memory per span (each span with 2 annotations + 1 binary annotation), plus 100 MB for a safety buffer
-	MaxSpans uint32 `protobuf:"varint,7,opt,name=maxSpans,proto3" json:"maxSpans,omitempty"`
-	// Configures GC values of JAVA_OPTS for Zipkin deployment
-	Node *TracingZipkinNodeConfig `protobuf:"bytes,8,opt,name=node,proto3" json:"node,omitempty"`
-	// K8s annotations for pods.
-	//
-	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations       map[string]interface{} `protobuf:"bytes,10,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
-}
-
-func (m *TracingZipkinConfig) Reset()         { *m = TracingZipkinConfig{} }
-func (m *TracingZipkinConfig) String() string { return proto.CompactTextString(m) }
-func (*TracingZipkinConfig) ProtoMessage()    {}
-func (*TracingZipkinConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{67}
-}
-func (m *TracingZipkinConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TracingZipkinConfig.Unmarshal(m, b)
-}
-func (m *TracingZipkinConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TracingZipkinConfig.Marshal(b, m, deterministic)
-}
-func (m *TracingZipkinConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TracingZipkinConfig.Merge(m, src)
-}
-func (m *TracingZipkinConfig) XXX_Size() int {
-	return xxx_messageInfo_TracingZipkinConfig.Size(m)
-}
-func (m *TracingZipkinConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_TracingZipkinConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TracingZipkinConfig proto.InternalMessageInfo
-
-func (m *TracingZipkinConfig) GetHub() string {
-	if m != nil {
-		return m.Hub
-	}
-	return ""
-}
-
-func (m *TracingZipkinConfig) GetTag() interface{} {
-	if m != nil {
-		return m.Tag
-	}
-	return nil
-}
-
-func (m *TracingZipkinConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
-func (m *TracingZipkinConfig) GetProbeStartupDelay() uint32 {
-	if m != nil {
-		return m.ProbeStartupDelay
-	}
-	return 0
-}
-
-func (m *TracingZipkinConfig) GetLivenessProbeStartupDelay() uint32 {
-	if m != nil {
-		return m.LivenessProbeStartupDelay
-	}
-	return 0
-}
-
-func (m *TracingZipkinConfig) GetQueryPort() uint32 {
-	if m != nil {
-		return m.QueryPort
-	}
-	return 0
-}
-
-// Deprecated: Do not use.
-func (m *TracingZipkinConfig) GetResources() *Resources {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-func (m *TracingZipkinConfig) GetJavaOptsHeap() uint32 {
-	if m != nil {
-		return m.JavaOptsHeap
-	}
-	return 0
-}
-
-func (m *TracingZipkinConfig) GetMaxSpans() uint32 {
-	if m != nil {
-		return m.MaxSpans
-	}
-	return 0
-}
-
-func (m *TracingZipkinConfig) GetNode() *TracingZipkinNodeConfig {
-	if m != nil {
-		return m.Node
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *TracingZipkinConfig) GetPodAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.PodAnnotations
-	}
-	return nil
-}
-
-// Configuration for GC values of JAVA_OPTS for Zipkin deployment
-type TracingZipkinNodeConfig struct {
-	// Configures -XX:ConcGCThreads value of JAVA_OPTS for Zipkin deployment
-	Cpus                 uint32   `protobuf:"varint,1,opt,name=cpus,proto3" json:"cpus,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TracingZipkinNodeConfig) Reset()         { *m = TracingZipkinNodeConfig{} }
-func (m *TracingZipkinNodeConfig) String() string { return proto.CompactTextString(m) }
-func (*TracingZipkinNodeConfig) ProtoMessage()    {}
-func (*TracingZipkinNodeConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{68}
-}
-func (m *TracingZipkinNodeConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TracingZipkinNodeConfig.Unmarshal(m, b)
-}
-func (m *TracingZipkinNodeConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TracingZipkinNodeConfig.Marshal(b, m, deterministic)
-}
-func (m *TracingZipkinNodeConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TracingZipkinNodeConfig.Merge(m, src)
-}
-func (m *TracingZipkinNodeConfig) XXX_Size() int {
-	return xxx_messageInfo_TracingZipkinNodeConfig.Size(m)
-}
-func (m *TracingZipkinNodeConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_TracingZipkinNodeConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TracingZipkinNodeConfig proto.InternalMessageInfo
-
-func (m *TracingZipkinNodeConfig) GetCpus() uint32 {
-	if m != nil {
-		return m.Cpus
-	}
-	return 0
-}
-
-type KialiSecurityConfig struct {
-	Enabled              *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	CertFile             string              `protobuf:"bytes,2,opt,name=cert_file,json=certFile,proto3" json:"cert_file,omitempty"`
-	PrivateKeyFile       string              `protobuf:"bytes,3,opt,name=private_key_file,json=privateKeyFile,proto3" json:"private_key_file,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *KialiSecurityConfig) Reset()         { *m = KialiSecurityConfig{} }
-func (m *KialiSecurityConfig) String() string { return proto.CompactTextString(m) }
-func (*KialiSecurityConfig) ProtoMessage()    {}
-func (*KialiSecurityConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{69}
-}
-func (m *KialiSecurityConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KialiSecurityConfig.Unmarshal(m, b)
-}
-func (m *KialiSecurityConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KialiSecurityConfig.Marshal(b, m, deterministic)
-}
-func (m *KialiSecurityConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KialiSecurityConfig.Merge(m, src)
-}
-func (m *KialiSecurityConfig) XXX_Size() int {
-	return xxx_messageInfo_KialiSecurityConfig.Size(m)
-}
-func (m *KialiSecurityConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_KialiSecurityConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_KialiSecurityConfig proto.InternalMessageInfo
-
-func (m *KialiSecurityConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *KialiSecurityConfig) GetCertFile() string {
-	if m != nil {
-		return m.CertFile
-	}
-	return ""
-}
-
-func (m *KialiSecurityConfig) GetPrivateKeyFile() string {
-	if m != nil {
-		return m.PrivateKeyFile
-	}
-	return ""
-}
-
-type KialiServiceConfig struct {
-	Annotations map[string]interface{} `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
-	// Service type.
-	//
-	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
-	Type                 string   `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *KialiServiceConfig) Reset()         { *m = KialiServiceConfig{} }
-func (m *KialiServiceConfig) String() string { return proto.CompactTextString(m) }
-func (*KialiServiceConfig) ProtoMessage()    {}
-func (*KialiServiceConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{70}
-}
-func (m *KialiServiceConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KialiServiceConfig.Unmarshal(m, b)
-}
-func (m *KialiServiceConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KialiServiceConfig.Marshal(b, m, deterministic)
-}
-func (m *KialiServiceConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KialiServiceConfig.Merge(m, src)
-}
-func (m *KialiServiceConfig) XXX_Size() int {
-	return xxx_messageInfo_KialiServiceConfig.Size(m)
-}
-func (m *KialiServiceConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_KialiServiceConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_KialiServiceConfig proto.InternalMessageInfo
-
-func (m *KialiServiceConfig) GetAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.Annotations
-	}
-	return nil
-}
-
-func (m *KialiServiceConfig) GetType() string {
-	if m != nil {
-		return m.Type
-	}
-	return ""
-}
-
-type KialiDashboardConfig struct {
-	SecretName           string                  `protobuf:"bytes,1,opt,name=secretName,proto3" json:"secretName,omitempty"`
-	UsernameKey          string                  `protobuf:"bytes,2,opt,name=usernameKey,proto3" json:"usernameKey,omitempty"`
-	PassphraseKey        string                  `protobuf:"bytes,3,opt,name=passphraseKey,proto3" json:"passphraseKey,omitempty"`
-	ViewOnlyMode         *protobuf.BoolValue     `protobuf:"bytes,4,opt,name=viewOnlyMode,proto3" json:"viewOnlyMode,omitempty"`
-	GrafanaURL           string                  `protobuf:"bytes,5,opt,name=grafanaURL,proto3" json:"grafanaURL,omitempty"`
-	JaegerURL            string                  `protobuf:"bytes,6,opt,name=jaegerURL,proto3" json:"jaegerURL,omitempty"`
-	Auth                 map[string]interface{} `protobuf:"bytes,7,opt,name=auth,proto3" json:"auth,omitempty"`
-	GrafanaInClusterURL  string                  `protobuf:"bytes,8,opt,name=grafanaInClusterURL,proto3" json:"grafanaInClusterURL,omitempty"`
-	JaegerInClusterURL   string                  `protobuf:"bytes,9,opt,name=jaegerInClusterURL,proto3" json:"jaegerInClusterURL,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
-}
-
-func (m *KialiDashboardConfig) Reset()         { *m = KialiDashboardConfig{} }
-func (m *KialiDashboardConfig) String() string { return proto.CompactTextString(m) }
-func (*KialiDashboardConfig) ProtoMessage()    {}
-func (*KialiDashboardConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{71}
-}
-func (m *KialiDashboardConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KialiDashboardConfig.Unmarshal(m, b)
-}
-func (m *KialiDashboardConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KialiDashboardConfig.Marshal(b, m, deterministic)
-}
-func (m *KialiDashboardConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KialiDashboardConfig.Merge(m, src)
-}
-func (m *KialiDashboardConfig) XXX_Size() int {
-	return xxx_messageInfo_KialiDashboardConfig.Size(m)
-}
-func (m *KialiDashboardConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_KialiDashboardConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_KialiDashboardConfig proto.InternalMessageInfo
-
-func (m *KialiDashboardConfig) GetSecretName() string {
-	if m != nil {
-		return m.SecretName
-	}
-	return ""
-}
-
-func (m *KialiDashboardConfig) GetUsernameKey() string {
-	if m != nil {
-		return m.UsernameKey
-	}
-	return ""
-}
-
-func (m *KialiDashboardConfig) GetPassphraseKey() string {
-	if m != nil {
-		return m.PassphraseKey
-	}
-	return ""
-}
-
-func (m *KialiDashboardConfig) GetViewOnlyMode() *protobuf.BoolValue {
-	if m != nil {
-		return m.ViewOnlyMode
-	}
-	return nil
-}
-
-func (m *KialiDashboardConfig) GetGrafanaURL() string {
-	if m != nil {
-		return m.GrafanaURL
-	}
-	return ""
-}
-
-func (m *KialiDashboardConfig) GetJaegerURL() string {
-	if m != nil {
-		return m.JaegerURL
-	}
-	return ""
-}
-
-func (m *KialiDashboardConfig) GetAuth() map[string]interface{} {
-	if m != nil {
-		return m.Auth
-	}
-	return nil
-}
-
-func (m *KialiDashboardConfig) GetGrafanaInClusterURL() string {
-	if m != nil {
-		return m.GrafanaInClusterURL
-	}
-	return ""
-}
-
-func (m *KialiDashboardConfig) GetJaegerInClusterURL() string {
-	if m != nil {
-		return m.JaegerInClusterURL
-	}
-	return ""
-}
-
-// Configuration for Kiali addon.
-type KialiConfig struct {
-	Enabled          *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	CreateDemoSecret *protobuf.BoolValue `protobuf:"bytes,2,opt,name=createDemoSecret,proto3" json:"createDemoSecret,omitempty"`
-	// Image hub for kiali deployment.
-	Hub string `protobuf:"bytes,3,opt,name=hub,proto3" json:"hub,omitempty"`
-	// Image tag for kiali deployment.
-	Tag interface{} `protobuf:"bytes,4,opt,name=tag,proto3" json:"tag,omitempty"`
-	// Number of replicas for Kiali.
-	ReplicaCount        uint32                `protobuf:"varint,5,opt,name=replicaCount,proto3" json:"replicaCount,omitempty"` // Deprecated: Do not use.
-	PrometheusNamespace string                `protobuf:"bytes,6,opt,name=prometheusNamespace,proto3" json:"prometheusNamespace,omitempty"`
-	Security            *KialiSecurityConfig  `protobuf:"bytes,7,opt,name=security,proto3" json:"security,omitempty"`
-	Dashboard           *KialiDashboardConfig `protobuf:"bytes,8,opt,name=dashboard,proto3" json:"dashboard,omitempty"`
-	ContextPath         string                `protobuf:"bytes,15,opt,name=contextPath,proto3" json:"contextPath,omitempty"`
-	// K8s node selector.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-	NodeSelector map[string]interface{} `protobuf:"bytes,10,opt,name=nodeSelector,proto3" json:"nodeSelector,omitempty"` // Deprecated: Do not use.
-	// K8s annotations for pods.
-	//
-	// See: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-	PodAnnotations map[string]interface{} `protobuf:"bytes,11,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	// Pod anti-affinity label selector.
-	//
-	// Specify the pod anti-affinity that allows you to constrain which nodes
-	// your pod is eligible to be scheduled based on labels on pods that are
-	// already running on the node rather than based on labels on nodes.
-	// There are currently two types of anti-affinity:
-	//    "requiredDuringSchedulingIgnoredDuringExecution"
-	//    "preferredDuringSchedulingIgnoredDuringExecution"
-	// which denote “hard” vs. “soft” requirements, you can define your values
-	// in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
-	// correspondingly.
-	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-	//
-	// Examples:
-	// podAntiAffinityLabelSelector:
-	//  - key: security
-	//    operator: In
-	//    values: S1,S2
-	//    topologyKey: "kubernetes.io/hostname"
-	//  This pod anti-affinity rule says that the pod requires not to be scheduled
-	//  onto a node if that node is already running a pod with label having key
-	//  “security” and value “S1”.
-	PodAntiAffinityLabelSelector []map[string]interface{} `protobuf:"bytes,12,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"` // Deprecated: Do not use.
-	// See PodAntiAffinityLabelSelector.
-	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,13,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"` // Deprecated: Do not use.
-	Tolerations                      []map[string]interface{} `protobuf:"bytes,14,opt,name=tolerations,proto3" json:"tolerations,omitempty"`                                           // Deprecated: Do not use.
-	Image                            string                         `protobuf:"bytes,16,opt,name=image,proto3" json:"image,omitempty"`                                                       // Deprecated: Do not use.
-	// K8s resources settings.
-	//
-	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources            *Resources          `protobuf:"bytes,17,opt,name=resources,proto3" json:"resources,omitempty"`           // Deprecated: Do not use.
-	PrometheusAddr       string              `protobuf:"bytes,18,opt,name=prometheusAddr,proto3" json:"prometheusAddr,omitempty"` // Deprecated: Do not use.
-	Service              *KialiServiceConfig `protobuf:"bytes,19,opt,name=service,proto3" json:"service,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
-	XXX_unrecognized     []byte              `json:"-"`
-	XXX_sizecache        int32               `json:"-"`
-}
-
-func (m *KialiConfig) Reset()         { *m = KialiConfig{} }
-func (m *KialiConfig) String() string { return proto.CompactTextString(m) }
-func (*KialiConfig) ProtoMessage()    {}
-func (*KialiConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{72}
-}
-func (m *KialiConfig) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_KialiConfig.Unmarshal(m, b)
-}
-func (m *KialiConfig) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_KialiConfig.Marshal(b, m, deterministic)
-}
-func (m *KialiConfig) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_KialiConfig.Merge(m, src)
-}
-func (m *KialiConfig) XXX_Size() int {
-	return xxx_messageInfo_KialiConfig.Size(m)
-}
-func (m *KialiConfig) XXX_DiscardUnknown() {
-	xxx_messageInfo_KialiConfig.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_KialiConfig proto.InternalMessageInfo
-
-func (m *KialiConfig) GetEnabled() *protobuf.BoolValue {
-	if m != nil {
-		return m.Enabled
-	}
-	return nil
-}
-
-func (m *KialiConfig) GetCreateDemoSecret() *protobuf.BoolValue {
-	if m != nil {
-		return m.CreateDemoSecret
-	}
-	return nil
-}
-
-func (m *KialiConfig) GetHub() string {
-	if m != nil {
-		return m.Hub
-	}
-	return ""
-}
-
-func (m *KialiConfig) GetTag() interface{} {
-	if m != nil {
-		return m.Tag
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetReplicaCount() uint32 {
-	if m != nil {
-		return m.ReplicaCount
-	}
-	return 0
-}
-
-func (m *KialiConfig) GetPrometheusNamespace() string {
-	if m != nil {
-		return m.PrometheusNamespace
-	}
-	return ""
-}
-
-func (m *KialiConfig) GetSecurity() *KialiSecurityConfig {
-	if m != nil {
-		return m.Security
-	}
-	return nil
-}
-
-func (m *KialiConfig) GetDashboard() *KialiDashboardConfig {
-	if m != nil {
-		return m.Dashboard
-	}
-	return nil
-}
-
-func (m *KialiConfig) GetContextPath() string {
-	if m != nil {
-		return m.ContextPath
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetNodeSelector() map[string]interface{} {
-	if m != nil {
-		return m.NodeSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetPodAnnotations() map[string]interface{} {
-	if m != nil {
-		return m.PodAnnotations
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetPodAntiAffinityLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetPodAntiAffinityTermLabelSelector() []map[string]interface{} {
-	if m != nil {
-		return m.PodAntiAffinityTermLabelSelector
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetTolerations() []map[string]interface{} {
-	if m != nil {
-		return m.Tolerations
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetImage() string {
-	if m != nil {
-		return m.Image
-	}
-	return ""
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetResources() *Resources {
-	if m != nil {
-		return m.Resources
-	}
-	return nil
-}
-
-// Deprecated: Do not use.
-func (m *KialiConfig) GetPrometheusAddr() string {
-	if m != nil {
-		return m.PrometheusAddr
-	}
-	return ""
-}
-
-func (m *KialiConfig) GetService() *KialiServiceConfig {
-	if m != nil {
-		return m.Service
-	}
-	return nil
-}
-
 type BaseConfig struct {
 	// For Helm2 use, adds the CRDs to templates.
 	EnableCRDTemplates *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enableCRDTemplates,proto3" json:"enableCRDTemplates,omitempty"`
@@ -6973,7 +3969,7 @@ func (m *BaseConfig) Reset()         { *m = BaseConfig{} }
 func (m *BaseConfig) String() string { return proto.CompactTextString(m) }
 func (*BaseConfig) ProtoMessage()    {}
 func (*BaseConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{73}
+	return fileDescriptor_261260e22432516f, []int{43}
 }
 func (m *BaseConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BaseConfig.Unmarshal(m, b)
@@ -7019,7 +4015,7 @@ func (m *IstiodRemoteConfig) Reset()         { *m = IstiodRemoteConfig{} }
 func (m *IstiodRemoteConfig) String() string { return proto.CompactTextString(m) }
 func (*IstiodRemoteConfig) ProtoMessage()    {}
 func (*IstiodRemoteConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{74}
+	return fileDescriptor_261260e22432516f, []int{44}
 }
 func (m *IstiodRemoteConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IstiodRemoteConfig.Unmarshal(m, b)
@@ -7047,27 +4043,17 @@ func (m *IstiodRemoteConfig) GetInjectionURL() string {
 }
 
 type Values struct {
-	Cni          *CNIConfig              `protobuf:"bytes,2,opt,name=cni,proto3" json:"cni,omitempty"`
-	Istiocoredns *CoreDNSConfig          `protobuf:"bytes,3,opt,name=istiocoredns,proto3" json:"istiocoredns,omitempty"`
-	Gateways     *GatewaysConfig         `protobuf:"bytes,5,opt,name=gateways,proto3" json:"gateways,omitempty"`
-	Global       *GlobalConfig           `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
-	Grafana      map[string]interface{} `protobuf:"bytes,7,opt,name=grafana,proto3" json:"grafana,omitempty"`
-	Mixer        *MixerConfig            `protobuf:"bytes,8,opt,name=mixer,proto3" json:"mixer,omitempty"`
-	Pilot        *PilotConfig            `protobuf:"bytes,10,opt,name=pilot,proto3" json:"pilot,omitempty"`
+	Cni          *CNIConfig      `protobuf:"bytes,2,opt,name=cni,proto3" json:"cni,omitempty"`
+	Istiocoredns *CoreDNSConfig  `protobuf:"bytes,3,opt,name=istiocoredns,proto3" json:"istiocoredns,omitempty"`
+	Gateways     *GatewaysConfig `protobuf:"bytes,5,opt,name=gateways,proto3" json:"gateways,omitempty"`
+	Global       *GlobalConfig   `protobuf:"bytes,6,opt,name=global,proto3" json:"global,omitempty"`
+	Pilot        *PilotConfig    `protobuf:"bytes,10,opt,name=pilot,proto3" json:"pilot,omitempty"`
 	// Controls whether telemetry is exported for Pilot.
 	Telemetry              *TelemetryConfig       `protobuf:"bytes,23,opt,name=telemetry,proto3" json:"telemetry,omitempty"`
-	Prometheus             *PrometheusConfig      `protobuf:"bytes,11,opt,name=prometheus,proto3" json:"prometheus,omitempty"`
 	SidecarInjectorWebhook *SidecarInjectorConfig `protobuf:"bytes,13,opt,name=sidecarInjectorWebhook,proto3" json:"sidecarInjectorWebhook,omitempty"`
-	Tracing                *TracingConfig         `protobuf:"bytes,14,opt,name=tracing,proto3" json:"tracing,omitempty"`
-	Kiali                  *KialiConfig           `protobuf:"bytes,15,opt,name=kiali,proto3" json:"kiali,omitempty"`
-	// Deprecated.
-	Version          string              `protobuf:"bytes,16,opt,name=version,proto3" json:"version,omitempty"`
-	ClusterResources *protobuf.BoolValue `protobuf:"bytes,17,opt,name=clusterResources,proto3" json:"clusterResources,omitempty"`
-	// TODO: populate these.
-	PrometheusOperator map[string]interface{} `protobuf:"bytes,18,opt,name=prometheusOperator,proto3" json:"prometheusOperator,omitempty"`
-	IstioCni           *CNIConfig              `protobuf:"bytes,19,opt,name=istio_cni,json=istioCni,proto3" json:"istio_cni,omitempty"`
-	Kustomize          *protobuf.BoolValue     `protobuf:"bytes,20,opt,name=kustomize,proto3" json:"kustomize,omitempty"`
-	Revision           string                  `protobuf:"bytes,21,opt,name=revision,proto3" json:"revision,omitempty"`
+	ClusterResources       *protobuf.BoolValue    `protobuf:"bytes,17,opt,name=clusterResources,proto3" json:"clusterResources,omitempty"`
+	IstioCni               *CNIConfig             `protobuf:"bytes,19,opt,name=istio_cni,json=istioCni,proto3" json:"istio_cni,omitempty"`
+	Revision               string                 `protobuf:"bytes,21,opt,name=revision,proto3" json:"revision,omitempty"`
 	// TODO can this import the real mesh config API?
 	MeshConfig           interface{}      `protobuf:"bytes,36,opt,name=meshConfig,proto3" json:"meshConfig,omitempty"`
 	Base                 *BaseConfig         `protobuf:"bytes,37,opt,name=base,proto3" json:"base,omitempty"`
@@ -7081,7 +4067,7 @@ func (m *Values) Reset()         { *m = Values{} }
 func (m *Values) String() string { return proto.CompactTextString(m) }
 func (*Values) ProtoMessage()    {}
 func (*Values) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{75}
+	return fileDescriptor_261260e22432516f, []int{45}
 }
 func (m *Values) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Values.Unmarshal(m, b)
@@ -7129,20 +4115,6 @@ func (m *Values) GetGlobal() *GlobalConfig {
 	return nil
 }
 
-func (m *Values) GetGrafana() map[string]interface{} {
-	if m != nil {
-		return m.Grafana
-	}
-	return nil
-}
-
-func (m *Values) GetMixer() *MixerConfig {
-	if m != nil {
-		return m.Mixer
-	}
-	return nil
-}
-
 func (m *Values) GetPilot() *PilotConfig {
 	if m != nil {
 		return m.Pilot
@@ -7157,39 +4129,11 @@ func (m *Values) GetTelemetry() *TelemetryConfig {
 	return nil
 }
 
-func (m *Values) GetPrometheus() *PrometheusConfig {
-	if m != nil {
-		return m.Prometheus
-	}
-	return nil
-}
-
 func (m *Values) GetSidecarInjectorWebhook() *SidecarInjectorConfig {
 	if m != nil {
 		return m.SidecarInjectorWebhook
 	}
 	return nil
-}
-
-func (m *Values) GetTracing() *TracingConfig {
-	if m != nil {
-		return m.Tracing
-	}
-	return nil
-}
-
-func (m *Values) GetKiali() *KialiConfig {
-	if m != nil {
-		return m.Kiali
-	}
-	return nil
-}
-
-func (m *Values) GetVersion() string {
-	if m != nil {
-		return m.Version
-	}
-	return ""
 }
 
 func (m *Values) GetClusterResources() *protobuf.BoolValue {
@@ -7199,23 +4143,9 @@ func (m *Values) GetClusterResources() *protobuf.BoolValue {
 	return nil
 }
 
-func (m *Values) GetPrometheusOperator() map[string]interface{} {
-	if m != nil {
-		return m.PrometheusOperator
-	}
-	return nil
-}
-
 func (m *Values) GetIstioCni() *CNIConfig {
 	if m != nil {
 		return m.IstioCni
-	}
-	return nil
-}
-
-func (m *Values) GetKustomize() *protobuf.BoolValue {
-	if m != nil {
-		return m.Kustomize
 	}
 	return nil
 }
@@ -7266,7 +4196,7 @@ func (m *ZeroVPNConfig) Reset()         { *m = ZeroVPNConfig{} }
 func (m *ZeroVPNConfig) String() string { return proto.CompactTextString(m) }
 func (*ZeroVPNConfig) ProtoMessage()    {}
 func (*ZeroVPNConfig) Descriptor() ([]byte, []int) {
-	return fileDescriptor_261260e22432516f, []int{80}
+	return fileDescriptor_261260e22432516f, []int{50}
 }
 func (m *ZeroVPNConfig) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ZeroVPNConfig.Unmarshal(m, b)
@@ -7302,9 +4232,7 @@ func (m *ZeroVPNConfig) GetSuffix() string {
 
 
 func init() {
-	proto.RegisterEnum("v1alpha1.Mode", Mode_name, Mode_value)
 	proto.RegisterEnum("v1alpha1.IngressControllerMode", IngressControllerMode_name, IngressControllerMode_value)
-	proto.RegisterEnum("v1alpha1.AccessLogEncoding", AccessLogEncoding_name, AccessLogEncoding_value)
 	proto.RegisterEnum("v1alpha1.Tracer", Tracer_name, Tracer_value)
 	proto.RegisterEnum("v1alpha1.OutboundTrafficPolicyConfig_Mode", OutboundTrafficPolicyConfig_Mode_name, OutboundTrafficPolicyConfig_Mode_value)
 	proto.RegisterType((*ArchConfig)(nil), "v1alpha1.ArchConfig")
@@ -7325,23 +4253,14 @@ func init() {
 	proto.RegisterType((*IstiodConfig)(nil), "v1alpha1.IstiodConfig")
 	proto.RegisterType((*GlobalLoggingConfig)(nil), "v1alpha1.GlobalLoggingConfig")
 	proto.RegisterType((*IngressGatewayConfig)(nil), "v1alpha1.IngressGatewayConfig")
-	proto.RegisterType((*IngressGatewaySdsConfig)(nil), "v1alpha1.IngressGatewaySdsConfig")
 	proto.RegisterType((*IngressGatewayZvpnConfig)(nil), "v1alpha1.IngressGatewayZvpnConfig")
-	proto.RegisterType((*KubernetesEnvMixerAdapterConfig)(nil), "v1alpha1.KubernetesEnvMixerAdapterConfig")
-	proto.RegisterType((*LoadSheddingConfig)(nil), "v1alpha1.LoadSheddingConfig")
 	proto.RegisterType((*MeshExpansionConfig)(nil), "v1alpha1.MeshExpansionConfig")
-	proto.RegisterType((*MixerTelemetryAdaptersConfig)(nil), "v1alpha1.MixerTelemetryAdaptersConfig")
-	proto.RegisterType((*MixerPolicyAdaptersConfig)(nil), "v1alpha1.MixerPolicyAdaptersConfig")
-	proto.RegisterType((*MixerConfig)(nil), "v1alpha1.MixerConfig")
-	proto.RegisterType((*MixerPolicyConfig)(nil), "v1alpha1.MixerPolicyConfig")
-	proto.RegisterType((*MixerTelemetryConfig)(nil), "v1alpha1.MixerTelemetryConfig")
 	proto.RegisterType((*MultiClusterConfig)(nil), "v1alpha1.MultiClusterConfig")
 	proto.RegisterType((*OutboundTrafficPolicyConfig)(nil), "v1alpha1.OutboundTrafficPolicyConfig")
 	proto.RegisterType((*PilotConfig)(nil), "v1alpha1.PilotConfig")
 	proto.RegisterType((*PilotIngressConfig)(nil), "v1alpha1.PilotIngressConfig")
 	proto.RegisterType((*PilotPolicyConfig)(nil), "v1alpha1.PilotPolicyConfig")
 	proto.RegisterType((*TelemetryConfig)(nil), "v1alpha1.TelemetryConfig")
-	proto.RegisterType((*TelemetryV1Config)(nil), "v1alpha1.TelemetryV1Config")
 	proto.RegisterType((*TelemetryV2Config)(nil), "v1alpha1.TelemetryV2Config")
 	proto.RegisterType((*TelemetryV2MetadataExchangeConfig)(nil), "v1alpha1.TelemetryV2MetadataExchangeConfig")
 	proto.RegisterType((*TelemetryV2PrometheusConfig)(nil), "v1alpha1.TelemetryV2PrometheusConfig")
@@ -7349,11 +4268,6 @@ func init() {
 	proto.RegisterType((*TelemetryV2AccessLogPolicyFilterConfig)(nil), "v1alpha1.TelemetryV2AccessLogPolicyFilterConfig")
 	proto.RegisterType((*PilotConfigSource)(nil), "v1alpha1.PilotConfigSource")
 	proto.RegisterType((*PortsConfig)(nil), "v1alpha1.PortsConfig")
-	proto.RegisterType((*PrometheusConfig)(nil), "v1alpha1.PrometheusConfig")
-	proto.RegisterType((*PrometheusMixerAdapterConfig)(nil), "v1alpha1.PrometheusMixerAdapterConfig")
-	proto.RegisterType((*PrometheusSecurityConfig)(nil), "v1alpha1.PrometheusSecurityConfig")
-	proto.RegisterType((*PrometheusServiceConfig)(nil), "v1alpha1.PrometheusServiceConfig")
-	proto.RegisterType((*PrometheusServiceNodePortConfig)(nil), "v1alpha1.PrometheusServiceNodePortConfig")
 	proto.RegisterType((*ProxyConfig)(nil), "v1alpha1.ProxyConfig")
 	proto.RegisterType((*ProxyInitConfig)(nil), "v1alpha1.ProxyInitConfig")
 	proto.RegisterType((*ResourcesRequestsConfig)(nil), "v1alpha1.ResourcesRequestsConfig")
@@ -7361,28 +4275,11 @@ func init() {
 	proto.RegisterType((*SecretVolume)(nil), "v1alpha1.SecretVolume")
 	proto.RegisterType((*ServiceConfig)(nil), "v1alpha1.ServiceConfig")
 	proto.RegisterType((*SidecarInjectorConfig)(nil), "v1alpha1.SidecarInjectorConfig")
-	proto.RegisterType((*StdioMixerAdapterConfig)(nil), "v1alpha1.StdioMixerAdapterConfig")
-	proto.RegisterType((*StackdriverMixerAdapterConfig)(nil), "v1alpha1.StackdriverMixerAdapterConfig")
-	proto.RegisterType((*StackdriverMixerAdapterConfig_EnabledConfig)(nil), "v1alpha1.StackdriverMixerAdapterConfig.EnabledConfig")
-	proto.RegisterType((*StackdriverAuthConfig)(nil), "v1alpha1.StackdriverAuthConfig")
-	proto.RegisterType((*StackdriverTracerConfig)(nil), "v1alpha1.StackdriverTracerConfig")
-	proto.RegisterType((*StackdriverContextGraph)(nil), "v1alpha1.StackdriverContextGraph")
 	proto.RegisterType((*TracerConfig)(nil), "v1alpha1.TracerConfig")
 	proto.RegisterType((*TracerDatadogConfig)(nil), "v1alpha1.TracerDatadogConfig")
 	proto.RegisterType((*TracerLightStepConfig)(nil), "v1alpha1.TracerLightStepConfig")
 	proto.RegisterType((*TracerZipkinConfig)(nil), "v1alpha1.TracerZipkinConfig")
 	proto.RegisterType((*TracerStackdriverConfig)(nil), "v1alpha1.TracerStackdriverConfig")
-	proto.RegisterType((*TracingConfig)(nil), "v1alpha1.TracingConfig")
-	proto.RegisterType((*TracingOpencensusConfig)(nil), "v1alpha1.TracingOpencensusConfig")
-	proto.RegisterType((*TracingOpencensusExportersConfig)(nil), "v1alpha1.TracingOpencensusExportersConfig")
-	proto.RegisterType((*TracingJaegerConfig)(nil), "v1alpha1.TracingJaegerConfig")
-	proto.RegisterType((*TracingJaegerMemoryConfig)(nil), "v1alpha1.TracingJaegerMemoryConfig")
-	proto.RegisterType((*TracingZipkinConfig)(nil), "v1alpha1.TracingZipkinConfig")
-	proto.RegisterType((*TracingZipkinNodeConfig)(nil), "v1alpha1.TracingZipkinNodeConfig")
-	proto.RegisterType((*KialiSecurityConfig)(nil), "v1alpha1.KialiSecurityConfig")
-	proto.RegisterType((*KialiServiceConfig)(nil), "v1alpha1.KialiServiceConfig")
-	proto.RegisterType((*KialiDashboardConfig)(nil), "v1alpha1.KialiDashboardConfig")
-	proto.RegisterType((*KialiConfig)(nil), "v1alpha1.KialiConfig")
 	proto.RegisterType((*BaseConfig)(nil), "v1alpha1.BaseConfig")
 	proto.RegisterType((*IstiodRemoteConfig)(nil), "v1alpha1.IstiodRemoteConfig")
 	proto.RegisterType((*Values)(nil), "v1alpha1.Values")
@@ -7394,443 +4291,288 @@ func init() {
 }
 
 var fileDescriptor_261260e22432516f = []byte{
-	// 7000 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xec, 0x7d, 0x4b, 0x6c, 0x1c, 0x47,
-	0x7a, 0xb0, 0x86, 0xef, 0xf9, 0x86, 0x43, 0x0e, 0x8b, 0x22, 0xd5, 0xa2, 0x68, 0x3d, 0xda, 0xb6,
-	0xac, 0x95, 0x64, 0x4a, 0xa2, 0x65, 0x4b, 0x96, 0x65, 0xad, 0x29, 0x92, 0xb2, 0x68, 0xf3, 0xf5,
-	0xf7, 0x50, 0x7e, 0xed, 0xfe, 0xcb, 0x14, 0xbb, 0x8b, 0xc3, 0x36, 0x7b, 0xba, 0x7a, 0xbb, 0x7a,
-	0x46, 0xa4, 0x81, 0x24, 0xc8, 0x29, 0xc8, 0x65, 0x83, 0x6c, 0x72, 0x4b, 0x80, 0x20, 0x48, 0x82,
-	0xdc, 0x83, 0x00, 0x39, 0x07, 0x09, 0x90, 0x1c, 0x82, 0x20, 0xf7, 0x20, 0x40, 0xb0, 0x39, 0x25,
-	0x87, 0x00, 0x39, 0x2c, 0x72, 0x48, 0x80, 0x04, 0xf5, 0xe8, 0xe7, 0xf4, 0x3c, 0x38, 0xa4, 0xd6,
-	0x0b, 0xec, 0xde, 0xa6, 0xbf, 0xfa, 0xbe, 0xea, 0xea, 0xaa, 0xaf, 0xbe, 0x57, 0x7d, 0x5f, 0x0d,
-	0xdc, 0xf4, 0x0e, 0x6b, 0x77, 0xb0, 0x67, 0xb3, 0x3b, 0x36, 0x0b, 0x6c, 0x7a, 0xa7, 0x79, 0x0f,
-	0x3b, 0xde, 0x01, 0xbe, 0x77, 0xa7, 0x89, 0x9d, 0x06, 0x61, 0xbb, 0xc1, 0xb1, 0x47, 0xd8, 0x82,
-	0xe7, 0xd3, 0x80, 0xa2, 0xb1, 0xb0, 0x71, 0xee, 0x72, 0x8d, 0xd2, 0x9a, 0x43, 0xee, 0x08, 0xf8,
-	0x5e, 0x63, 0xff, 0x8e, 0xd5, 0xf0, 0x71, 0x60, 0x53, 0x57, 0x62, 0xce, 0x7d, 0x54, 0xb3, 0x83,
-	0x83, 0xc6, 0xde, 0x82, 0x49, 0xeb, 0x77, 0x6a, 0xb4, 0x46, 0x63, 0xc4, 0xe8, 0x47, 0xb6, 0x87,
-	0x97, 0x3e, 0xf6, 0x3c, 0xe2, 0xab, 0x77, 0xcd, 0x9d, 0xe7, 0x64, 0xe2, 0xa7, 0xe8, 0x40, 0x42,
-	0x75, 0x03, 0x60, 0xc9, 0x37, 0x0f, 0x96, 0xa9, 0xbb, 0x6f, 0xd7, 0xd0, 0x79, 0x18, 0xc6, 0x75,
-	0xeb, 0xbd, 0xfb, 0x5a, 0xe1, 0x6a, 0xe1, 0x46, 0xd9, 0x90, 0x0f, 0x48, 0x83, 0x51, 0xcf, 0x33,
-	0xdf, 0xbb, 0xef, 0x10, 0x6d, 0x40, 0xc0, 0xc3, 0x47, 0x8e, 0xcf, 0xde, 0x79, 0xff, 0xee, 0x91,
-	0x36, 0x28, 0xf1, 0xc5, 0x83, 0xfe, 0xb7, 0x43, 0x50, 0x5c, 0xde, 0x5c, 0x53, 0x7d, 0xde, 0x87,
-	0x51, 0xe2, 0xe2, 0x3d, 0x87, 0x58, 0xa2, 0xd7, 0xd2, 0xe2, 0xdc, 0x82, 0x1c, 0xe9, 0x42, 0x38,
-	0xd2, 0x85, 0xa7, 0x94, 0x3a, 0x9f, 0xf1, 0xd9, 0x31, 0x42, 0x54, 0x54, 0x81, 0xc1, 0x83, 0xc6,
-	0x9e, 0x78, 0x5f, 0xd1, 0xe0, 0x3f, 0xd1, 0x77, 0x60, 0x30, 0xc0, 0x35, 0xf1, 0xa6, 0xd2, 0xe2,
-	0x85, 0x85, 0x70, 0xe6, 0x16, 0x76, 0x8e, 0x3d, 0xb2, 0xe6, 0x06, 0xc4, 0xdf, 0xc7, 0x26, 0x31,
-	0x38, 0x0e, 0x1f, 0x96, 0x5d, 0xc7, 0x35, 0xa2, 0x0d, 0x09, 0x72, 0xf9, 0x80, 0x2e, 0x03, 0x78,
-	0x0d, 0xc7, 0xd9, 0xa6, 0x8e, 0x6d, 0x1e, 0x6b, 0xc3, 0xa2, 0x29, 0x01, 0x41, 0xf3, 0x50, 0x34,
-	0x5d, 0xfb, 0xa9, 0xed, 0xae, 0xd8, 0xbe, 0x36, 0x22, 0x9a, 0x63, 0x00, 0xa7, 0x36, 0x5d, 0x9b,
-	0x7f, 0x13, 0x6f, 0x1e, 0x95, 0xd4, 0x31, 0x04, 0xdd, 0x80, 0x49, 0xf5, 0xf4, 0xcc, 0x76, 0xc8,
-	0x26, 0xae, 0x13, 0x6d, 0x4c, 0x20, 0x65, 0xc1, 0xe8, 0x36, 0x4c, 0x91, 0x23, 0xd3, 0x69, 0x58,
-	0xe2, 0x91, 0x79, 0xd8, 0x24, 0x4c, 0x2b, 0x5e, 0x1d, 0xbc, 0x51, 0x34, 0x5a, 0x1b, 0xd0, 0x3a,
-	0x4c, 0x78, 0xd4, 0x5a, 0x72, 0x5d, 0x1a, 0x08, 0x7e, 0x60, 0x1a, 0x88, 0x19, 0xb8, 0x9a, 0x9e,
-	0x81, 0x0d, 0xec, 0x55, 0x03, 0xdf, 0x76, 0x6b, 0xd1, 0x54, 0x3c, 0x1d, 0xd0, 0x0a, 0x46, 0x86,
-	0x16, 0xdd, 0x80, 0x8a, 0xc7, 0xbc, 0x5d, 0xd3, 0x69, 0xb0, 0x80, 0xf8, 0xbb, 0x3e, 0x75, 0x88,
-	0x56, 0x12, 0xc3, 0x9c, 0xf0, 0x98, 0xb7, 0x2c, 0xc1, 0x06, 0x75, 0x08, 0x9a, 0x83, 0x31, 0x87,
-	0xd6, 0xd6, 0x49, 0x93, 0x38, 0xda, 0xb8, 0xc0, 0x88, 0x9e, 0xd1, 0x3d, 0x18, 0xf1, 0x89, 0x87,
-	0x6d, 0x5f, 0x2b, 0x8b, 0xb1, 0x5c, 0x8c, 0xc7, 0xb2, 0xbc, 0xb9, 0x66, 0x88, 0x26, 0xb9, 0xfa,
-	0x86, 0x42, 0xe4, 0x5c, 0x60, 0x1e, 0x60, 0xdb, 0x25, 0x96, 0x36, 0xd1, 0x9d, 0x0b, 0x14, 0xaa,
-	0xfe, 0xa3, 0x41, 0x98, 0xcc, 0xf4, 0xf8, 0xf3, 0xc3, 0x4f, 0xf3, 0x50, 0x74, 0xf0, 0x1e, 0x71,
-	0xb6, 0xa9, 0xc5, 0x04, 0x3b, 0x8d, 0x19, 0x31, 0x00, 0x5d, 0x87, 0x71, 0xd3, 0x27, 0x38, 0x20,
-	0xab, 0x4d, 0xe2, 0x06, 0x4c, 0x32, 0x94, 0x58, 0x93, 0x14, 0x9c, 0xf3, 0x95, 0x45, 0x1c, 0x12,
-	0x10, 0xd1, 0xcd, 0xa8, 0xe8, 0x26, 0x01, 0xe1, 0xdc, 0xb2, 0xe7, 0xd3, 0x43, 0xe2, 0x6e, 0x53,
-	0x6b, 0x9d, 0xf7, 0xfe, 0x29, 0x39, 0x56, 0x9c, 0xd5, 0xda, 0x80, 0xee, 0xc2, 0x74, 0x1a, 0x28,
-	0xa6, 0x41, 0x2b, 0x0a, 0xfc, 0xbc, 0x26, 0xde, 0xbf, 0xed, 0xda, 0xc1, 0x32, 0x75, 0x03, 0x3e,
-	0xe7, 0xbe, 0xe0, 0x5c, 0x90, 0xfd, 0xb7, 0x34, 0xe8, 0x5f, 0xc0, 0xdc, 0xf2, 0xf6, 0x8b, 0x1d,
-	0xec, 0xd7, 0x48, 0xf0, 0x22, 0xb0, 0x1d, 0xfb, 0x1b, 0xc1, 0x58, 0x6a, 0x69, 0x1e, 0x81, 0x16,
-	0x88, 0xa6, 0xa5, 0x26, 0xf1, 0x71, 0x8d, 0x24, 0x30, 0xc4, 0x5a, 0x0d, 0x1b, 0x6d, 0xdb, 0xf5,
-	0xff, 0x2e, 0x40, 0xd1, 0x20, 0x8c, 0x36, 0x7c, 0xce, 0xf5, 0x0f, 0x60, 0xc4, 0xb1, 0xeb, 0x76,
-	0xc0, 0xb4, 0xc2, 0xd5, 0xc1, 0x1b, 0xa5, 0xc5, 0x2b, 0xf1, 0xfa, 0x44, 0x48, 0x0b, 0xeb, 0x02,
-	0x63, 0xd5, 0x0d, 0xfc, 0x63, 0x43, 0xa1, 0xa3, 0x0f, 0x61, 0xcc, 0x27, 0x3f, 0x6c, 0x10, 0x16,
-	0x30, 0x6d, 0x40, 0x90, 0x5e, 0xcb, 0x23, 0x35, 0x14, 0x8e, 0x24, 0x8e, 0x48, 0xe6, 0xde, 0x87,
-	0x52, 0xa2, 0x57, 0xce, 0x35, 0x87, 0xe4, 0x58, 0x8c, 0xbd, 0x68, 0xf0, 0x9f, 0x9c, 0x15, 0x84,
-	0x1c, 0x57, 0x9c, 0x24, 0x1f, 0x1e, 0x0d, 0x3c, 0x2c, 0xcc, 0x7d, 0x00, 0xe5, 0x54, 0xaf, 0x27,
-	0x21, 0xd6, 0xff, 0x79, 0x0c, 0xca, 0xcb, 0xd4, 0x27, 0x2b, 0x9b, 0xd5, 0x53, 0xb1, 0xb9, 0x0e,
-	0xe3, 0xa6, 0xec, 0x66, 0x4d, 0x30, 0xac, 0x7c, 0x51, 0x0a, 0x26, 0x24, 0x99, 0x7c, 0xde, 0x51,
-	0xfc, 0xcf, 0x25, 0x59, 0x04, 0x41, 0x0b, 0x80, 0xd4, 0xd3, 0xb6, 0xd3, 0xa8, 0xd9, 0xee, 0x5a,
-	0x82, 0xf5, 0x73, 0x5a, 0xd0, 0x73, 0x18, 0x77, 0xa9, 0x45, 0xaa, 0xc4, 0x21, 0x66, 0x40, 0x7d,
-	0xb1, 0x15, 0x7a, 0x95, 0x4f, 0x29, 0x4a, 0xbe, 0x67, 0x7c, 0xe2, 0x39, 0xb6, 0x89, 0x97, 0x69,
-	0xc3, 0x0d, 0xc4, 0x9e, 0x29, 0x4b, 0xbc, 0x24, 0x3c, 0x47, 0x26, 0x8e, 0x9e, 0x42, 0x26, 0xbe,
-	0x0b, 0x45, 0x3f, 0x64, 0x0c, 0xb1, 0xb3, 0x4a, 0x8b, 0xd3, 0x39, 0x3c, 0x23, 0x68, 0x63, 0x4c,
-	0xb4, 0x0e, 0x93, 0x3e, 0x75, 0x1c, 0xdb, 0xad, 0x6d, 0xe0, 0xa3, 0x6a, 0xc3, 0xaf, 0xc9, 0x6d,
-	0x56, 0x5a, 0xbc, 0xdc, 0x22, 0x4b, 0xb6, 0x7c, 0x39, 0x8e, 0x67, 0xd4, 0xdf, 0x7e, 0x2a, 0xfa,
-	0xc9, 0x92, 0xa2, 0x2f, 0x60, 0x26, 0x06, 0xbd, 0x70, 0x71, 0x13, 0xdb, 0x0e, 0x5f, 0x52, 0x25,
-	0xed, 0x7b, 0xe9, 0x33, 0xbf, 0x03, 0x44, 0x61, 0x5e, 0x7c, 0x70, 0x60, 0x2f, 0xed, 0xef, 0xf3,
-	0x1d, 0x7d, 0x2c, 0x76, 0x7f, 0xb4, 0x5c, 0x25, 0xf1, 0x82, 0xb7, 0xd2, 0x2f, 0xa8, 0x3a, 0xb6,
-	0x49, 0xb6, 0xf6, 0xdb, 0xcc, 0x60, 0xc7, 0x0e, 0xd1, 0x4b, 0xb8, 0x9a, 0x69, 0xdf, 0x21, 0x7e,
-	0x3d, 0xfd, 0xd2, 0xf1, 0x93, 0xbf, 0xb4, 0x6b, 0xa7, 0x68, 0x03, 0x4a, 0x01, 0x75, 0x88, 0xaf,
-	0x78, 0xa2, 0x7c, 0xf2, 0x77, 0x24, 0xe9, 0xd1, 0x33, 0xa8, 0xe0, 0x46, 0x40, 0x99, 0x89, 0x1d,
-	0xb2, 0xaa, 0xb6, 0x62, 0x77, 0xdd, 0xd5, 0x42, 0xc3, 0xf7, 0x64, 0x04, 0xdb, 0xc0, 0x47, 0xda,
-	0xa4, 0xb0, 0x95, 0x52, 0xb0, 0x34, 0x8e, 0xed, 0x6a, 0x95, 0x2c, 0x8e, 0xed, 0xa2, 0x47, 0x30,
-	0x68, 0x7a, 0x0d, 0x6d, 0x4a, 0x0c, 0xe1, 0x8d, 0x84, 0xca, 0x6d, 0x2b, 0x90, 0xc5, 0x37, 0x71,
-	0x22, 0xfd, 0x0b, 0xb8, 0xba, 0x42, 0xf6, 0x71, 0xc3, 0x09, 0xb6, 0xa9, 0xb5, 0x62, 0x33, 0xbf,
-	0xe1, 0x71, 0xb4, 0xa7, 0x0d, 0xab, 0x46, 0x82, 0xd3, 0x48, 0x1c, 0xfd, 0x73, 0x98, 0x55, 0x3d,
-	0x47, 0x3b, 0x45, 0xf5, 0x97, 0x14, 0xc5, 0xb2, 0xc3, 0x3c, 0x51, 0x1c, 0xca, 0x4c, 0x65, 0x2f,
-	0x44, 0x24, 0xfa, 0xef, 0x96, 0x61, 0x7a, 0xb5, 0xe6, 0x13, 0xc6, 0x3e, 0xc6, 0x01, 0x79, 0x89,
-	0x8f, 0x55, 0xb7, 0x79, 0xcb, 0x52, 0x38, 0x83, 0x65, 0x19, 0xe8, 0x61, 0x59, 0x06, 0x73, 0x96,
-	0xe5, 0x3a, 0x4c, 0x98, 0xd4, 0x75, 0x89, 0x19, 0xec, 0xd8, 0x75, 0x42, 0x1b, 0x81, 0x12, 0x95,
-	0x19, 0x68, 0xb8, 0x7c, 0xc3, 0x7d, 0x2c, 0x1f, 0xfa, 0x2e, 0x94, 0x2d, 0x1f, 0xdb, 0xee, 0x8a,
-	0x72, 0x0a, 0x84, 0x64, 0xe4, 0x76, 0x57, 0xf6, 0x83, 0x43, 0x04, 0x23, 0x8d, 0x9f, 0x5c, 0xdb,
-	0xd1, 0xde, 0xb5, 0xc9, 0x22, 0x0c, 0x12, 0xb7, 0xa9, 0x64, 0x62, 0x57, 0xe1, 0x6a, 0x70, 0x64,
-	0xf4, 0x2e, 0x8c, 0x08, 0x23, 0x88, 0x29, 0x69, 0xf8, 0x5a, 0x4c, 0xa6, 0xd6, 0x51, 0x6c, 0xda,
-	0x70, 0xbd, 0x15, 0x32, 0x42, 0x30, 0xe4, 0x72, 0xcb, 0xe3, 0xa2, 0x98, 0x3b, 0xf1, 0xbb, 0x45,
-	0xb1, 0x40, 0xdf, 0x8a, 0xa5, 0x55, 0x61, 0x94, 0x4e, 0xa1, 0x30, 0xba, 0x49, 0xd4, 0xf1, 0x6f,
-	0x43, 0xa2, 0x96, 0x5f, 0x85, 0x44, 0xbd, 0x05, 0xc3, 0x1e, 0xf5, 0x03, 0xa6, 0x4d, 0x08, 0x53,
-	0x6a, 0x26, 0xee, 0x7d, 0x9b, 0x83, 0xd5, 0x1a, 0x4a, 0x9c, 0xb4, 0x1e, 0x9d, 0xec, 0x59, 0x8f,
-	0x3e, 0x86, 0x32, 0x23, 0xa6, 0x4f, 0x82, 0xcf, 0xa8, 0xd3, 0xa8, 0x13, 0xa6, 0x55, 0xc4, 0xbb,
-	0x66, 0x63, 0xd2, 0x6a, 0xa2, 0xd9, 0x48, 0x23, 0xa3, 0x6d, 0x40, 0x8c, 0xf8, 0x4d, 0xdb, 0x24,
-	0xc9, 0xd5, 0x9d, 0xea, 0x91, 0x63, 0x73, 0x68, 0x39, 0x27, 0x72, 0x17, 0x5d, 0x43, 0x92, 0x13,
-	0xf9, 0x6f, 0x74, 0x0b, 0x86, 0xbe, 0x69, 0x7a, 0xae, 0x36, 0x9d, 0x75, 0x16, 0xbe, 0x22, 0x3e,
-	0xfd, 0x6c, 0x7b, 0x53, 0x4d, 0x84, 0x40, 0xca, 0xaa, 0xa1, 0xf3, 0xa7, 0x54, 0x43, 0x39, 0x76,
-	0xc6, 0xcc, 0x2b, 0xb0, 0x33, 0x66, 0x4f, 0x6b, 0x67, 0x6c, 0x40, 0xd9, 0x14, 0xd3, 0x10, 0xae,
-	0xe3, 0x85, 0x13, 0x7d, 0xb8, 0x91, 0xa6, 0x46, 0xdf, 0x83, 0xf3, 0xd8, 0xb2, 0x6c, 0x3e, 0x07,
-	0xd8, 0x89, 0x9c, 0x10, 0xa6, 0x69, 0x27, 0xeb, 0x35, 0xb7, 0x13, 0xf4, 0x10, 0x8a, 0x7e, 0xc3,
-	0x5d, 0x62, 0x06, 0xa5, 0x81, 0x36, 0xd7, 0x55, 0x20, 0xc6, 0xc8, 0xfa, 0x87, 0x30, 0x9d, 0x23,
-	0xc6, 0xb8, 0xad, 0x8f, 0x3d, 0x2f, 0xb4, 0xf5, 0xb1, 0xe7, 0x09, 0x9f, 0x91, 0x05, 0x36, 0x0d,
-	0x6d, 0x7d, 0xf1, 0xa0, 0xff, 0x5b, 0x01, 0x26, 0x14, 0x7d, 0x48, 0xba, 0x09, 0xd3, 0xa2, 0x6d,
-	0x97, 0x08, 0x65, 0x57, 0x93, 0xad, 0x4a, 0xa5, 0x25, 0xa4, 0x67, 0x8e, 0x2e, 0x34, 0x90, 0xa0,
-	0x5c, 0x4d, 0x12, 0x26, 0x45, 0xfd, 0x40, 0xef, 0xa2, 0xfe, 0xff, 0xc1, 0x79, 0x39, 0x0a, 0xdb,
-	0x4d, 0x0d, 0x63, 0x28, 0xcb, 0x16, 0x6b, 0x6e, 0xce, 0x38, 0xe4, 0x17, 0xac, 0xa5, 0x48, 0xf5,
-	0xff, 0xbc, 0x08, 0xe3, 0x1f, 0x3b, 0x74, 0x4f, 0xcc, 0x3c, 0xff, 0xd2, 0x1b, 0x30, 0x84, 0x7d,
-	0xf3, 0x40, 0x7d, 0xda, 0xf9, 0xb8, 0xcf, 0x38, 0x02, 0x65, 0x08, 0x0c, 0x11, 0x4c, 0x11, 0xcf,
-	0x51, 0x20, 0x44, 0x4d, 0x63, 0x16, 0xcc, 0x1d, 0x5e, 0x09, 0xe2, 0xab, 0x13, 0x63, 0x2f, 0x4a,
-	0x87, 0x37, 0xa7, 0x89, 0xdb, 0x0f, 0x8a, 0xd3, 0xb0, 0x63, 0x5b, 0x52, 0x9d, 0x0e, 0x76, 0xb7,
-	0x1f, 0xb2, 0x34, 0xe8, 0xfb, 0x70, 0xc9, 0xa4, 0x6e, 0xe0, 0x53, 0x67, 0xdb, 0xc1, 0x2e, 0xa9,
-	0x12, 0xb3, 0xe1, 0xdb, 0xc1, 0x71, 0x68, 0x92, 0x0c, 0x75, 0xed, 0xb2, 0x13, 0x39, 0x7a, 0x0e,
-	0x57, 0x2c, 0x69, 0x56, 0xc9, 0x89, 0xf9, 0xcc, 0x66, 0xf6, 0x9e, 0xed, 0xd8, 0xc1, 0x71, 0x95,
-	0x04, 0x81, 0xed, 0xd6, 0x98, 0x76, 0x5f, 0x84, 0x8c, 0xba, 0xa1, 0xa1, 0xcf, 0x60, 0x5a, 0xa1,
-	0x6c, 0x26, 0x95, 0xe9, 0xc8, 0x09, 0x14, 0x60, 0x5e, 0x07, 0xc8, 0x85, 0x39, 0xab, 0xad, 0x49,
-	0xa9, 0xac, 0x8c, 0x9b, 0x71, 0xf7, 0xdd, 0xcc, 0x4f, 0xf1, 0xa2, 0x0e, 0x3d, 0xa2, 0x6d, 0xa8,
-	0x58, 0x19, 0x43, 0x53, 0x99, 0x18, 0x57, 0x5b, 0xde, 0x92, 0x31, 0x45, 0x45, 0xdf, 0x2d, 0xd4,
-	0xe8, 0x7b, 0x80, 0x14, 0x6c, 0x27, 0x21, 0xaf, 0x1f, 0x9c, 0x5c, 0x5e, 0xe7, 0x74, 0x83, 0x9e,
-	0xc2, 0x84, 0xdc, 0x5b, 0xcf, 0x89, 0x53, 0xdf, 0x21, 0x2c, 0x50, 0xe6, 0x4b, 0x27, 0x8e, 0xc8,
-	0x50, 0xa0, 0x8f, 0xa0, 0x2c, 0x21, 0x3b, 0x3e, 0x36, 0x6d, 0xb7, 0xa6, 0xac, 0x96, 0x4e, 0x5d,
-	0xa4, 0x09, 0xc2, 0xb0, 0xd7, 0x78, 0x1c, 0xf6, 0xba, 0x01, 0x93, 0x22, 0x7c, 0xb5, 0x1d, 0x87,
-	0x42, 0xcb, 0x72, 0x6b, 0x65, 0xc0, 0xe8, 0x26, 0x54, 0x22, 0x90, 0x54, 0xc1, 0x4c, 0x7b, 0x53,
-	0xf0, 0x5c, 0x0b, 0x9c, 0x1b, 0xc1, 0x42, 0x04, 0xc4, 0x3b, 0x70, 0x42, 0x1a, 0xc1, 0x69, 0x28,
-	0xda, 0x84, 0x29, 0x87, 0x9a, 0x98, 0x33, 0xe8, 0xfa, 0x9e, 0x62, 0x51, 0x65, 0x2b, 0x74, 0xd7,
-	0xd6, 0xad, 0xa4, 0x5c, 0x90, 0x3b, 0xb4, 0xb6, 0xc4, 0x3e, 0x61, 0xd4, 0xd5, 0xde, 0xe8, 0x2e,
-	0xc8, 0x23, 0x64, 0xf4, 0x00, 0x46, 0x1d, 0x5a, 0xab, 0xf1, 0xf7, 0x4f, 0xb5, 0x18, 0xaa, 0x42,
-	0x6a, 0xad, 0xcb, 0x66, 0x25, 0x98, 0x42, 0x6c, 0xb4, 0x0c, 0xe5, 0x3a, 0x61, 0x07, 0xab, 0x47,
-	0x1e, 0x76, 0x19, 0x17, 0x1e, 0x28, 0x4b, 0xbe, 0x91, 0x6c, 0x56, 0xe4, 0x69, 0x1a, 0x34, 0x0b,
-	0x23, 0x1c, 0xb0, 0xb6, 0xa2, 0xbd, 0x2b, 0xe6, 0x49, 0x3d, 0xa1, 0x15, 0x18, 0xe7, 0xbf, 0x36,
-	0x49, 0xf0, 0x92, 0xfa, 0x87, 0x4c, 0x19, 0x1c, 0xdd, 0xa7, 0x26, 0x45, 0xc5, 0x57, 0xa3, 0x4e,
-	0x5d, 0x3b, 0xa0, 0x1c, 0x89, 0x5b, 0x6a, 0xc2, 0x08, 0x29, 0x1b, 0x19, 0x28, 0xfa, 0x08, 0xc6,
-	0xeb, 0x0d, 0x27, 0xb0, 0x55, 0xdc, 0x57, 0xd9, 0x00, 0xf3, 0x89, 0x2f, 0x49, 0xb4, 0xaa, 0x0f,
-	0x49, 0x51, 0x20, 0x0d, 0x46, 0x5d, 0xf9, 0x56, 0xed, 0x2d, 0xf1, 0x21, 0xe1, 0x23, 0x7a, 0x0f,
-	0x66, 0x3d, 0x6a, 0xad, 0x6c, 0x56, 0xab, 0x84, 0x8b, 0xf4, 0x44, 0xa8, 0xfb, 0x96, 0xe0, 0xa1,
-	0x36, 0xad, 0xe8, 0x07, 0x30, 0x4f, 0xeb, 0x76, 0x50, 0xb5, 0x2d, 0x62, 0x62, 0x7f, 0xcd, 0xfd,
-	0x5a, 0x48, 0x1b, 0xf9, 0xf2, 0x0d, 0xec, 0x69, 0xd7, 0xbb, 0x2e, 0x72, 0x47, 0x7a, 0xf4, 0x04,
-	0xc6, 0xa9, 0x1b, 0x07, 0xd8, 0x95, 0x95, 0xd2, 0xa9, 0xbf, 0x14, 0x3e, 0x32, 0x60, 0x96, 0x7a,
-	0x7c, 0x97, 0x53, 0x7f, 0x03, 0xbb, 0xb8, 0x46, 0x3e, 0x27, 0x7b, 0x07, 0x94, 0x1e, 0x32, 0xed,
-	0x3b, 0x5d, 0x7b, 0x6a, 0x43, 0x89, 0xbe, 0x07, 0x33, 0xb4, 0x11, 0xec, 0xd1, 0x86, 0x6b, 0xed,
-	0xf8, 0x78, 0x7f, 0xdf, 0x36, 0xd5, 0xce, 0x94, 0xc6, 0xce, 0x9b, 0xf1, 0x82, 0x6c, 0xe5, 0xa1,
-	0xa9, 0x95, 0xc9, 0xef, 0x03, 0xad, 0xc3, 0xb4, 0x27, 0xd1, 0x0e, 0x88, 0x79, 0xf8, 0x0c, 0xdb,
-	0xce, 0x96, 0x47, 0x5c, 0xe1, 0x68, 0x75, 0x1e, 0x6d, 0x1e, 0x19, 0x17, 0x1f, 0x12, 0x1c, 0xcf,
-	0xe0, 0x9c, 0x14, 0x1f, 0x19, 0x30, 0xba, 0x0b, 0x53, 0x9e, 0x6f, 0x53, 0xae, 0xd4, 0x96, 0x1d,
-	0xcc, 0x98, 0x08, 0x2c, 0x5f, 0x8a, 0xa2, 0xe0, 0xad, 0x8d, 0x5c, 0x97, 0x7b, 0x3e, 0xad, 0x93,
-	0xe0, 0x80, 0x34, 0x58, 0xdc, 0xff, 0x3b, 0x52, 0x97, 0xe7, 0x34, 0x09, 0xff, 0xc4, 0xa7, 0x47,
-	0xc7, 0xda, 0xbc, 0xf8, 0x9a, 0xa4, 0x7f, 0xc2, 0xc1, 0x91, 0x7f, 0xc2, 0x1f, 0xd0, 0x03, 0x28,
-	0x8a, 0x1f, 0x6b, 0xae, 0x1d, 0x68, 0xaf, 0x65, 0x0f, 0x2e, 0xb6, 0xc3, 0x26, 0x45, 0x14, 0xe3,
-	0xa2, 0x37, 0x61, 0x90, 0x59, 0x4c, 0xbb, 0x9c, 0x75, 0x69, 0xaa, 0x2b, 0x2a, 0x58, 0x6b, 0xf0,
-	0xf6, 0xf0, 0x40, 0xe1, 0x4a, 0x0f, 0x07, 0x0a, 0x0b, 0x80, 0x02, 0xe2, 0x90, 0x3a, 0x09, 0xfc,
-	0xc4, 0x44, 0x5e, 0x95, 0x21, 0xd6, 0xd6, 0x16, 0xb4, 0x00, 0x23, 0x81, 0x8f, 0x4d, 0xe2, 0x6b,
-	0xd7, 0x44, 0xef, 0x09, 0xe7, 0x68, 0x47, 0xc0, 0x43, 0x6f, 0x5a, 0x62, 0xa1, 0xab, 0x50, 0x0a,
-	0xfc, 0x06, 0x0b, 0x56, 0x68, 0x1d, 0xdb, 0xae, 0xa6, 0x8b, 0x8e, 0x93, 0x20, 0x31, 0x82, 0xf8,
-	0x71, 0xc9, 0xb1, 0x31, 0x23, 0x4c, 0xbb, 0x29, 0xb6, 0x66, 0x4e, 0x0b, 0x5a, 0x84, 0x91, 0x06,
-	0x23, 0x1b, 0xcb, 0xdb, 0xda, 0xeb, 0x5d, 0x19, 0x47, 0x61, 0xa2, 0xc7, 0x50, 0x12, 0xe2, 0xdf,
-	0x20, 0x75, 0x1a, 0x10, 0xed, 0x76, 0x57, 0xc2, 0x24, 0x3a, 0xfa, 0x0c, 0x34, 0x79, 0x50, 0x22,
-	0x9f, 0xab, 0x4d, 0x73, 0xd5, 0xb5, 0x3c, 0x6a, 0xbb, 0x01, 0xd3, 0xde, 0xee, 0xda, 0x55, 0x5b,
-	0x5a, 0x2e, 0x60, 0x7c, 0x01, 0xdd, 0xb6, 0x1d, 0x1a, 0x2c, 0x0b, 0xb4, 0x04, 0x82, 0xb6, 0xd0,
-	0x5d, 0xc0, 0x74, 0xa2, 0xe7, 0x5c, 0xac, 0xda, 0xc5, 0x86, 0x58, 0xb2, 0x2c, 0x6e, 0x14, 0x6b,
-	0x77, 0x24, 0x17, 0xe7, 0x34, 0xf1, 0xb5, 0x48, 0xf4, 0x18, 0x12, 0xdc, 0x95, 0xdc, 0xd0, 0xda,
-	0xc2, 0x45, 0xab, 0x84, 0xee, 0x84, 0x9c, 0x12, 0xd2, 0xdc, 0x13, 0x34, 0x6d, 0x5a, 0x39, 0x17,
-	0x89, 0x09, 0xb6, 0xb4, 0xf7, 0xb2, 0x5c, 0xb4, 0x26, 0xe0, 0x21, 0x17, 0x49, 0x2c, 0x74, 0x1b,
-	0xa6, 0x3c, 0xf1, 0x8d, 0xc4, 0x0f, 0xb6, 0x7d, 0xda, 0xb4, 0x2d, 0xe2, 0x6b, 0x0f, 0xe5, 0xd1,
-	0x50, 0x4b, 0x03, 0x9a, 0x87, 0xe2, 0xd7, 0x2f, 0x03, 0x25, 0xb8, 0xde, 0x97, 0xc7, 0xa7, 0x11,
-	0x40, 0xec, 0xa1, 0x80, 0x69, 0x8f, 0x5a, 0xf6, 0xd0, 0x4e, 0xbc, 0x87, 0x02, 0x86, 0xe6, 0x60,
-	0xcc, 0x27, 0x4d, 0x5b, 0xe8, 0xd5, 0x0f, 0xe4, 0xa9, 0x63, 0xf8, 0xcc, 0x2d, 0xaa, 0x3a, 0x6d,
-	0xb8, 0xc1, 0x46, 0xe0, 0x30, 0xfe, 0x66, 0xa6, 0x3d, 0xee, 0x6e, 0x51, 0xa5, 0x29, 0xc4, 0x19,
-	0x2f, 0x0e, 0x67, 0xeb, 0x43, 0x75, 0xc6, 0x1b, 0x02, 0xb8, 0xbd, 0x65, 0x12, 0x37, 0xf0, 0xb1,
-	0x23, 0xe7, 0x43, 0x7b, 0xd2, 0xdd, 0xde, 0x4a, 0x11, 0xe8, 0x6f, 0x43, 0x31, 0xfa, 0x22, 0xbe,
-	0x0b, 0x55, 0x7c, 0x41, 0xe8, 0x60, 0x79, 0xa6, 0x9e, 0x04, 0xe9, 0x06, 0x8c, 0x27, 0x67, 0x3e,
-	0x36, 0x1a, 0x97, 0x5c, 0xec, 0x1c, 0x33, 0x9b, 0xf5, 0xe0, 0xc2, 0x65, 0x28, 0xf4, 0x5b, 0x30,
-	0x9d, 0x63, 0xbf, 0x70, 0x7f, 0xd4, 0x11, 0x87, 0xb9, 0xd2, 0x47, 0x95, 0x0f, 0xfa, 0x5f, 0xcc,
-	0xc0, 0xf9, 0x3c, 0x8f, 0xee, 0x17, 0x32, 0xca, 0xca, 0x97, 0xbf, 0xc1, 0x02, 0x5a, 0xaf, 0xca,
-	0x25, 0x52, 0x3e, 0x52, 0xe7, 0xe5, 0x4f, 0x12, 0xf0, 0x49, 0xb6, 0xc8, 0x5e, 0xa3, 0xa6, 0xf2,
-	0x03, 0xe4, 0x03, 0x37, 0xf6, 0x2c, 0x29, 0x88, 0xe5, 0xb9, 0xad, 0x7a, 0x6a, 0x8d, 0xea, 0x16,
-	0xfb, 0x8f, 0xea, 0xc2, 0x89, 0xa3, 0xba, 0xa5, 0x93, 0x44, 0x75, 0xaf, 0x42, 0x89, 0x1c, 0x05,
-	0xc4, 0x77, 0xb1, 0xb3, 0xb6, 0xcd, 0xb4, 0x71, 0xa1, 0x27, 0x92, 0x20, 0xf4, 0x08, 0xe0, 0xf0,
-	0x21, 0x53, 0xbc, 0xa4, 0xa2, 0x91, 0x9d, 0x86, 0x93, 0xc0, 0x46, 0x2b, 0x30, 0x19, 0x3f, 0x3d,
-	0x0f, 0x02, 0x8f, 0xf5, 0x70, 0xd0, 0x92, 0x25, 0x49, 0x44, 0x9e, 0x27, 0x4f, 0x12, 0x79, 0xbe,
-	0x0e, 0x13, 0x0e, 0xc5, 0xd6, 0x53, 0xec, 0x60, 0xd7, 0x24, 0xfe, 0xda, 0xb6, 0x38, 0x7c, 0x29,
-	0x1a, 0x19, 0x28, 0x7a, 0x04, 0x5a, 0x12, 0x52, 0x15, 0x4e, 0xa4, 0x81, 0xdd, 0x1a, 0x61, 0xda,
-	0x94, 0x98, 0x8f, 0xb6, 0xed, 0x68, 0x15, 0x50, 0xca, 0xfe, 0x17, 0xd1, 0x53, 0x0d, 0x75, 0x0a,
-	0xaa, 0xe6, 0x10, 0x44, 0x41, 0xf2, 0xdb, 0x1d, 0x82, 0xe4, 0xd3, 0x67, 0x18, 0x24, 0x3f, 0xff,
-	0x0a, 0x83, 0xe4, 0x33, 0xdf, 0x46, 0x90, 0x7c, 0xf6, 0x95, 0x06, 0xc9, 0x2f, 0xf4, 0x10, 0x24,
-	0xcf, 0x1e, 0x71, 0x6b, 0x6d, 0x8e, 0xb8, 0x9f, 0x26, 0x83, 0xe9, 0x17, 0x4f, 0xb0, 0x0e, 0x89,
-	0xc8, 0xfa, 0x3b, 0xd2, 0x6e, 0x9d, 0xcb, 0x9e, 0xbd, 0xa5, 0x05, 0x7e, 0xd5, 0x62, 0x49, 0x2b,
-	0xb6, 0x25, 0x1c, 0x7f, 0xe9, 0xf4, 0xe1, 0xf8, 0xf9, 0x33, 0x08, 0xc7, 0xbf, 0x96, 0x08, 0xc7,
-	0xbf, 0xa7, 0xc2, 0xf1, 0xd2, 0x22, 0xd7, 0xdb, 0x7d, 0xd9, 0x57, 0x4d, 0xcf, 0x4d, 0x45, 0xe6,
-	0x73, 0x42, 0xe9, 0x57, 0x5e, 0x41, 0x28, 0xfd, 0xea, 0x69, 0x43, 0xe9, 0x37, 0xa1, 0x82, 0x3d,
-	0xc1, 0x0c, 0x41, 0x24, 0x2c, 0xae, 0x89, 0xef, 0x6f, 0x81, 0xa3, 0xfb, 0x30, 0x13, 0x8a, 0xe1,
-	0xb4, 0xef, 0x28, 0x8d, 0xfe, 0xfc, 0xc6, 0xec, 0x19, 0xc5, 0xeb, 0xa7, 0x3c, 0xa3, 0xf8, 0x14,
-	0xc6, 0x55, 0xdc, 0x58, 0x0e, 0xf6, 0x8d, 0x93, 0x05, 0xe9, 0x53, 0xc4, 0x6d, 0x23, 0xff, 0x6f,
-	0x9e, 0x45, 0xe4, 0xbf, 0xe5, 0x94, 0xe2, 0xfa, 0xa9, 0x4e, 0x29, 0x9e, 0xc0, 0xb8, 0x49, 0xfc,
-	0xc0, 0xde, 0xe7, 0x6b, 0x42, 0x98, 0x08, 0x82, 0x74, 0x89, 0x26, 0x24, 0xf1, 0xd1, 0x6d, 0x18,
-	0x0c, 0x1c, 0xa6, 0xdd, 0xe8, 0x4a, 0xc6, 0xd1, 0xd0, 0x57, 0xa0, 0x45, 0xce, 0xe1, 0x2e, 0xb6,
-	0x2c, 0xea, 0xee, 0xaa, 0x60, 0x7b, 0x18, 0x7d, 0xe8, 0xbe, 0xc7, 0x66, 0x83, 0x84, 0x5b, 0x40,
-	0xdd, 0xf0, 0x30, 0x02, 0x7d, 0x08, 0xc3, 0x07, 0x94, 0x9b, 0xe8, 0x37, 0x4f, 0x36, 0x21, 0x92,
-	0x0a, 0x2d, 0xc2, 0x4c, 0x3c, 0x34, 0x69, 0xdf, 0xec, 0x0a, 0x5d, 0x75, 0x4b, 0xfa, 0x3d, 0x51,
-	0xa3, 0x74, 0x2b, 0x85, 0xbf, 0x9f, 0x3a, 0x85, 0x79, 0xfb, 0x24, 0xa7, 0x30, 0x7f, 0x50, 0x80,
-	0x0b, 0x6d, 0xa4, 0x58, 0x9f, 0x89, 0x53, 0x51, 0x8a, 0xdf, 0x40, 0x32, 0xc5, 0x2f, 0x75, 0xa4,
-	0x39, 0xd8, 0xeb, 0x91, 0xa6, 0x7e, 0x00, 0x5a, 0x3b, 0x49, 0xd4, 0xe7, 0xf0, 0x66, 0x61, 0x84,
-	0x35, 0xf6, 0xf7, 0xed, 0x23, 0x35, 0x3e, 0xf5, 0xa4, 0x7f, 0x0e, 0x57, 0x3e, 0x6d, 0xec, 0x11,
-	0xdf, 0x25, 0x01, 0x61, 0xab, 0x6e, 0x73, 0xc3, 0x3e, 0x22, 0xfe, 0x92, 0x85, 0xbd, 0x28, 0x60,
-	0xd7, 0x67, 0x5a, 0x87, 0x05, 0x68, 0x9d, 0x62, 0xab, 0x7a, 0x40, 0x2c, 0x2b, 0x76, 0x22, 0x6e,
-	0x42, 0xc5, 0xc1, 0x01, 0x71, 0xcd, 0xe3, 0x9d, 0x03, 0x9f, 0xb0, 0x03, 0xea, 0x58, 0xca, 0x9f,
-	0x68, 0x81, 0x23, 0x1d, 0x86, 0xea, 0xd4, 0x92, 0x13, 0x3a, 0xb1, 0x38, 0x11, 0x4f, 0x1b, 0x87,
-	0x1a, 0xa2, 0x4d, 0xff, 0x75, 0x98, 0xce, 0x09, 0x96, 0xf6, 0x39, 0x47, 0x32, 0x44, 0xb1, 0xb6,
-	0xfe, 0xb4, 0x07, 0xa7, 0x49, 0x61, 0xea, 0xff, 0x3b, 0x00, 0xf3, 0x62, 0xce, 0x12, 0xce, 0xb2,
-	0x98, 0xbc, 0x90, 0x9b, 0xb6, 0xa0, 0x7c, 0x18, 0x4d, 0x30, 0x37, 0x9b, 0xe5, 0x80, 0xbe, 0x13,
-	0x7f, 0x4e, 0x97, 0xf9, 0x37, 0xd2, 0xf4, 0xe8, 0x19, 0x40, 0x1c, 0xc9, 0x52, 0x23, 0xbd, 0x9e,
-	0x0a, 0x43, 0xa9, 0xb6, 0x9c, 0xae, 0x12, 0x94, 0xe8, 0x01, 0x0c, 0xb3, 0xc0, 0xb2, 0xa9, 0x62,
-	0xcb, 0x84, 0x7a, 0xaf, 0x72, 0x70, 0x0e, 0xb5, 0xc4, 0x47, 0x6b, 0x50, 0x62, 0x01, 0x36, 0x0f,
-	0x2d, 0xdf, 0x6e, 0x12, 0x5f, 0x9d, 0x53, 0xbd, 0x95, 0x24, 0x8f, 0x1a, 0x73, 0x3a, 0x49, 0xd2,
-	0x72, 0x77, 0xb5, 0xc1, 0x48, 0x88, 0x60, 0xac, 0x30, 0xe5, 0x77, 0x75, 0x74, 0x57, 0xd3, 0x14,
-	0xfa, 0xff, 0x0c, 0xc0, 0x45, 0xf1, 0x9e, 0x30, 0x26, 0xf2, 0xcb, 0xe9, 0xff, 0x59, 0x4e, 0xff,
-	0xdf, 0x14, 0xa0, 0x24, 0xde, 0xa3, 0x26, 0xfc, 0x1d, 0x18, 0x91, 0x81, 0x5c, 0x35, 0xd3, 0x97,
-	0x12, 0x87, 0x01, 0xf1, 0x2a, 0x85, 0x2e, 0x94, 0x44, 0x45, 0x8f, 0xa1, 0x18, 0xc9, 0x77, 0x35,
-	0xa7, 0x97, 0x33, 0x74, 0xd1, 0xfe, 0x0a, 0xc3, 0xab, 0x11, 0x01, 0x7a, 0x0a, 0x63, 0x58, 0xad,
-	0xba, 0x9a, 0xcd, 0xeb, 0xed, 0x88, 0xd3, 0xdc, 0x61, 0x44, 0x74, 0xfa, 0x6f, 0x01, 0x4c, 0xb5,
-	0x8c, 0xef, 0xe7, 0x2e, 0x88, 0xa1, 0x82, 0x13, 0x43, 0xfd, 0x04, 0x27, 0x12, 0x32, 0x71, 0xb8,
-	0x0f, 0xb5, 0x36, 0x92, 0x54, 0x6b, 0x67, 0x9b, 0x3f, 0x9b, 0x75, 0x69, 0xc6, 0xda, 0xb8, 0x34,
-	0xdf, 0x4d, 0xac, 0xb3, 0x8c, 0x74, 0xbc, 0x9e, 0xcb, 0x5c, 0xed, 0x16, 0x19, 0x19, 0x30, 0xcb,
-	0x08, 0xe3, 0x7a, 0x22, 0x74, 0xc6, 0x56, 0x7b, 0x8e, 0x7e, 0xb4, 0xa1, 0x4c, 0x6b, 0xf8, 0xd2,
-	0x69, 0x92, 0x7f, 0xc7, 0x5f, 0x81, 0x27, 0x51, 0x7e, 0xd5, 0xc9, 0xbf, 0x13, 0xdf, 0x86, 0x17,
-	0x3e, 0xf9, 0x2a, 0xbc, 0xf0, 0x6c, 0x1c, 0xa4, 0xd2, 0x77, 0x1c, 0x44, 0xc5, 0xc7, 0xa6, 0x4e,
-	0x12, 0x1f, 0xcb, 0xf8, 0x53, 0xe8, 0x94, 0xfe, 0x94, 0x3a, 0xb6, 0x9f, 0x6e, 0xa9, 0x56, 0x39,
-	0xdf, 0xfd, 0x70, 0x49, 0xff, 0x2b, 0x80, 0xf3, 0x79, 0x32, 0x37, 0x57, 0x1c, 0x0e, 0x9c, 0x81,
-	0x38, 0x1c, 0xec, 0x41, 0x1c, 0x0e, 0xb5, 0x17, 0x87, 0xc3, 0xa7, 0x14, 0x87, 0x23, 0x27, 0x0e,
-	0x7d, 0x8e, 0x9e, 0x64, 0x69, 0x23, 0x11, 0x3a, 0x96, 0x14, 0xa1, 0x1f, 0xc1, 0xb8, 0x43, 0xb1,
-	0xc5, 0x94, 0x7d, 0xac, 0x04, 0x5a, 0xe2, 0xe8, 0xbc, 0xd5, 0x7a, 0x36, 0x52, 0x14, 0x3f, 0xb7,
-	0xd9, 0xad, 0x59, 0x71, 0x3e, 0xde, 0xb6, 0x08, 0xa3, 0x45, 0x04, 0x4e, 0xbe, 0x02, 0x11, 0x58,
-	0x39, 0xad, 0x08, 0x8c, 0x4f, 0x2e, 0xa7, 0x7a, 0x3e, 0xb9, 0x4c, 0x69, 0x85, 0x72, 0xcf, 0x5a,
-	0xa1, 0xbd, 0x82, 0x9a, 0xe8, 0x5b, 0x41, 0x75, 0x93, 0xe0, 0xe7, 0xbf, 0x0d, 0x09, 0x3e, 0xf3,
-	0x33, 0x28, 0xdf, 0x98, 0x3d, 0x1b, 0x19, 0x7a, 0xa1, 0x45, 0x86, 0x6a, 0x3d, 0xc8, 0x50, 0x07,
-	0x50, 0x6b, 0xee, 0x4b, 0x9f, 0x7e, 0xe9, 0x55, 0x28, 0xa9, 0x7a, 0x4b, 0x91, 0x02, 0x21, 0x1d,
-	0xf8, 0x24, 0x48, 0xff, 0xcd, 0x02, 0x5c, 0xea, 0x90, 0xd9, 0x81, 0x9e, 0xa4, 0x5c, 0xe9, 0x9b,
-	0x3d, 0xa5, 0x83, 0x2c, 0x6c, 0xc4, 0x6e, 0xf6, 0x0d, 0x18, 0xe2, 0x4f, 0xa8, 0x0c, 0xc5, 0xa5,
-	0xf5, 0xf5, 0xad, 0xcf, 0x77, 0x97, 0x36, 0xbf, 0xac, 0x9c, 0x43, 0x53, 0x50, 0x36, 0x56, 0x3f,
-	0x5e, 0xab, 0xee, 0x18, 0x5f, 0xee, 0x6e, 0x6d, 0xae, 0x7f, 0x59, 0x29, 0xe8, 0xbf, 0x5f, 0x81,
-	0x92, 0x3c, 0xd7, 0x3e, 0xcd, 0x17, 0xbf, 0x12, 0x45, 0xd3, 0xc6, 0xa6, 0xce, 0x2a, 0xa3, 0xa1,
-	0x1c, 0x65, 0x94, 0x15, 0x69, 0xc3, 0x6d, 0x44, 0x5a, 0xbe, 0xb5, 0x7c, 0x1f, 0x46, 0x99, 0xcc,
-	0x26, 0xea, 0xa5, 0x76, 0x42, 0xa1, 0xa2, 0x37, 0xa0, 0x2c, 0x92, 0x31, 0xaa, 0xb8, 0xee, 0x71,
-	0xa9, 0x24, 0xd4, 0x47, 0xc1, 0x48, 0x03, 0xd3, 0x82, 0xa6, 0xd8, 0xb3, 0xa0, 0xc9, 0xc9, 0x8f,
-	0x85, 0xfc, 0xfc, 0x58, 0xa5, 0x63, 0x4b, 0xfd, 0xe8, 0xd8, 0xac, 0x86, 0x1a, 0xef, 0x5b, 0x43,
-	0x99, 0x70, 0xe5, 0x90, 0x10, 0x0f, 0x3b, 0x76, 0x93, 0x2f, 0x48, 0x95, 0xf8, 0x4d, 0xb1, 0xa9,
-	0x5c, 0x62, 0xf2, 0x17, 0x2f, 0xd5, 0x48, 0x54, 0x49, 0xdc, 0xf6, 0xec, 0xb3, 0x5b, 0x0f, 0x68,
-	0x1d, 0x2a, 0x16, 0xf1, 0x1c, 0x7a, 0x5c, 0x27, 0x6e, 0x20, 0x8f, 0xfa, 0x94, 0xdc, 0xed, 0xae,
-	0xe9, 0x5b, 0x28, 0xbb, 0xca, 0xdd, 0xca, 0xb7, 0x21, 0x77, 0xa7, 0x5e, 0x85, 0xdc, 0x7d, 0x08,
-	0x45, 0x33, 0x4a, 0xaf, 0x43, 0xdd, 0xc3, 0xb0, 0x11, 0x72, 0x42, 0xb5, 0x9e, 0xef, 0x59, 0xb5,
-	0x2a, 0x13, 0x6c, 0xe6, 0x24, 0x26, 0x58, 0x1c, 0x94, 0x98, 0xcd, 0x06, 0x25, 0x84, 0xb0, 0xca,
-	0x0d, 0x4a, 0xe4, 0xd8, 0x27, 0xda, 0x2b, 0xb0, 0x4f, 0x2e, 0x9e, 0xbe, 0x6e, 0x22, 0xa5, 0xf6,
-	0xe6, 0x4e, 0xa9, 0xf6, 0x36, 0xa0, 0x8c, 0x3d, 0x2f, 0x91, 0x6e, 0x79, 0xe9, 0x84, 0x07, 0x1c,
-	0x29, 0x6a, 0x74, 0x00, 0xd7, 0xa4, 0x54, 0xdf, 0xe6, 0x4b, 0x6a, 0x52, 0xa7, 0xea, 0xda, 0x9c,
-	0x93, 0xf8, 0x77, 0x85, 0xda, 0x47, 0x9d, 0xef, 0x75, 0x5a, 0xfd, 0xee, 0x9d, 0xa0, 0x7d, 0xb8,
-	0xda, 0x16, 0x69, 0xcd, 0x95, 0x2f, 0x7a, 0xad, 0xeb, 0x8b, 0xba, 0xf6, 0x91, 0x63, 0x2d, 0x5f,
-	0x3e, 0x85, 0xb5, 0xfc, 0x5d, 0x18, 0x97, 0xfb, 0x41, 0x9e, 0xf7, 0xab, 0xf3, 0xc4, 0x2c, 0x83,
-	0x2e, 0x27, 0x50, 0x8c, 0x14, 0x01, 0x7a, 0x08, 0x17, 0xbe, 0x7e, 0x79, 0xc8, 0xb8, 0xa8, 0x77,
-	0x9a, 0xc4, 0x5f, 0x3d, 0x0a, 0x7c, 0x6c, 0x50, 0x1a, 0x2c, 0x2f, 0xa9, 0x7c, 0xc0, 0x76, 0xcd,
-	0xe8, 0x1d, 0x18, 0xf5, 0x44, 0x19, 0x36, 0x53, 0x59, 0x81, 0x17, 0x73, 0xd6, 0x58, 0x7e, 0x83,
-	0x11, 0x62, 0x86, 0x56, 0x91, 0xde, 0x62, 0x15, 0xbd, 0xde, 0x83, 0x55, 0xf4, 0x97, 0x05, 0x40,
-	0xe2, 0x7b, 0xd4, 0xe9, 0x86, 0x32, 0x12, 0xae, 0xc3, 0x84, 0x3a, 0xc0, 0x0b, 0x13, 0x67, 0x0a,
-	0x2a, 0xf9, 0x3b, 0x05, 0x45, 0x2f, 0x60, 0xc6, 0x8e, 0x08, 0x03, 0xbe, 0x1b, 0x88, 0xbf, 0x11,
-	0xdb, 0x35, 0x89, 0x1a, 0xff, 0x5c, 0x34, 0x23, 0x9f, 0x9a, 0x5b, 0x00, 0x61, 0x83, 0x83, 0x19,
-	0x53, 0x15, 0xed, 0x29, 0x98, 0xbe, 0x06, 0x53, 0x2d, 0x92, 0xa2, 0xcf, 0x93, 0x91, 0x3f, 0x2a,
-	0xc0, 0x64, 0xd6, 0xb3, 0xee, 0xcf, 0x4c, 0xba, 0x05, 0x03, 0xcd, 0x7b, 0xca, 0x30, 0x4a, 0x70,
-	0x4c, 0xd4, 0xf9, 0x67, 0xf7, 0x94, 0x48, 0x1b, 0x68, 0xde, 0x13, 0xc8, 0x8b, 0x2a, 0x3e, 0x9a,
-	0x8b, 0xbc, 0x18, 0x21, 0x2f, 0xf2, 0xcf, 0x6d, 0xe9, 0xa5, 0xcf, 0xcf, 0xfd, 0xf1, 0x60, 0xb2,
-	0xaf, 0xc5, 0x53, 0x7d, 0xf0, 0x17, 0x30, 0x55, 0x27, 0x01, 0xb6, 0x70, 0x80, 0x77, 0xc9, 0x91,
-	0x79, 0x80, 0x5d, 0x75, 0xb1, 0x40, 0x69, 0xf1, 0x56, 0xee, 0x27, 0x6d, 0x28, 0xec, 0x55, 0x85,
-	0xac, 0x3e, 0xb1, 0x52, 0xcf, 0xc0, 0xd1, 0x6a, 0x4e, 0x58, 0xff, 0xcd, 0xdc, 0x2e, 0xe3, 0x08,
-	0x7f, 0x4e, 0x54, 0xff, 0x79, 0x3a, 0x38, 0xdf, 0x12, 0x8d, 0x4e, 0xf4, 0x23, 0xe2, 0xf4, 0x2b,
-	0x02, 0x2f, 0x2f, 0x36, 0xff, 0x7d, 0x98, 0xc2, 0xa6, 0x49, 0x18, 0xdb, 0x75, 0x68, 0x6d, 0xd7,
-	0x8b, 0xef, 0x9c, 0x29, 0x2d, 0xde, 0xcd, 0xed, 0x6f, 0x49, 0x60, 0xaf, 0xd3, 0x9a, 0x64, 0xd1,
-	0x67, 0xb6, 0x13, 0x47, 0xfd, 0x27, 0x71, 0xba, 0x51, 0xc7, 0x70, 0xad, 0xeb, 0x2c, 0xa1, 0xc7,
-	0x50, 0x7a, 0x89, 0x59, 0xbd, 0x77, 0x03, 0x3c, 0x89, 0xae, 0xff, 0x4e, 0x01, 0x2e, 0x75, 0x98,
-	0xb6, 0x3e, 0x39, 0xe0, 0x74, 0x63, 0xfa, 0xd1, 0x20, 0xcc, 0x77, 0x5a, 0x82, 0x3e, 0x07, 0x75,
-	0x3f, 0x2e, 0x05, 0xe9, 0xa1, 0x62, 0x2e, 0xac, 0x03, 0x79, 0x04, 0x10, 0x97, 0x53, 0xf4, 0x50,
-	0x41, 0x96, 0xc0, 0x46, 0xef, 0xc1, 0x58, 0x40, 0x3d, 0xea, 0xd0, 0xda, 0x71, 0x0f, 0x85, 0x62,
-	0x11, 0x2e, 0x5a, 0x81, 0x49, 0xcb, 0x66, 0x7c, 0xd4, 0x91, 0xee, 0xed, 0x1e, 0xfd, 0xca, 0x92,
-	0xa0, 0xe7, 0x22, 0x97, 0x72, 0xdf, 0xae, 0x6d, 0x35, 0x89, 0xef, 0xdb, 0x16, 0xe9, 0xf5, 0xca,
-	0x0e, 0x23, 0x43, 0xa7, 0xff, 0x59, 0x01, 0xae, 0xf7, 0xc6, 0xc3, 0x7d, 0x2e, 0xcd, 0xc7, 0x30,
-	0xe5, 0xd0, 0xda, 0xe7, 0xb6, 0x6b, 0xd1, 0x97, 0x51, 0x9a, 0xe4, 0x40, 0x37, 0x57, 0xa1, 0x95,
-	0x46, 0x5f, 0x55, 0x0a, 0x20, 0xa9, 0x89, 0xd1, 0x5d, 0x98, 0x66, 0x8d, 0x3d, 0x66, 0xfa, 0xf6,
-	0x1e, 0xb1, 0xe2, 0xaa, 0xb2, 0x82, 0xc8, 0xe6, 0xcb, 0x6b, 0xd2, 0x7f, 0x08, 0xa5, 0x44, 0x52,
-	0x57, 0x94, 0x90, 0x57, 0x48, 0x24, 0xe4, 0x21, 0x18, 0xf2, 0xa8, 0x1f, 0x88, 0x51, 0x0e, 0x1b,
-	0xe2, 0x37, 0x9a, 0x83, 0x31, 0xee, 0x0f, 0x89, 0x34, 0xe0, 0x41, 0x01, 0x8f, 0x9e, 0xd1, 0x65,
-	0x00, 0x79, 0x29, 0x8e, 0x68, 0x1d, 0x12, 0xad, 0x09, 0x88, 0xfe, 0xf7, 0x45, 0xa8, 0xb4, 0xec,
-	0xbe, 0x28, 0x39, 0x3e, 0x6e, 0x09, 0x07, 0xd9, 0xc3, 0xf4, 0xb6, 0xa5, 0xed, 0xb3, 0x78, 0x34,
-	0xeb, 0x5f, 0x0f, 0xb6, 0xf1, 0xaf, 0x95, 0xf1, 0x31, 0xd4, 0x62, 0x7c, 0x0c, 0xf7, 0x50, 0x33,
-	0x31, 0xcf, 0x5d, 0xe5, 0x80, 0xb8, 0xd1, 0xfd, 0x07, 0x45, 0x23, 0x06, 0xb4, 0xf8, 0xaa, 0xa3,
-	0x7d, 0xfb, 0xaa, 0x4b, 0x30, 0xc1, 0x4c, 0x1f, 0xab, 0xf7, 0x37, 0xb1, 0xa3, 0xee, 0x3f, 0xe8,
-	0xc0, 0x6f, 0x19, 0x02, 0x11, 0xf1, 0xa1, 0x6e, 0x40, 0x8e, 0x82, 0x6d, 0x1c, 0x1c, 0xa8, 0xdb,
-	0x97, 0x92, 0x20, 0xf4, 0x01, 0x8c, 0xaa, 0x5c, 0x37, 0xe5, 0x9a, 0x5f, 0xcb, 0x3b, 0x83, 0x56,
-	0x86, 0x53, 0x58, 0x81, 0xa6, 0x28, 0xd0, 0x13, 0x18, 0x63, 0xaa, 0x5c, 0x54, 0xf9, 0xe4, 0x7a,
-	0x3e, 0xb5, 0xc4, 0x09, 0xcf, 0xd1, 0x42, 0x9a, 0xb3, 0xbe, 0x27, 0xe5, 0x17, 0xe7, 0x8c, 0x29,
-	0x15, 0xad, 0xa9, 0xf4, 0x1c, 0xad, 0xd9, 0x80, 0x12, 0x57, 0xcf, 0x21, 0x61, 0x1f, 0x4e, 0x7c,
-	0x92, 0x3e, 0xc7, 0x81, 0x41, 0xa7, 0x70, 0x60, 0xb4, 0x30, 0xe6, 0x35, 0x1d, 0x95, 0x66, 0xa9,
-	0xb8, 0xd7, 0x0e, 0x5c, 0xf0, 0x7c, 0x2a, 0x8b, 0x2f, 0x12, 0x02, 0x88, 0xa8, 0x72, 0xc2, 0xce,
-	0xb2, 0xa1, 0x1d, 0xa9, 0xfe, 0xa7, 0x05, 0x98, 0xef, 0x94, 0x65, 0xd1, 0xa7, 0xa2, 0xd8, 0x82,
-	0x19, 0xae, 0x84, 0x6c, 0x93, 0xad, 0x1e, 0x79, 0xb6, 0x7f, 0xdc, 0xbb, 0xb2, 0xc8, 0xa7, 0xd3,
-	0xb7, 0x41, 0x6b, 0xb7, 0x95, 0xfa, 0xb4, 0xa4, 0xff, 0xa4, 0x00, 0x17, 0xda, 0xec, 0x6d, 0xf4,
-	0x14, 0x4a, 0x38, 0xb1, 0xa0, 0x85, 0x1e, 0xf5, 0x71, 0x92, 0x08, 0xad, 0x26, 0x94, 0xcc, 0x40,
-	0x36, 0x4d, 0xa6, 0xe5, 0xc5, 0x9b, 0x0a, 0x35, 0x94, 0x0e, 0x21, 0xa9, 0x7e, 0x08, 0x57, 0xba,
-	0x20, 0xf7, 0xb9, 0x44, 0x49, 0xc5, 0x58, 0x96, 0x8a, 0x51, 0xff, 0x87, 0x51, 0x28, 0x25, 0x4a,
-	0xf5, 0xb8, 0x32, 0xc4, 0x8d, 0x80, 0xca, 0xb2, 0x4d, 0xa5, 0x28, 0x12, 0x10, 0xf4, 0x06, 0x94,
-	0x55, 0xe0, 0x5c, 0x95, 0xb6, 0xc9, 0x6b, 0x1c, 0xd3, 0x40, 0x74, 0x1b, 0xa6, 0x4c, 0x5a, 0xf7,
-	0xa8, 0x4b, 0xdc, 0x60, 0x3d, 0xbc, 0xc4, 0x50, 0xaa, 0x8c, 0xd6, 0x86, 0xb8, 0xe8, 0x46, 0x5c,
-	0xc0, 0xd6, 0xa8, 0x7b, 0x2a, 0x10, 0xdb, 0x43, 0xd1, 0x4d, 0x48, 0xc1, 0x2d, 0x09, 0x75, 0x75,
-	0xa3, 0x0a, 0x33, 0xc8, 0x3c, 0x58, 0x59, 0x77, 0x9d, 0xd7, 0x84, 0x6e, 0xc0, 0x64, 0x08, 0xde,
-	0x56, 0x55, 0x04, 0xaa, 0x0e, 0x3b, 0x03, 0x8e, 0xa3, 0xd2, 0x13, 0xc9, 0xa8, 0xf4, 0x0d, 0x98,
-	0xb4, 0xdd, 0x34, 0x7d, 0x45, 0xd5, 0x71, 0xa7, 0xc1, 0xa9, 0x9b, 0x1c, 0x51, 0xe6, 0x26, 0xc7,
-	0x47, 0xdc, 0x6f, 0xb2, 0x9b, 0xb6, 0x43, 0x6a, 0xc4, 0x52, 0xb5, 0x03, 0x1d, 0x8d, 0xd8, 0x18,
-	0x1b, 0x3d, 0x85, 0x79, 0x9f, 0x60, 0xcb, 0x76, 0x09, 0x63, 0x6b, 0xae, 0x1d, 0xd8, 0xd8, 0x59,
-	0x21, 0x0e, 0x3e, 0xae, 0x12, 0x93, 0xba, 0x16, 0x53, 0x35, 0xc7, 0x1d, 0x71, 0x64, 0x29, 0x9b,
-	0x6a, 0xdf, 0x26, 0xbe, 0x4d, 0xad, 0x90, 0x7a, 0x46, 0x50, 0xb7, 0x69, 0x45, 0x8f, 0xe1, 0x62,
-	0xd4, 0xf2, 0x0c, 0xdb, 0x4e, 0xc3, 0x27, 0x71, 0x46, 0xe2, 0xac, 0x20, 0x6d, 0x8f, 0xc0, 0xb9,
-	0x8c, 0x05, 0x38, 0x68, 0x88, 0x84, 0x63, 0x71, 0x42, 0x54, 0x36, 0x12, 0x90, 0xb4, 0x9c, 0xd7,
-	0x4e, 0x10, 0x95, 0x0f, 0xab, 0x34, 0x2f, 0x8a, 0x80, 0x46, 0x25, 0xa6, 0x91, 0xf0, 0xa8, 0x3e,
-	0x73, 0x11, 0xce, 0xab, 0x55, 0x0e, 0x8d, 0x72, 0xc9, 0x2f, 0xf3, 0x62, 0x79, 0x72, 0xdb, 0xd0,
-	0x13, 0x28, 0x3a, 0xf6, 0x3e, 0x31, 0x8f, 0x4d, 0x87, 0xa8, 0x04, 0xeb, 0xee, 0x02, 0x22, 0x26,
-	0x41, 0x16, 0x5c, 0xe1, 0x1f, 0xbf, 0x14, 0x27, 0x90, 0xbf, 0x70, 0x03, 0xdb, 0x11, 0xbb, 0xaf,
-	0x1a, 0x60, 0x3f, 0x08, 0x33, 0xac, 0x3b, 0xad, 0x7f, 0xb7, 0x2e, 0xf4, 0x1f, 0xc0, 0x64, 0xa6,
-	0x92, 0x36, 0xe6, 0xdf, 0x42, 0xdb, 0xd4, 0xda, 0xe1, 0x9e, 0x53, 0x6b, 0x97, 0xe1, 0x42, 0x9b,
-	0xab, 0xc3, 0xb8, 0x75, 0x69, 0x7a, 0x8d, 0xf0, 0x0e, 0x16, 0xd3, 0x6b, 0xc8, 0x2a, 0xfb, 0x3a,
-	0x55, 0x49, 0x69, 0xa2, 0xca, 0x9e, 0x3f, 0xe9, 0x1f, 0x43, 0x31, 0xaa, 0xdd, 0x45, 0x8f, 0x60,
-	0x38, 0xa0, 0x87, 0xc4, 0x3d, 0xd1, 0xbd, 0x85, 0x92, 0x44, 0xff, 0x15, 0x18, 0x4f, 0x56, 0x43,
-	0x70, 0x1b, 0x55, 0x14, 0x1c, 0x0a, 0xb3, 0x4f, 0x0e, 0x24, 0x06, 0x44, 0xde, 0xc2, 0x40, 0xc2,
-	0x5b, 0xe0, 0xac, 0x28, 0x7a, 0x10, 0x67, 0x83, 0xea, 0x32, 0xc6, 0x18, 0xa2, 0xff, 0x61, 0x01,
-	0xca, 0x67, 0xaf, 0x2a, 0x74, 0x18, 0x0f, 0xeb, 0x02, 0xb6, 0x63, 0x91, 0x9c, 0x82, 0x45, 0xa3,
-	0x1d, 0x4c, 0xfb, 0x36, 0xd9, 0xbb, 0x91, 0xf4, 0x7f, 0x1a, 0x82, 0x99, 0xdc, 0x6a, 0x7b, 0xf4,
-	0x05, 0x5c, 0x94, 0x62, 0x32, 0x8e, 0x27, 0x3f, 0x3d, 0x56, 0x37, 0x74, 0xf4, 0xe0, 0x5e, 0xb4,
-	0x27, 0x46, 0x5f, 0xc2, 0xb4, 0x4b, 0x9a, 0x44, 0xbd, 0xb0, 0xcf, 0xab, 0x0c, 0x8d, 0xbc, 0x3e,
-	0x44, 0xf5, 0x81, 0xf3, 0x12, 0x1f, 0xb3, 0x4c, 0xdf, 0xe3, 0x27, 0xad, 0x3e, 0xc8, 0xe9, 0x04,
-	0xad, 0xc3, 0xb4, 0x4f, 0x5e, 0xfa, 0x76, 0x40, 0x96, 0x3c, 0xef, 0xf9, 0xce, 0xce, 0xf6, 0xb6,
-	0x4f, 0xf7, 0xc2, 0x1c, 0x87, 0x8e, 0xb5, 0xf8, 0x39, 0x64, 0xdc, 0xcd, 0xb0, 0x45, 0xff, 0xc2,
-	0x4a, 0x55, 0x8b, 0x92, 0x04, 0x21, 0x03, 0xa6, 0xe5, 0x23, 0x49, 0xd9, 0x8b, 0xbd, 0xde, 0x2a,
-	0x91, 0x47, 0x8c, 0x9e, 0xc3, 0x04, 0xdd, 0x4b, 0x4d, 0x4d, 0xaf, 0x67, 0x39, 0x19, 0x3a, 0x19,
-	0xb8, 0xfd, 0x5a, 0x1e, 0xe0, 0xbd, 0x30, 0xd6, 0x85, 0xdc, 0x16, 0x81, 0xdb, 0x18, 0xa6, 0xff,
-	0x76, 0x01, 0x2e, 0xb4, 0xc9, 0xa8, 0xed, 0xd3, 0x0c, 0x79, 0x02, 0xe3, 0xb4, 0x11, 0x78, 0x8d,
-	0x40, 0xdd, 0x1a, 0x32, 0xd0, 0xc3, 0x05, 0x10, 0x09, 0x7c, 0xfd, 0xa7, 0x83, 0xf0, 0x5a, 0xc7,
-	0x24, 0xdd, 0x3e, 0xc7, 0xf5, 0x0e, 0x0c, 0xe1, 0x46, 0x70, 0xa0, 0xc6, 0x73, 0x25, 0x37, 0x23,
-	0x78, 0xa9, 0x11, 0xc4, 0x17, 0x25, 0x35, 0x82, 0x03, 0xf4, 0x7e, 0xa4, 0x72, 0x72, 0xf2, 0x90,
-	0x23, 0xb2, 0xdc, 0x3b, 0x02, 0x56, 0xc5, 0xc9, 0x05, 0xf7, 0x48, 0x3f, 0xf6, 0xb1, 0x77, 0xa0,
-	0xe2, 0x50, 0xf9, 0x1d, 0x2c, 0x27, 0x10, 0x8d, 0x14, 0x19, 0xda, 0x8a, 0x83, 0x67, 0x52, 0x80,
-	0xbe, 0xdb, 0x63, 0x2e, 0xf3, 0x82, 0x8a, 0xea, 0x65, 0xef, 0x57, 0xd9, 0x82, 0x51, 0x65, 0x91,
-	0xab, 0xd8, 0x56, 0xbf, 0x1d, 0xaa, 0x5e, 0xe6, 0x56, 0xa1, 0x9c, 0x6a, 0xe9, 0xd3, 0x7c, 0xff,
-	0xe3, 0x02, 0xcc, 0xe4, 0x2e, 0x05, 0x37, 0x20, 0xb1, 0xe7, 0x2d, 0xfb, 0xc4, 0x22, 0x2e, 0xb7,
-	0x70, 0x58, 0x0f, 0xdd, 0x66, 0x28, 0xb8, 0xaa, 0xc2, 0x9e, 0xfd, 0x29, 0x89, 0x54, 0x95, 0x7c,
-	0x42, 0x0b, 0x71, 0x41, 0x9d, 0x69, 0x46, 0xaa, 0x45, 0xca, 0xe4, 0x9c, 0x16, 0xfd, 0x57, 0xf9,
-	0x76, 0xc9, 0x5d, 0xf8, 0x3e, 0xd9, 0xf2, 0x36, 0x4c, 0x31, 0x5c, 0xf7, 0xc4, 0x91, 0xda, 0x1e,
-	0x96, 0x77, 0x4b, 0x29, 0x7d, 0xd1, 0xda, 0xa0, 0x6f, 0xa5, 0x5e, 0x9f, 0x64, 0x9b, 0x3e, 0x67,
-	0xfd, 0x37, 0x06, 0x60, 0x3c, 0xf5, 0x15, 0x0f, 0x60, 0x94, 0x3b, 0xc3, 0x16, 0xad, 0xb5, 0x5e,
-	0x91, 0x26, 0x11, 0x57, 0x64, 0x73, 0xc8, 0x06, 0x0a, 0x1b, 0x7d, 0xc8, 0xed, 0xa7, 0xda, 0x41,
-	0xc0, 0x02, 0xe2, 0xb5, 0x6e, 0x32, 0x49, 0xba, 0xce, 0x11, 0xaa, 0x01, 0xf1, 0xc2, 0x2c, 0xf5,
-	0x88, 0x02, 0xdd, 0x87, 0x91, 0x6f, 0x6c, 0xef, 0xd0, 0x0e, 0x2f, 0x0b, 0x9b, 0xcf, 0xd2, 0x7e,
-	0x25, 0x5a, 0xc3, 0x4d, 0x26, 0x71, 0xd1, 0x72, 0x5e, 0xb6, 0xff, 0xb5, 0x2c, 0x69, 0x7a, 0xca,
-	0xb2, 0x67, 0x09, 0xfa, 0x1d, 0x98, 0xce, 0xf9, 0x32, 0xa4, 0xc1, 0x28, 0x56, 0x37, 0x19, 0x48,
-	0x53, 0x23, 0x7c, 0xd4, 0xab, 0x30, 0x93, 0xfb, 0x3d, 0xed, 0x49, 0xb8, 0x2e, 0x91, 0x87, 0x0c,
-	0x3b, 0xc2, 0x16, 0x52, 0x49, 0x4a, 0x09, 0x90, 0xbe, 0x00, 0xa8, 0xf5, 0x43, 0x3b, 0x0c, 0xe2,
-	0xa7, 0x05, 0xb8, 0xd0, 0xe6, 0xf3, 0xd0, 0xdd, 0xb0, 0x4e, 0xbe, 0x3b, 0x27, 0xa8, 0x1a, 0xfa,
-	0xfb, 0x30, 0x53, 0xc7, 0x47, 0x9b, 0x8d, 0xfa, 0x1e, 0xf1, 0xb7, 0xf6, 0x97, 0x82, 0xc0, 0xb7,
-	0xf7, 0x1a, 0x01, 0x61, 0x8a, 0x15, 0xf3, 0x1b, 0xb9, 0x7b, 0x91, 0x6c, 0x48, 0xa8, 0x40, 0x99,
-	0x4a, 0xd4, 0xa6, 0x15, 0x3d, 0x02, 0x2d, 0xd1, 0xb2, 0x41, 0x18, 0xc3, 0xb5, 0xf0, 0x22, 0x77,
-	0x99, 0x60, 0xd4, 0xb6, 0x5d, 0xff, 0xf7, 0x61, 0x28, 0xab, 0xeb, 0xb7, 0x4e, 0xb5, 0xf1, 0xde,
-	0x85, 0x91, 0xaf, 0x31, 0xa9, 0x45, 0xa2, 0x3d, 0xc3, 0xe7, 0xb6, 0x5b, 0xfb, 0x44, 0x34, 0x87,
-	0x1c, 0x27, 0x91, 0x5b, 0x02, 0xa1, 0x43, 0x7d, 0x07, 0x42, 0xe7, 0x60, 0xcc, 0x0b, 0x6f, 0xfd,
-	0x90, 0x6e, 0x76, 0xf4, 0x8c, 0xee, 0xc5, 0xf1, 0xcb, 0x91, 0x6c, 0xec, 0xb6, 0x4d, 0xd4, 0xf2,
-	0xdd, 0x68, 0x03, 0x8d, 0xb6, 0xf9, 0x9e, 0xdc, 0x1d, 0xb4, 0x04, 0x40, 0x3d, 0xe2, 0x9a, 0xc4,
-	0x65, 0x8d, 0xf0, 0x7a, 0xee, 0x6b, 0x2d, 0xa4, 0x5b, 0x11, 0x4a, 0x78, 0xaa, 0x17, 0x13, 0xf5,
-	0x10, 0x8e, 0xed, 0x16, 0xc2, 0x2c, 0x7f, 0x1b, 0x21, 0xcc, 0x89, 0x9f, 0x41, 0x92, 0xe5, 0xe4,
-	0xe9, 0x62, 0xbf, 0xfa, 0x9f, 0x0f, 0xc8, 0x4d, 0x9e, 0xb3, 0x04, 0x61, 0xb4, 0xbf, 0xd0, 0x12,
-	0xed, 0x1f, 0xe8, 0x21, 0xda, 0xff, 0x1c, 0x8a, 0xe4, 0xc8, 0xa3, 0x7e, 0xa2, 0x2a, 0xe8, 0x66,
-	0x87, 0x55, 0x5f, 0x0d, 0x71, 0x43, 0xc1, 0x1d, 0x11, 0xa7, 0x2b, 0xe9, 0x87, 0xfb, 0xab, 0xa4,
-	0x6f, 0x0d, 0xb9, 0x8e, 0xf4, 0x1f, 0x72, 0xd5, 0xf7, 0xe1, 0x6a, 0xb7, 0x0f, 0xe0, 0x5e, 0x5e,
-	0x52, 0x71, 0xf4, 0xec, 0xe5, 0x25, 0xf5, 0xc6, 0xbf, 0x0e, 0x4a, 0xc5, 0x91, 0x11, 0x15, 0xa7,
-	0x5b, 0x98, 0xc8, 0x9b, 0x87, 0xa4, 0x37, 0xff, 0x41, 0xe4, 0x69, 0x0f, 0x66, 0x2b, 0x7b, 0x52,
-	0x23, 0xd8, 0x10, 0x48, 0xe1, 0x16, 0x97, 0x24, 0xe8, 0x06, 0x4c, 0x32, 0x0f, 0xbb, 0xd5, 0x80,
-	0xfa, 0xb8, 0x46, 0xf8, 0x3b, 0x55, 0xe4, 0x2f, 0x0b, 0xe6, 0x92, 0xd4, 0x23, 0x3e, 0xb3, 0x59,
-	0xd0, 0x4b, 0x11, 0x94, 0x42, 0x45, 0x37, 0xa1, 0xc2, 0x64, 0x27, 0xf1, 0x45, 0x64, 0x32, 0x1a,
-	0xd8, 0x02, 0x17, 0x01, 0x48, 0xa1, 0xf4, 0x44, 0x62, 0x8a, 0xfa, 0x9b, 0x97, 0x18, 0x92, 0xe6,
-	0xa6, 0xb1, 0xb3, 0xe2, 0xa6, 0xe2, 0x29, 0xb8, 0xe9, 0x11, 0x5c, 0x6c, 0x3b, 0xc5, 0xe8, 0x35,
-	0x80, 0x3a, 0x3e, 0xda, 0x15, 0x26, 0x3f, 0x53, 0x37, 0x10, 0x15, 0xeb, 0xf8, 0x48, 0x28, 0x66,
-	0xa6, 0xff, 0x47, 0xcc, 0x21, 0x29, 0xad, 0x7e, 0x36, 0x1c, 0x52, 0x4c, 0x72, 0xc8, 0x6d, 0x98,
-	0xf2, 0xb8, 0xd7, 0x2a, 0xe2, 0x44, 0x0d, 0x4f, 0x44, 0x01, 0x95, 0x16, 0x6e, 0x6d, 0x40, 0x8f,
-	0xe1, 0xa2, 0x63, 0x37, 0x89, 0x08, 0xfc, 0xb5, 0x50, 0x95, 0x64, 0x7c, 0xaf, 0x2d, 0x02, 0x9a,
-	0x87, 0xe2, 0x0f, 0x1b, 0xc4, 0x3f, 0x8e, 0x4e, 0x54, 0xcb, 0x46, 0x0c, 0xe8, 0x33, 0xf2, 0xc4,
-	0xbd, 0xd5, 0xaf, 0x71, 0x13, 0x6f, 0x79, 0x01, 0x7b, 0x4e, 0xb0, 0x27, 0xff, 0x9c, 0xc2, 0x48,
-	0xc1, 0xb8, 0xca, 0xac, 0xe3, 0xa3, 0xaa, 0x87, 0x55, 0x49, 0x5d, 0xd9, 0x88, 0x9e, 0xd1, 0xbb,
-	0x30, 0xc4, 0xd5, 0x6b, 0x5b, 0x15, 0x26, 0x17, 0x60, 0x93, 0x5a, 0xa1, 0xe6, 0x14, 0xe8, 0x67,
-	0xfb, 0xff, 0x3f, 0xfa, 0xdb, 0x91, 0xb8, 0xce, 0xbe, 0x0e, 0x21, 0x18, 0x32, 0xbd, 0x46, 0xc8,
-	0x24, 0xe2, 0xb7, 0xfe, 0xe3, 0x02, 0x4c, 0x7f, 0x6a, 0x63, 0xc7, 0x3e, 0x8b, 0x03, 0x10, 0x74,
-	0x09, 0x8a, 0x26, 0xf1, 0x83, 0xdd, 0x7d, 0xdb, 0x09, 0x83, 0x60, 0x63, 0x1c, 0xf0, 0xcc, 0x76,
-	0x88, 0xf8, 0x67, 0x22, 0xdf, 0x6e, 0xe2, 0x80, 0xec, 0x1e, 0x92, 0x63, 0x89, 0x33, 0xa8, 0xfe,
-	0x99, 0x48, 0xc2, 0x3f, 0x25, 0xc7, 0x1c, 0x53, 0x77, 0x00, 0xa9, 0x31, 0x9d, 0x75, 0x58, 0x2c,
-	0x2f, 0xbc, 0xf5, 0x7b, 0x83, 0x70, 0x5e, 0xbc, 0x6e, 0x05, 0xb3, 0x83, 0x3d, 0x8a, 0x7d, 0x2b,
-	0x3e, 0xaa, 0x48, 0x44, 0xee, 0x0a, 0xd9, 0xc8, 0x1d, 0xb7, 0x3a, 0x1a, 0x8c, 0xf8, 0x2e, 0xae,
-	0x93, 0xd8, 0xad, 0x4b, 0x82, 0xd0, 0x1b, 0x50, 0xf6, 0x30, 0x63, 0xde, 0x81, 0x8f, 0x99, 0xc0,
-	0x91, 0xdf, 0x9b, 0x06, 0xa2, 0x27, 0x30, 0xde, 0xb4, 0xc9, 0xcb, 0x2d, 0xd7, 0x39, 0x16, 0x32,
-	0xa9, 0x7b, 0xbe, 0x48, 0x0a, 0x9f, 0x8f, 0xb3, 0xe6, 0xe3, 0x7d, 0xec, 0xe2, 0x17, 0xc6, 0x7a,
-	0xf8, 0xb7, 0x57, 0x31, 0x44, 0xdc, 0xdb, 0x26, 0x04, 0x07, 0x6f, 0x56, 0xe7, 0xea, 0x11, 0x00,
-	0xdd, 0x57, 0x51, 0x89, 0x5e, 0x4b, 0xa6, 0x64, 0x58, 0xe2, 0x2e, 0x4c, 0xab, 0x37, 0xac, 0xb9,
-	0xaa, 0x84, 0x82, 0xf7, 0x2e, 0x2b, 0xa8, 0xf2, 0x9a, 0xb8, 0x9f, 0x2b, 0x5f, 0x9a, 0x22, 0x90,
-	0x12, 0x24, 0xa7, 0x45, 0xff, 0xeb, 0x31, 0x28, 0x89, 0x65, 0x39, 0x6d, 0xa1, 0x82, 0x4c, 0x85,
-	0x58, 0x21, 0x75, 0x2a, 0x23, 0xb9, 0xbd, 0x14, 0x2a, 0x64, 0x69, 0x42, 0x79, 0x39, 0xd8, 0x22,
-	0x2f, 0x87, 0x7a, 0x90, 0x97, 0xbd, 0x56, 0x27, 0xb4, 0xb9, 0x1e, 0x73, 0xa4, 0xfd, 0xf5, 0x98,
-	0xef, 0x27, 0x12, 0x05, 0x5a, 0x8c, 0xee, 0x9c, 0x7d, 0x9d, 0xc8, 0x11, 0x78, 0x0c, 0x45, 0x2b,
-	0x64, 0x78, 0x25, 0xb2, 0x2e, 0x67, 0x68, 0x33, 0x1b, 0xc2, 0x88, 0x09, 0xb2, 0x16, 0xf7, 0x64,
-	0xab, 0xc5, 0xfd, 0xcb, 0xff, 0x76, 0xf8, 0xb6, 0xff, 0xdb, 0x21, 0xe3, 0x09, 0x4c, 0x9c, 0x32,
-	0x0b, 0x24, 0xca, 0x23, 0xa8, 0x64, 0xf3, 0x08, 0x52, 0xfa, 0x76, 0xaa, 0x67, 0x7d, 0x7b, 0x13,
-	0x26, 0x62, 0x9e, 0x5e, 0xb2, 0x2c, 0x5f, 0x8a, 0x65, 0xb5, 0x6a, 0xa9, 0x16, 0xf4, 0x5e, 0xec,
-	0x8e, 0x4e, 0x67, 0xa3, 0x33, 0xad, 0xba, 0x22, 0xf2, 0x49, 0xf5, 0x5f, 0x03, 0x78, 0x8a, 0x59,
-	0xa8, 0x42, 0x3e, 0x01, 0xa4, 0x8e, 0x75, 0x8d, 0x95, 0x1d, 0x52, 0xf7, 0x1c, 0x71, 0xa5, 0x4f,
-	0x77, 0x71, 0x92, 0x43, 0xc5, 0x65, 0x7b, 0x33, 0xba, 0x2b, 0x9e, 0x8b, 0x32, 0x29, 0xff, 0xd3,
-	0x40, 0xfd, 0x21, 0x20, 0x79, 0xff, 0xa3, 0xbc, 0xa7, 0x54, 0x8d, 0x23, 0x1b, 0x17, 0x2f, 0xe4,
-	0xc4, 0xc5, 0xff, 0x6b, 0x0c, 0x46, 0xc4, 0xdb, 0x19, 0x7a, 0x13, 0x06, 0x4d, 0xd7, 0x56, 0x72,
-	0x6b, 0x3a, 0xf5, 0x57, 0x7c, 0xe1, 0xc5, 0x5e, 0xa6, 0x6b, 0xa3, 0x0f, 0x60, 0x5c, 0xdc, 0xeb,
-	0x69, 0x52, 0x9f, 0x58, 0x2e, 0x6b, 0xfd, 0xe3, 0xbb, 0xd4, 0xff, 0x8f, 0x19, 0x29, 0x64, 0x74,
-	0x1f, 0xc6, 0xa2, 0x9b, 0x86, 0xa4, 0xc9, 0xa4, 0xb5, 0xdc, 0xae, 0x17, 0x15, 0xec, 0x87, 0x98,
-	0x68, 0x01, 0x46, 0x6a, 0xe2, 0x2a, 0x4a, 0xe5, 0x2e, 0xcd, 0x66, 0xaf, 0xd8, 0x0e, 0x1d, 0x01,
-	0x89, 0x85, 0x1e, 0xc1, 0xa8, 0xd2, 0x0d, 0x3d, 0xeb, 0x9b, 0x90, 0x00, 0xdd, 0x82, 0xe1, 0xba,
-	0x7d, 0x44, 0x7c, 0x25, 0xac, 0x66, 0x32, 0x57, 0x0b, 0x84, 0x97, 0x70, 0x08, 0x1c, 0x71, 0x65,
-	0x9b, 0xed, 0xd0, 0xf0, 0x4e, 0xf6, 0x99, 0xdc, 0x74, 0x7d, 0x43, 0xe2, 0xa0, 0x07, 0xc9, 0xdb,
-	0x2d, 0x2e, 0xb4, 0x64, 0xda, 0xb7, 0xbf, 0xd8, 0xe2, 0x51, 0x2a, 0x29, 0x39, 0xbc, 0xbb, 0x3d,
-	0x27, 0x25, 0x23, 0x27, 0x13, 0xf9, 0x73, 0x98, 0x65, 0xe9, 0x43, 0x35, 0x75, 0x5b, 0xb4, 0x12,
-	0x06, 0xc9, 0xf3, 0x81, 0xbc, 0xc3, 0x37, 0xa3, 0x0d, 0x39, 0xba, 0x07, 0xa3, 0x81, 0xba, 0x4d,
-	0x7e, 0xa2, 0x45, 0x39, 0x25, 0xc3, 0x56, 0x46, 0x88, 0xc7, 0x67, 0xeb, 0x90, 0x6f, 0x22, 0x15,
-	0x2d, 0x98, 0xc9, 0xec, 0xad, 0x70, 0xb6, 0x04, 0x0e, 0xd2, 0x60, 0xb4, 0xc9, 0xfd, 0x2e, 0xea,
-	0xaa, 0x7c, 0x84, 0xf0, 0x51, 0x28, 0x5b, 0xf5, 0x07, 0x93, 0x19, 0x71, 0xd0, 0x59, 0xd9, 0x66,
-	0x68, 0xd0, 0x36, 0xa0, 0x78, 0xa2, 0xb6, 0xd4, 0x8d, 0xda, 0xbd, 0xe6, 0x40, 0x19, 0x39, 0xb4,
-	0xe8, 0x2e, 0x14, 0xe5, 0x9f, 0x5f, 0xf0, 0x7d, 0x34, 0xdd, 0x7e, 0x1f, 0x8d, 0x09, 0xac, 0x65,
-	0xd7, 0x46, 0x0f, 0xa1, 0x78, 0x28, 0x6e, 0xfe, 0xb4, 0xbf, 0x21, 0x3d, 0x64, 0x43, 0xc5, 0xc8,
-	0xa9, 0x1b, 0x6e, 0x67, 0x32, 0x37, 0xdc, 0x3e, 0x00, 0xa8, 0x13, 0xa6, 0x8e, 0x15, 0xd4, 0x19,
-	0x7f, 0x5b, 0xdb, 0x21, 0x81, 0x8a, 0x6e, 0xc0, 0xd0, 0x1e, 0x66, 0x44, 0x1d, 0xe0, 0x27, 0xfe,
-	0x59, 0x23, 0x96, 0x6e, 0x86, 0xc0, 0x40, 0x1f, 0x29, 0x29, 0xa0, 0x24, 0x8e, 0xba, 0xfe, 0x6c,
-	0x3e, 0x7b, 0x13, 0x70, 0x52, 0x1e, 0x19, 0x29, 0x0a, 0x5d, 0x83, 0xd9, 0xfc, 0xa9, 0xd5, 0xaf,
-	0xc0, 0x6b, 0x1d, 0x95, 0x86, 0x3e, 0x0b, 0xe7, 0xf3, 0xaa, 0xa3, 0xf4, 0x29, 0x98, 0xcc, 0x14,
-	0xac, 0xe8, 0xff, 0x1f, 0xca, 0xa9, 0xff, 0xd6, 0x39, 0xe3, 0x7b, 0xb3, 0x26, 0xa1, 0x9c, 0x9a,
-	0xcd, 0x9b, 0x77, 0x64, 0x89, 0x2d, 0x1a, 0x87, 0x31, 0x95, 0x2e, 0x6d, 0x55, 0xce, 0xf1, 0x27,
-	0x87, 0xd6, 0x76, 0xa9, 0xeb, 0x1c, 0x57, 0x0a, 0xa8, 0xc4, 0x87, 0xb0, 0x4f, 0x7d, 0x93, 0x54,
-	0x06, 0x6e, 0x7e, 0xd2, 0xa6, 0x98, 0x05, 0x4d, 0x42, 0xe9, 0xc5, 0x66, 0x75, 0x7b, 0x75, 0x79,
-	0xed, 0xd9, 0xda, 0xea, 0x4a, 0xe5, 0x1c, 0x27, 0x5b, 0x59, 0x7d, 0xb6, 0xf4, 0x62, 0x7d, 0xa7,
-	0x52, 0x40, 0x00, 0x23, 0xd5, 0x1d, 0x63, 0x6d, 0x79, 0xa7, 0x32, 0x80, 0x46, 0x61, 0x70, 0xeb,
-	0xd9, 0xb3, 0xca, 0xe0, 0xcd, 0xb7, 0xc2, 0x62, 0x81, 0x75, 0x5a, 0x5b, 0x75, 0x4d, 0x2a, 0xee,
-	0x07, 0x18, 0x83, 0xa1, 0x4f, 0xaa, 0x5b, 0x9b, 0x95, 0x73, 0xfc, 0xd7, 0xce, 0xea, 0x17, 0x3b,
-	0x95, 0xc2, 0xcd, 0xa5, 0xf0, 0xb8, 0x8f, 0xf7, 0x23, 0x03, 0xa4, 0x95, 0x73, 0xa8, 0x9c, 0x38,
-	0xd9, 0x90, 0xc3, 0x54, 0x67, 0x1e, 0x95, 0x01, 0x3e, 0x9a, 0x44, 0x48, 0xa8, 0x32, 0xf8, 0x74,
-	0xf6, 0xef, 0x7e, 0x72, 0xf9, 0xdc, 0x3f, 0xfe, 0xe4, 0xf2, 0xb9, 0x7f, 0xf9, 0xc9, 0xe5, 0x73,
-	0x5f, 0x45, 0x7f, 0x40, 0xbc, 0x37, 0x22, 0xa6, 0xf1, 0x9d, 0xff, 0x0b, 0x00, 0x00, 0xff, 0xff,
-	0x55, 0x62, 0xb0, 0xbb, 0xbf, 0x78, 0x00, 0x00,
+	// 4519 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x3c, 0x4b, 0x73, 0x1b, 0x47,
+	0x7a, 0x02, 0x9f, 0xc2, 0x07, 0x80, 0x04, 0x9b, 0x0f, 0x8d, 0x68, 0x5a, 0xa2, 0x67, 0x6d, 0x2d,
+	0xd7, 0xf2, 0x52, 0x32, 0x2d, 0x4b, 0xb6, 0xfc, 0x88, 0xf9, 0x92, 0x4d, 0x2f, 0x49, 0x21, 0x03,
+	0x4a, 0x7e, 0x6c, 0xb2, 0x4a, 0x73, 0xa6, 0x09, 0xb6, 0x35, 0x98, 0x9e, 0x9d, 0x69, 0x80, 0xa4,
+	0x0f, 0x49, 0xe5, 0x94, 0xdb, 0x56, 0x25, 0x7f, 0x20, 0x97, 0x54, 0xa5, 0x2a, 0x7f, 0x20, 0x3f,
+	0x21, 0x39, 0xa4, 0x52, 0xb9, 0x6f, 0xa5, 0x2a, 0xe5, 0x5b, 0x7e, 0x40, 0x2a, 0x87, 0x5c, 0x52,
+	0xfd, 0x98, 0x27, 0x06, 0x04, 0x48, 0x4a, 0xb5, 0xa9, 0xdc, 0x30, 0xdf, 0xab, 0x7b, 0xba, 0xbf,
+	0xfe, 0x5e, 0xfd, 0x0d, 0xe0, 0x5d, 0xff, 0x65, 0xeb, 0x1e, 0xf6, 0x69, 0x78, 0x8f, 0x86, 0x9c,
+	0xb2, 0x7b, 0xdd, 0xf7, 0xb1, 0xeb, 0x1f, 0xe3, 0xf7, 0xef, 0x75, 0xb1, 0xdb, 0x21, 0xe1, 0x0b,
+	0x7e, 0xe6, 0x93, 0x70, 0xd5, 0x0f, 0x18, 0x67, 0xe8, 0x7a, 0x84, 0x5c, 0xbc, 0xd5, 0x62, 0xac,
+	0xe5, 0x92, 0x7b, 0x12, 0x7e, 0xd8, 0x39, 0xba, 0xe7, 0x74, 0x02, 0xcc, 0x29, 0xf3, 0x14, 0xe5,
+	0xe2, 0x17, 0x2d, 0xca, 0x8f, 0x3b, 0x87, 0xab, 0x36, 0x6b, 0xdf, 0x6b, 0xb1, 0x16, 0x4b, 0x08,
+	0xe3, 0x1f, 0x79, 0x09, 0x27, 0x01, 0xf6, 0x7d, 0x12, 0xe8, 0xb1, 0x16, 0xe7, 0x04, 0x9b, 0xfc,
+	0x29, 0x05, 0x28, 0xa8, 0x69, 0x01, 0xac, 0x07, 0xf6, 0xf1, 0x26, 0xf3, 0x8e, 0x68, 0x0b, 0xcd,
+	0xc1, 0x38, 0x6e, 0x3b, 0x0f, 0x1f, 0x18, 0xa5, 0xe5, 0xd2, 0x4a, 0xcd, 0x52, 0x0f, 0xc8, 0x80,
+	0x49, 0xdf, 0xb7, 0x1f, 0x3e, 0x70, 0x89, 0x31, 0x22, 0xe1, 0xd1, 0xa3, 0xa0, 0x0f, 0x3f, 0xf8,
+	0xf8, 0xfe, 0xa9, 0x31, 0xaa, 0xe8, 0xe5, 0x83, 0xf9, 0x4f, 0x63, 0x50, 0xde, 0xdc, 0xdf, 0xd1,
+	0x32, 0x1f, 0xc0, 0x24, 0xf1, 0xf0, 0xa1, 0x4b, 0x1c, 0x29, 0xb5, 0xb2, 0xb6, 0xb8, 0xaa, 0x66,
+	0xba, 0x1a, 0xcd, 0x74, 0x75, 0x83, 0x31, 0xf7, 0xb9, 0x58, 0x1d, 0x2b, 0x22, 0x45, 0x75, 0x18,
+	0x3d, 0xee, 0x1c, 0xca, 0xf1, 0xca, 0x96, 0xf8, 0x89, 0x7e, 0x01, 0xa3, 0x1c, 0xb7, 0xe4, 0x48,
+	0x95, 0xb5, 0x1b, 0xab, 0xd1, 0xca, 0xad, 0x1e, 0x9c, 0xf9, 0x64, 0xc7, 0xe3, 0x24, 0x38, 0xc2,
+	0x36, 0xb1, 0x04, 0x8d, 0x98, 0x16, 0x6d, 0xe3, 0x16, 0x31, 0xc6, 0x24, 0xbb, 0x7a, 0x40, 0xb7,
+	0x00, 0xfc, 0x8e, 0xeb, 0x36, 0x98, 0x4b, 0xed, 0x33, 0x63, 0x5c, 0xa2, 0x52, 0x10, 0xb4, 0x04,
+	0x65, 0xdb, 0xa3, 0x1b, 0xd4, 0xdb, 0xa2, 0x81, 0x31, 0x21, 0xd1, 0x09, 0x40, 0x70, 0xdb, 0x1e,
+	0x15, 0xef, 0x24, 0xd0, 0x93, 0x8a, 0x3b, 0x81, 0xa0, 0x15, 0x98, 0xd6, 0x4f, 0x4f, 0xa8, 0x4b,
+	0xf6, 0x71, 0x9b, 0x18, 0xd7, 0x25, 0x51, 0x1e, 0x8c, 0xde, 0x83, 0x19, 0x72, 0x6a, 0xbb, 0x1d,
+	0x47, 0x3e, 0x86, 0x3e, 0xb6, 0x49, 0x68, 0x94, 0x97, 0x47, 0x57, 0xca, 0x56, 0x2f, 0x02, 0xed,
+	0xc2, 0x94, 0xcf, 0x9c, 0x75, 0xcf, 0x63, 0x5c, 0xea, 0x43, 0x68, 0x80, 0x5c, 0x81, 0xe5, 0xec,
+	0x0a, 0xec, 0x61, 0xbf, 0xc9, 0x03, 0xea, 0xb5, 0xe2, 0xa5, 0xd8, 0x18, 0x31, 0x4a, 0x56, 0x8e,
+	0x17, 0xad, 0x40, 0xdd, 0x0f, 0xfd, 0x17, 0xb6, 0xdb, 0x09, 0x39, 0x09, 0x5e, 0x04, 0xcc, 0x25,
+	0x46, 0x45, 0x4e, 0x73, 0xca, 0x0f, 0xfd, 0x4d, 0x05, 0xb6, 0x98, 0x4b, 0xd0, 0x22, 0x5c, 0x77,
+	0x59, 0x6b, 0x97, 0x74, 0x89, 0x6b, 0x54, 0x25, 0x45, 0xfc, 0x8c, 0xde, 0x87, 0x89, 0x80, 0xf8,
+	0x98, 0x06, 0x46, 0x4d, 0xce, 0xe5, 0x66, 0x32, 0x97, 0xcd, 0xfd, 0x1d, 0x4b, 0xa2, 0xd4, 0xee,
+	0x5b, 0x9a, 0x50, 0x68, 0x81, 0x7d, 0x8c, 0xa9, 0x47, 0x1c, 0x63, 0x6a, 0xb0, 0x16, 0x68, 0x52,
+	0xf3, 0x77, 0xa3, 0x30, 0x9d, 0x93, 0xf8, 0x7f, 0x47, 0x9f, 0x96, 0xa0, 0xec, 0xe2, 0x43, 0xe2,
+	0x36, 0x98, 0x13, 0x4a, 0x75, 0xba, 0x6e, 0x25, 0x00, 0x74, 0x07, 0xaa, 0x76, 0x40, 0x30, 0x27,
+	0xdb, 0x5d, 0xe2, 0xf1, 0x50, 0x29, 0x94, 0xdc, 0x93, 0x0c, 0x5c, 0xe8, 0x95, 0x43, 0x5c, 0xc2,
+	0x89, 0x14, 0x33, 0x29, 0xc5, 0xa4, 0x20, 0x42, 0x5b, 0x0e, 0x03, 0xf6, 0x92, 0x78, 0x0d, 0xe6,
+	0xec, 0x0a, 0xe9, 0xbf, 0x22, 0x67, 0x5a, 0xb3, 0x7a, 0x11, 0xe8, 0x3e, 0xcc, 0x66, 0x81, 0x72,
+	0x19, 0x8c, 0xb2, 0xa4, 0x2f, 0x42, 0x09, 0xf9, 0xd4, 0xa3, 0x7c, 0x93, 0x79, 0x5c, 0xac, 0x79,
+	0x20, 0x35, 0x17, 0x94, 0xfc, 0x1e, 0x84, 0xf9, 0x2d, 0x2c, 0x6e, 0x36, 0x9e, 0x1d, 0xe0, 0xa0,
+	0x45, 0xf8, 0x33, 0x4e, 0x5d, 0xfa, 0xa3, 0x54, 0x2c, 0xbd, 0x35, 0x8f, 0xc1, 0xe0, 0x12, 0xb5,
+	0xde, 0x25, 0x01, 0x6e, 0x91, 0x14, 0x85, 0xdc, 0xab, 0x71, 0xab, 0x2f, 0xde, 0xfc, 0x9f, 0x12,
+	0x94, 0x2d, 0x12, 0xb2, 0x4e, 0x20, 0xb4, 0xfe, 0x11, 0x4c, 0xb8, 0xb4, 0x4d, 0x79, 0x68, 0x94,
+	0x96, 0x47, 0x57, 0x2a, 0x6b, 0xb7, 0x93, 0xfd, 0x89, 0x89, 0x56, 0x77, 0x25, 0xc5, 0xb6, 0xc7,
+	0x83, 0x33, 0x4b, 0x93, 0xa3, 0xcf, 0xe0, 0x7a, 0x40, 0x7e, 0xdb, 0x21, 0x21, 0x0f, 0x8d, 0x11,
+	0xc9, 0xfa, 0x56, 0x11, 0xab, 0xa5, 0x69, 0x14, 0x73, 0xcc, 0xb2, 0xf8, 0x31, 0x54, 0x52, 0x52,
+	0x85, 0xd6, 0xbc, 0x24, 0x67, 0x72, 0xee, 0x65, 0x4b, 0xfc, 0x14, 0xaa, 0x20, 0xed, 0xb8, 0xd6,
+	0x24, 0xf5, 0xf0, 0x78, 0xe4, 0xa3, 0xd2, 0xe2, 0x27, 0x50, 0xcb, 0x48, 0xbd, 0x08, 0xb3, 0xf9,
+	0xef, 0xd7, 0xa1, 0xb6, 0xc9, 0x02, 0xb2, 0xb5, 0xdf, 0xbc, 0x92, 0x9a, 0x9b, 0x50, 0xb5, 0x95,
+	0x98, 0x1d, 0xa9, 0xb0, 0x6a, 0xa0, 0x0c, 0x4c, 0x5a, 0x32, 0xf5, 0x7c, 0xa0, 0xf5, 0x5f, 0x58,
+	0xb2, 0x18, 0x82, 0x56, 0x01, 0xe9, 0xa7, 0x86, 0xdb, 0x69, 0x51, 0x6f, 0x27, 0xa5, 0xfa, 0x05,
+	0x18, 0xf4, 0x15, 0x54, 0x3d, 0xe6, 0x90, 0x26, 0x71, 0x89, 0xcd, 0x59, 0x20, 0x8f, 0xc2, 0xb0,
+	0xf6, 0x29, 0xc3, 0x29, 0xce, 0x4c, 0x40, 0x7c, 0x97, 0xda, 0x78, 0x93, 0x75, 0x3c, 0x2e, 0xcf,
+	0x4c, 0x4d, 0xd1, 0xa5, 0xe1, 0x05, 0x36, 0x71, 0xf2, 0x0a, 0x36, 0xf1, 0x43, 0x28, 0x07, 0x91,
+	0x62, 0xc8, 0x93, 0x55, 0x59, 0x9b, 0x2d, 0xd0, 0x19, 0xc9, 0x9b, 0x50, 0xa2, 0x5d, 0x98, 0x0e,
+	0x98, 0xeb, 0x52, 0xaf, 0xb5, 0x87, 0x4f, 0x9b, 0x9d, 0xa0, 0xa5, 0x8e, 0x59, 0x65, 0xed, 0x56,
+	0x8f, 0x2d, 0x79, 0x1a, 0xa8, 0x79, 0x3c, 0x61, 0x41, 0x63, 0x43, 0xca, 0xc9, 0xb3, 0xa2, 0x6f,
+	0x61, 0x3e, 0x01, 0x3d, 0xf3, 0x70, 0x17, 0x53, 0x57, 0x6c, 0xa9, 0xb6, 0xf6, 0xc3, 0xc8, 0x2c,
+	0x16, 0x80, 0x18, 0x2c, 0xc9, 0x17, 0xe6, 0x74, 0xfd, 0xe8, 0x48, 0x9c, 0xe8, 0x33, 0x79, 0xfa,
+	0xe3, 0xed, 0xaa, 0xc8, 0x01, 0x7e, 0x9e, 0x1d, 0xa0, 0xe9, 0x52, 0x9b, 0x3c, 0x3d, 0xea, 0xb3,
+	0x82, 0xe7, 0x0a, 0x44, 0x27, 0xb0, 0x9c, 0xc3, 0x1f, 0x90, 0xa0, 0x9d, 0x1d, 0xb4, 0x7a, 0xf1,
+	0x41, 0x07, 0x0a, 0x45, 0x7b, 0x50, 0xe1, 0xcc, 0x25, 0x81, 0xd6, 0x89, 0xda, 0xc5, 0xc7, 0x48,
+	0xf3, 0xa3, 0x27, 0x50, 0xc7, 0x1d, 0xce, 0x42, 0x1b, 0xbb, 0x64, 0x5b, 0x1f, 0xc5, 0xc1, 0xbe,
+	0xab, 0x87, 0x47, 0x9c, 0xc9, 0x18, 0xb6, 0x87, 0x4f, 0x8d, 0x69, 0x19, 0x2b, 0x65, 0x60, 0x59,
+	0x1a, 0xea, 0x19, 0xf5, 0x3c, 0x0d, 0xf5, 0xd0, 0x63, 0x18, 0xb5, 0xfd, 0x8e, 0x31, 0x23, 0xa7,
+	0xf0, 0x76, 0xca, 0xe5, 0xf6, 0x35, 0xc8, 0xf2, 0x9d, 0x04, 0x93, 0xf9, 0x2d, 0x2c, 0x6f, 0x91,
+	0x23, 0xdc, 0x71, 0x79, 0x83, 0x39, 0x5b, 0x34, 0x0c, 0x3a, 0xbe, 0x20, 0xdb, 0xe8, 0x38, 0x2d,
+	0xc2, 0xaf, 0x62, 0x71, 0xcc, 0x6f, 0x60, 0x41, 0x4b, 0x8e, 0x4f, 0x8a, 0x96, 0x97, 0x36, 0xc5,
+	0x4a, 0x60, 0x91, 0x29, 0x8e, 0x6c, 0xa6, 0x8e, 0x17, 0x62, 0x16, 0xf3, 0x1f, 0xaa, 0x30, 0xbb,
+	0xdd, 0x0a, 0x48, 0x18, 0x7e, 0x89, 0x39, 0x39, 0xc1, 0x67, 0x5a, 0x6c, 0xd1, 0xb6, 0x94, 0x5e,
+	0xc1, 0xb6, 0x8c, 0x0c, 0xb1, 0x2d, 0xa3, 0xfd, 0xb7, 0x65, 0xfc, 0x12, 0xdb, 0x92, 0x5e, 0xf2,
+	0xc9, 0xe1, 0x8d, 0xfc, 0x1a, 0x8c, 0x12, 0xaf, 0xab, 0x4d, 0xd5, 0x40, 0x9b, 0x67, 0x09, 0x62,
+	0xf4, 0x21, 0x4c, 0xc8, 0xd8, 0x24, 0xd4, 0x46, 0xea, 0xcd, 0x84, 0x4d, 0x2f, 0xaf, 0x3c, 0x4b,
+	0xd1, 0x36, 0x68, 0x62, 0x84, 0x60, 0xcc, 0x13, 0x01, 0xc1, 0x4d, 0x69, 0xfd, 0xe5, 0xef, 0x1e,
+	0x7b, 0x0f, 0x97, 0xb6, 0xf7, 0xbd, 0x76, 0xbc, 0x72, 0x05, 0x3b, 0x3e, 0xc8, 0xd0, 0x55, 0xff,
+	0x10, 0x86, 0xae, 0xf6, 0x3a, 0x0c, 0xdd, 0x5d, 0x18, 0xf7, 0x59, 0xc0, 0x43, 0x63, 0x4a, 0x46,
+	0x38, 0xf3, 0x89, 0xf4, 0x86, 0x00, 0xeb, 0x3d, 0x54, 0x34, 0x59, 0xf7, 0x36, 0x3d, 0xb4, 0x7b,
+	0xfb, 0x14, 0x6a, 0x21, 0xb1, 0x03, 0xc2, 0x9f, 0x33, 0xb7, 0xd3, 0x26, 0xa1, 0x51, 0x97, 0x63,
+	0x2d, 0x24, 0xac, 0xcd, 0x14, 0xda, 0xca, 0x12, 0xa3, 0x06, 0xa0, 0x90, 0x04, 0x5d, 0x6a, 0x93,
+	0xf4, 0xee, 0xce, 0x0c, 0xa9, 0xb1, 0x05, 0xbc, 0x42, 0x13, 0x45, 0xe6, 0x6c, 0x20, 0xa5, 0x89,
+	0xe2, 0x37, 0xba, 0x0b, 0x63, 0x3f, 0x76, 0x7d, 0xcf, 0x98, 0xcd, 0xc7, 0xf0, 0xdf, 0x93, 0x80,
+	0x3d, 0x6f, 0xec, 0xeb, 0x85, 0x90, 0x44, 0x79, 0xef, 0x30, 0x77, 0x45, 0xef, 0x50, 0xe0, 0xfe,
+	0xe7, 0x5f, 0x83, 0xfb, 0x5f, 0xb8, 0xaa, 0xfb, 0xdf, 0x83, 0x9a, 0x2d, 0x97, 0x21, 0xda, 0xc7,
+	0x1b, 0x17, 0x7a, 0x71, 0x2b, 0xcb, 0x8d, 0x7e, 0x0d, 0x73, 0xd8, 0x71, 0xa8, 0x58, 0x03, 0xec,
+	0xc6, 0xb9, 0x41, 0x68, 0x18, 0x17, 0x93, 0x5a, 0x28, 0x04, 0x7d, 0x04, 0xe5, 0xa0, 0xe3, 0xad,
+	0x87, 0x16, 0x63, 0xdc, 0x58, 0x1c, 0x68, 0x10, 0x13, 0x62, 0xf3, 0x33, 0x98, 0x2d, 0x30, 0x63,
+	0x22, 0x04, 0xc7, 0xbe, 0x1f, 0x85, 0xe0, 0xd8, 0xf7, 0x65, 0x2a, 0x17, 0x72, 0xca, 0xa2, 0x10,
+	0x5c, 0x3e, 0x98, 0xff, 0x59, 0x82, 0x29, 0xcd, 0x1f, 0xb1, 0xee, 0xc3, 0xac, 0xc4, 0xbd, 0x20,
+	0xd2, 0x07, 0xb5, 0x14, 0x56, 0x7b, 0x9a, 0x94, 0xf5, 0x2c, 0x70, 0x51, 0x16, 0x92, 0x9c, 0xdb,
+	0x69, 0xc6, 0xb4, 0xa9, 0x1f, 0x19, 0xde, 0xd4, 0xff, 0x31, 0xcc, 0xa9, 0x59, 0x50, 0x2f, 0x33,
+	0x8d, 0xb1, 0xbc, 0x5a, 0xec, 0x78, 0x05, 0xf3, 0x50, 0x6f, 0xb0, 0x93, 0x61, 0x35, 0xff, 0x6e,
+	0x06, 0xaa, 0x5f, 0xba, 0xec, 0x50, 0xae, 0xbc, 0x78, 0xd3, 0x15, 0x18, 0xc3, 0x81, 0x7d, 0xac,
+	0x5f, 0x6d, 0x2e, 0x91, 0x99, 0x14, 0x86, 0x2c, 0x49, 0x21, 0xb2, 0x4b, 0xa5, 0x0d, 0x62, 0xcd,
+	0xe3, 0x1a, 0x85, 0xb1, 0xa6, 0xb2, 0xcb, 0x02, 0x94, 0x70, 0xd6, 0x5a, 0x7f, 0xb0, 0x4b, 0x1d,
+	0x95, 0x09, 0x8e, 0x0e, 0x76, 0xd6, 0x79, 0x1e, 0xf4, 0x15, 0xdc, 0x76, 0x54, 0x94, 0xa1, 0x26,
+	0xf4, 0x9c, 0x86, 0xf4, 0x90, 0xba, 0x94, 0x9f, 0x35, 0x09, 0xe7, 0xd4, 0x6b, 0x85, 0xc6, 0x03,
+	0x59, 0x41, 0x19, 0x44, 0x86, 0x9e, 0xc3, 0xac, 0x26, 0xd9, 0x4f, 0x3b, 0xb1, 0x89, 0x0b, 0x38,
+	0x9e, 0x22, 0x01, 0xc8, 0x83, 0x45, 0xa7, 0x6f, 0x84, 0xa5, 0xbd, 0xfb, 0xbb, 0x89, 0xf8, 0x41,
+	0xd1, 0x98, 0x1c, 0xe8, 0x1c, 0x89, 0xa8, 0x01, 0x75, 0x27, 0x17, 0x77, 0x69, 0xd7, 0xbe, 0xdc,
+	0x33, 0x4a, 0x2e, 0x32, 0x93, 0xb2, 0x7b, 0xb8, 0xd1, 0xaf, 0x01, 0x69, 0xd8, 0x41, 0xca, 0x4e,
+	0x3e, 0xba, 0xb8, 0x9d, 0x2c, 0x10, 0x13, 0xd5, 0x5f, 0xaa, 0x49, 0xfd, 0x65, 0x05, 0xa6, 0x65,
+	0x1d, 0xa5, 0x91, 0xd4, 0xe4, 0x6a, 0xaa, 0x60, 0x96, 0x03, 0xa3, 0x77, 0xa1, 0x1e, 0x83, 0x94,
+	0xd3, 0x09, 0x8d, 0x77, 0xe4, 0x6e, 0xf7, 0xc0, 0xd1, 0x1d, 0x98, 0x92, 0x4a, 0x9f, 0x68, 0xe7,
+	0x94, 0x2a, 0x6f, 0x65, 0xa1, 0xc2, 0xd4, 0xb8, 0xac, 0xb5, 0x1e, 0x7e, 0x1d, 0x32, 0xcf, 0x78,
+	0x7b, 0xb0, 0xa9, 0x89, 0x89, 0xd1, 0x23, 0x98, 0x74, 0x59, 0xab, 0x45, 0xbd, 0x96, 0xf6, 0x67,
+	0xe9, 0x50, 0x4a, 0x9e, 0xab, 0x5d, 0x85, 0xd6, 0x47, 0x27, 0xa2, 0x46, 0x9b, 0x50, 0x6b, 0x93,
+	0xf0, 0x78, 0xfb, 0xd4, 0xc7, 0x5e, 0x28, 0x0e, 0x02, 0xca, 0xb3, 0xef, 0xa5, 0xd1, 0x9a, 0x3d,
+	0xcb, 0x83, 0x16, 0x60, 0x42, 0x00, 0x76, 0xb6, 0x8c, 0x0f, 0xe5, 0x7b, 0xe9, 0x27, 0xb4, 0x05,
+	0x55, 0xf1, 0x6b, 0x9f, 0xf0, 0x13, 0x16, 0xbc, 0x0c, 0xb5, 0x4b, 0x1c, 0xec, 0x6a, 0x33, 0x5c,
+	0xe8, 0x0b, 0xa8, 0xb6, 0x3b, 0x2e, 0xa7, 0xba, 0x10, 0xa8, 0xbd, 0xcf, 0x52, 0x6a, 0x86, 0x29,
+	0xac, 0x9e, 0x60, 0x86, 0x03, 0x19, 0x30, 0xe9, 0x29, 0x69, 0xc6, 0xcf, 0xe5, 0x04, 0xa3, 0x47,
+	0xf4, 0x10, 0x16, 0x7c, 0xe6, 0x6c, 0xed, 0x37, 0x9b, 0x44, 0x18, 0x93, 0x54, 0xed, 0xf3, 0xae,
+	0xdc, 0xcb, 0x3e, 0x58, 0xf4, 0x1b, 0x58, 0x62, 0x6d, 0xca, 0x9b, 0xd4, 0x21, 0x36, 0x0e, 0x76,
+	0xbc, 0x1f, 0xe4, 0x79, 0x53, 0x83, 0xef, 0x61, 0xdf, 0xb8, 0x33, 0x70, 0xf3, 0xce, 0xe5, 0x47,
+	0x9f, 0x43, 0x95, 0x79, 0x49, 0xc5, 0x55, 0xfb, 0xc7, 0xf3, 0xe4, 0x65, 0xe8, 0x91, 0x05, 0x0b,
+	0xcc, 0x17, 0x7a, 0xce, 0x82, 0x3d, 0xec, 0xe1, 0x16, 0xf9, 0x86, 0x1c, 0x1e, 0x33, 0xf6, 0x32,
+	0x34, 0x7e, 0x31, 0x50, 0x52, 0x1f, 0x4e, 0x74, 0x1f, 0x66, 0xfc, 0x80, 0xb2, 0x80, 0xf2, 0xb3,
+	0x4d, 0x17, 0x87, 0xa1, 0x2c, 0xca, 0xbd, 0x11, 0x57, 0x10, 0x7b, 0x91, 0x32, 0x24, 0x0c, 0xd8,
+	0xe9, 0x99, 0xb1, 0x24, 0x07, 0x4d, 0x87, 0x84, 0x02, 0x1c, 0x87, 0x84, 0xe2, 0x01, 0x3d, 0x82,
+	0xb2, 0xfc, 0xb1, 0xe3, 0x51, 0x6e, 0xbc, 0x99, 0x2f, 0xe1, 0x36, 0x22, 0x94, 0x66, 0x4a, 0x68,
+	0xd1, 0x3b, 0x30, 0x1a, 0x3a, 0xa1, 0x71, 0x2b, 0x1f, 0x45, 0x36, 0xb7, 0x74, 0xd9, 0xca, 0x12,
+	0xf8, 0xa8, 0xb4, 0x7a, 0x7b, 0x88, 0xd2, 0xea, 0x2a, 0x4c, 0xf0, 0x00, 0xdb, 0x24, 0x30, 0xde,
+	0x92, 0xd4, 0xa9, 0xf8, 0xf2, 0x40, 0xc2, 0xa3, 0x84, 0x44, 0x51, 0xa1, 0x65, 0xa8, 0xf0, 0xa0,
+	0x13, 0xf2, 0x2d, 0xd6, 0xc6, 0xd4, 0x33, 0x4c, 0xa9, 0x63, 0x69, 0x10, 0x5a, 0x83, 0x89, 0x4e,
+	0x48, 0xf6, 0x36, 0x1b, 0xc6, 0xcf, 0x06, 0xae, 0xbf, 0xa6, 0x44, 0xab, 0x80, 0x02, 0xd2, 0x66,
+	0x9c, 0x34, 0xa8, 0xcb, 0xf8, 0xba, 0xe3, 0x08, 0x87, 0x69, 0xdc, 0x57, 0x25, 0xaf, 0x5e, 0x8c,
+	0x98, 0xb5, 0xb4, 0x27, 0x8e, 0xf1, 0x30, 0x3f, 0xeb, 0x1d, 0x09, 0x8f, 0x66, 0xad, 0xa8, 0xd0,
+	0x7b, 0x30, 0xe3, 0x0b, 0xfe, 0x4d, 0x12, 0xf0, 0x46, 0xc0, 0xba, 0xd4, 0x21, 0x81, 0xf1, 0x91,
+	0x2a, 0xb2, 0xf6, 0x20, 0xd0, 0x12, 0x94, 0x7f, 0x38, 0xe1, 0xda, 0x26, 0x7e, 0xac, 0x2e, 0x22,
+	0x62, 0x80, 0xdc, 0x03, 0x1e, 0x1a, 0x8f, 0x7b, 0xf6, 0xe0, 0x20, 0xd9, 0x03, 0x1e, 0xa2, 0x45,
+	0x91, 0x7d, 0x77, 0xa9, 0x34, 0x34, 0x9f, 0xa8, 0xfa, 0x7d, 0xf4, 0x8c, 0x36, 0x60, 0xaa, 0xcd,
+	0x3a, 0x1e, 0xdf, 0xe3, 0x6e, 0x28, 0x46, 0x0e, 0x8d, 0x4f, 0x07, 0x2e, 0x55, 0x8e, 0x43, 0xde,
+	0x96, 0xe0, 0x68, 0xa5, 0x3e, 0xd3, 0xb7, 0x25, 0x11, 0x00, 0x7d, 0x01, 0x35, 0x9b, 0x78, 0x3c,
+	0xc0, 0xae, 0x5a, 0x0f, 0xe3, 0xf3, 0x81, 0x03, 0x64, 0x19, 0xcc, 0x5f, 0x42, 0x39, 0x7e, 0x23,
+	0xb1, 0xeb, 0x3a, 0x25, 0x10, 0x09, 0x8e, 0xbe, 0x9d, 0x4a, 0x83, 0x4c, 0x0b, 0xaa, 0xe9, 0x95,
+	0x17, 0xaf, 0xa8, 0x62, 0xa8, 0x75, 0x0f, 0xbb, 0x67, 0x21, 0x0d, 0x87, 0x88, 0xba, 0x72, 0x1c,
+	0xe6, 0x5d, 0x98, 0x2d, 0x30, 0xe8, 0x22, 0x84, 0x74, 0xe5, 0xb5, 0x88, 0x0a, 0x2b, 0xd5, 0x83,
+	0xf9, 0xfb, 0x69, 0x98, 0x2b, 0x0a, 0xc2, 0xfe, 0x5f, 0xd5, 0x2b, 0xc4, 0xb6, 0x76, 0x42, 0xce,
+	0xda, 0x4d, 0xb5, 0xf4, 0x3a, 0x6c, 0x3a, 0x7f, 0x5b, 0xd3, 0x0c, 0xe9, 0x30, 0x18, 0x2e, 0x5c,
+	0xf1, 0xa8, 0x5c, 0xae, 0xe2, 0x31, 0x7d, 0x91, 0x8a, 0xc7, 0x1d, 0x98, 0x72, 0x19, 0x76, 0x36,
+	0xb0, 0x8b, 0x3d, 0x9b, 0x04, 0x3b, 0x0d, 0x59, 0x8b, 0x2b, 0x5b, 0x39, 0x28, 0x7a, 0x0c, 0x46,
+	0x1a, 0xd2, 0x94, 0x41, 0x94, 0x85, 0xbd, 0x16, 0x11, 0x79, 0xae, 0x70, 0x68, 0x7d, 0xf1, 0x68,
+	0x1b, 0x50, 0xc6, 0xab, 0xcb, 0xac, 0xdd, 0x40, 0xe7, 0x25, 0xf3, 0x05, 0x0c, 0x71, 0x71, 0xe6,
+	0xbd, 0x73, 0x8a, 0x33, 0xb3, 0xaf, 0xb0, 0x38, 0x33, 0xf7, 0x1a, 0x8b, 0x33, 0xf3, 0x7f, 0x88,
+	0xe2, 0xcc, 0xc2, 0x6b, 0x2d, 0xce, 0xdc, 0x18, 0xa2, 0x38, 0x93, 0xbf, 0xf1, 0x30, 0xfa, 0xdc,
+	0x78, 0x6c, 0xa4, 0x8b, 0x38, 0x37, 0x2f, 0xb0, 0x0f, 0xe7, 0x55, 0x74, 0xde, 0xb8, 0x7a, 0x45,
+	0x67, 0xe9, 0x15, 0x54, 0x74, 0xde, 0x4c, 0x55, 0x74, 0x1e, 0xea, 0x8a, 0x8e, 0x8a, 0x30, 0xcc,
+	0x7e, 0xf9, 0xed, 0xf7, 0x5d, 0xdf, 0xcb, 0x14, 0x77, 0x0a, 0xaa, 0x31, 0xb7, 0x5f, 0x43, 0x35,
+	0x66, 0xf9, 0xaa, 0xd5, 0x98, 0x07, 0x30, 0x4f, 0x4e, 0x39, 0x09, 0x3c, 0xec, 0x1e, 0x04, 0xf8,
+	0xe8, 0x88, 0xda, 0xda, 0xcd, 0xab, 0x40, 0xa6, 0x18, 0x99, 0x2f, 0x5d, 0xfd, 0xec, 0x8a, 0xa5,
+	0xab, 0x5f, 0x41, 0x55, 0x97, 0x13, 0x94, 0xe1, 0x79, 0xfb, 0x62, 0xb5, 0x9b, 0x0c, 0x73, 0xdf,
+	0x82, 0xd0, 0x3b, 0xaf, 0xa2, 0x20, 0xd4, 0x53, 0xbc, 0xba, 0x73, 0xa5, 0xe2, 0x55, 0xa6, 0xbe,
+	0xf4, 0xcb, 0x8b, 0xd4, 0x97, 0x8e, 0xc1, 0xe8, 0xa7, 0x81, 0x97, 0xbc, 0xa9, 0x5d, 0x80, 0x89,
+	0xb0, 0x73, 0x74, 0x44, 0x4f, 0x75, 0x25, 0x4a, 0x3f, 0x99, 0x7f, 0x01, 0xb3, 0x05, 0x69, 0xe0,
+	0x25, 0x07, 0x51, 0xb1, 0xf0, 0xce, 0xee, 0xc6, 0x10, 0xd1, 0x8f, 0xa6, 0x34, 0x5d, 0x40, 0xbd,
+	0x59, 0xde, 0x25, 0xc7, 0x5f, 0x86, 0x8a, 0x6e, 0x35, 0x91, 0x19, 0x8c, 0x7a, 0xd3, 0x34, 0xc8,
+	0xfc, 0xab, 0x12, 0xbc, 0xf1, 0xb4, 0xc3, 0x0f, 0x59, 0xc7, 0x73, 0x32, 0x4a, 0xaf, 0xc7, 0xfd,
+	0x1c, 0xc6, 0xda, 0xcc, 0x51, 0xac, 0x53, 0xe9, 0x02, 0xca, 0x39, 0x4c, 0xab, 0x7b, 0xcc, 0x21,
+	0x96, 0xe4, 0x33, 0x57, 0x60, 0x4c, 0x3c, 0xa1, 0x1a, 0x94, 0xd7, 0x77, 0x77, 0x9f, 0x7e, 0xf3,
+	0x62, 0x7d, 0xff, 0xbb, 0xfa, 0x35, 0x34, 0x03, 0x35, 0x6b, 0xfb, 0xcb, 0x9d, 0xe6, 0x81, 0xf5,
+	0xdd, 0x8b, 0xa7, 0xfb, 0xbb, 0xdf, 0xd5, 0x4b, 0xe6, 0x7f, 0x57, 0xa1, 0x22, 0x83, 0xfc, 0x2b,
+	0xbd, 0x71, 0x51, 0xb4, 0x37, 0x72, 0xd5, 0x68, 0xaf, 0x4f, 0x24, 0x97, 0x8f, 0x08, 0xc7, 0x0a,
+	0x22, 0xc2, 0xbc, 0x83, 0x19, 0xef, 0xe3, 0x60, 0xe2, 0x16, 0x97, 0x89, 0x74, 0x8b, 0xcb, 0xdb,
+	0x50, 0x93, 0x79, 0x57, 0x13, 0xb7, 0x7d, 0x61, 0xcd, 0xe4, 0x9d, 0x53, 0xc9, 0xca, 0x02, 0xb3,
+	0x37, 0x0c, 0xe5, 0xa1, 0x6f, 0x18, 0x56, 0x60, 0x5a, 0x1d, 0xcf, 0x24, 0xf7, 0x06, 0xdd, 0x31,
+	0x95, 0x05, 0x47, 0x21, 0x6b, 0xe5, 0x32, 0x21, 0x6b, 0x3e, 0x20, 0xaa, 0x5e, 0x3a, 0x20, 0xb2,
+	0xe1, 0xf6, 0x4b, 0x42, 0x7c, 0xec, 0xd2, 0xae, 0x58, 0x5a, 0x11, 0xd1, 0xca, 0xe3, 0xe1, 0x11,
+	0x5b, 0x0c, 0xbc, 0xde, 0x22, 0x71, 0x3b, 0x54, 0x7e, 0xa7, 0xb7, 0x74, 0x33, 0x9f, 0x35, 0x48,
+	0x02, 0xda, 0x85, 0xba, 0x43, 0x7c, 0x97, 0x9d, 0xb5, 0x89, 0xc7, 0x55, 0x80, 0xaa, 0x2f, 0x9d,
+	0x07, 0x3b, 0xd9, 0x1e, 0x4e, 0x61, 0xf0, 0xec, 0xb8, 0x50, 0x82, 0x06, 0x1b, 0xbc, 0x98, 0x38,
+	0x95, 0x45, 0xcf, 0x0d, 0x9d, 0x45, 0xeb, 0x28, 0x7d, 0xfe, 0x22, 0x51, 0x7a, 0x81, 0xe3, 0x36,
+	0x5e, 0x83, 0xe3, 0xbe, 0x79, 0xf5, 0x6b, 0x94, 0x8c, 0x0b, 0x5e, 0xbc, 0xa2, 0x0b, 0x3e, 0x86,
+	0xb7, 0x94, 0xc5, 0x68, 0x88, 0xe5, 0xb4, 0x99, 0xdb, 0xf4, 0xa8, 0x88, 0x28, 0xc5, 0x44, 0x22,
+	0xcb, 0xa6, 0x83, 0xab, 0xf3, 0x56, 0x7e, 0xb0, 0x10, 0x74, 0x04, 0xcb, 0x7d, 0x89, 0x76, 0x3c,
+	0x35, 0xd0, 0x9b, 0x03, 0x07, 0x1a, 0x28, 0xa3, 0x20, 0x5d, 0xb8, 0x75, 0x85, 0x74, 0xe1, 0x8f,
+	0xa0, 0xaa, 0x74, 0x51, 0xe5, 0x4d, 0x3a, 0x98, 0x7b, 0x23, 0x15, 0x4b, 0x27, 0x96, 0x5a, 0xa7,
+	0x56, 0x19, 0x06, 0xf4, 0x11, 0xdc, 0xf8, 0xe1, 0xe4, 0x65, 0x28, 0x8c, 0x8f, 0xdb, 0x25, 0xc1,
+	0xf6, 0x29, 0x0f, 0xb0, 0xf0, 0xe4, 0x9b, 0xeb, 0x32, 0x88, 0x2b, 0x5b, 0xfd, 0xd0, 0xe8, 0x03,
+	0x98, 0xf4, 0x65, 0x77, 0x53, 0xa8, 0x4b, 0x52, 0x37, 0x0b, 0x76, 0x59, 0xbd, 0x83, 0x15, 0x51,
+	0x46, 0xe5, 0x6d, 0xb3, 0xa7, 0xbd, 0xf0, 0x67, 0x83, 0x6b, 0x60, 0xe6, 0x3f, 0x96, 0x00, 0xc9,
+	0xf7, 0xd1, 0x21, 0x86, 0x76, 0x40, 0x77, 0x60, 0x4a, 0x47, 0x5a, 0x51, 0xb6, 0x5d, 0xd2, 0xa5,
+	0xec, 0x0c, 0x14, 0x3d, 0x83, 0x79, 0x1a, 0x33, 0x72, 0xa1, 0xbe, 0x24, 0xd8, 0x4b, 0x7c, 0x66,
+	0xaa, 0x75, 0xae, 0x90, 0xcc, 0x2a, 0xe6, 0x16, 0xde, 0x25, 0x42, 0xb8, 0x38, 0x0c, 0x75, 0xa3,
+	0x58, 0x06, 0x66, 0xee, 0xc0, 0x8c, 0x9c, 0x78, 0xc6, 0x65, 0x5f, 0xae, 0x8f, 0x84, 0xc3, 0xf4,
+	0x01, 0x71, 0x49, 0x9b, 0xf0, 0xe0, 0x4a, 0x82, 0xd0, 0x5d, 0x18, 0xe9, 0xae, 0xe9, 0x4b, 0xa6,
+	0x94, 0xc2, 0xc4, 0xc2, 0x9f, 0xaf, 0xe9, 0xcc, 0x61, 0xa4, 0xbb, 0x66, 0xfe, 0xcd, 0x28, 0xcc,
+	0xf4, 0x60, 0x2e, 0x39, 0xf0, 0xb7, 0x30, 0xd3, 0x26, 0x1c, 0x3b, 0x98, 0xe3, 0x17, 0xe4, 0xd4,
+	0x3e, 0x16, 0xb9, 0xbe, 0xbe, 0xa8, 0xbb, 0x5b, 0x38, 0x8f, 0x3d, 0x4d, 0xbd, 0xad, 0x89, 0xf5,
+	0xbc, 0xea, 0xed, 0x1c, 0x1c, 0x6d, 0x03, 0xf8, 0x01, 0x6b, 0x13, 0x7e, 0x4c, 0x3a, 0x51, 0x21,
+	0xeb, 0x9d, 0x42, 0x91, 0x8d, 0x98, 0x4c, 0x0b, 0x4b, 0x31, 0xa2, 0xaf, 0xa0, 0x12, 0x72, 0x6c,
+	0xbf, 0x74, 0x02, 0xda, 0x25, 0x81, 0x5e, 0xa2, 0x3b, 0x85, 0x72, 0x9a, 0x82, 0x6e, 0x4b, 0xd2,
+	0x69, 0x41, 0x69, 0x56, 0xf4, 0x27, 0x30, 0x83, 0x6d, 0x9b, 0x84, 0xe1, 0x0b, 0x97, 0xb5, 0x5e,
+	0xf8, 0x49, 0x47, 0x75, 0x65, 0xed, 0x7e, 0xa1, 0xbc, 0x75, 0x49, 0xbd, 0xcb, 0x5a, 0x4a, 0x53,
+	0x9e, 0x50, 0x37, 0xb9, 0x40, 0x98, 0xc6, 0x59, 0xa4, 0x89, 0xe1, 0xad, 0x81, 0xab, 0x84, 0x3e,
+	0x85, 0xca, 0x09, 0x0e, 0xdb, 0xc3, 0xc7, 0x58, 0x69, 0x72, 0xf3, 0xaf, 0x4b, 0xf0, 0xc6, 0x39,
+	0xcb, 0x76, 0x49, 0x0d, 0xb8, 0xda, 0x9c, 0x7e, 0x37, 0x0a, 0x4b, 0xe7, 0x6d, 0xc1, 0x25, 0x27,
+	0xf5, 0x20, 0xb9, 0xaf, 0x1a, 0xe2, 0xe2, 0x39, 0xba, 0xac, 0x7a, 0x0c, 0xd0, 0x66, 0x1e, 0xe5,
+	0x4c, 0xd8, 0xb9, 0x21, 0xae, 0x6c, 0x53, 0xd4, 0xe8, 0x21, 0x5c, 0xe7, 0xcc, 0x67, 0x2e, 0x6b,
+	0x45, 0x17, 0xd5, 0xe7, 0x71, 0xc6, 0xb4, 0x68, 0x0b, 0xa6, 0x1d, 0x1a, 0x8a, 0x59, 0xc7, 0x2e,
+	0x70, 0x70, 0x7d, 0x31, 0xcf, 0x82, 0xbe, 0x82, 0x29, 0xe5, 0x09, 0x9e, 0x76, 0x49, 0x10, 0x50,
+	0x87, 0x0c, 0xdb, 0x90, 0x6a, 0xe5, 0xf8, 0xcc, 0xbf, 0x2f, 0xc1, 0x9d, 0xe1, 0x74, 0xf8, 0x92,
+	0x5b, 0xf3, 0x25, 0xcc, 0xb8, 0xac, 0xf5, 0x0d, 0xf5, 0x1c, 0x76, 0x12, 0x85, 0x88, 0x7a, 0x93,
+	0xce, 0x89, 0x21, 0x7b, 0x79, 0xcc, 0x6d, 0x6d, 0x87, 0xd3, 0x0e, 0x11, 0xdd, 0x87, 0xd9, 0xb0,
+	0x73, 0x18, 0xda, 0x01, 0x3d, 0x24, 0x4e, 0x72, 0x49, 0x5c, 0x92, 0xc5, 0xc9, 0x22, 0x94, 0xf9,
+	0x5b, 0xa8, 0xa4, 0x6a, 0x54, 0x71, 0x7d, 0xb1, 0x94, 0xaa, 0x2f, 0x22, 0x18, 0xf3, 0x59, 0xc0,
+	0xe5, 0x2c, 0xc7, 0x2d, 0xf9, 0x1b, 0x2d, 0xc2, 0x75, 0x11, 0x28, 0xcb, 0xd2, 0xfc, 0xa8, 0x84,
+	0xc7, 0xcf, 0xe8, 0x16, 0x80, 0x6a, 0xf9, 0x96, 0xd8, 0x31, 0x89, 0x4d, 0x41, 0xcc, 0x7f, 0x9d,
+	0x84, 0x4a, 0xea, 0x86, 0x4a, 0xd0, 0x8b, 0xfc, 0x45, 0x5d, 0xd3, 0xe9, 0xa6, 0xe3, 0x14, 0x44,
+	0x64, 0x24, 0x3a, 0x7d, 0xd4, 0x37, 0x40, 0xea, 0x3b, 0x8e, 0x2c, 0x10, 0xbd, 0x07, 0x33, 0x36,
+	0x6b, 0xfb, 0xcc, 0x13, 0xa1, 0x70, 0xf4, 0x15, 0x83, 0xca, 0x6c, 0x7a, 0x11, 0xc9, 0x5d, 0x81,
+	0xec, 0xc0, 0xee, 0xb4, 0x7d, 0x9d, 0xc4, 0x0c, 0x71, 0x57, 0x10, 0x71, 0x88, 0xc5, 0xd6, 0xdf,
+	0x6e, 0xe8, 0x80, 0x48, 0x95, 0x56, 0xd4, 0x7d, 0x77, 0x11, 0x4a, 0xa4, 0x3f, 0x11, 0xb8, 0xa1,
+	0xeb, 0xc6, 0xfa, 0xfe, 0x3b, 0x07, 0x4e, 0x72, 0xb3, 0xa9, 0x74, 0x6e, 0xb6, 0x02, 0xd3, 0xd4,
+	0xcb, 0xf2, 0xd7, 0xf5, 0xfd, 0x79, 0x16, 0x9c, 0xf9, 0x94, 0x03, 0xe5, 0x3e, 0xe5, 0x78, 0x2c,
+	0x5c, 0x0b, 0xed, 0x52, 0x97, 0xb4, 0x88, 0xa3, 0xab, 0xc5, 0xe7, 0x9e, 0xf3, 0x84, 0x1a, 0x6d,
+	0xc0, 0x52, 0x40, 0xb0, 0x43, 0x3d, 0x12, 0x86, 0x3b, 0x1e, 0xe5, 0x14, 0xbb, 0x5b, 0xc4, 0xc5,
+	0x67, 0x4d, 0x62, 0x33, 0xcf, 0x51, 0xf5, 0xe2, 0x9a, 0x75, 0x2e, 0x0d, 0x7a, 0x08, 0x0b, 0x31,
+	0xbe, 0x41, 0x02, 0xca, 0x9c, 0x88, 0x7b, 0x5e, 0x72, 0xf7, 0xc1, 0xa2, 0x4f, 0xe1, 0x66, 0x8c,
+	0x79, 0x82, 0xa9, 0xdb, 0x09, 0xc8, 0xc1, 0x71, 0x40, 0xc2, 0x63, 0xe6, 0x3a, 0xb2, 0xae, 0x5b,
+	0xb3, 0xfa, 0x13, 0x08, 0x2d, 0x0b, 0x39, 0xe6, 0x1d, 0x59, 0xc3, 0x92, 0x37, 0xbe, 0x35, 0x2b,
+	0x05, 0xc9, 0x66, 0xb4, 0xc6, 0x05, 0x32, 0xda, 0xe8, 0x32, 0xf3, 0xa6, 0x0c, 0xbd, 0xea, 0x09,
+	0x8f, 0x82, 0xc7, 0xd7, 0x98, 0x6b, 0x30, 0xa7, 0x77, 0x39, 0xb2, 0x5b, 0x4a, 0x5f, 0x96, 0xe4,
+	0xf6, 0x14, 0xe2, 0xd0, 0xe7, 0x50, 0x76, 0xe9, 0x11, 0xb1, 0xcf, 0x6c, 0x97, 0xe8, 0x9a, 0xdd,
+	0x60, 0x9b, 0x96, 0xb0, 0x20, 0x07, 0x6e, 0x8b, 0x97, 0x5f, 0xf7, 0x65, 0xda, 0x2f, 0xec, 0xc6,
+	0x33, 0x8f, 0x53, 0x57, 0x9e, 0xbe, 0x26, 0xc7, 0x01, 0x8f, 0x8a, 0x76, 0xe7, 0xed, 0xff, 0x20,
+	0x11, 0xe6, 0x6f, 0x60, 0x3a, 0x77, 0x81, 0x9c, 0xe8, 0x6f, 0x29, 0xad, 0xbf, 0x99, 0x35, 0x1e,
+	0x1f, 0x76, 0x8d, 0xcd, 0x4d, 0xb8, 0xd1, 0xa7, 0x77, 0x58, 0x04, 0xe1, 0xb6, 0xdf, 0x89, 0xba,
+	0xbd, 0x44, 0xf2, 0x2f, 0xbb, 0x25, 0xda, 0x2c, 0x38, 0x8b, 0x8a, 0x6c, 0xea, 0xc9, 0xfc, 0x12,
+	0xca, 0xf1, 0x95, 0x35, 0x7a, 0x0c, 0xe3, 0x9c, 0xbd, 0x24, 0xde, 0x85, 0x3e, 0x5c, 0x50, 0x2c,
+	0xe6, 0x9f, 0x41, 0x35, 0x5d, 0x34, 0x47, 0x4b, 0x50, 0x96, 0xf7, 0xa4, 0x0d, 0xcc, 0x8f, 0xf5,
+	0x44, 0x12, 0x40, 0x6c, 0x50, 0x47, 0x52, 0x06, 0x55, 0xa8, 0xa2, 0x94, 0x20, 0x2b, 0x64, 0xfa,
+	0x6b, 0x8c, 0x04, 0x62, 0xfe, 0x6d, 0x09, 0x6a, 0x3a, 0xd2, 0x8f, 0xaf, 0x36, 0x2b, 0x38, 0x95,
+	0x66, 0x95, 0x86, 0xd4, 0x84, 0x34, 0x93, 0x08, 0xee, 0xa3, 0x52, 0x73, 0x23, 0x32, 0xe7, 0x35,
+	0x2b, 0x03, 0x8b, 0x67, 0x3b, 0x9a, 0x35, 0xff, 0xf9, 0x2e, 0x4c, 0xf3, 0xf7, 0x63, 0x30, 0x5f,
+	0xd8, 0x5d, 0x81, 0xbe, 0x85, 0x9b, 0xca, 0x4c, 0x26, 0xed, 0x1c, 0x1b, 0x67, 0xba, 0x27, 0x69,
+	0x88, 0x60, 0xa4, 0x3f, 0x33, 0xfa, 0x0e, 0x66, 0x3d, 0xd2, 0x25, 0x7a, 0xc0, 0x4b, 0x7e, 0xcb,
+	0x60, 0x15, 0xc9, 0x90, 0x05, 0x6d, 0xf7, 0x04, 0x9f, 0x85, 0x39, 0xd9, 0xd5, 0x8b, 0x16, 0xb4,
+	0x0b, 0x84, 0xa0, 0x5d, 0x98, 0x0d, 0xc8, 0x49, 0x40, 0x39, 0x59, 0xf7, 0xfd, 0xaf, 0x0e, 0x0e,
+	0x1a, 0x8d, 0x80, 0x1d, 0x12, 0x69, 0xb8, 0xcf, 0x5f, 0x8b, 0x22, 0x36, 0xb4, 0x0c, 0x15, 0x2a,
+	0xe5, 0xcb, 0x72, 0x8f, 0xde, 0x94, 0x34, 0x08, 0x59, 0x30, 0xab, 0x1e, 0x49, 0x26, 0x35, 0x1f,
+	0xb6, 0x3b, 0xa8, 0x88, 0x59, 0x04, 0x58, 0xec, 0x30, 0xb3, 0x34, 0xc3, 0x56, 0x7c, 0x72, 0x7c,
+	0x2a, 0xc5, 0xfc, 0x41, 0x15, 0xbf, 0x9e, 0x59, 0xbb, 0xd2, 0x6e, 0xcb, 0x14, 0x33, 0x81, 0x99,
+	0x7f, 0x39, 0x02, 0xd5, 0x74, 0x27, 0x08, 0x7a, 0x04, 0x93, 0x22, 0x1d, 0x70, 0x58, 0xab, 0xb7,
+	0x19, 0x53, 0x11, 0x6e, 0x29, 0x74, 0xd4, 0x7f, 0xa5, 0xa9, 0xd1, 0x67, 0xc2, 0x7e, 0xb6, 0x8e,
+	0x79, 0xc8, 0x89, 0xaf, 0xb5, 0xef, 0x76, 0x9e, 0x75, 0x57, 0x10, 0x34, 0x39, 0xf1, 0xa3, 0xde,
+	0x97, 0x98, 0x03, 0x3d, 0x80, 0x89, 0x1f, 0xa9, 0xff, 0x92, 0x46, 0x0d, 0x8c, 0x4b, 0x79, 0xde,
+	0xef, 0x25, 0x36, 0xba, 0x4e, 0x56, 0xb4, 0x68, 0x33, 0x9b, 0x73, 0x8d, 0xe5, 0xbf, 0x83, 0x50,
+	0xac, 0xcd, 0x84, 0xa4, 0x20, 0xdd, 0x32, 0xef, 0xc1, 0x6c, 0xc1, 0x9b, 0x21, 0x03, 0x26, 0xb1,
+	0x6e, 0xc0, 0x50, 0xa6, 0x26, 0x7a, 0x34, 0x9b, 0x30, 0x5f, 0xf8, 0x3e, 0xfd, 0x59, 0x84, 0x2e,
+	0xa9, 0x3c, 0xec, 0x40, 0xda, 0x42, 0x5d, 0xaa, 0x4f, 0x81, 0xcc, 0x55, 0x40, 0xbd, 0x2f, 0x7a,
+	0xce, 0x24, 0xfe, 0xab, 0x04, 0x37, 0xfa, 0xbc, 0x1e, 0xba, 0x0f, 0xe3, 0x0e, 0x39, 0xec, 0xb4,
+	0x86, 0x88, 0x96, 0x15, 0x21, 0x7a, 0x00, 0xf3, 0x6d, 0x7c, 0xba, 0xdf, 0x69, 0x1f, 0x92, 0xe0,
+	0xe9, 0xd1, 0x3a, 0xe7, 0x01, 0x3d, 0xec, 0x70, 0x12, 0x6a, 0xd3, 0x55, 0x8c, 0x14, 0xe1, 0x45,
+	0x1a, 0x91, 0x3a, 0x02, 0xaa, 0xa0, 0xde, 0x07, 0x8b, 0x1e, 0x83, 0x91, 0xc2, 0xec, 0x91, 0x30,
+	0xc4, 0xad, 0xe8, 0x4b, 0x4e, 0x55, 0x66, 0xef, 0x8b, 0x37, 0xff, 0x1c, 0x60, 0x03, 0x87, 0x91,
+	0xb5, 0xfe, 0x1a, 0x90, 0x0e, 0x15, 0xad, 0xad, 0x03, 0xd2, 0xf6, 0x5d, 0xcc, 0x49, 0x38, 0xc4,
+	0x6b, 0x17, 0x70, 0x89, 0xe0, 0xb7, 0x1b, 0xf7, 0xc4, 0x8a, 0x03, 0xa3, 0x76, 0x29, 0x0b, 0x34,
+	0x3f, 0x02, 0xa4, 0x5a, 0x61, 0x2c, 0xd9, 0xb8, 0xa4, 0xe7, 0x91, 0x3f, 0x6b, 0xa5, 0x82, 0xb3,
+	0xf6, 0x2f, 0xe3, 0x30, 0x21, 0x47, 0x0f, 0xd1, 0x3b, 0x30, 0x6a, 0x7b, 0x54, 0x1f, 0x93, 0xd9,
+	0xcc, 0xf7, 0xbd, 0x51, 0x97, 0x91, 0xed, 0x51, 0xf4, 0x09, 0x54, 0x65, 0x8b, 0x93, 0xcd, 0x02,
+	0xe2, 0xe8, 0x55, 0xcd, 0x94, 0xbb, 0x32, 0x1f, 0x35, 0x5a, 0x19, 0x62, 0xf4, 0x00, 0xae, 0xeb,
+	0xa6, 0xe4, 0x28, 0x00, 0x30, 0x7a, 0x7a, 0x34, 0xe2, 0xef, 0x82, 0x22, 0x4a, 0xb4, 0x0a, 0x13,
+	0x2d, 0xd9, 0x95, 0xa3, 0x93, 0xc3, 0x85, 0x7c, 0xfb, 0x65, 0x74, 0x02, 0x15, 0x95, 0xbc, 0x8f,
+	0x17, 0xb9, 0x91, 0xee, 0x37, 0x99, 0x2f, 0xac, 0x21, 0x5a, 0x8a, 0x06, 0x3d, 0x82, 0x32, 0x8f,
+	0x32, 0x3e, 0xdd, 0x09, 0x78, 0xb3, 0xa0, 0xa0, 0x11, 0x59, 0x87, 0x98, 0x16, 0x7d, 0x03, 0x0b,
+	0x61, 0xd6, 0x07, 0xea, 0x66, 0x3e, 0x7d, 0x27, 0x90, 0xb2, 0x34, 0x85, 0xbe, 0xd2, 0xea, 0xc3,
+	0x2e, 0x3b, 0xa8, 0xf5, 0x67, 0xd9, 0x71, 0xb4, 0x34, 0x33, 0x44, 0x07, 0x75, 0x8e, 0x07, 0xdd,
+	0x87, 0xb2, 0xea, 0x24, 0x17, 0xdb, 0x3a, 0xdb, 0x7f, 0x5b, 0xaf, 0x4b, 0xaa, 0x4d, 0x8f, 0x66,
+	0x3a, 0xc8, 0xe6, 0x73, 0x1d, 0x64, 0x8f, 0x00, 0xda, 0x24, 0xd4, 0xdd, 0xe1, 0x3a, 0x18, 0xed,
+	0x5b, 0xe4, 0x4c, 0x91, 0xa2, 0x15, 0x18, 0x3b, 0xc4, 0x21, 0xd1, 0x91, 0x66, 0xaa, 0xd9, 0x3c,
+	0x39, 0x32, 0x96, 0xa4, 0x40, 0x5f, 0x68, 0xd5, 0xd2, 0x6a, 0xac, 0xaf, 0x7e, 0x97, 0xf2, 0x9d,
+	0x76, 0x69, 0x25, 0xb7, 0x32, 0x1c, 0xa6, 0x01, 0x0b, 0xc5, 0x8e, 0xc8, 0xbc, 0x0d, 0x6f, 0x9e,
+	0xeb, 0xbd, 0xcd, 0x05, 0x98, 0x2b, 0xba, 0x21, 0x30, 0x67, 0x60, 0x3a, 0x57, 0x03, 0x36, 0xff,
+	0x14, 0x6a, 0x99, 0xcf, 0x4d, 0x5e, 0xf1, 0x7d, 0xf0, 0x34, 0xd4, 0x32, 0xab, 0xf9, 0xee, 0xd7,
+	0x7d, 0xca, 0xbd, 0x68, 0x1a, 0x2a, 0xcf, 0xf6, 0x9b, 0x8d, 0xed, 0xcd, 0x9d, 0x27, 0x3b, 0xdb,
+	0x5b, 0xf5, 0x6b, 0xa8, 0x02, 0x93, 0x5b, 0xdb, 0x4f, 0xd6, 0x9f, 0xed, 0x1e, 0xd4, 0x4b, 0x08,
+	0x60, 0xa2, 0x79, 0x60, 0xed, 0x6c, 0x1e, 0xd4, 0x47, 0xd0, 0x24, 0x8c, 0x3e, 0x7d, 0xf2, 0xa4,
+	0x3e, 0xfa, 0xee, 0x7a, 0x94, 0xb0, 0x08, 0xb4, 0xf2, 0x58, 0xf5, 0x6b, 0xa8, 0x96, 0x72, 0x94,
+	0xf5, 0x92, 0x10, 0xa3, 0x5d, 0x68, 0x7d, 0x44, 0x0c, 0x92, 0xf2, 0x4c, 0xf5, 0xd1, 0x8d, 0x85,
+	0x7f, 0xfe, 0xe9, 0xd6, 0xb5, 0x7f, 0xfb, 0xe9, 0xd6, 0xb5, 0xff, 0xf8, 0xe9, 0xd6, 0xb5, 0xef,
+	0xe3, 0x3f, 0xb4, 0x38, 0x9c, 0x90, 0x2f, 0xfb, 0xc1, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0x44,
+	0xea, 0x83, 0x7d, 0x0f, 0x43, 0x00, 0x00,
 }

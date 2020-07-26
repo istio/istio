@@ -99,10 +99,6 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCRDComponent(opts)
 	case name.PilotComponentName:
 		component = NewPilotComponent(opts)
-	case name.PolicyComponentName:
-		component = NewPolicyComponent(opts)
-	case name.TelemetryComponentName:
-		component = NewTelemetryComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
 	case name.IstiodRemoteComponentName:
@@ -202,98 +198,6 @@ func (c *PilotComponent) Namespace() string {
 
 // Enabled implements the IstioComponent interface.
 func (c *PilotComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// PolicyComponent is the pilot component.
-type PolicyComponent struct {
-	*CommonComponentFields
-}
-
-// NewPolicyComponent creates a new PilotComponent and returns a pointer to it.
-func NewPolicyComponent(opts *Options) *PolicyComponent {
-	cn := name.PolicyComponentName
-	return &PolicyComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			ComponentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *PolicyComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *PolicyComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *PolicyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *PolicyComponent) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *PolicyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *PolicyComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// TelemetryComponent is the pilot component.
-type TelemetryComponent struct {
-	*CommonComponentFields
-}
-
-// NewTelemetryComponent creates a new PilotComponent and returns a pointer to it.
-func NewTelemetryComponent(opts *Options) *TelemetryComponent {
-	cn := name.TelemetryComponentName
-	return &TelemetryComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			ComponentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *TelemetryComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *TelemetryComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *TelemetryComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *TelemetryComponent) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *TelemetryComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *TelemetryComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
