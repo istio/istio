@@ -148,9 +148,6 @@ type Options struct {
 
 	// -----------------
 
-	// whether  ControlPlaneAuthPolicy is MUTUAL_TLS
-	TLSEnabled bool
-
 	// ClusterID is the cluster where the agent resides.
 	// Normally initialized from ISTIO_META_CLUSTER_ID - after a tortuous journey it
 	// makes its way into the ClusterID metadata of Citadel gRPC request to create the cert.
