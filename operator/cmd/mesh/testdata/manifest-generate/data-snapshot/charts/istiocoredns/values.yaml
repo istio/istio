@@ -4,9 +4,9 @@
 istiocoredns:
   enabled: false
   autoscaleEnabled: true
-  autoscaleMin: 1
+  autoscaleMin: 2
   autoscaleMax: 5
-  replicaCount: 1
+  replicaCount: 2
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
   coreDNSImage: coredns/coredns

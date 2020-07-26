@@ -22,7 +22,7 @@ spec:
               name: cpu
               targetAverageUtilization: 80
             type: Resource
-          minReplicas: 1
+          minReplicas: 2
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -61,7 +61,7 @@ spec:
               name: cpu
               targetAverageUtilization: 80
             type: Resource
-          minReplicas: 1
+          minReplicas: 2
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
@@ -259,7 +259,7 @@ spec:
     pilot:
       autoscaleEnabled: true
       autoscaleMax: 5
-      autoscaleMin: 1
+      autoscaleMin: 2
       configMap: true
       cpu:
         targetAverageUtilization: 80
@@ -269,7 +269,7 @@ spec:
       image: pilot
       keepaliveMaxServerConnectionAge: 30m
       nodeSelector: {}
-      replicaCount: 1
+      replicaCount: 2
       traceSampling: 1
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false

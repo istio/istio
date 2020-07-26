@@ -9487,7 +9487,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9509,7 +9509,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9530,7 +9530,7 @@ metadata:
     release: istio
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
@@ -9552,7 +9552,7 @@ metadata:
     istio.io/rev: default
 spec:
   maxReplicas: 5
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

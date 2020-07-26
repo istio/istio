@@ -344,7 +344,7 @@ spec:
             memory: 4096Mi # ... default 2048Mi
           hpaSpec:
             maxReplicas: 10 # ... default 5
-            minReplicas: 2  # ... default 1
+            minReplicas: 2
           nodeSelector: # ... default empty
             master: "true"
           tolerations: # ... default empty
