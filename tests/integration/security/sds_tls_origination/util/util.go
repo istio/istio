@@ -167,7 +167,7 @@ func SetupEcho(t *testing.T, ctx resource.Context) (echo.Instance, echo.Instance
 	})
 
 	var internalClient, externalServer echo.Instance
-	echoboot.NewBuilderOrFail(t, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&internalClient, echo.Config{
 			Service:   "client",
 			Namespace: clientNamespace,
@@ -227,37 +227,46 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio-egressgateway
+  name: istio-egressgateway-sds
 spec:
   selector:
     istio: egressgateway
   servers:
     - port:
-        number: 80
-        name: http-port-for-tls-origination
-        protocol: HTTP
+        number: 443
+        name: https-sds
+        protocol: HTTPS
       hosts:
-        - server.{{.ServerNamespace}}.svc.cluster.local
+      - server.{{.ServerNamespace}}.svc.cluster.local
+      tls:
+        mode: ISTIO_MUTUAL
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: egressgateway-for-server
+  name: egressgateway-for-server-sds
 spec:
   host: istio-egressgateway.istio-system.svc.cluster.local
   subsets:
   - name: server
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: ISTIO_MUTUAL
+          sni: server.{{.ServerNamespace}}.svc.cluster.local
 `
 	VirtualService = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: route-via-egressgateway
+  name: route-via-egressgateway-sds
 spec:
   hosts:
     - server.{{.ServerNamespace}}.svc.cluster.local
   gateways:
-    - istio-egressgateway
+    - istio-egressgateway-sds
     - mesh
   http:
     - match:
@@ -269,12 +278,12 @@ spec:
             host: istio-egressgateway.istio-system.svc.cluster.local
             subset: server
             port:
-              number: 80
+              number: 443
           weight: 100
     - match:
         - gateways:
-            - istio-egressgateway
-          port: 80
+            - istio-egressgateway-sds
+          port: 443
       route:
         - destination:
             host: server.{{.ServerNamespace}}.svc.cluster.local
@@ -328,7 +337,7 @@ const (
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
-  name: originate-tls-for-server
+  name: originate-tls-for-server-sds-{{.CredentialName}}
 spec:
   host: "server.{{.ServerNamespace}}.svc.cluster.local"
   trafficPolicy:

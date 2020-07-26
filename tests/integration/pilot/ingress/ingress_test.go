@@ -78,7 +78,7 @@ func TestGateway(t *testing.T) {
 				Inject: true,
 			})
 			var instance echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&instance, echo.Config{
 					Service:   "server",
 					Namespace: ns,
@@ -168,7 +168,7 @@ func TestIngress(t *testing.T) {
 				Inject: true,
 			})
 			var instance echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&instance, echo.Config{
 					Service:   "server",
 					Namespace: ns,

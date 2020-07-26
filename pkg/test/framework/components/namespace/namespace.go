@@ -54,6 +54,9 @@ func ClaimOrFail(t test.Failer, ctx resource.Context, name string) Instance {
 
 // New creates a new Namespace in all clusters.
 func New(ctx resource.Context, nsConfig Config) (i Instance, err error) {
+	if ctx.Settings().StableNamespaces {
+		return Claim(ctx, nsConfig.Prefix, nsConfig.Inject)
+	}
 	return newKube(ctx, &nsConfig)
 }
 

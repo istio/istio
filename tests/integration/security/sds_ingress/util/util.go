@@ -289,7 +289,7 @@ func SetupTest(ctx framework.TestContext) namespace.Instance {
 		Inject: true,
 	})
 	var a echo.Instance
-	echoboot.NewBuilderOrFail(ctx, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&a, echo.Config{
 			Service:   "server",
 			Namespace: serverNs,

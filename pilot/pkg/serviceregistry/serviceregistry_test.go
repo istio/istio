@@ -204,6 +204,67 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
+	t.Run("External only with named port override", func(t *testing.T) {
+		_, wc, store, _ := setupTest(t)
+		makeIstioObject(t, store, serviceEntry)
+		makeIstioObject(t, store, model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:             "workload",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.WorkloadEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.WorkloadEntry{
+				Address: "2.3.4.5",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					serviceEntry.Spec.(*networking.ServiceEntry).Ports[0].Name: 8080,
+				},
+			},
+		})
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       8080,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
+	t.Run("External only with target port", func(t *testing.T) {
+		_, wc, store, _ := setupTest(t)
+		makeIstioObject(t, store, model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service.namespace.svc.cluster.local"},
+				Ports: []*networking.Port{{
+					Name:       "http",
+					Number:     80,
+					Protocol:   "http",
+					TargetPort: 8080,
+				}},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makeIstioObject(t, store, workloadEntry)
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    workloadEntry.Spec.(*networking.WorkloadEntry).Address,
+			Port:       8080,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
+	})
+
 	t.Run("Service selects WorkloadEntry", func(t *testing.T) {
 		kc, _, store, kube := setupTest(t)
 		makeService(t, kube, service)
@@ -219,7 +280,6 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry with targetPort name", func(t *testing.T) {
-		t.Skip("TODO: implement https://github.com/istio/api/pull/1477")
 		kc, _, store, kube := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -262,7 +322,6 @@ func TestWorkloadInstances(t *testing.T) {
 	})
 
 	t.Run("Service selects WorkloadEntry with targetPort number", func(t *testing.T) {
-		t.Skip("TODO: implement https://github.com/istio/api/pull/1477")
 		kc, _, store, kube := setupTest(t)
 		makeService(t, kube, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -315,12 +374,37 @@ func TestWorkloadInstances(t *testing.T) {
 		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
-	t.Run("ServiceEntry selects Pod with targetPort name", func(t *testing.T) {
-		t.Skip("TODO: implement https://github.com/istio/api/pull/1477")
-	})
-
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
-		t.Skip("TODO: implement https://github.com/istio/api/pull/1477")
+		_, wc, store, kube := setupTest(t)
+		makeIstioObject(t, store, model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:             "service-entry",
+				Namespace:        namespace,
+				GroupVersionKind: gvk.ServiceEntry,
+				Domain:           "cluster.local",
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"service.namespace.svc.cluster.local"},
+				Ports: []*networking.Port{{
+					Name:       "http",
+					Number:     80,
+					Protocol:   "http",
+					TargetPort: 8080,
+				}},
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: labels,
+				},
+			},
+		})
+		makePod(t, kube, pod)
+
+		instances := []ServiceInstanceResponse{{
+			Hostname:   expectedSvc.Hostname,
+			Namestring: expectedSvc.Attributes.Namespace,
+			Address:    pod.Status.PodIP,
+			Port:       8080,
+		}}
+		expectServiceInstances(t, wc, expectedSvc, 80, instances)
 	})
 
 	t.Run("All directions", func(t *testing.T) {

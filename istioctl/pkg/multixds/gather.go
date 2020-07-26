@@ -53,7 +53,7 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
-		labelSelector = "istio=pilot"
+		labelSelector = "app=istiod"
 	}
 	pods, err := kubeClient.GetIstioPods(context.TODO(), istioNamespace, map[string]string{
 		"labelSelector": labelSelector,

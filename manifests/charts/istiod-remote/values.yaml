@@ -25,11 +25,7 @@ meshConfig:
   # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
   # is processed as if it were declared in the leaf namespace.
   rootNamespace: "istio-system"
-mixer:
-  telemetry:
-    sessionAffinityEnabled: false
-  policy:
-    enabled: false
+
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.

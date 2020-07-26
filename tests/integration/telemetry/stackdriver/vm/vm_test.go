@@ -71,7 +71,7 @@ spec:
 			}
 
 			// builder to build the instances iteratively
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&clt, echo.Config{
 					Service:   "client",
 					Namespace: ns,
@@ -88,7 +88,7 @@ spec:
 				}).
 				BuildOrFail(t)
 
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&srv, echo.Config{
 					Service:       "server",
 					Namespace:     ns,
@@ -122,6 +122,8 @@ spec:
 					return err
 				}
 				for _, tt := range ts {
+					// Making resource nil, as test can run on various platforms.
+					tt.Resource = nil
 					if proto.Equal(tt, &wantSrv) {
 						srvReceived = true
 					}

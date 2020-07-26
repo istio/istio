@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/pkg/test/util/retry"
 
-	pb "istio.io/istio/security/proto"
+	pb "istio.io/api/security/v1alpha1"
 )
 
 const (

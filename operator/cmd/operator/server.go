@@ -101,6 +101,10 @@ func run() {
 	}
 
 	var mgrOpt manager.Options
+	leaderElectionID := "istio-operator-lock"
+	if operatorRevision, found := os.LookupEnv("REVISION"); found && operatorRevision != "" {
+		leaderElectionID += "-" + operatorRevision
+	}
 	if watchNS != "" {
 		namespaces := strings.Split(watchNS, ",")
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.
@@ -109,7 +113,7 @@ func run() {
 			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
-			LeaderElectionID:        "istio-operator-lock",
+			LeaderElectionID:        leaderElectionID,
 		}
 	} else {
 		// Create manager option for watching all namespaces.
@@ -118,7 +122,7 @@ func run() {
 			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
-			LeaderElectionID:        "istio-operator-lock",
+			LeaderElectionID:        leaderElectionID,
 		}
 	}
 

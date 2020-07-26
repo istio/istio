@@ -39,11 +39,10 @@ import (
 	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/networking/plugin"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -185,7 +184,7 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 			Labels: map[string]string{
 				"istio.io/benchmark": "true",
 			},
-			IstioVersion: "1.7.0",
+			IstioVersion: "1.8.0",
 			SdsEnabled:   true,
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
@@ -193,16 +192,16 @@ func setupTest(t testing.TB, config ConfigInput) (*model.Environment, core.Confi
 		ConfigNamespace: "default",
 	}
 
-	configs := getConfigs(t, config)
+	configs := getConfigsWithCache(t, config)
 	env := buildTestEnv(t, configs)
 
-	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health, plugin.Mixer})
+	configgen := core.NewConfigGenerator([]string{plugin.Authn, plugin.Authz, plugin.Health})
 	return env, configgen, proxy
 }
 
 var configCache = map[ConfigInput][]model.Config{}
 
-func getConfigs(t testing.TB, input ConfigInput) []model.Config {
+func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
 	// Config setup is slow for large tests. Cache this and return from cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
@@ -430,7 +429,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.generateEndpoints(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push, nil)
+					l := s.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, l)
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v3.EndpointType)

@@ -75,24 +75,11 @@ global:
   proxy:
     readinessInitialDelaySeconds: 2
   controlPlaneSecurityEnabled: false
-mixer:
-  policy:
-    enabled: true
-    image: mixer
-    replicaCount: 1
-  telemetry:
-    enabled: false
 `,
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
 components:
-   telemetry:
-     enabled: false
-   policy:
-     enabled: true
-     k8s:
-       replicaCount: 1
    pilot:
      enabled: true
      k8s:
@@ -145,9 +132,6 @@ values:
       operator: In
       values: pilot
       topologyKey: "kubernetes.io/hostname"
-  mixer:
-    policy:
-      image: mixer
 `,
 		},
 		{
@@ -159,11 +143,6 @@ global:
   policyNamespace: istio-policy
   tag: 1.2.3
   telemetryNamespace: istio-telemetry
-mixer:
-  policy:
-    enabled: true
-  telemetry:
-    enabled: true
 pilot:
   enabled: true
 istiocoredns:
@@ -183,10 +162,6 @@ gateways:
 hub: docker.io/istio
 tag: 1.2.3
 components:
-  telemetry:
-    enabled: true
-  policy:
-    enabled: true
   pilot:
     enabled: true
   ingressGateways:
@@ -222,20 +197,11 @@ global:
   policyNamespace: istio-policy
   tag: 1.2.3
   telemetryNamespace: istio-telemetry
-mixer:
-  policy:
-    enabled: true
-  telemetry:
-    enabled: false
 `,
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
 components:
-   telemetry:
-     enabled: false
-   policy:
-     enabled: true
    pilot:
      enabled: true
 values:

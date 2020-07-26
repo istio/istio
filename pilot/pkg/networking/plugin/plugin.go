@@ -31,8 +31,6 @@ const (
 	Authz = "authz"
 	// Health is the name of the health plugin passed through the command line
 	Health = "health"
-	// Mixer is the name of the mixer plugin passed through the command line
-	Mixer = "mixer"
 )
 
 // InputParams is a set of values passed to Plugin callback methods. Not all fields are guaranteed to
@@ -72,7 +70,7 @@ type InputParams struct {
 
 // Plugin is called during the construction of a listener.Listener which may alter the Listener in any
 // way. Examples include AuthenticationPlugin that sets up mTLS authentication on the inbound Listener
-// and outbound Cluster, the mixer plugin that sets up policy checks on the inbound listener, etc.
+// and outbound Cluster, etc.
 type Plugin interface {
 	// OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service.
 	// Can be used to add additional filters on the outbound path.

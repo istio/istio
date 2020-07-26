@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.7-dev
+VERSION ?= 1.8-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.7-dev.4
@@ -27,11 +27,6 @@ BASE_VERSION ?= 1.7-dev.4
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
-
-ISTIO_CNI_HUB ?= gcr.io/istio-testing
-export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= latest
-export ISTIO_CNI_TAG
 
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
@@ -275,19 +270,16 @@ buildcache:
 BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pilot/cmd/pilot-agent \
-  ./mixer/cmd/mixs \
-  ./mixer/cmd/mixc \
-  ./mixer/tools/mixgen \
-  ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
-  ./mixer/test/policybackend \
   ./operator/cmd/operator \
-  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni \
+  ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/install-cni \
   ./tools/istio-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -330,13 +322,11 @@ lint-helm-global:
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
-	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
-	@envvarlinter galley istioctl mixer pilot security
+	@envvarlinter galley istioctl pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
-	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen-charts:
@@ -362,6 +352,7 @@ sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml manifests/charts/istiod-remote/templates/
 	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.7.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istiod-remote/templates/
 
 # Generate kustomize templates.
 gen-kustomize:
@@ -435,9 +426,9 @@ ${ISTIO_BIN}/go-junit-report:
 # This is just an alias for racetest now
 test: racetest
 
-TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/...
-# For now, keep a minimal subset. This can be expanded in the future, especially after mixer removal, which has some expensive tests that may OOM.
-BENCH_TAREGTS ?= ./pilot/...
+TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
+# For now, keep a minimal subset. This can be expanded in the future.
+BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
@@ -445,11 +436,14 @@ racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
-	prow/benchtest.sh run $(BENCH_TAREGTS)
+	prow/benchtest.sh run $(BENCH_TARGETS)
 	prow/benchtest.sh compare
 
 report-benchtest:
 	prow/benchtest.sh report
+
+cni.install-test: docker.install-cni
+	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} ./cni/test/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

@@ -254,6 +254,7 @@
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+            "sni": "{{ .discovery_host }}",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2"

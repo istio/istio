@@ -15,6 +15,7 @@
 package istio
 
 import (
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -32,6 +33,24 @@ type SetupConfigFn func(cfg *Config)
 
 // SetupContextFn is a setup function that uses Context for configuration.
 type SetupContextFn func(ctx resource.Context) error
+
+// Get returns the Istio component from the context. If there is none an error is returned.
+func Get(ctx resource.Context) (Instance, error) {
+	var i Instance
+	if err := ctx.GetResource(&i); err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
+// GetOrFail returns the Istio component from the context. If there is none the test is failed.
+func GetOrFail(f test.Failer, ctx resource.Context) Instance {
+	i, err := Get(ctx)
+	if err != nil {
+		f.Fatal(err)
+	}
+	return i
+}
 
 // Setup is a setup function that will deploy Istio on Kubernetes environment
 func Setup(i *Instance, cfn SetupConfigFn, ctxFns ...SetupContextFn) resource.SetupFn {

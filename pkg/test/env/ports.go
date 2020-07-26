@@ -80,7 +80,7 @@ type Ports struct {
 	STSPort         uint16
 	ExtraPort       uint16
 
-	// Pilot ports, used when testing mixer-pilot integration.
+	// Pilot ports
 	PilotGrpcPort uint16
 	PilotHTTPPort uint16
 }

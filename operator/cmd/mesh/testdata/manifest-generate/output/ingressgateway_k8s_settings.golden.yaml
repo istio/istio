@@ -43,10 +43,6 @@ spec:
           image: "gcr.io/istio-testing/proxyv2:latest"
           ports:
             - containerPort: 1234
-            - containerPort: 15011
-            - containerPort: 15012
-            - containerPort: 8060
-            - containerPort: 8853
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom

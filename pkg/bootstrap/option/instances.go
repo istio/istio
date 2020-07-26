@@ -46,14 +46,6 @@ func PilotSubjectAltName(value []string) Instance {
 	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
 }
 
-func MixerSubjectAltName(value []string) Instance {
-	san := ""
-	if len(value) > 0 {
-		san = value[0]
-	}
-	return newOptionOrSkipIfZero("MixerSubjectAltName", san)
-}
-
 func ConnectTimeout(value *types.Duration) Instance {
 	return newDurationOption("connect_timeout", value)
 }
@@ -251,4 +243,8 @@ func ProvCert(value string) Instance {
 //
 func CallCredentials(value string) Instance {
 	return newOption("call_credentials", value)
+}
+
+func DiscoveryHost(value string) Instance {
+	return newOption("discovery_host", value)
 }

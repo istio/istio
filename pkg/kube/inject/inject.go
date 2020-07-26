@@ -618,7 +618,8 @@ func parseTemplate(tmplStr string, funcMap map[string]interface{}, data SidecarT
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer) error {
+// nolint: lll
+func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string)) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
 		raw, err := reader.Read()
@@ -636,7 +637,7 @@ func IntoResourceFile(sidecarTemplate string, valuesConfig string, revision stri
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
+			outObject, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -677,7 +678,8 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 }
 
 // IntoObject convert the incoming resources into Injected resources
-func IntoObject(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object) (interface{}, error) {
+// nolint: lll
+func IntoObject(sidecarTemplate string, valuesConfig string, revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string)) (interface{}, error) {
 	out := in.DeepCopyObject()
 
 	var deploymentMetadata *metav1.ObjectMeta
@@ -698,7 +700,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 				return nil, err
 			}
 
-			r, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj) // nolint: vetshadow
+			r, err := IntoObject(sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -763,8 +765,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	// affect the network provider within the cluster causing
 	// additional pod failures.
 	if podSpec.HostNetwork {
-		_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has host networking enabled\n",
-			name)
+		warningHandler(fmt.Sprintf("===> Skipping injection because %q has host networking enabled\n",
+			name))
 		return out, nil
 	}
 
@@ -772,8 +774,8 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	if len(podSpec.Containers) > 1 {
 		for _, c := range podSpec.Containers {
 			if c.Name == ProxyContainerName {
-				_, _ = fmt.Fprintf(os.Stderr, "Skipping injection because %q has injected %q sidecar already\n",
-					name, ProxyContainerName)
+				warningHandler(fmt.Sprintf("===> Skipping injection because %q has injected %q sidecar already\n",
+					name, ProxyContainerName))
 				return out, nil
 			}
 		}

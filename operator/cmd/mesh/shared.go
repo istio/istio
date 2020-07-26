@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package mesh contains types and functions that are used across the full
-// set of mixer commands.
+// Package mesh contains types and functions.
 package mesh
 
 import (
@@ -189,10 +188,10 @@ type applyOptions struct {
 }
 
 func applyManifest(restConfig *rest.Config, client client.Client, manifestStr string,
-	componentName name.ComponentName, opts *applyOptions, l clog.Logger) error {
+	componentName name.ComponentName, opts *applyOptions, iop *v1alpha1.IstioOperator, l clog.Logger) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
-	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, nil, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
+	reconciler, err := helmreconciler.NewHelmReconciler(client, restConfig, iop, &helmreconciler.Options{DryRun: opts.DryRun, Log: l})
 	if err != nil {
 		l.LogAndError(err)
 		return err
@@ -255,11 +254,6 @@ func createNamespace(cs kubernetes.Interface, namespace string) error {
 		return fmt.Errorf("failed to create namespace %v: %v", namespace, err)
 	}
 	return nil
-}
-
-// deleteNamespace deletes namespace using the given k8s client.
-func deleteNamespace(cs kubernetes.Interface, namespace string) error {
-	return cs.CoreV1().Namespaces().Delete(context.TODO(), namespace, v12.DeleteOptions{})
 }
 
 // saveIOPToCluster saves the state in an IOP CR in the cluster.

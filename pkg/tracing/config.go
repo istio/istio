@@ -62,7 +62,6 @@ import (
 )
 
 /* TODO:
- *   - Support only tracing when trace context information is already present (mixer)
  *   - Support tracing for some percentage of requests (pilot)
  */
 

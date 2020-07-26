@@ -131,7 +131,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return fmt.Errorf("failed to create reconciler: %v", err)
 		}
-		objectsList, tp, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge)
+		objectsList, tp, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge, "")
 		if err != nil {
 			return err
 		}

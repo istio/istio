@@ -35,7 +35,6 @@ import (
 )
 
 const (
-	expMixerSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"
 	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
@@ -170,7 +169,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -193,7 +193,8 @@ func TestBuildInboundFilterChain(t *testing.T) {
 											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
-													ApiType: core.ApiConfigSource_GRPC,
+													ApiType:             core.ApiConfigSource_GRPC,
+													TransportApiVersion: core.ApiVersion_V3,
 													GrpcServices: []*core.GrpcService{
 														{
 															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -286,14 +287,6 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}
 		})
-	}
-}
-
-func TestGetMixerSAN(t *testing.T) {
-	spiffe.SetTrustDomain("cluster.local")
-	mixerSANs := GetSAN("istio-system", MixerSvcAccName)
-	if strings.Compare(mixerSANs, expMixerSAN) != 0 {
-		t.Errorf("GetMixerSAN() => expected %#v but got %#v", expMixerSAN, mixerSANs[0])
 	}
 }
 

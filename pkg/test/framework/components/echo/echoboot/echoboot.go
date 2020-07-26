@@ -15,23 +15,12 @@
 package echoboot
 
 import (
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // NewBuilder for Echo Instances.
-func NewBuilder(ctx resource.Context) (b echo.Builder, err error) {
-	return kube.NewBuilder(ctx), nil
-}
-
-// NewBuilder for Echo Instances.
-func NewBuilderOrFail(t test.Failer, ctx resource.Context) echo.Builder {
-	t.Helper()
-	b, err := NewBuilder(ctx)
-	if err != nil {
-		t.Fatalf("echo.NewBuilderOrFail: %v", err)
-	}
-	return b
+func NewBuilder(ctx resource.Context) echo.Builder {
+	return kube.NewBuilder(ctx)
 }
