@@ -108,10 +108,12 @@ func (cl *Client) RegisterEventHandler(kind resource.GroupVersionKind, handler f
 
 // Start the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
+	t0 := time.Now()
 	scope.Infoa("Starting Pilot K8S CRD controller")
 
 	go func() {
 		cache.WaitForCacheSync(stop, cl.HasSynced)
+		scope.Infoa("Pilot K8S CRD controller synced ", time.Since(t0))
 		cl.queue.Run(stop)
 	}()
 

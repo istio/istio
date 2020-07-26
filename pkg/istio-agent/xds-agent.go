@@ -124,6 +124,8 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	cfg := &adsc.Config{
 		XDSSAN:          discHost,
 		ResponseHandler: sa.proxyGen,
+		XDSRootCAFile:   sa.FindRootCAForXDS(),
+		Watch:           []string{"mcp", "envoy"},
 	}
 
 	// Set Secrets and JWTPath if the default ControlPlaneAuthPolicy is MUTUAL_TLS
@@ -143,11 +145,9 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	ads.Store = sa.xdsServer.MemoryConfigStore
 	ads.Registry = sa.xdsServer.DiscoveryServer.MemRegistry
 
-	// Send requests for MCP configs, for caching/debugging.
-	ads.WatchConfig()
-
-	// Send requests for normal envoy configs
-	ads.Watch()
+	go sa.xdsServer.DiscoveryServer.Start(sa.stopCh)
+	ads.Start()
+	sa.ADSC = ads
 
 	sa.proxyGen.AddClient(ads)
 
