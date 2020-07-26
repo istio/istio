@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"e08631b4e66c43820d5cd81e1dda38bc2358f700e66513986917e8bab7d82747","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"3bc68d1f27d8b6b9bf1cb3e9904f5d5f8c2ecab1c93d933fbb3d0db76fae2633","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: 80,90
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -125,11 +125,7 @@ spec:
                 ,{"name":"http","containerPort":90}
             ]
         - name: ISTIO_META_APP_CONTAINERS
-          value: |-
-            [
-                hello,
-                world
-            ]
+          value: hello,world
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_POD_NAME
