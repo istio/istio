@@ -141,6 +141,7 @@ var (
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
 	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
+	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -257,6 +258,7 @@ var (
 				ClusterID:          clusterIDVar.Get(),
 				FileMountedCerts:   fileMountedCertsEnv,
 				CAEndpoint:         caEndpointEnv,
+				UseTokenForCSR:     useTokenForCSREnv,
 			}
 			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 

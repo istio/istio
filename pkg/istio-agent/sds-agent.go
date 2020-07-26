@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 
@@ -104,9 +103,6 @@ type Agent struct {
 
 	// If set, this is the Citadel client, used to retrieve certificates.
 	CitadelClient security.Client
-
-	// FileMountedCerts indicates whether the proxy is using file mounted certs.
-	FileMountedCerts bool
 
 	// Expected SAN for the discovery address, for tests.
 	XDSSAN string
@@ -214,11 +210,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		sa.secOpts.TLSEnabled = false
 	}
 	// If proxy is using file mounted certs, JWT token is not needed.
-	if sa.secOpts.FileMountedCerts {
-		sa.secOpts.UseLocalJWT = false
-	} else {
-		sa.secOpts.UseLocalJWT = sa.CertsPath == "" // true if we don't have a key.pem
-	}
+	sa.secOpts.UseLocalJWT = !sa.secOpts.FileMountedCerts
 
 	// Init the XDS proxy part of the agent.
 	sa.initXDS()
@@ -323,9 +315,6 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 	var err error
 
-	if sa.secOpts.TokenExchangers == nil {
-		sa.secOpts.TokenExchangers = sds.NewPlugins(sa.secOpts.PluginNames)
-	}
 	workloadSecretCache = cache.NewSecretCache(fetcher, sds.NotifyProxy, sa.secOpts)
 
 	// If proxy is using file mounted certs, we do not have to connect to CA.
@@ -336,8 +325,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
 	log.Infof("sa.serverOptions.CAEndpoint == %v", sa.secOpts.CAEndpoint)
-	if (sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com")) &&
-		stsclient.GKEClusterURL != "" {
+	if sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com") {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
@@ -446,6 +434,12 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		if err == nil {
 			sa.CitadelClient = caClient
 		}
+	}
+
+	// This has to be called after sa.secOpts.PluginNames is set. Otherwise,
+	// TokenExchanger will contain an empty plugin, causing cert provisioning to fail.
+	if sa.secOpts.TokenExchangers == nil {
+		sa.secOpts.TokenExchangers = sds.NewPlugins(sa.secOpts.PluginNames)
 	}
 
 	if err != nil {

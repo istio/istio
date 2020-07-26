@@ -195,6 +195,10 @@ type Options struct {
 	// For example exchange long lived refresh with access tokens.
 	// Used by the secret fetcher when signing CSRs.
 	TokenExchangers []TokenExchanger
+
+	// CSR requires a token. This is a property of the CA.
+	// The default value is false because Istiod does not require a token in CSR.
+	UseTokenForCSR bool
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
