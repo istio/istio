@@ -15,6 +15,8 @@
 package virtualservice
 
 import (
+	"fmt"
+
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
@@ -54,7 +56,8 @@ func (c *ConflictingMeshGatewayHostsAnalyzer) Analyze(ctx analysis.Context) {
 
 				m := msg.NewConflictingMeshGatewayVirtualServiceHosts(vsList[i], vsNames, string(scopedFqdn))
 
-				if line, ok := util.ErrorLineForMetaDataName(vsList[i]); ok {
+				pathKeyForLine := fmt.Sprintf(util.MetadataName)
+				if line, ok := util.ErrorLine(vsList[i], pathKeyForLine); ok {
 					m.Line = line
 				}
 

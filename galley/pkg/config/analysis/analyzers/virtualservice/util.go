@@ -19,18 +19,18 @@ import (
 
 // Destination is created because the index of the Destination along with the Destination object are needed
 // for calculating the Destination path in the YAML resource
-type Destination struct {
+type AnnotatedDestination struct {
 	RouteRule        string
 	ServiceIndex     int
 	DestinationIndex int
 	Destination      *v1alpha3.Destination
 }
 
-func getRouteDestinations(vs *v1alpha3.VirtualService) []*Destination {
-	destinations := make([]*Destination, 0)
+func getRouteDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestination {
+	destinations := make([]*AnnotatedDestination, 0)
 	for i, r := range vs.GetTcp() {
 		for j, rd := range r.GetRoute() {
-			destinations = append(destinations, &Destination{
+			destinations = append(destinations, &AnnotatedDestination{
 				RouteRule:        "tcp",
 				ServiceIndex:     i,
 				DestinationIndex: j,
@@ -40,7 +40,7 @@ func getRouteDestinations(vs *v1alpha3.VirtualService) []*Destination {
 	}
 	for i, r := range vs.GetTls() {
 		for j, rd := range r.GetRoute() {
-			destinations = append(destinations, &Destination{
+			destinations = append(destinations, &AnnotatedDestination{
 				RouteRule:        "tls",
 				ServiceIndex:     i,
 				DestinationIndex: j,
@@ -50,7 +50,7 @@ func getRouteDestinations(vs *v1alpha3.VirtualService) []*Destination {
 	}
 	for i, r := range vs.GetHttp() {
 		for j, rd := range r.GetRoute() {
-			destinations = append(destinations, &Destination{
+			destinations = append(destinations, &AnnotatedDestination{
 				RouteRule:        "http",
 				ServiceIndex:     i,
 				DestinationIndex: j,
@@ -62,12 +62,13 @@ func getRouteDestinations(vs *v1alpha3.VirtualService) []*Destination {
 	return destinations
 }
 
-func getHTTPMirrorDestinations(vs *v1alpha3.VirtualService) []*Destination {
-	var destinations []*Destination
+func getHTTPMirrorDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestination {
+	var destinations []*AnnotatedDestination
 
 	for i, r := range vs.GetHttp() {
 		if m := r.GetMirror(); m != nil {
-			destinations = append(destinations, &Destination{
+			destinations = append(destinations, &AnnotatedDestination{
+				RouteRule:    "http.mirror",
 				ServiceIndex: i,
 				Destination:  m,
 			})

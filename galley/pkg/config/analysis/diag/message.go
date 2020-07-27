@@ -141,12 +141,13 @@ func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message
 
 // ReplaceLine replaces the line number from the input String method of the Reference object to the line from the Message object
 func (m Message) ReplaceLine(l string) string {
-	loc := l
-	_, err := strconv.Atoi(string(loc[len(loc)-1]))
-	for err == nil {
-		loc = loc[:len(loc)-1]
-		_, err = strconv.Atoi(string(loc[len(loc)-1]))
+	colonSep := strings.Split(l, ":")
+	if len(colonSep) < 2 {
+		return l
 	}
-	loc += fmt.Sprintf("%d", m.Line)
-	return loc
+	_, err := strconv.Atoi(strings.TrimSpace(colonSep[len(colonSep)-1]))
+	if err == nil {
+		colonSep[len(colonSep)-1] = fmt.Sprintf("%d", m.Line)
+	}
+	return strings.Join(colonSep, ":")
 }

@@ -129,7 +129,6 @@ func (r *YAMLReader) Read() ([]byte, int, error) {
 			}
 			return nil, startLine, err
 		}
-
 		buffer.Write(line)
 	}
 }

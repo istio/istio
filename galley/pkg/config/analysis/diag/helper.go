@@ -39,7 +39,7 @@ func (o testOrigin) Reference() resource.Reference {
 	return o.ref
 }
 
-func (o testOrigin) GetFieldMap() map[string]int {
+func (o testOrigin) FieldMap() map[string]int {
 	return o.fieldMap
 }
 

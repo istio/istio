@@ -15,6 +15,8 @@
 package gateway
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -56,10 +58,12 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 		// If we can't find a namespace for the gateway, it's because there's no matching selector. Exit early with a different message.
 		if gwNs == "" {
 
-			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
 			gwSelector := labels.SelectorFromSet(gw.Selector)
+			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
 
-			if line, ok := util.ErrorLineForGatewaySelector(r, gwSelector); ok {
+			gwSelectorLabel := util.FindLabelForSelector(gwSelector)
+			pathKeyForLine := fmt.Sprintf(util.GatewaySelector, gwSelectorLabel)
+			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 				m.Line = line
 			}
 
@@ -81,7 +85,8 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
 
-				if line, ok := util.ErrorLineForCredentialName(r, i); ok {
+				pathKeyForLine := fmt.Sprintf(util.CredentialName, i)
+				if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 					m.Line = line
 				}
 

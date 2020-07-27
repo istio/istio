@@ -14,6 +14,8 @@
 package deployment
 
 import (
+	"fmt"
+
 	apps_v1 "k8s.io/api/apps/v1"
 	core_v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
@@ -88,7 +90,8 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 			}
 			m := msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames)
 
-			if line, ok := util.ErrorLineForMetaDataName(r); ok {
+			pathKeyForLine := fmt.Sprintf(util.MetadataName)
+			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 				m.Line = line
 			}
 

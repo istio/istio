@@ -386,17 +386,30 @@ func removeEntryOrigins(resources []*resource.Instance) []*resource.Instance {
 }
 
 func TestBuildFieldPathMap(t *testing.T) {
-	yamlResource := "test: str\nmap:\n  key: value\n  array: [a, b, c, d, e]\n  emptyMap: {}\n  int: 1"
+
+	yamlResource := map[string]interface{}{
+		"key":    "value",
+		"array":  []string{"a", "b", "c", "d", "e"},
+		"number": 1,
+		"sliceMap": []map[string]string{
+			{"a": "1"}, {"b": "2"},
+		},
+	}
+
 	g := NewGomegaWithT(t)
+
+	yamlMarshal, err := yamlv3.Marshal(&yamlResource)
+	g.Expect(err).To(BeNil())
+
 	result := make(map[string]int)
 
 	yamlNode := yamlv3.Node{}
 
-	_ = yamlv3.Unmarshal([]byte(yamlResource), &yamlNode)
+	err = yamlv3.Unmarshal(yamlMarshal, &yamlNode)
+	g.Expect(err).To(BeNil())
 
 	BuildFieldPathMap(yamlNode.Content[0], 1, "", result)
 
-	g.Expect(fmt.Sprintf("%v", result)).To(Equal("map[{.map.array[0]}:4 {.map.array[1]}:4 " +
-		"{.map.array[2]}:4 {.map.array[3]}:4 " +
-		"{.map.array[4]}:4 {.map.emptyMap}:5 {.map.int}:6 {.map.key}:3 {.test}:1]"))
+	g.Expect(fmt.Sprintf("%v", result)).To(Equal("map[{.array[0]}:2 {.array[1]}:3 {.array[2]}:4 " +
+		"{.array[3]}:5 {.array[4]}:6 {.key}:7 {.number}:8 {.sliceMap[0].a}:10 {.sliceMap[1].b}:11]"))
 }

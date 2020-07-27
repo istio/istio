@@ -39,7 +39,7 @@ func ToResource(object metav1.Object, schema collection.Schema, item proto.Messa
 			Kind:       schema.Resource().Kind(),
 			Version:    version,
 			Ref:        source,
-			FieldMap:   fieldMap,
+			FieldsMap:  fieldMap,
 		}
 	}
 

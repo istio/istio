@@ -15,6 +15,8 @@
 package gateway
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
@@ -99,7 +101,9 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	if gwSelectorMatches == 0 {
 		m := msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String())
 
-		if line, ok := util.ErrorLineForGatewaySelector(r, gwSelector); ok {
+		gwSelectorLabel := util.FindLabelForSelector(gwSelector)
+		pathKeyForLine := fmt.Sprintf(util.GatewaySelector, gwSelectorLabel)
+		if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 			m.Line = line
 		}
 
@@ -114,7 +118,9 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 			if !ok {
 				m := msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number))
 
-				if line, ok := util.ErrorLineForGatewaySelector(r, gwSelector); ok {
+				gwSelectorLabel := util.FindLabelForSelector(gwSelector)
+				pathKeyForLine := fmt.Sprintf(util.GatewaySelector, gwSelectorLabel)
+				if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 					m.Line = line
 				}
 

@@ -15,6 +15,7 @@
 package virtualservice
 
 import (
+	"fmt"
 	"regexp"
 
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
@@ -58,30 +59,32 @@ func (a *RegexAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis
 	for i, route := range vs.GetHttp() {
 		for j, m := range route.GetMatch() {
 
-			pathInfo := []interface{}{i, j}
-
-			analyzeStringMatch(r, m.GetUri(), ctx, "uri", pathInfo...)
-			analyzeStringMatch(r, m.GetScheme(), ctx, "scheme", pathInfo...)
-			analyzeStringMatch(r, m.GetMethod(), ctx, "method", pathInfo...)
-			analyzeStringMatch(r, m.GetAuthority(), ctx, "authority", pathInfo...)
+			analyzeStringMatch(r, m.GetUri(), ctx, "uri",
+				fmt.Sprintf(util.URISchemeMethodAuthorityRegexMatch, i, j, "uri"))
+			analyzeStringMatch(r, m.GetScheme(), ctx, "scheme",
+				fmt.Sprintf(util.URISchemeMethodAuthorityRegexMatch, i, j, "scheme"))
+			analyzeStringMatch(r, m.GetMethod(), ctx, "method",
+				fmt.Sprintf(util.URISchemeMethodAuthorityRegexMatch, i, j, "method"))
+			analyzeStringMatch(r, m.GetAuthority(), ctx, "authority",
+				fmt.Sprintf(util.URISchemeMethodAuthorityRegexMatch, i, j, "authority"))
 			for key, h := range m.GetHeaders() {
-				pathInfo := append(pathInfo, key)
-				analyzeStringMatch(r, h, ctx, "headers", pathInfo...)
+				analyzeStringMatch(r, h, ctx, "headers",
+					fmt.Sprintf(util.HeaderAndQueryParamsRegexMatch, i, j, "headers", key))
 			}
 			for key, qp := range m.GetQueryParams() {
-				pathInfo := append(pathInfo, key)
-				analyzeStringMatch(r, qp, ctx, "queryParams", pathInfo...)
+				analyzeStringMatch(r, qp, ctx, "queryParams",
+					fmt.Sprintf(util.HeaderAndQueryParamsRegexMatch, i, j, "queryParams", key))
 			}
 			// We don't validate withoutHeaders, because they are undocumented
 		}
 		for j, origin := range route.GetCorsPolicy().GetAllowOrigins() {
-			pathInfo := []interface{}{i, j}
-			analyzeStringMatch(r, origin, ctx, "corsPolicy.allowOrigins", pathInfo...)
+			analyzeStringMatch(r, origin, ctx, "corsPolicy.allowOrigins",
+				fmt.Sprintf(util.AllowOriginsRegexMatch, i, j))
 		}
 	}
 }
 
-func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx analysis.Context, where string, p ...interface{}) {
+func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx analysis.Context, where string, pathKeyForLine string) {
 	re := sm.GetRegex()
 	if re == "" {
 		return
@@ -92,29 +95,10 @@ func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx anal
 		return
 	}
 
-	// Get line number for different match field
-	var line int
-	var ok bool
-	switch where {
-	case "corsPolicy.allowOrigins":
-		line, ok = util.ErrorLineForHTTPRegexAllowOrigins(r, p[0].(int), p[1].(int))
-	case "queryParams":
-		line, ok = util.ErrorLineForHTTPRegexHeaderAndQueryParams(r, p[0].(int), p[1].(int), where, p[2].(string))
-	case "headers":
-		line, ok = util.ErrorLineForHTTPRegexHeaderAndQueryParams(r, p[0].(int), p[1].(int), where, p[2].(string))
-	case "uri":
-		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
-	case "scheme":
-		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
-	case "method":
-		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
-	case "authority":
-		line, ok = util.ErrorLineForHTTPRegexURISchemeMethodAuthority(r, p[0].(int), p[1].(int), where)
-	}
-
 	m := msg.NewInvalidRegexp(r, where, re, err.Error())
 
-	if ok {
+	// Get line number for different match field
+	if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 		m.Line = line
 	}
 

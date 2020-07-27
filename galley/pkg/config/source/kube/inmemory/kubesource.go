@@ -327,43 +327,42 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 }
 
 // BuildFieldPathMap builds the flat map for each field of the YAML resource
-func BuildFieldPathMap(yamlElementNode *yamlv3.Node, startLineNum int, curPath string, fieldPathMap map[string]int) {
+func BuildFieldPathMap(yamlNode *yamlv3.Node, startLineNum int, curPath string, fieldPathMap map[string]int) {
 	// If no content in the node, terminate the DFS search
-	if len(yamlElementNode.Content) == 0 {
+	if len(yamlNode.Content) == 0 {
 		return
 	}
 
-	NodeContent := yamlElementNode.Content
+	nodeContent := yamlNode.Content
 	// Iterate content by a step of 2, because in the content array the value is in the key's next index position
-	for i := 0; i < len(NodeContent)-1; i += 2 {
+	for i := 0; i < len(nodeContent)-1; i += 2 {
 		// Two condition, i + 1 positions have no content, which means they have the format like "key: value", then build the map
 		// Or i + 1 has contents, which means "key:\n  value...", then perform one more DFS search
-		keyNode := NodeContent[i]
-		valueNode := NodeContent[i+1]
-		pathKeyForMap := curPath + "." + keyNode.Value
+		keyNode := nodeContent[i]
+		valueNode := nodeContent[i+1]
+		pathKeyForMap := fmt.Sprintf("%s.%s", curPath, keyNode.Value)
 
 		switch {
-		case len(valueNode.Content) == 0:
+		case valueNode.Kind == yamlv3.ScalarNode:
 			// Can build map because the value node has no content anymore
 			// minus one because startLineNum starts at line 1, and yamlv3.Node.line also starts at line 1
-			fieldPathMap["{"+pathKeyForMap+"}"] = valueNode.Line + startLineNum - 1
+			fieldPathMap[fmt.Sprintf("{%s}", pathKeyForMap)] = valueNode.Line + startLineNum - 1
 
-		case valueNode.Tag == "!!seq":
+		case valueNode.Kind == yamlv3.SequenceNode:
 			j := 0
 			for j < len(valueNode.Content) {
-				pathWithIndex := pathKeyForMap + "[" + fmt.Sprintf("%d", j) + "]"
+				pathWithIndex := fmt.Sprintf("%s[%d]", pathKeyForMap, j)
 
 				// Array with values or array with maps
-				if len(valueNode.Content[j].Content) == 0 {
-					fieldPathMap["{"+pathWithIndex+"}"] = valueNode.Content[j].Line + startLineNum - 1
+				if valueNode.Content[j].Kind == yamlv3.ScalarNode {
+					fieldPathMap[fmt.Sprintf("{%s}", pathWithIndex)] = valueNode.Content[j].Line + startLineNum - 1
 				} else {
 					BuildFieldPathMap(valueNode.Content[j], startLineNum, pathWithIndex, fieldPathMap)
 				}
-
 				j++
 			}
 
-		case valueNode.Tag == "!!map":
+		case valueNode.Kind == yamlv3.MappingNode:
 			BuildFieldPathMap(valueNode, startLineNum, pathKeyForMap, fieldPathMap)
 		}
 	}

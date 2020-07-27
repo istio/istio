@@ -14,6 +14,8 @@
 package sidecar
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -87,7 +89,9 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		if !foundPod {
 			m := msg.NewReferencedResourceNotFound(rs, "selector", sel.String())
 
-			if line, ok := util.ErrorLineForWorkLoadSelector(rs, sel); ok {
+			selectorLabel := util.FindLabelForSelector(sel)
+			pathKeyForLine := fmt.Sprintf(util.WorkloakSelector, selectorLabel)
+			if line, ok := util.ErrorLine(rs, pathKeyForLine); ok {
 				m.Line = line
 			}
 
@@ -109,7 +113,8 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			m := msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
 				p.Namespace.String(), p.Name.String())
 
-			if line, ok := util.ErrorLineForMetaDataName(rs); ok {
+			pathKeyForLine := fmt.Sprintf(util.MetadataName)
+			if line, ok := util.ErrorLine(rs, pathKeyForLine); ok {
 				m.Line = line
 			}
 

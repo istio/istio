@@ -15,6 +15,7 @@
 package authz
 
 import (
+	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -142,11 +143,12 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 
 	for i, rule := range ap.Rules {
 		for j, from := range rule.From {
-			for k, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
+			for k, ns := range from.Source.Namespaces {
 				if !matchNamespace(ns, c) {
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
 
-					if line, ok := util.ErrorLineForAuthorizationPolicyNameSpace(r, i, j, k); ok {
+					pathKeyForLine := fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)
+					if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 						m.Line = line
 					}
 
@@ -159,7 +161,8 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 				if !matchNamespace(ns, c) {
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
 
-					if line, ok := util.ErrorLineForAuthorizationPolicyNameSpace(r, i, j, k); ok {
+					pathKeyForLine := fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)
+					if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 						m.Line = line
 					}
 

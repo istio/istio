@@ -15,7 +15,6 @@
 package util
 
 import (
-	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
@@ -23,119 +22,85 @@ import (
 	"istio.io/istio/pkg/config/resource"
 )
 
-// ErrorLineForHostInDestination returns the line number of the host in destination
-func ErrorLineForHostInDestination(r *resource.Instance, routeRule string, serviceIndex, destinationIndex int) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.%s[%d].route[%d].destination.host}", routeRule, serviceIndex, destinationIndex)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+const (
+	// Path templates for different fields with different paths, may edited by future developers if not covered in this list
+	// Use the path template to find the exact line number for the field
 
-// ErrorLineForHostInHTTPMirror returns the line number of the host in destination
-func ErrorLineForHostInHTTPMirror(r *resource.Instance, routeRuleIndex int) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.http[%d].mirror.host}", routeRuleIndex)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for host in VirtualService.
+	// Required parameters: route rule, route rule index, route index.
+	DestinationHost = "{.spec.%s[%d].route[%d].destination.host}"
 
-// ErrorLineForVSGateway returns the path of the gateway in VirtualService
-func ErrorLineForVSGateway(r *resource.Instance, gatewayIndex int) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.gateways[%d]}", gatewayIndex)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for mirror host in VirtualService.
+	// Required parameters: http index.
+	MirrorHost = "{.spec.http[%d].mirror.host}"
 
-// ErrorLineForHTTPRegexURISchemeMethodAuthority returns the path of the regex match in HttpRoute
-func ErrorLineForHTTPRegexURISchemeMethodAuthority(r *resource.Instance, httpIndex, matchIndex int, where string) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.http[%d].match[%d].%s.regex}", httpIndex, matchIndex, where)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for VirtualService gateway.
+	// Required parameters: gateway index.
+	VSGateway = "{.spec.gateways[%d]}"
 
-// ErrorLineForHTTPRegexHeaderAndQueryParams returns the path of the regex match in HttpRoute
-func ErrorLineForHTTPRegexHeaderAndQueryParams(r *resource.Instance, httpIndex, matchIndex int, where, matchKey string) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.http[%d].match[%d].%s.%s.regex}", httpIndex, matchIndex, where, matchKey)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for regex match of uri, scheme, method and authority.
+	// Required parameters: http index, match index, where to match.
+	URISchemeMethodAuthorityRegexMatch = "{.spec.http[%d].match[%d].%s.regex}"
 
-// ErrorLineForHTTPRegexAllowOrigins returns the path of the regex match in HttpRoute
-func ErrorLineForHTTPRegexAllowOrigins(r *resource.Instance, httpIndex, allowOriginIndex int) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.http[%d].corsPolicy.allowOrigins[%d].regex}", httpIndex, allowOriginIndex)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for regex match of headers and queryParams.
+	// Required parameters: http index, match index, where to match, match key.
+	HeaderAndQueryParamsRegexMatch = "{.spec.http[%d].match[%d].%s.%s.regex}"
 
-// ErrorLineForGatewaySelector returns the line number of the gateway selector
-func ErrorLineForWorkLoadSelector(r *resource.Instance, workLoadSelector labels.Selector) (int, bool) {
-	selectorLabel := FindLabelForSelector(workLoadSelector)
-	pathKey := fmt.Sprintf("{.spec.workloadSelector.labels.%s}", selectorLabel)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for regex match of allowOrigins.
+	// Required parameters: http index, allowOrigins index.
+	AllowOriginsRegexMatch = "{.spec.http[%d].corsPolicy.allowOrigins[%d].regex}"
 
-// ErrorLineForFromRegistry returns the line number of fromRegistry in the mesh networks
-func ErrorLineForPortInService(r *resource.Instance, portIndex int) (int, bool) {
-	keyPath := fmt.Sprintf(".spec.ports[%d].port}", portIndex)
-	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
-}
+	// Path for workload selector.
+	// Required parameters: selector label.
+	WorkloakSelector = "{.spec.workloadSelector.labels.%s}"
 
-// ErrorLineForFromRegistry returns the line number of fromRegistry in the mesh networks
-func ErrorLineForFromRegistry(r *resource.Instance, networkName string, endPointIndex int) (int, bool) {
-	keyPath := fmt.Sprintf("{.networks.%s.endpoints[%d]}", networkName, endPointIndex)
-	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
-}
+	// Path for port from ports collections.
+	// Required parameters: port index.
+	PortInPorts = ".spec.ports[%d].port}"
 
-// ErrorLineForContainerImage returns the line number of the image in the container
-func ErrorLineForContainerImage(r *resource.Instance, containerIndex int) (int, bool) {
-	keyPath := fmt.Sprintf("{.spec.containers[%d].image}", containerIndex)
-	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
-}
+	// Path for fromRegistry in the mesh networks.
+	// Required parameters: network name, endPoint index.
+	FromRegistry = "{.networks.%s.endpoints[%d]}"
 
-// ErrorLineForMetaDataNameSpace returns the line number of the metadata.namespace
-func ErrorLineForMetaDataNameSpace(r *resource.Instance) (int, bool) {
-	keyPath := "{.metadata.namespace}"
-	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
-}
+	// Path for the image in the container.
+	// Required parameters: container index.
+	ImageInContainer = "{.spec.containers[%d].image}"
 
-// ErrorLineForMetaDataName returns the line number of the metadata.name
-func ErrorLineForMetaDataName(r *resource.Instance) (int, bool) {
-	keyPath := "{.metadata.name}"
-	return FindErrorLine(keyPath, r.Origin.GetFieldMap())
-}
+	// Path for namespace in metadata.
+	// Required parameters: none.
+	MetadataNamespace = "{.metadata.namespace}"
 
-// ErrorLineForAuthorizationPolicyNameSpace returns the line number of the namespaces for authorizationPolicy
-func ErrorLineForAuthorizationPolicyNameSpace(r *resource.Instance, ruleIndex, fromIndex, namespaceIndex int) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.rules[%d].from[%d].source.namespaces[%d]}", ruleIndex, fromIndex, namespaceIndex)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for name in metadata.
+	// Required parameters: none.
+	MetadataName = "{.metadata.name}"
 
-// FinedErrorLineNum returns the error line number with the annotation name and the field map from resource.Origin as the input
-func ErrorLineForAnnotation(r *resource.Instance, annotationName string) (int, bool) {
-	path := fmt.Sprintf("{.metadata.annotations.%s}", annotationName)
-	return FindErrorLine(path, r.Origin.GetFieldMap())
-}
+	// Path for namespace in authorizationPolicy.
+	// Required parameters: rule index, from index, namespace index.
+	AuthorizationPolicyNameSpace = "{.spec.rules[%d].from[%d].source.namespaces[%d]}"
 
-// ErrorLineForGatewaySelector returns the path of the gateway selector
-func ErrorLineForGatewaySelector(r *resource.Instance, gwSelector labels.Selector) (int, bool) {
-	selectorLabel := FindLabelForSelector(gwSelector)
-	pathKey := fmt.Sprintf("{.spec.selector.%s}", selectorLabel)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
-}
+	// Path for annotation.
+	// Required parameters: annotation name.
+	Annotation = "{.metadata.annotations.%s}"
 
-// ErrorLineForCredentialName returns the path of the gateway selector
-func ErrorLineForCredentialName(r *resource.Instance, serverIndex int) (int, bool) {
-	pathKey := fmt.Sprintf("{.spec.servers[%d].tls.credentialName}", serverIndex)
-	return FindErrorLine(pathKey, r.Origin.GetFieldMap())
+	// Path for selector in Gateway.
+	// Required parameters: selector label
+	GatewaySelector = "{.spec.selector.%s}"
+
+	// Path for credentialName.
+	// Required parameters: server index
+	CredentialName = "{.spec.servers[%d].tls.credentialName}"
+)
+
+func ErrorLine(r *resource.Instance, path string) (line int, found bool) {
+	return FindErrorLine(path, r.Origin.FieldMap())
 }
 
 // FindErrorLine returns the line number of the input key from the input map, and true if retrieving successfully,
-// else return -1 and false
+// else return 0 and false
 func FindErrorLine(key string, m map[string]int) (int, bool) {
-	var line int
-
-	// Check if the map exists
-	if m == nil {
-		return -1, false
-	}
-
-	// Check if the path key exists in the map
-	if v, ok := m[key]; ok {
-		line = v
-	} else {
-		return -1, false
+	line, ok := m[key]
+	if !ok {
+		return 0, false
 	}
 	return line, true
 }

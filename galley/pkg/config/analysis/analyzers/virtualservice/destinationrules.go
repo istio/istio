@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
-// DestinationRuleAnalyzer checks the Destination rules associated with each virtual service
+// DestinationRuleAnalyzer checks the destination rules associated with each virtual service
 type DestinationRuleAnalyzer struct{}
 
 var _ analysis.Analyzer = &DestinationRuleAnalyzer{}
@@ -35,7 +35,7 @@ var _ analysis.Analyzer = &DestinationRuleAnalyzer{}
 func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.DestinationRuleAnalyzer",
-		Description: "Checks the Destination rules associated with each virtual service",
+		Description: "Checks the destination rules associated with each virtual service",
 		Inputs: collection.Names{
 			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
@@ -60,15 +60,16 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	vs := r.Message.(*v1alpha3.VirtualService)
 	ns := r.Metadata.FullName.Namespace
 
-	for _, destination := range getRouteDestinations(vs) {
+	for _, annotatedDestination := range getRouteDestinations(vs) {
 
-		if !d.checkDestinationSubset(ns, destination.Destination, destHostsAndSubsets) {
+		if !d.checkDestinationSubset(ns, annotatedDestination.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
-				fmt.Sprintf("%s+%s", destination.Destination.GetHost(), destination.Destination.GetSubset()))
+				fmt.Sprintf("%s+%s", annotatedDestination.Destination.GetHost(), annotatedDestination.Destination.GetSubset()))
 
-			if line, ok := util.ErrorLineForHostInDestination(r, destination.RouteRule, destination.ServiceIndex,
-				destination.DestinationIndex); ok {
+			pathKeyForLine := fmt.Sprintf(util.DestinationHost, annotatedDestination.RouteRule, annotatedDestination.ServiceIndex,
+				annotatedDestination.DestinationIndex)
+			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 				m.Line = line
 			}
 
@@ -77,14 +78,15 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 	}
 
-	for _, destination := range getHTTPMirrorDestinations(vs) {
+	for _, annotatedDestination := range getHTTPMirrorDestinations(vs) {
 
-		if !d.checkDestinationSubset(ns, destination.Destination, destHostsAndSubsets) {
+		if !d.checkDestinationSubset(ns, annotatedDestination.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
-				fmt.Sprintf("%s+%s", destination.Destination.GetHost(), destination.Destination.GetSubset()))
+				fmt.Sprintf("%s+%s", annotatedDestination.Destination.GetHost(), annotatedDestination.Destination.GetSubset()))
 
-			if line, ok := util.ErrorLineForHostInHTTPMirror(r, destination.ServiceIndex); ok {
+			pathKeyForLine := fmt.Sprintf(util.MirrorHost, annotatedDestination.ServiceIndex)
+			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
 				m.Line = line
 			}
 
