@@ -135,7 +135,7 @@ dlv debug --headless --listen=:2345 --api-version=2 -- server
 ### Relationship between the CLI and controller
 
 The CLI and controller share the same API and codebase for generating manifests from the API. You can think of the
-controller as the CLI command `istioctl manifest apply` running in a loop in a pod in the cluster and using the config
+controller as the CLI command `istioctl install` running in a loop in a pod in the cluster and using the config
 from the in-cluster IstioOperator custom resource (CR).
 There are two major differences:
 
@@ -183,7 +183,7 @@ The following command generates the manifests and applies them in the correct de
 dependencies to have the needed CRDs available:
 
 ```bash
-istioctl manifest apply
+istioctl install
 ```
 
 #### Review the values of a configuration profile
@@ -449,7 +449,7 @@ the spec.
 
 The controller shares the same API as the operator CLI, so it's possible to install any of the above examples as a CR
 in the cluster in the istio-system namespace and the controller will react to it with the same outcome as running
-`istioctl manifest apply -f <path-to-custom-resource-file>`.
+`istioctl install -f <path-to-custom-resource-file>`.
 
 ## Architecture
 
