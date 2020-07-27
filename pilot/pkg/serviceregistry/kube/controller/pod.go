@@ -147,6 +147,7 @@ func (pc *PodCache) update(ip, key string) {
 		for ep := range endpointsToUpdate {
 			pc.endpointUpdate(ep)
 		}
+		endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 	}
 
 	pc.proxyUpdates(ip)
