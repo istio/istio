@@ -20,10 +20,15 @@ import (
 
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
+	"istio.io/pkg/log"
 )
 
-func NewCredFetcher(platform, trustdomain, jwtPath string) (security.CredFetcher, error) {
-	switch platform {
+var (
+	credlog = log.RegisterScope("cred", "Credential fetcher for istio agent", 0)
+)
+
+func NewCredFetcher(credtype, trustdomain, jwtPath string) (security.CredFetcher, error) {
+	switch credtype {
 	case security.K8S:
 		return plugin.CreateK8SPlugin(jwtPath), nil
 	case security.GCE:
@@ -31,6 +36,6 @@ func NewCredFetcher(platform, trustdomain, jwtPath string) (security.CredFetcher
 	case security.Mock: // for test only
 		return plugin.CreateMockPlugin(), nil
 	default:
-		return nil, fmt.Errorf("invalid platform %s", platform)
+		return nil, fmt.Errorf("invalid credential fetcher type %s", credtype)
 	}
 }

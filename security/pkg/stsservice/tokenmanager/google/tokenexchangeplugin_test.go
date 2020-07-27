@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
@@ -143,7 +144,11 @@ type testSetUp struct {
 
 // setUpTest sets up token manager, authorization server.
 func setUpTest(t *testing.T, setup testSetUp) (*Plugin, *mock.AuthorizationServer, string, string) {
-	tm, _ := CreateTokenManagerPlugin(security.K8S, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
+	tm, _ := CreateTokenManagerPlugin(credFetcher, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	ms.EnableDynamicAccessToken(setup.enableDynamicToken)
 	if err != nil {

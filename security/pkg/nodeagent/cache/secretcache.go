@@ -84,10 +84,6 @@ type k8sJwtPayload struct {
 	Sub string `json:"sub"`
 }
 
-type gceJwtPayload struct {
-	Email string `json:"email"`
-}
-
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
 	// GenerateSecret generates new secret and cache the secret.
@@ -589,7 +585,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) {
+			if sc.isTokenExpired(&secret) && sc.secOpts.UseTokenForCSR {
 				cacheLog.Infof("%s token expired, getting a new token", logPrefix)
 				t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
 				if err != nil {
@@ -846,11 +842,13 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
 	// otherwise just use sdsrequest.resourceName as csr host name.
-	csrHostName, err := constructCSRHostName(sc.configOptions.Platform, sc.configOptions.TrustDomain, token)
-	if err != nil {
-		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
+    csrHostName := connKey.ResourceName
+    if sc.secOpts.CredFetcher.GetType() == security.K8S {
+	    csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
+	    if err != nil {
+		    cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
 			" resource name: %s", logPrefix, err, connKey.ResourceName)
-		csrHostName = connKey.ResourceName
+		}
 	}
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
 	options := pkiutil.CertOptions{
@@ -989,7 +987,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.TokenExchangers[0]
-			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.Platform, sc.configOptions.TrustDomain, exchangedToken)
+			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.CredFetcher, sc.configOptions.TrustDomain, exchangedToken)
 		}
 		cacheLog.Debugf("%s", requestErrorString)
 

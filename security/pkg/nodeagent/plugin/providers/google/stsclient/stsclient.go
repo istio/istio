@@ -80,9 +80,9 @@ func NewPlugin() security.TokenExchanger {
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p Plugin) ExchangeToken(ctx context.Context, platform, trustDomain, k8sSAjwt string) (
+func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetcher, trustDomain, k8sSAjwt string) (
 	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
-	aud := constructAudience(platform, trustDomain)
+	aud := constructAudience(credFetcher, trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
 	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
@@ -118,15 +118,16 @@ func (p Plugin) ExchangeToken(ctx context.Context, platform, trustDomain, k8sSAj
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
 
-func constructAudience(platform, trustDomain string) string {
-	switch platform {
-	case security.GCE:
-		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GCEProvider)
-	case security.Mock:
-		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, mock.FakeGKEClusterURL)
-	default: // platform is "k8s" or not set
-		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
+func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
+	provider := credFetcher.GetIdentityProvider()
+	if provider == "" {
+	    if GKEClusterURL != "" {
+	        provider = GKEClusterURL
+	    } else {
+    	    provider = mock.FakeGKEClusterURL
+    	}
 	}
+	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }
 
 func constructFederatedTokenRequest(aud, jwt string) []byte {

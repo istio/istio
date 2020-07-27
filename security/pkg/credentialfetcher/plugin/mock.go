@@ -17,10 +17,14 @@ package plugin
 
 import (
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/security"
 )
 
 var (
 	mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
+
+	FakeGKEClusterURL = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
 )
 
 // The plugin object.
@@ -37,4 +41,14 @@ func CreateMockPlugin() *MockPlugin {
 func (p *MockPlugin) GetPlatformCredential() (string, error) {
 	mockcredLog.Debugf("mock plugin returns a constant token.")
 	return "test_token", nil
+}
+
+// GetType returns credential fetcher type.
+func (p *MockPlugin) GetType() string {
+    return security.Mock
+}
+
+// GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
+func (p *MockPlugin) GetIdentityProvider() string {
+    return FakeGKEClusterURL
 }

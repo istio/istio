@@ -22,45 +22,45 @@ import (
 
 func TestNewCredFetcher(t *testing.T) {
 	testCases := map[string]struct {
-		platform      string
+		fetcherType          string
 		trustdomain   string
 		jwtPath       string
 		expectedErr   string
 		expectedToken string
 	}{
 		"k8s test": {
-			platform:      security.K8S,
+			fetcherType:      security.K8S,
 			trustdomain:   "",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "",
 			expectedToken: "",
 		},
 		"gce test": {
-			platform:      security.GCE,
+			fetcherType:      security.GCE,
 			trustdomain:   "abc.svc.id.goog",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "", // No error when ID token auth is enabled.
 			expectedToken: "",
 		},
 		"mock test": {
-			platform:      security.Mock,
+			fetcherType:      security.Mock,
 			trustdomain:   "",
 			jwtPath:       "",
 			expectedErr:   "",
 			expectedToken: "test_token",
 		},
 		"invalid test": {
-			platform:      "foo",
+			fetcherType:      "foo",
 			trustdomain:   "",
 			jwtPath:       "",
-			expectedErr:   "invalid platform foo",
+			expectedErr:   "invalid credential fetcher type foo",
 			expectedToken: "",
 		},
 	}
 
 	for id, tc := range testCases {
 		cf, err := NewCredFetcher(
-			tc.platform, tc.trustdomain, tc.jwtPath)
+			tc.fetcherType, tc.trustdomain, tc.jwtPath)
 		if len(tc.expectedErr) > 0 {
 			if err == nil {
 				t.Errorf("%s: succeeded. Error expected: %v", id, err)
@@ -72,7 +72,7 @@ func TestNewCredFetcher(t *testing.T) {
 		} else if err != nil {
 			t.Errorf("%s: unexpected Error: %v", id, err)
 		}
-		if tc.platform == "mock" {
+		if tc.fetcherType == "mock" {
 			token, err := cf.GetPlatformCredential()
 			if err != nil {
 				t.Errorf("%s: unexpected error calling GetPlatformCredential: %v", id, err)

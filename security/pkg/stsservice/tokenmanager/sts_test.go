@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
@@ -122,8 +123,12 @@ func TestStsTokenSource(t *testing.T) {
 			}
 			ts := NewTokenSource(mock.FakeTrustDomain, st, "https://www.googleapis.com/auth/cloud-platform")
 
+        	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	        if err != nil {
+		        t.Fatalf("Failed to create credential fetcher: %v", err)
+	        }
 			// Override token manager in token source to use mock plugin
-			tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(security.K8S, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
+			tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(credFetcher, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
 			tokenManager := CreateTokenManager(GoogleTokenExchange,
 				Config{TrustDomain: mock.FakeTrustDomain})
 			tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
@@ -267,15 +272,19 @@ func setUpTestComponents(t *testing.T, setup testSetUp) (*stsServer.Server, *moc
 	if err != nil {
 		t.Fatalf("failed to start a mock server: %v", err)
 	}
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(security.K8S, mock.FakeTrustDomain, mock.FakeProjectNum,
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(credFetcher, mock.FakeTrustDomain, mock.FakeProjectNum,
 		mock.FakeGKEClusterURL, setup.enableCache)
 	federatedTokenTestingEndpoint := mockServer.URL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := mockServer.URL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
 	tokenExchangePlugin.SetEndpoints(federatedTokenTestingEndpoint, accessTokenTestingEndpoint)
 	// Create token manager
 	tokenManager := CreateTokenManager(GoogleTokenExchange,
-		Config{Platform: security.K8S, TrustDomain: mock.FakeTrustDomain})
+		Config{CredFetcher: credFetcher, TrustDomain: mock.FakeTrustDomain})
 	tokenManager.(*TokenManager).SetPlugin(tokenExchangePlugin)
 	// Create STS server
 	server, _ := stsServer.NewServer(stsServer.Config{LocalHostAddr: "127.0.0.1", LocalPort: 0}, tokenManager)

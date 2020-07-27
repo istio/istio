@@ -35,7 +35,7 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// Platforms
+	// Credential fetcher type
 	K8S  = "Kubernetes"
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock"
@@ -178,9 +178,6 @@ type Options struct {
 	// The default value is false because Istiod does not require a token in CSR.
 	UseTokenForCSR bool
 
-	// Platform where the agent runs
-	Platform string
-
 	// credential fetcher.
 	CredFetcher CredFetcher
 }
@@ -215,7 +212,7 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(context.Context, string /*platform*/, string, /*trustdomain*/
+	ExchangeToken(context.Context, CredFetcher /*Credential fetcher*/, string, /*trustdomain*/
 		string /*service account token*/) (string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
 }
 
@@ -251,4 +248,10 @@ type SecretItem struct {
 type CredFetcher interface {
 	// GetPlatformCredential fetches workload credential provided by the platform.
 	GetPlatformCredential() (string, error)
+
+	// GetType returns credential fetcher type. Supported types include "Kubernetes", "GoogleComputeEngine", "Mock".
+	GetType() string
+
+	// The name of the IdentityProvider that can authenticate the workload credential.
+	GetIdentityProvider() string
 }

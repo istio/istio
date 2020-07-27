@@ -21,17 +21,15 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/codes"
-
-	"istio.io/istio/pkg/security"
 )
 
 // TODO (liminw): We probably do not need to set identity in CSR, because CA should set identity
 // in CSR based on credential, not based on what's been requested in the CSR.
-func constructCSRHostName(platform, trustDomain, token string) (string, error) {
+func constructCSRHostName(trustDomain, token string) (string, error) {
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
 	strs := strings.Split(token, ".")
 	if len(strs) != 3 {
-		return "", fmt.Errorf("invalid jwt token on %s platform", platform)
+		return "", fmt.Errorf("invalid jwt token")
 	}
 
 	payload := strs[1]
@@ -40,24 +38,19 @@ func constructCSRHostName(platform, trustDomain, token string) (string, error) {
 	}
 	dp, err := base64.URLEncoding.DecodeString(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode payload from jwt token on %s platform: %v", platform, err)
-	}
-
-	var ns, sa string
-	switch platform {
-	case security.GCE:
-		ns, sa, err = extractGCEIdentity(dp, trustDomain)
-	default: // Platform is "k8s" or not set.
-		ns, sa, err = extractk8sIdentity(dp)
-	}
-
-	if err != nil {
-		return "", fmt.Errorf("cannot extract identity from token on %s platform: %v", platform, err)
+		return "", fmt.Errorf("failed to decode payload from jwt token: %v", err)
 	}
 
 	domain := "cluster.local"
 	if trustDomain != "" {
 		domain = trustDomain
+	}
+
+	var ns, sa string
+    ns, sa, err = extractk8sIdentity(dp)
+
+	if err != nil {
+		return "", fmt.Errorf("cannot extract identity from token: %v", err)
 	}
 
 	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
@@ -77,25 +70,6 @@ func extractk8sIdentity(payload []byte) (string, string, error) {
 	}
 	ns := ss[2] //namespace
 	sa := ss[3] //service account
-
-	return ns, sa, nil
-}
-
-// extractGCEIdentity extracts gce identity from token payload
-func extractGCEIdentity(payload []byte, trustDomain string) (string, string, error) {
-	var jp gceJwtPayload
-	if err := json.Unmarshal(payload, &jp); err != nil {
-		return "", "", fmt.Errorf("invalid gce jwt token: %v", err)
-	}
-	sa := jp.Email
-
-	// trust domain has the format of "projectid.svc.id.goog"
-	ss := strings.Split(trustDomain, ".")
-	if len(ss) != 4 {
-		return "", "", fmt.Errorf("invalid trust domain: %s", trustDomain)
-	}
-	// namespace is project id.
-	ns := ss[0]
 
 	return ns, sa, nil
 }

@@ -19,15 +19,22 @@ import (
 	"io/ioutil"
 
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/security"
 )
 
 var (
 	k8scredLog = log.RegisterScope("k8scred", "k8s credential fetcher for istio agent", 0)
+
 )
 
 // The plugin object.
 type K8SPlugin struct {
 	jwtPath string
+}
+
+type k8sJwtPayload struct {
+    Iss string `json:iss`
 }
 
 // CreateK8SPlugin creates a k8s credential fetcher plugin. Return the pointer to the created plugin.
@@ -46,4 +53,16 @@ func (p *K8SPlugin) GetPlatformCredential() (string, error) {
 		return "", err
 	}
 	return string(token), nil
+}
+
+// GetType returns credential fetcher type.
+func (p *K8SPlugin) GetType() string {
+    return security.K8S
+}
+
+// GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
+func (p *K8SPlugin) GetIdentityProvider() string {
+// For K8S JWT, Provider should be the API server. TODO (liminw): need to add a K8S Environment variable to pass it in.
+// For GKE, it is GKE_CLUSTER_URL.
+    return ""
 }

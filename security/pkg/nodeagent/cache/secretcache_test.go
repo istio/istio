@@ -800,7 +800,7 @@ func TestConstructCSRHostName(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		got, err := constructCSRHostName(security.K8S, c.trustDomain, c.token)
+		got, err := constructCSRHostName(c.trustDomain, c.token)
 		if err != nil {
 			if c.errFlag == false {
 				t.Errorf("constructCSRHostName no error, but got %v", err)

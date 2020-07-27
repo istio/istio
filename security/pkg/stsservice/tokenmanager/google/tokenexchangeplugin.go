@@ -58,7 +58,7 @@ var (
 // Plugin supports token exchange with Google OAuth 2.0 authorization server.
 type Plugin struct {
 	httpClient  *http.Client
-	platform    string
+	credFetcher security.CredFetcher
 	trustDomain string
 	// tokens is the cache for fetched tokens.
 	// map key is token type, map value is tokenInfo.
@@ -73,7 +73,7 @@ type Plugin struct {
 }
 
 // CreateTokenManagerPlugin creates a plugin that fetches token from a Google OAuth 2.0 authorization server.
-func CreateTokenManagerPlugin(platform, trustDomain, gcpProjectNumber, gkeClusterURL string, enableCache bool) (*Plugin, error) {
+func CreateTokenManagerPlugin(credFetcher security.CredFetcher, trustDomain, gcpProjectNumber, gkeClusterURL string, enableCache bool) (*Plugin, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		pluginLog.Errorf("Failed to get SystemCertPool: %v", err)
@@ -88,7 +88,7 @@ func CreateTokenManagerPlugin(platform, trustDomain, gcpProjectNumber, gkeCluste
 				},
 			},
 		},
-		platform:         platform,
+		credFetcher:      credFetcher,
 		trustDomain:      trustDomain,
 		gcpProjectNumber: gcpProjectNumber,
 		gkeClusterURL:    gkeClusterURL,
@@ -158,12 +158,11 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 
 // Construct the audience field for GetFederatedToken request.
 func (p *Plugin) constructAudience() string {
-	switch p.platform {
-	case security.GCE:
-		return fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, GCEProvider)
-	default: // platform is "k8s" or not set
-		return fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, p.gkeClusterURL)
+	provider := p.credFetcher.GetIdentityProvider()
+	if provider == "" {
+	    provider = p.gkeClusterURL
 	}
+	return fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, provider)
 }
 
 // constructFederatedTokenRequest returns an HTTP request for federated token.
