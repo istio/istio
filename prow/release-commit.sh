@@ -32,7 +32,7 @@ DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=758fdaefaf9c580da6ffcd1bb901c0061f55855b
+BUILDER_SHA=a2f042446ff8e33215760798edd3ad127912af72
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -75,6 +75,9 @@ ${DEPENDENCIES:-$(cat <<EOD
   tools:
     git: https://github.com/istio/tools
     branch: master
+  envoy:
+    git: https://github.com/istio/envoy
+    auto: proxy_workspace
 EOD
 )}
 dashboards:
