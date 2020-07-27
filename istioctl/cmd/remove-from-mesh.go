@@ -187,6 +187,10 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 			dep.Name, dep.Namespace)
 		res := dep.DeepCopy()
 		depName := strings.Join([]string{dep.Name, dep.Namespace}, ".")
+		if dep.Name == istioEgressgateway || dep.Name == istioIngressgateway {
+			fmt.Fprintf(writer, "failed to remove the deployment %q from the mesh. remove-from-mesh just removes the sidecar container. Skipping.\n", depName)
+			continue
+		}
 		sidecarInjected := false
 		podSpec := dep.Spec.Template.Spec.DeepCopy()
 		for _, c := range podSpec.Containers {

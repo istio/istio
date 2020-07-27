@@ -316,6 +316,10 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 			dep.Name, dep.Namespace)
+		if dep.Name == istioEgressgateway || dep.Name == istioIngressgateway {
+			fmt.Fprintf(writer, "failed to inject sidecar to deployment resource %s.%s. Skipping.\n", dep.Name, dep.Namespace)
+			continue
+		}
 		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep, warningHandler)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",

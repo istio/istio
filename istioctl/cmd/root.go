@@ -49,6 +49,12 @@ func (c CommandParseError) Error() string {
 const (
 	// Location to read istioctl defaults from
 	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
+
+	// istio egressgateway
+	istioEgressgateway = "istio-egressgateway"
+
+	// istio-ingressgateway
+	istioIngressgateway = "istio-ingressgateway"
 )
 
 var (
