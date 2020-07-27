@@ -188,7 +188,7 @@ func TestMessages_PrintLog(t *testing.T) {
 	))
 }
 
-func TestMessages_PrintJson(t *testing.T) {
+func TestMessages_PrintJSON(t *testing.T) {
 	g := NewWithT(t)
 
 	firstMsg := NewMessage(
@@ -203,7 +203,7 @@ func TestMessages_PrintJson(t *testing.T) {
 	)
 
 	msgs := Messages{firstMsg, secondMsg}
-	output, _ := msgs.Print(JsonFormat, false)
+	output, _ := msgs.Print(JSONFormat, false)
 
 	expectedOutput := `[
 	{
@@ -225,7 +225,7 @@ func TestMessages_PrintJson(t *testing.T) {
 	g.Expect(output).To(Equal(expectedOutput))
 }
 
-func TestMessages_PrintYaml(t *testing.T) {
+func TestMessages_PrintYAML(t *testing.T) {
 	g := NewWithT(t)
 
 	firstMsg := NewMessage(
@@ -240,7 +240,7 @@ func TestMessages_PrintYaml(t *testing.T) {
 	)
 
 	msgs := Messages{firstMsg, secondMsg}
-	output, _ := msgs.Print(YamlFormat, false)
+	output, _ := msgs.Print(YAMLFormat, false)
 
 	expectedOutput := `- code: B1
   documentation_url: https://istio.io/docs/reference/config/analysis/B1

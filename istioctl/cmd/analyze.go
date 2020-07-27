@@ -479,5 +479,5 @@ func analyzeTargetAsString() string {
 
 // TODO: Refactor output writer so that it is smart enough to know when to output what.
 func isJSONorYAMLOutputFormat() bool {
-	return msgOutputFormat == diag.JsonFormat || msgOutputFormat == diag.YamlFormat
+	return msgOutputFormat == diag.JSONFormat || msgOutputFormat == diag.YAMLFormat
 }

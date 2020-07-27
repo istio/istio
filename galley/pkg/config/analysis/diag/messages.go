@@ -25,12 +25,12 @@ import (
 
 const (
 	LogFormat  = "log"
-	JsonFormat = "json"
-	YamlFormat = "yaml"
+	JSONFormat = "json"
+	YAMLFormat = "yaml"
 )
 
 var (
-	MsgOutputFormatKeys = []string{LogFormat, JsonFormat, YamlFormat}
+	MsgOutputFormatKeys = []string{LogFormat, JSONFormat, YAMLFormat}
 	MsgOutputFormats    = make(map[string]bool)
 )
 
@@ -112,10 +112,10 @@ func (ms *Messages) Print(format string, colorize bool) (string, error) {
 	switch format {
 	case LogFormat:
 		return ms.PrintLog(colorize)
-	case JsonFormat:
-		return ms.PrintJson()
-	case YamlFormat:
-		return ms.PrintYaml()
+	case JSONFormat:
+		return ms.PrintJSON()
+	case YAMLFormat:
+		return ms.PrintYAML()
 	default:
 		return "", fmt.Errorf("invalid format, expected one of %v but got %q", MsgOutputFormatKeys, format)
 	}
@@ -130,14 +130,14 @@ func (ms *Messages) PrintLog(colorize bool) (string, error) {
 	return strings.Join(logOutput, "\n"), nil
 }
 
-// PrintJson outputs messages in the json format
-func (ms *Messages) PrintJson() (string, error) {
+// PrintJSON outputs messages in the json format
+func (ms *Messages) PrintJSON() (string, error) {
 	jsonOutput, err := json.MarshalIndent(*ms, "", "\t")
 	return string(jsonOutput), err
 }
 
-// PrintYaml outputs messages in the yaml format
-func (ms *Messages) PrintYaml() (string, error) {
+// PrintYAML outputs messages in the yaml format
+func (ms *Messages) PrintYAML() (string, error) {
 	yamlOutput, err := yaml.Marshal(*ms)
 	return string(yamlOutput), err
 }
