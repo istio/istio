@@ -190,6 +190,8 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		depName := strings.Join([]string{dep.Name, dep.Namespace}, ".")
 		sidecarInjected := false
 		podSpec := dep.Spec.Template.Spec.DeepCopy()
+		// The sidecar is always named 'istio-proxy', but if there is only one container by definition it
+		// isn't a proxy.  (For example, the ingressgateway pod container is named "istio-proxy", but it isn't a sidecar)
 		if len(podSpec.Containers) > 1 {
 			for _, c := range podSpec.Containers {
 				if c.Name == proxyContainerName {
