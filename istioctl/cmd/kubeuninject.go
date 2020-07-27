@@ -46,6 +46,9 @@ const (
 	jwtTokenVolumeName          = "istio-token"
 	proxyContainerName          = "istio-proxy"
 	sidecarAnnotationPrefix     = "sidecar.istio.io"
+	istioDataVolumeName         = "istio-data"
+	istioPodinfoVolumeName      = "istio-podinfo"
+	istiodCaSertVolumeName      = "istiod-ca-cert"
 )
 
 func validateUninjectFlags() error {

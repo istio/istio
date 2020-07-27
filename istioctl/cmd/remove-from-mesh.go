@@ -208,6 +208,9 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, istioDataVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, istioPodinfoVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, istiodCaSertVolumeName)
 		removeDNSConfig(podSpec.DNSConfig)
 		res.Spec.Template.Spec = *podSpec
 		// If we are in an auto-inject namespace, removing the sidecar isn't enough, we
