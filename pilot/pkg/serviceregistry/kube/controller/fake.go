@@ -140,6 +140,9 @@ type FakeController struct {
 }
 
 func (f *FakeController) ResyncEndpoints() error {
+	// TODO this workaround fixes a flake that indicates a real issue.
+	// TODO(cont) See https://github.com/istio/istio/issues/24117 and https://github.com/istio/istio/pull/24339
+
 	e, ok := f.endpoints.(*endpointsController)
 	if !ok {
 		return errors.New("cannot run ResyncEndpoints; EndpointsMode must be EndpointsOnly")
