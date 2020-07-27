@@ -17,7 +17,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 )
 
-// Destination is created because the index of the Destination along with the Destination object are needed
+// AnnotatedDestination is created because the index of the Destination along with the Destination object are needed
 // for calculating the Destination path in the YAML resource
 type AnnotatedDestination struct {
 	RouteRule        string

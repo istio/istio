@@ -91,6 +91,7 @@ const (
 	CredentialName = "{.spec.servers[%d].tls.credentialName}"
 )
 
+// ErrorLine returns the line number of the input path in the resource
 func ErrorLine(r *resource.Instance, path string) (line int, found bool) {
 	return FindErrorLine(path, r.Origin.FieldMap())
 }
