@@ -90,7 +90,7 @@ func doListenerListOperation(
 
 				// clone before append. Otherwise, subsequent operations on this listener will corrupt
 				// the master value stored in CP..
-				listeners = append(listeners, memoClone(cp.Value).(*xdslistener.Listener))
+				listeners = append(listeners, proto.Clone(cp.Value).(*xdslistener.Listener))
 			}
 		}
 	}
@@ -146,7 +146,7 @@ func doFilterChainListOperation(patchContext networking.EnvoyFilter_PatchContext
 				!listenerMatch(listener, cp) {
 				continue
 			}
-			listener.FilterChains = append(listener.FilterChains, memoClone(cp.Value).(*xdslistener.FilterChain))
+			listener.FilterChains = append(listener.FilterChains, proto.Clone(cp.Value).(*xdslistener.FilterChain))
 		}
 	}
 	if filterChainsRemoved {
@@ -201,11 +201,11 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 		}
 
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			fc.Filters = append(fc.Filters, memoClone(cp.Value).(*xdslistener.Filter))
+			fc.Filters = append(fc.Filters, proto.Clone(cp.Value).(*xdslistener.Filter))
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasNetworkFilterMatch(cp) {
-				fc.Filters = append(fc.Filters, memoClone(cp.Value).(*xdslistener.Filter))
+				fc.Filters = append(fc.Filters, proto.Clone(cp.Value).(*xdslistener.Filter))
 				continue
 			}
 			// find the matching filter first
@@ -221,7 +221,7 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 				continue
 			}
 
-			clonedVal := memoClone(cp.Value).(*xdslistener.Filter)
+			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
 			fc.Filters = append(fc.Filters, clonedVal)
 			if insertPosition < len(fc.Filters)-1 {
 				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
@@ -230,7 +230,7 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || cp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
 			// insert before/first without a filter match is same as insert in the beginning
 			if !hasNetworkFilterMatch(cp) {
-				fc.Filters = append([]*xdslistener.Filter{memoClone(cp.Value).(*xdslistener.Filter)}, fc.Filters...)
+				fc.Filters = append([]*xdslistener.Filter{proto.Clone(cp.Value).(*xdslistener.Filter)}, fc.Filters...)
 				continue
 			}
 			// find the matching filter first
@@ -252,7 +252,7 @@ func doNetworkFilterListOperation(patchContext networking.EnvoyFilter_PatchConte
 				insertPosition = 0
 			}
 
-			clonedVal := memoClone(cp.Value).(*xdslistener.Filter)
+			clonedVal := proto.Clone(cp.Value).(*xdslistener.Filter)
 			fc.Filters = append(fc.Filters, clonedVal)
 			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
 			fc.Filters[insertPosition] = clonedVal
@@ -362,11 +362,11 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 		}
 
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			hcm.HttpFilters = append(hcm.HttpFilters, memoClone(cp.Value).(*http_conn.HttpFilter))
+			hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
 			// Insert after without a filter match is same as ADD in the end
 			if !hasHTTPFilterMatch(cp) {
-				hcm.HttpFilters = append(hcm.HttpFilters, memoClone(cp.Value).(*http_conn.HttpFilter))
+				hcm.HttpFilters = append(hcm.HttpFilters, proto.Clone(cp.Value).(*http_conn.HttpFilter))
 				continue
 			}
 
@@ -383,7 +383,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 
-			clonedVal := memoClone(cp.Value).(*http_conn.HttpFilter)
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
 			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			if insertPosition < len(hcm.HttpFilters)-1 {
 				copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
@@ -392,7 +392,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 		} else if cp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasHTTPFilterMatch(cp) {
-				hcm.HttpFilters = append([]*http_conn.HttpFilter{memoClone(cp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
+				hcm.HttpFilters = append([]*http_conn.HttpFilter{proto.Clone(cp.Value).(*http_conn.HttpFilter)}, hcm.HttpFilters...)
 				continue
 			}
 
@@ -409,7 +409,7 @@ func doHTTPFilterListOperation(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 
-			clonedVal := memoClone(cp.Value).(*http_conn.HttpFilter)
+			clonedVal := proto.Clone(cp.Value).(*http_conn.HttpFilter)
 			hcm.HttpFilters = append(hcm.HttpFilters, clonedVal)
 			copy(hcm.HttpFilters[insertPosition+1:], hcm.HttpFilters[insertPosition:])
 			hcm.HttpFilters[insertPosition] = clonedVal

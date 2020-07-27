@@ -71,7 +71,7 @@ func ApplyClusterPatches(
 	// Add cluster if the operation is add, and patch context matches
 	for _, cp := range patches {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
-			clusters = append(clusters, memoClone(cp.Value).(*cluster.Cluster))
+			clusters = append(clusters, proto.Clone(cp.Value).(*cluster.Cluster))
 		}
 	}
 
