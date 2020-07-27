@@ -174,7 +174,7 @@ func TestMessages_PrintLog(t *testing.T) {
 		"the bubble is too big",
 	)
 	secondMsg := NewMessage(
-		NewMessageType(Warning, "C1", "Collapse accident: %v"),
+		NewMessageType(Warning, "C1", "Collapse danger: %v"),
 		testResource("GrandCastle"),
 		"the castle is too old",
 	)
@@ -184,7 +184,7 @@ func TestMessages_PrintLog(t *testing.T) {
 
 	g.Expect(output).To(Equal(
 		"Error [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
-			"Warn [C1] (GrandCastle) Collapse accident: the castle is too old",
+			"Warn [C1] (GrandCastle) Collapse danger: the castle is too old",
 	))
 }
 
@@ -197,7 +197,7 @@ func TestMessages_PrintJSON(t *testing.T) {
 		"the bubble is too big",
 	)
 	secondMsg := NewMessage(
-		NewMessageType(Warning, "C1", "Collapse accident: %v"),
+		NewMessageType(Warning, "C1", "Collapse danger: %v"),
 		testResource("GrandCastle"),
 		"the castle is too old",
 	)
@@ -217,7 +217,7 @@ func TestMessages_PrintJSON(t *testing.T) {
 		"code": "C1",
 		"documentation_url": "https://istio.io/docs/reference/config/analysis/C1",
 		"level": "Warn",
-		"message": "Collapse accident: the castle is too old",
+		"message": "Collapse danger: the castle is too old",
 		"origin": "GrandCastle"
 	}
 ]`
@@ -234,7 +234,7 @@ func TestMessages_PrintYAML(t *testing.T) {
 		"the bubble is too big",
 	)
 	secondMsg := NewMessage(
-		NewMessageType(Warning, "C1", "Collapse accident: %v"),
+		NewMessageType(Warning, "C1", "Collapse danger: %v"),
 		testResource("GrandCastle"),
 		"the castle is too old",
 	)
@@ -250,7 +250,7 @@ func TestMessages_PrintYAML(t *testing.T) {
 - code: C1
   documentation_url: https://istio.io/docs/reference/config/analysis/C1
   level: Warn
-  message: 'Collapse accident: the castle is too old'
+  message: 'Collapse danger: the castle is too old'
   origin: GrandCastle
 `
 
