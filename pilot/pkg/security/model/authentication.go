@@ -144,7 +144,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 	rootV3SDSConfig = &tls.SdsSecretConfig{
@@ -164,7 +164,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 )
@@ -182,7 +182,6 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 		fetchTimeout = features.InitialFetchTimeout
 	}
 
-	useV3 := requestedType == v3.ClusterType || requestedType == v3.ListenerType || requestedType == ""
 	useV3 := useV3Sds(requestedType)
 
 	if name == SDSDefaultResourceName && useV3 {
