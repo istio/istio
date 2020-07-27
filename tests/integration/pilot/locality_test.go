@@ -1,0 +1,249 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package pilot
+
+import (
+	"bytes"
+	"fmt"
+	"net/http"
+	"strings"
+	"testing"
+	"text/template"
+	"time"
+
+	"github.com/Masterminds/sprig"
+
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
+)
+
+const localityTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-service-locality
+spec:
+  hosts:
+  - {{.Host}}
+  location: MESH_EXTERNAL
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  resolution: {{.Resolution}}
+  endpoints:
+  - address: {{.Local}}
+    locality: region/zone/subzone
+  - address: {{.Remote}}
+    locality: notregion/notzone/notsubzone
+  {{ if ne .NearLocal "" }}
+  - address: {{.NearLocal}}
+    locality: "nearregion/zone/subzone"
+  {{ end }}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: external-service-locality
+spec:
+  host: {{.Host}}
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        connectTimeout: 250ms
+    loadBalancer:
+      simple: ROUND_ROBIN
+      localityLbSetting:
+{{.LocalitySetting | indent 8 }}
+    outlierDetection:
+      interval: 1s
+      baseEjectionTime: 3m
+      maxEjectionPercent: 100`
+
+type LocalityInput struct {
+	LocalitySetting string
+	Host            string
+	Resolution      string
+	Local           string
+	NearLocal       string
+	Remote          string
+}
+
+const localityFailover = `
+failover:
+- from: region
+  to: nearregion`
+const localityDistribute = `
+distribute:
+- from: region
+  to:
+    nearregion: 80
+    region: 20`
+
+func TestLocality(t *testing.T) {
+	cases := []struct {
+		name     string
+		input    LocalityInput
+		expected map[string]int
+	}{
+		{
+			"Prioritized/CDS",
+			LocalityInput{
+				LocalitySetting: localityFailover,
+				Resolution:      "DNS",
+				Local:           apps.podB.Config().Service,
+				Remote:          apps.podC.Config().Service,
+			},
+			expectAllTrafficTo(apps.podB.Config().Service),
+		},
+		{
+			"Prioritized/EDS",
+			LocalityInput{
+				LocalitySetting: localityFailover,
+				Resolution:      "STATIC",
+				Local:           apps.podC.Address(),
+				Remote:          apps.podB.Address(),
+			},
+			expectAllTrafficTo(apps.podC.Config().Service),
+		},
+		{
+			"Failover/CDS",
+			LocalityInput{
+				LocalitySetting: localityFailover,
+				Resolution:      "DNS",
+				Local:           "fake-should-fail.example.com",
+				NearLocal:       apps.podB.Config().Service,
+				Remote:          apps.podC.Config().Service,
+			},
+			expectAllTrafficTo(apps.podB.Config().Service),
+		},
+		{
+			"Failover/EDS",
+			LocalityInput{
+				LocalitySetting: localityFailover,
+				Resolution:      "STATIC",
+				Local:           "10.10.10.10",
+				NearLocal:       apps.podC.Address(),
+				Remote:          apps.podB.Address(),
+			},
+			expectAllTrafficTo(apps.podC.Config().Service),
+		},
+		{
+			"Distribute/CDS",
+			LocalityInput{
+				LocalitySetting: localityDistribute,
+				Resolution:      "DNS",
+				Local:           apps.podC.Config().Service,
+				NearLocal:       apps.podB.Config().Service,
+				Remote:          "fake-should-fail.example.com",
+			},
+			map[string]int{
+				apps.podB.Config().Service: sendCount * .8,
+				apps.podC.Config().Service: sendCount * .2,
+			},
+		},
+		{
+			"Distribute/EDS",
+			LocalityInput{
+				LocalitySetting: localityDistribute,
+				Resolution:      "STATIC",
+				Local:           apps.podB.Address(),
+				NearLocal:       apps.podC.Address(),
+				Remote:          "10.10.10.10",
+			},
+			map[string]int{
+				apps.podC.Config().Service: sendCount * .8,
+				apps.podB.Config().Service: sendCount * .2,
+			},
+		},
+	}
+	framework.NewTest(t).RequiresSingleCluster().Run(func(ctx framework.TestContext) {
+		for _, tt := range cases {
+			ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
+				hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
+				tt.input.Host = hostname
+				applyAndCleanup(ctx, apps.namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
+				retry.UntilSuccessOrFail(ctx, func() error {
+					return sendTraffic(apps.podA, hostname, tt.expected)
+				}, retry.Delay(250*time.Millisecond))
+			})
+		}
+	})
+}
+
+const sendCount = 50
+
+func expectAllTrafficTo(dest string) map[string]int {
+	return map[string]int{dest: sendCount}
+}
+
+func applyAndCleanup(ctx framework.TestContext, ns string, yaml ...string) {
+	ctx.Config().ApplyYAMLOrFail(ctx, ns, yaml...)
+	ctx.WhenDone(func() error {
+		return ctx.Config().DeleteYAML(ns, yaml...)
+	})
+}
+
+func sendTraffic(from echo.Instance, host string, expected map[string]int) error {
+	headers := http.Header{}
+	headers.Add("Host", host)
+	// This is a hack to remain infrastructure agnostic when running these tests
+	// We actually call the host set above not the endpoint we pass
+	resp, err := from.Call(echo.CallOptions{
+		Target:   from,
+		PortName: "http",
+		Headers:  headers,
+		Count:    sendCount,
+	})
+	if err != nil {
+		return fmt.Errorf("%s->%s failed sending: %v", from.Config().Service, host, err)
+	}
+	if len(resp) != sendCount {
+		return fmt.Errorf("%s->%s expected %d responses, received %d", from.Config().Service, host, sendCount, len(resp))
+	}
+	got := map[string]int{}
+	for _, r := range resp {
+		// Hostname will take form of svc-v1-random. We want to extract just 'svc'
+		parts := strings.SplitN(r.Hostname, "-", 2)
+		if len(parts) < 2 {
+			return fmt.Errorf("unexpected hostname: %v", r)
+		}
+		gotHost := parts[0]
+		got[gotHost]++
+	}
+	scopes.Framework.Infof("Got responses: %+v", got)
+	for svc, reqs := range got {
+		expect := expected[svc]
+		if !almostEquals(reqs, expect, 3) {
+			return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
+		}
+	}
+	return nil
+}
+
+func runTemplate(t test.Failer, tmpl string, input interface{}) string {
+	tt, err := template.New("").Funcs(sprig.TxtFuncMap()).Parse(tmpl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := tt.Execute(&buf, input); err != nil {
+		t.Fatal(err)
+	}
+	return buf.String()
+}
