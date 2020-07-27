@@ -86,10 +86,9 @@ var testCases = []ConfigInput{
 }
 
 func disableLogging() {
-	adsLog.SetOutputLevel(log.NoneLevel)
-	o := log.DefaultOptions()
-	o.SetOutputLevel(log.DefaultScopeName, log.NoneLevel)
-	_ = log.Configure(o)
+	for _, s := range log.Scopes() {
+		s.SetOutputLevel(log.NoneLevel)
+	}
 }
 
 func BenchmarkInitPushContext(b *testing.B) {
