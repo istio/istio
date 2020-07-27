@@ -926,6 +926,14 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 	c := opts.cluster
 	proxy := opts.proxy
 
+	// Hack to avoid egress sds cluster config generation for sidecar when
+	// CredentialName is set in DestinationRule
+	if tls.CredentialName != "" && proxy.Type == model.SidecarProxy {
+		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
+			return nil, nil
+		}
+	}
+
 	var tlsContext *auth.UpstreamTlsContext
 
 	switch tls.Mode {
@@ -1004,7 +1012,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 	case networking.ClientTLSSettings_SIMPLE:
-		if tls.CredentialName != "" && proxy.Type == model.Router {
+		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
@@ -1050,7 +1058,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		}
 
 	case networking.ClientTLSSettings_MUTUAL:
-		if tls.CredentialName != "" && proxy.Type == model.Router {
+		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
