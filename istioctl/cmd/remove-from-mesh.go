@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -189,10 +190,12 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		depName := strings.Join([]string{dep.Name, dep.Namespace}, ".")
 		sidecarInjected := false
 		podSpec := dep.Spec.Template.Spec.DeepCopy()
-		for _, c := range podSpec.Containers {
-			if c.Name == proxyContainerName {
-				sidecarInjected = true
-				break
+		if len(podSpec.Containers) > 1 {
+			for _, c := range podSpec.Containers {
+				if c.Name == proxyContainerName {
+					sidecarInjected = true
+					break
+				}
 			}
 		}
 		if !sidecarInjected {
@@ -205,9 +208,15 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
 		podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
+		if !usedVolume(podSpec, envoyVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
+		}
+		if !usedVolume(podSpec, certVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
+		}
+		if !usedVolume(podSpec, jwtTokenVolumeName) {
+			podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
+		}
 		removeDNSConfig(podSpec.DNSConfig)
 		res.Spec.Template.Spec = *podSpec
 		// If we are in an auto-inject namespace, removing the sidecar isn't enough, we
@@ -265,4 +274,20 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	}
 	fmt.Fprintf(writer, "Service Entry %q has been deleted for external service %q\n", resourceName(svcName), svcName)
 	return nil
+}
+
+// usedVolume returns true if a volume name is used
+func usedVolume(podSpec *corev1.PodSpec, volname string) bool {
+	return volumeMounted(podSpec.InitContainers, volname) || volumeMounted(podSpec.Containers, volname)
+}
+
+func volumeMounted(containers []corev1.Container, volname string) bool {
+	for _, container := range containers {
+		for _, mount := range container.VolumeMounts {
+			if mount.Name == volname {
+				return true
+			}
+		}
+	}
+	return false
 }
