@@ -64,6 +64,8 @@ func gkeCluster(project, location, clusterName string) (*containerpb.Cluster, er
 
 // First attempts to infer config (project, location, cluster) from the current kubectl context, then an active pod
 // Returns the config along with the relevant cluster
+// TODO: remove once merged
+// nolint: deadcode
 func gkeConfig() (project, location, clusterName string, cluster *containerpb.Cluster, err error) {
 	project, location, clusterName = gkeConfigFromContext()
 	cluster, err = gkeCluster(project, location, clusterName)

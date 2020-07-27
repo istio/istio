@@ -62,6 +62,8 @@ func k8sClientset() (*kubernetes.Clientset, error) {
 }
 
 // Returns a kubernetes service in a namespace
+// TODO: remove once merged
+// nolint: deadcode
 func k8sService(name, namespace string) (*v1.Service, error) {
 	clientset, err := k8sClientset()
 	if err != nil {
@@ -93,6 +95,8 @@ func k8sPod(name, namespace string) (*v1.Pod, error) {
 }
 
 // Returns a kubernetes config map in a namespace
+// TODO: remove once merged
+// nolint: deadcode
 func k8sConfigMap(name, namespace string) (*v1.ConfigMap, error) {
 	clientset, err := k8sClientset()
 	if err != nil {
