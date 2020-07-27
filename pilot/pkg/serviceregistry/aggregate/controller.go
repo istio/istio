@@ -118,7 +118,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		// may modify one of the service's cluster ID
 		clusterAddressesMutex.Lock()
 		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
-			// If the service does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
+			// If the service does not have a cluster ID (ServiceEntries, CloudFoundry, etc.)
 			// Do not bother checking for the cluster ID.
 			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 			// VIPs or CIDR ranges in the address field
@@ -168,7 +168,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 			continue
 		}
 		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
-			// If the service does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
+			// If the service does not have a cluster ID (ServiceEntries, CloudFoundry, etc.)
 			// Do not bother checking for the cluster ID.
 			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 			// VIPs or CIDR ranges in the address field
