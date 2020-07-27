@@ -292,6 +292,15 @@ func TestController_GetPodLocality(t *testing.T) {
 			controller, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
 			defer controller.Stop()
 			addNodes(t, controller, tc.nodes...)
+			for _, node := range tc.nodes {
+				if err := waitForNode(controller, node.Name); err != nil {
+					// Ideally we would fail here, but there is a bug in Kubernetes fake client where
+					// it occasionally just does not update informer at all. Rather than skipping the entire test, we will
+					// just skip it if we encounter this condition. Because it happens rarely, we should still
+					// get coverage 99% of the time.
+					t.Skip("https://github.com/kubernetes/kubernetes/issues/88508")
+				}
+			}
 			addPods(t, controller, tc.pods...)
 			for _, pod := range tc.pods {
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
