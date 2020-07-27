@@ -85,7 +85,15 @@ var testCases = []ConfigInput{
 	},
 }
 
+func disableLogging() {
+	adsLog.SetOutputLevel(log.NoneLevel)
+	o := log.DefaultOptions()
+	o.SetOutputLevel(log.DefaultScopeName, log.NoneLevel)
+	_ = log.Configure(o)
+}
+
 func BenchmarkInitPushContext(b *testing.B) {
+	disableLogging()
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupTest(b, tt)
@@ -98,6 +106,8 @@ func BenchmarkInitPushContext(b *testing.B) {
 }
 
 func BenchmarkRouteGeneration(b *testing.B) {
+	disableLogging()
+
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -122,6 +132,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 }
 
 func BenchmarkClusterGeneration(b *testing.B) {
+	disableLogging()
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -140,6 +151,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 }
 
 func BenchmarkListenerGeneration(b *testing.B) {
+	disableLogging()
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -160,6 +172,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
 func BenchmarkEndpointGeneration(b *testing.B) {
+	disableLogging()
 	tests := []struct {
 		endpoints int
 		services  int
@@ -169,7 +182,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 		{100, 10},
 		{1000, 1},
 	}
-	adsLog.SetOutputLevel(log.WarnLevel)
+
 	var response *discovery.DiscoveryResponse
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
