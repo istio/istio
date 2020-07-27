@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
+  name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 spec:
   replicas: 1
   selector:
@@ -46,4 +46,6 @@ spec:
               value: {{.Values.operatorNamespace | quote}}
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: {{.Values.waitForResourcesTimeout | quote}}
+            - name: REVISION
+              value: {{.Values.revision | quote}}
 ---

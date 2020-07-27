@@ -151,10 +151,7 @@ spec:
         type: ClusterIP
         zvpn: {}
       istio-ingressgateway:
-        applicationPorts: ""
         autoscaleEnabled: true
-        debug: info
-        domain: ""
         env: {}
         meshExpansionPorts:
         - name: tcp-istiod
@@ -179,14 +176,12 @@ spec:
         ppc64le: 2
         s390x: 2
       configValidation: true
-      controlPlaneSecurityEnabled: true
       defaultNodeSelector: {}
       defaultPodDisruptionBudget:
         enabled: true
       defaultResources:
         requests:
           cpu: 10m
-      enableHelmTest: false
       imagePullPolicy: ""
       imagePullSecrets: []
       istioNamespace: istio-system
@@ -249,18 +244,10 @@ spec:
       sts:
         servicePort: 0
       tracer:
-        datadog:
-          address: $(HOST_IP):8126
-        lightstep:
-          accessToken: ""
-          address: ""
-        stackdriver:
-          debug: false
-          maxNumberOfAnnotations: 200
-          maxNumberOfAttributes: 200
-          maxNumberOfMessageEvents: 200
-        zipkin:
-          address: ""
+        datadog: {}
+        lightstep: {}
+        stackdriver: {}
+        zipkin: {}
       trustDomain: cluster.local
       useMCP: false
     istiocoredns:
@@ -270,12 +257,10 @@ spec:
     istiodRemote:
       injectionURL: ""
     pilot:
-      appNamespaces: []
       autoscaleEnabled: true
       autoscaleMax: 5
       autoscaleMin: 1
       configMap: true
-      configNamespace: istio-config
       cpu:
         targetAverageUtilization: 80
       enableProtocolSniffingForInbound: true
@@ -284,12 +269,7 @@ spec:
       image: pilot
       keepaliveMaxServerConnectionAge: 30m
       nodeSelector: {}
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      policy:
-        enabled: false
       replicaCount: 1
-      tolerations: []
       traceSampling: 1
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
@@ -300,8 +280,6 @@ spec:
       rewriteAppHTTPProbe: true
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
         enabled: true
         metadataExchange: {}
@@ -313,5 +291,4 @@ spec:
           logging: false
           monitoring: false
           topology: false
-    version: ""
 

@@ -543,7 +543,7 @@ func serviceStatus(addresses ...address) *v1.ServiceStatus {
 }
 
 func TestReadIngressGatewayAddresses(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	applyTestCases := []struct {
 		in      *v1.ServiceStatus

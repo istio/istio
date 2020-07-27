@@ -320,6 +320,8 @@ func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string
 	return generateYAMLWithSettings(cfg, settings, cluster)
 }
 
+const DefaultVMImage = "app_sidecar_ubuntu_bionic"
+
 func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 	cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
@@ -357,7 +359,7 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 
 		// if image is not provided, default to app_sidecar
 		if cfg.VMImage == "" {
-			vmImage = "app_sidecar_ubuntu_bionic"
+			vmImage = DefaultVMImage
 		} else {
 			vmImage = cfg.VMImage
 		}

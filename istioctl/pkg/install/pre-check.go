@@ -46,7 +46,7 @@ import (
 const (
 	// Minimum K8 version required to run latest version of Istio
 	// https://istio.io/docs/setup/platform-setup/
-	minK8SVersion = "1.16"
+	minK8SVersion = "1.17"
 )
 
 var (

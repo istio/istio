@@ -70,7 +70,6 @@ helm3 template prometheus stable/prometheus \
   kubectl create configmap -n istio-system istio-grafana-dashboards \
     --dry-run=client -oyaml \
     --from-file=pilot-dashboard.json="${DASHBOARDS}/pilot-dashboard.json" \
-    --from-file=mixer-dashboard.json="${DASHBOARDS}/mixer-dashboard.json" \
     --from-file=istio-performance-dashboard.json="${DASHBOARDS}/istio-performance-dashboard.json"
 
   echo -e "\n---\n"

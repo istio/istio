@@ -114,7 +114,7 @@ func TestStartDrain(t *testing.T) {
 
 // TestWaitForLive tests that a hot restart will not occur until after a previous epoch goes live.
 func TestWaitForLive(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -169,7 +169,7 @@ func TestWaitForLive(t *testing.T) {
 }
 
 func TestExitDuringWaitForLive(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

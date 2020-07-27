@@ -25,7 +25,7 @@ import (
 )
 
 func TestDefaults(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	m := DefaultMeshConfig()
 	expect := mesh.DefaultMeshConfig()

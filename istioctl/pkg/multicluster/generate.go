@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/golang/sync/errgroup"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -28,6 +27,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	iop "istio.io/api/operator/v1alpha1"
+
 	operatorV1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
@@ -71,8 +71,7 @@ func overlayIstioControlPlane(mesh *Mesh, current *Cluster, meshNetworks *v1alph
 			},
 		},
 		Global: &operatorV1alpha1.GlobalConfig{
-			ControlPlaneSecurityEnabled: &types.BoolValue{Value: true},
-			MeshNetworks:                meshNetworksJSON,
+			MeshNetworks: meshNetworksJSON,
 			MultiCluster: &operatorV1alpha1.MultiClusterConfig{
 				ClusterName: current.clusterName,
 			},

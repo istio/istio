@@ -36,7 +36,7 @@ import (
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/schema/collections"
 
-	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
+	_ "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 )
 
 var (
@@ -109,7 +109,7 @@ func TestGRPC(t *testing.T) {
 	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
 
 	t.Run("gRPC-resolve", func(t *testing.T) {
-		rb := resolver.Get("xds-experimental")
+		rb := resolver.Get("xds")
 		ch := make(chan resolver.State)
 		_, err := rb.Build(resolver.Target{Endpoint: istiodSvcAddr},
 			&testClientConn{ch: ch}, resolver.BuildOptions{})
@@ -121,7 +121,6 @@ func TestGRPC(t *testing.T) {
 		select {
 		case s := <-ch:
 			log.Println("Got state ", s)
-		// TODO: timeout
 		case <-tm:
 			t.Error("Didn't resolve")
 		}
@@ -134,7 +133,7 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
-		conn, err := grpc.Dial("xds-experimental:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure())
+		conn, err := grpc.Dial("xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure())
 		if err != nil {
 			t.Fatal("XDS gRPC", err)
 		}

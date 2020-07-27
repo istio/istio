@@ -41,9 +41,6 @@ type RegistryOptions struct {
 	ClusterRegistriesNamespace string
 	KubeConfig                 string
 
-	// Consul options
-	ConsulServerAddr string
-
 	// DistributionTracking control
 	DistributionCacheRetention time.Duration
 

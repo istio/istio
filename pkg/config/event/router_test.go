@@ -33,7 +33,7 @@ func TestRouter_Empty(t *testing.T) {
 }
 
 func TestRouter_Single_Handle(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := event.NewRouter()
 	acc := &fixtures.Accumulator{}
@@ -44,7 +44,7 @@ func TestRouter_Single_Handle(t *testing.T) {
 }
 
 func TestRouter_Single_Handle_AddToNil(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var s event.Router
 	acc := &fixtures.Accumulator{}
@@ -55,7 +55,7 @@ func TestRouter_Single_Handle_AddToNil(t *testing.T) {
 }
 
 func TestRouter_Single_Handle_NoMatch(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := event.NewRouter()
 	acc := &fixtures.Accumulator{}
@@ -66,7 +66,7 @@ func TestRouter_Single_Handle_NoMatch(t *testing.T) {
 }
 
 func TestRouter_Single_MultiListener(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := event.NewRouter()
 	acc1 := &fixtures.Accumulator{}
@@ -80,7 +80,7 @@ func TestRouter_Single_MultiListener(t *testing.T) {
 }
 
 func TestRouter_Single_Broadcast(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := event.NewRouter()
 	acc := &fixtures.Accumulator{}
@@ -91,7 +91,7 @@ func TestRouter_Single_Broadcast(t *testing.T) {
 }
 
 func TestRouter_Multi_Handle(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := event.NewRouter()
 	acc1 := &fixtures.Accumulator{}
@@ -109,7 +109,7 @@ func TestRouter_Multi_Handle(t *testing.T) {
 }
 
 func TestRouter_Multi_NoTarget(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := event.NewRouter()
 	acc1 := &fixtures.Accumulator{}
@@ -123,7 +123,7 @@ func TestRouter_Multi_NoTarget(t *testing.T) {
 }
 
 func TestRouter_Multi_Broadcast(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := event.NewRouter()
 	acc1 := &fixtures.Accumulator{}
@@ -140,7 +140,7 @@ func TestRouter_Multi_Broadcast(t *testing.T) {
 }
 
 func TestRouter_Multi_Unknown_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	defer func() {
 		r := recover()

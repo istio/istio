@@ -23,7 +23,7 @@ import (
 )
 
 func TestErrorOnIssuesFound(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	msgs := []diag.Message{
 		diag.NewMessage(
@@ -44,7 +44,7 @@ func TestErrorOnIssuesFound(t *testing.T) {
 }
 
 func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	msgs := []diag.Message{
 		diag.NewMessage(
