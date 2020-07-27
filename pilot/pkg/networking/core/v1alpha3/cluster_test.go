@@ -3462,6 +3462,50 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				err: nil,
 			},
 		},
+		{
+			name: "tls mode MUTUAL, credentialName is set with proxy type Sidecar",
+			opts: &buildClusterOpts{
+				cluster: &cluster.Cluster{
+					Name: "test-cluster",
+				},
+				proxy: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+					Type:     model.SidecarProxy,
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_MUTUAL,
+				CredentialName: "fake-cred",
+			},
+			node:                  &model.Proxy{},
+			certValidationContext: &tls.CertificateValidationContext{},
+			result: expectedResult{
+				nil,
+				nil,
+			},
+		},
+		{
+			name: "tls mode SIMPLE, credentialName is set with proxy type Sidecar",
+			opts: &buildClusterOpts{
+				cluster: &cluster.Cluster{
+					Name: "test-cluster",
+				},
+				proxy: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+					Type:     model.SidecarProxy,
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_SIMPLE,
+				CredentialName: "fake-cred",
+			},
+			node:                  &model.Proxy{},
+			certValidationContext: &tls.CertificateValidationContext{},
+			result: expectedResult{
+				nil,
+				nil,
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
