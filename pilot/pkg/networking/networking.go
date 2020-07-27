@@ -93,6 +93,11 @@ type FilterChain struct {
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
+	// IstioMutualGateway is set only when this filter chain is part of a Gateway, and
+	// the Server corresponding to this filter chain is doing TLS termination with ISTIO_MUTUAL as the TLS mode.
+	// This allows the authN plugin to add the istio_authn filter to gateways in addition to sidecars.
+	IstioMutualGateway bool
+
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// Thrift is the set of Thrift filters for this filter chain
