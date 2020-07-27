@@ -320,6 +320,7 @@ func TestAllNamespaces(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
+	t.Skip("https://github.com/istio/istio/issues/25893")
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
