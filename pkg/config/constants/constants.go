@@ -89,4 +89,8 @@ const (
 	// PodInfoAnnotationsPath is the filepath that pod annotations will be stored
 	// This is typically set by the downward API
 	PodInfoAnnotationsPath = "./etc/istio/pod/annotations"
+
+	// DefaultSdsUdsPath is the path used for SDS communication between istio-agent and proxy during
+	// mtls.
+	DefaultSdsUdsPath = "unix:./etc/istio/proxy/SDS"
 )

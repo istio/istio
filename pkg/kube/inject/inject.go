@@ -781,15 +781,13 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	if meshconfig.SdsUdsPath != "" {
-		var grp = int64(1337)
-		if podSpec.SecurityContext == nil {
-			podSpec.SecurityContext = &corev1.PodSecurityContext{
-				FSGroup: &grp,
-			}
-		} else {
-			podSpec.SecurityContext.FSGroup = &grp
+	var grp = int64(1337)
+	if podSpec.SecurityContext == nil {
+		podSpec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
 		}
+	} else {
+		podSpec.SecurityContext.FSGroup = &grp
 	}
 
 	if metadata.Annotations == nil {
