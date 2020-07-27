@@ -211,7 +211,7 @@ istioctl experimental add-to-mesh service productpage`,
 				return err
 			}
 			if len(matchingDeployments) == 0 {
-				_, _ = fmt.Fprintf(writer, "No deployments found for service %s.%s\n", args[0], ns)
+				fmt.Fprintf(writer, "No deployments found for service %s.%s\n", args[0], ns)
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
