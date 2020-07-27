@@ -17,18 +17,6 @@ package metrics
 import (
 	"fmt"
 	"testing"
-
-	"istio.io/istio/pkg/test/framework/components/ingress"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/prometheus"
-)
-
-var (
-	ist        istio.Instance
-	bookinfoNs namespace.Instance
-	ing        ingress.Instance
-	prom       prometheus.Instance
 )
 
 func TestEx(t *testing.T) {
