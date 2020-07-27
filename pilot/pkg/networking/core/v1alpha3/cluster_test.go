@@ -2193,7 +2193,6 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
 	}
 	push := model.NewPushContext()
-	push.Mesh = &meshconfig.MeshConfig{SdsUdsPath: "foo"}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2509,11 +2508,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
@@ -2600,11 +2594,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -2633,11 +2622,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
 				},
 			},
 			tls: &networking.ClientTLSSettings{
@@ -2700,11 +2684,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -2766,11 +2745,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{
 						TLSClientRootCert: metadataRootCert,
-					},
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
 					},
 				},
 			},
@@ -3060,11 +3034,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -3119,11 +3088,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
 				},
 			},
 			tls: &networking.ClientTLSSettings{
@@ -3212,11 +3176,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -3280,11 +3239,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_SIMPLE,
@@ -3344,11 +3298,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
 				},
 			},
 			tls: &networking.ClientTLSSettings{
@@ -3437,11 +3386,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
 				},
 			},
 			tls: &networking.ClientTLSSettings{
