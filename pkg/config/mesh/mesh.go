@@ -108,7 +108,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		RootNamespace:                  constants.IstioSystemNamespace,
 		ProxyListenPort:                15001,
 		ConnectTimeout:                 types.DurationProto(10 * time.Second),
-		EnableSdsTokenMount:            false,
 		DefaultServiceExportTo:         []string{"*"},
 		DefaultVirtualServiceExportTo:  []string{"*"},
 		DefaultDestinationRuleExportTo: []string{"*"},
