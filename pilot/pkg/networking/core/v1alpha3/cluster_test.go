@@ -3530,8 +3530,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 			},
 			tls: &networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_MUTUAL,
-				CredentialName:    "fake-cred",
+				Mode:           networking.ClientTLSSettings_MUTUAL,
+				CredentialName: "fake-cred",
 			},
 			node:                  &model.Proxy{},
 			certValidationContext: &tls.CertificateValidationContext{},
@@ -3552,8 +3552,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 			},
 			tls: &networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_SIMPLE,
-				CredentialName:    "fake-cred",
+				Mode:           networking.ClientTLSSettings_SIMPLE,
+				CredentialName: "fake-cred",
 			},
 			node:                  &model.Proxy{},
 			certValidationContext: &tls.CertificateValidationContext{},
