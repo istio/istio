@@ -101,8 +101,8 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		return nil, fmt.Errorf("failed to list type Namespaces: %v", err)
 	}
 	namespaces := map[string]*corev1.Namespace{}
-	for _, ns := range nsl.Items {
-		namespaces[ns.Name] = &ns
+	for i, ns := range nsl.Items {
+		namespaces[ns.Name] = &nsl.Items[i]
 	}
 	input := &KubernetesResources{
 		GatewayClass: gatewayClass,
