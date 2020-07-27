@@ -203,6 +203,7 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 
 func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error {
 	decoder := yaml.NewDecoder(reader)
+	decoder.SetStrict(true)
 	var errs error
 	for {
 		// YAML allows non-string keys and the produces generic keys for nested fields
