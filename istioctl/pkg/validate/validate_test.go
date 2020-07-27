@@ -268,6 +268,17 @@ spec:
     grafana:
       enabled: true
 `
+	invalidDuplicateKey = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: productpage
+spec:
+trafficPolicy: {}
+trafficPolicy:
+  tls:
+    mode: ISTIO_MUTUAL
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -420,6 +431,9 @@ func TestValidateCommand(t *testing.T) {
 	unsupportedKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidUnsupportedKey)
 	defer closeUnsupportedKeyFile.Close()
 
+	duplicateKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidDuplicateKey)
+	defer closeUnsupportedKeyFile.Close()
+
 	validPortNamingSvcFile, closeValidPortNamingSvcFile := createTestFile(t, validPortNamingSvc)
 	defer closeValidPortNamingSvcFile.Close()
 
@@ -500,6 +514,12 @@ $`),
 			name:      "port name missing service",
 			args:      []string{"--filename", portNameMissingSvcFile},
 			wantError: true,
+		},
+		{
+			name:           "duplicate key",
+			args:           []string{"--filename", duplicateKeyFilename},
+			expectedRegexp: regexp.MustCompile(`.*key ".*" already set`),
+			wantError:      true,
 		},
 	}
 	istioNamespace := "istio-system"
