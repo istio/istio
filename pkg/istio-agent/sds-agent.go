@@ -282,7 +282,12 @@ func gatewaySdsExists() bool {
 //
 // TODO: additional checks for existence. Fail early, instead of obscure envoy errors.
 func (sa *Agent) FindRootCAForXDS() string {
-	if strings.HasSuffix(sa.proxyConfig.DiscoveryAddress, ":443") {
+	// Note: the file matches what we use in our sidecar image.
+	// For VMs - it may be a different file. We'll need to make it an option - but
+	// we have few other places and docs using this path.
+
+	if sa.cfg.PlainTLS ||
+		strings.HasSuffix(sa.proxyConfig.DiscoveryAddress, ":443") {
 		return "/etc/ssl/certs/ca-certificates.crt"
 	} else if sa.secOpts.PilotCertProvider == "istiod" {
 		// This is the default - a mounted config map on K8S

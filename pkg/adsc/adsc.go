@@ -623,57 +623,36 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 		a.onReceive(msg)
 
 		if len(listeners) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(listeners, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_lds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
-
+			a.maybeSave(listeners, "lds")
 			a.handleLDS(listeners)
 		}
 		if len(clusters) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(clusters, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_cds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
+			a.maybeSave(clusters, "cds")
 			a.handleCDS(clusters)
 		}
 		if len(eds) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(eds, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_eds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
+			a.maybeSave(eds, "eds")
 			a.handleEDS(eds)
 		}
 		if len(routes) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(routes, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_rds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
+			a.maybeSave(routes, "rds")
 			a.handleRDS(routes)
 		}
 		select {
 		case a.XDSUpdates <- msg:
 		default:
+		}
+	}
+}
+
+func (a *ADSC) maybeSave(routes interface{}, name string) {
+	if a.LocalCacheDir != "" {
+		strResponse, err := json.MarshalIndent(routes, "  ", "  ")
+		if err == nil {
+			err = ioutil.WriteFile(a.LocalCacheDir+"/" + name + ".json", strResponse, 0644)
+			if err != nil {
+				log.Warna("Failed to save ", err)
+			}
 		}
 	}
 }
