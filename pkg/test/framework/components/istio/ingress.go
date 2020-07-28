@@ -82,7 +82,7 @@ type ingressImpl struct {
 func (c *ingressImpl) getAddressInner(cluster resource.Cluster, ns string, port int) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
-	if !c.env.Settings().LoadBalancerSupport {
+	if !c.env.Settings().LoadBalancerSupported {
 		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", istioLabel))
 		if err != nil {
 			return nil, false, err

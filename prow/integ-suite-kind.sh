@@ -121,6 +121,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
     time setup_kind_cluster "${IP_FAMILY}" "${NODE_IMAGE:-}"
   else
+    # KinD will a LoadBalancer
+    export TEST_ENV=kind-metallb
     # TODO: Support IPv6 multicluster
     time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
 

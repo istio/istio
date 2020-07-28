@@ -30,8 +30,8 @@ import (
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		KubeConfig:          requireKubeConfigs(env.ISTIO_TEST_KUBE_CONFIG.Value()),
-		LoadBalancerSupport: true,
+		KubeConfig:            requireKubeConfigs(env.ISTIO_TEST_KUBE_CONFIG.Value()),
+		LoadBalancerSupported: true,
 	}
 	// hold kubeconfigs from command line to split later
 	kubeConfigs string
@@ -203,7 +203,7 @@ func init() {
 		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
 	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
 		"Deprecated. See istio.test.kube.loadbalancer. Setting this flag will fail tests.")
-	flag.BoolVar(&settingsFromCommandLine.LoadBalancerSupport, "istio.test.kube.loadbalancer", settingsFromCommandLine.LoadBalancerSupport,
+	flag.BoolVar(&settingsFromCommandLine.LoadBalancerSupported, "istio.test.kube.loadbalancer", settingsFromCommandLine.LoadBalancerSupported,
 		"Indicates whether or not clusters in the environment support external IPs for LoadBalaner services. Used "+
 			"to obtain the right IP address for the Ingress Gateway. Set --istio.test.kube.loadbalancer=false for local KinD/Minikube tests."+
 			"without MetalLB installed.")
