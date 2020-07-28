@@ -27,7 +27,6 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/xds"
@@ -179,7 +178,6 @@ func newSDSService(st security.SecretManager,
 // register adds the SDS handle to the grpc server
 func (s *sdsservice) register(rpcs *grpc.Server) {
 	sds.RegisterSecretDiscoveryServiceServer(rpcs, s)
-	discoveryv2.RegisterSecretDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 // DebugInfo serializes the current sds client data into JSON for the debug endpoint
