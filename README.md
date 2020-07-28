@@ -33,7 +33,7 @@ layer over the underlying cluster management platform, such as Kubernetes.
 
 Istio is composed of these components:
 
-- [Envoy](https://www.envoyproxy.io/learn/service-mesh) - [Sidecar proxies](https://istio.io/latest/docs/reference/config/networking/sidecar/) per microservice to handle ingress/egress traffic
+- **Envoy** - Sidecar proxies per microservice to handle ingress/egress traffic
    between services in the cluster and from a service to external
    services. The proxies form a _secure microservice mesh_ providing a rich
    set of functions like discovery, rich layer-7 routing, circuit breakers,
@@ -44,7 +44,7 @@ Istio is composed of these components:
   > simplifies and enhances how microservices in an application talk to each
   > other over the network provided by the underlying platform.
 
-- [Istiod](https://istio.io/latest/blog/2020/istiod/) - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
+- **Istiod** - The Istio control plane. It provides service discovery, configuration and certificate management. It consists of the following sub-components:
 
     - **Pilot** - Responsible for configuring the proxies at runtime.
 
@@ -52,7 +52,7 @@ Istio is composed of these components:
 
     - **Galley** - Responsible for validating, ingesting, aggregating, transforming and distributing config within Istio.
 
-- [Operator](https://istio.io/latest/blog/2019/introducing-istio-operator/) - The component provides user friendly options to operate the Istio service mesh.
+- **Operator** - The component provides user friendly options to operate the Istio service mesh.
 
 ## Repositories
 
