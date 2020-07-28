@@ -39,9 +39,12 @@ import (
 
 const (
 	annotationPolicy            = "sidecar.istio.io/inject"
+	caCertVolumeName            = "istiod-ca-cert"
 	certVolumeName              = "istio-certs"
+	dataVolumeName              = "istio-data"
 	enableCoreDumpContainerName = "enable-core-dump"
 	envoyVolumeName             = "istio-envoy"
+	podInfoVolumeName           = "istio-podinfo"
 	initContainerName           = "istio-init"
 	jwtTokenVolumeName          = "istio-token"
 	proxyContainerName          = "istio-proxy"

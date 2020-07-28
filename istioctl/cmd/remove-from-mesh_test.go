@@ -58,6 +58,35 @@ var (
 							InitContainers: []coreV1.Container{
 								{Name: "istio-init", Image: "docker.io/istio/proxy_init:1.2.2"},
 							},
+							Volumes: []coreV1.Volume{
+								{Name: "istio-envoy", VolumeSource: coreV1.VolumeSource{
+									EmptyDir: &coreV1.EmptyDirVolumeSource{
+										Medium: coreV1.StorageMedium("Memory"),
+									},
+								},
+								},
+								{Name: "istio-data", VolumeSource: coreV1.VolumeSource{
+									EmptyDir: &coreV1.EmptyDirVolumeSource{},
+								},
+								},
+								{Name: "istiod-ca-cert", VolumeSource: coreV1.VolumeSource{
+									ConfigMap: &coreV1.ConfigMapVolumeSource{
+										DefaultMode:          func(i int32) *int32 { return &i }(420),
+										LocalObjectReference: coreV1.LocalObjectReference{Name: "istio-ca-root-cert"},
+									},
+								},
+								},
+								{Name: "istio-podinfo", VolumeSource: coreV1.VolumeSource{
+									DownwardAPI: &coreV1.DownwardAPIVolumeSource{
+										DefaultMode: func(i int32) *int32 { return &i }(420),
+										Items: []coreV1.DownwardAPIVolumeFile{
+											{FieldRef: &coreV1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "metadata.labels"}},
+											{FieldRef: &coreV1.ObjectFieldSelector{APIVersion: "v1", FieldPath: "metadata.annotations"}},
+										},
+									},
+								},
+								},
+							},
 						},
 					},
 				},
