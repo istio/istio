@@ -108,7 +108,7 @@ var (
 `)
 
 	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
-Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/latest/docs/ops/deployment/requirements/
 `
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
