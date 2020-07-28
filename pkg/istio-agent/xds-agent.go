@@ -107,7 +107,7 @@ func (sa *Agent) initXDS() {
 // If 'RequireCerts' is set, will attempt to get certificates. Will then attempt to connect to
 // the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the
 // local XDS proxy and return.
-func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager) error {
+func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager) {
 	if sa.cfg.LocalXDSAddr == "" {
 		return nil
 	}
@@ -164,5 +164,4 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 			}
 		}()
 	}
-	return nil
 }

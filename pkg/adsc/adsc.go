@@ -244,6 +244,15 @@ func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) *ADSC {
 }
 
 func newADSC(p *v1alpha1.ProxyConfig, opts *Config) *ADSC {
+	if opts == nil {
+		opts = &Config{}
+	}
+	if opts.SecOpts == nil {
+		// Default - insecure for testing
+		opts.SecOpts = &security.Options{
+			TLSEnabled: false,
+		}
+	}
 	adsc := &ADSC{
 		Updates:           make(chan string, 100),
 		XDSUpdates:        make(chan *discovery.DiscoveryResponse, 100),
@@ -280,9 +289,6 @@ func newADSC(p *v1alpha1.ProxyConfig, opts *Config) *ADSC {
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 // Deprecated.
 func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
-	if opts == nil {
-		opts = &Config{}
-	}
 	// Deprecated way to pass the certs - new code should use opts.CertDir directly.
 	// About 10 files using this with "" - clean up in separate PR.
 	if certDir != "" {
@@ -527,7 +533,7 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 				a.Close()
 				a.WaitClear()
 			}
-			a.stream.CloseSend()
+			_ = a.stream.CloseSend()
 			select {
 			case a.Updates <- "":
 			default:
@@ -1246,18 +1252,22 @@ func (a *ADSC) reconnect() {
 		}
 	}
 
-	if err == nil && a.stream != nil {
-		a.cfg.BackoffPolicy.Reset()
-	} else {
+	if err != nil || a.stream == nil {
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
-
-		log.Warna("XXXXX Connect failed, reconnect after: ", a.cfg.BackoffPolicy.NextBackOff())
+		log.Warna("Connect failed, reconnect after: ", a.cfg.BackoffPolicy.NextBackOff())
 		return
 	}
-	a.sendInitial()
+	err = a.sendInitial()
+	if err != nil {
+		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
+		log.Warna("Connect failed to send, reconnect after: ", a.cfg.BackoffPolicy.NextBackOff())
+		return
+	}
+	a.cfg.BackoffPolicy.Reset()
 	a.handleRecv(false)
+
 	// Connection closed, try to reconnect
-	log.Warna("XXXXX Connect DONE, duration: ", time.Since(t0))
+	log.Warna("Connect DONE, duration: ", time.Since(t0))
 	time.AfterFunc(100*time.Millisecond, a.reconnect)
 }
 
