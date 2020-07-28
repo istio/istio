@@ -34,9 +34,6 @@ bin/protoc-gen-docs*
 bin/testlinter
 bin/envvarlinter
 bin/istioctl
-# Install generated files
-install/consul/istio.yaml
-samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 *.orig
 # Avoid accidental istio.VERSION changes
 istio.VERSION

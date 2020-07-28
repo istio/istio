@@ -1407,10 +1407,10 @@ outboundTrafficPolicy:
 		},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ps := NewPushContext()
-			ps.Mesh = &test.meshConfig
+			ps.Mesh = &tests[i].meshConfig
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {

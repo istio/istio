@@ -256,7 +256,7 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 	conditionIndex := -1
 	for i, c := range currentStatus.Conditions {
 		if c.Type == Reconciled {
-			currentCondition = &c
+			currentCondition = &currentStatus.Conditions[i]
 			conditionIndex = i
 		}
 	}

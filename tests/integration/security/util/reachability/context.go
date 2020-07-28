@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -141,6 +142,7 @@ func (rc *Context) Run(testCases []TestCase) {
 		},
 	}
 
+	ik := istioctl.NewOrFail(rc.ctx, rc.ctx, istioctl.Config{})
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
@@ -155,15 +157,14 @@ func (rc *Context) Run(testCases []TestCase) {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return rc.ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
+			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
+			if err := ik.WaitForConfigs(c.Namespace.Name(), policyYAML); err != nil {
+				ctx.Fatal(err)
+			}
+			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 			ctx.WhenDone(func() error {
 				return rc.ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
 			})
-
-			// Give some time for the policy propagate.
-			// TODO: query pilot or app to know instead of sleep.
-			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
-			time.Sleep(10 * time.Second)
-			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
 
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked, rc.HeadlessNaked} {
 				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.VM, rc.HeadlessNaked} {
