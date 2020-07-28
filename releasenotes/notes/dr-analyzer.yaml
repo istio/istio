@@ -4,4 +4,4 @@ area: networking
 releaseNotes: |
   *Added* Analyzer warning for DestinationRule not using CaCertificates to validate server identity.
 upgradeNotes: |
-  Upgrade istioctl to help find this vulnerability.
+  Upgrade istioctl to help find this warning when using `istioctl analyze`.
