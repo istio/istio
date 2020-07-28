@@ -217,7 +217,7 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 				continue
 			}
 			obju := obj.UnstructuredObject()
-			if err := h.applyLabelsAndAnnotations(obju, cn); err != nil {
+			if err := h.applyMetadata(obju, cn); err != nil {
 				return err
 			}
 			unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)

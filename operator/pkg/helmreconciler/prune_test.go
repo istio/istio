@@ -92,8 +92,8 @@ func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler, manifestMap name
 		}
 		for _, obj := range objects {
 			obju := obj.UnstructuredObject()
-			if err := h.applyLabelsAndAnnotations(obju, cn); err != nil {
-				t.Errorf("failed to apply label and annotations: %v", err)
+			if err := h.applyMetadata(obju, cn); err != nil {
+				t.Errorf("failed to apply metadata: %v", err)
 			}
 			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v", err)

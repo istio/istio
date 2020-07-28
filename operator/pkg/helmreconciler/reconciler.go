@@ -23,10 +23,12 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
@@ -377,8 +379,29 @@ func (h *HelmReconciler) getOwnerLabels(componentName string) (map[string]string
 	return h.addComponentLabels(labels, componentName), nil
 }
 
-// applyLabelsAndAnnotations applies owner labels and annotations to the object.
-func (h *HelmReconciler) applyLabelsAndAnnotations(obj runtime.Object, componentName string) error {
+// getOwnerReferences
+func (h *HelmReconciler) getOwnerReference(componentName string) (*metav1.OwnerReference, error) {
+	crName, err := h.getCRName()
+	if err != nil {
+		return nil, err
+	}
+	crUID, err := h.getCRUID()
+	if err != nil {
+		return nil, err
+	}
+	ownerRef := &metav1.OwnerReference{
+		APIVersion:         h.iop.ApiVersion,
+		Kind:               h.iop.Kind,
+		Name:               crName,
+		UID:                crUID,
+		BlockOwnerDeletion: pointer.BoolPtr(true),
+		Controller:         pointer.BoolPtr(true),
+	}
+	return ownerRef, nil
+}
+
+// applyMetadata applies owner labels, annotations, ownerreferences to the object.
+func (h *HelmReconciler) applyMetadata(obj runtime.Object, componentName string) error {
 	labels, err := h.getOwnerLabels(componentName)
 	if err != nil {
 		return err
@@ -390,6 +413,17 @@ func (h *HelmReconciler) applyLabelsAndAnnotations(obj runtime.Object, component
 			return err
 		}
 	}
+
+	ownerRef, err := h.getOwnerReference(componentName)
+	if err != nil {
+		return err
+	}
+
+	err = util.SetOwnerReference(obj, *ownerRef)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -432,6 +466,18 @@ func (h *HelmReconciler) getCRNamespace() (string, error) {
 		return "", err
 	}
 	return objAccessor.GetNamespace(), nil
+}
+
+// getCRUID returns the namespace of the CR associated with h.
+func (h *HelmReconciler) getCRUID() (types.UID, error) {
+	if h.iop == nil {
+		return "", nil
+	}
+	objAccessor, err := meta.Accessor(h.iop)
+	if err != nil {
+		return "", err
+	}
+	return objAccessor.GetUID(), nil
 }
 
 // getClient returns the kubernetes client associated with this HelmReconciler
