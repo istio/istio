@@ -176,7 +176,7 @@ apply_istio_control_plane() {
 
   # TODO remove the hub/tag or make it optional and parameterize it.
   ic x multicluster generate -f "${MESH_TOPOLOGY_FILENAME}" --from "${BASE_FILENAME}" > "${WORKDIR}/istio-${CONTEXT}.yaml"
-  ic manifest apply -f "${WORKDIR}/istio-${CONTEXT}.yaml"
+  ic install -f "${WORKDIR}/istio-${CONTEXT}.yaml"
 }
 
 # TODO(ayj) - remove when the istioctl supports the --wait-for-gateway option
