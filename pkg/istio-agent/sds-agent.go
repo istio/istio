@@ -136,6 +136,10 @@ type AgentConfig struct {
 	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
 	// Set for tests to 127.0.0.1:0.
 	LocalXDSAddr string
+
+	// PlainTLS indicates the use of plain TLS for XDS connection. This will not use client
+	// certificates, but JWT.
+	PlainTLS bool
 }
 
 // NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -180,12 +184,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 	certDir := "./etc/certs"
 	if sopts.ProvCert != "" {
 		certDir = sopts.ProvCert
-	}
-	if _, err := os.Stat(certDir + "/key.pem"); err == nil {
-		sa.CertsPath = certDir
-	}
-	if sa.CertsPath != "" {
-		log.Warna("Using existing certificate ", sa.CertsPath)
 	}
 
 	// If the root-cert is in the old location, use it.

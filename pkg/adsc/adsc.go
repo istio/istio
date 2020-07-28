@@ -34,8 +34,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/keepalive"
-	"istio.io/istio/pkg/config/schema/collection"
-
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/security"
 
@@ -89,8 +87,8 @@ type Config struct {
 	// Secrets is the interface used for getting keys and rootCA.
 	Secrets security.SecretManager
 
-	// For getting the certificate, using same code as SDS server.
-	// Either the JWTPath or the certs must be present.
+	// For getting the certificate, using same code as SDS server, based on JWT
+	// Either the JWTPath or the client certs must be present (using CertDir).
 	JWTPath string
 
 	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
@@ -104,7 +102,8 @@ type Config struct {
 	InsecureSkipVerify bool
 
 	// Watch is a list of resources to watch, represented as URLs (for new XDS resource naming)
-	// or type URLs.
+	// or type URLs. Use WatchMCP ("mcp") to get the visible configs, WatchEnvoy ("envoy") to get generated
+	// config
 	Watch []string
 
 	// InitialReconnectDelay is the time to wait before attempting to reconnect.
@@ -120,7 +119,11 @@ type Config struct {
 	ResponseHandler ResponseHandler
 
 	// TODO: remove the duplication - all security settings belong here.
-	SecOpts *security.Options
+	SecOpts    *security.Options
+
+	// PlainTLS indicates the use of plain TLS for XDS connection. This will not use client
+	// certificates, but JWT.
+	PlainTLS bool
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -139,6 +142,11 @@ type ADSC struct {
 
 	watchTime time.Time
 
+	// initialWatchTypes has the list of actual types sent when ADSC connects.
+	// The config.Watch list uses symbolic names (like mcp or envoy) to avoid long lists.
+	// This is different from Received - which tracks all received types, since some types
+	// ( like LDS ) result in extra lookups.
+	// It is used to determine if the initial sync is done.
 	initialWatchTypes []string
 
 	// InitialLoad tracks the time to receive the initial configuration.
@@ -211,6 +219,13 @@ type ResponseHandler interface {
 const (
 	// Temp - remove dep
 	ListenerType = v3.ListenerType
+
+	// WatchMCP is used to request the MCP configs. It is translated to the current pilot collection list.
+	WatchMCP = "mcp"
+
+	// WatchEnvoy is used to request watching envoy configs. Will send a CDS request first, based on result
+	// get EDS and then send LDS and RDS.
+	WatchEnvoy = "envoy"
 )
 
 var (
@@ -220,10 +235,12 @@ var (
 // New creates a new ADSC.
 // Call Start() to maintain a connection to an XDS server.
 // Call Run() and individual Watch or send methods for single connection
-func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) (*ADSC, error) {
+func New(proxyConfig *v1alpha1.ProxyConfig, opts *Config) *ADSC {
 	adsc := newADSC(proxyConfig, opts)
-
-	return adsc, nil
+	if opts.Watch == nil {
+		opts.Watch = []string{}
+	}
+	return adsc
 }
 
 func newADSC(p *v1alpha1.ProxyConfig, opts *Config) *ADSC {
@@ -266,6 +283,8 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 	if opts == nil {
 		opts = &Config{}
 	}
+	// Deprecated way to pass the certs - new code should use opts.CertDir directly.
+	// About 10 files using this with "" - clean up in separate PR.
 	if certDir != "" {
 		opts.CertDir = certDir
 	}
@@ -306,31 +325,33 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var err error
 	var certName string
 
-	// If we need MTLS - CertDir or Secrets provider is set.
-	if a.cfg.Secrets != nil {
-		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
-		if err != nil {
-			log.Infof("Failed to get credential token: %v", err)
-			tok = []byte("")
-		}
+	if !a.cfg.PlainTLS {
+		// If we need MTLS - CertDir or Secrets provider is set.
+		if a.cfg.Secrets != nil {
+			tok, err := ioutil.ReadFile(a.cfg.JWTPath)
+			if err != nil {
+				log.Infof("Failed to get credential token: %v", err)
+				tok = []byte("")
+			}
 
-		certName = fmt.Sprintf("(generated from %s)", a.cfg.JWTPath)
-		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.WorkloadKeyCertResourceName, string(tok))
-		if err != nil {
-			return nil, err
+			certName = fmt.Sprintf("(generated from %s)", a.cfg.JWTPath)
+			key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
+				cache.WorkloadKeyCertResourceName, string(tok))
+			if err != nil {
+				return nil, err
+			}
+			clientCert, err = tls.X509KeyPair(key.CertificateChain, key.PrivateKey)
+			if err != nil {
+				return nil, err
+			}
+		} else if a.cfg.CertDir != "" {
+			certName = a.cfg.CertDir + "/cert-chain.pem"
+			clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
+			if err != nil {
+				return nil, err
+			}
+			clientCerts = []tls.Certificate{clientCert}
 		}
-		clientCert, err = tls.X509KeyPair(key.CertificateChain, key.PrivateKey)
-		if err != nil {
-			return nil, err
-		}
-	} else if a.cfg.CertDir != "" {
-		certName = a.cfg.CertDir + "/cert-chain.pem"
-		clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
-		if err != nil {
-			return nil, err
-		}
-		clientCerts = []tls.Certificate{clientCert}
 	}
 
 	// Load the root CAs
@@ -378,9 +399,6 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		Certificates: clientCerts,
 		RootCAs:      serverCAs,
 		ServerName:   shost,
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			return nil
-		},
 		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
 	}
 
@@ -397,30 +415,18 @@ func (a *ADSC) Close() {
 // connect will authenticate and connect to XDS.
 func (a *ADSC) connect() error {
 	var err error
-	if strings.HasSuffix(a.url, ":443") {
+	if a.cfg.PlainTLS || a.cfg.SecOpts.TLSEnabled || len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
+		// Client certificates
 		tlsCfg, err := a.tlsConfig()
 		if err != nil {
 			return err
 		}
-		creds := credentials.NewTLS(tlsCfg)
-		opts := []grpc.DialOption{
-			grpc.WithTransportCredentials(creds),
-			grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 20 * time.Second}),
-		}
-		a.conn, err = grpc.Dial(a.url, opts...)
-		if err != nil {
-			return err
-		}
-	} else if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
-		tlsCfg, err := a.tlsConfig()
-		if err != nil {
-			return err
-		}
-		creds := credentials.NewTLS(tlsCfg)
 
+		creds := credentials.NewTLS(tlsCfg)
 		opts := []grpc.DialOption{
 			// Verify Pilot cert and service account
 			grpc.WithTransportCredentials(creds),
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 60 * time.Second}),
 		}
 		a.conn, err = grpc.Dial(a.url, opts...)
 		if err != nil {
@@ -448,11 +454,11 @@ func (a *ADSC) connect() error {
 func (a *ADSC) sendInitial() error {
 	// Send the initial requests
 	for _, r := range a.cfg.Watch {
-		if r == "mcp" {
+		if r == WatchMCP {
 			a.WatchConfig()
 			continue
 		}
-		if r == "cds" || r == "envoy" {
+		if r == "cds" || r == WatchEnvoy {
 			a.Watch()
 			continue
 		}
@@ -1081,6 +1087,7 @@ func (a *ADSC) Watch() {
 }
 
 // WatchConfig will use the new experimental API watching, similar with MCP.
+// This sends the requests explicitly, for testing.
 func (a *ADSC) WatchConfig() {
 	t := collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String()
 	a.initialWatchTypes = append(a.initialWatchTypes, t)
@@ -1088,17 +1095,7 @@ func (a *ADSC) WatchConfig() {
 		TypeUrl: t,
 	})
 
-	for _, sch := range []collection.Schema{collections.IstioNetworkingV1Alpha3Destinationrules,
-		collections.IstioNetworkingV1Alpha3Envoyfilters,
-		collections.IstioNetworkingV1Alpha3Gateways,
-		collections.IstioNetworkingV1Alpha3Serviceentries,
-		collections.IstioNetworkingV1Alpha3Sidecars,
-		collections.IstioNetworkingV1Alpha3Virtualservices,
-		collections.IstioNetworkingV1Alpha3Workloadentries,
-		collections.IstioSecurityV1Beta1Authorizationpolicies,
-		collections.IstioSecurityV1Beta1Peerauthentications,
-		collections.IstioSecurityV1Beta1Requestauthentications,
-	} {
+	for _, sch := range collections.Pilot.All() {
 		t = sch.Resource().GroupVersionKind().String()
 		a.initialWatchTypes = append(a.initialWatchTypes, t)
 		_ = a.Send(&discovery.DiscoveryRequest{

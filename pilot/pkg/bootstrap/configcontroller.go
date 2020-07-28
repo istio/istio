@@ -110,7 +110,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 				leaderelection.
 					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
 					AddRunFunction(func(leaderStop <-chan struct{}) {
-						log.Infof("restarting kubeclient")
 						// Start informers again. This fixes the case where informers for namespace do not start,
 						// as we create them only after acquiring the leader lock
 						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -219,29 +218,20 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			if err != nil {
 				return fmt.Errorf("invalid XDS config URL %s %v", configSource.Address, err)
 			}
-			// TODO: use a query param or schema to specify insecure
-			xdsMCP, err := adsc.New(&meshconfig.ProxyConfig{
+			// TODO: use a query param or schema to specify insecure - it is intended to be used with a
+			// gateway or for testing with plain text.
+			xdsMCP := adsc.New(&meshconfig.ProxyConfig{
 				DiscoveryAddress: srcAddress.Host,
 			}, &adsc.Config{
-				Watch: []string{"mcp"},
 				Meta:  model.NodeMetadata{}.ToStruct(),
 			})
-			if err != nil {
-				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
-			}
-			err = xdsMCP.Run()
-			if err != nil {
-				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
-			}
+
 			store := memory.Make(collections.Pilot)
 			configController := memory.NewController(store)
 			xdsMCP.Store = model.MakeIstioStore(configController)
-			go configController.Run(make(chan struct{}))
 
-			if err != nil {
-				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
-			}
-			go xdsMCP.WatchConfig()
+			go xdsMCP.Start()
+
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Warna("Started XDS config ", s.ConfigStores)
 			continue

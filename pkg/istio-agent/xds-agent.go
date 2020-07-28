@@ -126,6 +126,8 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 		ResponseHandler: sa.proxyGen,
 		XDSRootCAFile:   sa.FindRootCAForXDS(),
 		Watch:           []string{"mcp", "envoy"},
+		SecOpts:         sa.secOpts,
+		PlainTLS:        sa.cfg.PlainTLS,
 	}
 
 	// Set Secrets and JWTPath if the default ControlPlaneAuthPolicy is MUTUAL_TLS
@@ -134,12 +136,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 		cfg.JWTPath = sa.secOpts.JWTPath
 	}
 
-	ads, err := adsc.New(proxyConfig, cfg)
-	if err != nil {
-		// Error to be handled by caller - probably by exit if
-		// we are in 'envoy using proxy' mode.
-		return err
-	}
+	ads := adsc.New(proxyConfig, cfg)
 
 	ads.LocalCacheDir = savePath.Get()
 	ads.Store = sa.xdsServer.MemoryConfigStore
