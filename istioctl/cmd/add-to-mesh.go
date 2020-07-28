@@ -353,7 +353,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			continue
 		}
 		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
-			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s",
+			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
 			dep.Name, dep.Namespace, RequirementsURL)
 	}
 	return errs
