@@ -38,7 +38,7 @@ const (
 	invalidFile          = "testdata/invalid.yaml"
 	invalidExtensionFile = "testdata/invalid.md"
 	dirWithConfig        = "testdata/some-dir/"
-	nestedDirWithConfig  = "testdata/some-dir/nested-dir/"
+	badAnnotationFile    = "testdata/some-dir/nested-dir/bad-annotation-service.yaml"
 	jsonOutput           = "-ojson"
 )
 
@@ -352,16 +352,17 @@ func TestErrorLineNumbers(t *testing.T) {
 			})
 
 			applyFileOrFail(t, ns.Name(), gatewayFile)
-			applyFileOrFail(t, ns.Name(), dirWithConfig)
-			applyFileOrFail(t, ns.Name(), nestedDirWithConfig)
+			applyFileOrFail(t, ns.Name(), badAnnotationFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
-			fmt.Printf("%v", output)
-			expectMessages(t, g, output, msg.UnknownAnnotation)
-			expectMessages(t, g, output, msg.SchemaValidationError)
-			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+
+			expectedLines := []string{"gateway.yaml:9", "bad-annotation-service.yaml:7"}
+
+			for i := range output {
+				g.Expect(output[i]).To(ContainSubstring(expectedLines[i]))
+			}
 
 		})
 }
