@@ -85,7 +85,6 @@ func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 
 	// build the message-level dictionary
 	reqMap := make(map[string]interface{})
-	//TODO account for other protocols
 
 	reqMap["context.reporter.kind"] = "inbound"
 	fillAddress(reqMap, req.GetAttributes().GetDestination().GetAddress(), "destination")
