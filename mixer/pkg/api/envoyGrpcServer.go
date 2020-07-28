@@ -74,6 +74,7 @@ func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool
 // It enables longevity of OOP adapters
 //https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/filter/http/ext_authz/v2/ext_authz.proto
 func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
+
 	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: 1.0}) {
 		return nil, grpc.Errorf(codes.Unavailable, "Envoy Server is currently overloaded. Please try again.")
 	}

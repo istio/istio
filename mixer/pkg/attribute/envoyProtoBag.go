@@ -62,6 +62,22 @@ func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
 	return time.Unix(theTime.Seconds, int64(theTime.Nanos)+int64(durationNanos))
 }
 
+
+func isGrpc(headers map[string]string) bool {
+ 	if val, ok := headers["content-type"]; ok {
+		return strings.Contains(val, "grpc")
+	}
+	return false
+}
+
+func fillContextProtocol(reqMap map[string]interface{}) {
+	if isGrpc(reqMap["request.headers"].(map[string]string)) {
+		reqMap["context.protocol"] = "grpc"
+	} else {
+		reqMap["context.protocol"] = "http"
+	}
+}
+
 // AuthzProtoBag returns an attribute bag for an Ext-Authz Check Request.
 // When you are done using the proto bag, call the Done method to recycle it.
 func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
@@ -70,7 +86,7 @@ func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 	// build the message-level dictionary
 	reqMap := make(map[string]interface{})
 	//TODO account for other protocols
-	reqMap["context.protocol"] = "http"
+
 	reqMap["context.reporter.kind"] = "inbound"
 	fillAddress(reqMap, req.GetAttributes().GetDestination().GetAddress(), "destination")
 	fillAddress(reqMap, req.GetAttributes().GetSource().GetAddress(), "source")
@@ -83,7 +99,7 @@ func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 	reqMap["request.scheme"] = req.GetAttributes().GetRequest().GetHttp().GetScheme()
 	reqMap["request.time"] = reformatTime(req.GetAttributes().GetRequest().GetTime(), 0)
 	reqMap["request.useragent"] = req.GetAttributes().GetRequest().GetHttp().GetHeaders()["user-agent"]
-
+	fillContextProtocol(reqMap)
 	pb.reqMap = reqMap
 
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
@@ -99,7 +115,6 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
 	if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
-		reqMap["context.protocol"] = "http"
 		reqMap["context.reporter.kind"] = "inbound"
 		fillAddress(reqMap, httpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(),
 			"destination")
@@ -114,7 +129,6 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 		reqMap["request.path"] = httpLogs.GetLogEntry()[num].GetRequest().GetPath()
 		reqMap["request.scheme"] = httpLogs.GetLogEntry()[num].GetRequest().GetScheme()
 		reqMap["request.time"] = reformatTime(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(), 0)
-		//is this the right time
 		reqMap["response.time"] = reformatTime(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(),
 			httpLogs.GetLogEntry()[num].GetCommonProperties().GetTimeToFirstUpstreamRxByte().Nanos)
 		reqMap["request.useragent"] = httpLogs.GetLogEntry()[num].GetRequest().GetUserAgent()
@@ -126,9 +140,8 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 		reqMap["UPSTREAM_CLUSTER"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
 		reqMap["connection.requested_server_name"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().GetTlsSniHostname()
 		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(httpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
-
+		fillContextProtocol(reqMap)
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
-		reqMap["context.protocol"] = "tcp"
 		reqMap["context.reporter.kind"] = "inbound"
 		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(), "destination")
 		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
@@ -141,6 +154,7 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 		reqMap["connection.sent.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetSentBytes()
 		reqMap["UPSTREAM_CLUSTER"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
 		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
+		reqMap["context.protocol"] = "tcp"
 	}
 
 	pb.reqMap = reqMap
