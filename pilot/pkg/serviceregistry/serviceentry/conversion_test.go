@@ -713,23 +713,24 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	labels := map[string]string{
 		"app": "wle",
 	}
+
 	workloadInstanceTests := []struct {
 		name      string
 		namespace string
-		wle       *networking.WorkloadEntry
+		wle       model.Config
 		out       *model.WorkloadInstance
 	}{
 		{
 			name:      "simple",
 			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
+			wle: model.Config{Spec: &networking.WorkloadEntry{
 				Address: "1.1.1.1",
 				Labels:  labels,
 				Ports: map[string]uint32{
 					"http": 80,
 				},
 				ServiceAccount: "scooby",
-			},
+			}},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -746,7 +747,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		{
 			name:      "simple - tls mode disabled",
 			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
+			wle: model.Config{Spec: &networking.WorkloadEntry{
 				Address: "1.1.1.1",
 				Labels: map[string]string{
 					"security.istio.io/tlsMode": "disabled",
@@ -755,7 +756,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					"http": 80,
 				},
 				ServiceAccount: "scooby",
-			},
+			}},
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
@@ -774,20 +775,77 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 		{
 			name:      "unix domain socket",
 			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
+			wle: model.Config{Spec: &networking.WorkloadEntry{
 				Address:        "unix://foo/bar",
 				ServiceAccount: "scooby",
-			},
+			}},
 			out: nil,
 		},
 		{
 			name:      "DNS address",
 			namespace: "ns1",
-			wle: &networking.WorkloadEntry{
+			wle: model.Config{Spec: &networking.WorkloadEntry{
 				Address:        "scooby.com",
 				ServiceAccount: "scooby",
-			},
+			}},
 			out: nil,
+		},
+		{
+			name:      "metadata labels only",
+			namespace: "ns1",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Labels: labels,
+				},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels:         labels,
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+		{
+			name:      "metadata labels only overriden",
+			namespace: "ns1",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Labels: map[string]string{
+						"my-label": "bar",
+					},
+				},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels:  labels,
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels:         labels,
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
 		},
 	}
 

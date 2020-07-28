@@ -367,8 +367,12 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstance(namespace string,
-	we *networking.WorkloadEntry) *model.WorkloadInstance {
+func convertWorkloadEntryToWorkloadInstance(namespace string, cfg model.Config) *model.WorkloadInstance {
+	we := cfg.Spec.(*networking.WorkloadEntry)
+	labels := cfg.Labels
+	if len(we.Labels) > 0 {
+		labels = we.Labels
+	}
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
@@ -392,7 +396,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string,
 				Label: we.Locality,
 			},
 			LbWeight:       we.Weight,
-			Labels:         we.Labels,
+			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
