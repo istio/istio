@@ -91,6 +91,9 @@ type Instance interface {
 
 	// ProxyStats returns proxy stats, or error if failure happens.
 	ProxyStats() (map[string]int, error)
+
+	// CloseClients closes all clients the ingress has created. The object can still be used with new clients.
+	CloseClients()
 }
 
 // CallResponse is the result of a call made through Istio Instance.

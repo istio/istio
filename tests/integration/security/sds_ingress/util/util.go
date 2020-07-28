@@ -244,9 +244,9 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, // nolint:interfacer
 	ingressType ingress.CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool) {
 	t.Helper()
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	cluster := ctx.Clusters().Default()
+	ist := istio.GetOrFail(t, ctx)
+	systemNS := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
 	for _, cn := range credNames {
 		scrt, err := cluster.CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})
 		if err != nil {
@@ -268,6 +268,9 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, 
 		}
 		return nil
 	}, retry.Timeout(time.Second*5))
+
+	// the ingress component reuses http clients that may have long-lived connections
+	ist.IngressFor(cluster).CloseClients()
 }
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.

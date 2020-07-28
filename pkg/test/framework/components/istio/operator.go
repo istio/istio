@@ -140,6 +140,11 @@ func (i *operatorComponent) Close() (err error) {
 			}
 		}
 	}
+	if i.ingress != nil {
+		for _, ing := range i.ingress {
+			ing.CloseClients()
+		}
+	}
 	return
 }
 

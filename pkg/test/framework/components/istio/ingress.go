@@ -340,6 +340,13 @@ func (c *ingressImpl) ProxyStats() (map[string]int, error) {
 	return c.unmarshalStats(statsJSON)
 }
 
+func (c *ingressImpl) CloseClients() {
+	for _, cl := range c.clients {
+		cl.CloseIdleConnections()
+	}
+	c.clients = map[clientKey]*http.Client{}
+}
+
 // adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.
 func (c *ingressImpl) adminRequest(path string) (string, error) {
 	pods, err := c.env.KubeClusters[0].PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
