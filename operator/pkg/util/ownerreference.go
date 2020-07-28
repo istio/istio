@@ -55,7 +55,7 @@ func upsertOwnerRef(ref metav1.OwnerReference, object metav1.Object) {
 	object.SetOwnerReferences(owners)
 }
 
-// SetLabel is a helper function which sets the specified label and value on te specified object.
+// SetOwnerReference is a helper function which sets the specified OwnerReferences on te specified object.
 func SetOwnerReference(resource runtime.Object, ownerRef metav1.OwnerReference) error {
 	resourceAccessor, err := meta.Accessor(resource)
 	if err != nil {
