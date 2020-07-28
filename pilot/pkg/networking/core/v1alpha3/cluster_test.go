@@ -1018,7 +1018,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTLS, gotCtxType := maybeBuildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
+			gotTLS, gotCtxType := buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
 				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTLS)
