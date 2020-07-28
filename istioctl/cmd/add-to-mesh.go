@@ -558,7 +558,7 @@ func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 		k, v := splitEqual(l)
 		u64, err := strconv.ParseUint(v, 10, 32)
 		if err != nil {
-			panic(err)
+			log.Errorf("failed to convert to uint32: %v", err)
 		}
 		out[k] = uint32(u64)
 	}

@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +23,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
@@ -203,7 +205,7 @@ func createConfig(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Cluster
 	if err = createCertificates(temp); err != nil {
 		return err
 	}
-	if err = createMeshConfig(wg, temp); err != nil {
+	if err = createMeshConfig(wg, cluster, temp); err != nil {
 		return err
 	}
 	return nil
@@ -262,20 +264,39 @@ func createMeshConfig(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Clu
 		return err
 	}
 
-	// TODO: get unmarshal fully working w/o error (EnablePrometheusMerge bool compatibility)
+	// TODO: get unmarshal fully working w/o error using mesh
 	var mesh meshconfig.MeshConfig
-	meshYAML := []byte(istio.Data["mesh"])
-	if err = yaml.Unmarshal(meshYAML, &mesh); err != nil {
+	meshJSON, err := yaml.YAMLToJSON([]byte(istio.Data["mesh"]))
+	if err != nil {
+		return err
+	}
+	if err = jsonpb.Unmarshal(bytes.NewReader(meshJSON), &mesh); err != nil {
 		return err
 	}
 
-	// TODO: get other overrides for default config
-	mesh.DefaultConfig.ProxyMetadata["ClUSTER_ID"] = cluster.Name
-	mesh.DefaultConfig.ProxyMetadata["SERVICE_ACCOUNT"] = wg.Spec.ServiceAccount
-	mesh.DefaultConfig.ProxyMetadata["CANONICAL_SERVICE"] = wg.Name
-	mesh.DefaultConfig.ProxyMetadata["CANONICAL_NAMESPACE"] = wg.Namespace
+	// TODO: check that these are all the correct vals
+	md := mesh.DefaultConfig.ProxyMetadata
+	md["CANONICAL_SERVICE"] = "mock service"
+	md["CANONICAL_REVISION"] = "mock version"
+	md["DNS_AGENT"] = ""
+	md["POD_NAMESPACE"] = wg.Namespace
+	md["SERVICE_ACCOUNT"] = wg.Spec.ServiceAccount
+	md["TRUST_DOMAIN"] = mesh.TrustDomain
 
-	meshYAML, err = yaml.Marshal(mesh)
+	md["ISTIO_META_CLUSTER_ID"] = "mock id"
+	md["ISTIO_META_MESH_ID"] = string(mesh.DefaultConfig.MeshId)
+	md["ISTIO_META_NETWORK"] = wg.Spec.Network
+	if ports, err := json.Marshal(wg.Spec.Ports); err == nil {
+		md["ISTIO_META_POD_PORTS"] = string(ports)
+	}
+	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
+	wg.Spec.Labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
+	wg.Spec.Labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
+	if labels, err := json.Marshal(wg.Spec.Labels); err == nil {
+		md["ISTIO_META_JSON_LABELS"] = string(labels)
+	}
+
+	meshYAML, err := yaml.Marshal(mesh)
 	if err != nil {
 		return err
 	}
