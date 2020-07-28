@@ -517,7 +517,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 				Inject: true,
 			})
 
-			var a, b echo.Instance
+			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, echo.Config{
@@ -532,6 +532,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 						},
 					},
 				}).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
 				BuildOrFail(t)
 
 			args := map[string]string{
@@ -544,24 +545,103 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			cases := []struct {
-				path string
-				code string
-				body string
+				name  string
+				path  string
+				code  string
+				body  string
+				host  string
+				from  echo.Workload
+				token string
 			}{
 				{
+					name: "allow path to company.com",
 					path: "/allow",
 					code: response.StatusCodeOK,
 					body: "handled-by-egress-gateway",
+					host: "www.company.com",
+					from: getWorkload(a, t),
 				},
 				{
+					name: "deny path to company.com",
 					path: "/deny",
 					code: response.StatusCodeForbidden,
 					body: "RBAC: access denied",
+					host: "www.company.com",
+					from: getWorkload(a, t),
+				},
+				{
+					name: "allow service account a to a-only.com over mTLS",
+					path: "/",
+					code: response.StatusCodeOK,
+					body: "handled-by-egress-gateway",
+					host: "a-only.com",
+					from: getWorkload(a, t),
+				},
+				{
+					name: "deny service account c to a-only.com over mTLS",
+					path: "/",
+					code: response.StatusCodeForbidden,
+					body: "RBAC: access denied",
+					host: "a-only.com",
+					from: getWorkload(c, t),
+				},
+				{
+					name:  "allow a with JWT to jwt-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeOK,
+					body:  "handled-by-egress-gateway",
+					host:  "jwt-only.com",
+					from:  getWorkload(a, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "allow c with JWT to jwt-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeOK,
+					body:  "handled-by-egress-gateway",
+					host:  "jwt-only.com",
+					from:  getWorkload(c, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "deny c with wrong JWT to jwt-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeForbidden,
+					body:  "RBAC: access denied",
+					host:  "jwt-only.com",
+					from:  getWorkload(c, t),
+					token: jwt.TokenIssuer2,
+				},
+				{
+					name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeOK,
+					body:  "handled-by-egress-gateway",
+					host:  "jwt-and-a-only.com",
+					from:  getWorkload(a, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeForbidden,
+					body:  "RBAC: access denied",
+					host:  "jwt-and-a-only.com",
+					from:  getWorkload(c, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeForbidden,
+					body:  "RBAC: access denied",
+					host:  "jwt-and-a-only.com",
+					from:  getWorkload(a, t),
+					token: jwt.TokenIssuer2,
 				},
 			}
 
 			for _, tc := range cases {
-				from := getWorkload(a, t)
 				request := &epb.ForwardEchoRequest{
 					// Use a fake IP to make sure the request is handled by our test.
 					Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
@@ -569,13 +649,19 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 					Headers: []*epb.Header{
 						{
 							Key:   "Host",
-							Value: "www.company.com",
+							Value: tc.host,
 						},
 					},
 				}
-				t.Run(tc.path, func(t *testing.T) {
+				if tc.token != "" {
+					request.Headers = append(request.Headers, &epb.Header{
+						Key:   "Authorization",
+						Value: "Bearer " + tc.token,
+					})
+				}
+				t.Run(tc.name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, func() error {
-						responses, err := from.ForwardEcho(context.TODO(), request)
+						responses, err := tc.from.ForwardEcho(context.TODO(), request)
 						if err != nil {
 							return err
 						}

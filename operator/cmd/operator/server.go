@@ -105,6 +105,7 @@ func run() {
 	if operatorRevision, found := os.LookupEnv("REVISION"); found && operatorRevision != "" {
 		leaderElectionID += "-" + operatorRevision
 	}
+	log.Infof("leader election cm: %s", leaderElectionID)
 	if watchNS != "" {
 		namespaces := strings.Split(watchNS, ",")
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.

@@ -24,6 +24,9 @@ import (
 
 // Instance represents "istioctl"
 type Instance interface {
+	// WaitForConfigs will wait until all passed in config has been distributed
+	WaitForConfigs(defaultNamespace string, configs string) error
+
 	// Invoke invokes an istioctl command and returns the output and exception.
 	// stdout and stderr will be returned as different strings
 	Invoke(args []string) (string, string, error)

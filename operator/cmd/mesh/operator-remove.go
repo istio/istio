@@ -95,7 +95,7 @@ func operatorRemove(args *rootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
-	rs, _, err := reconciler.GetPrunedResources(orArgs.revision, false, string(name.IstioOperatorComponentName))
+	rs, err := reconciler.GetPrunedResources(orArgs.revision, false, string(name.IstioOperatorComponentName))
 	if err != nil {
 		l.LogAndFatal(err)
 	}

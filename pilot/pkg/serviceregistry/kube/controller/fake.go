@@ -16,6 +16,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -28,6 +29,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -138,6 +140,9 @@ type FakeController struct {
 }
 
 func (f *FakeController) ResyncEndpoints() error {
+	// TODO this workaround fixes a flake that indicates a real issue.
+	// TODO(cont) See https://github.com/istio/istio/issues/24117 and https://github.com/istio/istio/pull/24339
+
 	e, ok := f.endpoints.(*endpointsController)
 	if !ok {
 		return errors.New("cannot run ResyncEndpoints; EndpointsMode must be EndpointsOnly")
@@ -148,6 +153,18 @@ func (f *FakeController) ResyncEndpoints() error {
 	}
 	// endpoint processing may beat services
 	for _, ep := range eps {
+		// endpoint updates are skipped when the service is not there yet
+		if host, svc, ns := e.getServiceInfo(ep); host != "" {
+			_ = retry.UntilSuccess(func() error {
+				f.RLock()
+				defer f.RUnlock()
+				if f.servicesMap[host] == nil {
+					return fmt.Errorf("waiting for service %s in %s to be populated", svc, ns)
+				}
+				return nil
+			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
+		}
+
 		err = f.endpoints.onEvent(ep, model.EventAdd)
 		if err != nil {
 			return err
