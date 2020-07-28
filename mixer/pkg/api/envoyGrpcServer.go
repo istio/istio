@@ -54,13 +54,13 @@ type (
 )
 
 func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache,
-	throttler *loadshedding.Throttler) GrpcServerEnvoy {
+	throttler *loadshedding.Throttler) *GrpcServerEnvoy {
 	list := attribute.GlobalList()
 	globalDict := make(map[string]int32, len(list))
 	for i := 0; i < len(list); i++ {
 		globalDict[list[i]] = int32(i)
 	}
-	return GrpcServerEnvoy{
+	return &GrpcServerEnvoy{
 		dispatcher:     dispatcher,
 		gp:             gp,
 		globalWordList: list,
@@ -114,9 +114,8 @@ func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 
 			lg.Debugf("ExtAuthz.Check() status from cache: %v", resp.Status)
 
-			if !status.IsOK(cacheStatus) {
-				return resp, nil
-			}
+			return resp, nil
+
 		}
 	}
 	envoyCheckBag := attr.GetMutableBag(envoyProtoBag)
@@ -127,7 +126,8 @@ func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 	return resp, err
 }
 
-func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag attr.Bag, checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
+func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag *attribute.EnvoyProtoBag,
+	checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
 
 	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
@@ -135,7 +135,6 @@ func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag attr.Bag, che
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
-	lg.Debug("Dispatching to main adapters after running processors")
 	lg.Debuga("ExtAuthz.Check Attribute Bag: \n", checkBag)
 	lg.Debug("Dispatching ExtAuthz.Check")
 
@@ -174,11 +173,12 @@ func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag attr.Bag, che
 	if s.cache != nil {
 		// keep this for later...
 		s.cache.Set(protoBag, checkcache.Value{
-			StatusCode:     resp.Status.Code,
-			StatusMessage:  cr.Status.Message,
-			Expiration:     time.Now().Add(cr.ValidDuration),
-			ValidUseCount:  cr.ValidUseCount,
-			RouteDirective: cr.RouteDirective,
+			StatusCode:           resp.Status.Code,
+			StatusMessage:        cr.Status.Message,
+			Expiration:           time.Now().Add(cr.ValidDuration),
+			ValidUseCount:        cr.ValidUseCount,
+			ReferencedAttributes: *protoBag.GetReferencedAttributes(s.globalDict, len(s.globalWordList)),
+			RouteDirective:       cr.RouteDirective,
 		})
 	}
 
@@ -216,13 +216,11 @@ func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 
 			protoBag = attribute.AccessLogProtoBag(msg, i)
 			reportBag = attr.GetMutableBag(protoBag)
-			if err := dispatchSingleReport(ctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
+			if err := dispatchSingleReportEnvoy(ctx, s.dispatcher, reporter, protoBag, reportBag); err != nil {
 				errors = multierror.Append(errors, err)
 				continue
 			}
-			if destinationNamespace, ok := reportBag.Get("destination.namespace"); ok {
-				protoBag.AddNamespaceDependentAttributes(fmt.Sprintf("%v", destinationNamespace))
-			}
+
 			if reportBag != nil {
 				reportBag.Done()
 			}
@@ -240,4 +238,22 @@ func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_St
 			lg.Errora("Stream Access Log failed: ", errors.Error())
 		}
 	}
+}
+
+func dispatchSingleReportEnvoy(ctx context.Context, preprocessor dispatcher.Dispatcher, reporter dispatcher.Reporter,
+	attributesBag *attribute.EnvoyProtoBag, reportBag *attr.MutableBag) error {
+
+	lg.Debug("Dispatching Preprocess")
+
+	if err := preprocessor.Preprocess(ctx, attributesBag, reportBag); err != nil {
+		return fmt.Errorf("preprocessing attributes failed: %v", err)
+	}
+	if destinationNamespace, ok := reportBag.Get("destination.namespace"); ok {
+		attributesBag.AddNamespaceDependentAttributes(destinationNamespace.(string))
+	}
+
+	lg.Debug("Dispatching to main adapters after running preprocessors")
+	lg.Debuga("Attribute Bag: \n", reportBag)
+
+	return reporter.Report(reportBag)
 }

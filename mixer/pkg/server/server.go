@@ -268,8 +268,8 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
 	envoyServer := api.NewGRPCServerEnvoy(s.dispatcher, s.gp, s.checkCache, throttler)
-	authzGRPC.RegisterAuthorizationServer(s.server, &envoyServer)
-	accessLogGRPC.RegisterAccessLogServiceServer(s.server, &envoyServer)
+	authzGRPC.RegisterAuthorizationServer(s.server, envoyServer)
+	accessLogGRPC.RegisterAccessLogServiceServer(s.server, envoyServer)
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)

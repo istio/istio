@@ -64,6 +64,7 @@ var protoBags = sync.Pool{
 // When you are done using the proto bag, call the Done method to recycle it.
 func GetProtoBag(proto *mixerpb.CompressedAttributes, globalDict map[string]int32, globalWordList []string) *ProtoBag {
 	pb := protoBags.Get().(*ProtoBag)
+
 	// build the message-level dictionary
 	d := make(map[string]int32, len(proto.Words))
 	for i, name := range proto.Words {

@@ -1,0 +1,72 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-policy
+  namespace: istio-system
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.http_connection_manager
+              subFilter:
+                name: envoy.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.ext_authz
+          config:
+            grpc_service:
+              google_grpc:
+                target_uri: istio-policy.istio-system:9091
+                stat_prefix: istio-policy.istio-system
+              timeout: 5s
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager"
+            access_log:
+              - name: envoy.access_loggers.http_grpc
+                config:
+                  common_config:
+                    log_name: istio-telemetry.istio-system
+                    grpc_service:
+                      google_grpc:
+                        target_uri: istio-telemetry.istio-system:9091
+                        stat_prefix: istio-telemetry.istio-system
+                  additional_request_headers_to_log:
+                    - :authority
+                    - content-type
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy"
+            access_log:
+              - name: envoy.access_loggers.tcp_grpc
+                config:
+                  common_config:
+                    log_name: istio-telemetry.istio-system
+                    grpc_service:
+                      google_grpc:
+                        target_uri: istio-telemetry.istio-system:9091
+                        stat_prefix: istio-telemetry.istio-system
+

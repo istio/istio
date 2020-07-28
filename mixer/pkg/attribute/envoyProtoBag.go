@@ -33,12 +33,10 @@ import (
 
 // EnvoyProtoBag implements the Bag interface on top of an Attributes proto.
 type EnvoyProtoBag struct {
-	reqMap              map[string]interface{}
-	globalDict          map[string]int32
-	globalWordList      []string
-	messageDict         map[string]int32
-	convertedStringMaps map[int32]attr.StringMap
-	stringMapMutex      sync.RWMutex
+	reqMap          map[string]interface{}
+	upstreamCluster string
+	globalDict      map[string]int32
+	messageDict     map[string]int32
 
 	// to keep track of attributes that are referenced
 	referencedAttrs      map[attr.Reference]attr.Presence
@@ -62,9 +60,8 @@ func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
 	return time.Unix(theTime.Seconds, int64(theTime.Nanos)+int64(durationNanos))
 }
 
-
 func isGrpc(headers map[string]string) bool {
- 	if val, ok := headers["content-type"]; ok {
+	if val, ok := headers["content-type"]; ok {
 		return strings.Contains(val, "grpc")
 	}
 	return false
@@ -136,7 +133,7 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 		reqMap["response.size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes())
 		reqMap["response.total_size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes()) +
 			int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes())
-		reqMap["UPSTREAM_CLUSTER"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
+		pb.upstreamCluster = httpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
 		reqMap["connection.requested_server_name"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().GetTlsSniHostname()
 		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(httpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
 		fillContextProtocol(reqMap)
@@ -151,7 +148,7 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 			GetTlsProperties().GetTlsSniHostname()
 		reqMap["connection.received.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetReceivedBytes()
 		reqMap["connection.sent.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetSentBytes()
-		reqMap["UPSTREAM_CLUSTER"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
+		pb.upstreamCluster = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
 		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
 		reqMap["context.protocol"] = "tcp"
 	}
@@ -163,13 +160,12 @@ func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *Env
 
 //fills in destination.service.name and destination.service.host after the initial bag has been built
 func (pb *EnvoyProtoBag) AddNamespaceDependentAttributes(destinationNamespace string) {
-	upstreamCluster := pb.reqMap["UPSTREAM_CLUSTER"]
-	parts := strings.Split(fmt.Sprintf("%v", upstreamCluster), "|")
+	parts := strings.Split(pb.upstreamCluster, "|")
 	var host string
 	if len(parts) == 4 {
 		host = parts[3]
 	} else {
-		host = fmt.Sprintf("%v", pb.reqMap["request.host"])
+		host = pb.reqMap["request.host"].(string)
 	}
 	pb.reqMap["destination.service.host"] = host
 	namePos := strings.IndexAny(host, ".:")
@@ -210,8 +206,7 @@ func (pb *EnvoyProtoBag) ReferenceTracker() attr.ReferenceTracker {
 }
 
 // GetReferencedAttributes returns the set of attributes that have been referenced through this bag.
-func (pb *EnvoyProtoBag) GetReferencedAttributes(globalDict map[string]int32,
-	globalWordCount int) *mixerpb.ReferencedAttributes {
+func (pb *EnvoyProtoBag) GetReferencedAttributes(globalDict map[string]int32, globalWordCount int) *mixerpb.ReferencedAttributes {
 	output := &mixerpb.ReferencedAttributes{}
 
 	ds := newDictState(globalDict, globalWordCount)
@@ -306,11 +301,7 @@ func (pb *EnvoyProtoBag) Done() {
 // Reset removes all local state.
 func (pb *EnvoyProtoBag) Reset() {
 	pb.globalDict = make(map[string]int32)
-	pb.globalWordList = nil
 	pb.messageDict = make(map[string]int32)
-	pb.stringMapMutex.Lock()
-	pb.convertedStringMaps = make(map[int32]attr.StringMap)
-	pb.stringMapMutex.Unlock()
 	pb.referencedAttrsMutex.Lock()
 	pb.referencedAttrs = make(map[attr.Reference]attr.Presence, referencedAttrsSize)
 	pb.referencedAttrsMutex.Unlock()
