@@ -29,15 +29,13 @@ import (
 type Instance interface {
 	resource.Resource
 
-	// IngressFor returns a client for interacting with the ingress-gateway for a given cluster. If a nil cluster is provided,
-	// the first configured cluster will be used.
+	// IngressFor returns an ingress used for reaching workloads in the given cluster.
 	IngressFor(cluster resource.Cluster) ingress.Instance
 
-	// RemoteDiscoveryAddress gets the address on which the discovery server that controls the given cluster can be
-	// reached from outside the discovery service's cluster. An error may be returned if there is no discovery service
-	// in the primary cluster for the given cluster or if the ingress in the primary cluster does not have an external
-	// IP.
-	RemoteDiscoveryAddress(cluster resource.Cluster) (net.TCPAddr, error)
+	// RemoteDiscoveryAddressFor returns the external address of the discovery server that controls
+	// the given cluster. This allows access to the discovery server from
+	// outside its cluster.
+	RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error)
 
 	Settings() Config
 }

@@ -81,6 +81,9 @@ type Instance interface {
 	// TCPAddress returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
 	TCPAddress() net.TCPAddr
+	// DiscoveryAddress returns the external XDS (!5012) address on the ingress gateway (or the NodePort address,
+	// when in an evnironment that doesn't support LoadBalancer).
+	DiscoveryAddress() net.TCPAddr
 
 	// Call makes a call through ingress.
 	Call(options CallOptions) (CallResponse, error)

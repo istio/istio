@@ -45,6 +45,7 @@ const (
 
 	proxyContainerName = "istio-proxy"
 	proxyAdminPort     = 15000
+	discoveryPort      = 15012
 )
 
 var (
@@ -167,6 +168,16 @@ func (c *ingressImpl) TCPAddress() net.TCPAddr {
 func (c *ingressImpl) HTTPSAddress() net.TCPAddr {
 	address, err := retry.Do(func() (interface{}, bool, error) {
 		return c.getAddressInner(c.cluster, c.namespace, 443)
+	}, retryTimeout, retryDelay)
+	if err != nil {
+		return net.TCPAddr{}
+	}
+	return address.(net.TCPAddr)
+}
+
+func (c *ingressImpl) DiscoveryAddress() net.TCPAddr {
+	address, err := retry.Do(func() (interface{}, bool, error) {
+		return c.getAddressInner(c.cluster, c.namespace, discoveryPort)
 	}, retryTimeout, retryDelay)
 	if err != nil {
 		return net.TCPAddr{}

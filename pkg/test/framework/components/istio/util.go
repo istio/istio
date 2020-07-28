@@ -25,8 +25,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-const discoveryPort = 15012
-
 var (
 	dummyValidationVirtualServiceTemplate = `
 apiVersion: networking.istio.io/v1alpha3
@@ -70,15 +68,14 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 	}, retry.Timeout(time.Minute))
 }
 
-func (i *operatorComponent) RemoteDiscoveryAddress(cluster resource.Cluster) (net.TCPAddr, error) {
+func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
 	cp, err := i.environment.GetControlPlaneCluster(cluster)
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
-	addr := i.IngressFor(cp).HTTPSAddress()
+	addr := i.IngressFor(cp).DiscoveryAddress()
 	if addr.IP.String() == "<nil>" {
-		return net.TCPAddr{}, fmt.Errorf("failed to get ingressImpl IP for %s", cp.Name())
+		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())
 	}
-	addr.Port = discoveryPort
 	return addr, nil
 }

@@ -289,7 +289,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 }
 
 func patchIstiodCustomHost(i *operatorComponent, cfg Config, cluster resource.Cluster) error {
-	remoteIstiodAddress, err := i.RemoteDiscoveryAddress(cluster)
+	remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
 	if err != nil {
 		return err
 	}
@@ -475,7 +475,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
 		} else {
 			installSettings = append(installSettings, "--set", "profile=remote")
-			remoteIstiodAddress, err := c.RemoteDiscoveryAddress(cluster)
+			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {
 				return err
 			}

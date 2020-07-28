@@ -319,7 +319,9 @@ func generateYAML(ctx resource.Context, cfg echo.Config, cluster resource.Cluste
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func generateYAMLWithSettings(ctx resource.Context, cfg echo.Config, settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAMLWithSettings(
+	ctx resource.Context, cfg echo.Config,
+	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -341,7 +343,7 @@ func generateYAMLWithSettings(ctx resource.Context, cfg echo.Config, settings *i
 		if err != nil {
 			return "", "", err
 		}
-		addr, err := ist.RemoteDiscoveryAddress(cluster)
+		addr, err := ist.RemoteDiscoveryAddressFor(cluster)
 		if err != nil {
 			return "", "", err
 		}
