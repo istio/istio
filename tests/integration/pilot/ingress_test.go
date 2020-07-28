@@ -56,7 +56,14 @@ spec:
       name: domain.example
     port: 80
     protocol: HTTP
-    routes: {}
+    routes:
+      resource: httproutes
+  - hostname:
+      match: Any
+    port: 31400
+    protocol: TCP
+    routes:
+      resource: tcproutes
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -67,32 +74,64 @@ spec:
   - hostnames: ["my.domain.example"]
     rules:
     - match:
-        pathType: Prefix
+        pathMatchType: Prefix
         path: /get
       action:
         forwardTo:
-          targetRef:
+        - targetRef:
             name: b
-            group: ""
-            resource: ""`)
+---
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: TCPRoute
+metadata:
+  name: tcp
+spec:
+  rules:
+  - action:
+      forwardTo:
+        targetPort: 80
+        targetRef:
+          name: b
+`)
 
-			if err := retry.UntilSuccess(func() error {
-				resp, err := ingr.Call(ingress.CallOptions{
-					Host:     "my.domain.example",
-					Path:     "/get",
-					CallType: ingress.PlainText,
-					Address:  ingr.HTTPAddress(),
-				})
-				if err != nil {
-					return err
+			ctx.NewSubTest("http").Run(func(ctx framework.TestContext) {
+				if err := retry.UntilSuccess(func() error {
+					resp, err := ingr.Call(ingress.CallOptions{
+						Host:     "my.domain.example",
+						Path:     "/get",
+						CallType: ingress.PlainText,
+						Address:  ingr.HTTPAddress(),
+					})
+					if err != nil {
+						return err
+					}
+					if resp.Code != 200 {
+						return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
+					}
+					return nil
+				}); err != nil {
+					ctx.Fatal(err)
 				}
-				if resp.Code != 200 {
-					return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
+			})
+			ctx.NewSubTest("tcp").Run(func(ctx framework.TestContext) {
+				if err := retry.UntilSuccess(func() error {
+					resp, err := ingr.Call(ingress.CallOptions{
+						Host:     "my.domain.example",
+						Path:     "/",
+						CallType: ingress.PlainText,
+						Address:  ingr.TCPAddress(),
+					})
+					if err != nil {
+						return err
+					}
+					if resp.Code != 200 {
+						return fmt.Errorf("got invalid response code %v: %v", resp.Code, resp.Body)
+					}
+					return nil
+				}); err != nil {
+					ctx.Fatal(err)
 				}
-				return nil
-			}); err != nil {
-				t.Fatal(err)
-			}
+			})
 		})
 }
 
