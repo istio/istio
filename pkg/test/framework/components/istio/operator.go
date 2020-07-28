@@ -19,13 +19,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"

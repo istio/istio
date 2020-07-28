@@ -21,12 +21,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

@@ -15,8 +15,9 @@
 package sdsingress
 
 import (
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"testing"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"

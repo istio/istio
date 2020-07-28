@@ -16,9 +16,10 @@ package tcp
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"

@@ -15,8 +15,9 @@
 package istio
 
 import (
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"net"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"

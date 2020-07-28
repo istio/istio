@@ -18,11 +18,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"strings"
 	"testing"
 	"text/template"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

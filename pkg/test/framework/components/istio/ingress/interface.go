@@ -2,10 +2,11 @@ package ingress
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test"
 	"net"
 	"net/http"
 	"strings"
+
+	"istio.io/istio/pkg/test"
 )
 
 // CallType defines ingress gateway type
@@ -83,4 +84,3 @@ type CallResponse struct {
 	// Response body
 	Body string
 }
-

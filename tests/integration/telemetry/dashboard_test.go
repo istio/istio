@@ -19,11 +19,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"

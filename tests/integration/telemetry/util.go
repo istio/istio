@@ -16,11 +16,12 @@ package telemetry
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
