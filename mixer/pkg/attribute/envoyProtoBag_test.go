@@ -19,7 +19,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/golang/protobuf/ptypes/timestamp"
 
 	attr "istio.io/pkg/attribute"
@@ -27,51 +27,7 @@ import (
 )
 
 func TestBagEnvoy(t *testing.T) {
-	attrs := &authzGRPC.CheckRequest{
-		Attributes: &authzGRPC.AttributeContext{
-			Source: &authzGRPC.AttributeContext_Peer{
-				Address: &core.Address{
-					Address: &core.Address_SocketAddress{
-						SocketAddress: &core.SocketAddress{
-							Address: "10.12.1.52",
-							PortSpecifier: &core.SocketAddress_PortValue{
-								PortValue: 52480,
-							},
-						},
-					},
-				},
-				Principal: "spiffe://cluster.local/ns/default/sa/bookinfo-ratings",
-			},
-			Destination: &authzGRPC.AttributeContext_Peer{
-				Address: &core.Address{
-					Address: &core.Address_SocketAddress{
-						SocketAddress: &core.SocketAddress{
-							Address: "10.12.2.52",
-							PortSpecifier: &core.SocketAddress_PortValue{
-								PortValue: 9080,
-							},
-						},
-					},
-				},
-				Principal: "spiffe://cluster.local/ns/default/sa/bookinfo-productpage",
-			},
-			Request: &authzGRPC.AttributeContext_Request{
-				Time: &timestamp.Timestamp{
-					Seconds: 1594395974,
-					Nanos:   114093000,
-				},
-				Http: &authzGRPC.AttributeContext_HttpRequest{
-					Id:     "4294822762638712056",
-					Method: "POST",
-					Headers: map[string]string{":authority": "productpage:9080", ":path": "/", ":method": "POST",
-						":accept": "*/*", "content-length": "0"},
-					Path:     "/",
-					Host:     "productpage:9080",
-					Protocol: "HTTP/1.1",
-				},
-			},
-		},
-	}
+	attrs := envoyProtoAttrsForTestingAuthz()
 	ab := AuthzProtoBag(attrs)
 
 	results := []struct {
@@ -122,14 +78,14 @@ func TestBagEnvoy(t *testing.T) {
 }
 
 func envoyMutableBagFromProtoForTesing() *attr.MutableBag {
-	b := AuthzProtoBag(envoyProtoAttrsForTesting())
+	b := AuthzProtoBag(envoyProtoAttrsForTestingAuthz())
 	return attr.GetMutableBag(b)
 }
 
-func envoyProtoAttrsForTesting() *authzGRPC.CheckRequest {
-	attrs := &authzGRPC.CheckRequest{
-		Attributes: &authzGRPC.AttributeContext{
-			Source: &authzGRPC.AttributeContext_Peer{
+func envoyProtoAttrsForTestingAuthz() *authz.CheckRequest {
+	return &authz.CheckRequest{
+		Attributes: &authz.AttributeContext{
+			Source: &authz.AttributeContext_Peer{
 				Address: &core.Address{
 					Address: &core.Address_SocketAddress{
 						SocketAddress: &core.SocketAddress{
@@ -142,7 +98,7 @@ func envoyProtoAttrsForTesting() *authzGRPC.CheckRequest {
 				},
 				Principal: "spiffe://cluster.local/ns/default/sa/bookinfo-ratings",
 			},
-			Destination: &authzGRPC.AttributeContext_Peer{
+			Destination: &authz.AttributeContext_Peer{
 				Address: &core.Address{
 					Address: &core.Address_SocketAddress{
 						SocketAddress: &core.SocketAddress{
@@ -155,12 +111,12 @@ func envoyProtoAttrsForTesting() *authzGRPC.CheckRequest {
 				},
 				Principal: "spiffe://cluster.local/ns/default/sa/bookinfo-productpage",
 			},
-			Request: &authzGRPC.AttributeContext_Request{
+			Request: &authz.AttributeContext_Request{
 				Time: &timestamp.Timestamp{
 					Seconds: 1594395974,
 					Nanos:   114093000,
 				},
-				Http: &authzGRPC.AttributeContext_HttpRequest{
+				Http: &authz.AttributeContext_HttpRequest{
 					Id:     "4294822762638712056",
 					Method: "POST",
 					Headers: map[string]string{":authority": "productpage:9080", ":path": "/", ":method": "POST",
@@ -173,7 +129,6 @@ func envoyProtoAttrsForTesting() *authzGRPC.CheckRequest {
 		},
 	}
 
-	return attrs
 }
 
 func EnvoyTestProtoBagContains(t *testing.T) {

@@ -23,8 +23,8 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
-	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/golang/protobuf/ptypes/timestamp"
 
 	mixerpb "istio.io/api/mixer/v1"
@@ -77,7 +77,7 @@ func fillContextProtocol(reqMap map[string]interface{}) {
 
 // AuthzProtoBag returns an attribute bag for an Ext-Authz Check Request.
 // When you are done using the proto bag, call the Done method to recycle it.
-func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
+func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 
 	// build the message-level dictionary
@@ -106,7 +106,7 @@ func AuthzProtoBag(req *authzGRPC.CheckRequest) *EnvoyProtoBag {
 // AccessLogProtoBag returns an attribute bag from a StreamAccessLogsMessage
 // When you are done using the proto bag, call the Done method to recycle it.
 // num is the index of the entry from the message's batch to create a bag from
-func AccessLogProtoBag(msg *accessLogGRPC.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
+func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
 	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})

@@ -15,7 +15,7 @@
 package attribute
 
 import (
-	accessLogDataGRPC "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
+	accesslogpb "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
 )
 
 const (
@@ -69,9 +69,9 @@ func appendString(result *string, toAppend string) {
 	}
 }
 
-func ParseEnvoyResponseFlags(rawResponseFlags *accessLogDataGRPC.ResponseFlags) string {
+func ParseEnvoyResponseFlags(rawResponseFlags *accesslogpb.ResponseFlags) string {
 
-	var result string
+	result := ""
 
 	if rawResponseFlags.GetFailedLocalHealthcheck() {
 		appendString(&result, failedLocalHealthcheck)

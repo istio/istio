@@ -24,8 +24,8 @@ import (
 	"google.golang.org/grpc/codes"
 	grpc "google.golang.org/grpc/status"
 
-	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
-	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	rpcstatus "google.golang.org/genproto/googleapis/rpc/status"
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
@@ -73,7 +73,7 @@ func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool
 // Mirrors Mixer Check but instead uses Envoy External Authorization API
 // It enables longevity of OOP adapters
 //https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/filter/http/ext_authz/v2/ext_authz.proto
-func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest) (*authzGRPC.CheckResponse, error) {
+func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authz.CheckRequest) (*authz.CheckResponse, error) {
 
 	if s.throttler.Throttle(loadshedding.RequestInfo{PredictedCost: 1.0}) {
 		return nil, grpc.Errorf(codes.Unavailable, "Envoy Server is currently overloaded. Please try again.")
@@ -82,31 +82,31 @@ func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 	envoyProtoBag := attribute.AuthzProtoBag(req)
 	if s.cache != nil {
 		if value, ok := s.cache.Get(envoyProtoBag); ok {
-			var resp *authzGRPC.CheckResponse
+			var resp *authz.CheckResponse
 			cacheStatus := rpc.Status{
 				Code:    value.StatusCode,
 				Message: value.StatusMessage,
 			}
 			if status.IsOK(cacheStatus) {
 				lg.Debug("ExtAuthz.Check approved")
-				resp = &authzGRPC.CheckResponse{
+				resp = &authz.CheckResponse{
 					Status: &rpcstatus.Status{
 						Code:    value.StatusCode,
 						Message: value.StatusMessage,
 					},
-					HttpResponse: &authzGRPC.CheckResponse_OkResponse{
-						OkResponse: &authzGRPC.OkHttpResponse{},
+					HttpResponse: &authz.CheckResponse_OkResponse{
+						OkResponse: &authz.OkHttpResponse{},
 					},
 				}
 			} else {
 				lg.Debugf("ExtAuthz.Check denied: %v", value.StatusCode)
-				resp = &authzGRPC.CheckResponse{
+				resp = &authz.CheckResponse{
 					Status: &rpcstatus.Status{
 						Code:    value.StatusCode,
 						Message: value.StatusMessage,
 					},
-					HttpResponse: &authzGRPC.CheckResponse_DeniedResponse{
-						DeniedResponse: &authzGRPC.DeniedHttpResponse{},
+					HttpResponse: &authz.CheckResponse_DeniedResponse{
+						DeniedResponse: &authz.DeniedHttpResponse{},
 					},
 				}
 
@@ -127,7 +127,7 @@ func (s *GrpcServerEnvoy) Check(ctx context.Context, req *authzGRPC.CheckRequest
 }
 
 func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag *attribute.EnvoyProtoBag,
-	checkBag *attr.MutableBag) (*authzGRPC.CheckResponse, error) {
+	checkBag *attr.MutableBag) (*authz.CheckResponse, error) {
 
 	if err := s.dispatcher.Preprocess(ctx, protoBag, checkBag); err != nil {
 		err = fmt.Errorf("preprocessing attributes failed: %v", err)
@@ -144,27 +144,27 @@ func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag *attribute.En
 		lg.Errora("ExtAuthz.Check failed: ", err.Error())
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
-	var resp *authzGRPC.CheckResponse
+	var resp *authz.CheckResponse
 	if status.IsOK(cr.Status) {
 		lg.Debug("ExtAuthz.Check approved")
-		resp = &authzGRPC.CheckResponse{
+		resp = &authz.CheckResponse{
 			Status: &rpcstatus.Status{
 				Code:    cr.Status.Code,
 				Message: cr.Status.Message,
 			},
-			HttpResponse: &authzGRPC.CheckResponse_OkResponse{
-				OkResponse: &authzGRPC.OkHttpResponse{},
+			HttpResponse: &authz.CheckResponse_OkResponse{
+				OkResponse: &authz.OkHttpResponse{},
 			},
 		}
 	} else {
 		lg.Debugf("ExtAuthz.Check denied: %v", cr.Status)
-		resp = &authzGRPC.CheckResponse{
+		resp = &authz.CheckResponse{
 			Status: &rpcstatus.Status{
 				Code:    cr.Status.Code,
 				Message: cr.Status.Message,
 			},
-			HttpResponse: &authzGRPC.CheckResponse_DeniedResponse{
-				DeniedResponse: &authzGRPC.DeniedHttpResponse{},
+			HttpResponse: &authz.CheckResponse_DeniedResponse{
+				DeniedResponse: &authz.DeniedHttpResponse{},
 			},
 		}
 
@@ -188,7 +188,7 @@ func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag *attribute.En
 // Access log service should return empty response
 // It is implemented to perform the same functionality as Mixer Report for OOP longevity
 // It uses grpc Access Log Service API https://www.envoyproxy.io/docs/envoy/latest/api-v2/config/accesslog/v2/als.proto
-func (s *GrpcServerEnvoy) StreamAccessLogs(srv accessLogGRPC.AccessLogService_StreamAccessLogsServer) error {
+func (s *GrpcServerEnvoy) StreamAccessLogs(srv accesslog.AccessLogService_StreamAccessLogsServer) error {
 	for {
 		ctx := context.Background()
 		msg, err := srv.Recv()
