@@ -110,7 +110,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(ns, revision 
 		st := &v1alpha1.InstallStatus{Status: v1alpha1.InstallStatus_ACTION_REQUIRED, Message: msg}
 		return st, nil
 	}
-	uslist, _, err := h.GetPrunedResources(revision, false, "")
+	uslist, err := h.GetPrunedResources(revision, false, "")
 	if err != nil {
 		return errStatus, err
 	}
@@ -155,8 +155,7 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 // If componentName is not empty, only resources associated with specific components would be returned
 // UnstructuredList of objects and corresponding list of name kind hash of k8sObjects would be returned
 func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool, componentName string) (
-	[]*unstructured.UnstructuredList, []string, error) {
-	var resources []string
+	[]*unstructured.UnstructuredList, error) {
 	var usList []*unstructured.UnstructuredList
 	labels := map[string]string{
 		label.IstioRev: revision,
@@ -174,7 +173,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 		objects.SetGroupVersionKind(gvk)
 		componentRequirement, err := klabels.NewRequirement(IstioComponentLabelStr, selection.Exists, nil)
 		if err != nil {
-			return usList, resources, err
+			return usList, err
 		}
 		if includeClusterResources {
 			s := klabels.NewSelector()
@@ -188,11 +187,8 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 			continue
 		}
 		usList = append(usList, objects)
-		for _, o := range objects.Items {
-			resources = append(resources, object.NewK8sObject(&o, nil, nil).HashNameKind())
-		}
 	}
-	return usList, resources, nil
+	return usList, nil
 }
 
 // DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
