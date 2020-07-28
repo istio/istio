@@ -245,6 +245,7 @@ spec:
 				ctx.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingr.Call(tt.call)
+						// TODO check all clusters were hit
 						if err != nil {
 							return err
 						}

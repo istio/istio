@@ -28,6 +28,9 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+// callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
+const callsPerCluster = 20
+
 type TrafficTestCase struct {
 	name   string
 	config string
@@ -36,7 +39,7 @@ type TrafficTestCase struct {
 	calls []TrafficCall
 
 	// Single call
-	call      func() (echoclient.ParsedResponses, error)
+	call      EchoCall
 	validator func(echoclient.ParsedResponses) error
 
 	// if enabled, we will assert the request fails, rather than the request succeeds
@@ -50,10 +53,13 @@ type TrafficCall struct {
 }
 
 func virtualServiceCases() []TrafficTestCase {
-	cases := []TrafficTestCase{
-		{
-			name: "added header",
-			config: `
+	var cases []TrafficTestCase
+	callCount := callsPerCluster * len(apps.podB)
+	for _, podA := range apps.podA {
+		cases = append(cases,
+			TrafficTestCase{
+				name: "added header",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -69,16 +75,18 @@ spec:
       request:
         add:
           istio-custom-header: user-defined-value`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
-			},
-		},
-		{
-			name: "redirect",
-			config: `
+			TrafficTestCase{
+				name: "redirect",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -98,16 +106,18 @@ spec:
     route:
     - destination:
         host: b`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Path: "/foo?key=value", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.URL, "/new/path?key=value", "URL")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].URL, "/new/path?key=value", "URL")
-			},
-		},
-		{
-			name: "rewrite uri",
-			config: `
+			TrafficTestCase{
+				name: "rewrite uri",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -124,16 +134,18 @@ spec:
     route:
     - destination:
         host: b`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value#hash"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Path: "/foo?key=value#hash", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.URL, "/new/path?key=value", "URL")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].URL, "/new/path?key=value", "URL")
-			},
-		},
-		{
-			name: "rewrite authority",
-			config: `
+			TrafficTestCase{
+				name: "rewrite authority",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -150,16 +162,18 @@ spec:
     route:
     - destination:
         host: b`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Path: "/foo", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.Host, "new-authority", "authority")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].Host, "new-authority", "authority")
-			},
-		},
-		{
-			name: "cors",
-			config: `
+			TrafficTestCase{
+				name: "cors",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -183,75 +197,81 @@ spec:
     - destination:
         host: b
 `,
-			calls: []TrafficCall{
-				{
-					// Preflight request
-					call: func() (echoclient.ParsedResponses, error) {
-						header := http.Header{}
-						header.Add("Origin", "cors.com")
-						header.Add("Access-Control-Request-Method", "DELETE")
-						return apps.podA.Call(echo.CallOptions{
-							Target:   apps.podB,
-							PortName: "http",
-							Method:   "OPTIONS",
-							Headers:  header,
-						})
+				calls: []TrafficCall{
+					{
+						// Preflight request
+						call: func() (echoclient.ParsedResponses, error) {
+							header := http.Header{}
+							header.Add("Origin", "cors.com")
+							header.Add("Access-Control-Request-Method", "DELETE")
+							return podA.Call(echo.CallOptions{
+								Target:   apps.podB[0],
+								PortName: "http",
+								Method:   "OPTIONS",
+								Headers:  header,
+								Count:    callCount,
+							})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								if err := expectString(response.RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
+									return err
+								}
+								if err := expectString(response.RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
+									return err
+								}
+								if err := expectString(response.RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+									return err
+								}
+								if err := expectString(response.RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
+									return err
+								}
+								return nil
+							})
+						},
 					},
-					validator: func(response echoclient.ParsedResponses) error {
-						if err := expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
-							return err
-						}
-						if err := expectString(response[0].RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
-							return err
-						}
-						if err := expectString(response[0].RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
-							return err
-						}
-						if err := expectString(response[0].RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
-							return err
-						}
-						return nil
+					{
+						// GET
+						call: func() (echoclient.ParsedResponses, error) {
+							header := http.Header{}
+							header.Add("Origin", "cors.com")
+							return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Headers: header, Count: callCount})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin")
+						},
 					},
-				},
-				{
-					// GET
-					call: func() (echoclient.ParsedResponses, error) {
-						header := http.Header{}
-						header.Add("Origin", "cors.com")
-						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Headers: header})
-					},
-					validator: func(response echoclient.ParsedResponses) error {
-						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin")
-					},
-				},
-				{
-					// GET without matching origin
-					call: func() (echoclient.ParsedResponses, error) {
-						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
-					},
-					validator: func(response echoclient.ParsedResponses) error {
-						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
-					},
-				}},
-		},
-	}
-	splits := []map[string]int{
-		{
-			"b":     50,
-			"vm-a":  25,
-			"naked": 25,
-		},
-		{
-			"b":     80,
-			"vm-a":  10,
-			"naked": 10,
-		},
-	}
-	for _, split := range splits {
-		split := split
-		cases = append(cases, TrafficTestCase{
-			name: fmt.Sprintf("shifting-%d", split["b"]),
-			config: fmt.Sprintf(`
+					{
+						// GET without matching origin
+						call: func() (echoclient.ParsedResponses, error) {
+							return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: callCount})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
+						},
+					}},
+			},
+		)
+
+		splits := []map[string]int{
+			{
+				podBSvc:  50,
+				vmASvc:   25,
+				nakedSvc: 25,
+			},
+			{
+				podBSvc:  80,
+				vmASvc:   10,
+				nakedSvc: 10,
+			},
+		}
+
+		splittingCallCount := len(apps.podB) * 100
+		for _, split := range splits {
+			split := split
+			cases = append(cases, TrafficTestCase{
+				name: fmt.Sprintf("shifting-%d", split["b"]),
+				config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -270,34 +290,36 @@ spec:
     - destination:
         host: vm-a
       weight: %d
-`, split["b"], split["naked"], split["vm-a"]),
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Count: 100})
-			},
-			validator: func(responses echoclient.ParsedResponses) error {
-				if err := responses.CheckOK(); err != nil {
-					return err
-				}
-				hitCount := map[string]int{}
-				errorThreshold := 10
-				for _, r := range responses {
-					for _, h := range []string{"b", "naked", "vm-a"} {
-						if strings.HasPrefix(r.Hostname, h+"-") {
-							hitCount[h]++
-							break
+`, split[podBSvc], split[nakedSvc], split[vmASvc]),
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: splittingCallCount})
+				},
+				validator: func(responses echoclient.ParsedResponses) error {
+					if err := responses.CheckOK(); err != nil {
+						return err
+					}
+					errorThreshold := 10
+					for host, expPercent := range split {
+						pct := float32(expPercent) / 100
+						exp := int(pct * float32(splittingCallCount))
+						hits := responses.Hits(func(r *echoclient.ParsedResponse) bool {
+							return strings.HasPrefix(r.Hostname, host+"-")
+						})
+						if !almostEquals(hits, exp, errorThreshold) {
+							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hits)
+						}
+						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
+						// TODO(landow) if we can fix cross-network weights, ensure even distribution across clusters
+						if err := responses.CheckReachedClusters(apps.all.Match(echo.Service(host)).Clusters()); err != nil {
+							return err
 						}
 					}
-				}
-
-				for _, h := range []string{"b", "naked", "vm-a"} {
-					if !almostEquals(hitCount[h], split[h], errorThreshold) {
-						return fmt.Errorf("expected %v calls to %q, got %v", split[h], h, hitCount[h])
-					}
-				}
-				return nil
-			},
-		})
+					return nil
+				},
+			})
+		}
 	}
+
 	return cases
 }
 
@@ -311,79 +333,96 @@ func expectString(got, expected, help string) error {
 // Todo merge with security TestReachability code
 func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.headless} {
-		for _, destination := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
-			client := client
-			destination := destination
-			if client == apps.naked && destination == apps.vmA {
-				// Need a sidecar to connect to VMs
-				continue
-			}
-			for _, call := range []struct {
-				// The port we call
-				port string
-				// The actual type of traffic we send to the port
-				scheme scheme.Instance
-			}{
-				{"http", scheme.HTTP},
-				{"auto-http", scheme.HTTP},
-				{"tcp", scheme.TCP},
-				{"auto-tcp", scheme.TCP},
-				{"grpc", scheme.GRPC},
-				{"auto-grpc", scheme.GRPC},
+	// TODO add VMs to clients when DNS works for VMs.
+	for _, clients := range []echo.Instances{apps.podA, apps.naked, apps.headless} {
+		for _, client := range clients {
+			for _, destinations := range []echo.Instances{
+				apps.podA,
+				apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
+				{apps.vmA},
+				apps.headless.Match(echo.InCluster(client.Config().Cluster)),
 			} {
-				cases = append(cases, TrafficTestCase{
-					name: fmt.Sprintf("%v %v %v", call.port, client.Config().Service, destination.Config().Service),
-					call: func() (echoclient.ParsedResponses, error) {
-						return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme})
-					},
-					validator: func(responses echoclient.ParsedResponses) error {
-						return responses.CheckOK()
-					},
-				})
+				client := client
+				destinations := destinations
+				// grabbing the 0th assumes all echos in destinations have the same service name
+				destination := destinations[0]
+				if apps.naked.Contains(client) && destination == apps.vmA {
+					// Need a sidecar to connect to VMs
+					continue
+				}
+
+				// so we can validate all clusters are hit
+				callCount := callsPerCluster * len(destinations)
+				for _, call := range []struct {
+					// The port we call
+					port string
+					// The actual type of traffic we send to the port
+					scheme scheme.Instance
+				}{
+					{"http", scheme.HTTP},
+					{"auto-http", scheme.HTTP},
+					{"tcp", scheme.TCP},
+					{"auto-tcp", scheme.TCP},
+					{"grpc", scheme.GRPC},
+					{"auto-grpc", scheme.GRPC},
+				} {
+					cases = append(cases, TrafficTestCase{
+						name: fmt.Sprintf("%v %v %v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
+						call: func() (echoclient.ParsedResponses, error) {
+							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount})
+						},
+						validator: func(responses echoclient.ParsedResponses) error {
+							return responses.CheckOK()
+						},
+					})
+				}
 			}
 		}
 	}
 	return cases
 }
 
+type vmCase struct {
+	name string
+	from echo.Instance
+	to   echo.Instances
+	host string
+}
+
 func vmTestCases(vm echo.Instance) []TrafficTestCase {
-	testCases := []struct {
-		name string
-		from echo.Instance
-		to   echo.Instance
-		host string
-	}{
-		{
-			name: "k8s to vm",
-			from: apps.podA,
-			to:   vm,
-		},
+	testCases := []vmCase{
 		// Keeping this around until we have a DNS implementation for VMs.
 		// {
 		// 	name: "dns: VM to k8s cluster IP service name.namespace host",
 		// 	from: vm,
 		// 	to:   apps.podA,
-		// 	host: apps.podA.Config().Service + "." + apps.namespace.Name(),
+		// 	host: podASvc + "." + apps.namespace.Name(),
 		// },
 		// {
 		// 	name: "dns: VM to k8s cluster IP service fqdn host",
 		// 	from: vm,
 		// 	to:   apps.podA,
-		// 	host: apps.podA.Config().FQDN(),
+		// 	host: apps.podA[0].Config().FQDN(),
 		// },
 		// {
 		// 	name: "dns: VM to k8s cluster IP service short name host",
 		// 	from: vm,
 		// 	to:   apps.podA,
-		// 	host: apps.podA.Config().Service,
+		// 	host: podASvc,
 		// },
 		// {
 		// 	name: "dns: VM to k8s headless service",
 		// 	from: vm,
 		// 	to:   apps.headless,
-		// 	host: apps.headless.Config().FQDN(),
+		// 	host: apps.headless[0].Config().FQDN(),
 		// },
+	}
+	for _, podA := range apps.podA {
+		testCases = append(testCases, vmCase{
+			name: "k8s to vm",
+			from: podA,
+			to:   echo.Instances{vm},
+		})
 	}
 	cases := []TrafficTestCase{}
 	for _, c := range testCases {
@@ -392,13 +431,19 @@ func vmTestCases(vm echo.Instance) []TrafficTestCase {
 			name: c.name,
 			call: func() (echoclient.ParsedResponses, error) {
 				return c.from.Call(echo.CallOptions{
-					Target:   c.to,
+					// assume that all echos in `to` only differ in which cluster they're deployed in
+					Target:   c.to[0],
 					PortName: "http",
 					Host:     c.host,
+					Count:    callsPerCluster * len(c.to),
 				})
 			},
 			validator: func(responses echoclient.ParsedResponses) error {
-				return responses.CheckOK()
+				if err := responses.CheckOK(); err != nil {
+					return err
+				}
+				// when vm -> k8s tests are enabled, they should reach all clusters
+				return responses.CheckReachedClusters(c.to.Clusters())
 			},
 		})
 	}
@@ -436,7 +481,7 @@ spec:
 
 func serverFirstTestCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	client := apps.podA
+	clients := apps.podA
 	destination := apps.podC
 	configs := []struct {
 		port    string
@@ -469,25 +514,29 @@ func serverFirstTestCases() []TrafficTestCase {
 		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", true},
 		{"tcp-server", "ISTIO_MUTUAL", "STRICT", true},
 	}
-	for _, c := range configs {
-		cases = append(cases, TrafficTestCase{
-			name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
-			config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
-			call: func() (echoclient.ParsedResponses, error) {
-				return client.Call(echo.CallOptions{
-					Target:   destination,
-					PortName: c.port,
-					Scheme:   scheme.TCP,
-					// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
-					Timeout: time.Millisecond * 100,
-				})
-			},
-			validator: func(responses echoclient.ParsedResponses) error {
-				return responses.CheckOK()
-			},
-			expectFailure: !c.success,
-		})
+	for _, client := range clients {
+		for _, c := range configs {
+			client, c := client, c
+			cases = append(cases, TrafficTestCase{
+				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
+				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
+				call: func() (echoclient.ParsedResponses, error) {
+					return client.Call(echo.CallOptions{
+						Target:   destination[0],
+						PortName: c.port,
+						Scheme:   scheme.TCP,
+						// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
+						Timeout: time.Millisecond * 100,
+					})
+				},
+				validator: func(responses echoclient.ParsedResponses) error {
+					return responses.CheckOK()
+				},
+				expectFailure: !c.success,
+			})
+		}
 	}
+
 	return cases
 }
 

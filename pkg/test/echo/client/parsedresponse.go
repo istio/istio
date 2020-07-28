@@ -169,6 +169,24 @@ func (r ParsedResponses) CheckPortOrFail(t test.Failer, expected int) ParsedResp
 	return r
 }
 
+func (r ParsedResponses) clusterDistribution() map[string]int {
+	hits := map[string]int{}
+	for _, rr := range r {
+		hits[rr.Cluster]++
+	}
+	return hits
+}
+
+func (r ParsedResponses) CheckReachedClusters(clusterNames []string) error {
+	hits := r.clusterDistribution()
+	for _, expCluster := range clusterNames {
+		if hits[expCluster] == 0 {
+			return fmt.Errorf("did not reach all of %v, got %v", clusterNames, hits)
+		}
+	}
+	return nil
+}
+
 func (r ParsedResponses) CheckCluster(expected string) error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if response.Cluster != expected {
@@ -191,6 +209,17 @@ func (r ParsedResponses) Count(text string) int {
 	count := 0
 	for _, c := range r {
 		count += c.Count(text)
+	}
+	return count
+}
+
+// Hits returns the number of responess passing the given checker function.
+func (r ParsedResponses) Hits(f func(r *ParsedResponse) bool) int {
+	count := 0
+	for _, c := range r {
+		if f(c) {
+			count++
+		}
 	}
 	return count
 }
