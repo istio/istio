@@ -15,16 +15,19 @@
 package cmd
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/ghodss/yaml"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
@@ -51,7 +54,7 @@ var (
 )
 
 const (
-	tempPerms = os.FileMode(644)
+	tempPerms = os.FileMode(0644)
 )
 
 func sidecarCommands() *cobra.Command {
@@ -101,7 +104,7 @@ The generated artifact can be applied by running kubectl apply -f workloadgroup.
 			if err != nil {
 				return err
 			}
-			_, err = cmd.OutOrStdout().Write([]byte(wgYAML))
+			_, err = cmd.OutOrStdout().Write(wgYAML)
 			return err
 		},
 	}
@@ -163,7 +166,7 @@ Tries to automatically infer the target cluster, and prompts for flags if the cl
 			if err = createConfig(wg, cluster, outputName); err != nil {
 				return err
 			}
-			fmt.Printf("generated config for (%s, %s, %s) in %s\n", gkeProject, clusterLocation, clusterName, outputName)
+			fmt.Printf("generated config for (%s, %s, %s)\n", gkeProject, clusterLocation, clusterName)
 			return nil
 		},
 	}
@@ -206,6 +209,9 @@ func createConfig(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Cluster
 		return err
 	}
 	if err = createMeshConfig(wg, cluster, temp); err != nil {
+		return err
+	}
+	if err = Tar(temp, outputName); err != nil {
 		return err
 	}
 	return nil
@@ -301,6 +307,59 @@ func createMeshConfig(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Clu
 		return err
 	}
 	return ioutil.WriteFile(dir+"/mesh", meshYAML, tempPerms)
+}
+
+// Packs files inside source into target.tar
+func Tar(source, target string) error {
+	target = fmt.Sprintf("%s.tar", filepath.Base(target))
+	tarfile, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer tarfile.Close()
+	tw := tar.NewWriter(tarfile)
+	defer tw.Close()
+
+	info, err := os.Stat(source)
+	if err != nil {
+		return nil
+	}
+
+	var baseDir string
+	if info.IsDir() {
+		baseDir = filepath.Base(source)
+	}
+
+	return filepath.Walk(source,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			header, err := tar.FileInfoHeader(info, info.Name())
+			if err != nil {
+				return err
+			}
+
+			if baseDir != "" {
+				header.Name = strings.TrimPrefix(path, source)
+			}
+
+			if err := tw.WriteHeader(header); err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+			_, err = io.Copy(tw, file)
+			return err
+		})
 }
 
 func mapToString(m map[string]string) string {
