@@ -447,10 +447,10 @@ const (
 	autoDetected
 )
 
-// maybeBuildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+// buildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 // If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
 // creates and populates the config as if they are set as ISTIO_MUTUAL.
-func maybeBuildAutoMtlsSettings(
+func buildAutoMtlsSettings(
 	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
 	sni string,
@@ -627,7 +627,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = maybeBuildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
 	}
