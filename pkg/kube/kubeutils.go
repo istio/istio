@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package kube
 
 import (
 	"bytes"
@@ -34,13 +34,13 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 )
 
-// k8sClientConfig first tries to get the config from inside a kubernetes environment
+// ClientConfig first tries to get the config from inside a kubernetes environment
 // If unsuccessful, it tries to get the config from the default kubeconfig file
-func k8sClientConfig() (*rest.Config, error) {
+func ClientConfig() (*rest.Config, error) {
 	config, err := rest.InClusterConfig()
 	var ocErr error
 	if err != nil {
-		config, ocErr = clientcmd.BuildConfigFromFlags("", kubeconfigPath())
+		config, ocErr = clientcmd.BuildConfigFromFlags("", defaultKubeconfigPath())
 		if ocErr != nil {
 			return nil, fmt.Errorf("in-cluster error: %v, out-of-cluster error: %v", err, ocErr)
 		}
@@ -49,26 +49,23 @@ func k8sClientConfig() (*rest.Config, error) {
 }
 
 // Returns a kubernetes clientset with the default config
-func k8sClientset() (*kubernetes.Clientset, error) {
-	config, err := k8sClientConfig()
+// TODO: align and remove redundancy with istio.io/istio/operator/cmd/mesh/shared.go, and potentially istio.io/istio/cni/cmd/istio-cni/kubernetes.go
+func Config() (*rest.Config, *kubernetes.Clientset, error) {
+	config, err := ClientConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return clientset, nil
+	return config, clientset, nil
 }
 
 // Returns a kubernetes service in a namespace
 // TODO: remove once merged
 // nolint: deadcode
-func k8sService(name, namespace string) (*v1.Service, error) {
-	clientset, err := k8sClientset()
-	if err != nil {
-		return nil, err
-	}
+func Service(clientset *kubernetes.Clientset, name, namespace string) (*v1.Service, error) {
 	service, err := clientset.CoreV1().Services(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -77,11 +74,7 @@ func k8sService(name, namespace string) (*v1.Service, error) {
 }
 
 // Returns a kubernetes pod in a namespace
-func k8sPod(name, namespace string) (*v1.Pod, error) {
-	clientset, err := k8sClientset()
-	if err != nil {
-		return nil, err
-	}
+func Pod(clientset *kubernetes.Clientset, name, namespace string) (*v1.Pod, error) {
 	pods, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -97,11 +90,7 @@ func k8sPod(name, namespace string) (*v1.Pod, error) {
 // Returns a kubernetes config map in a namespace
 // TODO: remove once merged
 // nolint: deadcode
-func k8sConfigMap(name, namespace string) (*v1.ConfigMap, error) {
-	clientset, err := k8sClientset()
-	if err != nil {
-		return nil, err
-	}
+func ConfigMap(clientset *kubernetes.Clientset, name, namespace string) (*v1.ConfigMap, error) {
 	cm, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -111,12 +100,8 @@ func k8sConfigMap(name, namespace string) (*v1.ConfigMap, error) {
 
 // Execs a command inside a kubernetes pod and returns stdout and stderr
 // nolint: unparam
-func k8sPodsExec(name, namespace, command string, stdin io.Reader) (sout, serr string, err error) {
-	pod, err := k8sPod(name, namespace)
-	if err != nil {
-		return
-	}
-	clientset, err := k8sClientset()
+func PodExec(config *rest.Config, clientset *kubernetes.Clientset, name, namespace, command string, stdin io.Reader) (sout, serr string, err error) {
+	pod, err := Pod(clientset, name, namespace)
 	if err != nil {
 		return
 	}
@@ -128,10 +113,6 @@ func k8sPodsExec(name, namespace, command string, stdin io.Reader) (sout, serr s
 		Stdout:  true,
 	}, scheme.ParameterCodec)
 
-	config, err := k8sClientConfig()
-	if err != nil {
-		return
-	}
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
 		return
@@ -149,21 +130,22 @@ func k8sPodsExec(name, namespace, command string, stdin io.Reader) (sout, serr s
 	return stdout.String(), stderr.String(), nil
 }
 
-// Returns the kubectl config
-func k8sConfig() *api.Config {
-	return clientcmd.GetConfigFromFileOrDie(kubeconfigPath())
+// Returns the kubectl config from the given kubeconfig path
+// Uses the default kubeconfig path if the given path is empty
+func Kubeconfig(kubeconfigPath string) *api.Config {
+	if kubeconfigPath == "" {
+		kubeconfigPath = defaultKubeconfigPath()
+	}
+	return clientcmd.GetConfigFromFileOrDie(kubeconfigPath)
 }
 
-func kubeconfigPath() string {
-	if home := homeDir(); home != "" {
+func defaultKubeconfigPath() string {
+	home := env.RegisterStringVar("HOME", "", "Linux default home directory").Get()
+	if home == "" {
+		return env.RegisterStringVar("USERPROFILE", "", "Windows default home directory").Get()
+	}
+	if home != "" {
 		return filepath.Join(home, ".kube", "config")
 	}
 	return ""
-}
-
-func homeDir() string {
-	if home := env.RegisterStringVar("HOME", "", "Linux default home directory").Get(); home != "" {
-		return home
-	}
-	return env.RegisterStringVar("USERPROFILE", "", "Windows default home directory").Get()
 }

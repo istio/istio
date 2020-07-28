@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package gke
 
 import (
 	"context"
@@ -20,19 +20,23 @@ import (
 	"regexp"
 	"time"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 
 	container "cloud.google.com/go/container/apiv1"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 const defaultTimeout = 5 * time.Second
 
 // Returns the cluster defined by the project, location, and cluster name
 // Requires container.clusters.get IAM permissions (https://www.googleapis.com/auth/cloud-platform)
-func gkeCluster(project, location, clusterName string) (*containerpb.Cluster, error) {
+func Cluster(project, location, clusterName string) (*containerpb.Cluster, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
@@ -66,16 +70,21 @@ func gkeCluster(project, location, clusterName string) (*containerpb.Cluster, er
 // Returns the config along with the relevant cluster
 // TODO: remove once merged
 // nolint: deadcode
-func gkeConfig() (project, location, clusterName string, cluster *containerpb.Cluster, err error) {
-	project, location, clusterName = gkeConfigFromContext()
-	cluster, err = gkeCluster(project, location, clusterName)
+func ActiveConfig() (project, location, clusterName string, cluster *containerpb.Cluster, err error) {
+	config, clientset, err := kube.Config()
+	if err != nil {
+		log.Errorf("couldn't get kubernetes configuration: %v\n", err)
+		return
+	}
+	project, location, clusterName = configFromContext()
+	cluster, err = Cluster(project, location, clusterName)
 	if err == nil {
 		log.Debugf("inferred (project, location, cluster) from kubectl context: (%s, %s, %s)\n", project, location, clusterName)
 		return
 	}
 
-	project, location, clusterName = gkeConfigFromActive()
-	cluster, err = gkeCluster(project, location, clusterName)
+	project, location, clusterName = configFromActive(config, clientset)
+	cluster, err = Cluster(project, location, clusterName)
 	if err == nil {
 		log.Debugf("inferred (project, location, cluster) from metadata server: (%s, %s, %s)\n", project, location, clusterName)
 	}
@@ -84,8 +93,8 @@ func gkeConfig() (project, location, clusterName string, cluster *containerpb.Cl
 
 // Assumes that the kubectl context (created from gcloud container clusters get-credentials) has not been renamed
 // Targets contexts in the format "gke_project_location_cluster"
-func gkeConfigFromContext() (project, location, cluster string) {
-	currentContext := k8sConfig().CurrentContext
+func configFromContext() (project, location, cluster string) {
+	currentContext := kube.Kubeconfig("").CurrentContext
 	re := regexp.MustCompile("^gke_(.+)_(.+)_(.+)$")
 	match := re.FindStringSubmatch(currentContext)
 	if len(match) == 4 {
@@ -103,20 +112,20 @@ const (
 
 // Attempts to access the metadata API through the istiod pod
 // Requires gcloud application credentials (gcloud auth application-default login)
-func gkeConfigFromActive() (project, location, cluster string) {
-	project, _, err := k8sPodsExec("istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ProjectIDEndpoint), nil)
+func configFromActive(config *rest.Config, clientset *kubernetes.Clientset) (project, location, cluster string) {
+	project, _, err := kube.PodExec(config, clientset, "istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ProjectIDEndpoint), nil)
 	if err != nil {
-		fmt.Printf("encountered error while getting metadata: %v\n", err)
+		log.Errorf("encountered error while getting metadata: %v\n", err)
 		return
 	}
-	location, _, err = k8sPodsExec("istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ClusterLocationEndpoint), nil)
+	location, _, err = kube.PodExec(config, clientset, "istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ClusterLocationEndpoint), nil)
 	if err != nil {
-		fmt.Printf("encountered error while getting metadata: %v\n", err)
+		log.Errorf("encountered error while getting metadata: %v\n", err)
 		return
 	}
-	cluster, _, err = k8sPodsExec("istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ClusterNameEndpoint), nil)
+	cluster, _, err = kube.PodExec(config, clientset, "istiod", "istio-system", fmt.Sprintf(MetadataCurlCmd, ClusterNameEndpoint), nil)
 	if err != nil {
-		fmt.Printf("encountered error while getting metadata: %v\n", err)
+		log.Errorf("encountered error while getting metadata: %v\n", err)
 		return
 	}
 	return project, location, cluster
