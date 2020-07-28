@@ -175,7 +175,7 @@ func waitForNode(c *FakeController, name string) error {
 	return retry.UntilSuccess(func() error {
 		_, err := c.nodeLister.Get(name)
 		return err
-	}, retry.Timeout(time.Second * 5))
+	}, retry.Timeout(time.Second*5))
 }
 
 func testPodCache(t *testing.T) {
