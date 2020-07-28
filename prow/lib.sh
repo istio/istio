@@ -303,7 +303,7 @@ function install_metallb() {
 
   if [ -z "${METALLB_IPS[*]}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
-    DOCKER_KIND_SUBNET="$(docker inspect kind | jq .[0].IPAM.Config[0].Subnet -r)"
+    DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[0].Subnet' -r)"
     METALLB_IPS=()
     while read -r ip; do
       METALLB_IPS+=("$ip")
