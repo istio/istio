@@ -71,8 +71,8 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 			m := msg.NewReferencedResourceNotFound(r, "host", d.Destination.GetHost())
 
-			pathKeyForLine := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
-			if line, found := util.ErrorLine(r, pathKeyForLine); found {
+			key := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
+			if line, found := util.ErrorLine(r, key); found {
 				m.Line = line
 			}
 
@@ -88,8 +88,8 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 			m := msg.NewReferencedResourceNotFound(r, "mirror host", d.Destination.GetHost())
 
-			pathKeyForLine := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			key := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
+			if line, ok := util.ErrorLine(r, key); ok {
 				m.Line = line
 			}
 
@@ -112,13 +112,13 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Annot
 			m := msg.NewVirtualServiceDestinationPortSelectorRequired(r, d.Destination.GetHost(), portNumbers)
 
 			if d.RouteRule == "http.mirror" {
-				pathKeyForLine := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
-				if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+				key := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
+				if line, ok := util.ErrorLine(r, key); ok {
 					m.Line = line
 				}
 			} else {
-				pathKeyForLine := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
-				if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+				key := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
+				if line, ok := util.ErrorLine(r, key); ok {
 					m.Line = line
 				}
 			}
@@ -144,16 +144,17 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Annot
 			fmt.Sprintf("%s:%d", d.Destination.GetHost(), d.Destination.GetPort().GetNumber()))
 
 		if d.RouteRule == "http.mirror" {
-			pathKeyForLine := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			key := fmt.Sprintf(util.MirrorHost, d.ServiceIndex)
+			if line, ok := util.ErrorLine(r, key); ok {
 				m.Line = line
 			}
 		} else {
-			pathKeyForLine := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			key := fmt.Sprintf(util.DestinationHost, d.RouteRule, d.ServiceIndex, d.DestinationIndex)
+			if line, ok := util.ErrorLine(r, key); ok {
 				m.Line = line
 			}
 		}
+
 		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 	}
 }

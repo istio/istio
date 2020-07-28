@@ -19,10 +19,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -89,9 +88,8 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		if !foundPod {
 			m := msg.NewReferencedResourceNotFound(rs, "selector", sel.String())
 
-			selectorLabel := util.FindLabelForSelector(sel)
-			pathKeyForLine := fmt.Sprintf(util.WorkloakSelector, selectorLabel)
-			if line, ok := util.ErrorLine(rs, pathKeyForLine); ok {
+			label := util.ExtractLabelFromSelectorMatch(sel)
+			if line, ok := util.ErrorLine(rs, fmt.Sprintf(util.WorkloadSelector, label)); ok {
 				m.Line = line
 			}
 
@@ -113,8 +111,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			m := msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
 				p.Namespace.String(), p.Name.String())
 
-			pathKeyForLine := fmt.Sprintf(util.MetadataName)
-			if line, ok := util.ErrorLine(rs, pathKeyForLine); ok {
+			if line, ok := util.ErrorLine(rs, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line
 			}
 

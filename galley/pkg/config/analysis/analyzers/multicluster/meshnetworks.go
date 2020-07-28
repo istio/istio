@@ -19,10 +19,9 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/resource"
@@ -86,8 +85,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 					if !found {
 						m := msg.NewUnknownMeshNetworksServiceRegistry(r, re.FromRegistry, i)
 
-						pathKeyForLine := fmt.Sprintf(util.FromRegistry, i, j)
-						if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+						if line, ok := util.ErrorLine(r, fmt.Sprintf(util.FromRegistry, i, j)); ok {
 							m.Line = line
 						}
 

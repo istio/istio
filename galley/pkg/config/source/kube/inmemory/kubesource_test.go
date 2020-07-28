@@ -18,9 +18,8 @@ import (
 	"fmt"
 	"testing"
 
-	yamlv3 "gopkg.in/yaml.v3"
-
 	. "github.com/onsi/gomega"
+	yamlv3 "gopkg.in/yaml.v3"
 
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"

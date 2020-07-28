@@ -90,8 +90,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeployment(r *resource.Instance, c a
 			}
 			m := msg.NewDeploymentAssociatedToMultipleServices(r, d.Name, port, svcNames)
 
-			pathKeyForLine := fmt.Sprintf(util.MetadataName)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
 				m.Line = line
 			}
 

@@ -72,8 +72,7 @@ func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Conte
 			m := msg.NewPortNameIsNotUnderNamingConvention(
 				r, port.Name, int(port.Port), port.TargetPort.String())
 
-			pathKeyForLine := fmt.Sprintf(util.PortInPorts, i)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.PortInPorts, i)); ok {
 				m.Line = line
 			}
 

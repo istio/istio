@@ -38,6 +38,7 @@ const (
 	invalidFile          = "testdata/invalid.yaml"
 	invalidExtensionFile = "testdata/invalid.md"
 	dirWithConfig        = "testdata/some-dir/"
+	nestedDirWithConfig  = "testdata/some-dir/nested-dir/"
 	jsonOutput           = "-ojson"
 )
 
@@ -336,6 +337,32 @@ func TestTimeout(t *testing.T) {
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
 			g.Expect(err.Error()).To(ContainSubstring("timed out"))
+		})
+}
+
+func TestErrorLineNumbers(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			g := NewGomegaWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			applyFileOrFail(t, ns.Name(), gatewayFile)
+			applyFileOrFail(t, ns.Name(), dirWithConfig)
+			applyFileOrFail(t, ns.Name(), nestedDirWithConfig)
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
+			fmt.Printf("%v", output)
+			expectMessages(t, g, output, msg.UnknownAnnotation)
+			expectMessages(t, g, output, msg.SchemaValidationError)
+			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
+
 		})
 }
 

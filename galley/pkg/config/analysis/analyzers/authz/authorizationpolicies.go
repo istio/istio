@@ -147,8 +147,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 				if !matchNamespace(ns, c) {
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
 
-					pathKeyForLine := fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)
-					if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)); ok {
 						m.Line = line
 					}
 
@@ -161,8 +160,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 				if !matchNamespace(ns, c) {
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
 
-					pathKeyForLine := fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)
-					if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)); ok {
 						m.Line = line
 					}
 

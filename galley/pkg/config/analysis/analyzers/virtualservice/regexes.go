@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -84,7 +83,7 @@ func (a *RegexAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis
 	}
 }
 
-func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx analysis.Context, where string, pathKeyForLine string) {
+func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx analysis.Context, where string, key string) {
 	re := sm.GetRegex()
 	if re == "" {
 		return
@@ -98,7 +97,7 @@ func analyzeStringMatch(r *resource.Instance, sm *v1alpha3.StringMatch, ctx anal
 	m := msg.NewInvalidRegexp(r, where, re, err.Error())
 
 	// Get line number for different match field
-	if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+	if line, ok := util.ErrorLine(r, key); ok {
 		m.Line = line
 	}
 

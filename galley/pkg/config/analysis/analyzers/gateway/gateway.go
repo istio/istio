@@ -20,10 +20,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -101,9 +100,8 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	if gwSelectorMatches == 0 {
 		m := msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String())
 
-		gwSelectorLabel := util.FindLabelForSelector(gwSelector)
-		pathKeyForLine := fmt.Sprintf(util.GatewaySelector, gwSelectorLabel)
-		if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+		label := util.ExtractLabelFromSelectorMatch(gwSelector)
+		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
 			m.Line = line
 		}
 
@@ -118,9 +116,8 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 			if !ok {
 				m := msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number))
 
-				gwSelectorLabel := util.FindLabelForSelector(gwSelector)
-				pathKeyForLine := fmt.Sprintf(util.GatewaySelector, gwSelectorLabel)
-				if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+				label := util.ExtractLabelFromSelectorMatch(gwSelector)
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
 					m.Line = line
 				}
 

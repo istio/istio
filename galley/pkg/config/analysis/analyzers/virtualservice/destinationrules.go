@@ -45,7 +45,7 @@ func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
-	// To avoid repeated iteration, precompute the set of existing Destination host+subset combinations
+	// To avoid repeated iteration, precompute the set of existing destination host+subset combinations
 	destHostsAndSubsets := initDestHostsAndSubsets(ctx)
 
 	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
@@ -60,16 +60,15 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	vs := r.Message.(*v1alpha3.VirtualService)
 	ns := r.Metadata.FullName.Namespace
 
-	for _, annotatedDestination := range getRouteDestinations(vs) {
+	for _, ad := range getRouteDestinations(vs) {
 
-		if !d.checkDestinationSubset(ns, annotatedDestination.Destination, destHostsAndSubsets) {
+		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
-				fmt.Sprintf("%s+%s", annotatedDestination.Destination.GetHost(), annotatedDestination.Destination.GetSubset()))
+				fmt.Sprintf("%s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()))
 
-			pathKeyForLine := fmt.Sprintf(util.DestinationHost, annotatedDestination.RouteRule, annotatedDestination.ServiceIndex,
-				annotatedDestination.DestinationIndex)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			key := fmt.Sprintf(util.DestinationHost, ad.RouteRule, ad.ServiceIndex, ad.DestinationIndex)
+			if line, ok := util.ErrorLine(r, key); ok {
 				m.Line = line
 			}
 
@@ -78,15 +77,15 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 
 	}
 
-	for _, annotatedDestination := range getHTTPMirrorDestinations(vs) {
+	for _, ad := range getHTTPMirrorDestinations(vs) {
 
-		if !d.checkDestinationSubset(ns, annotatedDestination.Destination, destHostsAndSubsets) {
+		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
 
 			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
-				fmt.Sprintf("%s+%s", annotatedDestination.Destination.GetHost(), annotatedDestination.Destination.GetSubset()))
+				fmt.Sprintf("%s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()))
 
-			pathKeyForLine := fmt.Sprintf(util.MirrorHost, annotatedDestination.ServiceIndex)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			key := fmt.Sprintf(util.MirrorHost, ad.ServiceIndex)
+			if line, ok := util.ErrorLine(r, key); ok {
 				m.Line = line
 			}
 

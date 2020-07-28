@@ -115,8 +115,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			if container.Image != proxyImage {
 				m := msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage)
 
-				pathKeyForLine := fmt.Sprintf(util.ImageInContainer, i)
-				if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ImageInContainer, i)); ok {
 					m.Line = line
 				}
 

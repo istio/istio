@@ -20,10 +20,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -61,9 +60,8 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			gwSelector := labels.SelectorFromSet(gw.Selector)
 			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
 
-			gwSelectorLabel := util.FindLabelForSelector(gwSelector)
-			pathKeyForLine := fmt.Sprintf(util.GatewaySelector, gwSelectorLabel)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			label := util.ExtractLabelFromSelectorMatch(gwSelector)
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
 				m.Line = line
 			}
 
@@ -85,8 +83,7 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			if !ctx.Exists(collections.K8SCoreV1Secrets.Name(), resource.NewShortOrFullName(gwNs, cn)) {
 				m := msg.NewReferencedResourceNotFound(r, "credentialName", cn)
 
-				pathKeyForLine := fmt.Sprintf(util.CredentialName, i)
-				if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.CredentialName, i)); ok {
 					m.Line = line
 				}
 

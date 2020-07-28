@@ -348,22 +348,20 @@ func BuildFieldPathMap(yamlNode *yamlv3.Node, startLineNum int, curPath string, 
 			// minus one because startLineNum starts at line 1, and yamlv3.Node.line also starts at line 1
 			fieldPathMap[fmt.Sprintf("{%s}", pathKeyForMap)] = valueNode.Line + startLineNum - 1
 
+		case valueNode.Kind == yamlv3.MappingNode:
+			BuildFieldPathMap(valueNode, startLineNum, pathKeyForMap, fieldPathMap)
+
 		case valueNode.Kind == yamlv3.SequenceNode:
-			j := 0
-			for j < len(valueNode.Content) {
+			for j, node := range valueNode.Content {
 				pathWithIndex := fmt.Sprintf("%s[%d]", pathKeyForMap, j)
 
 				// Array with values or array with maps
-				if valueNode.Content[j].Kind == yamlv3.ScalarNode {
-					fieldPathMap[fmt.Sprintf("{%s}", pathWithIndex)] = valueNode.Content[j].Line + startLineNum - 1
+				if node.Kind == yamlv3.ScalarNode {
+					fieldPathMap[fmt.Sprintf("{%s}", pathWithIndex)] = node.Line + startLineNum - 1
 				} else {
-					BuildFieldPathMap(valueNode.Content[j], startLineNum, pathWithIndex, fieldPathMap)
+					BuildFieldPathMap(node, startLineNum, pathWithIndex, fieldPathMap)
 				}
-				j++
 			}
-
-		case valueNode.Kind == yamlv3.MappingNode:
-			BuildFieldPathMap(valueNode, startLineNum, pathKeyForMap, fieldPathMap)
 		}
 	}
 }

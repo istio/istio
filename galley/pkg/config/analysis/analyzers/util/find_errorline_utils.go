@@ -52,11 +52,11 @@ const (
 
 	// Path for workload selector.
 	// Required parameters: selector label.
-	WorkloakSelector = "{.spec.workloadSelector.labels.%s}"
+	WorkloadSelector = "{.spec.workloadSelector.labels.%s}"
 
 	// Path for port from ports collections.
 	// Required parameters: port index.
-	PortInPorts = ".spec.ports[%d].port}"
+	PortInPorts = "{.spec.ports[%d].port}"
 
 	// Path for fromRegistry in the mesh networks.
 	// Required parameters: network name, endPoint index.
@@ -83,22 +83,21 @@ const (
 	Annotation = "{.metadata.annotations.%s}"
 
 	// Path for selector in Gateway.
-	// Required parameters: selector label
+	// Required parameters: selector label.
 	GatewaySelector = "{.spec.selector.%s}"
 
 	// Path for credentialName.
-	// Required parameters: server index
+	// Required parameters: server index.
 	CredentialName = "{.spec.servers[%d].tls.credentialName}"
 )
 
-// ErrorLine returns the line number of the input path in the resource
+// ErrorLine returns the line number of the input path key in the resource
 func ErrorLine(r *resource.Instance, path string) (line int, found bool) {
-	return FindErrorLine(path, r.Origin.FieldMap())
+	return findErrorLine(path, r.Origin.FieldMap())
 }
 
-// FindErrorLine returns the line number of the input key from the input map, and true if retrieving successfully,
-// else return 0 and false
-func FindErrorLine(key string, m map[string]int) (int, bool) {
+// FindErrorLine returns the line number of the input key from the input map
+func findErrorLine(key string, m map[string]int) (line int, found bool) {
 	line, ok := m[key]
 	if !ok {
 		return 0, false
@@ -106,8 +105,8 @@ func FindErrorLine(key string, m map[string]int) (int, bool) {
 	return line, true
 }
 
-// FindLabelForSelector returns the label for the k8s labels.Selector
-func FindLabelForSelector(selector labels.Selector) string {
+// ExtractLabelFromSelectorMatch returns the label of the match in the k8s labels.Selector
+func ExtractLabelFromSelectorMatch(selector labels.Selector) string {
 	s := selector.String()
 	equalIndex := strings.Index(s, "=")
 	return s[:equalIndex]

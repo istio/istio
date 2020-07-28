@@ -64,8 +64,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), resource.NewShortOrFullName(vsNs, gwName)) {
 			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
-			pathKeyForLine := fmt.Sprintf(util.VSGateway, i)
-			if line, ok := util.ErrorLine(r, pathKeyForLine); ok {
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
 				m.Line = line
 			}
 
