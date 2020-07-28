@@ -145,7 +145,7 @@ fi
 
 KUBECONFIG=${KUBECONFIG:="$HOME/.kube/config"}
 parse_KUBECONFIG "${KUBECONFIG}"
-if [[ "$BUILD_WITH_CONTAINER" -eq "1" ]]; then
+if [[ "${BUILD_WITH_CONTAINER:-1}" -eq "1" ]]; then
   export KUBECONFIG="${container_kubeconfig%?}"
 fi
 
