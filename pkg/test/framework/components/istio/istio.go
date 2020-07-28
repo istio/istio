@@ -29,9 +29,9 @@ import (
 type Instance interface {
 	resource.Resource
 
-	// Instance returns a client for interacting with the ingress-gateway in a given cluster. If a nil cluster is provided,
+	// IngressFor returns a client for interacting with the ingress-gateway for a given cluster. If a nil cluster is provided,
 	// the first configured cluster will be used.
-	Ingress(cluster resource.Cluster) ingress.Instance
+	IngressFor(cluster resource.Cluster) ingress.Instance
 
 	// RemoteDiscoveryAddress gets the address on which the discovery server that controls the given cluster can be
 	// reached from outside the discovery service's cluster. An error may be returned if there is no discovery service

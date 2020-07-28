@@ -59,7 +59,7 @@ components:
             name: tcp`
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			ingr = i.Ingress(ctx.Clusters().Default())
+			ingr = i.IngressFor(ctx.Clusters().Default())
 			return nil
 		}).
 		Run()

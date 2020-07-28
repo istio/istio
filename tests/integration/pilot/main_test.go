@@ -189,7 +189,7 @@ values:
 			return nil
 		}).
 		Setup(func(ctx resource.Context) (err error) {
-			ingr = i.Ingress(ctx.Clusters().Default())
+			ingr = i.IngressFor(ctx.Clusters().Default())
 
 			apps.externalHost = "fake.example.com"
 			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), fmt.Sprintf(`

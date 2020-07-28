@@ -274,7 +274,7 @@ func TestRequestAuthentication(t *testing.T) {
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ingr := ist.Ingress(ctx.Clusters().Default())
+			ingr := ist.IngressFor(ctx.Clusters().Default())
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "req-authn-ingress",

@@ -122,7 +122,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB}); err != nil {
 		return err
 	}
-	ing = ist.Ingress(ctx.Clusters().Default())
+	ing = ist.IngressFor(ctx.Clusters().Default())
 	prom, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return err

@@ -403,7 +403,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance) { 
 	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
-	ing := inst.Ingress(ctx.Clusters().Default())
+	ing := inst.IngressFor(ctx.Clusters().Default())
 	tlsContext := TLSContext{
 		CaCert:     CaCertA,
 		PrivateKey: TLSClientKeyA,
@@ -441,7 +441,7 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance) { /
 	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
-	ing := inst.Ingress(ctx.Clusters().Default())
+	ing := inst.IngressFor(ctx.Clusters().Default())
 	tlsContext := TLSContext{
 		CaCert: CaCertA,
 	}

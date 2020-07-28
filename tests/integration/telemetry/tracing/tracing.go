@@ -61,7 +61,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNsInst, Cfg: bookinfo.BookInfo}); err != nil {
 		return
 	}
-	ingInst = ist.Ingress(ctx.Clusters().Default())
+	ingInst = ist.IngressFor(ctx.Clusters().Default())
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{})
 	if err != nil {
 		return

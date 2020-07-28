@@ -104,7 +104,7 @@ var leaderElectionConfigMaps = []string{
 	leaderelection.ValidationController,
 }
 
-func (i *operatorComponent) Ingress(cluster resource.Cluster) ingress.Instance {
+func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
 	if _, ok := i.ingress[cluster.Index()]; !ok {
 		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
 			Namespace: i.settings.IngressNamespace,

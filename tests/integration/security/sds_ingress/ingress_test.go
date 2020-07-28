@@ -66,7 +66,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 				CredentialName: credName,
 				Host:           host,
 			})
-			ing := inst.Ingress(ctx.Clusters().Default())
+			ing := inst.IngressFor(ctx.Clusters().Default())
 
 			tlsContext := ingressutil.TLSContext{CaCert: ingressutil.CaCertA}
 			err := ingressutil.SendRequest(ing, host, credName, ingress.TLS, tlsContext,
@@ -129,7 +129,7 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 			defer ingressutil.DeleteKubeSecret(t, ctx, credName)
 			defer ingressutil.DeleteKubeSecret(t, ctx, credCaName)
 
-			ing := inst.Ingress(ctx.Clusters().Default())
+			ing := inst.IngressFor(ctx.Clusters().Default())
 			tlsContext := ingressutil.TLSContext{
 				CaCert:     ingressutil.CaCertA,
 				PrivateKey: ingressutil.TLSClientKeyA,
@@ -190,7 +190,7 @@ func TestSingleMTLSGateway_CompoundSecretRotation(t *testing.T) {
 				Host:           host,
 			})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			ing := inst.Ingress(ctx.Clusters().Default())
+			ing := inst.IngressFor(ctx.Clusters().Default())
 			tlsContext := ingressutil.TLSContext{
 				CaCert:     ingressutil.CaCertA,
 				PrivateKey: ingressutil.TLSClientKeyA,
@@ -252,7 +252,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 				Host:           host,
 			})
 			// Wait for ingress gateway to fetch key/cert from Gateway agent via SDS.
-			ing := inst.Ingress(ctx.Clusters().Default())
+			ing := inst.IngressFor(ctx.Clusters().Default())
 			tlsContext := ingressutil.TLSContext{
 				CaCert:     ingressutil.CaCertA,
 				PrivateKey: ingressutil.TLSClientKeyA,
@@ -418,7 +418,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 				},
 			}
 
-			ing := inst.Ingress(ctx.Clusters().Default())
+			ing := inst.IngressFor(ctx.Clusters().Default())
 			for _, c := range testCase {
 				ctx.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					ingressutil.CreateIngressKubeSecret(ctx, ctx, []string{c.secretName}, ingress.TLS,
@@ -519,7 +519,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 				},
 			}
 
-			ing := inst.Ingress(ctx.Clusters().Default())
+			ing := inst.IngressFor(ctx.Clusters().Default())
 			for _, c := range testCase {
 				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
 					ingressutil.CreateIngressKubeSecret(t, ctx, []string{c.secretName}, ingress.Mtls,

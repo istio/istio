@@ -75,7 +75,7 @@ func (i *operatorComponent) RemoteDiscoveryAddress(cluster resource.Cluster) (ne
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
-	addr := i.Ingress(cp).HTTPSAddress()
+	addr := i.IngressFor(cp).HTTPSAddress()
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingressImpl IP for %s", cp.Name())
 	}

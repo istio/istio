@@ -449,7 +449,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
-			ingr := ist.Ingress(ctx.Clusters().Default())
+			ingr := ist.IngressFor(ctx.Clusters().Default())
 
 			cases := []struct {
 				Name     string
