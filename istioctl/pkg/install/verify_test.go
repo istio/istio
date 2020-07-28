@@ -17,8 +17,15 @@ package install
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"istio.io/api/operator/v1alpha1"
+
+	operatorv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
 
 var (
@@ -90,6 +97,38 @@ var (
 				{
 					Type:   appsv1.DeploymentProgressing,
 					Reason: "ProgressDeadlineExceeded",
+				},
+			},
+		},
+	}
+
+	sampleIOP = &operatorv1alpha1.IstioOperator{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "IstioOperator",
+			APIVersion: "install.istio.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "installed-state",
+			Namespace: "istio-system",
+			ManagedFields: []metav1.ManagedFieldsEntry{
+				{
+					FieldsType: "FieldsV1",
+					FieldsV1: &metav1.FieldsV1{
+						Raw: []byte(`{"f:metadata": {}}`),
+					},
+					Manager:   "istioctl",
+					Operation: metav1.ManagedFieldsOperationUpdate,
+					Time:      &metav1.Time{Time: time.Now()},
+				},
+			},
+			CreationTimestamp: metav1.Time{Time: time.Now()},
+		},
+		Spec: &v1alpha1.IstioOperatorSpec{Profile: "default"},
+		Status: &v1alpha1.InstallStatus{
+			Status: v1alpha1.InstallStatus_HEALTHY,
+			ComponentStatus: map[string]*v1alpha1.InstallStatus_VersionStatus{
+				"Base": {
+					Status: v1alpha1.InstallStatus_HEALTHY,
 				},
 			},
 		},
@@ -195,5 +234,36 @@ func TestFindResourceInSpec(t *testing.T) {
 				tt.Fatalf("unexpected plural from kind: got %v want %v", plural, c.plural)
 			}
 		})
+	}
+}
+
+func TestIstioOperatorConversion(t *testing.T) {
+	unObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sampleIOP)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := convertToIstioOperator(unObj)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if out.Status.Status != v1alpha1.InstallStatus_HEALTHY || out.GetCreationTimestamp().Unix() == 0 {
+		t.Fatal("Failed to unmarshal")
+	}
+}
+
+func BenchmarkConvertIstioOperator(b *testing.B) {
+	unObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(sampleIOP)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := convertToIstioOperator(unObj)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
