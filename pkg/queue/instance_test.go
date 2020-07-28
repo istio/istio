@@ -154,7 +154,7 @@ func TestRerun(t *testing.T) {
 	go q.Run(stop)
 
 	// Wait for queue rerun
-	time.Sleep(1 * time.Microsecond)
+	time.Sleep(1 * time.Millisecond)
 	// Push a task
 	q.Push(func() error {
 		notifyCh <- struct{}{}
