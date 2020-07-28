@@ -42,10 +42,10 @@ func rollupPatches(
 ) map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper {
 	rollup := make(map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper, len(allPatches))
 	for applyTo, patches := range allPatches {
-		if _, ok := mergeFuncByType[applyTo]; !ok {
-			continue
-		}
-		if len(patches) < 2 {
+		// just use the original set of patches if we don't have a way to merge this type
+		// or if there aren't enough patches to be worth merging
+		if _, ok := mergeFuncByType[applyTo]; !ok || len(patches) < 2 {
+			rollup[applyTo] = patches
 			continue
 		}
 
