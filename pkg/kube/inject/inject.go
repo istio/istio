@@ -204,7 +204,7 @@ type Config struct {
 
 	// Ignored namespaces are ignored, even if the policy is 'on'
 	// Pod labels can override this.
-	IgnoredNamespaces []string  `json:"ignoredNamespaces"`
+	IgnoredNamespaces []string `json:"ignoredNamespaces"`
 
 	// InjectedNamespaces are injected, even if they don't have a label.
 	// This can be used with broad mutating webhook

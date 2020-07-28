@@ -19,11 +19,12 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
-	"istio.io/pkg/env"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+
+	"istio.io/pkg/env"
 
 	"istio.io/pkg/log"
 )

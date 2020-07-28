@@ -61,7 +61,7 @@ type ProxyConfig struct {
 	PilotCertProvider   string
 	// ProvCert is the filename of the XDS cluster root certificate
 	// Set as provisioned_cert
-	ProvCert            string
+	ProvCert string
 }
 
 // NewProxy creates an instance of the proxy control commands

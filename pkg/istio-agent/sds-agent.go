@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pkg/adsc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -151,7 +152,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
 		secOpts:     sopts,
-		stopCh: make(chan struct{}),
+		stopCh:      make(chan struct{}),
 	}
 
 	// Fix the defaults - mainly for tests ( main uses env )
@@ -261,12 +262,12 @@ func gatewaySdsExists() bool {
 func (sa *Agent) FindRootCAForXDS() string {
 	if strings.HasSuffix(sa.proxyConfig.DiscoveryAddress, ":443") {
 		return "/etc/ssl/certs/ca-certificates.crt"
-	} else if  _, err := os.Stat("./etc/certs/root-cert.pem"); err == nil {
+	} else if _, err := os.Stat("./etc/certs/root-cert.pem"); err == nil {
 		// Old style - mounted cert. This is used for XDS auth only,
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
 		return "./etc/certs/root-cert.pem"
-	}else if sa.secOpts.PilotCertProvider == "istiod" {
+	} else if sa.secOpts.PilotCertProvider == "istiod" {
 		// PILOT_CERT_PROVIDER - default is istiod
 		// This is the default - a mounted config map on K8S
 		return "./var/run/secrets/istio/root-cert.pem"

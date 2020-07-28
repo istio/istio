@@ -835,7 +835,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	x, _ := json.Marshal(ar)
 	log.Info(string(x))
 	log.Infoa("Headers: ", r.Header)
-		log.Infoa("TLS: ", r.TLS)
+	log.Infoa("TLS: ", r.TLS)
 	if r.TLS != nil {
 		log.Infoa("TLS: ", r.TLS.PeerCertificates)
 

@@ -49,7 +49,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	golangjsonpb "github.com/golang/protobuf/jsonpb"
+
 	"istio.io/api/mesh/v1alpha1"
+
 	//"io/ioutil"
 	//"istio.io/istio/pilot/pkg/model"
 	//"istio.io/istio/pkg/adsc"
@@ -69,10 +71,14 @@ var (
 	// Same as normal agent
 	namespace = env.RegisterStringVar("POD_NAMESPACE", "dev", "Pod namespace")
 
+	proxyConfig = env.RegisterStringVar("PROXY_CONFIG",
+		"{'discoveryAddress':}", "Config to connect to XDS")
+
 	// TODO: labels, PROXY_CONFIG
 
-	proxyName  = flag.String("name", "default", "Pod name")
-	pilotURL   = flag.String("xds", "localhost:15010", "xds server address.")
+	proxyName = flag.String("name", "default", "Pod name")
+	//pilotURL   = flag.String("xds", "localhost:15010", "xds server address.")
+	pilotURL   = flag.String("xds", " istiod-costin-asm1-big1-xds-icq63pqnqq-uc.a.run.app:443", "xds server address.")
 	configType = flag.String("typeURL", "", "typeURL or lds, cds, eds. Defaults full config")
 	proxyType  = flag.String("proxytype", "sidecar", "sidecar, ingress, router.")
 	proxyTag   = flag.String("meta", "", "Pod metadata")

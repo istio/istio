@@ -34,6 +34,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/keepalive"
+
 	"istio.io/istio/pkg/config/schema/collection"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -184,7 +185,7 @@ type ADSC struct {
 	// Retrieved endpoints can be stored in the memory registry. This is used for CDS and EDS responses.
 	Registry *memory.ServiceDiscovery
 
-	// LocalCacheDir is set to a base name used to save fetched resources.
+	// LocalCacheDir is the directory used to save fetched resources.
 	// If set, each update will be saved.
 	// TODO: also load at startup - so we can support warm up in init-container, and survive
 	// restarts.
@@ -480,7 +481,7 @@ func (a *ADSC) Run() error {
 	return nil
 }
 
-// HasSyncedConfig returns true if all sent config requests have synced
+// hasSynced returns true if all requests sent in the original Watch list have synced
 func (a *ADSC) hasSynced() bool {
 	if len(a.Sent) == 0 {
 		return false
@@ -560,7 +561,7 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 				if err != nil {
 					continue
 				}
-				err = ioutil.WriteFile(a.LocalCacheDir+"_mesh.json", strResponse, 0644)
+				err = ioutil.WriteFile(a.LocalCacheDir+"/mesh.json", strResponse, 0644)
 				if err != nil {
 					continue
 				}
@@ -617,57 +618,36 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 		a.onReceive(msg)
 
 		if len(listeners) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(listeners, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_lds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
-
+			a.maybeSave(listeners, "lds")
 			a.handleLDS(listeners)
 		}
 		if len(clusters) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(clusters, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_cds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
+			a.maybeSave(clusters, "cds")
 			a.handleCDS(clusters)
 		}
 		if len(eds) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(eds, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_eds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
+			a.maybeSave(eds, "eds")
 			a.handleEDS(eds)
 		}
 		if len(routes) > 0 {
-			if a.LocalCacheDir != "" {
-				strResponse, err := json.MarshalIndent(routes, "  ", "  ")
-				if err == nil {
-					err = ioutil.WriteFile(a.LocalCacheDir+"_rds.json", strResponse, 0644)
-					if err != nil {
-						log.Warna("Failed to save ", err)
-					}
-				}
-			}
+			a.maybeSave(routes, "rds")
 			a.handleRDS(routes)
 		}
 		select {
 		case a.XDSUpdates <- msg:
 		default:
+		}
+	}
+}
+
+func (a *ADSC) maybeSave(routes interface{}, name string) {
+	if a.LocalCacheDir != "" {
+		strResponse, err := json.MarshalIndent(routes, "  ", "  ")
+		if err == nil {
+			err = ioutil.WriteFile(a.LocalCacheDir+"/"+name+".json", strResponse, 0644)
+			if err != nil {
+				log.Warna("Failed to save ", err)
+			}
 		}
 	}
 }
