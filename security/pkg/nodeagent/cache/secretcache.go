@@ -858,6 +858,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		if err != nil {
 			cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
 				" resource name: %s", logPrefix, err, connKey.ResourceName)
+			csrHostName = connKey.ResourceName
 		}
 	}
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)

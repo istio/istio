@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
-	"istio.io/pkg/log"
 )
 
 func NewCredFetcher(credtype, trustdomain, jwtPath string) (security.CredFetcher, error) {
