@@ -352,13 +352,12 @@ func TestErrorLineNumbers(t *testing.T) {
 			})
 
 			applyFileOrFail(t, ns.Name(), gatewayFile)
-			applyFileOrFail(t, ns.Name(), badAnnotationFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), false)
 
-			expectedLines := []string{"gateway.yaml:9", "bad-annotation-service.yaml:7"}
+			expectedLines := []string{"gateway.yaml:9"}
 
 			for i := range output {
 				g.Expect(output[i]).To(ContainSubstring(expectedLines[i]))
