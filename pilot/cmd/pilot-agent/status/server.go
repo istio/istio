@@ -167,6 +167,11 @@ func NewServer(config Config) (*Server, error) {
 		if s.prometheus.Port == "" {
 			s.prometheus.Port = "80"
 		}
+		if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
+			return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+				"application port is the same as agent port, which may lead to a recursive loop. "+
+				"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+		}
 	}
 
 	return s, nil
