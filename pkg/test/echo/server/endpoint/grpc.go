@@ -173,6 +173,7 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	if err != nil {
 		return nil, err
 	}
+	defer instance.Close()
 
 	return instance.Run(ctx)
 }
