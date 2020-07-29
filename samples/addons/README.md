@@ -85,3 +85,5 @@ The [Prometheus Operator](https://github.com/coreos/prometheus-operator) manages
 
 As an alternative to the standard Prometheus deployment, we provide `ServiceMonitors` to monitor the Istio control plane and
 Envoy proxies. To use these, make sure you have the Prometheus operator deployed, then run `kubectl apply -f samples/addons/extras/prometheus-operator.yaml -n istio-system`.
+
+Note: The configurations here are only for Istio deployments, and do not scrape metrics from the Kubernetes components. See the [Cluster Monitoring](https://coreos.com/operators/prometheus/docs/latest/user-guides/cluster-monitoring.html) documentation for configuring this.
