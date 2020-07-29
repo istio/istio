@@ -339,6 +339,11 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		annos = map[string]string{}
 	}
 
+	// the pod has been injected
+	if len(annos[annotation.SidecarStatus.Name]) > 0 {
+		return false
+	}
+
 	var useDefault bool
 	var inject bool
 	switch strings.ToLower(annos[annotation.SidecarInject.Name]) {

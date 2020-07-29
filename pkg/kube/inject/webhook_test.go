@@ -91,6 +91,35 @@ func TestInjectRequired(t *testing.T) {
 			},
 			podSpec: podSpec,
 			meta: &metav1.ObjectMeta{
+				Name:      "default-policy-injected",
+				Namespace: "test-namespace",
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name: `{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"]}`,
+				},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
+				Name:      "force-on-policy-injected",
+				Namespace: "test-namespace",
+				Annotations: map[string]string{
+					annotation.SidecarStatus.Name: `{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"]}`,
+					annotation.SidecarInject.Name: "true",
+				},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
+			podSpec: podSpec,
+			meta: &metav1.ObjectMeta{
 				Name:        "no-policy",
 				Namespace:   "test-namespace",
 				Annotations: map[string]string{},

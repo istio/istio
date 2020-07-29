@@ -770,13 +770,11 @@ func (wh *Webhook) inject(ar *kubeApiAdmission.AdmissionReview, path string) *ku
 
 	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
+	pt := kubeApiAdmission.PatchTypeJSONPatch
 	reviewResponse := kubeApiAdmission.AdmissionResponse{
-		Allowed: true,
-		Patch:   patchBytes,
-		PatchType: func() *kubeApiAdmission.PatchType {
-			pt := kubeApiAdmission.PatchTypeJSONPatch
-			return &pt
-		}(),
+		Allowed:   true,
+		Patch:     patchBytes,
+		PatchType: &pt,
 	}
 	totalSuccessfulInjections.Increment()
 	return &reviewResponse
