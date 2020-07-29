@@ -585,7 +585,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.secOpts.ProvCert == "" && sc.isTokenExpired(&secret) && sc.secOpts.UseTokenForCSR {
+			if sc.isTokenExpired(&secret) && !sc.useCertToRotate() {
 				cacheLog.Infof("%s token expired, getting a new token", logPrefix)
 				t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
 				if err != nil {
