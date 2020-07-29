@@ -23,13 +23,11 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-// TODO (liminw): We probably do not need to set identity in CSR, because CA should set identity
-// in CSR based on credential, not based on what's been requested in the CSR.
 func constructCSRHostName(trustDomain, token string) (string, error) {
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
 	strs := strings.Split(token, ".")
 	if len(strs) != 3 {
-		return "", fmt.Errorf("invalid jwt token")
+		return "", fmt.Errorf("invalid k8s jwt token")
 	}
 
 	payload := strs[1]
@@ -38,40 +36,28 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	}
 	dp, err := base64.URLEncoding.DecodeString(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode payload from jwt token: %v", err)
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
 	}
+
+	var jp k8sJwtPayload
+	if err = json.Unmarshal(dp, &jp); err != nil {
+		return "", fmt.Errorf("invalid k8s jwt token: %v", err)
+	}
+
+	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
+	ss := strings.Split(jp.Sub, ":")
+	if len(ss) != 4 {
+		return "", fmt.Errorf("invalid sub field in k8s jwt token")
+	}
+	ns := ss[2] //namespace
+	sa := ss[3] //service account
 
 	domain := "cluster.local"
 	if trustDomain != "" {
 		domain = trustDomain
 	}
 
-	var ns, sa string
-	ns, sa, err = extractk8sIdentity(dp)
-
-	if err != nil {
-		return "", fmt.Errorf("cannot extract identity from token: %v", err)
-	}
-
 	return fmt.Sprintf(identityTemplate, domain, ns, sa), nil
-}
-
-// Extract k8s identity from token payload
-func extractk8sIdentity(payload []byte) (string, string, error) {
-	var jp k8sJwtPayload
-	if err := json.Unmarshal(payload, &jp); err != nil {
-		return "", "", fmt.Errorf("invalid k8s jwt token: %v", err)
-	}
-
-	// sub field in jwt should be in format like: system:serviceaccount:foo:bar
-	ss := strings.Split(jp.Sub, ":")
-	if len(ss) != 4 {
-		return "", "", fmt.Errorf("invalid sub field in k8s jwt token")
-	}
-	ns := ss[2] //namespace
-	sa := ss[3] //service account
-
-	return ns, sa, nil
 }
 
 // isRetryableErr checks if a failed request should be retry based on gRPC resp code or http status code.
