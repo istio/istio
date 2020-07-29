@@ -95,7 +95,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   (r.PodName + "-distribution"),
+			Name:   r.PodName + "-distribution",
 			Labels: map[string]string{labelKey: "true"},
 		},
 		Data: make(map[string]string),
@@ -249,7 +249,7 @@ type distributionEvent struct {
 }
 
 func (r *Reporter) QueryLastNonce(conID string, distributionType xds.EventType) (noncePrefix string) {
-	key := conID + string(distributionType)
+	key := conID + distributionType
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.status[key]
@@ -279,7 +279,7 @@ func (r *Reporter) processEvent(conID string, distributionType xds.EventType, no
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
-	key := conID + string(distributionType) // TODO: delimit?
+	key := conID + distributionType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
 	if len(nonce) > 12 {
@@ -314,7 +314,7 @@ func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	defer r.mu.Unlock()
 	r.dirty = true
 	for _, xdsType := range types {
-		key := conID + string(xdsType) // TODO: delimit?
+		key := conID + xdsType // TODO: delimit?
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}

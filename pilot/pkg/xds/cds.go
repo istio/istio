@@ -22,13 +22,14 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
 		// All resources for CDS ought to be of the type Cluster
-		TypeUrl: typeURL,
+		TypeUrl: v3.ClusterType,
 
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
@@ -39,9 +40,7 @@ func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix, typeURL stri
 	}
 
 	for _, c := range response {
-		cc := util.MessageToAny(c)
-		cc.TypeUrl = typeURL
-		out.Resources = append(out.Resources, cc)
+		out.Resources = append(out.Resources, util.MessageToAny(c))
 	}
 
 	return out
@@ -55,7 +54,7 @@ func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, vers
 	if s.DebugConfigs {
 		con.XdsClusters = rawClusters
 	}
-	response := cdsDiscoveryResponse(rawClusters, push.Version, con.node.RequestedTypes.CDS)
+	response := cdsDiscoveryResponse(rawClusters, push.Version)
 	err := con.send(response)
 	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {

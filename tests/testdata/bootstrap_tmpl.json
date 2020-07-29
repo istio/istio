@@ -21,8 +21,23 @@
       }
     }
   },
+  "layered_runtime": {
+      "layers": [
+          {
+              "name": "deprecation",
+              "static_layer": {
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+              }
+          },
+          {
+              "name": "admin",
+              "admin_layer": {}
+          }
+      ]
+  },
   "dynamic_resources": {
     "lds_config": {
+      "resource_api_version": "V3",
       "ads": {}
      },
     "cds_config": {
@@ -31,6 +46,7 @@
     },
     "ads_config": {
       "api_type": "GRPC",
+      "transport_api_version": "V3",
       "grpc_services": {
         "envoy_grpc": {
           "cluster_name": "xds-grpc"
@@ -194,7 +210,7 @@
                   ],
                   "rds": {
                       "route_config_name": "80",
-                       "config_source": {"ads": {}}
+                       "config_source": {"resource_api_version": "V3","ads": {}}
                   },
                   "http_protocol_options": {
                     "allow_absolute_url": true
@@ -237,7 +253,7 @@
                   ],
                   "rds": {
                       "route_config_name": "http_proxy",
-                       "config_source": {"ads": {}}
+                       "config_source": {"resource_api_version": "V3","ads": {}}
                   },
                   "http_protocol_options": {
                     "allow_absolute_url": true

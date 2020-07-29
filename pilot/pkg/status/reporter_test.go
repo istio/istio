@@ -31,7 +31,7 @@ import (
 
 func TestStatusMaps(t *testing.T) {
 	r := initReporterWithoutStarting()
-	typ := xds.UnknownEventType
+	typ := ""
 	r.processEvent("conA", typ, "a")
 	r.processEvent("conB", typ, "a")
 	r.processEvent("conC", typ, "c")
@@ -109,7 +109,7 @@ func TestBuildReport(t *testing.T) {
 	}
 	// mark each fake connection as having acked version 1 of all resources
 	for _, con := range connections {
-		r.processEvent(con, xds.UnknownEventType, firstNoncePrefix)
+		r.processEvent(con, "", firstNoncePrefix)
 	}
 	// modify one resource to version 2
 	resources[1].ResourceVersion = "2"
@@ -121,7 +121,7 @@ func TestBuildReport(t *testing.T) {
 	// mark only one connection as having acked version 2
 	r.processEvent(connections[1], "", l.RootHash())
 	// mark one connection as having disconnected.
-	r.RegisterDisconnect(connections[2], []xds.EventType{xds.UnknownEventType})
+	r.RegisterDisconnect(connections[2], []xds.EventType{""})
 	err = r.store.SetLedger(l)
 	Expect(err).NotTo(HaveOccurred())
 	// build a report, which should have only two dataplanes, with 50% acking v2 of config
