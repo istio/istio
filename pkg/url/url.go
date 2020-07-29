@@ -54,14 +54,14 @@ var (
 	// Tasks related URLs for istio.io
 	// #####################################
 
-	// TasksURL is a base URL for setup related docs
+	// TasksURL is a base URL for tasks related docs
 	TasksURL = fmt.Sprintf("%s%s", DocsURL, "tasks/")
 
 	// #####################################
 	// Examples related URLs for istio.io
 	// #####################################
 
-	// ExamplesURL is a base URL for setup related docs
+	// ExamplesURL is a base URL for examples related docs
 	ExamplesURL = fmt.Sprintf("%s%s", DocsURL, "examples/")
 
 	// #####################################
@@ -76,14 +76,14 @@ var (
 	DeploymentRequirements = fmt.Sprintf("%s%s", OpsURL, "deployment/requirements/")
 
 	// ConfigureSAToken should generate
-	// https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
+	// https://istio.io/latest/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
 	ConfigureSAToken = fmt.Sprintf("%s%s", OpsURL, "best-practices/security/#configure-third-party-service-account-tokens")
 
 	// #####################################
 	// Reference related URLs for istio.io
 	// #####################################
 
-	// ReferenceURL is a base URL for setup related docs
+	// ReferenceURL is a base URL for reference related docs
 	ReferenceURL = fmt.Sprintf("%s%s", DocsURL, "reference/")
 
 	// IstioOperatorSpec should generate
@@ -91,7 +91,7 @@ var (
 	IstioOperatorSpec = fmt.Sprintf("%s%s", ReferenceURL, "config/istio.operator.v1alpha1/#IstioOperatorSpec")
 
 	// ConfigAnalysis should generate
-	// https://istio.io/latest/docs/reference/config/analysis/
+	// https://istio.io/latest/docs/reference/config/analysis
 	ConfigAnalysis = fmt.Sprintf("%s%s", ReferenceURL, "config/analysis")
 )
 

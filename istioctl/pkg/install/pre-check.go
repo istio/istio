@@ -199,7 +199,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	err = c.checkMutatingWebhook()
 	if err != nil {
 		fmt.Fprintf(writer, "This Kubernetes cluster deployed without MutatingAdmissionWebhook support."+
-			"See"+url.SidecarInjection+"\n")
+			"See "+url.SidecarInjection+"\n")
 	} else {
 		fmt.Fprintf(writer, "This Kubernetes cluster supports automatic sidecar injection."+
 			" To enable automatic sidecar injection see "+url.SidecarDeployingApp+"\n")
