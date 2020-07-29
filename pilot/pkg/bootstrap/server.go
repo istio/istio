@@ -494,6 +494,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 
 // Wait for the stop, and do cleanups
 func (s *Server) waitForShutdown(stop <-chan struct{}) {
+	s.requiredTerminations.Add(1)
 	go func() {
 		<-stop
 		s.fileWatcher.Close()
@@ -537,6 +538,8 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		if s.IstioDNSServer != nil {
 			s.IstioDNSServer.Close()
 		}
+		
+		s.requiredTerminations.Done()
 	}()
 }
 
