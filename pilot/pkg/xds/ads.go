@@ -16,7 +16,6 @@ package xds
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -36,7 +35,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -185,7 +183,7 @@ func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discov
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, con *Connection) error {
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, TypeURLToEventType(discReq.TypeUrl), discReq.ResponseNonce)
+		s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
 	}
 
 	var err error
@@ -202,31 +200,19 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 	}
 
 	switch discReq.TypeUrl {
-	case v2.ClusterType, v3.ClusterType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.CDS); err != nil {
-			return err
-		}
+	case v3.ClusterType:
 		if err := s.handleCds(con, discReq); err != nil {
 			return err
 		}
-	case v2.ListenerType, v3.ListenerType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.LDS); err != nil {
-			return err
-		}
+	case v3.ListenerType:
 		if err := s.handleLds(con, discReq); err != nil {
 			return err
 		}
-	case v2.RouteType, v3.RouteType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.RDS); err != nil {
-			return err
-		}
+	case v3.RouteType:
 		if err := s.handleRds(con, discReq); err != nil {
 			return err
 		}
-	case v2.EndpointType, v3.EndpointType:
-		if err := s.handleTypeURL(discReq.TypeUrl, &con.node.RequestedTypes.EDS); err != nil {
-			return err
-		}
+	case v3.EndpointType:
 		if err := s.handleEds(con, discReq); err != nil {
 			return err
 		}
@@ -335,21 +321,8 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	}
 }
 
-// handleTypeURL records the type url received in an XDS response. If this conflicts with a previously sent type,
-// an error is returned. For example, if a v2 cluster request was sent initially, then a v3 response was received, we will throw an error.
-// This is to ensure that when we do pushes, we are sending a consistent type, rather than flipping between v2 and v3.
-// A proper XDS client will not send mixed versions.
-func (s *DiscoveryServer) handleTypeURL(typeURL string, requestedType *string) error {
-	if *requestedType == "" {
-		*requestedType = typeURL
-	} else if *requestedType != typeURL {
-		return fmt.Errorf("invalid type %v, expected %v", typeURL, *requestedType)
-	}
-	return nil
-}
-
 func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ListenerShortType) {
+	if con.Watching(v3.ListenerType) {
 		if !s.shouldRespond(con, ldsReject, discReq) {
 			return nil
 		}
@@ -363,7 +336,7 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ClusterShortType) {
+	if con.Watching(v3.ClusterType) {
 		if !s.shouldRespond(con, cdsReject, discReq) {
 			return nil
 		}
@@ -380,7 +353,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, edsReject, discReq) {
 		return nil
 	}
-	con.node.Active[v3.EndpointShortType].ResourceNames = discReq.ResourceNames
+	con.node.Active[v3.EndpointType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 	if err != nil {
@@ -393,7 +366,7 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, rdsReject, discReq) {
 		return nil
 	}
-	con.node.Active[v3.RouteShortType].ResourceNames = discReq.ResourceNames
+	con.node.Active[v3.RouteType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes()))
 	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 	if err != nil {
@@ -423,12 +396,12 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
 		con.mu.Lock()
-		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl}
+		con.node.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl}
 		con.mu.Unlock()
 		return true
 	}
 
-	previousInfo := con.node.Active[stype]
+	previousInfo := con.node.Active[request.TypeUrl]
 
 	// If this is a case of Envoy reconnecting Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
@@ -437,7 +410,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	if previousInfo == nil {
 		adsLog.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.mu.Lock()
-		con.node.Active[stype] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.node.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
 		con.mu.Unlock()
 		return true
 	}
@@ -454,9 +427,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
 	con.mu.Lock()
-	previousResources := con.node.Active[stype].ResourceNames
-	con.node.Active[stype].VersionAcked = request.VersionInfo
-	con.node.Active[stype].NonceAcked = request.ResponseNonce
+	previousResources := con.node.Active[request.TypeUrl].ResourceNames
+	con.node.Active[request.TypeUrl].VersionAcked = request.VersionInfo
+	con.node.Active[request.TypeUrl].NonceAcked = request.ResponseNonce
 	con.mu.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
@@ -669,13 +642,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	pushTypes := PushTypeFor(con.node, pushEv)
 
-	if con.Watching(v3.ClusterShortType) && pushTypes[CDS] {
+	if con.Watching(v3.ClusterType) && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, ClusterEventType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.ClusterType, pushEv.noncePrefix)
 	}
 
 	if len(con.Clusters()) > 0 && pushTypes[EDS] {
@@ -684,15 +657,15 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, EndpointEventType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushEv.noncePrefix)
 	}
-	if con.Watching(v3.ListenerShortType) && pushTypes[LDS] {
+	if con.Watching(v3.ListenerType) && pushTypes[LDS] {
 		err := s.pushLds(con, pushEv.push, currentVersion)
 		if err != nil {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, ListenerEventType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.ListenerType, pushEv.noncePrefix)
 	}
 	if len(con.Routes()) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushEv.push, currentVersion)
@@ -700,7 +673,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, RouteEventType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.RouteType, pushEv.noncePrefix)
 	}
 	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
 	return nil
@@ -829,14 +802,13 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	t := time.NewTimer(SendTimeout)
 	go func() {
 		err := conn.stream.Send(res)
-		stype := v3.GetShortType(res.TypeUrl)
 		conn.mu.Lock()
 		if res.Nonce != "" {
-			if conn.node.Active[stype] == nil {
-				conn.node.Active[stype] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+			if conn.node.Active[res.TypeUrl] == nil {
+				conn.node.Active[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
-			conn.node.Active[stype].NonceSent = res.Nonce
-			conn.node.Active[stype].VersionSent = res.VersionInfo
+			conn.node.Active[res.TypeUrl].NonceSent = res.Nonce
+			conn.node.Active[res.TypeUrl].VersionSent = res.VersionInfo
 		}
 		conn.mu.Unlock()
 		done <- err
@@ -868,15 +840,15 @@ func (conn *Connection) NonceSent(stype string) string {
 }
 
 func (conn *Connection) Clusters() []string {
-	if conn.node.Active != nil && conn.node.Active[v3.EndpointShortType] != nil {
-		return conn.node.Active[v3.EndpointShortType].ResourceNames
+	if conn.node.Active != nil && conn.node.Active[v3.EndpointType] != nil {
+		return conn.node.Active[v3.EndpointType].ResourceNames
 	}
 	return []string{}
 }
 
 func (conn *Connection) Routes() []string {
-	if conn.node.Active != nil && conn.node.Active[v3.RouteShortType] != nil {
-		return conn.node.Active[v3.RouteShortType].ResourceNames
+	if conn.node.Active != nil && conn.node.Active[v3.RouteType] != nil {
+		return conn.node.Active[v3.RouteType].ResourceNames
 	}
 	return []string{}
 }

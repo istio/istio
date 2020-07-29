@@ -35,7 +35,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -123,7 +122,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 				if len(r) == 0 {
 					b.Fatal("Got no routes!")
 				}
-				response = routeDiscoveryResponse(r, "", "", v3.RouteType)
+				response = routeDiscoveryResponse(r, "", "")
 			}
 			logDebug(b, response)
 		})
@@ -142,7 +141,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
-				response = cdsDiscoveryResponse(c, "", v3.ClusterType)
+				response = cdsDiscoveryResponse(c, "")
 			}
 			logDebug(b, response)
 		})
@@ -161,7 +160,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 				if len(l) == 0 {
 					b.Fatal("Got no listeners!")
 				}
-				response = ldsDiscoveryResponse(l, "", "", v3.ListenerType)
+				response = ldsDiscoveryResponse(l, "", "")
 			}
 			logDebug(b, response)
 		})
@@ -204,7 +203,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					l := s.Discovery.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v3.EndpointType)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
 			}
 			logDebug(b, response)
 		})

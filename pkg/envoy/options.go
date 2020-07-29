@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	envoyBootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	envoyBootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 
