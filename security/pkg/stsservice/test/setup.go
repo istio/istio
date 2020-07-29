@@ -244,7 +244,7 @@ func (e *Env) genStsReq(stsAddr string) (req *http.Request) {
 func setupSTS(stsPort int, backendURL string, enableCache bool) (*stsServer.Server, *google.Plugin, error) {
 	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
 	if err != nil {
-		return nil, nil, fmt.Errorf("Failed to create credential fetcher: %v", err)
+		return nil, nil, fmt.Errorf("failed to create credential fetcher: %v", err)
 	}
 	// Create token exchange Google plugin
 	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(credFetcher, tokenBackend.FakeTrustDomain,

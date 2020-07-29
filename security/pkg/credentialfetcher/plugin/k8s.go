@@ -32,10 +32,6 @@ type K8SPlugin struct {
 	jwtPath string
 }
 
-type k8sJwtPayload struct {
-	Iss string `json:iss`
-}
-
 // CreateK8SPlugin creates a k8s credential fetcher plugin. Return the pointer to the created plugin.
 func CreateK8SPlugin(jwtPath string) *K8SPlugin {
 	p := &K8SPlugin{
