@@ -82,7 +82,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	} else if s.Port.TLS {
 		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if cerr != nil {
-			return fmt.Errorf("could not load TLS keys: %v", err)
+			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
