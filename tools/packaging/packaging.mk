@@ -12,6 +12,9 @@ deb: ${ISTIO_OUT_LINUX}/release/istio-sidecar.deb ${ISTIO_OUT_LINUX}/release/ist
 # Base directory for istio binaries. Likely to change !
 ISTIO_DEB_BIN=/usr/local/bin
 
+# Home directory of istio-proxy user. It is symlinked /etc/istio --> /var/lib/istio
+ISTIO_PROXY_HOME=/var/lib/istio
+
 ISTIO_DEB_DEPS:=pilot-discovery istioctl
 ISTIO_FILES:=
 $(foreach DEP,$(ISTIO_DEB_DEPS),\
@@ -35,6 +38,13 @@ $(foreach DEST,$(ISTIO_DEB_DEST),\
 
 SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/envoy_bootstrap.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
+ISTIO_EXTENSIONS:=stats-filter.wasm \
+                  stats-filter.compiled.wasm \
+                  metadata-exchange-filter.wasm \
+                  metadata-exchange-filter.compiled.wasm
+
+$(foreach EXT,$(ISTIO_EXTENSIONS),\
+        $(eval SIDECAR_FILES+=${ISTIO_ENVOY_LINUX_RELEASE_DIR}/$(EXT)=$(ISTIO_PROXY_HOME)/extensions/$(EXT)))
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 SIDECAR_PACKAGE_NAME ?= istio-sidecar
