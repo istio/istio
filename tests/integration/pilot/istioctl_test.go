@@ -27,6 +27,10 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/url"
+
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/framework"
@@ -127,8 +131,7 @@ var (
 `)
 
 	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
-Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/latest/docs/ops/deployment/requirements/
-`
+Next Step: Add related labels to the deployment to align with Istio's requirement: ` + url.DeploymentRequirements
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 

@@ -202,7 +202,7 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 			"See"+url.SidecarInjection+"\n")
 	} else {
 		fmt.Fprintf(writer, "This Kubernetes cluster supports automatic sidecar injection."+
-			" To enable automatic sidecar injection see https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#deploying-an-app\n")
+			" To enable automatic sidecar injection see "+url.SidecarDeployingApp+"\n")
 	}
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "-----------------------\n")

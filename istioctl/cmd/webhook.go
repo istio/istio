@@ -27,6 +27,7 @@ import (
 	"github.com/ghodss/yaml"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	"istio.io/istio/pkg/url"
 	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -213,7 +214,7 @@ istioctl experimental post-install webhook enable --validation --webhook-secret 
 		"PEM encoded CA bundle which will be used to validate the webhook's server certificates. "+
 			"If this is empty, the kube-apisever's root CA is used if it can be confirmed to have signed "+
 			"the webhook's certificates. This condition is sometimes true but is not guaranteed "+
-			"(see https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping)")
+			"(see "+url.K8TLSBootstrapping+")")
 	flags.StringVar(&opts.validationWebhookConfigPath, "validation-path", "",
 		"The file path of the validation webhook configuration.")
 	flags.StringVar(&opts.mutatingWebhookConfigPath, "injection-path", "",

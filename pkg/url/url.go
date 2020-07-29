@@ -46,6 +46,10 @@ var (
 	// https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection
 	SidecarInjection = fmt.Sprintf("%s%s", SetupURL, "additional-setup/sidecar-injection/#automatic-sidecar-injection")
 
+	// SidecarDeployingApp should generate
+	// https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#deploying-an-app
+	SidecarDeployingApp = fmt.Sprintf("%s%s", SetupURL, "additional-setup/sidecar-injection/#deploying-an-app")
+
 	// #####################################
 	// Tasks related URLs for istio.io
 	// #####################################
@@ -71,6 +75,10 @@ var (
 	// https://istio.io/latest/docs/ops/deployment/requirements/
 	DeploymentRequirements = fmt.Sprintf("%s%s", OpsURL, "deployment/requirements/")
 
+	// ConfigureSAToken should generate
+	// https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
+	ConfigureSAToken = fmt.Sprintf("%s%s", OpsURL, "best-practices/security/#configure-third-party-service-account-tokens")
+
 	// #####################################
 	// Reference related URLs for istio.io
 	// #####################################
@@ -81,4 +89,15 @@ var (
 	// IstioOperatorSpec should generate
 	// https://istio.io/latest/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
 	IstioOperatorSpec = fmt.Sprintf("%s%s", ReferenceURL, "config/istio.operator.v1alpha1/#IstioOperatorSpec")
+
+	// ConfigAnalysis should generate
+	// https://istio.io/latest/docs/reference/config/analysis/
+	ConfigAnalysis = fmt.Sprintf("%s%s", ReferenceURL, "config/analysis")
+)
+
+// Kubernetes related URLs
+var (
+
+	// K8TLSBootstrapping is a link for Kubelet TLS Bootstrapping
+	K8TLSBootstrapping = "https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping"
 )
