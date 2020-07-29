@@ -556,7 +556,8 @@
     
     {
       "name": "envoy.statsd",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {
           "socket_address": {"address": "10.1.1.1", "port_value": 9125}
         }

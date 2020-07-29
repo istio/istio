@@ -454,6 +454,7 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want s
 	}
 }
 
+// nolint: staticcheck
 func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 	if want.Tracing == nil {
 		return

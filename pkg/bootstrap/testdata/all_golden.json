@@ -602,7 +602,8 @@
     
     {
       "name": "envoy.metrics_service",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
         "grpc_service": {
           "envoy_grpc": {
             "cluster_name": "envoy_metrics_service"
@@ -614,7 +615,8 @@
     
     {
       "name": "envoy.statsd",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {
           "socket_address": {"address": "10.1.1.1", "port_value": 9125}
         }
