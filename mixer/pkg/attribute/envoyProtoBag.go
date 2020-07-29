@@ -68,7 +68,7 @@ func isGrpc(headers map[string]string) bool {
 }
 
 func fillContextProtocol(reqMap map[string]interface{}) {
-	if isGrpc(reqMap["request.headers"].(map[string]string)) {
+	if isGrpc((reqMap["request.headers"].(attr.StringMap)).Entries()) {
 		reqMap["context.protocol"] = "grpc"
 	} else {
 		reqMap["context.protocol"] = "http"
@@ -78,6 +78,8 @@ func fillContextProtocol(reqMap map[string]interface{}) {
 // AuthzProtoBag returns an attribute bag for an Ext-Authz Check Request.
 // When you are done using the proto bag, call the Done method to recycle it.
 func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
+	fmt.Println("HEY")
+	fmt.Println(req)
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 
 	// build the message-level dictionary
@@ -107,6 +109,8 @@ func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 // When you are done using the proto bag, call the Done method to recycle it.
 // num is the index of the entry from the message's batch to create a bag from
 func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
+	fmt.Println("HEY")
+	fmt.Println(msg)
 	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})

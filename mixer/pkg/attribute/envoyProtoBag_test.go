@@ -14,21 +14,25 @@
 package attribute
 
 import (
+	"github.com/golang/protobuf/ptypes/duration"
 	"net"
 	"testing"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	v2 "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-	"github.com/golang/protobuf/ptypes/timestamp"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	attr "istio.io/pkg/attribute"
-	"istio.io/pkg/log"
+
+	theattr "istio.io/istio/mixer/pkg/attribute"
 )
 
-func TestBagEnvoy(t *testing.T) {
-	attrs := envoyProtoAttrsForTestingAuthz()
-	ab := AuthzProtoBag(attrs)
+func TestBagEnvoyAuthzHttp(t *testing.T) {
+	attrs := envoyProtoAttrsForTestingAuthzHTTP()
+	ab := theattr.AuthzProtoBag(attrs)
 
 	results := []struct {
 		name  string
@@ -77,12 +81,61 @@ func TestBagEnvoy(t *testing.T) {
 
 }
 
+func TestBagEnvoyAuthzGrpc(t *testing.T) {
+	attrs := envoyProtoAttrsForTestingAuthzGRPC()
+	ab := theattr.AuthzProtoBag(attrs)
+
+	results := []struct {
+		name  string
+		value interface{}
+	}{
+		{"context.protocol", "grpc"},
+		{"context.reporter.kind", "inbound"},
+		{"destination.ip", []byte(net.ParseIP("10.12.0.254").To16())},
+		{"destination.port", int64(8079)},
+		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},
+		{"source.port", int64(46346)},
+		{"request.headers", attr.WrapStringMap(map[string]string{":authority": "fortio:8079", ":path": "/fgrpc.PingServer/Ping", ":method": "POST", "content-type": "application/grpc"})},
+		{"request.host", "fortio:8079"},
+		{"request.method", "POST"},
+		{"request.path", "/fgrpc.PingServer/Ping"},
+		{"request.time", time.Unix(1595981863, 977598000)},
+	}
+
+	for _, r := range results {
+		t.Run(r.name, func(t *testing.T) {
+			v, found := ab.Get(r.name)
+			if !found {
+				t.Error("Got false, expecting true")
+			}
+
+			if !attr.Equal(v, r.value) {
+				t.Errorf("Got %v, expected %v for %s", v, r.value, r.name)
+			}
+		})
+	}
+
+	if _, found := ab.Get("XYZ"); found {
+		t.Error("XYZ was found")
+	}
+
+	child := attr.GetMutableBag(ab)
+	r, found := ab.Get("request.method")
+	if !found || r.(string) != "POST" {
+		t.Error("request.method has wrong value")
+	}
+
+	_ = child.String()
+	child.Done()
+
+}
+
 func envoyMutableBagFromProtoForTesing() *attr.MutableBag {
-	b := AuthzProtoBag(envoyProtoAttrsForTestingAuthz())
+	b := theattr.AuthzProtoBag(envoyProtoAttrsForTestingAuthzHTTP())
 	return attr.GetMutableBag(b)
 }
 
-func envoyProtoAttrsForTestingAuthz() *authz.CheckRequest {
+func envoyProtoAttrsForTestingAuthzHTTP() *authz.CheckRequest {
 	return &authz.CheckRequest{
 		Attributes: &authz.AttributeContext{
 			Source: &authz.AttributeContext_Peer{
@@ -131,6 +184,133 @@ func envoyProtoAttrsForTestingAuthz() *authz.CheckRequest {
 
 }
 
+func envoyProtoAttrsForTestingAuthzGRPC() *authz.CheckRequest {
+	return &authz.CheckRequest{
+		Attributes: &authz.AttributeContext{
+			Source: &authz.AttributeContext_Peer{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Address: "10.12.1.121",
+							PortSpecifier: &core.SocketAddress_PortValue{
+								PortValue: 46346,
+							},
+						},
+					},
+				},
+				Principal: "spiffe://cluster.local/ns/default/sa/default",
+			},
+			Destination: &authz.AttributeContext_Peer{
+				Address: &core.Address{
+					Address: &core.Address_SocketAddress{
+						SocketAddress: &core.SocketAddress{
+							Address: "10.12.0.254",
+							PortSpecifier: &core.SocketAddress_PortValue{
+								PortValue: 8079,
+							},
+						},
+					},
+				},
+				Principal: "spiffe://cluster.local/ns/default/sa/bookinfo-productpage",
+			},
+			Request: &authz.AttributeContext_Request{
+				Time: &timestamp.Timestamp{
+					Seconds: 1595981863,
+					Nanos:   977598000,
+				},
+				Http: &authz.AttributeContext_HttpRequest{
+					Id:     "4294822762638712056",
+					Method: "POST",
+					Headers: map[string]string{":authority": "fortio:8079", ":path": "/fgrpc.PingServer/Ping", ":method": "POST", "content-type": "application/grpc"},
+					Path:     "/fgrpc.PingServer/Ping",
+					Host:     "fortio:8079",
+					Protocol: "HTTP/2",
+				},
+			},
+		},
+	}
+
+
+
+}
+
+func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
+	entry := &v2.HTTPAccessLogEntry{
+		CommonProperties: &v2.AccessLogCommon{
+			DownstreamRemoteAddress: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "10.12.1.121",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 46346,
+						},
+					},
+				},
+			},
+			DownstreamLocalAddress: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "10.12.0.254",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8079,
+						},
+					},
+				},
+			},
+			ResponseFlags: &v2.ResponseFlags{},
+			StartTime: &timestamp.Timestamp{
+					Seconds: 1595981863,
+					Nanos: 977598000,
+			},
+			TimeToFirstUpstreamRxByte: &duration.Duration{
+				Nanos: 28810555,
+			},
+			TlsProperties: &v2.TLSProperties{},
+			UpstreamCluster: "inbound|8079|grpc-ping|fortio.default.svc.cluster.local",
+
+		},
+		Request: &v2.HTTPRequestProperties{
+			RequestMethod: &core.RequestMethod{
+
+			},
+			Scheme: "",
+			Authority: "",
+			Port: "",
+			UserAgent: "",
+			RequestHeaderBytes: "",
+			RequestBodyBytes: "",
+			RequestHeaders: map[string]string{},
+		},
+		Response: &v2.HTTPResponseProperties{},
+	}
+
+	return &accesslog.StreamAccessLogsMessage{
+		LogEntries: &accesslog.StreamAccessLogsMessage_HttpLogs{
+			HttpLogs: &accesslog.StreamAccessLogsMessage_HTTPAccessLogEntries{
+				LogEntry: []*v2.HTTPAccessLogEntry{entry},
+			},
+		},
+	}
+
+
+
+}
+
+func envoyProtoAttrsForTestingALSTCP() *accesslog.StreamAccessLogsMessage {
+	entry := &v2.TCPAccessLogEntry{
+		CommonProperties: &v2.AccessLogCommon{},
+		ConnectionProperties: &v2.ConnectionProperties{},
+	}
+	return &accesslog.StreamAccessLogsMessage{
+		LogEntries: &accesslog.StreamAccessLogsMessage_TcpLogs{
+			TcpLogs: &accesslog.StreamAccessLogsMessage_TCPAccessLogEntries{
+				LogEntry: []*v2.TCPAccessLogEntry{entry},
+			},
+		},
+	}
+}
+
+
 func EnvoyTestProtoBagContains(t *testing.T) {
 	mb := envoyMutableBagFromProtoForTesing()
 
@@ -144,10 +324,3 @@ func EnvoyTestProtoBagContains(t *testing.T) {
 
 }
 
-func init() {
-	// bump up the log level so log-only logic runs during the tests, for correctness and coverage.
-	o := log.DefaultOptions()
-	o.SetOutputLevel(log.DefaultScopeName, log.DebugLevel)
-	o.SetOutputLevel(scope.Name(), log.DebugLevel)
-	_ = log.Configure(o)
-}
