@@ -369,9 +369,13 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
 func convertWorkloadEntryToWorkloadInstance(namespace string, cfg model.Config) *model.WorkloadInstance {
 	we := cfg.Spec.(*networking.WorkloadEntry)
-	labels := cfg.Labels
-	if len(we.Labels) > 0 {
-		labels = we.Labels
+	// we will merge labels from metadata with spec, with precedence to the metadata
+	labels := map[string]string{}
+	for k, v := range we.Labels {
+		labels[k] = v
+	}
+	for k, v := range cfg.Labels {
+		labels[k] = v
 	}
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {

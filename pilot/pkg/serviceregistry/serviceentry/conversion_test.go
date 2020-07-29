@@ -818,7 +818,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			},
 		},
 		{
-			name:      "metadata labels only overriden",
+			name:      "labels merge",
 			namespace: "ns1",
 			wle: model.Config{
 				ConfigMeta: model.ConfigMeta{
@@ -837,7 +837,10 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			out: &model.WorkloadInstance{
 				Namespace: "ns1",
 				Endpoint: &model.IstioEndpoint{
-					Labels:         labels,
+					Labels: map[string]string{
+						"my-label": "bar",
+						"app":      "wle",
+					},
 					Address:        "1.1.1.1",
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
