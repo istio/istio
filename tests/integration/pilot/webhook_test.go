@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package galley
+package pilot
 
 import (
 	"context"
@@ -35,8 +35,7 @@ const (
 
 func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
-		// Limit to Kube environment as we're testing integration of webhook with K8s.
-
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			env := ctx.Environment().(*kube.Environment)
 
