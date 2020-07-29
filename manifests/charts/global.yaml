@@ -124,7 +124,7 @@ global:
     # the specified period, defaulting to non mTLS plain TCP
     # traffic. Set this field to tweak the period that Envoy will wait
     # for the client to send the first bits of data. (MUST BE >=1ms)
-    protocolDetectionTimeout: 100ms
+    protocolDetectionTimeout: 5000ms
 
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
