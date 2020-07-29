@@ -152,25 +152,26 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 		original = MergeTrafficPolicy(nil, original, port)
 	}
 
-	// use DeepCopy to avoid modifying DestinationRule in push_context directly during cluster build steps
-	// for example: TLS context is currently modified as part of auto-mtls and ISTIO_MUTUAL logic
-	mergedPolicy := original.DeepCopy()
-	if mergedPolicy == nil {
-		mergedPolicy = &networking.TrafficPolicy{}
+	mergedPolicy := &networking.TrafficPolicy{}
+	if original != nil {
+		mergedPolicy.ConnectionPool = original.ConnectionPool
+		mergedPolicy.LoadBalancer = original.LoadBalancer
+		mergedPolicy.OutlierDetection = original.OutlierDetection
+		mergedPolicy.Tls = original.Tls
 	}
 
 	// Override with subset values.
 	if subsetPolicy.ConnectionPool != nil {
-		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool.DeepCopy()
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
 	}
 	if subsetPolicy.OutlierDetection != nil {
-		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection.DeepCopy()
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
 	}
 	if subsetPolicy.LoadBalancer != nil {
-		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer.DeepCopy()
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
 	}
 	if subsetPolicy.Tls != nil {
-		mergedPolicy.Tls = subsetPolicy.Tls.DeepCopy()
+		mergedPolicy.Tls = subsetPolicy.Tls
 	}
 
 	// Check if port level overrides exist, if yes override with them.
@@ -178,10 +179,10 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 		for _, p := range subsetPolicy.PortLevelSettings {
 			if p.Port != nil && uint32(port.Port) == p.Port.Number {
 				// per the docs, port level policies do not inherit and intead to defaults if not provided
-				mergedPolicy.ConnectionPool = p.ConnectionPool.DeepCopy()
-				mergedPolicy.OutlierDetection = p.OutlierDetection.DeepCopy()
-				mergedPolicy.LoadBalancer = p.LoadBalancer.DeepCopy()
-				mergedPolicy.Tls = p.Tls.DeepCopy()
+				mergedPolicy.ConnectionPool = p.ConnectionPool
+				mergedPolicy.OutlierDetection = p.OutlierDetection
+				mergedPolicy.LoadBalancer = p.LoadBalancer
+				mergedPolicy.Tls = p.Tls
 				break
 			}
 		}
