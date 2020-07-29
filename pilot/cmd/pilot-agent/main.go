@@ -266,6 +266,7 @@ var (
 			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
 			secOpts.CAProviderName = caProviderEnv
 
+            // TODO: extract from ProxyConfig
 			secOpts.TrustDomain = trustDomainEnv
 			secOpts.Pkcs8Keys = pkcs8KeysEnv
 			secOpts.ECCSigAlg = eccSigAlgEnv

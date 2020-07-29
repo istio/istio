@@ -585,16 +585,23 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) && sc.secOpts.UseTokenForCSR {
+			if sc.secOpts.ProvCert == "" && sc.isTokenExpired(&secret) && sc.secOpts.UseTokenForCSR {
 				cacheLog.Infof("%s token expired, getting a new token", logPrefix)
 				t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
 				if err != nil {
-					cacheLog.Errorf("failed to get credential token: %v", err)
-					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-					// requiring the client to send another SDS request.
-					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-					return true
-				}
+                	cacheLog.Errorf("failed to get credential token: %v", err)
+                	// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+                	// requiring the client to send another SDS request.
+                	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+                	return true
+                }
+                // Check if the new fetched token is expired.
+				tokenExpired, err := util.IsJwtExpired(t, time.Now())
+                if err != nil || tokenExpired {
+                	cacheLog.Errorf("JWT expiration checking error: %v or token is expired %v", err, tokenExpired)
+                	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+                	return true
+                }
 				secret.Token = t
 			}
 
@@ -695,6 +702,7 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 // Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*security.SecretItem, error) {
 	rootCert, err := readFileWithTimeout(rootCertPath)
+	cacheLog.Infof("generateRootCertFromExistingFile: rootCertPath %s, token %s", rootCertPath, token)
 	if err != nil {
 		return nil, err
 	}
@@ -928,7 +936,7 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
 	rotate := time.Now().After(secret.ExpireTime.Add(-gracePeriod))
-	cacheLog.Debugf("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
+	cacheLog.Infof("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
 		secret.ResourceName, secretLifeTime, gracePeriod, secret.ExpireTime, rotate)
 	return rotate
 }

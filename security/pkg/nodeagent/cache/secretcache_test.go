@@ -214,7 +214,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		UseCaClient: true,
 		CaClient:    fakeCACli,
 	}
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "./testdata/testjwt")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 		UseCaClient: true,
 		CaClient:    fakeCACli,
 	}
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "./testdata/testjwt")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
@@ -656,7 +656,7 @@ func createSecretCache(t *testing.T) *SecretCache {
 	fetcher.InitWithKubeClient(fake.NewSimpleClientset().CoreV1())
 	ch := make(chan struct{})
 	fetcher.Run(ch)
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "./testdata/testjwt")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
@@ -673,7 +673,7 @@ func TestShouldWaitForGatewaySecretForFileMountedCerts(t *testing.T) {
 	fetcher := &secretfetcher.SecretFetcher{
 		UseCaClient: false,
 	}
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "./testdata/testjwt")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
@@ -904,6 +904,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	opt := &security.Options{
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
+        UseTokenForCSR: true,
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
@@ -928,7 +929,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	var fakeWatcher *filewatcher.FakeWatcher
 	newFileWatcher, fakeWatcher = filewatcher.NewFakeWatcher(addedWatchProbe)
 
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "./testdata/testjwt")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
@@ -1038,7 +1039,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	fetcher := &secretfetcher.SecretFetcher{}
 
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "./testdata/testjwt")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
@@ -1169,7 +1170,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 		totalTimeout = originalTimeout
 	}()
 
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "./testdata/testjwt")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
