@@ -108,8 +108,15 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 	return ic
 }
 
+func checkDeprecatedFlags(cmd *cobra.Command, iArgs *installArgs) {
+	if iArgs.manifestsPath == "" {
+		cmd.PrintErrln("! Using deprecated compiled in charts, which will be removed in a future release. Please pass --charts. See https://istio.io/latest/docs/setup/install/istioctl/ for more information.")
+	}
+}
+
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
+	checkDeprecatedFlags(cmd, iArgs)
 	// Warn users if they use `istioctl install` without any config args.
 	if len(iArgs.inFilenames) == 0 && len(iArgs.set) == 0 && !rootArgs.dryRun && !iArgs.skipConfirmation {
 		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
