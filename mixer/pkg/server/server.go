@@ -30,8 +30,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	accessLogGRPC "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
-	authzGRPC "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
+	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 
 	mixerpb "istio.io/api/mixer/v1"
 	"istio.io/istio/mixer/pkg/adapter"
@@ -268,8 +268,8 @@ func newServer(a *Args, p *patchTable) (server *Server, err error) {
 	s.server = grpc.NewServer(grpcOptions...)
 	mixerpb.RegisterMixerServer(s.server, api.NewGRPCServer(s.dispatcher, s.gp, s.checkCache, throttler))
 	envoyServer := api.NewGRPCServerEnvoy(s.dispatcher, s.gp, s.checkCache, throttler)
-	authzGRPC.RegisterAuthorizationServer(s.server, envoyServer)
-	accessLogGRPC.RegisterAccessLogServiceServer(s.server, envoyServer)
+	authz.RegisterAuthorizationServer(s.server, envoyServer)
+	accesslog.RegisterAccessLogServiceServer(s.server, envoyServer)
 
 	if a.ReadinessProbeOptions.IsValid() {
 		s.readinessProbe = probe.NewFileController(a.ReadinessProbeOptions)
