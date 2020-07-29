@@ -17,8 +17,6 @@ package util
 import (
 	"strings"
 
-	"k8s.io/apimachinery/pkg/labels"
-
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -105,9 +103,8 @@ func findErrorLine(key string, m map[string]int) (line int, found bool) {
 	return line, true
 }
 
-// ExtractLabelFromSelectorMatch returns the label of the match in the k8s labels.Selector
-func ExtractLabelFromSelectorMatch(selector labels.Selector) string {
-	s := selector.String()
+// ExtractLabelFromSelectorString returns the label of the match in the k8s labels.Selector
+func ExtractLabelFromSelectorString(s string) string {
 	equalIndex := strings.Index(s, "=")
 	return s[:equalIndex]
 }

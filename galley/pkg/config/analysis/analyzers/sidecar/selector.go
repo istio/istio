@@ -88,7 +88,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		if !foundPod {
 			m := msg.NewReferencedResourceNotFound(rs, "selector", sel.String())
 
-			label := util.ExtractLabelFromSelectorMatch(sel)
+			label := util.ExtractLabelFromSelectorString(sel.String())
 			if line, ok := util.ErrorLine(rs, fmt.Sprintf(util.WorkloadSelector, label)); ok {
 				m.Line = line
 			}

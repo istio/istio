@@ -100,7 +100,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	if gwSelectorMatches == 0 {
 		m := msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String())
 
-		label := util.ExtractLabelFromSelectorMatch(gwSelector)
+		label := util.ExtractLabelFromSelectorString(gwSelector.String())
 		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
 			m.Line = line
 		}
@@ -116,7 +116,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 			if !ok {
 				m := msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number))
 
-				label := util.ExtractLabelFromSelectorMatch(gwSelector)
+				label := util.ExtractLabelFromSelectorString(gwSelector.String())
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
 					m.Line = line
 				}

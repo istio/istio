@@ -60,7 +60,7 @@ func (a *SecretAnalyzer) Analyze(ctx analysis.Context) {
 			gwSelector := labels.SelectorFromSet(gw.Selector)
 			m := msg.NewReferencedResourceNotFound(r, "selector", labels.SelectorFromSet(gw.Selector).String())
 
-			label := util.ExtractLabelFromSelectorMatch(gwSelector)
+			label := util.ExtractLabelFromSelectorString(gwSelector.String())
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
 				m.Line = line
 			}

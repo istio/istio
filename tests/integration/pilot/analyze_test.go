@@ -38,7 +38,6 @@ const (
 	invalidFile          = "testdata/invalid.yaml"
 	invalidExtensionFile = "testdata/invalid.md"
 	dirWithConfig        = "testdata/some-dir/"
-	badAnnotationFile    = "testdata/some-dir/nested-dir/bad-annotation-service.yaml"
 	jsonOutput           = "-ojson"
 )
 
@@ -355,7 +354,7 @@ func TestErrorLineNumbers(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			output, _ := istioctlSafe(t, istioCtl, ns.Name(), false)
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
 
 			expectedLines := []string{"gateway.yaml:9"}
 
