@@ -47,7 +47,7 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 	if err := util.UnmarshalValuesWithJSONPB(iopvalString, values, true); err != nil {
 		return util.NewErrs(err), ""
 	}
-	validationErrors = util.AppendErrs(validationErrors, validateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
+	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
 	// TODO: change back to return err when have other validation cases, warning for automtls check only.
 	if err := validateFeatures(values, iopls).ToError(); err != nil {
 		warningMessage = fmt.Sprintf("feature validation warning: %v\n", err.Error())
@@ -156,7 +156,7 @@ func validateFeatures(_ *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSpec) u
 	return nil
 }
 
-func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
+func ValidateSubTypes(e reflect.Value, failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
 	// Dealing with receiver pointer and receiver value
 	ptr := e
 	k := e.Kind()
@@ -205,7 +205,7 @@ func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *val
 		if util.IsNilOrInvalidValue(val) {
 			continue
 		}
-		validationErrors = append(validationErrors, validateSubTypes(e.Field(i), failOnMissingValidation, values, iopls)...)
+		validationErrors = append(validationErrors, ValidateSubTypes(e.Field(i), failOnMissingValidation, values, iopls)...)
 	}
 
 	return validationErrors
@@ -214,7 +214,7 @@ func validateSubTypes(e reflect.Value, failOnMissingValidation bool, values *val
 func processSlice(e reflect.Value, failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
 	var validationErrors util.Errors
 	for i := 0; i < e.Len(); i++ {
-		validationErrors = append(validationErrors, validateSubTypes(e.Index(i), failOnMissingValidation, values, iopls)...)
+		validationErrors = append(validationErrors, ValidateSubTypes(e.Index(i), failOnMissingValidation, values, iopls)...)
 	}
 
 	return validationErrors
@@ -224,7 +224,7 @@ func processMap(e reflect.Value, failOnMissingValidation bool, values *valuesv1a
 	var validationErrors util.Errors
 	for _, k := range e.MapKeys() {
 		v := e.MapIndex(k)
-		validationErrors = append(validationErrors, validateSubTypes(v, failOnMissingValidation, values, iopls)...)
+		validationErrors = append(validationErrors, ValidateSubTypes(v, failOnMissingValidation, values, iopls)...)
 	}
 
 	return validationErrors
