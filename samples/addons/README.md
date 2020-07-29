@@ -78,3 +78,10 @@ You may also want to remove the Jaeger deployment, which will not be used, with 
 to begin with by following the selective install steps in [Getting Started](#getting-started).
 
 For more information about integrating with Zipkin, please see the [Zipkin integration page](https://istio.io/docs/tasks/observability/distributed-tracing/zipkin/).
+
+### Prometheus Operator
+
+The [Prometheus Operator](https://github.com/coreos/prometheus-operator) manages and operators a Prometheus instance.
+
+As an alternative to the standard Prometheus deployment, we provide `ServiceMonitors` to monitor the Istio control plane and
+Envoy proxies. To use these, make sure you have the Prometheus operator deployed, then run `kubectl apply -f samples/addons/extras/prometheus-operator.yaml -n istio-system`. 
