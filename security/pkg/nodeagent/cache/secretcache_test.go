@@ -904,7 +904,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	opt := &security.Options{
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
-        UseTokenForCSR: true,
+		UseTokenForCSR:   true,
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{

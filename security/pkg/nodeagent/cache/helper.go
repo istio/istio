@@ -47,7 +47,7 @@ func constructCSRHostName(trustDomain, token string) (string, error) {
 	}
 
 	var ns, sa string
-    ns, sa, err = extractk8sIdentity(dp)
+	ns, sa, err = extractk8sIdentity(dp)
 
 	if err != nil {
 		return "", fmt.Errorf("cannot extract identity from token: %v", err)

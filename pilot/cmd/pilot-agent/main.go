@@ -142,7 +142,7 @@ var (
 	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "Kubernetes",
-	    "The type of the credential fetcher. Currently supported types include Kubernetes, GoogleComputeEngine").Get()
+		"The type of the credential fetcher. Currently supported types include Kubernetes, GoogleComputeEngine").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -266,7 +266,7 @@ var (
 			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
 			secOpts.CAProviderName = caProviderEnv
 
-            // TODO: extract from ProxyConfig
+			// TODO: extract from ProxyConfig
 			secOpts.TrustDomain = trustDomainEnv
 			secOpts.Pkcs8Keys = pkcs8KeysEnv
 			secOpts.ECCSigAlg = eccSigAlgEnv

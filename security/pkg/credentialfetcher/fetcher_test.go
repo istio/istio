@@ -22,35 +22,35 @@ import (
 
 func TestNewCredFetcher(t *testing.T) {
 	testCases := map[string]struct {
-		fetcherType          string
+		fetcherType   string
 		trustdomain   string
 		jwtPath       string
 		expectedErr   string
 		expectedToken string
 	}{
 		"k8s test": {
-			fetcherType:      security.K8S,
+			fetcherType:   security.K8S,
 			trustdomain:   "",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "",
 			expectedToken: "",
 		},
 		"gce test": {
-			fetcherType:      security.GCE,
+			fetcherType:   security.GCE,
 			trustdomain:   "abc.svc.id.goog",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "", // No error when ID token auth is enabled.
 			expectedToken: "",
 		},
 		"mock test": {
-			fetcherType:      security.Mock,
+			fetcherType:   security.Mock,
 			trustdomain:   "",
 			jwtPath:       "",
 			expectedErr:   "",
 			expectedToken: "test_token",
 		},
 		"invalid test": {
-			fetcherType:      "foo",
+			fetcherType:   "foo",
 			trustdomain:   "",
 			jwtPath:       "",
 			expectedErr:   "invalid credential fetcher type foo",

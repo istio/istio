@@ -45,10 +45,10 @@ func (p *MockPlugin) GetPlatformCredential() (string, error) {
 
 // GetType returns credential fetcher type.
 func (p *MockPlugin) GetType() string {
-    return security.Mock
+	return security.Mock
 }
 
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
 func (p *MockPlugin) GetIdentityProvider() string {
-    return FakeGKEClusterURL
+	return FakeGKEClusterURL
 }

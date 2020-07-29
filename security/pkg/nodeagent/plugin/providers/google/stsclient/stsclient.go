@@ -121,11 +121,11 @@ func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetc
 func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
 	provider := credFetcher.GetIdentityProvider()
 	if provider == "" {
-	    if GKEClusterURL != "" {
-	        provider = GKEClusterURL
-	    } else {
-    	    provider = mock.FakeGKEClusterURL
-    	}
+		if GKEClusterURL != "" {
+			provider = GKEClusterURL
+		} else {
+			provider = mock.FakeGKEClusterURL
+		}
 	}
 	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }

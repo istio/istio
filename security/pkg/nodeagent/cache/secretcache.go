@@ -589,19 +589,19 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				cacheLog.Infof("%s token expired, getting a new token", logPrefix)
 				t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
 				if err != nil {
-                	cacheLog.Errorf("failed to get credential token: %v", err)
-                	// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-                	// requiring the client to send another SDS request.
-                	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-                	return true
-                }
-                // Check if the new fetched token is expired.
+					cacheLog.Errorf("failed to get credential token: %v", err)
+					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+					// requiring the client to send another SDS request.
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				}
+				// Check if the new fetched token is expired.
 				tokenExpired, err := util.IsJwtExpired(t, time.Now())
-                if err != nil || tokenExpired {
-                	cacheLog.Errorf("JWT expiration checking error: %v or token is expired %v", err, tokenExpired)
-                	sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-                	return true
-                }
+				if err != nil || tokenExpired {
+					cacheLog.Errorf("JWT expiration checking error: %v or token is expired %v", err, tokenExpired)
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				}
 				secret.Token = t
 			}
 
@@ -850,12 +850,12 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
 	// otherwise just use sdsrequest.resourceName as csr host name.
-    csrHostName := connKey.ResourceName
-    if sc.secOpts.CredFetcher.GetType() == security.K8S {
-	    csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
-	    if err != nil {
-		    cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-			" resource name: %s", logPrefix, err, connKey.ResourceName)
+	csrHostName := connKey.ResourceName
+	if sc.secOpts.CredFetcher.GetType() == security.K8S {
+		csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
+		if err != nil {
+			cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
+				" resource name: %s", logPrefix, err, connKey.ResourceName)
 		}
 	}
 	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
@@ -936,7 +936,7 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
 	gracePeriod := time.Duration(sc.configOptions.SecretRotationGracePeriodRatio * float64(secretLifeTime))
 	rotate := time.Now().After(secret.ExpireTime.Add(-gracePeriod))
-	cacheLog.Infof("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
+	cacheLog.Debugf("Secret %s: lifetime: %v, graceperiod: %v, expiration: %v, should rotate: %v",
 		secret.ResourceName, secretLifeTime, gracePeriod, secret.ExpireTime, rotate)
 	return rotate
 }

@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/stsservice"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
@@ -123,10 +123,10 @@ func TestStsTokenSource(t *testing.T) {
 			}
 			ts := NewTokenSource(mock.FakeTrustDomain, st, "https://www.googleapis.com/auth/cloud-platform")
 
-        	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
-	        if err != nil {
-		        t.Fatalf("Failed to create credential fetcher: %v", err)
-	        }
+			credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
+			if err != nil {
+				t.Fatalf("Failed to create credential fetcher: %v", err)
+			}
 			// Override token manager in token source to use mock plugin
 			tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(credFetcher, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, false)
 			tokenManager := CreateTokenManager(GoogleTokenExchange,

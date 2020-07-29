@@ -21,8 +21,8 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 
-	"istio.io/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -74,11 +74,11 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 
 // GetType returns credential fetcher type.
 func (p *GCEPlugin) GetType() string {
-    return security.GCE
+	return security.GCE
 }
 
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
 // GCE idenity provider is named "GoogleComputeEngine".
 func (p *GCEPlugin) GetIdentityProvider() string {
-    return security.GCE
+	return security.GCE
 }

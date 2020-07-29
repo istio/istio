@@ -160,7 +160,7 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 func (p *Plugin) constructAudience() string {
 	provider := p.credFetcher.GetIdentityProvider()
 	if provider == "" {
-	    provider = p.gkeClusterURL
+		provider = p.gkeClusterURL
 	}
 	return fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, provider)
 }
