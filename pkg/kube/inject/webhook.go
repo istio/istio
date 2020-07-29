@@ -555,7 +555,7 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	canonicalSvc, canonicalRev := extractCanonicalServiceLabels(pod.Labels, workloadName)
+	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, workloadName)
 	patch = append(patch, addLabels(pod.Labels, map[string]string{
 		label.TLSMode:                                model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
@@ -588,7 +588,7 @@ func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) 
 	return true
 }
 
-func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
+func ExtractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
 	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
 }
 

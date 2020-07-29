@@ -197,9 +197,6 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err = createClusterEnv(wg, temp); err != nil {
 		return err
 	}
-	if err = createHosts(kubeClient, temp); err != nil {
-		return err
-	}
 	if err = createCertificates(kubeClient, temp); err != nil {
 		return err
 	}
@@ -231,15 +228,6 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 	return ioutil.WriteFile(dir+"/cluster.env", []byte(mapToString(clusterEnv)), tempPerms)
 }
 
-// Create the needed hosts addition in the given directory
-func createHosts(kubeClient kube.ExtendedClient, dir string) error {
-	istiod, err := kubeClient.CoreV1().Services("istio-system").Get(context.Background(), "istiod", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(dir+"/hosts", []byte(fmt.Sprintf("%s\t%s", istiod.Spec.ClusterIP, "istiod.istio-system.svc")), tempPerms)
-}
-
 // Get and store the needed certificates
 // TODO: user internal generate-cert
 func createCertificates(kubeClient kube.ExtendedClient, dir string) error {
@@ -261,7 +249,7 @@ func createCertificates(kubeClient kube.ExtendedClient, dir string) error {
 }
 
 func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) error {
-	istioCM := "istio-system"
+	istioCM := "istio"
 	// Case with multiple control planes
 	if revision != "" {
 		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
@@ -278,9 +266,14 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	}
 	meshConfig, err := mesh.ReadMeshConfig(temp.Name())
 
+	labels := wg.Spec.Template.Metadata.Labels
+	// case where a user provided custom workload group has labels in the workload entry spec field
+	for k, v := range wg.Spec.Template.Spec.Labels {
+		labels[k] = v
+	}
 	we := wg.Spec.Template.Spec
 	md := meshConfig.DefaultConfig.ProxyMetadata
-	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(we.Labels, wg.Name)
+	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
 	md["DNS_AGENT"] = ""
 	md["POD_NAMESPACE"] = wg.Namespace
 	md["SERVICE_ACCOUNT"] = we.ServiceAccount
@@ -289,14 +282,14 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	md["ISTIO_META_CLUSTER_ID"] = clusterID
 	md["ISTIO_META_MESH_ID"] = string(meshConfig.DefaultConfig.MeshId)
 	md["ISTIO_META_NETWORK"] = we.Network
-	if ports, err := json.Marshal(we.Ports); err == nil {
-		md["ISTIO_META_POD_PORTS"] = string(ports)
+	if portsJSON, err := json.Marshal(we.Ports); err == nil {
+		md["ISTIO_META_POD_PORTS"] = string(portsJSON)
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
-	we.Labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
-	we.Labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
-	if labels, err := json.Marshal(we.Labels); err == nil {
-		md["ISTIO_METAJSON_LABELS"] = string(labels)
+	labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
+	labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
+	if labelsJSON, err := json.Marshal(labels); err == nil {
+		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
 
 	meshYAML, err := yaml.Marshal(meshConfig)
