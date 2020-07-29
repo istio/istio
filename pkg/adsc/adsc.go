@@ -34,6 +34,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/keepalive"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/security"
 
@@ -119,7 +120,7 @@ type Config struct {
 	ResponseHandler ResponseHandler
 
 	// TODO: remove the duplication - all security settings belong here.
-	SecOpts    *security.Options
+	SecOpts *security.Options
 
 	// PlainTLS indicates the use of plain TLS for XDS connection. This will not use client
 	// certificates, but JWT.
@@ -402,9 +403,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	}
 
 	tc := &tls.Config{
-		Certificates: clientCerts,
-		RootCAs:      serverCAs,
-		ServerName:   shost,
+		Certificates:       clientCerts,
+		RootCAs:            serverCAs,
+		ServerName:         shost,
 		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
 	}
 
@@ -655,7 +656,7 @@ func (a *ADSC) maybeSave(routes interface{}, name string) {
 	if a.LocalCacheDir != "" {
 		strResponse, err := json.MarshalIndent(routes, "  ", "  ")
 		if err == nil {
-			err = ioutil.WriteFile(a.LocalCacheDir+"/" + name + ".json", strResponse, 0644)
+			err = ioutil.WriteFile(a.LocalCacheDir+"/"+name+".json", strResponse, 0644)
 			if err != nil {
 				log.Warna("Failed to save ", err)
 			}

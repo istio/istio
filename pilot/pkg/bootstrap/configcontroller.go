@@ -223,7 +223,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			xdsMCP := adsc.New(&meshconfig.ProxyConfig{
 				DiscoveryAddress: srcAddress.Host,
 			}, &adsc.Config{
-				Meta:  model.NodeMetadata{}.ToStruct(),
+				Meta: model.NodeMetadata{}.ToStruct(),
 			})
 
 			store := memory.Make(collections.Pilot)

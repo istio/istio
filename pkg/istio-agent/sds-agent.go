@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+
 	"istio.io/istio/pkg/adsc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -155,7 +156,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
 		secOpts:     sopts,
-		stopCh: make(chan struct{}),
+		stopCh:      make(chan struct{}),
 	}
 
 	// Fix the defaults - mainly for tests ( main uses env )
