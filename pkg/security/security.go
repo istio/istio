@@ -212,8 +212,8 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(context.Context, CredFetcher /*Credential fetcher*/, string, /*trustdomain*/
-		string /*service account token*/) (string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
+	ExchangeToken(ctx context.Context, credFetcher CredFetcher, trustDomain,
+		serviceAccountToken string) (string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.

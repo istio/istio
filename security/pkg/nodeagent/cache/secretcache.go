@@ -851,6 +851,8 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
 	// otherwise just use sdsrequest.resourceName as csr host name.
 	csrHostName := connKey.ResourceName
+	// TODO (liminw): This is probably not needed. CA is using claims in the credential to decide the identity in the certificate,
+	// instead of using host name in CSR. We can clean it up later.
 	if sc.secOpts.CredFetcher.GetType() == security.K8S {
 		csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
 		if err != nil {

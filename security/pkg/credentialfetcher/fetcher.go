@@ -23,10 +23,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-var (
-	credlog = log.RegisterScope("cred", "Credential fetcher for istio agent", 0)
-)
-
 func NewCredFetcher(credtype, trustdomain, jwtPath string) (security.CredFetcher, error) {
 	switch credtype {
 	case security.K8S:
