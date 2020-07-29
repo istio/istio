@@ -84,4 +84,4 @@ For more information about integrating with Zipkin, please see the [Zipkin integ
 The [Prometheus Operator](https://github.com/coreos/prometheus-operator) manages and operators a Prometheus instance.
 
 As an alternative to the standard Prometheus deployment, we provide `ServiceMonitors` to monitor the Istio control plane and
-Envoy proxies. To use these, make sure you have the Prometheus operator deployed, then run `kubectl apply -f samples/addons/extras/prometheus-operator.yaml -n istio-system`. 
+Envoy proxies. To use these, make sure you have the Prometheus operator deployed, then run `kubectl apply -f samples/addons/extras/prometheus-operator.yaml -n istio-system`.
