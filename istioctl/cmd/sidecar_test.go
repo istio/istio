@@ -27,10 +27,12 @@ metadata:
   name: foo
   namespace: bar
 spec:
-  labels: {}
-  network: default
-  ports: {}
-  serviceAccount: default
+  template:
+    metadata:
+      labels: {}
+    spec:
+      ports: {}
+      serviceAccount: default
 `
 
 	customYAML = `apiVersion: networking.istio.io/v1alpha3
@@ -39,14 +41,16 @@ metadata:
   name: foo
   namespace: bar
 spec:
-  labels:
-    app: foo
-    bar: baz
-  network: local
-  ports:
-    grpc: 3550
-    http: 8080
-  serviceAccount: test
+  template:
+    metadata:
+      labels:
+        app: foo
+        bar: baz
+    spec:
+      ports:
+        grpc: 3550
+        http: 8080
+      serviceAccount: test
 `
 )
 
@@ -79,14 +83,14 @@ func TestCreateGroup(t *testing.T) {
 		{
 			description: "valid case - create full workload group",
 			args: strings.Split("experimental sidecar create-group --name foo --namespace bar --labels app=foo,bar=baz "+
-				"--ports grpc=3550,http=8080 --network local --serviceAccount test", " "),
+				" --ports grpc=3550,http=8080 --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
 		{
 			description: "valid case - create full workload group with shortnames",
 			args: strings.Split("experimental sidecar create-group --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
-				" --network local --serviceAccount test", " "),
+				" --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},

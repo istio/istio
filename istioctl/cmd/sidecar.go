@@ -16,7 +16,7 @@ package cmd
 
 import (
 	"archive/tar"
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,30 +27,26 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 
-	containerpb "google.golang.org/genproto/googleapis/container/v1"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
 	name           string
-	network        string
 	serviceAccount string
 	filename       string
 	outputName     string
+	clusterID      string
 	ports          []string
-
-	// optional GKE flags
-	gkeProject      string
-	clusterLocation string
 )
 
 const (
@@ -95,10 +91,15 @@ The generated artifact can be applied by running kubectl apply -f workloadgroup.
 				},
 			}
 			spec := &networkingv1alpha3.WorkloadGroup{
-				Labels:         convertToStringMap(labels),
-				Ports:          convertToUnsignedInt32Map(ports),
-				Network:        network,
-				ServiceAccount: serviceAccount,
+				Template: &networkingv1alpha3.WorkloadEntryTemplate{
+					Metadata: &metav1.ObjectMeta{
+						Labels: convertToStringMap(labels),
+					},
+					Spec: &networkingv1alpha3.WorkloadEntry{
+						Ports:          convertToUnsignedInt32Map(ports),
+						ServiceAccount: serviceAccount,
+					},
+				},
 			}
 			wgYAML, err := generateWorkloadGroupYAML(u, spec)
 			if err != nil {
@@ -112,7 +113,6 @@ The generated artifact can be applied by running kubectl apply -f workloadgroup.
 	createGroupCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
 	createGroupCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
 	createGroupCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports that the workload instances will expose")
-	createGroupCmd.PersistentFlags().StringVar(&network, "network", "default", "The name of the network for the workload instances")
 	createGroupCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
 	return createGroupCmd
 }
@@ -123,6 +123,8 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 		return nil, err
 	}
 	u.Object["spec"] = iSpec
+	// remove creationTimestamp left behind by ObjectMeta
+	delete(iSpec["template"].(map[string]interface{})["metadata"].(map[string]interface{}), "creationTimestamp")
 
 	wgYAML, err := yaml.Marshal(u.Object)
 	if err != nil {
@@ -154,28 +156,22 @@ Tries to automatically infer the target cluster, and prompts for flags if the cl
 			if err := readWorkloadGroup(filename, wg); err != nil {
 				return err
 			}
-			// consider passed in flags before attempting to infer config
-			cluster, err := gkeCluster(gkeProject, clusterLocation, clusterName)
+			kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 			if err != nil {
-				gkeProject, clusterLocation, clusterName, cluster, err = gkeConfig()
-				if err != nil {
-					return fmt.Errorf("could not infer (project, location, cluster). Try passing in flags instead")
-				}
-			}
-
-			if err = createConfig(wg, cluster, outputName); err != nil {
 				return err
 			}
-			fmt.Printf("generated config for (%s, %s, %s)\n", gkeProject, clusterLocation, clusterName)
+
+			if err = createConfig(kubeClient, wg, clusterID, revision, outputName); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
 	generateConfigCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact")
 	generateConfigCmd.PersistentFlags().StringVarP(&outputName, "output", "o", "", "Name of the tarball to be created")
 
-	generateConfigCmd.PersistentFlags().StringVar(&gkeProject, "project", "", "Target project name")
-	generateConfigCmd.PersistentFlags().StringVar(&clusterLocation, "location", "", "Target cluster location")
-	generateConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Target cluster name")
+	generateConfigCmd.PersistentFlags().StringVar(&clusterID, "cluster id", "", "The ID used to identify the cluster")
+	generateConfigCmd.PersistentFlags().StringVar(&revision, "revision", "", "control plane revision (experimental)")
 	return generateConfigCmd
 }
 
@@ -191,24 +187,23 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Cluster, outputName string) error {
+func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, outputName string) error {
 	temp, err := ioutil.TempDir("./", outputName)
 	if err != nil {
 		return err
 	}
-	// TODO: pack temp into a tarball and then delete folder
-	// defer os.RemoveAll(temp)
+	defer os.RemoveAll(temp)
 
-	if err = createClusterEnv(wg, cluster, temp); err != nil {
+	if err = createClusterEnv(wg, temp); err != nil {
 		return err
 	}
-	if err = createHosts(temp); err != nil {
+	if err = createHosts(kubeClient, temp); err != nil {
 		return err
 	}
-	if err = createCertificates(temp); err != nil {
+	if err = createCertificates(kubeClient, temp); err != nil {
 		return err
 	}
-	if err = createMeshConfig(wg, cluster, temp); err != nil {
+	if err = createMeshConfig(kubeClient, wg, clusterID, revision, temp); err != nil {
 		return err
 	}
 	if err = Tar(temp, outputName); err != nil {
@@ -218,8 +213,9 @@ func createConfig(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Cluster
 }
 
 // Write cluster.env into the given directory
-func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Cluster, dir string) error {
-	for _, v := range wg.Spec.Ports {
+func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
+	we := wg.Spec.Template.Spec
+	for _, v := range we.Ports {
 		ports = append(ports, fmt.Sprint(v))
 	}
 	// default attributes and service name, namespace, ports, service account, service CIDR
@@ -229,15 +225,15 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Clu
 		"ISTIO_NAMESPACE":     wg.Namespace,
 		"ISTIO_PILOT_PORT":    "15012",
 		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
-		"ISTIO_SERVICE_CIDR":  cluster.ServicesIpv4Cidr,
-		"SERVICE_ACCOUNT":     wg.Spec.ServiceAccount,
+		"ISTIO_SERVICE_CIDR":  "*",
+		"SERVICE_ACCOUNT":     we.ServiceAccount,
 	}
 	return ioutil.WriteFile(dir+"/cluster.env", []byte(mapToString(clusterEnv)), tempPerms)
 }
 
 // Create the needed hosts addition in the given directory
-func createHosts(dir string) error {
-	istiod, err := k8sService("istiod", "istio-system")
+func createHosts(kubeClient kube.ExtendedClient, dir string) error {
+	istiod, err := kubeClient.CoreV1().Services("istio-system").Get(context.Background(), "istiod", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -246,8 +242,8 @@ func createHosts(dir string) error {
 
 // Get and store the needed certificates
 // TODO: user internal generate-cert
-func createCertificates(dir string) error {
-	rootCert, err := k8sConfigMap("istio-ca-root-cert", "istio-system")
+func createCertificates(kubeClient kube.ExtendedClient, dir string) error {
+	rootCert, err := kubeClient.CoreV1().ConfigMaps("istio-system").Get(context.Background(), "istio-ca-root-cert", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -264,45 +260,46 @@ func createCertificates(dir string) error {
 	return nil
 }
 
-func createMeshConfig(wg *clientv1alpha3.WorkloadGroup, cluster *containerpb.Cluster, dir string) error {
-	istio, err := k8sConfigMap("istio", "istio-system")
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) error {
+	istioCM := "istio-system"
+	// Case with multiple control planes
+	if revision != "" {
+		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
+	}
+	istio, err := kubeClient.CoreV1().ConfigMaps("istio-system").Get(context.Background(), istioCM, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	// TODO: get unmarshal fully working w/o error using mesh
-	var mesh meshconfig.MeshConfig
-	meshJSON, err := yaml.YAMLToJSON([]byte(istio.Data["mesh"]))
-	if err != nil {
+	temp, err := ioutil.TempFile("./", "")
+	defer os.Remove(temp.Name())
+	if _, err = temp.WriteString(istio.Data["mesh"]); err != nil {
 		return err
 	}
-	if err = jsonpb.Unmarshal(bytes.NewReader(meshJSON), &mesh); err != nil {
-		return err
-	}
+	meshConfig, err := mesh.ReadMeshConfig(temp.Name())
 
-	// TODO: check that these are all the correct vals
-	md := mesh.DefaultConfig.ProxyMetadata
-	md["CANONICAL_SERVICE"] = "mock service"
-	md["CANONICAL_REVISION"] = "mock version"
+	we := wg.Spec.Template.Spec
+	md := meshConfig.DefaultConfig.ProxyMetadata
+	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(we.Labels, wg.Name)
 	md["DNS_AGENT"] = ""
 	md["POD_NAMESPACE"] = wg.Namespace
-	md["SERVICE_ACCOUNT"] = wg.Spec.ServiceAccount
-	md["TRUST_DOMAIN"] = mesh.TrustDomain
+	md["SERVICE_ACCOUNT"] = we.ServiceAccount
+	md["TRUST_DOMAIN"] = meshConfig.TrustDomain
 
-	md["ISTIO_META_CLUSTER_ID"] = "mock id"
-	md["ISTIO_META_MESH_ID"] = string(mesh.DefaultConfig.MeshId)
-	md["ISTIO_META_NETWORK"] = wg.Spec.Network
-	if ports, err := json.Marshal(wg.Spec.Ports); err == nil {
+	md["ISTIO_META_CLUSTER_ID"] = clusterID
+	md["ISTIO_META_MESH_ID"] = string(meshConfig.DefaultConfig.MeshId)
+	md["ISTIO_META_NETWORK"] = we.Network
+	if ports, err := json.Marshal(we.Ports); err == nil {
 		md["ISTIO_META_POD_PORTS"] = string(ports)
 	}
 	md["ISTIO_META_WORKLOAD_NAME"] = wg.Name
-	wg.Spec.Labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
-	wg.Spec.Labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
-	if labels, err := json.Marshal(wg.Spec.Labels); err == nil {
-		md["ISTIO_META_JSON_LABELS"] = string(labels)
+	we.Labels["service.istio.io/canonical-name"] = md["CANONICAL_SERVICE"]
+	we.Labels["service.istio.io/canonical-version"] = md["CANONICAL_REVISION"]
+	if labels, err := json.Marshal(we.Labels); err == nil {
+		md["ISTIO_METAJSON_LABELS"] = string(labels)
 	}
 
-	meshYAML, err := yaml.Marshal(mesh)
+	meshYAML, err := yaml.Marshal(meshConfig)
 	if err != nil {
 		return err
 	}

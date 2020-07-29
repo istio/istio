@@ -55,6 +55,7 @@ const (
 
 var (
 	crdFactory = createDynamicInterface
+	revision   string
 )
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
@@ -119,8 +120,6 @@ istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.2
 }
 
 func deploymentMeshifyCmd() *cobra.Command {
-	var revision string
-
 	cmd := &cobra.Command{
 		Use:   "deployment <deployment>",
 		Short: "Add deployment to Istio service mesh",
