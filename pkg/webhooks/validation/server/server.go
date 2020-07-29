@@ -299,7 +299,7 @@ func (wh *Webhook) admitMixer(request *kubeApiAdmission.AdmissionRequest) *kubeA
 	case kubeApiAdmission.Create, kubeApiAdmission.Update:
 		ev.Type = store.Update
 		var obj crd.IstioKind
-		if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+		if err := json.Unmarshal(request.Object.Raw, &obj); err != nil {
 			reportValidationFailed(request, reasonYamlDecodeError)
 			return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
 		}
