@@ -34,6 +34,22 @@ import (
 	"istio.io/pkg/log"
 )
 
+const (
+	// Used for comparison with Istiod configuration when sidecar unable to supply
+	emptyEnvoyDump = `
+{
+		"configs": [
+			{
+				"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump"
+			},
+			{
+				"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
+			}
+		]
+}
+`
+)
+
 func statusCommand() *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 
@@ -78,6 +94,15 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				if err != nil {
 					return err
 				}
+
+				path := fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
+				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
+				if err != nil {
+					return err
+				}
+
+				// Contacting Envoy /config_dump can trigger it to disconnect from Istiod.  Don't
+				// refactor this code to run in parallel with /debug/config_dump above.
 				var envoyDump []byte
 				if configDumpFile != "" {
 					envoyDump, err = readConfigFile(configDumpFile)
@@ -86,14 +111,10 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
 				}
 				if err != nil {
-					return err
+					c.PrintErrf("Warning: Could not contact sidecar: %v\n", err)
+					envoyDump = []byte(emptyEnvoyDump)
 				}
 
-				path := fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
-				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
-				if err != nil {
-					return err
-				}
 				c, err := compare.NewComparator(c.OutOrStdout(), istiodDumps, envoyDump)
 				if err != nil {
 					return err

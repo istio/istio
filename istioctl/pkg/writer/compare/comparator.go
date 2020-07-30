@@ -51,7 +51,7 @@ func NewComparator(w io.Writer, istiodResponses map[string][]byte, envoyResponse
 	envoyDump := &configdump.Wrapper{}
 	err := json.Unmarshal(envoyResponse, envoyDump)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid sidecar configuration: %v", err)
 	}
 	c.envoy = envoyDump
 	c.w = w
