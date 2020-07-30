@@ -58,8 +58,6 @@ type Message struct {
 
 	// DocRef is an optional reference tracker for the documentation URL
 	DocRef string
-
-	Line int
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
@@ -71,9 +69,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	if includeOrigin && m.Resource != nil {
 		result["origin"] = m.Resource.Origin.FriendlyName()
 		if m.Resource.Origin.Reference() != nil {
-
-			loc := m.Resource.Origin.Reference().String()
-			result["reference"] = loc
+			result["reference"] = m.Resource.Origin.Reference().String()
 		}
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
@@ -129,16 +125,3 @@ func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message
 		Parameters: p,
 	}
 }
-
-//// ReplaceLine replaces the line number from the input String method of Reference to the line number from Message
-//func (m Message) ReplaceLine(l string) string {
-//	colonSep := strings.Split(l, ":")
-//	if len(colonSep) < 2 {
-//		return l
-//	}
-//	_, err := strconv.Atoi(strings.TrimSpace(colonSep[len(colonSep)-1]))
-//	if err == nil {
-//		colonSep[len(colonSep)-1] = fmt.Sprintf("%d", m.Line)
-//	}
-//	return strings.Join(colonSep, ":")
-//}
