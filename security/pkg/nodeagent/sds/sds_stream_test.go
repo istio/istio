@@ -21,13 +21,17 @@ import (
 	"testing"
 	"time"
 
+	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/model"
@@ -49,7 +53,7 @@ func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	setup := StartStreamTest(t)
 	defer setup.server.Stop()
 
-	conn, stream := createSDSStream(t, setup.socket, fakeToken1)
+	conn, stream := createSDSTestStream(t, setup.socket, fakeToken1)
 	notifyChan := make(chan notifyMsg)
 
 	go testSDSSuccessIngressStreamCache(stream, ValidProxyID, notifyChan)
@@ -65,7 +69,7 @@ func TestSDSAgentStreamWithCacheAndConnectionCleaned(t *testing.T) {
 	// verify the cache is cleaned when connection is closed
 	waitForSecretCacheCleanUp(t, setup.secretStore, secretKeyMap)
 
-	conn, stream = createSDSStream(t, setup.socket, fakeToken1)
+	conn, stream = createSDSTestStream(t, setup.socket, fakeToken1)
 	// When proxy ID has "invalid", SDS server closes the connection and returns an error
 	go testSDSTerminatedIngressStreamCache(stream, InValidProxyID, notifyChan)
 	waitForStreamSecretCacheCheck(t, setup.secretStore, false, 1)
@@ -158,7 +162,7 @@ func testSDSSuccessIngressStreamCache(stream sds.SecretDiscoveryService_StreamSe
 	if err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf("stream one: stream.Recv failed: %v", err)}
 	}
-	if err := verifySDSSResponse(resp, fakePrivateKey, fakeCertificateChain); err != nil {
+	if err := verifyTestSDSSResponse(resp, fakePrivateKey, fakeCertificateChain); err != nil {
 		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf(
 			"stream one: first SDS response verification failed: %v", err)}
 	}
@@ -312,7 +316,7 @@ func (ms *mockIngressGatewaySecretStore) DeleteSecret(conID, resourceName string
 	ms.secrets.Delete(key)
 }
 
-func (ms *mockIngressGatewaySecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string, fileMountedCertsOnly bool) bool {
+func (ms *mockIngressGatewaySecretStore) ShouldWaitForIngressGatewaySecret(connectionID, resourceName, token string) bool {
 	return false
 }
 
@@ -377,4 +381,53 @@ func waitForStreamNotificationToProceed(t *testing.T, notifyChan chan notifyMsg,
 			return
 		}
 	}
+}
+
+func createSDSTestStream(t *testing.T, socket, token string) (*grpc.ClientConn, sds.SecretDiscoveryService_StreamSecretsClient) {
+	// Try to call the server
+	conn, err := setupConnection(socket)
+	if err != nil {
+		t.Errorf("failed to setup connection to socket %q", socket)
+	}
+	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
+	header := metadata.Pairs(credentialTokenHeaderKey, token)
+	ctx := metadata.NewOutgoingContext(context.Background(), header)
+	stream, err := sdsClient.StreamSecrets(ctx)
+	if err != nil {
+		t.Errorf("StreamSecrets failed: %v", err)
+	}
+	return conn, stream
+}
+
+func verifyTestSDSSResponse(resp *discovery.DiscoveryResponse, expectedPrivateKey []byte, expectedCertChain []byte) error {
+	pb := &authapi.Secret{}
+	if resp == nil {
+		return fmt.Errorf("response is nil")
+	}
+	if err := ptypes.UnmarshalAny(resp.Resources[0], pb); err != nil {
+		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
+	}
+
+	expectedResponseSecret := &authapi.Secret{
+		Name: testResourceName,
+		Type: &authapi.Secret_TlsCertificate{
+			TlsCertificate: &authapi.TlsCertificate{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: expectedCertChain,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_InlineBytes{
+						InlineBytes: expectedPrivateKey,
+					},
+				},
+			},
+		},
+	}
+	if !cmp.Equal(pb, expectedResponseSecret, protocmp.Transform()) {
+		return fmt.Errorf("verification of SDS response failed: secret key: got %+v, want %+v",
+			pb, expectedResponseSecret)
+	}
+	return nil
 }
