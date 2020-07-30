@@ -91,6 +91,8 @@ type DiscoveryServerOptions struct {
 	// The listening address for secured gRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
 	SecureGRPCAddr string
+	// Custom CA Address for signing Workload Certificate
+	CaAddr string
 }
 
 type InjectionOptions struct {

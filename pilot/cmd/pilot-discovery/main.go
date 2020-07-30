@@ -181,6 +181,9 @@ func init() {
 	discoveryCmd.PersistentFlags().IntVar(&serverArgs.RegistryOptions.KubeOptions.KubernetesAPIBurst, "kubernetesApiBurst", 40,
 		"Maximum burst for throttle when communicating with the kubernetes API")
 
+	discoveryCmd.PersistentFlags().StringVar(&serverArgs.ServerOptions.CaAddr, "CaAddr", "",
+		"Custom CA Address for remotely sign Workload Certificate from IstioAgent")
+
 	// Attach the Istio logging options to the command.
 	loggingOptions.AttachCobraFlags(rootCmd)
 
