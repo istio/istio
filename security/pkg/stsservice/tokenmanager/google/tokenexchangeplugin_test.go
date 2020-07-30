@@ -22,8 +22,6 @@ import (
 
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
-
-	"github.com/golang/protobuf/ptypes/duration"
 )
 
 // TestAccessToken verifies that token manager could successfully call server and get access token.
@@ -252,14 +250,14 @@ func TestAccessTokenRequestToJson(t *testing.T) {
 		name      string
 		delegates []string
 		scope     []string
-		lifetime  duration.Duration
+		lifetime  Duration
 		want      string
 	}{
 		{
 			name:      "OneHourInSecondLifetime",
 			delegates: []string{},
 			scope:     []string{"https://www.googleapis.com/auth/cloud-platform"},
-			lifetime:  duration.Duration{Seconds: 3600},
+			lifetime:  Duration{Seconds: 3600},
 			want:      `{"name":"OneHourInSecondLifetime","delegates":[],"scope":["https://www.googleapis.com/auth/cloud-platform"],"lifetime":{"seconds":3600}}`,
 		},
 	}
