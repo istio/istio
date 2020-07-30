@@ -64,7 +64,6 @@ type StatusSyncer struct {
 func (s *StatusSyncer) Run(stopCh <-chan struct{}) {
 	go s.queue.Run(stopCh)
 	go s.runUpdateStatus(stopCh)
-	<-stopCh
 }
 
 // NewStatusSyncer creates a new instance
