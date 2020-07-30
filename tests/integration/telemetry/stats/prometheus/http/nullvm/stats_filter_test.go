@@ -37,7 +37,16 @@ func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(common.GetIstioInstance(), nil)).
+		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(common.TestSetup).
 		Run()
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	// enable telemetry v2 with nullvm
+	cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
+	cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
 }
