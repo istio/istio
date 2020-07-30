@@ -144,7 +144,7 @@ func waitForStreamSecretCacheCheck(t *testing.T, mss *mockIngressGatewaySecretSt
 func testSDSSuccessIngressStreamCache(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &discovery.DiscoveryRequest{
-		TypeUrl:       SecretTypeV3,
+		TypeUrl:       SecretType,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -173,7 +173,7 @@ func testSDSSuccessIngressStreamCache(stream sds.SecretDiscoveryService_StreamSe
 func testSDSTerminatedIngressStreamCache(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &discovery.DiscoveryRequest{
-		TypeUrl:       SecretTypeV3,
+		TypeUrl:       SecretType,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
