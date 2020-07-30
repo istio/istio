@@ -15,6 +15,7 @@
 package security
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -41,6 +42,8 @@ const (
 
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
+	fmt.Printf("sssssssdfsfsafsadfsaf\n")
+	fmt.Printf("TestRequestAuthenticationTestRequestAuthentication\n")
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
