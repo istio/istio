@@ -74,12 +74,12 @@ func TestConstants(t *testing.T) {
 		fmt.Sprintf(PortInPorts, 0),
 		fmt.Sprintf(FromRegistry, "test", 0),
 		fmt.Sprintf(ImageInContainer, 0),
-		MetadataNamespace,
-		MetadataName,
 		fmt.Sprintf(AuthorizationPolicyNameSpace, 0, 0, 0),
 		fmt.Sprintf(Annotation, "test"),
 		fmt.Sprintf(GatewaySelector, "test"),
 		fmt.Sprintf(CredentialName, 0),
+		MetadataNamespace,
+		MetadataName,
 	}
 
 	for _, v := range constantsPath {
