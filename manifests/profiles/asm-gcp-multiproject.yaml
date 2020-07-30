@@ -52,7 +52,3 @@ spec:
           topology: true
     sidecarInjectorWebhook:
       rewriteAppHTTPProbe: true
-    global:
-      # Enable permissive mTLS by default
-      mtls:
-        enabled: false
