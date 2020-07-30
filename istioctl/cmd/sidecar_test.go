@@ -106,22 +106,28 @@ func TestCreateGroup(t *testing.T) {
 func TestGenerateConfig(t *testing.T) {
 	cases := []testcase{
 		{
-			description:       "Invalid command args - missing input file and output filename",
+			description:       "Invalid command args - missing input file, output filename, and cluster id",
 			args:              strings.Split("experimental sidecar generate-config", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
 		},
 		{
 			description:       "Invalid command args - missing output filename",
-			args:              strings.Split("experimental sidecar generate-config --file fname", " "),
+			args:              strings.Split("experimental sidecar generate-config --file fname --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting an output filename\n",
 		},
 		{
 			description:       "Invalid command args - missing input file",
-			args:              strings.Split("experimental sidecar generate-config -output ./config", " "),
+			args:              strings.Split("experimental sidecar generate-config --output ./config --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
+		},
+		{
+			description:       "Invalid command args - missing cluster id",
+			args:              strings.Split("experimental sidecar generate-config --file fname --output ./config -", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a cluster id\n",
 		},
 	}
 

@@ -67,9 +67,9 @@ func createGroupCommand() *cobra.Command {
 	createGroupCmd := &cobra.Command{
 		Use:   "create-group",
 		Short: "Creates a WorkloadGroup YAML artifact representing workload instances",
-		Long: `Creates a WorkloadGroup YAML artifact representing workload instances for passing to the Kubernetes API server.
-The generated artifact can be applied by running kubectl apply -f workloadgroup.yaml.`,
-		Example: "create-group --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --network local --serviceAccount sa",
+		Long: `Creates a WorkloadGroup API YAML artifact to send to the Kubernetes API server.
+To send the generated artifact to Kubernetes, run kubectl apply -f workloadgroup.yaml`,
+		Example: "create-group --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("expecting a service name")
@@ -112,7 +112,7 @@ The generated artifact can be applied by running kubectl apply -f workloadgroup.
 	createGroupCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	createGroupCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
 	createGroupCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
-	createGroupCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports that the workload instances will expose")
+	createGroupCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createGroupCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
 	return createGroupCmd
 }
@@ -133,14 +133,12 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-// Cluster inference from the current kubectl context only works for GKE
 func generateConfigCommand() *cobra.Command {
 	generateConfigCmd := &cobra.Command{
 		Use:   "generate-config",
-		Short: "Generates and packs all the required configuration files for deployment",
-		Long: `Takes in WorkloadGroup artifact, then generates and packs all the required configuration files for deployment. 
-This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens. 
-Tries to automatically infer the target cluster, and prompts for flags if the cluster cannot be inferred`,
+		Short: "Generates all the required configuration files for a workload deployment",
+		Long: `Generates all the required configuration files for workload deployment from a WorkloadGroup artifact. 
+This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.`,
 		Example: "generate-config -f workloadgroup.yaml -o config",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" {
@@ -148,6 +146,9 @@ Tries to automatically infer the target cluster, and prompts for flags if the cl
 			}
 			if outputName == "" {
 				return fmt.Errorf("expecting an output filename")
+			}
+			if clusterID == "" {
+				return fmt.Errorf("expecting a cluster id")
 			}
 			return nil
 		},
@@ -169,8 +170,7 @@ Tries to automatically infer the target cluster, and prompts for flags if the cl
 	}
 	generateConfigCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact")
 	generateConfigCmd.PersistentFlags().StringVarP(&outputName, "output", "o", "", "Name of the tarball to be created")
-
-	generateConfigCmd.PersistentFlags().StringVar(&clusterID, "cluster id", "", "The ID used to identify the cluster")
+	generateConfigCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	generateConfigCmd.PersistentFlags().StringVar(&revision, "revision", "", "control plane revision (experimental)")
 	return generateConfigCmd
 }
@@ -197,7 +197,7 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err = createClusterEnv(wg, temp); err != nil {
 		return err
 	}
-	if err = createCertificates(kubeClient, temp); err != nil {
+	if err = createCertsTokens(kubeClient, temp); err != nil {
 		return err
 	}
 	if err = createMeshConfig(kubeClient, wg, clusterID, revision, temp); err != nil {
@@ -229,8 +229,8 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 }
 
 // Get and store the needed certificates
-// TODO: user internal generate-cert
-func createCertificates(kubeClient kube.ExtendedClient, dir string) error {
+// TODO: use internal generate-cert
+func createCertsTokens(kubeClient kube.ExtendedClient, dir string) error {
 	rootCert, err := kubeClient.CoreV1().ConfigMaps("istio-system").Get(context.Background(), "istio-ca-root-cert", metav1.GetOptions{})
 	if err != nil {
 		return err
