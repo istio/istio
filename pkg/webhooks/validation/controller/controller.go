@@ -317,6 +317,7 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 
 	// return false when leader lost in case go routine leak.
 	if req.description == QuitSignal {
+		c.queue.Forget(req)
 		return false
 	}
 

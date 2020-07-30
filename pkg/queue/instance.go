@@ -33,10 +33,15 @@ type Instance interface {
 }
 
 type queueImpl struct {
-	delay   time.Duration
-	tasks   []Task
-	cond    *sync.Cond
+	delay time.Duration
+	tasks []Task
+	cond  *sync.Cond
+	// closing indicates whether the queue is being closed
 	closing bool
+
+	mutex sync.RWMutex
+	// closed indicates whether the queue is not run or closed
+	closed bool
 }
 
 // NewQueue instantiates a queue with a processing function
@@ -45,10 +50,12 @@ func NewQueue(errorDelay time.Duration) Instance {
 		delay:   errorDelay,
 		tasks:   make([]Task, 0),
 		closing: false,
+		closed:  true,
 		cond:    sync.NewCond(&sync.Mutex{}),
 	}
 }
 
+// Push enqueues a task
 func (q *queueImpl) Push(item Task) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
@@ -58,7 +65,30 @@ func (q *queueImpl) Push(item Task) {
 	q.cond.Signal()
 }
 
+// Run start the task handler, which should be in a separate go routine.
+// The queue can be closed via stop channel. However when it is being closed,
+// the left elements in the queue will be processed.
+// Note: The queue can be rerun only after closed.
 func (q *queueImpl) Run(stop <-chan struct{}) {
+	q.mutex.Lock()
+	if !q.closed {
+		q.mutex.Unlock()
+		panic("queue can not be run twice")
+	}
+	q.closed = false
+	q.mutex.Unlock()
+
+	defer func() {
+		q.mutex.Lock()
+		// set closed status
+		q.closed = true
+		q.mutex.Unlock()
+	}()
+
+	// enable rerun the queue
+	q.cond.L.Lock()
+	q.closing = false
+	q.cond.L.Unlock()
 	go func() {
 		<-stop
 		q.cond.L.Lock()
