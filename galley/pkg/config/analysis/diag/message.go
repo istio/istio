@@ -17,6 +17,7 @@ package diag
 import (
 	"encoding/json"
 	"fmt"
+
 	"istio.io/istio/pkg/config/resource"
 )
 
