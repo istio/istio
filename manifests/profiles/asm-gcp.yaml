@@ -77,8 +77,5 @@ spec:
     global:
       caAddress: "meshca.googleapis.com:443"
       pilotCertProvider: kubernetes
-      # Enable permissive mTLS by default
-      mtls:
-        enabled: false
       sts:
         servicePort: 15463
