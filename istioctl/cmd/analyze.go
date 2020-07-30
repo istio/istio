@@ -254,13 +254,13 @@ istioctl analyze -L
 					return err
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), output)
+			}
 
-				// Return code is based on the unfiltered validation message list/parse errors
-				// We're intentionally keeping failure threshold and output threshold decoupled for now
-				returnError = errorIfMessagesExceedThreshold(result.Messages)
-				if returnError == nil && parseErrors > 0 {
-					returnError = FileParseError{}
-				}
+			// Return code is based on the unfiltered validation message list/parse errors
+			// We're intentionally keeping failure threshold and output threshold decoupled for now
+			returnError = errorIfMessagesExceedThreshold(result.Messages)
+			if returnError == nil && parseErrors > 0 {
+				returnError = FileParseError{}
 			}
 			return returnError
 		},
