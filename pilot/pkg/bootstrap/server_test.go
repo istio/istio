@@ -17,11 +17,12 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/features"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"istio.io/istio/pilot/pkg/features"
 
 	. "github.com/onsi/gomega"
 
@@ -65,8 +66,8 @@ func TestNewServerWithExternalCertificates(t *testing.T) {
 	}
 
 	tlsOptions := TLSOptions{
-		CertFile: certFile,
-		KeyFile:  keyFile,
+		CertFile:   certFile,
+		KeyFile:    keyFile,
 		CaCertFile: caCertFile,
 	}
 
@@ -78,7 +79,7 @@ func TestNewServerWithExternalCertificates(t *testing.T) {
 			MonitoringAddr: ":0",
 			GRPCAddr:       ":0",
 			SecureGRPCAddr: ":0",
-			TLSOptions: tlsOptions,
+			TLSOptions:     tlsOptions,
 		}
 		p.RegistryOptions = RegistryOptions{
 			FileDir: configDir,
