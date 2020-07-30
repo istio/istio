@@ -17,6 +17,7 @@ package xds
 import (
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"path"
 	"testing"
 
@@ -319,8 +320,9 @@ func TestMeshNetworking(t *testing.T) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "istio-ingressgateway",
-				Namespace: "istio-system",
+				Name:        "istio-ingressgateway",
+				Namespace:   "istio-system",
+				Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
 			},
 			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 15443, NodePort: 25443}}},
 			Status: corev1.ServiceStatus{
