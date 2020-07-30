@@ -36,8 +36,14 @@ func Shutdown(adminPort uint32) error {
 
 // DrainListeners drains inbound listeners of Envoy so that inflight requests
 // can gracefully finish and even continue making outbound calls as needed.
-func DrainListeners(adminPort uint32) error {
-	res, err := doEnvoyPost("drain_listeners?inboundonly", "", "", adminPort)
+func DrainListeners(adminPort uint32, inboundonly bool) error {
+	var drainUrl string
+	if inboundonly {
+		drainUrl = "drain_listeners?inboundonly"
+	} else {
+		drainUrl = "drain_listeners"
+	}
+	res, err := doEnvoyPost(drainUrl, "", "", adminPort)
 	log.Debugf("Drain listener endpoint response : %s", res.String())
 	return err
 }

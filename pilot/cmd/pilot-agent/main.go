@@ -331,6 +331,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
+				Sidecar:             role.Type == model.SidecarProxy,
 			})
 
 			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
