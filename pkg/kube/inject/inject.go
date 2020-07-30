@@ -765,8 +765,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		meshConfig:          meshconfig,
 		valuesConfig:        valuesConfig,
 		revision:            revision,
-		clusterName:         "",
-		clusterNetwork:      "",
+		proxyEnvs:           nil,
 		injectedAnnotations: nil,
 	}
 	patchBytes, err := injectPod(params)
@@ -1061,27 +1060,28 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 // overwriteClusterInfo updates cluster name and network from url path
 // This is needed when webconfig config runs on a different cluster than webhook
 func overwriteClusterInfo(containers []corev1.Container, params InjectionParameters) {
-	for _, c := range containers {
-		if c.Name == ProxyContainerName {
-			if params.clusterName != "" {
-				updateEnvVar(&c, "ISTIO_META_CLUSTER_ID", params.clusterName)
-			}
-			if params.clusterNetwork != "" {
-				updateEnvVar(&c, "ISTIO_META_NETWORK", params.clusterNetwork)
+	if len(params.proxyEnvs) > 0 {
+		log.Debugf("Updating cluster envs based on inject url: %s\n", params.proxyEnvs)
+		for i, c := range containers {
+			if c.Name == ProxyContainerName {
+				updateClusterEnvs(&containers[i], params.proxyEnvs)
+				break
 			}
 		}
 	}
 }
 
-func updateEnvVar(c *corev1.Container, key string, value string) {
+func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 	envVars := make([]corev1.EnvVar, 0)
-	for _, env := range c.Env {
-		if env.Name != key {
+
+	for _, env := range container.Env {
+		if _, found := newKVs[env.Name]; !found {
 			envVars = append(envVars, env)
 		}
 	}
-	log.Debugf("Appending env %v=%s", key, value)
-	envVars = append(envVars,
-		corev1.EnvVar{Name: key, Value: value, ValueFrom: nil})
-	c.Env = envVars
+	for k, v := range newKVs {
+		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v, ValueFrom: nil})
+	}
+
+	container.Env = envVars
 }
