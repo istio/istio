@@ -34,4 +34,3 @@ endif
 .PHONY: istioctl-install
 istioctl-install: istioctl-install-container
 	cp out/$(TARGET_OS)_$(TARGET_ARCH)/istioctl ${GOPATH}/bin
-

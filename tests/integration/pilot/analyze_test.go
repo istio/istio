@@ -339,32 +339,6 @@ func TestTimeout(t *testing.T) {
 		})
 }
 
-func TestErrorLineNumbers(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(ctx framework.TestContext) {
-			g := NewGomegaWithT(t)
-
-			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			applyFileOrFail(t, ns.Name(), gatewayFile)
-
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-
-			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
-
-			expectedLines := []string{"gateway.yaml:9"}
-
-			for i := range output {
-				g.Expect(output[i]).To(ContainSubstring(expectedLines[i]))
-			}
-
-		})
-}
-
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
 func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
