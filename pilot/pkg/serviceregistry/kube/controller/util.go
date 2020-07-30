@@ -191,6 +191,5 @@ func nodeEquals(a, b kubernetesNode) bool {
 }
 
 func isNodePortGatewayService(svc *v1.Service) bool {
-	_, ok := svc.Annotations[kube.NodeSelectorAnnotation]
-	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
+	return svc.Spec.Type == v1.ServiceTypeNodePort
 }
