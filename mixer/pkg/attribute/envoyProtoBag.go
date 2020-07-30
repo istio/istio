@@ -79,14 +79,13 @@ func fillContextProtocol(reqMap map[string]interface{}, headers map[string]strin
 func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 
-	// build the message-level dictionary
-	reqMap := make(map[string]interface{})
 	attributes := req.GetAttributes()
 	request := attributes.GetRequest()
 	http := request.GetHttp()
 	destination := attributes.GetDestination()
 	source := attributes.GetSource()
 
+	reqMap := make(map[string]interface{})
 	reqMap["context.reporter.kind"] = "inbound"
 	fillAddress(reqMap, destination.GetAddress(), "destination")
 	fillAddress(reqMap, source.GetAddress(), "source")
@@ -112,14 +111,15 @@ func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 // When you are done using the proto bag, call the Done method to recycle it.
 // num is the index of the entry from the message's batch to create a bag from
 func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
-	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
 	var commonproperties alspb.AccessLogCommon
+
 	if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
 		commonproperties = *httpLogs.GetLogEntry()[num].GetCommonProperties()
 		request := httpLogs.GetLogEntry()[num].GetRequest()
 		response := httpLogs.GetLogEntry()[num].GetResponse()
+
 		reqMap["request.time"] = reformatTime(commonproperties.GetStartTime(), 0)
 		reqMap["response.time"] = reformatTime(commonproperties.GetStartTime(), commonproperties.GetTimeToFirstUpstreamRxByte().Nanos)
 		reqMap["request.headers"] = attr.WrapStringMap(request.GetRequestHeaders())
@@ -136,9 +136,10 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
 		commonproperties = *tcpLogs.GetLogEntry()[num].GetCommonProperties()
 		connection := tcpLogs.GetLogEntry()[num].GetConnectionProperties()
+
 		reqMap["context.time"] = reformatTime(commonproperties.GetStartTime(), 0)
-		reqMap["connection.received.bytes"] = connection.GetReceivedBytes()
-		reqMap["connection.sent.bytes"] = connection.GetSentBytes()
+		reqMap["connection.received.bytes"] = int64(connection.GetReceivedBytes())
+		reqMap["connection.sent.bytes"] = int64(connection.GetSentBytes())
 		reqMap["context.protocol"] = "tcp"
 	}
 	reqMap["context.reporter.kind"] = "inbound"
