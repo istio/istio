@@ -64,8 +64,8 @@ func (f FileParseError) Error() string {
 var (
 	listAnalyzers     bool
 	useKube           bool
-	failureLevel      = messageThreshold{diag.Warning} // messages at least this level will generate an error exit code
-	outputLevel       = messageThreshold{diag.Info}    // messages at least this level will be included in the output
+	failureLevel      = diag.MessageThreshold{diag.Warning} // messages at least this level will generate an error exit code
+	outputLevel       = diag.MessageThreshold{diag.Info}    // messages at least this level will be included in the output
 	colorize          bool
 	msgOutputFormat   string
 	meshCfgFile       string
@@ -415,39 +415,6 @@ func isValidFile(f string) bool {
 		}
 	}
 	return false
-}
-
-type messageThreshold struct {
-	diag.Level
-}
-
-// String satisfies interface pflag.Value
-func (m *messageThreshold) String() string {
-	return m.Level.String()
-}
-
-// Type satisfies interface pflag.Value
-func (m *messageThreshold) Type() string {
-	return "Level"
-}
-
-// Set satisfies interface pflag.Value
-func (m *messageThreshold) Set(s string) error {
-	l, err := LevelFromString(s)
-	if err != nil {
-		return err
-	}
-	m.Level = l
-	return nil
-}
-
-func LevelFromString(s string) (diag.Level, error) {
-	val, ok := diag.GetUppercaseStringToLevelMap()[strings.ToUpper(s)]
-	if !ok {
-		return diag.Level{}, fmt.Errorf("%q not a valid option, please choose from: %v", s, diag.GetAllLevelStrings())
-	}
-
-	return val, nil
 }
 
 func AnalyzersAsString(analyzers []analysis.Analyzer) string {
