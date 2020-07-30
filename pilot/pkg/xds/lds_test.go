@@ -26,6 +26,7 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pkg/config/labels"
 
@@ -486,7 +487,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 	if l != nil {
 		var chain *listener.FilterChain
 		for _, fc := range l.FilterChains {
-			if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" {
+			if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager {
 				chain = fc
 			}
 		}
@@ -497,7 +498,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 			t.Fatalf("Expected 1 filter in first filter chain, got %d", len(l.FilterChains))
 		}
 		filter := chain.Filters[0]
-		if filter.Name != "envoy.http_connection_manager" {
+		if filter.Name != wellknown.HTTPConnectionManager {
 			t.Fatalf("Expected HTTP connection, found %v", chain.Filters[0].Name)
 		}
 		httpCfg, ok := filter.ConfigType.(*listener.Filter_TypedConfig)
@@ -511,7 +512,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 		}
 		found := false
 		for _, filter := range connectionManagerCfg.HttpFilters {
-			if filter.Name == "envoy.lua" {
+			if filter.Name == wellknown.Lua {
 				found = true
 			}
 		}
