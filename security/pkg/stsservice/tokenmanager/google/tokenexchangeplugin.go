@@ -27,9 +27,10 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/security/pkg/stsservice"
+	"github.com/golang/protobuf/ptypes/duration"
 )
 
 const (
@@ -287,10 +288,10 @@ func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, e
 }
 
 type accessTokenRequest struct {
-	Name      string        `json:"name"` // nolint: structcheck, unused
-	Delegates []string      `json:"delegates"`
-	Scope     []string      `json:"scope"`
-	LifeTime  time.Duration `json:"lifetime"` // nolint: structcheck, unused
+	Name      string            `json:"name"` // nolint: structcheck, unused
+	Delegates []string          `json:"delegates"`
+	Scope     []string          `json:"scope"`
+	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
@@ -313,7 +314,7 @@ type accessTokenResponse struct {
 func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) (*http.Request, error) {
 	// Request for access token with a lifetime of 3600 seconds.
 	query := accessTokenRequest{
-		LifeTime: time.Second * 3600,
+		LifeTime: duration.Duration{Seconds: 3600},
 	}
 	query.Scope = append(query.Scope, scope)
 
