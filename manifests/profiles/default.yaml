@@ -251,8 +251,10 @@ spec:
       enabled: true
       v2:
         enabled: true
-        metadataExchange: {}
+        metadataExchange:
+          wasmEnabled: true
         prometheus:
+          wasmEnabled: true
           enabled: true
         stackdriver:
           enabled: false
