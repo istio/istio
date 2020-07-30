@@ -60,7 +60,6 @@ type DistributionController struct {
 	ObservationTime  map[string]time.Time
 	UpdateInterval   time.Duration
 	dynamicClient    dynamic.Interface
-	kubeClient       kubernetes.Interface
 	clock            clock.Clock
 	knownResources   map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	currentlyWriting ResourceLock
