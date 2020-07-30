@@ -24,14 +24,14 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/keepalive"
+
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/adsc"
-
-	"google.golang.org/grpc/keepalive"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
@@ -107,19 +107,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 			log.Warnf("Disabled ingress status syncer due to %v", err)
 		} else {
 			s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-				leaderelection.
-					NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube()).
-					AddRunFunction(func(leaderStop <-chan struct{}) {
-						// Start informers again. This fixes the case where informers for namespace do not start,
-						// as we create them only after acquiring the leader lock
-						// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-						// basically lazy loading the informer, if we stop it when we lose the lock we will never
-						// recreate it again.
-						s.kubeClient.RunAndWait(stop)
-						log.Infof("Starting ingress controller")
-						ingressSyncer.Run(leaderStop)
-					}).
-					Run(stop)
+				le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.IngressController, s.kubeClient.Kube())
+				le.AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("Starting ingress controller")
+					ingressSyncer.Run(leaderStop)
+				})
+				le.Run(stop)
 				return nil
 			})
 		}
@@ -401,13 +394,11 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.EnvoyXdsServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			controller := status.NewController(*s.kubeRestConfig, args.Namespace)
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
-					controller := &status.DistributionController{
-						QPS:   float32(features.StatusQPS),
-						Burst: features.StatusBurst}
-					controller.Start(s.kubeRestConfig, args.Namespace, stop)
+					controller.Start(stop)
 				}).Run(stop)
 			return nil
 		})
