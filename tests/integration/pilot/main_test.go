@@ -31,7 +31,8 @@ import (
 )
 
 var (
-	i    istio.Instance
+	i istio.Instance
+
 	ingr ingress.Instance
 
 	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
@@ -59,10 +60,10 @@ type EchoDeployments struct {
 	podA echo.Instance
 	// Standard echo app to be used by tests
 	podB echo.Instance
-	// Headless echo app to be used by tests
-	headless echo.Instance
 	// Standard echo app to be used by tests
 	podC echo.Instance
+	// Headless echo app to be used by tests
+	headless echo.Instance
 	// Echo app to be used by tests, with no sidecar injected
 	naked echo.Instance
 	// A virtual machine echo app
@@ -125,6 +126,7 @@ values:
 					Namespace: apps.namespace,
 					Ports:     echoPorts,
 					Subsets:   []echo.SubsetConfig{{}},
+					Locality:  "region.zone.subzone",
 				}).
 				With(&apps.podB, echo.Config{
 					Service:   "b",

@@ -1018,7 +1018,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTLS, gotCtxType := conditionallyConvertToIstioMtls(tt.tls, tt.sans, tt.sni, tt.proxy,
+			gotTLS, gotCtxType := buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
 				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTLS)
@@ -2193,7 +2193,6 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 		IstioVersion: &model.IstioVersion{Major: 1, Minor: 5},
 	}
 	push := model.NewPushContext()
-	push.Mesh = &meshconfig.MeshConfig{SdsUdsPath: "foo"}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2509,11 +2508,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
@@ -2600,11 +2594,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -2633,11 +2622,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
 				},
 			},
 			tls: &networking.ClientTLSSettings{
@@ -2700,11 +2684,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -2766,11 +2745,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{
 						TLSClientRootCert: metadataRootCert,
-					},
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
 					},
 				},
 			},
@@ -3060,11 +3034,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -3119,11 +3088,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
 				},
 			},
 			tls: &networking.ClientTLSSettings{
@@ -3212,11 +3176,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_SIMPLE,
@@ -3280,11 +3239,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_SIMPLE,
@@ -3344,11 +3298,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				proxy: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
-				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
 				},
 			},
 			tls: &networking.ClientTLSSettings{
@@ -3438,11 +3387,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 					Type:     model.Router,
 				},
-				push: &model.PushContext{
-					Mesh: &meshconfig.MeshConfig{
-						SdsUdsPath: "this must not be nil",
-					},
-				},
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:           networking.ClientTLSSettings_MUTUAL,
@@ -3516,6 +3460,50 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					Sni: "some-sni.com",
 				},
 				err: nil,
+			},
+		},
+		{
+			name: "tls mode MUTUAL, credentialName is set with proxy type Sidecar",
+			opts: &buildClusterOpts{
+				cluster: &cluster.Cluster{
+					Name: "test-cluster",
+				},
+				proxy: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+					Type:     model.SidecarProxy,
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_MUTUAL,
+				CredentialName: "fake-cred",
+			},
+			node:                  &model.Proxy{},
+			certValidationContext: &tls.CertificateValidationContext{},
+			result: expectedResult{
+				nil,
+				nil,
+			},
+		},
+		{
+			name: "tls mode SIMPLE, credentialName is set with proxy type Sidecar",
+			opts: &buildClusterOpts{
+				cluster: &cluster.Cluster{
+					Name: "test-cluster",
+				},
+				proxy: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+					Type:     model.SidecarProxy,
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:           networking.ClientTLSSettings_SIMPLE,
+				CredentialName: "fake-cred",
+			},
+			node:                  &model.Proxy{},
+			certValidationContext: &tls.CertificateValidationContext{},
+			result: expectedResult{
+				nil,
+				nil,
 			},
 		},
 	}

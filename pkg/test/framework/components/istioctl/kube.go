@@ -16,10 +16,12 @@ package istioctl
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
 	"istio.io/istio/istioctl/cmd"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -44,6 +46,24 @@ func newKube(ctx resource.Context, config Config) Instance {
 // ID implements resource.Instance
 func (c *kubeComponent) ID() resource.ID {
 	return c.id
+}
+
+// Invoke implements WaitForConfigs
+func (c *kubeComponent) WaitForConfigs(defaultNamespace string, configs string) error {
+	cfgs, _, err := crd.ParseInputs(configs)
+	if err != nil {
+		return fmt.Errorf("failed to parse input: %v", err)
+	}
+	for _, cfg := range cfgs {
+		ns := cfg.Namespace
+		if ns == "" {
+			ns = defaultNamespace
+		}
+		if _, _, err := c.Invoke([]string{"x", "wait", cfg.GroupVersionKind.Kind, cfg.Name + "." + ns}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Invoke implements Instance

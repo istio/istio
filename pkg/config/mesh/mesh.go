@@ -37,10 +37,6 @@ import (
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
-const (
-	DefaultSdsUdsPath = "unix:./etc/istio/proxy/SDS"
-)
-
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env
@@ -96,7 +92,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		IngressClass:                "istio",
 		TrustDomain:                 "cluster.local",
 		TrustDomainAliases:          []string{},
-		SdsUdsPath:                  DefaultSdsUdsPath,
 		EnableAutoMtls:              &types.BoolValue{Value: true},
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
@@ -108,7 +103,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		RootNamespace:                  constants.IstioSystemNamespace,
 		ProxyListenPort:                15001,
 		ConnectTimeout:                 types.DurationProto(10 * time.Second),
-		EnableSdsTokenMount:            false,
 		DefaultServiceExportTo:         []string{"*"},
 		DefaultVirtualServiceExportTo:  []string{"*"},
 		DefaultDestinationRuleExportTo: []string{"*"},

@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/resource"
 
@@ -53,6 +52,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	"istio.io/pkg/log"
@@ -197,15 +197,6 @@ type ADSC struct {
 type ResponseHandler interface {
 	HandleResponse(con *ADSC, response *discovery.DiscoveryResponse)
 }
-
-const (
-	typePrefix = "type.googleapis.com/envoy.api.v2."
-
-	// ListenerType is sent after clusters and endpoints.
-	ListenerType = typePrefix + "Listener"
-	// RouteType is sent after listeners.
-	routeType = typePrefix + "RouteConfiguration"
-)
 
 var (
 	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
@@ -502,30 +493,22 @@ func (a *ADSC) handleRecv() {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case v2.ListenerType, v3.ListenerType:
-				{
-					ll := &listener.Listener{}
-					_ = proto.Unmarshal(valBytes, ll)
-					listeners = append(listeners, ll)
-				}
-			case v2.ClusterType, v3.ClusterType:
-				{
-					cl := &cluster.Cluster{}
-					_ = proto.Unmarshal(valBytes, cl)
-					clusters = append(clusters, cl)
-				}
-			case v2.EndpointType, v3.EndpointType:
-				{
-					el := &endpoint.ClusterLoadAssignment{}
-					_ = proto.Unmarshal(valBytes, el)
-					eds = append(eds, el)
-				}
-			case v2.RouteType, v3.RouteType:
-				{
-					rl := &route.RouteConfiguration{}
-					_ = proto.Unmarshal(valBytes, rl)
-					routes = append(routes, rl)
-				}
+			case v3.ListenerType:
+				ll := &listener.Listener{}
+				_ = proto.Unmarshal(valBytes, ll)
+				listeners = append(listeners, ll)
+			case v3.ClusterType:
+				cl := &cluster.Cluster{}
+				_ = proto.Unmarshal(valBytes, cl)
+				clusters = append(clusters, cl)
+			case v3.EndpointType:
+				el := &endpoint.ClusterLoadAssignment{}
+				_ = proto.Unmarshal(valBytes, el)
+				eds = append(eds, el)
+			case v3.RouteType:
+				rl := &route.RouteConfiguration{}
+				_ = proto.Unmarshal(valBytes, rl)
+				routes = append(routes, rl)
 			default:
 				err = a.handleMCP(gvk, rsc, valBytes)
 				if err != nil {
@@ -661,7 +644,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	if len(routes) > 0 {
-		a.sendRsc(routeType, routes)
+		a.sendRsc(v3.RouteType, routes)
 	}
 	a.httpListeners = lh
 	a.tcpListeners = lt
@@ -815,7 +798,7 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&discovery.DiscoveryRequest{
 			Node:    a.node(),
-			TypeUrl: ListenerType,
+			TypeUrl: v3.ListenerType,
 		})
 	}
 
@@ -902,13 +885,13 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			toDelete := t
 			// legacy names, still used in tests.
 			switch t {
-			case ListenerType:
+			case v3.ListenerType:
 				delete(want, "lds")
 			case v3.ClusterType:
 				delete(want, "cds")
 			case v3.EndpointType:
 				delete(want, "eds")
-			case routeType:
+			case v3.RouteType:
 				delete(want, "rds")
 			}
 			delete(want, toDelete)
@@ -1026,10 +1009,9 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 }
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
-	stype := v3.GetShortType(msg.TypeUrl)
 	var resources []string
 	// TODO: Send routes also in future.
-	if stype == v3.EndpointShortType {
+	if msg.TypeUrl == v3.EndpointType {
 		for c := range a.edsClusters {
 			resources = append(resources, c)
 		}

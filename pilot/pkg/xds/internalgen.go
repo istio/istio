@@ -193,10 +193,10 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 	res := []*any.Any{}
 
 	stypes := []string{
-		pilot_xds_v3.ListenerShortType,
-		pilot_xds_v3.RouteShortType,
-		pilot_xds_v3.EndpointShortType,
-		pilot_xds_v3.ClusterShortType,
+		pilot_xds_v3.ListenerType,
+		pilot_xds_v3.RouteType,
+		pilot_xds_v3.EndpointType,
+		pilot_xds_v3.ClusterType,
 	}
 
 	sg.Server.adsClientsMutex.RLock()
@@ -213,13 +213,13 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 					pxc.Status = status.ConfigStatus_NOT_SENT
 				}
 				switch stype {
-				case pilot_xds_v3.ListenerShortType:
+				case pilot_xds_v3.ListenerType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
-				case pilot_xds_v3.RouteShortType:
+				case pilot_xds_v3.RouteType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_RouteConfig{}
-				case pilot_xds_v3.EndpointShortType:
+				case pilot_xds_v3.EndpointType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
-				case pilot_xds_v3.ClusterShortType:
+				case pilot_xds_v3.ClusterType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
 				}
 				xdsConfigs = append(xdsConfigs, pxc)

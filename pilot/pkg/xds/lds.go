@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
@@ -32,7 +33,7 @@ func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, vers
 	if s.DebugConfigs {
 		con.XdsListeners = rawListeners
 	}
-	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.RequestedTypes.LDS)
+	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -46,9 +47,9 @@ func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, vers
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix string) *discovery.DiscoveryResponse {
 	resp := &discovery.DiscoveryResponse{
-		TypeUrl:     typeURL,
+		TypeUrl:     v3.ListenerType,
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),
 	}
@@ -58,9 +59,7 @@ func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL
 			totalXDSInternalErrors.Increment()
 			continue
 		}
-		lr := util.MessageToAny(ll)
-		lr.TypeUrl = typeURL
-		resp.Resources = append(resp.Resources, lr)
+		resp.Resources = append(resp.Resources, util.MessageToAny(ll))
 	}
 
 	return resp

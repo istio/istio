@@ -20,6 +20,9 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -141,6 +144,7 @@ func (rc *Context) Run(testCases []TestCase) {
 		},
 	}
 
+	ik := istioctl.NewOrFail(rc.ctx, rc.ctx, istioctl.Config{})
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
@@ -155,15 +159,29 @@ func (rc *Context) Run(testCases []TestCase) {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return rc.ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
-			ctx.WhenDone(func() error {
-				return rc.ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
-			})
-
-			// Give some time for the policy propagate.
-			// TODO: query pilot or app to know instead of sleep.
 			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
-			time.Sleep(10 * time.Second)
+			t0 := time.Now()
+			if err := ik.WaitForConfigs(c.Namespace.Name(), policyYAML); err != nil {
+				// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
+				ctx.Logf("warning: failed to wait for config: %v", err)
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("proxy status: %v", s)
+			}
+			// TODO(https://github.com/istio/istio/issues/25945) introducing istioctl wait in favor of a 10s sleep lead to flakes
+			// to work around this, we will temporarily make sure we are always sleeping at least 10s, even if istioctl wait is faster.
+			// This allows us to debug istioctl wait, while still ensuring tests are stable
+			sleep := time.Second*10 - time.Since(t0)
+			ctx.Logf("[%s] [%v] Wait for additional %v config propagate to endpoints...", testName, time.Now(), sleep)
+			time.Sleep(sleep)
 			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
+			ctx.Cleanup(func() {
+				if err := retry.UntilSuccess(func() error {
+					return rc.ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
+				}); err != nil {
+					log.Errorf("failed to delete configuration: %v", err)
+				}
+			})
 
 			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked, rc.HeadlessNaked} {
 				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.VM, rc.HeadlessNaked} {

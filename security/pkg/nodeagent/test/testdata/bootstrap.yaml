@@ -11,48 +11,70 @@ static_resources:
   clusters:
   - name: backend
     connect_timeout: 5s
-    hosts:
-    - socket_address:
-        address: 127.0.0.1
-        port_value: {{.Ports.BackendPort}}
+    load_assignment:
+      cluster_name: backend
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: {{.Ports.BackendPort}}
     type: STATIC
   - name: outbound_cluster_tls
     connect_timeout: 5s
     max_requests_per_connection: 1
-    hosts:
-    - socket_address:
-        address: 127.0.0.1
-        port_value: {{.Ports.ServerProxyPort}}
+    load_assignment:
+      cluster_name: outbound_cluster_tls
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 127.0.0.1
+                port_value: {{.Ports.ServerProxyPort}}
     type: STATIC
-    tls_context:
-      common_tls_context:
-        tls_certificate_sds_secret_configs:
-          - name: "outbound-sds"
-            sds_config:
-              api_config_source:
-                api_type: GRPC
-                grpc_services:
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+        common_tls_context:
+          tls_certificate_sds_secret_configs:
+            - name: "outbound-sds"
+              sds_config:
+                resource_api_version: V3
+                api_config_source:
+                  api_type: GRPC
+                  transport_api_version: V3
+                  grpc_services:
+                    - envoy_grpc:
+                        cluster_name: "sds-grpc"
+                  refresh_delay: 60s
+          combined_validation_context:
+            default_validation_context: {}
+            validation_context_sds_secret_config:
+              name: ROOTCA
+              sds_config:
+                resource_api_version: V3
+                api_config_source:
+                  api_type: GRPC
+                  transport_api_version: V3
+                  grpc_services:
                   - envoy_grpc:
-                      cluster_name: "sds-grpc"
-                refresh_delay: 60s
-        combined_validation_context:
-          default_validation_context: {}
-          validation_context_sds_secret_config:
-            name: ROOTCA
-            sds_config:
-              api_config_source:
-                api_type: GRPC
-                grpc_services:
-                - envoy_grpc:
-                    cluster_name: sds-grpc
+                      cluster_name: sds-grpc
   - name: sds-grpc
     type: STATIC
     http2_protocol_options: {}
     connect_timeout: 5s
     lb_policy: ROUND_ROBIN
-    hosts:
-    - pipe:
-        path: {{.SDSPath}}
+    load_assignment:
+      cluster_name: outbound_cluster_tls
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              pipe:
+                path: {{.SDSPath}}
   listeners:
   - name: outbound_listener
     address:
@@ -83,7 +105,35 @@ static_resources:
         address: 127.0.0.1
         port_value: {{.Ports.ServerProxyPort}}
     filter_chains:
-    - filters:
+    - transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          common_tls_context:
+            tls_certificate_sds_secret_configs:
+            - name: "inbound-sds"
+              sds_config:
+                resource_api_version: V3
+                api_config_source:
+                  api_type: GRPC
+                  transport_api_version: V3
+                  grpc_services:
+                  - envoy_grpc:
+                      cluster_name: "sds-grpc"
+                  refresh_delay: 60s
+            combined_validation_context:
+              default_validation_context: {}
+              validation_context_sds_secret_config:
+                name: ROOTCA
+                sds_config:
+                  resource_api_version: V3
+                  api_config_source:
+                    api_type: GRPC
+                    transport_api_version: V3
+                    grpc_services:
+                    - envoy_grpc:
+                        cluster_name: sds-grpc
+      filters:
       - name: envoy.http_connection_manager 
         config:
           codec_type: auto
@@ -100,25 +150,3 @@ static_resources:
                   prefix: /
                 route:
                   cluster: backend
-      tls_context:
-        common_tls_context:
-          tls_certificate_sds_secret_configs:
-            - name: "inbound-sds"
-              sds_config:
-                api_config_source:
-                  api_type: GRPC
-                  grpc_services:
-                    - envoy_grpc:
-                        cluster_name: "sds-grpc"
-                  refresh_delay: 60s
-          combined_validation_context:
-            default_validation_context: {}
-            validation_context_sds_secret_config:
-              name: ROOTCA
-              sds_config:
-                api_config_source:
-                  api_type: GRPC
-                  grpc_services:
-                  - envoy_grpc:
-                      cluster_name: sds-grpc
-          

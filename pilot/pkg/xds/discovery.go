@@ -186,10 +186,11 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	return out
 }
 
-// Register adds the ADS and EDS handles to the grpc server
+// Register adds the ADS handler to the grpc server
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
-	// Register v2 and v3 servers
+	// Register v3 server
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+	// Register v2 server just for compatibility with gRPC. When gRPC v3 comes out, we can drop this
 	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 

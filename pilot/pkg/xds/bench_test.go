@@ -35,7 +35,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -85,7 +84,14 @@ var testCases = []ConfigInput{
 	},
 }
 
+func disableLogging() {
+	for _, s := range log.Scopes() {
+		s.SetOutputLevel(log.NoneLevel)
+	}
+}
+
 func BenchmarkInitPushContext(b *testing.B) {
+	disableLogging()
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupTest(b, tt)
@@ -98,6 +104,8 @@ func BenchmarkInitPushContext(b *testing.B) {
 }
 
 func BenchmarkRouteGeneration(b *testing.B) {
+	disableLogging()
+
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -114,7 +122,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 				if len(r) == 0 {
 					b.Fatal("Got no routes!")
 				}
-				response = routeDiscoveryResponse(r, "", "", v3.RouteType)
+				response = routeDiscoveryResponse(r, "", "")
 			}
 			logDebug(b, response)
 		})
@@ -122,6 +130,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 }
 
 func BenchmarkClusterGeneration(b *testing.B) {
+	disableLogging()
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -132,7 +141,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
-				response = cdsDiscoveryResponse(c, "", v3.ClusterType)
+				response = cdsDiscoveryResponse(c, "")
 			}
 			logDebug(b, response)
 		})
@@ -140,6 +149,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 }
 
 func BenchmarkListenerGeneration(b *testing.B) {
+	disableLogging()
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
@@ -150,7 +160,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 				if len(l) == 0 {
 					b.Fatal("Got no listeners!")
 				}
-				response = ldsDiscoveryResponse(l, "", "", v3.ListenerType)
+				response = ldsDiscoveryResponse(l, "", "")
 			}
 			logDebug(b, response)
 		})
@@ -160,6 +170,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
 func BenchmarkEndpointGeneration(b *testing.B) {
+	disableLogging()
 	tests := []struct {
 		endpoints int
 		services  int
@@ -169,7 +180,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 		{100, 10},
 		{1000, 1},
 	}
-	adsLog.SetOutputLevel(log.WarnLevel)
+
 	var response *discovery.DiscoveryResponse
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
@@ -192,7 +203,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					l := s.Discovery.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, l)
 				}
-				response = endpointDiscoveryResponse(loadAssignments, version, push.Version, v3.EndpointType)
+				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
 			}
 			logDebug(b, response)
 		})

@@ -506,6 +506,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		"directory":           directory,
 		"contains":            flippedContains,
 		"toLower":             strings.ToLower,
+		"appendMultusNetwork": appendMultusNetwork,
 	}
 
 	// Allows the template to use env variables from istiod.
@@ -780,15 +781,13 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	if meshconfig.SdsUdsPath != "" {
-		var grp = int64(1337)
-		if podSpec.SecurityContext == nil {
-			podSpec.SecurityContext = &corev1.PodSecurityContext{
-				FSGroup: &grp,
-			}
-		} else {
-			podSpec.SecurityContext.FSGroup = &grp
+	var grp = int64(1337)
+	if podSpec.SecurityContext == nil {
+		podSpec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
 		}
+	} else {
+		podSpec.SecurityContext.FSGroup = &grp
 	}
 
 	if metadata.Annotations == nil {
@@ -1014,6 +1013,18 @@ func getAnnotation(meta metav1.ObjectMeta, name string, defaultValue interface{}
 		value = fmt.Sprint(defaultValue)
 	}
 	return value
+}
+
+func appendMultusNetwork(existingValue, istioCniNetwork string) string {
+	if existingValue == "" {
+		return istioCniNetwork
+	}
+	i := strings.LastIndex(existingValue, "]")
+	isJSON := i != -1
+	if isJSON {
+		return existingValue[0:i] + fmt.Sprintf(`, {"name": "%s"}`, istioCniNetwork) + existingValue[i:]
+	}
+	return existingValue + ", " + istioCniNetwork
 }
 
 func excludeInboundPort(port interface{}, excludedInboundPorts string) string {
