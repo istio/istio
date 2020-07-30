@@ -392,11 +392,8 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
 	if redirectDNS {
 		iptConfigurator.iptables.AppendRuleV4(
-			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
-		if iptConfigurator.cfg.EnableInboundIPv6 {
-			iptConfigurator.iptables.AppendRuleV6(
-				constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
-		}
+			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.DNAT, "--to-destination",
+			"127.0.0.1:" + dnsTargetPort)
 	}
 
 	// Use this chain also for redirecting inbound traffic to the common Envoy port

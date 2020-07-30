@@ -51,6 +51,7 @@ const (
 	REJECT   = "REJECT"
 	REDIRECT = "REDIRECT"
 	MARK     = "MARK"
+	DNAT     = "DNAT"
 )
 
 // iptables chains
