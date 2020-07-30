@@ -25,13 +25,13 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/object"
 	operator_validate "istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -142,9 +141,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			// IstioOperator isn't part of pkg/config/schema/collections,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to check.
-			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
-			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
+			iop, err := object.ConvertUnstructuredToIstioOperator(un.Object)
 			if err != nil {
 				return err
 			}

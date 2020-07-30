@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"istio.io/api/operator/v1alpha1"
+
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
@@ -38,6 +39,7 @@ func UnmarshalAndValidateIOPS(iopsYAML string) (*v1alpha1.IstioOperatorSpec, err
 }
 
 // UnmarshalIstioOperator unmarshals a string containing IstioOperator YAML.
+// Deprecated: use object.ConvertUnstructuredToIstioOperator instead
 func UnmarshalIstioOperator(iopYAML string, allowUnknownField bool) (*operator_v1alpha1.IstioOperator, error) {
 	iop := &operator_v1alpha1.IstioOperator{}
 	if err := util.UnmarshalWithJSONPB(iopYAML, iop, allowUnknownField); err != nil {

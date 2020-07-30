@@ -27,6 +27,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -507,4 +508,14 @@ func AllObjectHashes(m string) map[string]bool {
 	}
 
 	return ret
+}
+
+// ConvertUnstructuredToIstioOperator converts unstructured object to IstioOperator.
+func ConvertUnstructuredToIstioOperator(obj map[string]interface{}) (*v1alpha1.IstioOperator, error) {
+	iop := &v1alpha1.IstioOperator{}
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj, iop)
+	if err != nil {
+		return nil, err
+	}
+	return iop, nil
 }

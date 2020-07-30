@@ -18,8 +18,68 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"istio.io/api/operator/v1alpha1"
+
 	"istio.io/istio/operator/pkg/util"
 )
+
+var sampleIOP = unstructured.Unstructured{
+	Object: map[string]interface{}{
+		"kind":       "IstioOperator",
+		"apiVersion": "install.istio.io/v1alpha1",
+		"metadata": map[string]interface{}{
+			"name":              "installed-state",
+			"namespace":         "istio-system",
+			"creationTimestamp": "2020-07-29T07:08:55Z",
+			"managedFields": []map[string]interface{}{
+				{
+					"fieldsType": "FieldsV1",
+					"fieldsV1": map[string]interface{}{
+						"f:metadata": map[string]interface{}{},
+					},
+					"manager":   "istioctl",
+					"operation": "Update",
+					"time":      "2020-07-29T07:09:05Z",
+				},
+			},
+		},
+		"spec": map[string]interface{}{
+			"profile": "default",
+			"meshConfig": map[string]interface{}{
+				"accessLogFile": "/dev/stdout",
+			},
+		},
+		"status": map[string]interface{}{
+			"status": "HEALTHY",
+			"componentStatus": map[string]interface{}{
+				"Base": map[string]interface{}{
+					"status": "HEALTHY",
+				},
+			},
+		},
+	}}
+
+func TestIstioOperatorConversion(t *testing.T) {
+	out, err := ConvertUnstructuredToIstioOperator(sampleIOP.Object)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if out.Status.Status != v1alpha1.InstallStatus_HEALTHY || out.GetCreationTimestamp().Unix() == 0 {
+		t.Fatal("Failed to unmarshal")
+	}
+}
+
+func BenchmarkConvertIstioOperator(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_, err := ConvertUnstructuredToIstioOperator(sampleIOP.Object)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func TestHash(t *testing.T) {
 	hashTests := []struct {

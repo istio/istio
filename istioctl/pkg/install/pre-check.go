@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	authorizationapi "k8s.io/api/authorization/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -37,9 +37,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
@@ -470,13 +469,7 @@ func getIOPFromFile(filename string) (*operator_v1alpha1.IstioOperator, error) {
 	// usual conversion not available.  Convert unstructured to string
 	// and ask operator code to unmarshal.
 
-	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-	by := util.ToYAML(un)
-	iop, err := operator_istio.UnmarshalIstioOperator(by, true)
-	if err != nil {
-		return nil, err
-	}
-	return iop, nil
+	return object.ConvertUnstructuredToIstioOperator(content)
 }
 
 func namespaceExists(ns string, restClientGetter genericclioptions.RESTClientGetter) (bool, error) {
