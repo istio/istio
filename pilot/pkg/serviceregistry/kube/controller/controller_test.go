@@ -1831,7 +1831,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			addNodes(t, controller, generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", IstioSubzoneLabel: "subzone1"}))
 			// Setup help functions to make the test more explicit
 			addPod := func(name, ip string) {
-				pod := generatePod(ip, name, "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+				pod := generatePod(ip, name, "nsA", name, "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 				addPods(t, controller, pod)
 				if err := waitForPod(controller, pod.Status.PodIP); err != nil {
 					t.Fatalf("wait for pod err: %v", err)
@@ -1878,18 +1878,34 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 				}
 				createEndpoints(controller, svcName, "nsA", []string{"tcp-port"}, ips, refs, t)
 			}
-			assertEndpointsEvent := func(expected ...string) {
+			assertEndpointsEvent := func(ips []string, pods []string) {
 				t.Helper()
 				ev := fx.Wait("eds")
 				if ev == nil {
 					t.Fatalf("Timeout eds")
 				}
-				ips := []string{}
+				gotIps := []string{}
 				for _, e := range ev.Endpoints {
-					ips = append(ips, e.Address)
+					gotIps = append(gotIps, e.Address)
 				}
-				if !reflect.DeepEqual(expected, ips) {
-					t.Fatalf("expected ips %v, got %v", expected, ips)
+				gotSA := []string{}
+				expectedSa := []string{}
+				for _, e := range pods {
+					if e == "" {
+						expectedSa = append(expectedSa, "")
+					} else {
+						expectedSa = append(expectedSa, "spiffe://cluster.local/ns/nsA/sa/"+e)
+					}
+				}
+
+				for _, e := range ev.Endpoints {
+					gotSA = append(gotSA, e.ServiceAccount)
+				}
+				if !reflect.DeepEqual(gotIps, ips) {
+					t.Fatalf("expected ips %v, got %v", ips, gotIps)
+				}
+				if !reflect.DeepEqual(gotSA, expectedSa) {
+					t.Fatalf("expected SAs %v, got %v", expectedSa, gotSA)
 				}
 			}
 			assertPendingResync := func(expected int) {
@@ -1908,26 +1924,26 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			addService("svc")
 			addPod("pod1", "172.0.1.1")
 			addEndpoint("svc", []string{"172.0.1.1"}, []string{"pod1"})
-			assertEndpointsEvent("172.0.1.1")
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
 			fx.Clear()
 
 			// Create the endpoint, then later add the pod. Should eventually get an update for the endpoint
 			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-			assertEndpointsEvent("172.0.1.1")
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
 			fx.Clear()
 			addPod("pod2", "172.0.1.2")
-			assertEndpointsEvent("172.0.1.1", "172.0.1.2")
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
 			fx.Clear()
 
 			// Create the endpoint without a pod reference. We should see it immediately
 			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", ""})
-			assertEndpointsEvent("172.0.1.1", "172.0.1.2", "172.0.1.3")
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", ""})
 			fx.Clear()
 
 			// Delete a pod before the endpoint
 			addEndpoint("svc", []string{"172.0.1.1"}, []string{"pod1"})
 			deletePod("pod2", "172.0.1.2")
-			assertEndpointsEvent("172.0.1.1")
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
 			fx.Clear()
 
 			// add another service
@@ -1935,13 +1951,13 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			// Add endpoints for the new service, and the old one. Both should be missing the last IP
 			addEndpoint("other", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
 			addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-			assertEndpointsEvent("172.0.1.1")
-			assertEndpointsEvent("172.0.1.1")
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
+			assertEndpointsEvent([]string{"172.0.1.1"}, []string{"pod1"})
 			fx.Clear()
 			// Add the pod, expect the endpoints update for both
 			addPod("pod2", "172.0.1.2")
-			assertEndpointsEvent("172.0.1.1", "172.0.1.2")
-			assertEndpointsEvent("172.0.1.1", "172.0.1.2")
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
+			assertEndpointsEvent([]string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
 
 			// Check for memory leaks
 			assertPendingResync(0)
