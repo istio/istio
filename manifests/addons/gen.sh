@@ -31,7 +31,7 @@ mkdir -p "${ADDONS}"
 kubectl create namespace kiali-operator --dry-run -oyaml
 helm3 template kiali-operator \
   --namespace kiali-operator \
-  --version 1.22.0-SNAPSHOT \
+  --version v1.22.0 \
   --include-crds \
   kiali-operator \
   --repo https://kiali.org/kiali-operator/charts \
