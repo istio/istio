@@ -425,7 +425,7 @@ func unmarshalAndValidateIOPS(iopsYAML string, force bool, l clog.Logger) (*v1al
 		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {
-		// l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
+		l.LogAndError("Run the command with the --force flag if you want to ignore the validation error and proceed.")
 		return iops, fmt.Errorf(errs.Error())
 	}
 	return iops, nil
