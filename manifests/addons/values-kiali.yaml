@@ -9,3 +9,4 @@ cr:
     deployment:
       accessible_namespaces:
       - '**'
+      image_version: v1.22

@@ -54,12 +54,12 @@ metadata:
   name: kiali-operator
   namespace: kiali-operator
   labels:
-    helm.sh/chart: kiali-operator-v1.22.0-SNAPSHOT
+    helm.sh/chart: kiali-operator-v1.22.0
     app: kiali-operator
     app.kubernetes.io/name: kiali-operator
     app.kubernetes.io/instance: kiali-operator
-    version: "v1.22.0-SNAPSHOT"
-    app.kubernetes.io/version: "v1.22.0-SNAPSHOT"
+    version: "v1.22.0"
+    app.kubernetes.io/version: "v1.22.0"
     app.kubernetes.io/managed-by: Helm
 ...
 ---
@@ -69,12 +69,12 @@ kind: ClusterRole
 metadata:
   name: kiali-operator
   labels:
-    helm.sh/chart: kiali-operator-v1.22.0-SNAPSHOT
+    helm.sh/chart: kiali-operator-v1.22.0
     app: kiali-operator
     app.kubernetes.io/name: kiali-operator
     app.kubernetes.io/instance: kiali-operator
-    version: "v1.22.0-SNAPSHOT"
-    app.kubernetes.io/version: "v1.22.0-SNAPSHOT"
+    version: "v1.22.0"
+    app.kubernetes.io/version: "v1.22.0"
     app.kubernetes.io/managed-by: Helm
 rules:
 - apiGroups: [""]
@@ -364,12 +364,12 @@ kind: ClusterRoleBinding
 metadata:
   name: kiali-operator
   labels:
-    helm.sh/chart: kiali-operator-v1.22.0-SNAPSHOT
+    helm.sh/chart: kiali-operator-v1.22.0
     app: kiali-operator
     app.kubernetes.io/name: kiali-operator
     app.kubernetes.io/instance: kiali-operator
-    version: "v1.22.0-SNAPSHOT"
-    app.kubernetes.io/version: "v1.22.0-SNAPSHOT"
+    version: "v1.22.0"
+    app.kubernetes.io/version: "v1.22.0"
     app.kubernetes.io/managed-by: Helm
 subjects:
 - kind: ServiceAccount
@@ -388,12 +388,12 @@ metadata:
   name: kiali-operator
   namespace: kiali-operator
   labels:
-    helm.sh/chart: kiali-operator-v1.22.0-SNAPSHOT
+    helm.sh/chart: kiali-operator-v1.22.0
     app: kiali-operator
     app.kubernetes.io/name: kiali-operator
     app.kubernetes.io/instance: kiali-operator
-    version: "v1.22.0-SNAPSHOT"
-    app.kubernetes.io/version: "v1.22.0-SNAPSHOT"
+    version: "v1.22.0"
+    app.kubernetes.io/version: "v1.22.0"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -408,12 +408,12 @@ spec:
       labels:
         # required for the operator SDK metric service selector
         name: kiali-operator
-        helm.sh/chart: kiali-operator-v1.22.0-SNAPSHOT
+        helm.sh/chart: kiali-operator-v1.22.0
         app: kiali-operator
         app.kubernetes.io/name: kiali-operator
         app.kubernetes.io/instance: kiali-operator
-        version: "v1.22.0-SNAPSHOT"
-        app.kubernetes.io/version: "v1.22.0-SNAPSHOT"
+        version: "v1.22.0"
+        app.kubernetes.io/version: "v1.22.0"
         app.kubernetes.io/managed-by: Helm
       annotations:
         prometheus.io/scrape: "true"
@@ -421,7 +421,7 @@ spec:
       serviceAccountName: kiali-operator
       containers:
       - name: operator
-        image: "quay.io/kiali/kiali-operator:v1.22.0-SNAPSHOT"
+        image: "quay.io/kiali/kiali-operator:v1.22.0"
         imagePullPolicy: Always
         args:
         - "--zap-level=info"
@@ -464,12 +464,12 @@ metadata:
   namespace: istio-system
   name: kiali
   labels:
-    helm.sh/chart: kiali-operator-v1.22.0-SNAPSHOT
+    helm.sh/chart: kiali-operator-v1.22.0
     app: kiali-operator
     app.kubernetes.io/name: kiali-operator
     app.kubernetes.io/instance: kiali-operator
-    version: "v1.22.0-SNAPSHOT"
-    app.kubernetes.io/version: "v1.22.0-SNAPSHOT"
+    version: "v1.22.0"
+    app.kubernetes.io/version: "v1.22.0"
     app.kubernetes.io/managed-by: Helm
 annotations:
   ansible.operator-sdk/verbosity: "1"
@@ -479,4 +479,5 @@ spec:
   deployment:
     accessible_namespaces:
     - '**'
+    image_version: v1.22
 ...
