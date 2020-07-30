@@ -35,11 +35,6 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
-      proxyMetadata:
-        DNS_AGENT: ""
-      tracing:
-        zipkin:
-          address: zipkin.istio-system:9411
     enablePrometheusMerge: true
     rootNamespace: istio-system
     trustDomain: cluster.local
@@ -132,7 +127,6 @@ data:
             }
           },
           "statusPort": 15020,
-          "tracer": "zipkin"
         },
         "proxy_init": {
           "image": "proxyv2",

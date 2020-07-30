@@ -21,6 +21,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	dnstable "github.com/envoyproxy/go-control-plane/envoy/data/dns/v3"
 	dnsfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/dns_filter/v3alpha"
+	stringmatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -29,6 +30,17 @@ import (
 	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/constants"
 )
+
+var knownSuffixes = []*stringmatcher.StringMatcher{
+	{
+		MatchPattern: &stringmatcher.StringMatcher_SafeRegex{
+			SafeRegex: &stringmatcher.RegexMatcher{
+				EngineType: &stringmatcher.RegexMatcher_GoogleRe2{GoogleRe2: &stringmatcher.RegexMatcher_GoogleRE2{}},
+				Regex:      ".*", // Match everything.. All DNS queries go through Envoy. Unknown ones will be forwarded
+			},
+		},
+	},
+}
 
 const resolverTimeout = 10 * time.Second
 
@@ -160,5 +172,6 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 
 	return &dnstable.DnsTable{
 		VirtualDomains: virtualDomains,
+		KnownSuffixes:  knownSuffixes,
 	}
 }
