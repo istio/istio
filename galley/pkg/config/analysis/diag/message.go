@@ -139,7 +139,7 @@ func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message
 	}
 }
 
-// ReplaceLine replaces the line number from the input String method of the Reference object to the line from the Message object
+// ReplaceLine replaces the line number from the input String method of Reference to the line number from Message
 func (m Message) ReplaceLine(l string) string {
 	colonSep := strings.Split(l, ":")
 	if len(colonSep) < 2 {
