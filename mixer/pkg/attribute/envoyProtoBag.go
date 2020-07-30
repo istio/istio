@@ -23,6 +23,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	alspb "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -67,8 +68,8 @@ func isGrpc(headers map[string]string) bool {
 	return false
 }
 
-func fillContextProtocol(reqMap map[string]interface{}) {
-	if isGrpc((reqMap["request.headers"].(attr.StringMap)).Entries()) {
+func fillContextProtocol(reqMap map[string]interface{}, headers map[string]string) {
+	if isGrpc(headers) {
 		reqMap["context.protocol"] = "grpc"
 	} else {
 		reqMap["context.protocol"] = "http"
@@ -78,26 +79,30 @@ func fillContextProtocol(reqMap map[string]interface{}) {
 // AuthzProtoBag returns an attribute bag for an Ext-Authz Check Request.
 // When you are done using the proto bag, call the Done method to recycle it.
 func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
-	fmt.Println("HEY")
-	fmt.Println(req)
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 
 	// build the message-level dictionary
 	reqMap := make(map[string]interface{})
+	attributes := req.GetAttributes()
+	request := attributes.GetRequest()
+	http := request.GetHttp()
+	destination := attributes.GetDestination()
+	source := attributes.GetSource()
 
 	reqMap["context.reporter.kind"] = "inbound"
-	fillAddress(reqMap, req.GetAttributes().GetDestination().GetAddress(), "destination")
-	fillAddress(reqMap, req.GetAttributes().GetSource().GetAddress(), "source")
-	reqMap["destination.principal"] = req.GetAttributes().GetDestination().GetPrincipal()
-	reqMap["source.principal"] = req.GetAttributes().GetSource().GetPrincipal()
-	reqMap["request.headers"] = attr.WrapStringMap(req.GetAttributes().GetRequest().GetHttp().GetHeaders())
-	reqMap["request.host"] = req.GetAttributes().GetRequest().GetHttp().GetHost()
-	reqMap["request.method"] = req.GetAttributes().GetRequest().GetHttp().GetMethod()
-	reqMap["request.path"] = req.GetAttributes().GetRequest().GetHttp().GetPath()
-	reqMap["request.scheme"] = req.GetAttributes().GetRequest().GetHttp().GetScheme()
-	reqMap["request.time"] = reformatTime(req.GetAttributes().GetRequest().GetTime(), 0)
-	reqMap["request.useragent"] = req.GetAttributes().GetRequest().GetHttp().GetHeaders()["user-agent"]
-	fillContextProtocol(reqMap)
+	fillAddress(reqMap, destination.GetAddress(), "destination")
+	fillAddress(reqMap, source.GetAddress(), "source")
+	reqMap["destination.principal"] = destination.GetPrincipal()
+	reqMap["source.principal"] = source.GetPrincipal()
+	reqMap["request.headers"] = attr.WrapStringMap(http.GetHeaders())
+	reqMap["request.host"] = http.GetHost()
+	reqMap["request.method"] = http.GetMethod()
+	reqMap["request.path"] = http.GetPath()
+	reqMap["request.scheme"] = http.GetScheme()
+	reqMap["request.time"] = reformatTime(request.GetTime(), 0)
+	reqMap["request.useragent"] = http.GetHeaders()["user-agent"]
+	fillContextProtocol(reqMap, http.GetHeaders())
+
 	pb.reqMap = reqMap
 
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
@@ -109,53 +114,44 @@ func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 // When you are done using the proto bag, call the Done method to recycle it.
 // num is the index of the entry from the message's batch to create a bag from
 func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyProtoBag {
-	fmt.Println("HEY")
-	fmt.Println(msg)
 	// build the message-level dictionary
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
+	var commonproperties alspb.AccessLogCommon
 	if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
-		reqMap["context.reporter.kind"] = "inbound"
-		fillAddress(reqMap, httpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(),
-			"destination")
-		fillAddress(reqMap, httpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
-		reqMap["destination.principal"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().
-			GetLocalCertificateProperties().GetSubjectAltName()[0].GetUri()
-		reqMap["source.principal"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().
-			GetPeerCertificateProperties().GetSubjectAltName()[0].GetUri()
-		reqMap["request.headers"] = attr.WrapStringMap(httpLogs.GetLogEntry()[num].GetRequest().GetRequestHeaders())
-		reqMap["request.host"] = httpLogs.GetLogEntry()[num].GetRequest().GetAuthority()
-		reqMap["request.method"] = httpLogs.GetLogEntry()[num].GetRequest().GetRequestMethod().String()
-		reqMap["request.path"] = httpLogs.GetLogEntry()[num].GetRequest().GetPath()
-		reqMap["request.scheme"] = httpLogs.GetLogEntry()[num].GetRequest().GetScheme()
-		reqMap["request.time"] = reformatTime(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(), 0)
-		reqMap["response.time"] = reformatTime(httpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(),
-			httpLogs.GetLogEntry()[num].GetCommonProperties().GetTimeToFirstUpstreamRxByte().Nanos)
-		reqMap["request.useragent"] = httpLogs.GetLogEntry()[num].GetRequest().GetUserAgent()
-		reqMap["response.headers"] = attr.WrapStringMap(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeaders())
-		reqMap["response.code"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseCode().GetValue())
-		reqMap["response.size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes())
-		reqMap["response.total_size"] = int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseBodyBytes()) +
-			int64(httpLogs.GetLogEntry()[num].GetResponse().GetResponseHeadersBytes())
-		pb.upstreamCluster = httpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
-		reqMap["connection.requested_server_name"] = httpLogs.GetLogEntry()[num].GetCommonProperties().GetTlsProperties().GetTlsSniHostname()
-		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(httpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
-		fillContextProtocol(reqMap)
+		commonproperties = *httpLogs.GetLogEntry()[num].GetCommonProperties()
+		request := httpLogs.GetLogEntry()[num].GetRequest()
+		response := httpLogs.GetLogEntry()[num].GetResponse()
+		reqMap["request.time"] = reformatTime(commonproperties.GetStartTime(), 0)
+		reqMap["response.time"] = reformatTime(commonproperties.GetStartTime(), commonproperties.GetTimeToFirstUpstreamRxByte().Nanos)
+		reqMap["request.headers"] = attr.WrapStringMap(request.GetRequestHeaders())
+		reqMap["request.host"] = request.GetAuthority()
+		reqMap["request.method"] = request.GetRequestMethod().String()
+		reqMap["request.path"] = request.GetPath()
+		reqMap["request.scheme"] = request.GetScheme()
+		reqMap["request.useragent"] = request.GetUserAgent()
+		reqMap["response.headers"] = attr.WrapStringMap(response.GetResponseHeaders())
+		reqMap["response.code"] = int64(response.GetResponseCode().GetValue())
+		reqMap["response.size"] = int64(response.GetResponseBodyBytes())
+		reqMap["response.total_size"] = int64(response.GetResponseBodyBytes()) + int64(response.GetResponseHeadersBytes())
+		fillContextProtocol(reqMap, request.GetRequestHeaders())
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
-		reqMap["context.reporter.kind"] = "inbound"
-		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamLocalAddress(), "destination")
-		fillAddress(reqMap, tcpLogs.GetLogEntry()[num].GetCommonProperties().GetDownstreamRemoteAddress(), "source")
-		reqMap["request.time"] = reformatTime(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(), 0)
-		reqMap["response.time"] = reformatTime(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetStartTime(),
-			tcpLogs.GetLogEntry()[num].GetCommonProperties().GetTimeToFirstUpstreamRxByte().Nanos)
-		reqMap["connection.requested_server_name"] = tcpLogs.GetLogEntry()[num].GetCommonProperties().
-			GetTlsProperties().GetTlsSniHostname()
-		reqMap["connection.received.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetReceivedBytes()
-		reqMap["connection.sent.bytes"] = tcpLogs.GetLogEntry()[num].GetConnectionProperties().GetSentBytes()
-		pb.upstreamCluster = tcpLogs.GetLogEntry()[num].GetCommonProperties().GetUpstreamCluster()
-		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(tcpLogs.GetLogEntry()[num].GetCommonProperties().GetResponseFlags())
+		commonproperties = *tcpLogs.GetLogEntry()[num].GetCommonProperties()
+		connection := tcpLogs.GetLogEntry()[num].GetConnectionProperties()
+		reqMap["context.time"] = reformatTime(commonproperties.GetStartTime(), 0)
+		reqMap["connection.received.bytes"] = connection.GetReceivedBytes()
+		reqMap["connection.sent.bytes"] = connection.GetSentBytes()
 		reqMap["context.protocol"] = "tcp"
 	}
+	reqMap["context.reporter.kind"] = "inbound"
+	fillAddress(reqMap, commonproperties.GetDownstreamLocalAddress(), "destination")
+	fillAddress(reqMap, commonproperties.GetDownstreamRemoteAddress(), "source")
+	tlsproperties := commonproperties.GetTlsProperties()
+	reqMap["destination.principal"] = tlsproperties.GetLocalCertificateProperties().GetSubjectAltName()[0].GetUri()
+	reqMap["source.principal"] = tlsproperties.GetPeerCertificateProperties().GetSubjectAltName()[0].GetUri()
+	reqMap["connection.requested_server_name"] = commonproperties.GetTlsProperties().GetTlsSniHostname()
+	reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(commonproperties.GetResponseFlags())
+	pb.upstreamCluster = commonproperties.GetUpstreamCluster()
 
 	pb.reqMap = reqMap
 	scope.Debugf("Returning bag with attributes:\n%v", pb)

@@ -14,7 +14,6 @@
 package attribute
 
 import (
-	"github.com/golang/protobuf/ptypes/duration"
 	"net"
 	"testing"
 	"time"
@@ -23,16 +22,16 @@ import (
 	v2 "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v2"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v2"
 	authz "github.com/envoyproxy/go-control-plane/envoy/service/auth/v2"
-
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	attr "istio.io/pkg/attribute"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
-	theattr "istio.io/istio/mixer/pkg/attribute"
+	attr "istio.io/pkg/attribute"
 )
 
 func TestBagEnvoyAuthzHttp(t *testing.T) {
 	attrs := envoyProtoAttrsForTestingAuthzHTTP()
-	ab := theattr.AuthzProtoBag(attrs)
+	ab := AuthzProtoBag(attrs)
 
 	results := []struct {
 		name  string
@@ -83,7 +82,7 @@ func TestBagEnvoyAuthzHttp(t *testing.T) {
 
 func TestBagEnvoyAuthzGrpc(t *testing.T) {
 	attrs := envoyProtoAttrsForTestingAuthzGRPC()
-	ab := theattr.AuthzProtoBag(attrs)
+	ab := AuthzProtoBag(attrs)
 
 	results := []struct {
 		name  string
@@ -95,7 +94,8 @@ func TestBagEnvoyAuthzGrpc(t *testing.T) {
 		{"destination.port", int64(8079)},
 		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},
 		{"source.port", int64(46346)},
-		{"request.headers", attr.WrapStringMap(map[string]string{":authority": "fortio:8079", ":path": "/fgrpc.PingServer/Ping", ":method": "POST", "content-type": "application/grpc"})},
+		{"request.headers", attr.WrapStringMap(map[string]string{":authority": "fortio:8079",
+			":path": "/fgrpc.PingServer/Ping", ":method": "POST", "content-type": "application/grpc"})},
 		{"request.host", "fortio:8079"},
 		{"request.method", "POST"},
 		{"request.path", "/fgrpc.PingServer/Ping"},
@@ -130,8 +130,101 @@ func TestBagEnvoyAuthzGrpc(t *testing.T) {
 
 }
 
+func TestBagEnvoyAlsGrpc(t *testing.T) {
+	msg := envoyProtoAttrsForTestingALSGRPC()
+	ab := AccessLogProtoBag(msg, 0)
+	results := []struct {
+		name  string
+		value interface{}
+	}{
+		{"context.protocol", "grpc"},
+		{"context.reporter.kind", "inbound"},
+		{"destination.ip", []byte(net.ParseIP("10.12.0.254").To16())},
+		{"destination.port", int64(8079)},
+		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},
+		{"source.port", int64(46346)},
+		{"request.headers", attr.WrapStringMap(map[string]string{":authority": "fortio:8079", "content-type": "application/grpc"})},
+		{"request.host", "fortio:8079"},
+		{"request.method", "POST"},
+		{"request.time", time.Unix(1595981863, 977598000)},
+		{"response.size", int64(17)},
+		{"response.total_size", int64(17 + 118)},
+		{"response.code", int64(200)},
+	}
+
+	for _, r := range results {
+		t.Run(r.name, func(t *testing.T) {
+			v, found := ab.Get(r.name)
+			if !found {
+				t.Error("Got false, expecting true")
+			}
+
+			if !attr.Equal(v, r.value) {
+				t.Errorf("Got %v, expected %v for %s", v, r.value, r.name)
+			}
+		})
+	}
+
+	if _, found := ab.Get("XYZ"); found {
+		t.Error("XYZ was found")
+	}
+
+	child := attr.GetMutableBag(ab)
+	r, found := ab.Get("request.method")
+	if !found || r.(string) != "POST" {
+		t.Error("request.method has wrong value")
+	}
+
+	_ = child.String()
+	child.Done()
+
+}
+
+func TestBagEnvoyAlsTcp(t *testing.T) {
+	msg := envoyProtoAttrsForTestingALSTCP()
+	ab := AccessLogProtoBag(msg, 0)
+	results := []struct {
+		name  string
+		value interface{}
+	}{
+		{"context.protocol", "tcp"},
+		{"context.reporter.kind", "inbound"},
+		{"destination.ip", []byte(net.ParseIP("10.12.0.254").To16())},
+		{"destination.port", int64(8079)},
+		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},
+		{"source.port", int64(46346)},
+		//{"connection.received.bytes", uint64(334)},
+		//{"connection.sent.bytes", uint64(439)},
+		{"destination.principal", "spiffe://cluster.local/ns/default/sa/default"},
+		{"source.principal", "spiffe://cluster.local/ns/default/sa/bookinfo-productpage"},
+	}
+
+	for _, r := range results {
+		t.Run(r.name, func(t *testing.T) {
+			v, found := ab.Get(r.name)
+			if !found {
+				t.Error("Got false, expecting true")
+			}
+
+			if !attr.Equal(v, r.value) {
+				t.Errorf("Got %v, expected %v for %s", v, r.value, r.name)
+			}
+		})
+	}
+
+	if _, found := ab.Get("XYZ"); found {
+		t.Error("XYZ was found")
+	}
+
+	child := attr.GetMutableBag(ab)
+
+	_ = child.String()
+	child.Done()
+
+}
+
 func envoyMutableBagFromProtoForTesing() *attr.MutableBag {
-	b := theattr.AuthzProtoBag(envoyProtoAttrsForTestingAuthzHTTP())
+	b := AuthzProtoBag(envoyProtoAttrsForTestingAuthzHTTP())
 	return attr.GetMutableBag(b)
 }
 
@@ -219,9 +312,9 @@ func envoyProtoAttrsForTestingAuthzGRPC() *authz.CheckRequest {
 					Nanos:   977598000,
 				},
 				Http: &authz.AttributeContext_HttpRequest{
-					Id:     "4294822762638712056",
-					Method: "POST",
-					Headers: map[string]string{":authority": "fortio:8079", ":path": "/fgrpc.PingServer/Ping", ":method": "POST", "content-type": "application/grpc"},
+					Id:       "4294822762638712056",
+					Method:   "POST",
+					Headers:  map[string]string{":authority": "fortio:8079", ":path": "/fgrpc.PingServer/Ping", ":method": "POST", "content-type": "application/grpc"},
 					Path:     "/fgrpc.PingServer/Ping",
 					Host:     "fortio:8079",
 					Protocol: "HTTP/2",
@@ -230,11 +323,10 @@ func envoyProtoAttrsForTestingAuthzGRPC() *authz.CheckRequest {
 		},
 	}
 
-
-
 }
 
 func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
+
 	entry := &v2.HTTPAccessLogEntry{
 		CommonProperties: &v2.AccessLogCommon{
 			DownstreamRemoteAddress: &core.Address{
@@ -259,29 +351,50 @@ func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
 			},
 			ResponseFlags: &v2.ResponseFlags{},
 			StartTime: &timestamp.Timestamp{
-					Seconds: 1595981863,
-					Nanos: 977598000,
+				Seconds: 1595981863,
+				Nanos:   977598000,
 			},
 			TimeToFirstUpstreamRxByte: &duration.Duration{
 				Nanos: 28810555,
 			},
-			TlsProperties: &v2.TLSProperties{},
+			TlsProperties: &v2.TLSProperties{
+				TlsSniHostname: "outbound_.8079_._.fortio.default.svc.cluster.local",
+				LocalCertificateProperties: &v2.TLSProperties_CertificateProperties{
+					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
+						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
+								Uri: "spiffe://cluster.local/ns/default/sa/default",
+							},
+						},
+					},
+				},
+				PeerCertificateProperties: &v2.TLSProperties_CertificateProperties{
+					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
+						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
+								Uri: "spiffe://cluster.local/ns/default/sa/default",
+							},
+						},
+					},
+				},
+			},
 			UpstreamCluster: "inbound|8079|grpc-ping|fortio.default.svc.cluster.local",
-
 		},
 		Request: &v2.HTTPRequestProperties{
-			RequestMethod: &core.RequestMethod{
-
-			},
-			Scheme: "",
-			Authority: "",
-			Port: "",
-			UserAgent: "",
-			RequestHeaderBytes: "",
-			RequestBodyBytes: "",
-			RequestHeaders: map[string]string{},
+			RequestMethod:       core.RequestMethod(3),
+			Scheme:              "http",
+			Authority:           "fortio:8079",
+			UserAgent:           "grpc-go/1.15.0",
+			RequestHeadersBytes: uint64(540),
+			RequestBodyBytes:    uint64(5),
+			RequestHeaders:      map[string]string{":authority": "fortio:8079", "content-type": "application/grpc"},
 		},
-		Response: &v2.HTTPResponseProperties{},
+		Response: &v2.HTTPResponseProperties{
+			ResponseCode:         &wrappers.UInt32Value{Value: uint32(200)},
+			ResponseHeadersBytes: uint64(118),
+			ResponseBodyBytes:    uint64(17),
+			ResponseHeaders:      map[string]string{},
+		},
 	}
 
 	return &accesslog.StreamAccessLogsMessage{
@@ -292,14 +405,66 @@ func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
 		},
 	}
 
-
-
 }
 
 func envoyProtoAttrsForTestingALSTCP() *accesslog.StreamAccessLogsMessage {
 	entry := &v2.TCPAccessLogEntry{
-		CommonProperties: &v2.AccessLogCommon{},
-		ConnectionProperties: &v2.ConnectionProperties{},
+		CommonProperties: &v2.AccessLogCommon{
+			DownstreamRemoteAddress: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "10.12.1.121",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 46346,
+						},
+					},
+				},
+			},
+			DownstreamLocalAddress: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: "10.12.0.254",
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 8079,
+						},
+					},
+				},
+			},
+			ResponseFlags: &v2.ResponseFlags{},
+			StartTime: &timestamp.Timestamp{
+				Seconds: 1595981863,
+				Nanos:   977598000,
+			},
+			TimeToFirstUpstreamRxByte: &duration.Duration{
+				Nanos: 28810555,
+			},
+			TlsProperties: &v2.TLSProperties{
+				TlsSniHostname: "outbound_.8079_._.fortio.default.svc.cluster.local",
+				LocalCertificateProperties: &v2.TLSProperties_CertificateProperties{
+					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
+						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
+								Uri: "spiffe://cluster.local/ns/default/sa/default",
+							},
+						},
+					},
+				},
+				PeerCertificateProperties: &v2.TLSProperties_CertificateProperties{
+					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
+						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
+								Uri: "spiffe://cluster.local/ns/default/sa/bookinfo-productpage",
+							},
+						},
+					},
+				},
+			},
+			UpstreamCluster: "inbound|8079|grpc-ping|fortio.default.svc.cluster.local",
+		},
+		ConnectionProperties: &v2.ConnectionProperties{
+			ReceivedBytes: uint64(334),
+			SentBytes:     uint64(439),
+		},
 	}
 	return &accesslog.StreamAccessLogsMessage{
 		LogEntries: &accesslog.StreamAccessLogsMessage_TcpLogs{
@@ -309,7 +474,6 @@ func envoyProtoAttrsForTestingALSTCP() *accesslog.StreamAccessLogsMessage {
 		},
 	}
 }
-
 
 func EnvoyTestProtoBagContains(t *testing.T) {
 	mb := envoyMutableBagFromProtoForTesing()
@@ -323,4 +487,3 @@ func EnvoyTestProtoBagContains(t *testing.T) {
 	}
 
 }
-

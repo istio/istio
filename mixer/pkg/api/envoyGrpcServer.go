@@ -220,7 +220,6 @@ func (s *GrpcServerEnvoy) StreamAccessLogs(srv accesslog.AccessLogService_Stream
 				errors = multierror.Append(errors, err)
 				continue
 			}
-
 			if reportBag != nil {
 				reportBag.Done()
 			}
