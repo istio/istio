@@ -71,6 +71,7 @@ var (
 	role               = &model.Proxy{}
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
+	trustDomain        string
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -412,7 +413,7 @@ var (
 // explicitly set the trustdomain so the pilot SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(podNamespace string, domain string) {
-	pilotTrustDomain := trustDomainEnv
+	pilotTrustDomain := trustDomain
 	if len(pilotTrustDomain) == 0 {
 		if registryID == serviceregistry.Kubernetes &&
 			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
@@ -446,6 +447,8 @@ func init() {
 		"Proxy unique ID. If not provided uses ${POD_NAME}.${POD_NAMESPACE} from environment variables")
 	proxyCmd.PersistentFlags().StringVar(&role.DNSDomain, "domain", "",
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
+	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
+		"The domain to use for identities")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
