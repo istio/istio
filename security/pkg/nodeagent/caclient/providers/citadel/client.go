@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/credentials/oauth"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 
@@ -179,7 +180,7 @@ func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
 		opts = grpc.WithInsecure()
 	}
 	optList := []grpc.DialOption{opts}
-	//gcred, err := oauth.NewApplicationDefault(context.Background())
+	gcred, err := oauth.NewApplicationDefault(context.Background())
 	//if err == nil {
 	//	optList = append(optList, grpc.WithPerRPCCredentials(gcred))
 	//}

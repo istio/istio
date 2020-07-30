@@ -1,3 +1,25 @@
+# Generating Certificates for Istiod
+
+Best practice is to have the root CA in a secure, restricted storage, and use it to generate 
+shorter-lived intermediate CAs for each Istio cluster that is configured to issue workload certificates,
+for example the central cluster(s).
+
+This is an example - if you have an existing CA, use this to create the CSR, and sign it using your
+CA process.
+
+## Create or get a root CA
+- `make root-ca`: will generate a new root CA key and certificate - in case you don't have one already. 
+
+For migrating Istio to intermediary certificates:
+
+- `make fetch-root-ca`: will fetch the existing root CA from the cluster. Files stored in CONTEXT/k8s-root-{key,cert}.pem
+- `cp $CONTEXT/k8s-root.key.pem root-key.pem`
+- `cp $CONTEXT/k8s-root.cert.pem root-cert.pem`
+
+## Generate self-signed certs
+
+- `make $NAME-cacerts-selfSigned`:  
+
 # Generating Certificates for Bootstrapping Multicluster / Mesh Expansion Chain of Trust
 
 The directory contains a `Makefile` for generating new root, intermediate certificates and workload certificates.

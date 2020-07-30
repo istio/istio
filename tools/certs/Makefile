@@ -3,7 +3,7 @@
 .PRECIOUS: %/selfSigned-ca-key.pem %/selfSigned-ca-cert.pem %/selfSigned-ca-cert-chain.pem
 .PRECIOUS: %/selfSigned-workload-cert-chain.pem %/selfSigned-workload-cert.pem
 .PRECIOUS: %/workload-cert.pem %/key.pem %/workload-cert-chain.pem
-.SECONDARY: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
+#.SECONDARY: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
 
 .DEFAULT_GOAL := help
 
@@ -77,6 +77,9 @@ k8s-root-key.pem:
 	@cat $(cluster)/k8s-root-key.pem > $@
 #------------------------------------------------------------------------
 ##root-ca:	generate root CA files (key and certifcate) in current directory.
+## The files will need to be stored in a secured location, not uploaded to any cluster.
+## This is an example: your org may already have a root CA and processes around generating
+## intemediary certs.
 .PHONY: root-ca
 
 root-ca: root-key.pem root-cert.pem
@@ -115,7 +118,8 @@ root-key.pem:
 
 
 #------------------------------------------------------------------------
-##<name>-cacerts-k8s: generate intermediate certificates for a cluster or VM with <name> signed with istio root cert from the specified k8s cluster and store them under <name> directory
+##<name>-cacerts-k8s: generate intermediate certificates for a cluster or VM with <name> signed with istio root cert
+## from the specified k8s cluster and store them under <name> directory
 .PHONY: %-cacerts-k8s
 
 %-cacerts-k8s: %/cert-chain.pem
@@ -145,22 +149,43 @@ root-key.pem:
 	@mkdir -p $(dir $@)
 	@openssl genrsa -out $@ 4096
 
+
+#------------------------------------------------------------------------
+
+.PHONY: %-istiod-certs
+
+# <name>-istiod-certs will create istiod certs for a cluster NAME, using the root CA and key.
+%-istiod-certs: %/istiod-ca-cert-chain.pem
+
+
 #------------------------------------------------------------------------
 ##<name>-cacerts-selfSigned: generate self signed intermediate certificates for <name> and store them under <name> directory.
 .PHONY: %-cacerts-selfSigned
+.PHONY: %/istio-root
 
-%-cacerts-selfSigned: %/selfSigned-ca-cert-chain.pem root-cert.pem
+# Creates the intermediary root CA used for creating workload identities.
+%/istio-root: L=$(dir $@)
+%/istio-root: %/selfSigned-ca-cert-chain.pem
+	kubectl create secret generic cacerts -n istio-system \
+      --from-file=${L}/ca-cert.pem \
+      --from-file=${L}/ca-key.pem \
+      --from-file=${L}/root-cert.pem \
+      --from-file=${L}/cert-chain.pem
+
+# Combined step, creates a root cert and intermediary certs.
+# If you have an existing root-cert/root-key, use %-istio-root
+%-cacerts-selfSigned: %/selfSigned-ca-cert-chain.pem root-key.pem root-cert.pem
 	@make clean
 	@echo "done"
 
-%/selfSigned-ca-cert-chain.pem: %/selfSigned-ca-cert.pem root-cert.pem
+%/selfSigned-ca-cert-chain.pem: %/selfSigned-ca-cert.pem
 	@echo "generating $@"
 	@cat $^ > $@
 	@echo "Intermediate inputs stored in $(dir $<)"
 	@cp root-cert.pem $(dir $<)
 
 
-%/selfSigned-ca-cert.pem: %/selfSigned-cluster-ca.csr root-key.pem root-cert.pem
+%/selfSigned-ca-cert.pem: %/selfSigned-cluster-ca.csr
 	@echo "generating $@"
 	@openssl x509 -req -days $(INTERMEDIATE_DAYS) \
 		-CA root-cert.pem -CAkey root-key.pem -CAcreateserial\
@@ -278,15 +303,20 @@ root-key.pem:
 		-in $< -out $@
 
 #------------------------------------------------------------------------
-## <namespace>/token-cert will get a certificate for namespace using the token method. This only requires namespace permissions,
-# will not access istio-system or the certifcate.
-CA_ADDR ?= istiod-xds-icq63pqnqq-uc.a.run.app:443
+## <namespace>/token-cert will get a certificate for namespace using the token method. This only requires namespace
+# permissions, will not access istio-system or the certifcate.
+
+# CA_ADDR can be set to a different location - reflecting the gateway address
+
+CA_ADDR ?= istiod.istio-system.svc:15012
 
 # Get a token
 %/token:
+	# Using local .kube/config credentials to get a JWT token.
 	echo '{"kind":"TokenRequest","apiVersion":"authentication.k8s.io/v1","spec":{"audiences":["istio-ca"], "expirationSeconds":2592000}}' | \
     		kubectl create --raw /api/v1/namespaces/$(dir $@)serviceaccounts/default/token -f - | \
     		jq -j '.status.token' > $(dir $@)istio-token
+    # Get the Istid root CA (only for self-signed)
 	kubectl -n istio-system get secret istio-ca-secret -ojsonpath='{.data.ca-cert\.pem}' | \
       	 base64 -d > root-cert.pem
 
