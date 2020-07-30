@@ -21,16 +21,12 @@ import (
 	"testing"
 	"time"
 
-	xdsapiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pkg/security"
 
-	tlsv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	sdsv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
@@ -203,35 +199,6 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	return server
 }
 
-func runSDSClientBasicV2(stream sdsv2.SecretDiscoveryService_StreamSecretsClient, proxyID string,
-	notifyChan chan notifyMsg) {
-	req := &xdsapiv2.DiscoveryRequest{
-		TypeUrl:       SecretTypeV2,
-		ResourceNames: []string{testResourceName},
-		Node: &corev2.Node{
-			Id: proxyID,
-		},
-		// Set a non-empty version info so that StreamSecrets() starts a cache check, and cache miss
-		// metric is updated accordingly.
-		VersionInfo: "initial_version",
-	}
-	if err := stream.Send(req); err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf(
-			"stream: stream.Send failed: %v", err)}
-	}
-	resp, err := stream.Recv()
-	if err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf(
-			"stream: stream.Recv failed: %v", err)}
-	}
-	if err = validateSDSSResponseV2(resp); err != nil {
-		notifyChan <- notifyMsg{Err: err, Message: fmt.Sprintf(
-			"SDS response validation failed: %v", err)}
-	}
-
-	notifyChan <- notifyMsg{Err: nil, Message: "close stream"}
-}
-
 func runSDSClientBasic(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
 	req := &discovery.DiscoveryRequest{
@@ -277,41 +244,6 @@ func createSDSClient(t *testing.T, socket string) (*grpc.ClientConn, sds.SecretD
 	return conn, stream
 }
 
-// Create a legacy v2 XDS server
-func createSDSClientV2(t *testing.T, socket string) (*grpc.ClientConn, sdsv2.SecretDiscoveryService_StreamSecretsClient) {
-	// Try to call the server
-	conn, err := setupConnection(socket)
-	if err != nil {
-		t.Errorf("failed to setup connection to socket %q", socket)
-	}
-	sdsClient := sdsv2.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(credentialTokenHeaderKey, "FakeSubjectToken")
-	ctx := metadata.NewOutgoingContext(context.Background(), header)
-	stream, err := sdsClient.StreamSecrets(ctx)
-	if err != nil {
-		t.Errorf("StreamSecrets failed: %v", err)
-	}
-	return conn, stream
-}
-
-// This is the same as TestNodeAgentBasic, but connects as a legacy v2 SDS client
-func TestNodeAgentBasicV2(t *testing.T) {
-	// reset connectionNumber since since its value is kept in memory for all unit test cases
-	// lifetime, reset since it may be updated in other test case.
-	atomic.StoreInt64(&connectionNumber, 0)
-
-	socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
-	server := createRealSDSServer(t, socket)
-	defer server.Stop()
-
-	connTwo, streamTwo := createSDSClientV2(t, socket)
-	proxyIDTwo := "sidecar~127.0.0.1~SecretsPushStreamTwo~local"
-	notifyChanTwo := make(chan notifyMsg)
-	go runSDSClientBasicV2(streamTwo, proxyIDTwo, notifyChanTwo)
-	waitForNotificationToProceed(t, notifyChanTwo, "close stream")
-	connTwo.Close()
-}
-
 func TestNodeAgentBasic(t *testing.T) {
 	// reset connectionNumber since since its value is kept in memory for all unit test cases
 	// lifetime, reset since it may be updated in other test case.
@@ -329,35 +261,6 @@ func TestNodeAgentBasic(t *testing.T) {
 	connTwo.Close()
 }
 
-func validateSDSSResponseV2(resp *xdsapiv2.DiscoveryResponse) error {
-	if resp == nil {
-		return fmt.Errorf("response is nil")
-	}
-	var secret tlsv2.Secret
-	if err := ptypes.UnmarshalAny(resp.Resources[0], &secret); err != nil {
-		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
-	}
-
-	tlsCert, ok := secret.Type.(*tlsv2.Secret_TlsCertificate)
-	if !ok {
-		return fmt.Errorf("error validating SDS response: response secret type conversion failed")
-	}
-	certChain := string(tlsCert.TlsCertificate.CertificateChain.GetInlineBytes())
-	privateKey := string(tlsCert.TlsCertificate.GetPrivateKey().GetInlineBytes())
-
-	caCerts := strings.Replace(validCerts[0]+validCerts[1]+validCerts[2], "\n", "", -1)
-	sdsCerts := strings.Replace(certChain, "\n", "", -1)
-
-	if caCerts != sdsCerts {
-		return fmt.Errorf("error validating SDS response: certs do not match:\n%s\nVS:\n%s", caCerts, sdsCerts)
-	}
-
-	if len(privateKey) == 0 {
-		return fmt.Errorf("error validating SDS response: private key is empty")
-	}
-
-	return nil
-}
 func validateSDSSResponse(resp *discovery.DiscoveryResponse) error {
 	var secret tls.Secret
 	if resp == nil {

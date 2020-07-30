@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -503,7 +504,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version, con.node.RequestedTypes.EDS)
+	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
 	err := con.send(response)
 	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -550,9 +551,9 @@ func getOutlierDetectionAndLoadBalancerSettings(cfg *model.Config, portNumber in
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment, version, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
-		TypeUrl: typeURL,
+		TypeUrl: v3.EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
 		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
@@ -561,9 +562,7 @@ func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment
 		Nonce:       nonce(noncePrefix),
 	}
 	for _, loadAssignment := range loadAssignments {
-		resource := util.MessageToAny(loadAssignment)
-		resource.TypeUrl = typeURL
-		out.Resources = append(out.Resources, resource)
+		out.Resources = append(out.Resources, util.MessageToAny(loadAssignment))
 	}
 
 	return out

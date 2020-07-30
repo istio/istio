@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package galley
+package pilot
 
 import (
 	"path"
@@ -68,7 +68,7 @@ func TestValidation(t *testing.T) {
 	framework.NewTest(t).
 		// Limit to Kube environment as we're testing integration of webhook with K8s.
 
-		Run(func(ctx framework.TestContext) {
+		RunParallel(func(ctx framework.TestContext) {
 
 			dataset := loadTestData(ctx)
 
@@ -86,7 +86,7 @@ func TestValidation(t *testing.T) {
 			}
 
 			for _, d := range dataset {
-				ctx.NewSubTest(string(d)).Run(func(ctx framework.TestContext) {
+				ctx.NewSubTest(string(d)).RunParallel(func(ctx framework.TestContext) {
 					if d.isSkipped() {
 						ctx.SkipNow()
 						return
@@ -102,7 +102,7 @@ func TestValidation(t *testing.T) {
 					})
 
 					applyFiles := ctx.WriteYAMLOrFail(ctx, "apply", ym)
-					err = cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
+					err = ctx.Clusters().Default().ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
 
 					switch {
 					case err != nil && d.isValid():
@@ -119,8 +119,8 @@ func TestValidation(t *testing.T) {
 						}
 					}
 
-					wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
-					defer func() { _ = cluster.DeleteYAMLFiles(ns.Name(), applyFiles...) }()
+					wetRunErr := ctx.Clusters().Default().ApplyYAMLFiles(ns.Name(), applyFiles...)
+					defer func() { _ = ctx.Clusters().Default().DeleteYAMLFiles(ns.Name(), applyFiles...) }()
 
 					if err != nil && wetRunErr == nil {
 						ctx.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)

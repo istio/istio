@@ -18,22 +18,16 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
-var (
-	cluster resource.Cluster
-)
+// Go will fail if there are no tests. TODO: remove this once galley job is removed
+func TestPlaceholder(t *testing.T) {
+
+}
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(nil, nil)).
-		Setup(func(ctx resource.Context) error {
-			cluster = ctx.Environment().Clusters()[0]
-			return nil
-		}).
 		RequireSingleCluster().
 		Run()
 }

@@ -17,6 +17,7 @@ package diag
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/config/resource"
 )
@@ -79,7 +80,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	if m.DocRef != "" {
 		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
 	}
-	result["documentation_url"] = fmt.Sprintf("%s/%s%s", DocPrefix, m.Type.Code(), docQueryString)
+	result["documentation_url"] = fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
 
 	return result
 }

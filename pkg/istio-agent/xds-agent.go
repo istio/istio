@@ -85,7 +85,6 @@ func (sa *Agent) initXDS() {
 	g["api/"+envoyv2.EndpointType] = epGen
 
 	g[xds.TypeURLConnections] = p
-	g[envoyv2.ClusterType] = p
 	g[v3.ClusterType] = p
 
 	// GrpcServer server over UDS, shared by SDS and XDS

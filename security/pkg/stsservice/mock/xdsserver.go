@@ -25,19 +25,17 @@ import (
 	"testing"
 	"time"
 
-	corev2 "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
 	"istio.io/pkg/log"
 
-	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/v2"
-	xds "github.com/envoyproxy/go-control-plane/pkg/server/v2"
+	xds "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -95,7 +93,7 @@ func (l *DynamicListener) makeListener() *listener.Listener {
 
 type hasher struct{}
 
-func (hasher) ID(*corev2.Node) string {
+func (hasher) ID(*core.Node) string {
 	return ""
 }
 
@@ -236,7 +234,7 @@ func (c *XDSCallbacks) OnStreamOpen(ctx context.Context, id int64, url string) e
 func (c *XDSCallbacks) OnStreamClosed(id int64) {
 	xdsServerLog.Infof("xDS stream (id: %d) is closed", id)
 }
-func (c *XDSCallbacks) OnStreamRequest(id int64, _ *api.DiscoveryRequest) error {
+func (c *XDSCallbacks) OnStreamRequest(id int64, _ *discovery.DiscoveryRequest) error {
 	xdsServerLog.Infof("receive xDS request (id: %d)", id)
 
 	c.mutex.Lock()
@@ -252,13 +250,13 @@ func (c *XDSCallbacks) OnStreamRequest(id int64, _ *api.DiscoveryRequest) error 
 	}
 	return nil
 }
-func (c *XDSCallbacks) OnStreamResponse(id int64, _ *api.DiscoveryRequest, _ *api.DiscoveryResponse) {
+func (c *XDSCallbacks) OnStreamResponse(id int64, _ *discovery.DiscoveryRequest, _ *discovery.DiscoveryResponse) {
 	xdsServerLog.Infof("on stream %d response", id)
 }
-func (c *XDSCallbacks) OnFetchRequest(context.Context, *api.DiscoveryRequest) error {
+func (c *XDSCallbacks) OnFetchRequest(context.Context, *discovery.DiscoveryRequest) error {
 	xdsServerLog.Infof("on fetch request")
 	return nil
 }
-func (c *XDSCallbacks) OnFetchResponse(*api.DiscoveryRequest, *api.DiscoveryResponse) {
+func (c *XDSCallbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
 	xdsServerLog.Infof("on fetch response")
 }

@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 //TransportSocket wraps UpstreamTLSContext
@@ -94,9 +93,6 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		CommonTlsContext: &auth.CommonTlsContext{},
 	}
 
-	// We always set v3, since we know this is a new proxy that supports v3
-	requestedType := v3.ClusterType
-
 	switch tls.Mode {
 	case networkingAPI.ClientTLSSettings_SIMPLE:
 		res := model.SdsCertificateConfig{
@@ -106,7 +102,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), requestedType),
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -118,24 +114,24 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		}
 		if len(res.GetResourceName()) > 0 {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), requestedType))
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
 		}
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), requestedType),
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, requestedType))
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
 
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, requestedType),
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
 			},
 		}
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2

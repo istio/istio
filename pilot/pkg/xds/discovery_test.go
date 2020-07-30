@@ -335,7 +335,7 @@ func TestShouldRespond(t *testing.T) {
 			connection: &Connection{
 				node: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
-						v3.ClusterShortType: {
+						v3.ClusterType: {
 							VersionSent: "v1",
 							NonceSent:   "nonce",
 						},
@@ -354,7 +354,7 @@ func TestShouldRespond(t *testing.T) {
 			connection: &Connection{
 				node: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
-						v3.ClusterShortType: {
+						v3.ClusterType: {
 							VersionSent: "v1",
 							NonceSent:   "nonce",
 						},
@@ -387,7 +387,7 @@ func TestShouldRespond(t *testing.T) {
 			connection: &Connection{
 				node: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
-						v3.EndpointShortType: {
+						v3.EndpointType: {
 							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster1"},
@@ -396,7 +396,7 @@ func TestShouldRespond(t *testing.T) {
 				},
 			},
 			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointShortType,
+				TypeUrl:       v3.EndpointType,
 				VersionInfo:   "v1",
 				ResponseNonce: "nonce",
 				ResourceNames: []string{"cluster1", "cluster2"},
@@ -408,7 +408,7 @@ func TestShouldRespond(t *testing.T) {
 			connection: &Connection{
 				node: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
-						v3.EndpointShortType: {
+						v3.EndpointType: {
 							VersionSent:   "v1",
 							NonceSent:     "nonce",
 							ResourceNames: []string{"cluster2", "cluster1"},
@@ -417,7 +417,7 @@ func TestShouldRespond(t *testing.T) {
 				},
 			},
 			request: &discovery.DiscoveryRequest{
-				TypeUrl:       v3.EndpointShortType,
+				TypeUrl:       v3.EndpointType,
 				VersionInfo:   "v1",
 				ResponseNonce: "nonce",
 				ResourceNames: []string{"cluster1", "cluster2"},
@@ -435,8 +435,8 @@ func TestShouldRespond(t *testing.T) {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {
-				if tt.connection.node.Active[v3.GetShortType(tt.request.TypeUrl)].VersionAcked != tt.request.VersionInfo &&
-					tt.connection.node.Active[v3.GetShortType(tt.request.TypeUrl)].NonceAcked != tt.request.ResponseNonce {
+				if tt.connection.node.Active[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
+					tt.connection.node.Active[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
 					t.Fatalf("Version & Nonce not updated properly")
 				}
 			}

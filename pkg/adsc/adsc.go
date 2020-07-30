@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/resource"
 
@@ -54,6 +53,7 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/security/pkg/nodeagent/cache"
 
 	"istio.io/pkg/log"
@@ -218,9 +218,6 @@ type ResponseHandler interface {
 }
 
 const (
-	// Temp - remove dep
-	ListenerType = v3.ListenerType
-
 	// WatchMCP is used to request the MCP configs. It is translated to the current pilot collection list.
 	WatchMCP = "mcp"
 
@@ -590,30 +587,22 @@ func (a *ADSC) handleRecv(closeOnExit bool) {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case v2.ListenerType, v3.ListenerType:
-				{
-					ll := &listener.Listener{}
-					_ = proto.Unmarshal(valBytes, ll)
-					listeners = append(listeners, ll)
-				}
-			case v2.ClusterType, v3.ClusterType:
-				{
-					cl := &cluster.Cluster{}
-					_ = proto.Unmarshal(valBytes, cl)
-					clusters = append(clusters, cl)
-				}
-			case v2.EndpointType, v3.EndpointType:
-				{
-					el := &endpoint.ClusterLoadAssignment{}
-					_ = proto.Unmarshal(valBytes, el)
-					eds = append(eds, el)
-				}
-			case v2.RouteType, v3.RouteType:
-				{
-					rl := &route.RouteConfiguration{}
-					_ = proto.Unmarshal(valBytes, rl)
-					routes = append(routes, rl)
-				}
+			case v3.ListenerType:
+				ll := &listener.Listener{}
+				_ = proto.Unmarshal(valBytes, ll)
+				listeners = append(listeners, ll)
+			case v3.ClusterType:
+				cl := &cluster.Cluster{}
+				_ = proto.Unmarshal(valBytes, cl)
+				clusters = append(clusters, cl)
+			case v3.EndpointType:
+				el := &endpoint.ClusterLoadAssignment{}
+				_ = proto.Unmarshal(valBytes, el)
+				eds = append(eds, el)
+			case v3.RouteType:
+				rl := &route.RouteConfiguration{}
+				_ = proto.Unmarshal(valBytes, rl)
+				routes = append(routes, rl)
 			default:
 				err = a.handleMCP(gvk, rsc, valBytes)
 				if err != nil {
@@ -1128,10 +1117,9 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 }
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
-	stype := v3.GetShortType(msg.TypeUrl)
 	var resources []string
 	// TODO: Send routes also in future.
-	if stype == v3.EndpointShortType {
+	if msg.TypeUrl == v3.EndpointType {
 		for c := range a.edsClusters {
 			resources = append(resources, c)
 		}

@@ -116,5 +116,6 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 }
 
 func (c *httpProtocol) Close() error {
+	c.client.CloseIdleConnections()
 	return nil
 }

@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	kubeApiAdmission "k8s.io/api/admission/v1"
 	kubeApiApps "k8s.io/api/apps/v1beta1"
@@ -226,7 +225,7 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 	}
 
 	var obj crd.IstioKind
-	if err := yaml.Unmarshal(request.Object.Raw, &obj); err != nil {
+	if err := json.Unmarshal(request.Object.Raw, &obj); err != nil {
 		scope.Infof("cannot decode configuration: %v", err)
 		reportValidationFailed(request, reasonYamlDecodeError)
 		return toAdmissionResponse(fmt.Errorf("cannot decode configuration: %v", err))
@@ -270,7 +269,7 @@ func (wh *Webhook) admitPilot(request *kubeApiAdmission.AdmissionRequest) *kubeA
 
 func checkFields(raw []byte, kind string, namespace string, name string) (string, error) {
 	trial := make(map[string]json.RawMessage)
-	if err := yaml.Unmarshal(raw, &trial); err != nil {
+	if err := json.Unmarshal(raw, &trial); err != nil {
 		scope.Infof("cannot decode configuration fields: %v", err)
 		return reasonYamlDecodeError, fmt.Errorf("cannot decode configuration fields: %v", err)
 	}
