@@ -361,7 +361,7 @@ func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
 				TlsSniHostname: "outbound_.8079_._.fortio.default.svc.cluster.local",
 				LocalCertificateProperties: &v2.TLSProperties_CertificateProperties{
 					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
-						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+						{
 							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
 								Uri: "spiffe://cluster.local/ns/default/sa/default",
 							},
@@ -370,7 +370,7 @@ func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
 				},
 				PeerCertificateProperties: &v2.TLSProperties_CertificateProperties{
 					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
-						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+						{
 							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
 								Uri: "spiffe://cluster.local/ns/default/sa/default",
 							},
@@ -442,7 +442,7 @@ func envoyProtoAttrsForTestingALSTCP() *accesslog.StreamAccessLogsMessage {
 				TlsSniHostname: "outbound_.8079_._.fortio.default.svc.cluster.local",
 				LocalCertificateProperties: &v2.TLSProperties_CertificateProperties{
 					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
-						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+						{
 							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
 								Uri: "spiffe://cluster.local/ns/default/sa/default",
 							},
@@ -451,7 +451,7 @@ func envoyProtoAttrsForTestingALSTCP() *accesslog.StreamAccessLogsMessage {
 				},
 				PeerCertificateProperties: &v2.TLSProperties_CertificateProperties{
 					SubjectAltName: []*v2.TLSProperties_CertificateProperties_SubjectAltName{
-						&v2.TLSProperties_CertificateProperties_SubjectAltName{
+						{
 							San: &v2.TLSProperties_CertificateProperties_SubjectAltName_Uri{
 								Uri: "spiffe://cluster.local/ns/default/sa/bookinfo-productpage",
 							},
