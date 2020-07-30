@@ -42,7 +42,7 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 	},
 }
 
-const resolverTimeout = 1 * time.Second
+const resolverTimeout = 10 * time.Second
 
 // This is a UDP listener is on port 15013.  It has a DNS listener filter containing the
 // cluster IPs of all services visible to the proxy (those that have one anyway).  The
@@ -72,11 +72,10 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		},
 		ClientConfig: &dnsfilter.DnsFilterConfig_ClientContextConfig{
 			ResolverTimeout: ptypes.DurationProto(resolverTimeout),
-			// no upstream resolvers. Envoy will use the ambient ones
-			MaxPendingLookups: 64, // arbitrary
+			// no upstream resolves. Envoy will use the ambient ones
+			MaxPendingLookups: 256, // arbitrary
 		},
 	}
-
 	dnsFilter := &listener.ListenerFilter{
 		Name: filters.DNSListenerFilterName,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
@@ -130,13 +129,35 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 		}
 
 		svcAddress := svc.GetServiceAddressForProxy(node)
-		if svcAddress == constants.UnspecifiedIP {
-			// Most probably a kubernetes headless service or a service entry
-			// service where we couldn't allocate IP.
-			continue
-		}
 		var addressList []string
-		addressList = append(addressList, svcAddress)
+
+		// The IP will be unspecified here if its headless service or if the auto
+		// IP allocation logic for service entry was unable to allocate an IP.
+		if svcAddress == constants.UnspecifiedIP {
+			// For all k8s headless services, populate the dns table with the endpoint IPs as k8s does.
+			// TODO: Need to have an entry per pod hostname of stateful set but for this, we need to parse
+			// the stateful set object, associate the object with the appropriate kubernetes headless service
+			// and then derive the stable network identities.
+			if svc.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) &&
+				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
+				// TODO: this is used in two places now. Needs to be cached as part of the headless service
+				// object to avoid the costly lookup in the registry code
+				if instances, err := push.InstancesByPort(svc, svc.Ports[0].Port, nil); err == nil {
+					for _, instance := range instances {
+						// TODO: should we skip the node's own IP like we do in listener?
+						addressList = append(addressList, instance.Endpoint.Address)
+					}
+				}
+			}
+
+			if len(addressList) == 0 {
+				// could not reliably determine the addresses of endpoints of headless service
+				// or this is not a k8s service
+				continue
+			}
+		} else {
+			addressList = append(addressList, svcAddress)
+		}
 
 		virtualDomains = append(virtualDomains, &dnstable.DnsTable_DnsVirtualDomain{
 			Name: string(svc.Hostname),
@@ -174,6 +195,5 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 	return &dnstable.DnsTable{
 		VirtualDomains: virtualDomains,
 		KnownSuffixes:  knownSuffixes,
-		ExternalRetryCount: 3,
 	}
 }
