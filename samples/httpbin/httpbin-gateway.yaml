@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   name: httpbin-gateway
+  namespace: istio-system
 spec:
   selector:
     istio: ingressgateway
@@ -21,10 +22,15 @@ spec:
   hosts:
   - "*"
   gateways:
-  - httpbin-gateway
+  - istio-system/httpbin-gateway
   http:
-  - route:
+  - match:
+    - uri:
+        prefix: /status
+    - uri:
+        prefix: /delay
+    route:
     - destination:
-        host: httpbin
         port:
           number: 8000
+        host: httpbin
