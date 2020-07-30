@@ -17,7 +17,6 @@ package xds
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"path"
 	"testing"
 
@@ -31,6 +30,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
