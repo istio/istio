@@ -36,8 +36,6 @@ import (
 type EnvoyProtoBag struct {
 	reqMap          map[string]interface{}
 	upstreamCluster string
-	globalDict      map[string]int32
-	messageDict     map[string]int32
 
 	// to keep track of attributes that are referenced
 	referencedAttrs      map[attr.Reference]attr.Presence
@@ -300,8 +298,6 @@ func (pb *EnvoyProtoBag) Done() {
 
 // Reset removes all local state.
 func (pb *EnvoyProtoBag) Reset() {
-	pb.globalDict = make(map[string]int32)
-	pb.messageDict = make(map[string]int32)
 	pb.referencedAttrsMutex.Lock()
 	pb.referencedAttrs = make(map[attr.Reference]attr.Presence, referencedAttrsSize)
 	pb.referencedAttrsMutex.Unlock()
