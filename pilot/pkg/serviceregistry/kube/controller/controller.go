@@ -1023,10 +1023,17 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	return nil
 }
 
-func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) *v1.Pod {
+// getPod fetches a pod by IP address.
+// A pod may be missing (nil) for two reasons:
+// * It is an endpoint without an associated Pod. In this case, expectPod will be false.
+// * It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
+//   this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
+//   should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
+//   correctness and security.
+func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (rpod *v1.Pod, expectPod bool) {
 	pod := c.pods.getPodByIP(ip)
 	if pod != nil {
-		return pod
+		return pod, false
 	}
 	// This means, the endpoint event has arrived before pod event.
 	// This might happen because PodCache is eventually consistent.
@@ -1044,11 +1051,11 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 			// Tell pod cache we want to queue the endpoint event when this pod arrives.
 			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
 			c.pods.recordNeedsUpdate(epkey, ip)
-			return nil
+			return nil, true
 		}
 		pod = podFromInformer.(*v1.Pod)
 	}
-	return pod
+	return pod, false
 }
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event, epc *endpointsController) {
@@ -1065,8 +1072,8 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event, epc *endpoin
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
 			for _, ea := range ss.Addresses {
-				pod := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, hostname)
-				if pod == nil {
+				pod, expectedUpdate := getPod(c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, hostname)
+				if pod == nil && expectedUpdate {
 					continue
 				}
 

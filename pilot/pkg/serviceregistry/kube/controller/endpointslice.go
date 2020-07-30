@@ -77,8 +77,8 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 				continue
 			}
 			for _, a := range e.Addresses {
-				pod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostname)
-				if pod == nil {
+				pod, expectedUpdate := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostname)
+				if pod == nil && expectedUpdate {
 					continue
 				}
 
