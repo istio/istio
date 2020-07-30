@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/util/protomarshal"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -181,9 +182,9 @@ func (tc testCase) checkTestCase() error {
 		expStatusCode = response.StatusCodeOK
 	}
 
-	//Check Logs
-	wantClt, wantSrv, err := getWantRequestCountTSNew(cltRequestCountFile, srvRequestCountFile, tc.Namespace, tc.From.Config().Service,
-		tc.Target.Config().Service, expStatusCode, tc.Port, tc.Protocol)
+	// //Check Logs
+	// wantClt, wantSrv, err := getWantRequestCountTSNew(cltRequestCountFile, srvRequestCountFile, tc.Namespace, tc.From.Config().Service,
+	// 	tc.Target.Config().Service, expStatusCode, tc.Port, tc.Protocol)
 
 	if err != nil {
 		return err
@@ -193,33 +194,35 @@ func (tc testCase) checkTestCase() error {
 	wantLog, err := getWantServerLogEntryNew(srvAccessLogFile, tc.Namespace, tc.From.Config().Service, tc.Target.Config().Service,
 		expStatusCode, tc.Port, tc.Protocol)
 
+	// wantStrs := []string{tc.Namespace + "/sa/" + tc.From.Config().Service, tc.Namespace + "/sa/" + tc.Target.Config().Service, expStatusCode}
+
 	// fmt.Printf("%v", wantLog)
 
 	if err != nil {
 		return fmt.Errorf("failed to parse wanted log entry: %v", err)
 	}
 
-	srvReceived := false
-	cltReceived := false
+	// srvReceived := false
+	// cltReceived := false
 	logReceived := false
 
 	// Traverse all time series received and compare with expected client and server time series.
 	if tc.ExpectedLog {
-		tss, err := sdInst.ListTimeSeries()
+		// tss, err := sdInst.ListTimeSeries()
 
-		if err != nil {
-			return err
-		}
-		for _, ts := range tss {
-			if proto.Equal(ts, &wantSrv) {
-				// fmt.Printf("%v", ts)
-				// t.Logf("%+v\n", ts)
-				srvReceived = true
-			}
-			if proto.Equal(ts, &wantClt) {
-				cltReceived = true
-			}
-		}
+		// if err != nil {
+		// 	return err
+		// }
+		// for _, ts := range tss {
+		// 	if proto.Equal(ts, &wantSrv) {
+		// 		// fmt.Printf("%v", ts)
+		// 		// t.Logf("%+v\n", ts)
+		// 		srvReceived = true
+		// 	}
+		// 	if proto.Equal(ts, &wantClt) {
+		// 		cltReceived = true
+		// 	}
+		// }
 
 		// Traverse all log entries received and compare with expected server log entry.
 		entries, err := sdInst.ListLogEntries()
@@ -227,10 +230,31 @@ func (tc testCase) checkTestCase() error {
 		if err != nil {
 			return fmt.Errorf("failed to get received log entries: %v", err)
 		}
-		for _, l := range entries {
+		for i, l := range entries {
 			// fmt.Printf("%v\n", l)
 			if proto.Equal(l, &wantLog) {
 				logReceived = true
+			}
+
+			var gotYaml string
+			if l != nil {
+				if gotYaml, err = protomarshal.ToYAML(l); err != nil {
+					return fmt.Errorf("failed to parse yaml: %s", err)
+				}
+
+				// 	allReceived := true
+				// 	for _, s := range wantStrs {
+				// 		if !strings.Contains(gotYaml, s) {
+				// 			allReceived = false
+				// 		}
+				// 	}
+
+				// 	if allReceived {
+				// 		logReceived = true
+				// 	}
+			}
+			if i < 10 {
+				fmt.Printf("%s\n", gotYaml)
 			}
 			// else {
 			// 	fmt.Printf("WANT: %v\nGOT: %v\n", wantLog, l)
@@ -238,10 +262,10 @@ func (tc testCase) checkTestCase() error {
 		}
 	}
 
-	if !srvReceived || !cltReceived {
-		return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
-		// return fmt.Errorf("xx: %v, %v, %v", wantClt, srvReceived, cltReceived)
-	}
+	// if !srvReceived || !cltReceived {
+	// 	return fmt.Errorf("stackdriver server does not received expected server or client request count, server %v client %v", srvReceived, cltReceived)
+	// 	// return fmt.Errorf("xx: %v, %v, %v", wantClt, srvReceived, cltReceived)
+	// }
 
 	if !logReceived {
 		return fmt.Errorf("stackdriver server does not received expected log entry")

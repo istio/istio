@@ -4,7 +4,7 @@ typedConfig:
   rules:
     action: LOG
     policies:
-      ns[foo]-policy[log-all]-rule[0]:
+      ns[foo]-policy[audit-all]-rule[0]:
         permissions:
         - andRules:
             rules:

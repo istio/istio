@@ -173,9 +173,8 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/daviddengcn/go-colortext v0.0.0-20160507010035-511bcaf42ccd/go.mod h1:dv4zxwHi5C/8AeI+4gX4dCWOIvNi7I6JCSX0HvlKPgE=
-github.com/davidraskin/api v0.0.0-20200611041748-8f9b2a808de1 h1:2BuPdr+zyQKslH+hpwI2fdjBocuT8zX7mTw7eXyOs8g=
-github.com/davidraskin/api v0.0.0-20200611041748-8f9b2a808de1/go.mod h1:07cb4vWHh4OqmbnZ1TXBM16uZnfxm/9phPHDppj90Rs=
-github.com/davidraskin/api v0.0.0-20200611045346-1b2659b9b520 h1:DRKwhYIX4N6UX7+mqhmpxKXViOu94K96UNOJ9qIDn/I=
+github.com/davidraskin/api-mirror v0.0.0-20200729235442-a531c591f8d1 h1:kQhDviqZF1pKnsE16DwTXQCFtDIn5zSL3ds3nYJLSLY=
+github.com/davidraskin/api-mirror v0.0.0-20200729235442-a531c591f8d1/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
 github.com/davidraskin/go-control-plane v0.9.5-0.20200326174812-e8bd2869ff56 h1:Z1ExGCuerZTuqLE5k2sFQ8wrbGNmk9v7gaQzfIvUfrw=
 github.com/davidraskin/go-control-plane v0.9.5-0.20200326174812-e8bd2869ff56/go.mod h1:OXl5to++W0ctG+EHWTFUjiypVxC/Y4VLc/KFU+al13s=
 github.com/davidraskin/go-control-plane v0.9.5 h1:TXVjE7wb91cgyjR2UKO91folvmCY6W6uaLaspTy2DFs=

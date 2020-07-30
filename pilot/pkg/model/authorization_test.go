@@ -63,8 +63,8 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
-	logPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
-	logPolicy.Action = authpb.AuthorizationPolicy_LOG
+	auditPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	auditPolicy.Action = authpb.AuthorizationPolicy_AUDIT
 
 	cases := []struct {
 		name           string
@@ -73,7 +73,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		configs        []Config
 		wantDeny       []AuthorizationPolicy
 		wantAllow      []AuthorizationPolicy
-		wantLog        []AuthorizationPolicy
+		wantAudit      []AuthorizationPolicy
 	}{
 		{
 			name:      "no policies",
@@ -118,16 +118,16 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
-			name: "one log policy",
+			name: "one audit policy",
 			ns:   "bar",
 			configs: []Config{
-				newConfig("authz-1", "bar", logPolicy),
+				newConfig("authz-1", "bar", auditPolicy),
 			},
-			wantLog: []AuthorizationPolicy{
+			wantAudit: []AuthorizationPolicy{
 				{
 					Name:      "authz-1",
 					Namespace: "bar",
-					Spec:      logPolicy,
+					Spec:      auditPolicy,
 				},
 			},
 		},
@@ -153,13 +153,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
-			name: "mixing allow, deny, and log policies",
+			name: "mixing allow, deny, and audit policies",
 			ns:   "bar",
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", denyPolicy),
-				newConfig("authz-3", "bar", logPolicy),
-				newConfig("authz-4", "bar", logPolicy),
+				newConfig("authz-3", "bar", auditPolicy),
+				newConfig("authz-4", "bar", auditPolicy),
 			},
 			wantDeny: []AuthorizationPolicy{
 				{
@@ -175,16 +175,16 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					Spec:      policy,
 				},
 			},
-			wantLog: []AuthorizationPolicy{
+			wantAudit: []AuthorizationPolicy{
 				{
 					Name:      "authz-3",
 					Namespace: "bar",
-					Spec:      logPolicy,
+					Spec:      auditPolicy,
 				},
 				{
 					Name:      "authz-4",
 					Namespace: "bar",
-					Spec:      logPolicy,
+					Spec:      auditPolicy,
 				},
 			},
 		},
@@ -303,7 +303,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			gotDeny, gotAllow, gotLog := authzPolicies.ListAuthorizationPolicies(
+			gotDeny, gotAllow, gotAudit := authzPolicies.ListAuthorizationPolicies(
 				tc.ns, []labels.Instance{tc.workloadLabels})
 			if !reflect.DeepEqual(tc.wantAllow, gotAllow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, gotAllow)
@@ -311,8 +311,8 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			if !reflect.DeepEqual(tc.wantDeny, gotDeny) {
 				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, gotDeny)
 			}
-			if !reflect.DeepEqual(tc.wantLog, gotLog) {
-				t.Errorf("wantLog:%v\n but got: %v\n", tc.wantLog, gotLog)
+			if !reflect.DeepEqual(tc.wantAudit, gotAudit) {
+				t.Errorf("wantAudit:%v\n but got: %v\n", tc.wantAudit, gotAudit)
 			}
 		})
 	}

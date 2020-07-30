@@ -122,9 +122,9 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			want:     []string{"td-aliases-source-principal-out.yaml"},
 		},
 		{
-			name:  "log-all",
-			input: "log-all-in.yaml",
-			want:  []string{"log-all-out.yaml"},
+			name:  "audit-all",
+			input: "audit-all-in.yaml",
+			want:  []string{"audit-all-out.yaml"},
 		},
 	}
 
@@ -158,9 +158,9 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			want:  []string{"action-deny-HTTP-for-TCP-filter-out.yaml"},
 		},
 		{
-			name:  "action-log-HTTP-for-TCP-filter",
-			input: "action-log-HTTP-for-TCP-filter-in.yaml",
-			want:  []string{"action-log-HTTP-for-TCP-filter-out.yaml"},
+			name:  "action-audit-HTTP-for-TCP-filter",
+			input: "action-audit-HTTP-for-TCP-filter-in.yaml",
+			want:  []string{"action-audit-HTTP-for-TCP-filter-out.yaml"},
 		},
 	}
 

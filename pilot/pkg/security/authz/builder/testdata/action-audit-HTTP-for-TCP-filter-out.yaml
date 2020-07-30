@@ -4,7 +4,7 @@ typedConfig:
   rules:
     action: LOG
     policies:
-      ns[foo]-policy[httpbin-log]-rule[0]:
+      ns[foo]-policy[httpbin-audit]-rule[0]:
         permissions:
         - andRules:
             rules:
@@ -13,7 +13,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-log]-rule[1]:
+      ns[foo]-policy[httpbin-audit]-rule[1]:
         permissions:
         - andRules:
             rules:
@@ -22,7 +22,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-log]-rule[2]:
+      ns[foo]-policy[httpbin-audit]-rule[2]:
         permissions:
         - andRules:
             rules:
@@ -31,7 +31,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-log]-rule[3]:
+      ns[foo]-policy[httpbin-audit]-rule[3]:
         permissions:
         - andRules:
             rules:
@@ -46,7 +46,7 @@ typedConfig:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-1/.*
-      ns[foo]-policy[httpbin-log]-rule[4]:
+      ns[foo]-policy[httpbin-audit]-rule[4]:
         permissions:
         - andRules:
             rules:
@@ -57,7 +57,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-log]-rule[5]:
+      ns[foo]-policy[httpbin-audit]-rule[5]:
         permissions:
         - andRules:
             rules:
@@ -74,7 +74,7 @@ typedConfig:
                       safeRegex:
                         googleRe2: {}
                         regex: .*/ns/ns-1/.*
-      ns[foo]-policy[httpbin-log]-rule[6]:
+      ns[foo]-policy[httpbin-audit]-rule[6]:
         permissions:
         - andRules:
             rules:
@@ -83,7 +83,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-log]-rule[7]:
+      ns[foo]-policy[httpbin-audit]-rule[7]:
         permissions:
         - andRules:
             rules:
@@ -94,7 +94,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      ns[foo]-policy[httpbin-log]-rule[8]:
+      ns[foo]-policy[httpbin-audit]-rule[8]:
         permissions:
         - andRules:
             rules:

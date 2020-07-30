@@ -1,10 +1,10 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: httpbin-log
+  name: httpbin-audit
   namespace: foo
 spec:
-  action: LOG
+  action: AUDIT
   rules:
   # rule[0] `from`: HTTP field, `to`: HTTP field.
   - from:

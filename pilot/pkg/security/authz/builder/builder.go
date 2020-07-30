@@ -43,7 +43,7 @@ type Builder struct {
 	trustDomainBundle  trustdomain.Bundle
 	denyPolicies       []model.AuthorizationPolicy
 	allowPolicies      []model.AuthorizationPolicy
-	logPolicies        []model.AuthorizationPolicy
+	auditPolicies      []model.AuthorizationPolicy
 	isIstioVersionGE15 bool
 }
 
@@ -51,15 +51,15 @@ type Builder struct {
 // Returns nil if none of the authorization policies are enabled for the workload.
 func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, namespace string,
 	policies *model.AuthorizationPolicies, isIstioVersionGE15 bool) *Builder {
-	denyPolicies, allowPolicies, logPolicies := policies.ListAuthorizationPolicies(namespace, workload)
-	if len(denyPolicies) == 0 && len(allowPolicies) == 0 && len(logPolicies) == 0 {
+	denyPolicies, allowPolicies, auditPolicies := policies.ListAuthorizationPolicies(namespace, workload)
+	if len(denyPolicies) == 0 && len(allowPolicies) == 0 && len(auditPolicies) == 0 {
 		return nil
 	}
 	return &Builder{
 		trustDomainBundle:  trustDomainBundle,
 		denyPolicies:       denyPolicies,
 		allowPolicies:      allowPolicies,
-		logPolicies:        logPolicies,
+		auditPolicies:      auditPolicies,
 		isIstioVersionGE15: isIstioVersionGE15,
 	}
 }
@@ -76,9 +76,9 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 		rbacpb.RBAC_ALLOW, false /* forTCP */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createHTTPFilter(allowConfig))
 	}
-	if logConfig := build(b.logPolicies, b.trustDomainBundle,
-		rbacpb.RBAC_LOG, false /* forTCP */, b.isIstioVersionGE15); logConfig != nil {
-		filters = append(filters, createHTTPFilter(logConfig))
+	if auditConfig := build(b.auditPolicies, b.trustDomainBundle,
+		rbacpb.RBAC_LOG, false /* forTCP */, b.isIstioVersionGE15); auditConfig != nil {
+		filters = append(filters, createHTTPFilter(auditConfig))
 	}
 
 	return filters
@@ -96,9 +96,9 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 		rbacpb.RBAC_ALLOW, true /* forTCP */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createTCPFilter(allowConfig))
 	}
-	if logConfig := build(b.logPolicies, b.trustDomainBundle,
-		rbacpb.RBAC_LOG, true /* forTCP */, b.isIstioVersionGE15); logConfig != nil {
-		filters = append(filters, createTCPFilter(logConfig))
+	if auditConfig := build(b.auditPolicies, b.trustDomainBundle,
+		rbacpb.RBAC_LOG, true /* forTCP */, b.isIstioVersionGE15); auditConfig != nil {
+		filters = append(filters, createTCPFilter(auditConfig))
 	}
 
 	return filters

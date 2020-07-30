@@ -290,7 +290,7 @@ func (r rule) checkError(forAllow bool, err error) error {
 		return err
 	}
 
-	// Ignore the error for deny or log policy. This will make the current rule ignored and continue the generation of
+	// Ignore the error for deny or audit policy. This will make the current rule ignored and continue the generation of
 	// the next rule, effectively result in a wider deny policy (i.e. more likely to deny a request).
 	return nil
 }
