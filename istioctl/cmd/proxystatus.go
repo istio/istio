@@ -36,18 +36,7 @@ import (
 
 const (
 	// Used for comparison with Istiod configuration when sidecar unable to supply
-	emptyEnvoyDump = `
-{
-		"configs": [
-			{
-				"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump"
-			},
-			{
-				"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
-			}
-		]
-}
-`
+	emptyEnvoyDump = `{"configs": []}`
 )
 
 func statusCommand() *cobra.Command {
@@ -115,11 +104,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					envoyDump = []byte(emptyEnvoyDump)
 				}
 
-				c, err := compare.NewComparator(c.OutOrStdout(), istiodDumps, envoyDump)
+				cmp, err := compare.NewComparator(c.OutOrStdout(), istiodDumps, envoyDump)
 				if err != nil {
 					return err
 				}
-				return c.Diff()
+				return cmp.Diff(c.OutOrStderr())
 			}
 			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
 			if err != nil {
@@ -231,11 +220,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				if err != nil {
 					return err
 				}
-				c, err := compare.NewXdsComparator(c.OutOrStdout(), xdsResponses, envoyDump)
+				cmp, err := compare.NewXdsComparator(c.OutOrStdout(), xdsResponses, envoyDump)
 				if err != nil {
 					return err
 				}
-				return c.Diff()
+				return cmp.Diff(c.OutOrStderr())
 			}
 
 			xdsRequest := xdsapi.DiscoveryRequest{

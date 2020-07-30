@@ -89,12 +89,12 @@ func NewXdsComparator(w io.Writer, istiodResponses map[string]*xdsapi.DiscoveryR
 }
 
 // Diff prints a diff between Istiod and Envoy to the passed writer
-func (c *Comparator) Diff() error {
+func (c *Comparator) Diff(errReporter io.Writer) error {
 	if err := c.ClusterDiff(); err != nil {
 		return err
 	}
 	if err := c.ListenerDiff(); err != nil {
 		return err
 	}
-	return c.RouteDiff()
+	return c.RouteDiff(errReporter)
 }

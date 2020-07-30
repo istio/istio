@@ -17,6 +17,7 @@ package compare
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -24,7 +25,7 @@ import (
 )
 
 // RouteDiff prints a diff between Istiod and Envoy routes to the passed writer
-func (c *Comparator) RouteDiff() error {
+func (c *Comparator) RouteDiff(errReporter io.Writer) error {
 	jsonm := &jsonpb.Marshaler{Indent: "   "}
 	envoyBytes, istiodBytes := &bytes.Buffer{}, &bytes.Buffer{}
 	envoyRouteDump, err := c.envoy.GetDynamicRouteDump(true)
@@ -52,7 +53,7 @@ func (c *Comparator) RouteDiff() error {
 	}
 	lastUpdatedStr := ""
 	if lastUpdated, err := c.envoy.GetLastUpdatedDynamicRouteTime(); err != nil {
-		return err
+		fmt.Fprintf(errReporter, "Could not retrieve dynamic route update time\n")
 	} else if lastUpdated != nil {
 		loc, err := time.LoadLocation(c.location)
 		if err != nil {
