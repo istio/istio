@@ -42,7 +42,7 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 	},
 }
 
-const resolverTimeout = 10 * time.Second
+const resolverTimeout = 1 * time.Second
 
 // This is a UDP listener is on port 15013.  It has a DNS listener filter containing the
 // cluster IPs of all services visible to the proxy (those that have one anyway).  The
@@ -58,8 +58,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		return nil
 	}
 
-	wildcard, _ := getActualWildcardAndLocalHost(node)
-	address := util.BuildAddress(wildcard, model.SidecarDNSListenerPort)
+	_, localhost := getActualWildcardAndLocalHost(node)
+	address := util.BuildAddress(localhost, model.SidecarDNSListenerPort)
 	// Convert the address to a UDP address
 	address.GetSocketAddress().Protocol = core.SocketAddress_UDP
 
@@ -72,10 +72,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		},
 		ClientConfig: &dnsfilter.DnsFilterConfig_ClientContextConfig{
 			ResolverTimeout: ptypes.DurationProto(resolverTimeout),
-			// no upstream resolves. Envoy will use the ambient ones
-			MaxPendingLookups: 256, // arbitrary
+			// no upstream resolvers. Envoy will use the ambient ones
+			MaxPendingLookups: 64, // arbitrary
 		},
 	}
+
 	dnsFilter := &listener.ListenerFilter{
 		Name: filters.DNSListenerFilterName,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
@@ -173,5 +174,6 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 	return &dnstable.DnsTable{
 		VirtualDomains: virtualDomains,
 		KnownSuffixes:  knownSuffixes,
+		ExternalRetryCount: 3,
 	}
 }
