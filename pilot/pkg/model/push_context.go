@@ -729,9 +729,20 @@ func (ps *PushContext) DestinationRule(proxy *Proxy, service *Service) *Config {
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
-	// NOTE: This does mean that we are effectively ignoring private dest rules in the config root namespace
 	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxy.ConfigNamespace); out != nil {
 		return out
+	}
+
+	// 5. Previously we skipped over private DR for the root namespace. If we still haven't found one, now we can check the private one.
+	// NOTE: This does mean that we are effectively giving destination rules in other namespace precedence over private dest rules in the config root namespace
+	if proxy.ConfigNamespace == ps.Mesh.RootNamespace {
+		// search through the DestinationRules in proxy's namespace first
+		if ps.namespaceLocalDestRules[proxy.ConfigNamespace] != nil {
+			if hostname, ok := MostSpecificHostMatch(service.Hostname,
+				ps.namespaceLocalDestRules[proxy.ConfigNamespace].hosts); ok {
+				return ps.namespaceLocalDestRules[proxy.ConfigNamespace].destRule[hostname]
+			}
+		}
 	}
 
 	return nil
