@@ -24,14 +24,14 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/grpc/keepalive"
+
 	"istio.io/istio/galley/pkg/server/components"
 	"istio.io/istio/galley/pkg/server/settings"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/adsc"
-
-	"google.golang.org/grpc/keepalive"
 
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
@@ -400,13 +400,11 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	s.EnvoyXdsServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
+			controller := status.NewController(*s.kubeRestConfig, args.Namespace)
 			leaderelection.
 				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, s.kubeClient).
 				AddRunFunction(func(stop <-chan struct{}) {
-					controller := &status.DistributionController{
-						QPS:   float32(features.StatusQPS),
-						Burst: features.StatusBurst}
-					controller.Start(s.kubeRestConfig, args.Namespace, stop)
+					controller.Start(stop)
 				}).Run(stop)
 			return nil
 		})
