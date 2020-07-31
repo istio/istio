@@ -106,22 +106,22 @@ func TestCreateGroup(t *testing.T) {
 func TestGenerateConfig(t *testing.T) {
 	cases := []testcase{
 		{
-			description:       "Invalid command args - missing input file, output filename, and cluster id",
-			args:              strings.Split("experimental workload entry configure", " "),
+			description:       "Invalid command args - missing valid input spec",
+			args:              strings.Split("experimental workload entry configure -o temp --clusterID cid", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
+			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or both the workload name and namespace\n",
 		},
 		{
-			description:       "Invalid command args - missing output filename",
-			args:              strings.Split("experimental workload entry configure --file fname --clusterID cid", " "),
+			description:       "Invalid command args - valid filename input but missing output filename",
+			args:              strings.Split("experimental workload entry configure -f file --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting an output filename\n",
 		},
 		{
-			description:       "Invalid command args - missing input file",
-			args:              strings.Split("experimental workload entry configure --output ./config --clusterID cid", " "),
+			description:       "Invalid command args - valid kubectl input but missing output filename",
+			args:              strings.Split("experimental workload entry configure --name foo -n bar --clusterID cid", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
+			expectedOutput:    "Error: expecting an output filename\n",
 		},
 		{
 			description:       "Invalid command args - missing cluster id",

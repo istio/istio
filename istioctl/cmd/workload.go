@@ -30,10 +30,12 @@ import (
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	networkingclientv1alpha3 "istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,8 +162,8 @@ func configureCommand() *cobra.Command {
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.`,
 		Example: "configure -f workloadgroup.yaml -o config",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if filename == "" {
-				return fmt.Errorf("expecting a WorkloadGroup artifact file")
+			if filename == "" && (name == "" || namespace == "") {
+				return fmt.Errorf("expecting a WorkloadGroup artifact file or both the workload name and namespace")
 			}
 			if outputName == "" {
 				return fmt.Errorf("expecting an output filename")
@@ -173,12 +175,20 @@ This includes a MeshConfig resource, the cluster.env file, and necessary certifi
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wg := &clientv1alpha3.WorkloadGroup{}
-			if err := readWorkloadGroup(filename, wg); err != nil {
-				return err
-			}
 			kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
 			if err != nil {
 				return err
+			}
+			if filename != "" {
+				if err := readWorkloadGroup(filename, wg); err != nil {
+					return err
+				}
+			} else {
+				// TODO: figure out why workloadgroups isn't a recognized resource
+				wg, err = networkingclientv1alpha3.New(kubeClient.REST()).WorkloadGroups(namespace).Get(context.Background(), name, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
 			}
 
 			if err = createConfig(kubeClient, wg, clusterID, revision, outputName); err != nil {
@@ -188,6 +198,8 @@ This includes a MeshConfig resource, the cluster.env file, and necessary certifi
 		},
 	}
 	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact")
+	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
+	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
 	configureCmd.PersistentFlags().StringVarP(&outputName, "output", "o", "", "Name of the tarball to be created")
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
@@ -266,7 +278,8 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 			ExpirationSeconds: &tokenDuration,
 		},
 	}
-	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(wg.Namespace).CreateToken(context.Background(), wg.Spec.Template.Spec.ServiceAccount, token, metav1.CreateOptions{})
+	namespace, serviceAccount := wg.Namespace, wg.Spec.Template.Spec.ServiceAccount
+	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -286,13 +299,10 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if err != nil {
 		return err
 	}
-
-	temp, err := ioutil.TempFile("./", "")
-	defer os.Remove(temp.Name())
-	if _, err = temp.WriteString(istio.Data["mesh"]); err != nil {
+	meshConfig, err := mesh.ApplyMeshConfigDefaults(istio.Data["mesh"])
+	if err != nil {
 		return err
 	}
-	meshConfig, err := mesh.ReadMeshConfig(temp.Name())
 
 	labels := wg.Spec.Template.Metadata.Labels
 	// case where a user provided custom workload group has labels in the workload entry spec field
@@ -320,11 +330,11 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
 
-	meshYAML, err := yaml.Marshal(meshConfig)
+	meshYAML, err := gogoprotomarshal.ToYAML(meshConfig)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(dir+"/mesh", meshYAML, tempPerms)
+	return ioutil.WriteFile(dir+"/mesh", []byte(meshYAML), tempPerms)
 }
 
 // Packs files inside source into target.tar
