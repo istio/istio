@@ -470,7 +470,7 @@ func (s *sdsservice) getToken() (string, error) {
 			}
 			token = t
 		} else {
-			return "", fmt.Errorf("failed to read token from path %s and cannot renew on GCE.", s.jwtPath)
+			return "", fmt.Errorf("failed to read token from path %s and cannot renew token", s.jwtPath)
 		}
 	}
 	return token, nil
