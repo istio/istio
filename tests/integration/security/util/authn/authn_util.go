@@ -19,7 +19,8 @@ import (
 	"net/http"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 
