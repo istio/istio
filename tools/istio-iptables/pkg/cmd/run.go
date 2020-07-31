@@ -390,14 +390,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV4(
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
-	if redirectDNS {
-		iptConfigurator.iptables.AppendRuleV4(
-			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
-		if iptConfigurator.cfg.EnableInboundIPv6 {
-			iptConfigurator.iptables.AppendRuleV6(
-				constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
-		}
-	}
 
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
@@ -411,9 +403,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic, and UDP dns (if enabled)
 	iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-	if redirectDNS {
-		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.UDP, "--dport", "53", "-j", constants.ISTIOOUTPUT)
-	}
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if iptConfigurator.cfg.OutboundPortsExclude != "" {
 		for _, port := range split(iptConfigurator.cfg.OutboundPortsExclude) {
@@ -473,6 +462,20 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
+	}
+
+	if redirectDNS {
+		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+			// TODO: add ip6 as well
+			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
+				iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+			}
+		}
+		// TODO: also capture TCP 53
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+			"-p", "udp", "--dport", "53",
+			"-j", "REDIRECT", "--to-ports", dnsTargetPort)
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
