@@ -142,6 +142,8 @@ func (i *operatorComponent) Close() (err error) {
 			}
 		}
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if i.ingress != nil {
 		for _, ing := range i.ingress {
 			ing.CloseClients()
