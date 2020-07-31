@@ -49,6 +49,7 @@ func (i rootNS) Name() string {
 // TestAuthorization_mTLS tests v1beta1 authorization with mTLS.
 func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.mtls").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-mtls-ns1",
@@ -104,6 +105,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 // TestAuthorization_JWT tests v1beta1 authorization with JWT token claims.
 func TestAuthorization_JWT(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.jwt").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-jwt",
@@ -183,6 +185,7 @@ func TestAuthorization_JWT(t *testing.T) {
 // TestAuthorization_WorkloadSelector tests the workload selector for the v1beta1 policy in two namespaces.
 func TestAuthorization_WorkloadSelector(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.workload-selector").
 		Run(func(ctx framework.TestContext) {
 			ns1 := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-workload-1",
@@ -268,6 +271,7 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 // TestAuthorization_Deny tests the authorization policy with action "DENY".
 func TestAuthorization_Deny(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.deny").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-deny",
@@ -337,6 +341,7 @@ func TestAuthorization_Deny(t *testing.T) {
 // TestAuthorization_Deny tests the authorization policy with negative match.
 func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.negative-match").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-negative-match-1",
@@ -427,6 +432,7 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 // TestAuthorization_IngressGateway tests the authorization policy on ingress gateway.
 func TestAuthorization_IngressGateway(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.ingress-gateway").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-ingress-gateway",
@@ -511,6 +517,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 // TestAuthorization_EgressGateway tests v1beta1 authorization on egress gateway.
 func TestAuthorization_EgressGateway(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.egress-gateway").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-egress-gateway",
@@ -684,6 +691,7 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 // TestAuthorization_TCP tests the authorization policy on workloads using the raw TCP protocol.
 func TestAuthorization_TCP(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.tcp").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-tcp-1",
@@ -816,6 +824,7 @@ func TestAuthorization_TCP(t *testing.T) {
 // TestAuthorization_Conditions tests v1beta1 authorization with conditions.
 func TestAuthorization_Conditions(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.conditions").
 		Run(func(ctx framework.TestContext) {
 			nsA := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-conditions-a",
@@ -926,6 +935,7 @@ func TestAuthorization_Conditions(t *testing.T) {
 // TestAuthorization_GRPC tests v1beta1 authorization with gRPC protocol.
 func TestAuthorization_GRPC(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.grpc").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-grpc",
@@ -990,6 +1000,7 @@ func TestAuthorization_GRPC(t *testing.T) {
 // with path "/a/../b" should be normalized to "/b" before using in authorization.
 func TestAuthorization_Path(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authorization.path").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-path",

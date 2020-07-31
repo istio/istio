@@ -61,15 +61,51 @@ features:
     user:
     ingress:
       mtls:
+        server-keyrotation:
+        generic-compoundrotation:
+        nongeneric-compoundrotation:
+        gateway:
+          invalid-secret:
+          valid-secret:
+          K8sca:
       tls:
+        secretrotation:
+        gateway:
+          invalid-secret:
+          K8sca:
     egress:
       mtls:
         sds:
       tls:
         filebased:
         sds:
+    vault:
+      sds:
+    authorization:
+      jwt:
+      workload-selector:
+      deny:
+      negative-match:
+      ingress-gateway:
+      egress-gateway:
+      tcp:
+      conditions:
+      grpc:
+      path:
+      mtls:
+    authentication:
+      jwt:
+      ingressjwt:
+    reachability:
+    healthcheck:
+    filterchain:
     control-plane:
       k8s-certs:
+        dns-certificate:
+        k8sca:
+          kubernetes:
+          first-party-jwt:
+        webhook:
       plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:

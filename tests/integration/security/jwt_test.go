@@ -15,7 +15,6 @@
 package security
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -42,11 +41,10 @@ const (
 
 // TestRequestAuthentication tests beta authn policy for jwt.
 func TestRequestAuthentication(t *testing.T) {
-	fmt.Printf("sssssssdfsfsafsadfsaf\n")
-	fmt.Printf("TestRequestAuthenticationTestRequestAuthentication\n")
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
+		Features("security.authentication.jwt").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "req-authn",
@@ -277,6 +275,7 @@ func TestRequestAuthentication(t *testing.T) {
 // The policy is also set at global namespace, with authorization on ingressgateway.
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authentication.ingressjwt").
 		Run(func(ctx framework.TestContext) {
 			var ingr ingress.Instance
 			var err error
