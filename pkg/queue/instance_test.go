@@ -135,15 +135,16 @@ func TestRerun(t *testing.T) {
 	// close queue
 	close(stop)
 
+	// TODO: fix it with wait.Until instead of sleep
 	// wait for queue closed
-	time.Sleep(1 * time.Microsecond)
+	time.Sleep(10 * time.Microsecond)
 	// Push a task
 	q.Push(func() error {
 		notifyCh <- struct{}{}
 		return nil
 	})
 	select {
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(10 * time.Millisecond):
 	case <-notifyCh:
 		t.Errorf("closed queue should not process task")
 	}
@@ -153,8 +154,9 @@ func TestRerun(t *testing.T) {
 	// re run queue
 	go q.Run(stop)
 
+	// TODO: fix it with wait.Until instead of sleep
 	// Wait for queue rerun
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	// Push a task
 	q.Push(func() error {
 		notifyCh <- struct{}{}
