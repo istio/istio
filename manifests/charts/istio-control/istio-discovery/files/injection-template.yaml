@@ -357,12 +357,6 @@ template: |
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
-  # try to resolve the app provided hostname as is first, before trying the search namespaces in the system
-  # https://github.com/kubernetes/kubernetes/issues/45976
-  dnsConfig: 
-    options:
-      - name: ndots
-        value: "1"
   volumes:
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
