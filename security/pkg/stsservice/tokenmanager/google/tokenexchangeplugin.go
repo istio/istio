@@ -27,12 +27,6 @@ import (
 	"sync"
 	"time"
 
-<<<<<<< HEAD
-=======
-	"istio.io/pkg/log"
-	"istio.io/istio/pkg/security"
-
->>>>>>> ce170cb69... Move CredFetcher to security option.
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
 )
