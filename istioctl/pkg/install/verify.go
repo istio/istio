@@ -35,9 +35,11 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/cmd/mesh"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
 )
@@ -180,7 +182,9 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 
-			iop, err := convertToIstioOperator(un.Object)
+			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+			by := util.ToYAML(un)
+			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
 				return err
 			}
@@ -416,7 +420,9 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		return nil, err
 	}
 	for _, un := range ul.Items {
-		iop, err := convertToIstioOperator(un.Object)
+		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		by := util.ToYAML(un.Object)
+		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
 			return nil, err
 		}
@@ -425,15 +431,6 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		}
 	}
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
-}
-
-func convertToIstioOperator(obj map[string]interface{}) (*v1alpha1.IstioOperator, error) {
-	out := &v1alpha1.IstioOperator{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // Find all IstioOperator in the cluster.
@@ -446,7 +443,9 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	}
 	retval := make([]*v1alpha1.IstioOperator, 0)
 	for _, un := range ul.Items {
-		iop, err := convertToIstioOperator(un.Object)
+		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		by := util.ToYAML(un.Object)
+		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
 			return nil, err
 		}
