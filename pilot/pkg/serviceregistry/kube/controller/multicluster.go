@@ -122,6 +122,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		NetworksWatcher:   m.networksWatcher,
 		Metrics:           m.metrics,
 	}
+	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubectl := NewController(clients, options)
 
 	remoteKubeController.Controller = kubectl

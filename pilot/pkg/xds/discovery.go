@@ -25,7 +25,10 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"istio.io/istio/pilot/pkg/networking/apigen"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -44,7 +47,9 @@ var (
 	versionNum = atomic.NewUint64(0)
 
 	periodicRefreshMetrics = 10 * time.Second
+)
 
+type debounceOptions struct {
 	// debounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
@@ -60,12 +65,6 @@ var (
 
 	// enableEDSDebounce indicates whether EDS pushes should be debounced.
 	enableEDSDebounce bool
-)
-
-func init() {
-	debounceAfter = features.DebounceAfter
-	debounceMax = features.DebounceMax
-	enableEDSDebounce = features.EnableEDSDebounce.Get()
 }
 
 // DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
@@ -75,9 +74,6 @@ type DiscoveryServer struct {
 
 	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
 	MemRegistry *memory.ServiceDiscovery
-
-	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemConfigController model.ConfigStoreCache
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
@@ -129,6 +125,8 @@ type DiscoveryServer struct {
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady bool
+
+	debounceOptions debounceOptions
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -165,6 +163,11 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
 		serverReady:             false,
+		debounceOptions: debounceOptions{
+			debounceAfter:     features.DebounceAfter,
+			debounceMax:       features.DebounceMax,
+			enableEDSDebounce: features.EnableEDSDebounce.Get(),
+		},
 	}
 
 	if features.XDSAuth {
@@ -182,6 +185,8 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	model.GetJwtKeyResolver().PushFunc = func() {
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
 	}
+
+	out.initGenerators()
 
 	return out
 }
@@ -208,7 +213,6 @@ func (s *DiscoveryServer) IsServerReady() bool {
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
-	adsLog.Infof("Starting ADS server")
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
@@ -337,11 +341,11 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	debounce(s.pushChannel, stopCh, s.Push)
+	debounce(s.pushChannel, stopCh, s.debounceOptions, s.Push)
 }
 
 // The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(req *model.PushRequest)) {
+func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceOptions, pushFn func(req *model.PushRequest)) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -364,7 +368,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 		eventDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
-		if eventDelay >= debounceMax || quietTime >= debounceAfter {
+		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
 			if req != nil {
 				pushCounter++
 				adsLog.Infof("Push debounce stable[%d] %d: %v since last change, %v since last push, full=%v",
@@ -377,7 +381,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 				debouncedEvents = 0
 			}
 		} else {
-			timeChan = time.After(debounceAfter - quietTime)
+			timeChan = time.After(opts.debounceAfter - quietTime)
 		}
 	}
 
@@ -391,7 +395,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 			if len(r.Reason) == 0 {
 				r.Reason = []model.TriggerReason{model.UnknownTrigger}
 			}
-			if !enableEDSDebounce && !r.Full {
+			if !opts.enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
 				go pushFn(r)
 				continue
@@ -399,7 +403,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, pushFn func(re
 
 			lastConfigUpdateTime = time.Now()
 			if debouncedEvents == 0 {
-				timeChan = time.After(debounceAfter)
+				timeChan = time.After(opts.debounceAfter)
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
@@ -460,4 +464,18 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
+}
+
+// initGenerators initializes generators to be used by XdsServer.
+func (s *DiscoveryServer) initGenerators() {
+	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
+	epGen := &EdsGenerator{Server: s}
+	s.Generators["grpc/"+v2.EndpointType] = epGen
+	s.Generators["api"] = &apigen.APIGenerator{}
+	s.Generators["api/"+v2.EndpointType] = epGen
+	s.InternalGen = &InternalGen{
+		Server: s,
+	}
+	s.Generators["api/"+TypeURLConnections] = s.InternalGen
+	s.Generators["event"] = s.InternalGen
 }

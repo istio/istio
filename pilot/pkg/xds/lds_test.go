@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/xds"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -38,40 +39,27 @@ import (
 
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
 
 	// Sidecar in 'none' mode
 	t.Run("sidecar_none", func(t *testing.T) {
-		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta: model.NodeMetadata{
+		adscon := s.Connect(&model.Proxy{
+			Metadata: &model.NodeMetadata{
 				InterceptionMode: model.InterceptionNone,
 				HTTP10:           "1",
-			}.ToStruct(),
-			IP:        "10.11.0.1", // matches none.yaml s1tcp.none
-			Namespace: "none",
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ldsr.Close()
+			},
+			IPAddresses:     []string{"10.11.0.1"}, // matches none.yaml s1tcp.none
+			ConfigNamespace: "none",
+		}, nil, watchAll)
 
-		ldsr.Watch()
-
-		_, err = ldsr.Wait(5*time.Second, "lds")
-		if err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
-
-		err = ldsr.Save(env.IstioOut + "/none")
+		err := adscon.Save(env.IstioOut + "/none")
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		// 7071 (inbound), 2001 (service - also as http proxy), 18010 (fortio), 15006 (virtual inbound)
-		if len(ldsr.GetHTTPListeners()) != 4 {
-			t.Error("HTTP listeners, expecting 4 got ", len(ldsr.GetHTTPListeners()), ldsr.GetHTTPListeners())
+		if len(adscon.GetHTTPListeners()) != 4 {
+			t.Error("HTTP listeners, expecting 4 got ", len(adscon.GetHTTPListeners()), adscon.GetHTTPListeners())
 		}
 
 		// s1tcp:2000 outbound, bind=true (to reach other instances of the service)
@@ -79,7 +67,7 @@ func TestLDSIsolated(t *testing.T) {
 		// :443 - https external, bind=false
 		// 10.11.0.1_7070, bind=true -> inbound|2000|s1 - on port 7070, fwd to 37070
 		// virtual
-		if len(ldsr.GetTCPListeners()) == 0 {
+		if len(adscon.GetTCPListeners()) == 0 {
 			t.Fatal("No response")
 		}
 
@@ -112,22 +100,10 @@ func TestLDSIsolated(t *testing.T) {
 		// while DNS and NONE should generate old-style bind ports.
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
-		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta:      nil,
-			IP:        "10.12.0.1", // matches none.yaml s1tcp.none
-			Namespace: "seexamples",
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ldsr.Close()
-
-		ldsr.Watch()
-
-		if _, err := ldsr.Wait(5*time.Second, "lds"); err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
+		s.Connect(&model.Proxy{
+			IPAddresses:     []string{"10.12.0.1"}, // matches none.yaml s1tcp.none
+			ConfigNamespace: "seexamples",
+		}, nil, watchAll)
 	})
 
 	// Test for the examples in the ServiceEntry doc
@@ -137,22 +113,10 @@ func TestLDSIsolated(t *testing.T) {
 		// while DNS and NONE should generate old-style bind ports.
 		// Right now 'STATIC' and 'EDS' result in ClientSideLB in the internal object, so listener test is valid.
 
-		ldsr, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
-			Meta:      nil,
-			IP:        "10.13.0.1",
-			Namespace: "exampleegressgw",
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ldsr.Close()
-
-		ldsr.Watch()
-
-		if _, err = ldsr.Wait(5*time.Second, "lds"); err != nil {
-			t.Fatal("Failed to receive LDS", err)
-			return
-		}
+		s.Connect(&model.Proxy{
+			IPAddresses:     []string{"10.13.0.1"}, // matches none.yaml s1tcp.none
+			ConfigNamespace: "exampleegressgw",
+		}, nil, watchAll)
 	})
 
 }
@@ -278,21 +242,15 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 // TestLDS is running LDS tests.
 func TestLDS(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
-
 	t.Run("sidecar", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cancel()
-		err = sendLDSReq(sidecarID(app3Ip, "app3"), ldsr)
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		adscon := s.ConnectADS()
+		err := sendLDSReq(sidecarID(app3Ip, "app3"), adscon)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		res, err := ldsr.Recv()
+		res, err := adscon.Recv()
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 			return
@@ -304,17 +262,15 @@ func TestLDS(t *testing.T) {
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
-		ldsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cancel()
-		err = sendLDSReqWithLabels(gatewayID(gatewayIP), ldsr, map[string]string{"version": "v2", "app": "my-gateway-controller"})
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
+
+		adscon := s.ConnectADS()
+		err := sendLDSReqWithLabels(gatewayID(gatewayIP), adscon, map[string]string{"version": "v2", "app": "my-gateway-controller"})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		res, err := ldsr.Recv()
+		res, err := adsReceive(adscon, time.Second*5)
 		if err != nil {
 			t.Fatal("Failed to receive LDS", err)
 		}

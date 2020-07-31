@@ -115,6 +115,8 @@ type Config struct {
 
 	// TODO: remove the duplication - all security settings belong here.
 	SecOpts *security.Options
+
+	GrpcOpts []grpc.DialOption
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -130,6 +132,8 @@ type ADSC struct {
 	nodeID string
 
 	url string
+
+	grpcOpts []grpc.DialOption
 
 	watchTime time.Time
 
@@ -235,6 +239,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
+		grpcOpts:    opts.GrpcOpts,
 	}
 	if certDir != "" {
 		opts.CertDir = certDir
@@ -369,28 +374,22 @@ func (a *ADSC) Close() {
 // Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
 	var err error
+
+	opts := a.grpcOpts
 	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
 		tlsCfg, err := a.tlsConfig()
 		if err != nil {
 			return err
 		}
 		creds := credentials.NewTLS(tlsCfg)
-
-		opts := []grpc.DialOption{
-			// Verify Pilot cert and service account
-			grpc.WithTransportCredentials(creds),
-		}
-		a.conn, err = grpc.Dial(a.url, opts...)
-		if err != nil {
-			return err
-		}
+		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
-		a.conn, err = grpc.Dial(a.url, grpc.WithInsecure())
-		if err != nil {
-			return err
-		}
+		opts = append(opts, grpc.WithInsecure())
 	}
-
+	a.conn, err = grpc.Dial(a.url, opts...)
+	if err != nil {
+		return err
+	}
 	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
@@ -417,7 +416,7 @@ func (a *ADSC) hasSynced() bool {
 		t := a.sync[s.Resource().GroupVersionKind().String()]
 		a.mutex.RUnlock()
 		if t.IsZero() {
-			log.Warn("NOT SYNCE" + s.Resource().GroupVersionKind().String())
+			log.Warnf("Not synced: %v", s.Resource().GroupVersionKind().String())
 			return false
 		}
 	}
@@ -526,6 +525,7 @@ func (a *ADSC) handleRecv() {
 		if len(gvk) == 3 {
 			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			a.sync[gt.String()] = time.Now()
+			a.syncCh <- gt.String()
 		}
 		a.Received[msg.TypeUrl] = msg
 		a.ack(msg)
@@ -893,6 +893,14 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 				delete(want, "eds")
 			case v3.RouteType:
 				delete(want, "rds")
+			case "lds":
+				delete(want, v3.ListenerType)
+			case "cds":
+				delete(want, v3.ClusterType)
+			case "eds":
+				delete(want, v3.EndpointType)
+			case "rds":
+				delete(want, v3.RouteType)
 			}
 			delete(want, toDelete)
 			got = append(got, t)
