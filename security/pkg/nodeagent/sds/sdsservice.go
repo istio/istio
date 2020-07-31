@@ -460,12 +460,10 @@ func (s *sdsservice) getToken() (string, error) {
 		}
 	}
 	if needRenew {
-		// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-		// GCE is the only supported plugin at the moment.
-		if s.credFetcher != nil && s.credFetcher.GetType() == security.GCE {
+		if s.credFetcher != nil {
 			t, err := s.credFetcher.GetPlatformCredential()
 			if err != nil {
-				sdsServiceLog.Errorf("Failed to get credential token on GCE: %v", err)
+				sdsServiceLog.Errorf("Failed to get credential token through credential fetcher: %v", err)
 				return "", err
 			}
 			token = t

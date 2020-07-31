@@ -587,10 +587,8 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			if isTokenExpired(secret.Token) && !sc.useCertToRotate() {
 				cacheLog.Debugf("%s token expired", logPrefix)
-				// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
-				// GCE is the only supported plugin at the moment.
-				if sc.secOpts.CredFetcher != nil && sc.secOpts.CredFetcher.GetType() == security.GCE {
-					cacheLog.Infof("%s on GCE platform, getting a new token", logPrefix)
+				if sc.secOpts.CredFetcher != nil {
+					cacheLog.Infof("%s getting a new token through credential fetcher", logPrefix)
 					t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
 					if err != nil {
 						cacheLog.Errorf("failed to get credential token: %v", err)
