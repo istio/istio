@@ -137,7 +137,7 @@ func TestRerun(t *testing.T) {
 
 	// TODO: fix it with wait.Until instead of sleep
 	// wait for queue closed
-	time.Sleep(10 * time.Microsecond)
+	time.Sleep(10 * time.Millisecond)
 	// Push a task
 	q.Push(func() error {
 		notifyCh <- struct{}{}
