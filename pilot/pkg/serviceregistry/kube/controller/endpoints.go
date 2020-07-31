@@ -194,8 +194,8 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	ep := endpoint.(*v1.Endpoints)
 	for _, ss := range ep.Subsets {
 		for _, ea := range ss.Addresses {
-			pod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
-			if pod == nil {
+			pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
+			if pod == nil && expectedPod {
 				continue
 			}
 			builder := NewEndpointBuilder(e.c, pod)
