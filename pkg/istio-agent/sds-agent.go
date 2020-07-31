@@ -135,8 +135,13 @@ type AgentConfig struct {
 	LocalXDSAddr string
 }
 
-// NewAgent wraps the logic for a local SDS. It sets config options for the in-process SDS agent.
-// SDS agent uses a credential fetcher to get the workload credential to provision certificate for the workload.
+// NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
+// present, and set additional config options for the in-process SDS agent.
+//
+// The JWT token is currently using a pre-defined audience (istio-ca) or it must match the trust domain (WIP).
+// If the JWT token is not present, and cannot be fetched through the credential fetcher - the local SDS agent can't authenticate.
+//
+// If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
 func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	sopts *security.Options) *Agent {
 	sa := &Agent{
@@ -158,7 +163,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	// - if PROV_CERT is set, it'll be included in the TLS context sent to the server
 	//   This is a 'provisioning certificate' - long lived, managed by a tool, exchanged for
 	//   the short lived certs.
-	// - if a JWTPath token can be fetched by credential fetcher, it will be included in the request.
+	// - if a JWTPath token exists, or can be fetched by credential fetcher, it will be included in the request.
 
 	// If original /etc/certs or a separate 'provisioning certs' (VM) are present,
 	// add them to the tlsContext. If server asks for them and they exist - will be provided.

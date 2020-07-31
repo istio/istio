@@ -245,7 +245,7 @@ type CredFetcher interface {
 	// GetPlatformCredential fetches workload credential provided by the platform.
 	GetPlatformCredential() (string, error)
 
-	// GetType returns credential fetcher type. Supported types include "Kubernetes", "GoogleComputeEngine", "Mock".
+	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
 	GetType() string
 
 	// The name of the IdentityProvider that can authenticate the workload credential.

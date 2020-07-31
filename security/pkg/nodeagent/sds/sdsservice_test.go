@@ -82,7 +82,6 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 		FileMountedCerts:  true,
 		UseLocalJWT:       false,
-		CredFetcher:       nil,
 	}
 	wst := &mockSecretStore{
 		checkToken: false,

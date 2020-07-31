@@ -703,7 +703,6 @@ func (sc *SecretCache) keyCertificateExist(certPath, keyPath string) bool {
 // Generate a root certificate item from the passed in rootCertPath
 func (sc *SecretCache) generateRootCertFromExistingFile(rootCertPath, token string, connKey ConnKey) (*security.SecretItem, error) {
 	rootCert, err := readFileWithTimeout(rootCertPath)
-	cacheLog.Infof("generateRootCertFromExistingFile: rootCertPath %s, token %s", rootCertPath, token)
 	if err != nil {
 		return nil, err
 	}

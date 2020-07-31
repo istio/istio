@@ -352,7 +352,6 @@ func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGa
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
 		WorkloadUDSPath:   socket,
-		CredFetcher:       nil,
 	}
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,

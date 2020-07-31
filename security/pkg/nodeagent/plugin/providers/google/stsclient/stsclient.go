@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -126,11 +125,7 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) str
 		provider = credFetcher.GetIdentityProvider()
 	}
 	if provider == "" {
-		if GKEClusterURL != "" {
-			provider = GKEClusterURL
-		} else {
-			provider = mock.FakeGKEClusterURL
-		}
+		provider = GKEClusterURL
 	}
 	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }
