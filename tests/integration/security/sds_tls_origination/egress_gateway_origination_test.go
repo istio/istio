@@ -44,10 +44,14 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				credName        = "tls-credential-cacert"
 				fakeCredName    = "fake-tls-credential-cacert"
 				credNameMissing = "tls-credential-not-created-cacert"
+				credNameRotated = "tls-credential-rotated-cacert"
 			)
 
 			var credentialA = sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.MustReadCert(t, "root-cert.pem"),
+			}
+			var credentialRotated = sdstlsutil.TLSCredential{
+				CaCert: sdstlsutil.RotatedRoot,
 			}
 			var CredentialB = sdstlsutil.TLSCredential{
 				CaCert: sdstlsutil.FakeRoot,
@@ -55,6 +59,10 @@ func TestSimpleTlsOrigination(t *testing.T) {
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{credName}, "SIMPLE", credentialA, false)
 			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credName})
+
+			// Add kubernetes secret to provision key/cert for gateway.
+			sdstlsutil.CreateKubeSecret(t, ctx, []string{credNameRotated}, "SIMPLE", credentialRotated, false)
+			defer ingressutil.DeleteKubeSecret(t, ctx, []string{credNameRotated})
 
 			// Add kubernetes secret to provision key/cert for gateway.
 			sdstlsutil.CreateKubeSecret(t, ctx, []string{fakeCredName}, "SIMPLE", CredentialB, false)
@@ -132,6 +140,69 @@ func TestSimpleTlsOrigination(t *testing.T) {
 					}, retry.Delay(time.Second*1), retry.Timeout(time.Minute*2))
 				})
 			}
+
+			sdstlsutil.RedeployServerWithNewCerts(t, ctx, &externalServer, serverNamespace)
+
+			testCases = map[string]struct {
+				response        []string
+				credentialToUse string
+				gateway         bool // true if the request is expected to be routed through gateway
+			}{
+				// Use CA certificate stored as k8s secret with different issuing CA as server's CA.
+				// This root certificate cannot validate the server cert presented by the echoboot server instance.
+				"Simple TLS Rotation with Incorrect Root Cert": {
+					response:        []string{response.StatusCodeUnavailable},
+					credentialToUse: strings.TrimSuffix(credName, "-cacert"),
+					gateway:         false,
+				},
+				// Use CA certificate stored as k8s secret with same issuing CA as server's CA.
+				// This root certificate can validate the server cert presented by the echoboot server instance.
+				"Simple TLS Rotation with Correct Root Cert": {
+					response:        []string{response.StatusCodeOK},
+					credentialToUse: strings.TrimSuffix(credNameRotated, "-cacert"),
+					gateway:         true,
+				},
+			}
+
+			for name, tc := range testCases {
+				t.Run(name, func(t *testing.T) {
+					bufDestinationRule := sdstlsutil.CreateDestinationRule(t, serverNamespace, "SIMPLE", tc.credentialToUse)
+
+					// Get namespace for gateway pod.
+					istioCfg := istio.DefaultConfigOrFail(t, ctx)
+					systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
+
+					ctx.Config().ApplyYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+					defer ctx.Config().DeleteYAMLOrFail(ctx, systemNS.Name(), bufDestinationRule.String())
+
+					retry.UntilSuccessOrFail(t, func() error {
+						resp, err := internalClient.Call(echo.CallOptions{
+							Target:   externalServer,
+							PortName: "http",
+							Headers: map[string][]string{
+								"Host": {host},
+							},
+						})
+						if err != nil {
+							return fmt.Errorf("request failed: %v", err)
+						}
+						codes := make([]string, 0, len(resp))
+						for _, r := range resp {
+							codes = append(codes, r.Code)
+						}
+						if !reflect.DeepEqual(codes, tc.response) {
+							return fmt.Errorf("got codes %q, expected %q", codes, tc.response)
+						}
+						for _, r := range resp {
+							if _, f := r.RawResponse["Handled-By-Egress-Gateway"]; tc.gateway && !f {
+								return fmt.Errorf("expected to be handled by gateway. response: %+v", r.RawResponse)
+							}
+						}
+						return nil
+					}, retry.Delay(time.Second*1), retry.Timeout(time.Minute*2))
+				})
+			}
+
 		})
 }
 

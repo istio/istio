@@ -297,6 +297,45 @@ spec:
 `
 )
 
+func RedeployServerWithNewCerts(t *testing.T, ctx resource.Context, externalServer *echo.Instance, serverNamespace namespace.Instance) {
+	echoboot.NewBuilder(ctx).
+		With(externalServer, echo.Config{
+			Service:   "server",
+			Namespace: serverNamespace,
+			Ports: []echo.Port{
+				{
+					// Plain HTTP port only used to route request to egress gateway
+					Name:         "http",
+					Protocol:     protocol.HTTP,
+					ServicePort:  80,
+					InstancePort: 8080,
+				},
+				{
+					// HTTPS port
+					Name:         "https",
+					Protocol:     protocol.HTTPS,
+					ServicePort:  443,
+					InstancePort: 8443,
+					TLS:          true,
+				},
+			},
+			// Set up TLS certs on the server. This will make the server listen with these credentials.
+			TLSSettings: &common.TLSSettings{
+				// Echo has these test certs baked into the docker image
+				RootCert:   RotatedRoot,
+				ClientCert: RotatedCert,
+				Key:        RotatedKey,
+				// Override hostname to match the SAN in the cert we are using
+				Hostname: "server.default.svc",
+			},
+			Subsets: []echo.SubsetConfig{{
+				Version:     "v1",
+				Annotations: echo.NewAnnotations().SetBool(echo.SidecarInject, false),
+			}},
+		}).
+		BuildOrFail(t)
+}
+
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
