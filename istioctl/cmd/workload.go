@@ -54,23 +54,41 @@ const (
 	tempPerms = os.FileMode(0644)
 )
 
-func sidecarCommands() *cobra.Command {
-	sidecarCmd := &cobra.Command{
-		Use:   "sidecar",
-		Short: "Commands to assist in managing sidecar configuration",
+func workloadCommands() *cobra.Command {
+	workloadCmd := &cobra.Command{
+		Use:   "workload",
+		Short: "Commands to assist in configuring and deploying workloads",
 	}
-	sidecarCmd.AddCommand(createGroupCommand())
-	sidecarCmd.AddCommand(generateConfigCommand())
-	return sidecarCmd
+	workloadCmd.AddCommand(groupCommand())
+	workloadCmd.AddCommand(entryCommand())
+	return workloadCmd
 }
 
-func createGroupCommand() *cobra.Command {
-	createGroupCmd := &cobra.Command{
-		Use:   "create-group",
+func groupCommand() *cobra.Command {
+	groupCmd := &cobra.Command{
+		Use:   "group",
+		Short: "Commands dealing with workload groups",
+	}
+	groupCmd.AddCommand(createCommand())
+	return groupCmd
+}
+
+func entryCommand() *cobra.Command {
+	entryCmd := &cobra.Command{
+		Use:   "entry",
+		Short: "Commands dealing with workload entries",
+	}
+	entryCmd.AddCommand(configureCommand())
+	return entryCmd
+}
+
+func createCommand() *cobra.Command {
+	createCmd := &cobra.Command{
+		Use:   "create",
 		Short: "Creates a WorkloadGroup YAML artifact representing workload instances",
 		Long: `Creates a WorkloadGroup API YAML artifact to send to the Kubernetes API server.
 To send the generated artifact to Kubernetes, run kubectl apply -f workloadgroup.yaml`,
-		Example: "create-group --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --serviceAccount sa",
+		Example: "create --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("expecting a service name")
@@ -110,12 +128,12 @@ To send the generated artifact to Kubernetes, run kubectl apply -f workloadgroup
 			return err
 		},
 	}
-	createGroupCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
-	createGroupCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
-	createGroupCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
-	createGroupCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
-	createGroupCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
-	return createGroupCmd
+	createCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
+	createCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
+	createCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
+	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
+	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
+	return createCmd
 }
 
 func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1alpha3.WorkloadGroup) ([]byte, error) {
@@ -134,13 +152,13 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
-func generateConfigCommand() *cobra.Command {
-	generateConfigCmd := &cobra.Command{
-		Use:   "generate-config",
+func configureCommand() *cobra.Command {
+	configureCmd := &cobra.Command{
+		Use:   "configure",
 		Short: "Generates all the required configuration files for a workload deployment",
 		Long: `Generates all the required configuration files for workload deployment from a WorkloadGroup artifact. 
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.`,
-		Example: "generate-config -f workloadgroup.yaml -o config",
+		Example: "configure -f workloadgroup.yaml -o config",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" {
 				return fmt.Errorf("expecting a WorkloadGroup artifact file")
@@ -169,12 +187,12 @@ This includes a MeshConfig resource, the cluster.env file, and necessary certifi
 			return nil
 		},
 	}
-	generateConfigCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact")
-	generateConfigCmd.PersistentFlags().StringVarP(&outputName, "output", "o", "", "Name of the tarball to be created")
-	generateConfigCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
-	generateConfigCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
-	generateConfigCmd.PersistentFlags().StringVar(&revision, "revision", "", "control plane revision (experimental)")
-	return generateConfigCmd
+	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact")
+	configureCmd.PersistentFlags().StringVarP(&outputName, "output", "o", "", "Name of the tarball to be created")
+	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
+	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
+	configureCmd.PersistentFlags().StringVar(&revision, "revision", "", "control plane revision (experimental)")
+	return configureCmd
 }
 
 func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error {

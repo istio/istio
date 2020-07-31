@@ -58,38 +58,38 @@ func TestCreateGroup(t *testing.T) {
 	cases := []testcase{
 		{
 			description:       "Invalid command args - missing service name and namespace",
-			args:              strings.Split("experimental sidecar create-group", " "),
+			args:              strings.Split("experimental workload group create", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a service name\n",
 		},
 		{
 			description:       "Invalid command args - missing service name",
-			args:              strings.Split("experimental sidecar create-group --namespace bar", " "),
+			args:              strings.Split("experimental workload group create --namespace bar", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a service name\n",
 		},
 		{
 			description:       "Invalid command args - missing service namespace",
-			args:              strings.Split("experimental sidecar create-group --name foo", " "),
+			args:              strings.Split("experimental workload group create --name foo", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a service namespace\n",
 		},
 		{
 			description:       "valid case - minimal flags, infer defaults",
-			args:              strings.Split("experimental sidecar create-group --name foo --namespace bar", " "),
+			args:              strings.Split("experimental workload group create --name foo --namespace bar", " "),
 			expectedException: false,
 			expectedOutput:    defaultYAML,
 		},
 		{
 			description: "valid case - create full workload group",
-			args: strings.Split("experimental sidecar create-group --name foo --namespace bar --labels app=foo,bar=baz "+
+			args: strings.Split("experimental workload group create --name foo --namespace bar --labels app=foo,bar=baz "+
 				" --ports grpc=3550,http=8080 --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
 		{
 			description: "valid case - create full workload group with shortnames",
-			args: strings.Split("experimental sidecar create-group --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
+			args: strings.Split("experimental workload group create --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
 				" --serviceAccount test", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
@@ -107,25 +107,25 @@ func TestGenerateConfig(t *testing.T) {
 	cases := []testcase{
 		{
 			description:       "Invalid command args - missing input file, output filename, and cluster id",
-			args:              strings.Split("experimental sidecar generate-config", " "),
+			args:              strings.Split("experimental workload entry configure", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
 		},
 		{
 			description:       "Invalid command args - missing output filename",
-			args:              strings.Split("experimental sidecar generate-config --file fname --clusterID cid", " "),
+			args:              strings.Split("experimental workload entry configure --file fname --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting an output filename\n",
 		},
 		{
 			description:       "Invalid command args - missing input file",
-			args:              strings.Split("experimental sidecar generate-config --output ./config --clusterID cid", " "),
+			args:              strings.Split("experimental workload entry configure --output ./config --clusterID cid", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a WorkloadGroup artifact file\n",
 		},
 		{
 			description:       "Invalid command args - missing cluster id",
-			args:              strings.Split("experimental sidecar generate-config --file fname --output ./config -", " "),
+			args:              strings.Split("experimental workload entry configure --file fname --output ./config -", " "),
 			expectedException: true,
 			expectedOutput:    "Error: expecting a cluster id\n",
 		},
