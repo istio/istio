@@ -588,7 +588,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			defer wg.Done()
 			// Connect and get initial response
 			adscConn := s.Connect(&model.Proxy{IPAddresses: []string{fmt.Sprintf("1.1.1.%d", id)}}, nil, nil)
-			_, err = adscConn.Wait(15*time.Second, "rds")
+			_, err := adscConn.Wait(15*time.Second, "rds")
 			if err != nil {
 				errChan <- errors.New("failed to get initial rds: " + err.Error())
 				wgConnect.Done()

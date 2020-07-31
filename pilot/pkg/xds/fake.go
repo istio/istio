@@ -253,6 +253,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		t.Fatal(err)
 	}
 
+	s.updateMutex.RLock()
+	defer s.updateMutex.RUnlock()
 	fake := &FakeDiscoveryServer{
 		t:           t,
 		Store:       configController,
