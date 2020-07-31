@@ -38,6 +38,7 @@ var (
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
 	SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
+	GCEProvider         = "GoogleComputeEngine"
 )
 
 const (
@@ -78,9 +79,9 @@ func NewPlugin() security.TokenExchanger {
 }
 
 // ExchangeToken exchange oauth access token from trusted domain and k8s sa jwt.
-func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string) (
+func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetcher, trustDomain, k8sSAjwt string) (
 	string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error) {
-	aud := constructAudience(trustDomain)
+	aud := constructAudience(credFetcher, trustDomain)
 	var jsonStr = constructFederatedTokenRequest(aud, k8sSAjwt)
 	req, _ := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(jsonStr))
 	req.Header.Set("Content-Type", contentType)
@@ -116,12 +117,17 @@ func (p Plugin) ExchangeToken(ctx context.Context, trustDomain, k8sSAjwt string)
 	return respData.AccessToken, time.Now().Add(time.Second * time.Duration(respData.ExpiresIn)), resp.StatusCode, nil
 }
 
-func constructAudience(trustDomain string) string {
-	if GKEClusterURL == "" {
-		return trustDomain
+func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
+	provider := ""
+	if credFetcher != nil {
+		provider = credFetcher.GetIdentityProvider()
 	}
-
-	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)
+	// For GKE, we do not register IdentityProvider explicitly. The provider name
+	// is GKEClusterURL by default.
+	if provider == "" {
+		provider = GKEClusterURL
+	}
+	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }
 
 func constructFederatedTokenRequest(aud, jwt string) []byte {
