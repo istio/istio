@@ -98,7 +98,7 @@ func (ms *Messages) SetDocRef(docRef string) *Messages {
 
 // Filter only keeps messages at or above the specified output level
 func (ms *Messages) Filter(outputLevel Level) Messages {
-	var outputMessages Messages
+	outputMessages := Messages{}
 	for _, m := range *ms {
 		if m.Type.Level().IsWorseThanOrEqualTo(outputLevel) {
 			outputMessages = append(outputMessages, m)

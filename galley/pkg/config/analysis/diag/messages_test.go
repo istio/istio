@@ -165,6 +165,27 @@ func TestMessages_Filter(t *testing.T) {
 	g.Expect(filteredMsgs).To(Equal(expectedMsgs))
 }
 
+func TestMessages_FilterOutAll(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Info, "A1", "Template: %q"),
+		testResource("B"),
+		"B",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Warning, "C1", "Template: %q"),
+		testResource("B"),
+		"B",
+	)
+
+	msgs := Messages{firstMsg, secondMsg}
+	filteredMsgs := msgs.Filter(Error)
+	expectedMsgs := Messages{}
+
+	g.Expect(filteredMsgs).To(Equal(expectedMsgs))
+}
+
 func TestMessages_PrintLog(t *testing.T) {
 	g := NewWithT(t)
 
@@ -255,6 +276,21 @@ func TestMessages_PrintYAML(t *testing.T) {
 `
 
 	g.Expect(output).To(Equal(expectedOutput))
+}
+
+func TestMessages_PrintEmpty(t *testing.T) {
+	g := NewWithT(t)
+
+	msgs := Messages{}
+
+	logOutput, _ := msgs.PrintLog(false)
+	g.Expect(logOutput).To(Equal(""))
+
+	jsonOutput, _ := msgs.PrintJSON()
+	g.Expect(jsonOutput).To(Equal("[]"))
+
+	yamlOutput, _ := msgs.PrintYAML()
+	g.Expect(yamlOutput).To(Equal("[]\n"))
 }
 
 func testResource(name string) *resource.Instance {
