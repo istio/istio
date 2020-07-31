@@ -30,7 +30,8 @@ import (
 var (
 	// Settings we will collect from the command-line.
 	settingsFromCommandLine = &Settings{
-		KubeConfig: requireKubeConfigs(env.ISTIO_TEST_KUBE_CONFIG.Value()),
+		KubeConfig:            requireKubeConfigs(env.ISTIO_TEST_KUBE_CONFIG.Value()),
+		LoadBalancerSupported: true,
 	}
 	// hold kubeconfigs from command line to split later
 	kubeConfigs string
@@ -201,7 +202,11 @@ func init() {
 	flag.StringVar(&kubeConfigs, "istio.test.kube.config", strings.Join(settingsFromCommandLine.KubeConfig, ":"),
 		"A comma-separated list of paths to kube config files for cluster environments (default is current kube context)")
 	flag.BoolVar(&settingsFromCommandLine.Minikube, "istio.test.kube.minikube", settingsFromCommandLine.Minikube,
-		"Indicates that the target environment is Minikube. Used by Ingress component to obtain the right IP address..")
+		"Deprecated. See istio.test.kube.loadbalancer. Setting this flag will fail tests.")
+	flag.BoolVar(&settingsFromCommandLine.LoadBalancerSupported, "istio.test.kube.loadbalancer", settingsFromCommandLine.LoadBalancerSupported,
+		"Indicates whether or not clusters in the environment support external IPs for LoadBalaner services. Used "+
+			"to obtain the right IP address for the Ingress Gateway. Set --istio.test.kube.loadbalancer=false for local KinD/Minikube tests."+
+			"without MetalLB installed.")
 	flag.StringVar(&controlPlaneTopology, "istio.test.kube.controlPlaneTopology",
 		"", "Specifies the mapping for each cluster to the cluster hosting its control plane. The value is a "+
 			"comma-separated list of the form <clusterIndex>:<controlPlaneClusterIndex>, where the indexes refer to the order in which "+

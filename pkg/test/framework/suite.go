@@ -476,6 +476,9 @@ func newEnvironment(ctx resource.Context) (resource.Environment, error) {
 	if err != nil {
 		return nil, err
 	}
+	if s.Minikube {
+		return nil, fmt.Errorf("istio.test.kube.minikube is deprecated; set --istio.test.kube.loadbalancer=false instead")
+	}
 	return kube.New(ctx, s)
 }
 

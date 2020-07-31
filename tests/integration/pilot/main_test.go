@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -189,11 +189,7 @@ values:
 			return nil
 		}).
 		Setup(func(ctx resource.Context) (err error) {
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: i,
-			}); err != nil {
-				return err
-			}
+			ingr = i.IngressFor(ctx.Clusters().Default())
 
 			apps.externalHost = "fake.example.com"
 			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), fmt.Sprintf(`
