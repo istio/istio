@@ -41,8 +41,6 @@ const (
 	downstreamProtocolError          = "DPE"
 )
 
-
-
 func appendString(result *string, toAppend string) {
 	if *result == "" {
 		*result += toAppend
