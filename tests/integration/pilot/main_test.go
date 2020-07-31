@@ -24,8 +24,8 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -89,6 +89,8 @@ func TestMain(m *testing.M) {
 			return ctx.Config().ApplyYAML("", string(crd))
 		}).
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
+			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
 			cfg.ControlPlaneValues = `
 values:
   global:
@@ -189,11 +191,7 @@ values:
 			return nil
 		}).
 		Setup(func(ctx resource.Context) (err error) {
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: i,
-			}); err != nil {
-				return err
-			}
+			ingr = i.IngressFor(ctx.Clusters().Default())
 
 			apps.externalHost = "fake.example.com"
 			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), fmt.Sprintf(`

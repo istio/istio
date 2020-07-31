@@ -1,4 +1,5 @@
 {{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
+# Note: metadata exchange filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -14,7 +15,7 @@ spec:
   configPatches:
     - applyTo: HTTP_FILTER
       match:
-        context: ANY # inbound, outbound, and gateway
+        context: SIDECAR_INBOUND
         proxy:
           proxyVersion: '^1\.7.*'
         listener:
@@ -37,15 +38,78 @@ spec:
                 vm_config:
                   {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
+                  allow_precompiled: true
                   code:
                     local:
-                      filename: /etc/istio/extensions/metadata-exchange-filter.wasm
+                      filename: /etc/istio/extensions/metadata-exchange-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.metadata_exchange
                   {{- end }}
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_OUTBOUND
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration:
+                  "@type": "type.googleapis.com/google.protobuf.StringValue"
+                  value: |
+                    {}
+                vm_config:
+                  {{- if .Values.telemetry.v2.metadataExchange.wasmEnabled }}
+                  runtime: envoy.wasm.runtime.v8
+                  allow_precompiled: true
+                  code:
+                    local:
+                      filename: /etc/istio/extensions/metadata-exchange-filter.compiled.wasm
+                  {{- else }}
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
+                  {{- end }}
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        proxy:
+          proxyVersion: '^1\.7.*'
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: istio.metadata_exchange
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            value:
+              config:
+                configuration:
+                  "@type": "type.googleapis.com/google.protobuf.StringValue"
+                  value: |
+                    {}
+                vm_config:
+                  runtime: envoy.wasm.runtime.null
+                  code:
+                    local:
+                      inline_string: envoy.wasm.metadata_exchange
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -108,6 +172,7 @@ spec:
               value:
                 protocol: istio-peer-exchange
 ---
+# Note: http stats filter is wasm enabled only in sidecars.
 {{- if .Values.telemetry.v2.prometheus.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -163,9 +228,10 @@ spec:
                   vm_id: stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
+                  allow_precompiled: true
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -213,9 +279,10 @@ spec:
                   vm_id: stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
+                  allow_precompiled: true
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -262,18 +329,12 @@ spec:
                     }
                 vm_config:
                   vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: envoy.wasm.stats
-                  {{- end }}
 ---
+# Note: tcp stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -326,9 +387,10 @@ spec:
                   vm_id: tcp_stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
+                  allow_precompiled: true
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -374,9 +436,10 @@ spec:
                   vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
                   runtime: envoy.wasm.runtime.v8
+                  allow_precompiled: true
                   code:
                     local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
+                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
                   {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
@@ -420,17 +483,10 @@ spec:
                     }
                 vm_config:
                   vm_id: tcp_stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.wasm
-                  {{- else }}
                   runtime: envoy.wasm.runtime.null
                   code:
                     local:
                       inline_string: "envoy.wasm.stats"
-                  {{- end }}
 ---
 
 {{- end }}

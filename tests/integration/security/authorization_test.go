@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -450,13 +449,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
-			var ingr ingress.Instance
-			var err error
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: ist,
-			}); err != nil {
-				t.Fatal(err)
-			}
+			ingr := ist.IngressFor(ctx.Clusters().Default())
 
 			cases := []struct {
 				Name     string

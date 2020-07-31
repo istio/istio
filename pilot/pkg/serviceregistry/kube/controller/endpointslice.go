@@ -162,8 +162,8 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 			continue
 		}
 		for _, a := range e.Addresses {
-			pod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
-			if pod == nil {
+			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
+			if pod == nil && expectedPod {
 				continue
 			}
 			builder := esc.newEndpointBuilder(pod, e)

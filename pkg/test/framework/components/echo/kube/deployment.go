@@ -16,18 +16,15 @@ package kube
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"text/template"
 
 	"github.com/Masterminds/sprig"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -248,6 +245,7 @@ spec:
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
 
           # TODO: run with systemctl?
+          export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel=debug"
           sudo -E /usr/local/bin/istio-start.sh&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
@@ -311,19 +309,20 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(ctx resource.Context, cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return "", "", err
 	}
-	return generateYAMLWithSettings(cfg, settings, cluster)
+	return generateYAMLWithSettings(ctx, cfg, settings, cluster)
 }
 
 const DefaultVMImage = "app_sidecar_ubuntu_bionic"
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
-	cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAMLWithSettings(
+	ctx resource.Context, cfg echo.Config,
+	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -341,19 +340,15 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
-		s, err := kube.NewSettingsFromCommandLine()
+		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err
 		}
-		var addr net.TCPAddr
-		err = retry.UntilSuccess(func() error {
-			var err error
-			addr, err = istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
-			return err
-		})
+		addr, err := ist.RemoteDiscoveryAddressFor(cluster)
 		if err != nil {
 			return "", "", err
 		}
+
 		istiodIP = addr.IP.String()
 		istiodPort = strconv.Itoa(addr.Port)
 
