@@ -512,7 +512,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 		}
 		found := false
 		for _, filter := range connectionManagerCfg.HttpFilters {
-			if filter.Name == wellknown.Lua {
+			if filter.Name == "envoy.lua" {
 				found = true
 			}
 		}

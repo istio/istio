@@ -40,8 +40,9 @@ const (
 )
 
 var (
-	// This is to support both canonical filter names and deprecated filter names.
-	// Xds generates canonical filter names.
+	// DeprecatedFilterNames is to support both canonical filter names
+	// and deprecated filter names for backward compatibility. Istiod
+	// generates canonical filter names.
 	DeprecatedFilterNames = map[string]string{
 		wellknown.Buffer:                      "envoy.buffer",
 		wellknown.CORS:                        "envoy.cors",
