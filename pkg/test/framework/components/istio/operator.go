@@ -105,6 +105,8 @@ var leaderElectionConfigMaps = []string{
 }
 
 func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if _, ok := i.ingress[cluster.Index()]; !ok {
 		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
 			Namespace: i.settings.IngressNamespace,
@@ -140,6 +142,8 @@ func (i *operatorComponent) Close() (err error) {
 			}
 		}
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if i.ingress != nil {
 		for _, ing := range i.ingress {
 			ing.CloseClients()
