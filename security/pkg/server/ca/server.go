@@ -33,6 +33,7 @@ import (
 	"istio.io/pkg/log"
 
 	pb "istio.io/api/security/v1alpha1"
+	customca "istio.io/istio/security/pkg/pki/custom"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
@@ -70,6 +71,8 @@ type Server struct {
 	port           int
 	forCA          bool
 	grpcServer     *grpc.Server
+
+	CustomCAClient *customca.CAClient
 }
 
 func getConnectionAddress(ctx context.Context) string {
@@ -97,6 +100,23 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	}
 
 	// TODO: Call authorizer.
+
+	// Forward request to upstream
+	if s.CustomCAClient != nil {
+		response, err := s.CustomCAClient.CreateCertificate(ctx, request)
+		serverCaLog.Infof("CustomCAClient response: \n%v", response)
+
+		if err != nil {
+			errMsg := fmt.Sprintf("Forward request to Custom CA error (%v)", err)
+			serverCaLog.Fatal(errMsg)
+			s.monitoring.GetCertSignError(errMsg).Increment()
+			return nil, status.Errorf(codes.Unavailable, errMsg)
+		}
+
+		s.monitoring.Success.Increment()
+		serverCaLog.Infof("Custom CA sucessfully signing CSR.")
+		return response, nil
+	}
 
 	_, _, certChainBytes, rootCertBytes := s.ca.GetCAKeyCertBundle().GetAll()
 	cert, signErr := s.ca.Sign(

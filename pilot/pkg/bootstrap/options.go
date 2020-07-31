@@ -113,12 +113,14 @@ type TLSOptions struct {
 	KeyFile    string
 }
 
-var PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
-var podNameVar = env.RegisterStringVar("POD_NAME", "", "")
-
-// RevisionVar is the value of the Istio control plane revision, e.g. "canary",
-// and is the value used by the "istio.io/rev" label.
-var RevisionVar = env.RegisterStringVar("REVISION", "", "")
+var (
+	PodNamespaceVar = env.RegisterStringVar("POD_NAMESPACE", constants.IstioSystemNamespace, "")
+	podNameVar      = env.RegisterStringVar("POD_NAME", "", "")
+	// RevisionVar is the value of the Istio control plane revision, e.g. "canary",
+	// and is the value used by the "istio.io/rev" label.
+	RevisionVar = env.RegisterStringVar("REVISION", "", "")
+	CaAddrVar   = env.RegisterStringVar("CUSTOM_CA_ADDR", "", "Custom CA address to sign Workload Certificate")
+)
 
 // NewPilotArgs constructs pilotArgs with default values.
 func NewPilotArgs(initFuncs ...func(*PilotArgs)) *PilotArgs {

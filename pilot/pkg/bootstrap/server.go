@@ -227,8 +227,9 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &CAOptions{
-		TrustDomain: s.environment.Mesh().TrustDomain,
-		Namespace:   args.Namespace,
+		TrustDomain:  s.environment.Mesh().TrustDomain,
+		Namespace:    args.Namespace,
+		CustomCaAddr: args.ServerOptions.CaAddr,
 	}
 
 	// CA signing certificate must be created first if needed.

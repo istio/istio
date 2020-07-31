@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
+	customca "istio.io/istio/security/pkg/pki/custom"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
@@ -119,8 +120,9 @@ var (
 
 type CAOptions struct {
 	// domain to use in SPIFFE identity URLs
-	TrustDomain string
-	Namespace   string
+	TrustDomain  string
+	Namespace    string
+	CustomCaAddr string
 }
 
 // EnableCA returns whether CA functionality is enabled in istiod.
@@ -185,6 +187,21 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		s.multicluster.GetRemoteKubeClient)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
+	}
+
+	if opts.CustomCaAddr != "" {
+		customCAClient, err := customca.NewCAClient(&customca.CAClientOpts{
+			CAAddr:           opts.CustomCaAddr,
+			KeyCertBundle:    s.CA.GetCAKeyCertBundle(),
+			RootCertFilePath: path.Join(LocalCertDir.Get(), "root-cert.pem"),
+		})
+
+		if err != nil {
+			log.Fatalf("failed to create an CustomCAClient addr:%v - err: %v", opts.CustomCaAddr, err)
+			return
+		}
+
+		caServer.CustomCAClient = customCAClient
 	}
 
 	// TODO: if not set, parse Istiod's own token (if present) and get the issuer. The same issuer is used
