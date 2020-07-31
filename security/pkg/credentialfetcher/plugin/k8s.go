@@ -21,10 +21,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-const (
-	K8S = "k8s"
-)
-
 // The plugin object.
 type K8SPlugin struct {
 	// Log scope
@@ -50,9 +46,4 @@ func (p *K8SPlugin) GetPlatformCredential() (string, error) {
 		return "", err
 	}
 	return string(token), nil
-}
-
-// GetPlatform returns the platform type.
-func (p *K8SPlugin) GetPlatform() string {
-	return K8S
 }

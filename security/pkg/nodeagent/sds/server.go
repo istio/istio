@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	ca2 "istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/plugin"
 	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/pkg/version"
@@ -54,14 +53,13 @@ type Server struct {
 }
 
 // NewServer creates and starts the Grpc server for SDS.
-func NewServer(options *ca2.Options, credFetcher credentialfetcher.CredFetcher, workloadSecretCache, gatewaySecretCache ca2.SecretManager) (*Server, error) {
+func NewServer(options *ca2.Options, workloadSecretCache, gatewaySecretCache ca2.SecretManager) (*Server, error) {
 	s := &Server{
 		workloadSds: newSDSService(workloadSecretCache,
 			options,
-			options.FileMountedCerts,
-			credFetcher),
+			options.FileMountedCerts),
 		gatewaySds: newSDSService(gatewaySecretCache, options,
-			true, credFetcher),
+			true),
 	}
 	if options.EnableWorkloadSDS {
 		if err := s.initWorkloadSdsService(options); err != nil {

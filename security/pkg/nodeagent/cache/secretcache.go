@@ -35,7 +35,6 @@ import (
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
@@ -162,12 +161,10 @@ type SecretCache struct {
 	certMutex *sync.RWMutex
 
 	secOpts *security.Options
-
-	credFetcher credentialfetcher.CredFetcher
 }
 
 // NewSecretCache creates a new secret cache.
-func NewSecretCache(fetcher *secretfetcher.SecretFetcher, credFetcher credentialfetcher.CredFetcher,
+func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 	notifyCb func(ConnKey, *security.SecretItem) error, options *security.Options) *SecretCache {
 	ret := &SecretCache{
 		fetcher:               fetcher,
@@ -183,7 +180,6 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher, credFetcher credential
 		fileCerts:             make(map[string]map[ConnKey]struct{}),
 		certMutex:             &sync.RWMutex{},
 		secOpts:               options,
-		credFetcher:           credFetcher,
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -595,7 +591,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			if sc.isTokenExpired(&secret) {
 				cacheLog.Infof("%s token expired, getting a new token", logPrefix)
-				t, err := sc.credFetcher.GetPlatformCredential()
+				t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
 				if err != nil {
 					cacheLog.Errorf("failed to get credential token: %v", err)
 					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of

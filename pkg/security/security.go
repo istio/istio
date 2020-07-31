@@ -34,6 +34,11 @@ const (
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
+
+	// Platforms
+	K8S = "k8s"
+	GCE = "gce"
+	Mock = "mock"
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -175,6 +180,9 @@ type Options struct {
 
 	// Platform where the agent runs
 	Platform string
+
+	// credential fetcher.
+	CredFetcher CredFetcher
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -237,4 +245,9 @@ type SecretItem struct {
 	CreatedTime time.Time
 
 	ExpireTime time.Time
+}
+
+type CredFetcher interface {
+	// GetPlatformCredential fetches workload credential provided by the platform.
+	GetPlatformCredential() (string, error)
 }

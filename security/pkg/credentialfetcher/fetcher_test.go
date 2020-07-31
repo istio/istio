@@ -17,7 +17,7 @@ package credentialfetcher
 import (
 	"testing"
 
-	"istio.io/istio/security/pkg/credentialfetcher/plugin"
+	"istio.io/istio/pkg/security"
 )
 
 func TestNewCredFetcher(t *testing.T) {
@@ -29,21 +29,21 @@ func TestNewCredFetcher(t *testing.T) {
 		expectedToken string
 	}{
 		"k8s test": {
-			platform:      plugin.K8S,
+			platform:      security.K8S,
 			trustdomain:   "",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "",
 			expectedToken: "",
 		},
 		"gce test": {
-			platform:      plugin.GCE,
+			platform:      security.GCE,
 			trustdomain:   "abc.svc.id.goog",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "", // No error when ID token auth is enabled.
 			expectedToken: "",
 		},
 		"mock test": {
-			platform:      plugin.Mock,
+			platform:      security.Mock,
 			trustdomain:   "",
 			jwtPath:       "",
 			expectedErr:   "",

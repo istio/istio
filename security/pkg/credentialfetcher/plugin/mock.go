@@ -19,10 +19,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-const (
-	Mock = "mock"
-)
-
 // The plugin object.
 type MockPlugin struct {
 	// Log scope
@@ -41,9 +37,4 @@ func CreateMockPlugin(scope *log.Scope) *MockPlugin {
 func (p *MockPlugin) GetPlatformCredential() (string, error) {
 	p.credlog.Debugf("mock plugin returns a constant token.")
 	return "test_token", nil
-}
-
-// GetPlatform returns the platform type.
-func (p *MockPlugin) GetPlatform() string {
-	return Mock
 }

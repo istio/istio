@@ -52,7 +52,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/security/pkg/credentialfetcher"
-	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
@@ -124,10 +123,6 @@ var (
 	// This is also disabled by presence of the SDS socket directory
 	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
 		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
-
-	// TODO: This is already present in ProxyConfig !!!
-	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
-		"The trust domain for spiffe certificates").Get()
 
 	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by istio agent").Get()
@@ -267,8 +262,7 @@ var (
 			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
 			secOpts.CAProviderName = caProviderEnv
 
-			// TODO: extract from ProxyConfig
-			secOpts.TrustDomain = trustDomainEnv
+			secOpts.TrustDomain = trustDomain
 			secOpts.Pkcs8Keys = pkcs8KeysEnv
 			secOpts.ECCSigAlg = eccSigAlgEnv
 			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
@@ -279,15 +273,16 @@ var (
 			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
-			secOpts.AlwaysValidTokenFlag = (platform == credPlugin.K8S)
+			secOpts.AlwaysValidTokenFlag = (platform == security.K8S)
 
 			credFetcher, err := credentialfetcher.NewCredFetcher(platform, trustDomain, jwtPath)
 			if err != nil {
 				return fmt.Errorf("failed to create credential fetcher: %v", err)
 			}
 			log.Infof("Start credential fetcher on %s platform in %s trust domain", platform, trustDomain)
+			secOpts.CredFetcher = credFetcher
 
-			sa := istio_agent.NewAgent(credFetcher, &proxyConfig,
+			sa := istio_agent.NewAgent(&proxyConfig,
 				&istio_agent.AgentConfig{}, secOpts)
 
 			var pilotSAN []string

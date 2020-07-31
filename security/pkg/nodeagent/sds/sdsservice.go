@@ -40,7 +40,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
 )
@@ -131,7 +130,7 @@ type sdsservice struct {
 	outputKeyCertToDir string
 
 	// Credential fetcher
-	credFetcher credentialfetcher.CredFetcher
+	credFetcher security.CredFetcher
 }
 
 // ClientDebug represents a single SDS connection to the ndoe agent
@@ -155,8 +154,7 @@ type Debug struct {
 // newSDSService creates Secret Discovery Service which implements envoy v2 SDS API.
 func newSDSService(st security.SecretManager,
 	secOpt *security.Options,
-	skipTokenVerification bool,
-	credFetcher credentialfetcher.CredFetcher) *sdsservice {
+	skipTokenVerification bool) *sdsservice {
 	if st == nil {
 		return nil
 	}
@@ -169,7 +167,7 @@ func newSDSService(st security.SecretManager,
 		closing:              make(chan bool),
 		localJWT:             secOpt.UseLocalJWT,
 		outputKeyCertToDir:   secOpt.OutputKeyCertToDir,
-		credFetcher:          credFetcher,
+		credFetcher:          secOpt.CredFetcher,
 	}
 
 	go ret.clearStaledClientsJob()

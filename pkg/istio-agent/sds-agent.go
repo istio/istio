@@ -31,7 +31,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
@@ -123,9 +122,6 @@ type Agent struct {
 
 	cfg     *AgentConfig
 	secOpts *security.Options
-
-	// Credential fetcher.
-	CredFetcher credentialfetcher.CredFetcher
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -140,10 +136,10 @@ type AgentConfig struct {
 }
 
 // NewAgent wraps the logic for a local SDS. It sets config options for the in-process SDS agent.
-func NewAgent(credfetcher credentialfetcher.CredFetcher, proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
+// SDS agent uses a credential fetcher to get the workload credential to provision certificate for the workload.
+func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	sopts *security.Options) *Agent {
 	sa := &Agent{
-		CredFetcher: credfetcher,
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
 		secOpts:     sopts,
@@ -162,7 +158,7 @@ func NewAgent(credfetcher credentialfetcher.CredFetcher, proxyConfig *mesh.Proxy
 	// - if PROV_CERT is set, it'll be included in the TLS context sent to the server
 	//   This is a 'provisioning certificate' - long lived, managed by a tool, exchanged for
 	//   the short lived certs.
-	// - if a JWTPath token exists, will be included in the request.
+	// - if a JWTPath token can be fetched by credential fetcher, it will be included in the request.
 
 	// If original /etc/certs or a separate 'provisioning certs' (VM) are present,
 	// add them to the tlsContext. If server asks for them and they exist - will be provided.
@@ -237,7 +233,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		}
 	}
 
-	server, err := sds.NewServer(sa.secOpts, sa.CredFetcher, sa.WorkloadSecrets, gatewaySecretCache)
+	server, err := sds.NewServer(sa.secOpts, sa.WorkloadSecrets, gatewaySecretCache)
 	if err != nil {
 		return nil, err
 	}
@@ -422,6 +418,6 @@ func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.Sec
 
 	gatewaySecretChan = make(chan struct{})
 	gSecretFetcher.Run(gatewaySecretChan)
-	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sa.CredFetcher, sds.NotifyProxy, sa.secOpts)
+	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
 }

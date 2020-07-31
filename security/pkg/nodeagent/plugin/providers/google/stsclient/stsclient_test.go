@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
 
@@ -37,7 +37,7 @@ func TestGetFederatedToken(t *testing.T) {
 		SecureTokenEndpoint = "https://securetoken.googleapis.com/v1/identitybindingtoken"
 	}()
 
-	token, _, _, err := r.ExchangeToken(context.Background(), credPlugin.Mock, mock.FakeTrustDomain, mock.FakeSubjectToken)
+	token, _, _, err := r.ExchangeToken(context.Background(), security.Mock, mock.FakeTrustDomain, mock.FakeSubjectToken)
 	if err != nil {
 		t.Fatalf("failed to call exchange token %v", err)
 	}

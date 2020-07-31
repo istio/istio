@@ -45,7 +45,6 @@ import (
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
 	"istio.io/istio/security/pkg/credentialfetcher"
-	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -77,6 +76,10 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
+	credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
 	arg := ca2.Options{
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
@@ -84,15 +87,12 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 		FileMountedCerts:  true,
 		UseLocalJWT:       false,
+		CredFetcher:       credFetcher,
 	}
 	wst := &mockSecretStore{
 		checkToken: false,
 	}
-	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
-	server, err := NewServer(&arg, credFetcher, wst, nil)
+	server, err := NewServer(&arg, wst, nil)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -194,11 +194,12 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 	}
 
 	// use mock platform
-	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
+	credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
 	if err != nil {
 		t.Fatalf("Failed to create credential fetcher: %v", err)
 	}
-	server, err := NewServer(&arg, credFetcher, wst, gst)
+	arg.CredFetcher = credFetcher
+	server, err := NewServer(&arg, wst, gst)
 	defer server.Stop()
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
@@ -307,21 +308,22 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
+	// use mock platform
+	credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
 	arg := ca2.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
 		WorkloadUDSPath:   socket,
+		CredFetcher:       credFetcher,
 	}
 	st := &mockSecretStore{
 		checkToken: false,
 	}
-	// use mock platform
-	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
-	server, err := NewServer(&arg, credFetcher, st, nil)
+	server, err := NewServer(&arg, st, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
@@ -1065,11 +1067,16 @@ func TestDebugEndpoints(t *testing.T) {
 
 	for _, tc := range tests {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
+		credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
+		if err != nil {
+			t.Fatalf("Failed to create credential fetcher: %v", err)
+		}
 		arg := ca2.Options{
 			EnableGatewaySDS:  false,
 			EnableWorkloadSDS: true,
 			RecycleInterval:   30 * time.Second,
 			WorkloadUDSPath:   socket,
+			CredFetcher:       credFetcher,
 		}
 		st := &mockSecretStore{
 			checkToken: true,
@@ -1078,11 +1085,7 @@ func TestDebugEndpoints(t *testing.T) {
 		sdsClients = map[cache.ConnKey]*sdsConnection{}
 		sdsClientsMutex.Unlock()
 
-		credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
-		if err != nil {
-			t.Fatalf("Failed to create credential fetcher: %v", err)
-		}
-		server, err := NewServer(&arg, credFetcher, st, nil)
+		server, err := NewServer(&arg, st, nil)
 		if err != nil {
 			t.Fatalf("failed to start grpc server for sds: %v", err)
 		}

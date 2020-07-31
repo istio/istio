@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/security"
-	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -121,9 +120,9 @@ func (p Plugin) ExchangeToken(ctx context.Context, platform, trustDomain, k8sSAj
 
 func constructAudience(platform, trustDomain string) string {
 	switch platform {
-	case credPlugin.GCE:
+	case security.GCE:
 		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GCEProvider)
-	case credPlugin.Mock:
+	case security.Mock:
 		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, mock.FakeGKEClusterURL)
 	default: // platform is "k8s" or not set
 		return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, GKEClusterURL)

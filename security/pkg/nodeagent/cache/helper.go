@@ -22,9 +22,11 @@ import (
 
 	"google.golang.org/grpc/codes"
 
-	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
+	"istio.io/istio/pkg/security"
 )
 
+// TODO (liminw): We probably do not need to set identity in CSR, because CA should set identity
+// in CSR based on credential, not based on what's been requested in the CSR.
 func constructCSRHostName(platform, trustDomain, token string) (string, error) {
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep,
 	strs := strings.Split(token, ".")
@@ -43,7 +45,7 @@ func constructCSRHostName(platform, trustDomain, token string) (string, error) {
 
 	var ns, sa string
 	switch platform {
-	case credPlugin.GCE:
+	case security.GCE:
 		ns, sa, err = extractGCEIdentity(dp, trustDomain)
 	default: // Platform is "k8s" or not set.
 		ns, sa, err = extractk8sIdentity(dp)

@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	"istio.io/istio/security/pkg/credentialfetcher"
-	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	mca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google/mock"
@@ -163,6 +162,11 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	}
 	fmt.Println("STS server is up.")
 
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
+
 	// Create a SDS server talking to the fake servers
 	stsclient.GKEClusterURL = msts.FakeGKEClusterURL
 	stsclient.SecureTokenEndpoint = mockSTSServer.URL + "/v1/identitybindingtoken"
@@ -171,6 +175,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Millisecond,
 		WorkloadUDSPath:   socket,
+		CredFetcher:       credFetcher,
 	}
 	caClient, err := gca.NewGoogleCAClient(mockMeshCAServer.Address, false)
 	if err != nil {
@@ -188,14 +193,11 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	workloadSdsCacheOptions.TokenExchangers = NewPlugins([]string{"GoogleTokenExchange"})
 	workloadSdsCacheOptions.RotationInterval = 10 * time.Minute
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = 10
-	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
-	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, credFetcher, NotifyProxy, workloadSdsCacheOptions)
+	workloadSdsCacheOptions.CredFetcher = credFetcher
+	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, workloadSdsCacheOptions)
 
 	// use mock platform
-	server, err := NewServer(&arg, credFetcher, workloadSecretCache, nil)
+	server, err := NewServer(&arg, workloadSecretCache, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}

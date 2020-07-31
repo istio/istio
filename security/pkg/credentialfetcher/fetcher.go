@@ -20,27 +20,20 @@ import (
 
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/pkg/log"
+	"istio.io/istio/pkg/security"
 )
 
 var (
 	credentialLog = log.RegisterScope("credential", "Credential fetcher for istio agent", 0)
 )
 
-type CredFetcher interface {
-	// GetPlatformCredential fetches workload credential provided by the platform.
-	GetPlatformCredential() (string, error)
-
-	// GetPlatform returns platform type, e.g. gce, k8s.
-	GetPlatform() string
-}
-
-func NewCredFetcher(platform, trustdomain, jwtPath string) (CredFetcher, error) {
+func NewCredFetcher(platform, trustdomain, jwtPath string) (security.CredFetcher, error) {
 	switch platform {
-	case plugin.K8S:
+	case security.K8S:
 		return plugin.CreateK8SPlugin(credentialLog, jwtPath), nil
-	case plugin.GCE:
+	case security.GCE:
 		return plugin.CreateGCEPlugin(credentialLog, trustdomain, jwtPath), nil
-	case plugin.Mock: // for test only
+	case security.Mock: // for test only
 		return plugin.CreateMockPlugin(credentialLog), nil
 	default:
 		return nil, fmt.Errorf("invalid platform %s", platform)

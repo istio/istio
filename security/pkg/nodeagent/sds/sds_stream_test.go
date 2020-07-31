@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/security/pkg/credentialfetcher"
-	credPlugin "istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -349,20 +348,21 @@ func StartStreamTest(t *testing.T) *StreamSetup {
 }
 
 func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGatewaySecretStore) {
+	credFetcher, err := credentialfetcher.NewCredFetcher(security.Mock, "", "")
+	if err != nil {
+		t.Fatalf("Failed to create credential fetcher: %v", err)
+	}
 	arg := security.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
 		WorkloadUDSPath:   socket,
+		CredFetcher:       credFetcher,
 	}
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,
 	}
-	credFetcher, err := credentialfetcher.NewCredFetcher(credPlugin.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
-	server, err := NewServer(&arg, credFetcher, st, nil)
+	server, err := NewServer(&arg, st, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}

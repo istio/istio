@@ -24,10 +24,6 @@ import (
 	"istio.io/pkg/log"
 )
 
-const (
-	GCE = "gce"
-)
-
 // The plugin object.
 type GCEPlugin struct {
 	// Log scope
@@ -52,7 +48,8 @@ func CreateGCEPlugin(scope *log.Scope, audience, jwtPath string) *GCEPlugin {
 }
 
 // GetPlatformCredential fetches the GCE VM identity jwt token from its metadata server,
-// and write it to jwtPath.
+// and write it to jwtPath. The local copy of the token in jwtPath is used by both
+// Envoy STS client and istio agent to fetch certificate and access token.
 // Note: this function only works in a GCE VM environment.
 func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 	if p.jwtPath == "" {
@@ -72,9 +69,4 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 		return "", err
 	}
 	return token, nil
-}
-
-// GetPlatform returns the platform type.
-func (p *GCEPlugin) GetPlatform() string {
-	return GCE
 }
