@@ -129,7 +129,7 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	helm.sh/helm/v3 v3.2.4
 	istio.io/api v0.0.0-20200723154128-12ba196bf594
 	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
