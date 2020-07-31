@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/istio/pilot/pkg/status"
@@ -484,7 +485,16 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	// Readiness Handler.
 	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
 
-	s.HTTPListener = listener
+	// Experiment:
+	if true {
+	m := cmux.New(listener)
+		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTPListener = m.Match(cmux.Any())
+		//s.CMUX = m
+		go m.Serve()
+	} else {
+		s.HTTPListener = listener
+	}
 	return nil
 }
 

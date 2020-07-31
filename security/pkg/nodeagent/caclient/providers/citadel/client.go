@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"google.golang.org/grpc/credentials/oauth"
@@ -180,10 +181,12 @@ func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
 		opts = grpc.WithInsecure()
 	}
 	optList := []grpc.DialOption{opts}
-	gcred, err := oauth.NewApplicationDefault(context.Background())
-	//if err == nil {
-	//	optList = append(optList, grpc.WithPerRPCCredentials(gcred))
-	//}
+	if os.Getenv("USE_APPLICATION_DEFAULT") == "1" {
+		gcred, err := oauth.NewApplicationDefault(context.Background())
+		if err == nil {
+			optList = append(optList, grpc.WithPerRPCCredentials(gcred))
+		}
+	}
 
 	conn, err := grpc.Dial(c.caEndpoint, optList...)
 	if err != nil {
