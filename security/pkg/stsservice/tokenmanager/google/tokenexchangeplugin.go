@@ -163,6 +163,8 @@ func (p *Plugin) constructAudience() string {
 	if p.credFetcher != nil && p.credFetcher.GetType() == security.GCE {
 		provider = p.credFetcher.GetIdentityProvider()
 	}
+	// For GKE, we do not register IdentityProvider explicitly. The provider name
+	// is GKEClusterURL by default.
 	if provider == "" {
 		provider = p.gkeClusterURL
 	}

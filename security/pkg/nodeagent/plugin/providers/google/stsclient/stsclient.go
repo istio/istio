@@ -124,6 +124,8 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) str
 	if credFetcher != nil && credFetcher.GetType() == security.GCE {
 		provider = credFetcher.GetIdentityProvider()
 	}
+	// For GKE, we do not register IdentityProvider explicitly. The provider name
+	// is GKEClusterURL by default.
 	if provider == "" {
 		provider = GKEClusterURL
 	}
