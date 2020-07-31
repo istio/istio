@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -76,7 +77,9 @@ type ingressImpl struct {
 	namespace string
 	env       *kube.Environment
 	cluster   resource.Cluster
-	clients   map[clientKey]*http.Client
+
+	mu      sync.Mutex
+	clients map[clientKey]*http.Client
 }
 
 // getAddressInner returns the ingress gateway address for plain text http requests.
@@ -199,6 +202,8 @@ type clientKey struct {
 // ingress type. If host is not empty, the client will resolve domain name and verify server
 // cert using the host name.
 func (c *ingressImpl) createClient(options ingress.CallOptions) (*http.Client, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	key := clientKeyFromOptions(options)
 	if client, ok := c.clients[key]; ok {
 		return client, nil
@@ -341,6 +346,8 @@ func (c *ingressImpl) ProxyStats() (map[string]int, error) {
 }
 
 func (c *ingressImpl) CloseClients() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for _, cl := range c.clients {
 		cl.CloseIdleConnections()
 	}
