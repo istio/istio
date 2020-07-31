@@ -297,7 +297,7 @@ spec:
 `
 )
 
-func RedeployServerWithNewCerts(t *testing.T, ctx resource.Context, externalServer *echo.Instance, serverNamespace namespace.Instance) {
+func RedeployServerWithNewCerts(t *testing.T, ctx resource.Context, internalClient echo.Instance, externalServer *echo.Instance, serverNamespace namespace.Instance) {
 	echoboot.NewBuilder(ctx).
 		With(externalServer, echo.Config{
 			Service:   "server",
@@ -334,6 +334,10 @@ func RedeployServerWithNewCerts(t *testing.T, ctx resource.Context, externalServ
 			}},
 		}).
 		BuildOrFail(t)
+
+	if err := WaitUntilNotCallable(internalClient, *externalServer); err != nil {
+		t.Fatalf("failed to apply sidecar, %v", err)
+	}
 }
 
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first

@@ -141,7 +141,7 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				})
 			}
 
-			sdstlsutil.RedeployServerWithNewCerts(t, ctx, &externalServer, serverNamespace)
+			sdstlsutil.RedeployServerWithNewCerts(t, ctx, internalClient, &externalServer, serverNamespace)
 
 			testCases = map[string]struct {
 				response        []string
