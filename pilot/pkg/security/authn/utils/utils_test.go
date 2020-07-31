@@ -15,8 +15,10 @@
 package utils
 
 import (
+	"github.com/golang/protobuf/ptypes"
 	"strings"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -24,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -165,7 +166,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 								{
 									Name: "default",
 									SdsConfig: &core.ConfigSource{
-										InitialFetchTimeout: features.InitialFetchTimeout,
+										InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
 										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
@@ -189,7 +190,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 										Name: "ROOTCA",
 										SdsConfig: &core.ConfigSource{
-											InitialFetchTimeout: features.InitialFetchTimeout,
+											InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
 											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
