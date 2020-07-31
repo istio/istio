@@ -36,8 +36,8 @@ const (
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
 	// Platforms
-	K8S = "k8s"
-	GCE = "gce"
+	K8S  = "k8s"
+	GCE  = "gce"
 	Mock = "mock"
 )
 

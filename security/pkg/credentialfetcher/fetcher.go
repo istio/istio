@@ -18,9 +18,9 @@ package credentialfetcher
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher/plugin"
 	"istio.io/pkg/log"
-	"istio.io/istio/pkg/security"
 )
 
 var (

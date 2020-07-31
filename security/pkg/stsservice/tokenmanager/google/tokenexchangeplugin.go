@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/security"
+	"istio.io/pkg/log"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/pkg/log"
 )

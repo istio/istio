@@ -663,7 +663,7 @@ func createSecretCache(t *testing.T) *SecretCache {
 	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
-		CredFetcher: credFetcher,
+		CredFetcher:      credFetcher,
 	}
 	return NewSecretCache(fetcher, notifyCb, opt)
 }
@@ -680,7 +680,7 @@ func TestShouldWaitForGatewaySecretForFileMountedCerts(t *testing.T) {
 	opt := &security.Options{
 		RotationInterval: 100 * time.Millisecond,
 		EvictionDuration: 0,
-		CredFetcher: credFetcher,
+		CredFetcher:      credFetcher,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	if sc.ShouldWaitForGatewaySecret("", "", "", true) {
@@ -1045,7 +1045,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSds(t *testing.T) {
 	opt := &security.Options{
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
-		CredFetcher: credFetcher,
+		CredFetcher:      credFetcher,
 	}
 
 	var wgAddedWatch sync.WaitGroup
@@ -1176,7 +1176,7 @@ func TestWorkloadAgentGenerateSecretFromFileOverSdsWithBogusFiles(t *testing.T) 
 	opt := &security.Options{
 		RotationInterval: 1 * time.Millisecond,
 		EvictionDuration: 0,
-		CredFetcher: credFetcher,
+		CredFetcher:      credFetcher,
 	}
 	sc := NewSecretCache(fetcher, notifyCb, opt)
 	defer func() {

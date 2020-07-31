@@ -32,8 +32,8 @@ import (
 
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 
-	istioEnv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/security"
+	istioEnv "istio.io/istio/pkg/test/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"

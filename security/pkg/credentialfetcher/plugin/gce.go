@@ -63,7 +63,7 @@ func (p *GCEPlugin) GetPlatformCredential() (string, error) {
 	}
 	p.credlog.Debugf("Got GCE identity token: %d", len(token))
 	tokenbytes := []byte(token)
-	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0666)
+	err = ioutil.WriteFile(p.jwtPath, tokenbytes, 0600)
 	if err != nil {
 		p.credlog.Errorf("Encountered error when writing vm identity token: %v", err)
 		return "", err
