@@ -15,10 +15,11 @@
 package utils
 
 import (
-	"github.com/golang/protobuf/ptypes"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"

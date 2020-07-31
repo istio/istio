@@ -15,9 +15,10 @@
 package model
 
 import (
-	"github.com/golang/protobuf/ptypes"
 	"testing"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"

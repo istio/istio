@@ -15,11 +15,12 @@
 package v1alpha3
 
 import (
-	"github.com/golang/protobuf/ptypes"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
