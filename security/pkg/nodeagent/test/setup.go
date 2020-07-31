@@ -30,7 +30,6 @@ import (
 
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	"istio.io/istio/security/pkg/nodeagent/sds"
@@ -40,7 +39,8 @@ import (
 
 const (
 	proxyTokenPath = "/tmp/sds-envoy-token.jwt"
-	jwtToken       = "thisisafakejwt"
+	//	jwtToken       = "thisisafakejwt"
+	jwtToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcjVWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ.eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdCI6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZXN0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7QNBUo-KC9PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde7G6dabliUosJvvKOPcKIWPccCgefSj_GNfwIip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRnemRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0DCPb43W1tzIBxgm8NxUg"
 )
 
 var rotateCertInterval time.Duration
@@ -157,12 +157,6 @@ func (e *Env) StartProxy(t *testing.T) {
 
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
-	// Fow now, only test k8s platform.
-	// TODO (liminw): add support for other platforms.
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", proxyTokenPath)
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
 	serverOptions := &security.Options{
 		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
 		UseLocalJWT:       true,
@@ -170,7 +164,6 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		CAEndpoint:        fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
 		EnableWorkloadSDS: true,
 		RecycleInterval:   5 * time.Minute,
-		CredFetcher:       credFetcher,
 	}
 
 	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")
@@ -182,7 +175,6 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		CaClient:    caClient,
 	}
 	opt := e.cacheOptions(t)
-	opt.CredFetcher = credFetcher
 	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
 	sdsServer, err := sds.NewServer(serverOptions, workloadSecretCache, nil)
 	if err != nil {

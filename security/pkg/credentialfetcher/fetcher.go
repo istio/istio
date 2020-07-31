@@ -24,8 +24,6 @@ import (
 
 func NewCredFetcher(credtype, trustdomain, jwtPath string) (security.CredFetcher, error) {
 	switch credtype {
-	case security.K8S:
-		return plugin.CreateK8SPlugin(jwtPath), nil
 	case security.GCE:
 		return plugin.CreateGCEPlugin(trustdomain, jwtPath), nil
 	case security.Mock: // for test only

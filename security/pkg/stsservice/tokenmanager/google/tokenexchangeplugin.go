@@ -158,7 +158,12 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 
 // Construct the audience field for GetFederatedToken request.
 func (p *Plugin) constructAudience() string {
-	provider := p.credFetcher.GetIdentityProvider()
+	provider := ""
+	// TODO (liminw): CredFetcher is a general interface. Limit the use on GCE only for now because
+	// GCE is the only supported plugin at the moment.
+	if p.credFetcher != nil && p.credFetcher.GetType() == security.GCE {
+		provider = p.credFetcher.GetIdentityProvider()
+	}
 	if provider == "" {
 		provider = p.gkeClusterURL
 	}

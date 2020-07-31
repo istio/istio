@@ -27,20 +27,15 @@ func TestNewCredFetcher(t *testing.T) {
 		jwtPath       string
 		expectedErr   string
 		expectedToken string
+		expectedIdp   string
 	}{
-		"k8s test": {
-			fetcherType:   security.K8S,
-			trustdomain:   "",
-			jwtPath:       "/var/run/secrets/tokens/istio-token",
-			expectedErr:   "",
-			expectedToken: "",
-		},
 		"gce test": {
 			fetcherType:   security.GCE,
 			trustdomain:   "abc.svc.id.goog",
 			jwtPath:       "/var/run/secrets/tokens/istio-token",
 			expectedErr:   "", // No error when ID token auth is enabled.
 			expectedToken: "",
+			expectedIdp:   "GoogleComputeEngine",
 		},
 		"mock test": {
 			fetcherType:   security.Mock,
@@ -48,6 +43,7 @@ func TestNewCredFetcher(t *testing.T) {
 			jwtPath:       "",
 			expectedErr:   "",
 			expectedToken: "test_token",
+			expectedIdp:   "fakeIDP",
 		},
 		"invalid test": {
 			fetcherType:   "foo",
@@ -55,6 +51,7 @@ func TestNewCredFetcher(t *testing.T) {
 			jwtPath:       "",
 			expectedErr:   "invalid credential fetcher type foo",
 			expectedToken: "",
+			expectedIdp:   "",
 		},
 	}
 
@@ -72,7 +69,11 @@ func TestNewCredFetcher(t *testing.T) {
 		} else if err != nil {
 			t.Errorf("%s: unexpected Error: %v", id, err)
 		}
-		if tc.fetcherType == "mock" {
+		idp := cf.GetIdentityProvider()
+		if idp != tc.expectedIdp {
+			t.Errorf("%s: GetIdentityProvider returned %s, expected %s", id, idp, tc.expectedIdp)
+		}
+		if tc.fetcherType == security.Mock {
 			token, err := cf.GetPlatformCredential()
 			if err != nil {
 				t.Errorf("%s: unexpected error calling GetPlatformCredential: %v", id, err)

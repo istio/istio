@@ -31,7 +31,6 @@ import (
 
 	"istio.io/istio/pkg/security"
 
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -348,16 +347,12 @@ func StartStreamTest(t *testing.T) *StreamSetup {
 }
 
 func createStreamSDSServer(t *testing.T, socket string) (*Server, *mockIngressGatewaySecretStore) {
-	credFetcher, err := credentialfetcher.NewCredFetcher(security.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
 	arg := security.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
 		WorkloadUDSPath:   socket,
-		CredFetcher:       credFetcher,
+		CredFetcher:       nil,
 	}
 	st := &mockIngressGatewaySecretStore{
 		checkToken: false,

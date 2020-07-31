@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -30,7 +31,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/util"
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
+	"istio.io/istio/security/pkg/util"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
@@ -127,6 +129,8 @@ type sdsservice struct {
 
 	localJWT bool
 
+	jwtPath string
+
 	outputKeyCertToDir string
 
 	// Credential fetcher
@@ -166,6 +170,7 @@ func newSDSService(st security.SecretManager,
 		tickerInterval:       secOpt.RecycleInterval,
 		closing:              make(chan bool),
 		localJWT:             secOpt.UseLocalJWT,
+		jwtPath:              secOpt.JWTPath,
 		outputKeyCertToDir:   secOpt.OutputKeyCertToDir,
 		credFetcher:          secOpt.CredFetcher,
 	}
@@ -283,7 +288,8 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 
 			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			if s.localJWT {
-				t, err := s.credFetcher.GetPlatformCredential()
+				// Running in-process, no need to pass the token from envoy to agent as in-context - use the file
+				t, err := s.getToken()
 				if err != nil {
 					sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 					return err
@@ -347,7 +353,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			}
 
 			// Output the key and cert to a directory, if some applications need to read them from local file system.
-			if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
+			if err = nodeagentutil.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
 				sdsServiceLog.Errorf("(%v, %v) error when output the key and cert: %v",
 					conIDresourceNamePrefix, discReq.Node.Id, err)
@@ -397,7 +403,7 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
 	token := ""
 	if s.localJWT {
-		t, err := s.credFetcher.GetPlatformCredential()
+		t, err := s.getToken()
 		if err != nil {
 			sdsServiceLog.Errorf("Failed to get credential token: %v", err)
 			return nil, err
@@ -426,13 +432,48 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *discovery.Discov
 	}
 
 	// Output the key and cert to a directory, if some applications need to read them from local file system.
-	if err = util.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
+	if err = nodeagentutil.OutputKeyCertToDir(s.outputKeyCertToDir, secret.PrivateKey,
 		secret.CertificateChain, secret.RootCert); err != nil {
 		sdsServiceLog.Errorf("(%v) error when output the key and cert: %v",
 			connID, err)
 		return nil, err
 	}
 	return sdsDiscoveryResponse(secret, resourceName, discReq.TypeUrl)
+}
+
+func (s *sdsservice) getToken() (string, error) {
+	token := ""
+	needRenew := false
+	tok, err := ioutil.ReadFile(s.jwtPath)
+	if err != nil {
+		sdsServiceLog.Errorf("failed to get credential token: %v from path %s", err, s.jwtPath)
+		needRenew = true
+	} else {
+		tokenExpired, err := util.IsJwtExpired(string(tok), time.Now())
+		if err != nil || tokenExpired {
+			sdsServiceLog.Errorf("JWT expiration checking error: %v or token is expired %v", err, tokenExpired)
+			needRenew = true
+		} else {
+			// We have a valid token.
+			token = string(tok)
+			return token, nil
+		}
+	}
+	if needRenew {
+		// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+		// GCE is the only supported plugin at the moment.
+		if s.credFetcher != nil && s.credFetcher.GetType() == security.GCE {
+			t, err := s.credFetcher.GetPlatformCredential()
+			if err != nil {
+				sdsServiceLog.Errorf("Failed to get credential token on GCE: %v", err)
+				return "", err
+			}
+			token = t
+		} else {
+			return "", fmt.Errorf("failed to read token from path %s and cannot renew on GCE.", s.jwtPath)
+		}
+	}
+	return token, nil
 }
 
 func (s *sdsservice) Stop() {

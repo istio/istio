@@ -585,24 +585,25 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) && !sc.useCertToRotate() {
-				cacheLog.Infof("%s token expired, getting a new token", logPrefix)
-				t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
-				if err != nil {
-					cacheLog.Errorf("failed to get credential token: %v", err)
+			if isTokenExpired(secret.Token) && !sc.useCertToRotate() {
+				cacheLog.Debugf("%s token expired", logPrefix)
+				// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+				// GCE is the only supported plugin at the moment.
+				if sc.secOpts.CredFetcher != nil && sc.secOpts.CredFetcher.GetType() == security.GCE {
+					cacheLog.Infof("%s on GCE platform, getting a new token", logPrefix)
+					t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
+					if err != nil {
+						cacheLog.Errorf("failed to get credential token: %v", err)
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
+					}
+					secret.Token = t
+				} else {
 					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
 					// requiring the client to send another SDS request.
 					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
 					return true
 				}
-				// Check if the new fetched token is expired.
-				tokenExpired, err := util.IsJwtExpired(t, time.Now())
-				if err != nil || tokenExpired {
-					cacheLog.Errorf("JWT expiration checking error: %v or token is expired %v", err, tokenExpired)
-					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-					return true
-				}
-				secret.Token = t
 			}
 
 			wg.Add(1)
@@ -853,7 +854,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 	csrHostName := connKey.ResourceName
 	// TODO (liminw): This is probably not needed. CA is using claims in the credential to decide the identity in the certificate,
 	// instead of using host name in CSR. We can clean it up later.
-	if sc.secOpts.CredFetcher.GetType() == security.K8S {
+	if sc.secOpts.CredFetcher == nil {
 		csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
 		if err != nil {
 			cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
@@ -944,13 +945,8 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	return rotate
 }
 
-func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
-	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
-	if sc.configOptions.AlwaysValidTokenFlag {
-		return false
-	}
-
-	expired, err := util.IsJwtExpired(secret.Token, time.Now())
+func isTokenExpired(token string) bool {
+	expired, err := util.IsJwtExpired(token, time.Now())
 	if err != nil {
 		cacheLog.Errorf("JWT expiration checking error: %v. Consider as expired.", err)
 		return true

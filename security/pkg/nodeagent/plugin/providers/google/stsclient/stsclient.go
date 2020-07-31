@@ -119,7 +119,12 @@ func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetc
 }
 
 func constructAudience(credFetcher security.CredFetcher, trustDomain string) string {
-	provider := credFetcher.GetIdentityProvider()
+	provider := ""
+	// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+	// GCE is the only supported plugin at the moment.
+	if credFetcher != nil && credFetcher.GetType() == security.GCE {
+		provider = credFetcher.GetIdentityProvider()
+	}
 	if provider == "" {
 		if GKEClusterURL != "" {
 			provider = GKEClusterURL

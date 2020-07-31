@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/security/pkg/credentialfetcher"
 
 	"istio.io/istio/tests/util"
 
@@ -91,10 +90,6 @@ func TestAgent(t *testing.T) {
 	}
 
 	t.Run("agentProxy", func(t *testing.T) {
-		credFetcher, err := credentialfetcher.NewCredFetcher(security.K8S, "", "")
-		if err != nil {
-			t.Fatalf("Failed to create credential fetcher: %v", err)
-		}
 		// Start the istio-agent (proxy and SDS part) - will connect to XDS
 		sa := istioagent.NewAgent(&mesh.ProxyConfig{
 			DiscoveryAddress:       util.MockPilotSGrpcAddr,
@@ -105,7 +100,6 @@ func TestAgent(t *testing.T) {
 		}, &security.Options{
 			PilotCertProvider: "custom",
 			ClusterID:         "kubernetes",
-			CredFetcher:       credFetcher,
 		})
 
 		// Override agent auth - start will use this instead of a gRPC

@@ -23,8 +23,6 @@ import (
 
 var (
 	mockcredLog = log.RegisterScope("mockcred", "Mock credential fetcher for istio agent", 0)
-
-	FakeGKEClusterURL = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
 )
 
 // The plugin object.
@@ -50,5 +48,5 @@ func (p *MockPlugin) GetType() string {
 
 // GetIdentityProvider returns the name of the identity provider that can authenticate the workload credential.
 func (p *MockPlugin) GetIdentityProvider() string {
-	return FakeGKEClusterURL
+	return "fakeIDP"
 }

@@ -36,9 +36,8 @@ const (
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
 	// Credential fetcher type
-	K8S  = "Kubernetes"
 	GCE  = "GoogleComputeEngine"
-	Mock = "Mock"
+	Mock = "Mock" // testing only
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -101,9 +100,6 @@ type Options struct {
 
 	// EnableGatewaySDS indicates whether node agent works as ingress gateway agent.
 	EnableGatewaySDS bool
-
-	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
 
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.

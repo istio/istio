@@ -142,8 +142,8 @@ var (
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
 	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
-	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "Kubernetes",
-		"The type of the credential fetcher. Currently supported types include Kubernetes, GoogleComputeEngine").Get()
+	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
+		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -259,6 +259,7 @@ var (
 				FileMountedCerts:   fileMountedCertsEnv,
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,
+				CredFetcher:        nil,
 			}
 			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
@@ -279,14 +280,17 @@ var (
 			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
-			secOpts.AlwaysValidTokenFlag = (credFetcherTypeEnv == security.K8S)
 
-			credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
-			if err != nil {
-				return fmt.Errorf("failed to create credential fetcher: %v", err)
+			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+			// GCE is the only supported plugin at the moment.
+			if credFetcherTypeEnv == security.GCE {
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
+				if err != nil {
+					return fmt.Errorf("failed to create credential fetcher: %v", err)
+				}
+				log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, secOpts.TrustDomain)
+				secOpts.CredFetcher = credFetcher
 			}
-			log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, secOpts.TrustDomain)
-			secOpts.CredFetcher = credFetcher
 
 			sa := istio_agent.NewAgent(&proxyConfig,
 				&istio_agent.AgentConfig{}, secOpts)
@@ -342,7 +346,7 @@ var (
 					localHostAddr = localHostIPv6
 				}
 				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{CredFetcher: credFetcher, TrustDomain: secOpts.TrustDomain})
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,

@@ -44,7 +44,6 @@ import (
 
 	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 
-	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/istio/security/pkg/nodeagent/util"
 )
@@ -76,10 +75,6 @@ func TestStreamSecretsForWorkloadSds(t *testing.T) {
 
 // Validate that StreamSecrets works correctly for file mounted certs i.e. when UseLocalJWT is set to false and FileMountedCerts to true.
 func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
-	credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
 	arg := ca2.Options{
 		EnableWorkloadSDS: true,
 		RecycleInterval:   30 * time.Second,
@@ -87,7 +82,7 @@ func TestStreamSecretsForFileMountedsWorkloadSds(t *testing.T) {
 		WorkloadUDSPath:   fmt.Sprintf("/tmp/workload_gotest%q.sock", string(uuid.NewUUID())),
 		FileMountedCerts:  true,
 		UseLocalJWT:       false,
-		CredFetcher:       credFetcher,
+		CredFetcher:       nil,
 	}
 	wst := &mockSecretStore{
 		checkToken: false,
@@ -193,12 +188,6 @@ func testHelper(t *testing.T, arg ca2.Options, cb secretCallback, testInvalidRes
 		gst = nil
 	}
 
-	// use mock platform
-	credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
-	arg.CredFetcher = credFetcher
 	server, err := NewServer(&arg, wst, gst)
 	defer server.Stop()
 	if err != nil {
@@ -308,17 +297,11 @@ func verifyResponseForInvalidResourceNames(err error) bool {
 }
 
 func createSDSServer(t *testing.T, socket string) (*Server, *mockSecretStore) {
-	// use mock platform
-	credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create credential fetcher: %v", err)
-	}
 	arg := ca2.Options{
 		EnableGatewaySDS:  false,
 		EnableWorkloadSDS: true,
 		RecycleInterval:   100 * time.Second,
 		WorkloadUDSPath:   socket,
-		CredFetcher:       credFetcher,
 	}
 	st := &mockSecretStore{
 		checkToken: false,
@@ -1067,16 +1050,11 @@ func TestDebugEndpoints(t *testing.T) {
 
 	for _, tc := range tests {
 		socket := fmt.Sprintf("/tmp/gotest%s.sock", string(uuid.NewUUID()))
-		credFetcher, err := credentialfetcher.NewCredFetcher(ca2.Mock, "", "")
-		if err != nil {
-			t.Fatalf("Failed to create credential fetcher: %v", err)
-		}
 		arg := ca2.Options{
 			EnableGatewaySDS:  false,
 			EnableWorkloadSDS: true,
 			RecycleInterval:   30 * time.Second,
 			WorkloadUDSPath:   socket,
-			CredFetcher:       credFetcher,
 		}
 		st := &mockSecretStore{
 			checkToken: true,
