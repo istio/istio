@@ -23,7 +23,7 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/util/retry"
 )
 

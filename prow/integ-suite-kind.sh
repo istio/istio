@@ -124,6 +124,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     # TODO: Support IPv6 multicluster
     time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
 
+    # KinD will have a LoadBalancer for multicluster
+    export TEST_ENV=kind-metallb
     # Set the kube configs to point to the clusters.
     export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG},${CLUSTER4_KUBECONFIG},${CLUSTER5_KUBECONFIG}"
     # 3 clusters on one network, 2 on the other

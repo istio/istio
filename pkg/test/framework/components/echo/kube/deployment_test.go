@@ -139,7 +139,7 @@ func TestDeploymentYAML(t *testing.T) {
 			tc.config.Cluster = resource.FakeCluster{
 				NameValue: "cluster-0",
 			}
-			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(tc.config, settings, kube.Cluster{})
+			serviceYAML, deploymentYAML, err := generateYAMLWithSettings(nil, tc.config, settings, kube.Cluster{})
 			if err != nil {
 				t.Errorf("failed to generate yaml %v", err)
 			}
