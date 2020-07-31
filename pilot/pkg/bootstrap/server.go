@@ -325,7 +325,7 @@ func getClusterID(args *PilotArgs) string {
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
-	log.Infof("Staring Istiod Server with primary cluster %s", s.clusterID)
+	log.Infof("Starting Istiod Server with primary cluster %s", s.clusterID)
 
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
