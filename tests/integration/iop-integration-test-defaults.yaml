@@ -6,7 +6,7 @@ spec:
     accessLogFile: "/dev/stdout"
     defaultConfig:
       proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "ALL"
+        DNS_AGENT: "DNS-TLS"
   values:
     global:
       proxy:
