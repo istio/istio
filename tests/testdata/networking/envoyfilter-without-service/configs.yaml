@@ -113,4 +113,3 @@ spec:
             function envoy_on_request(request_handle)
               request_handle:logWarn("Hello World")
             end
-            
