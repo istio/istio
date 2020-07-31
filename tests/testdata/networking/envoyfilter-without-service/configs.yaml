@@ -100,13 +100,13 @@ spec:
       listener:
         filterChain:
           filter:
-            name: "envoy.filters.network.http_connection_manager"
+            name: "envoy.http_connection_manager"
             subFilter:
-              name: "envoy.filters.http.router"
+              name: "envoy.router"
     patch:
       operation: INSERT_BEFORE
       value: # lua filter specification
-        name: envoy.filters.http.lua
+        name: envoy.lua
         typed_config:
           "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
           inlineCode: |
