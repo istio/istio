@@ -15,11 +15,12 @@
 package model
 
 import (
+	"time"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -183,7 +184,7 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 					},
 				},
 			},
-			ResourceApiVersion:  core.ApiVersion_V3,
+			ResourceApiVersion: core.ApiVersion_V3,
 			// set the fetch timeout to 0 here because workload certs are
 			// guaranteed to exist. while others like gateway certs may not
 			// exist.
