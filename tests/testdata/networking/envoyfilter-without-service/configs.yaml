@@ -108,8 +108,9 @@ spec:
       value: # lua filter specification
         name: envoy.lua
         typed_config:
-          "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+          "@type": "type.googleapis.com/envoy.config.filter.http.lua.v2.Lua"
           inlineCode: |
             function envoy_on_request(request_handle)
               request_handle:logWarn("Hello World")
             end
+            
