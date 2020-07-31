@@ -39,6 +39,9 @@ import (
 )
 
 type (
+	//This struct mirrors grpcServer in grpcServer.go.
+	//We define it separately since both have a Check Function which overlaps.
+	// GrpcServerEnvoy holds the dispatchState for the gRPC API server
 	GrpcServerEnvoy struct {
 		dispatcher dispatcher.Dispatcher
 		gp         *pool.GoroutinePool
@@ -53,6 +56,7 @@ type (
 	}
 )
 
+//This function creates a new GrpcServerEnvoy struct with the given parameters and returns a pointer to it
 func NewGRPCServerEnvoy(dispatcher dispatcher.Dispatcher, gp *pool.GoroutinePool, cache *checkcache.Cache,
 	throttler *loadshedding.Throttler) *GrpcServerEnvoy {
 	list := attribute.GlobalList()
@@ -178,7 +182,6 @@ func (s *GrpcServerEnvoy) checkEnvoy(ctx context.Context, protoBag *attribute.En
 			Expiration:           time.Now().Add(cr.ValidDuration),
 			ValidUseCount:        cr.ValidUseCount,
 			ReferencedAttributes: *protoBag.GetReferencedAttributes(s.globalDict, len(s.globalWordList)),
-			RouteDirective:       cr.RouteDirective,
 		})
 	}
 

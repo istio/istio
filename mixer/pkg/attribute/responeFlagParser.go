@@ -41,25 +41,7 @@ const (
 	downstreamProtocolError          = "DPE"
 )
 
-//FailedLocalHealthcheck          bool
-//NoHealthyUpstream               bool
-//UpstreamRequestTimeout          bool
-//LocalReset                      bool
-//UpstreamRemoteReset             bool
-//UpstreamConnectionFailure       bool
-//UpstreamConnectionTermination   bool
-//UpstreamOverflow                bool
-//NoRouteFound                    bool
-//DelayInjected                   bool                `
-//FaultInjected                   bool
-//RateLimited                     bool
-//UnauthorizedDetails             *ResponseFlags_Unauthorized
-//RateLimitServiceError           bool                    `
-//DownstreamConnectionTermination bool
-//UpstreamRetryLimitExceeded      bool
-//StreamIdleTimeout               bool
-//InvalidEnvoyRequestHeaders      bool
-//DownstreamProtocolError         bool
+
 
 func appendString(result *string, toAppend string) {
 	if *result == "" {

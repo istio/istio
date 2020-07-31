@@ -193,8 +193,8 @@ func TestBagEnvoyAlsTcp(t *testing.T) {
 		{"destination.port", int64(8079)},
 		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},
 		{"source.port", int64(46346)},
-		//{"connection.received.bytes", uint64(334)},
-		//{"connection.sent.bytes", uint64(439)},
+		{"connection.received.bytes", int64(uint64(334))},
+		{"connection.sent.bytes", int64(uint64(439))},
 		{"destination.principal", "spiffe://cluster.local/ns/default/sa/default"},
 		{"source.principal", "spiffe://cluster.local/ns/default/sa/bookinfo-productpage"},
 	}

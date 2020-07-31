@@ -187,6 +187,7 @@ func (pb *EnvoyProtoBag) AddNamespaceDependentAttributes(destinationNamespace st
 	} else {
 		pb.reqMap["destination.service.name"] = host
 	}
+	pb.reqMap["destination.service.namespace"] = serviceNamespace
 }
 
 // Get returns an attribute value.
