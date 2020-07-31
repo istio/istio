@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	pilot_xds_v3 "istio.io/istio/pilot/pkg/xds/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/log"
 )
 
@@ -193,10 +193,10 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 	res := []*any.Any{}
 
 	stypes := []string{
-		pilot_xds_v3.ListenerType,
-		pilot_xds_v3.RouteType,
-		pilot_xds_v3.EndpointType,
-		pilot_xds_v3.ClusterType,
+		v3.ListenerType,
+		v3.RouteType,
+		v3.EndpointType,
+		v3.ClusterType,
 	}
 
 	sg.Server.adsClientsMutex.RLock()
@@ -213,13 +213,13 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 					pxc.Status = status.ConfigStatus_NOT_SENT
 				}
 				switch stype {
-				case pilot_xds_v3.ListenerType:
+				case v3.ListenerType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
-				case pilot_xds_v3.RouteType:
+				case v3.RouteType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_RouteConfig{}
-				case pilot_xds_v3.EndpointType:
+				case v3.EndpointType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
-				case pilot_xds_v3.ClusterType:
+				case v3.ClusterType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
 				}
 				xdsConfigs = append(xdsConfigs, pxc)
