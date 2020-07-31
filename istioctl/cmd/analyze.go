@@ -231,6 +231,14 @@ istioctl analyze -L
 			// Append a ref arg to the doc URL, and filter outputMessages by specified level
 			outputMessages := result.Messages.SetDocRef("istioctl-analyze").Filter(outputLevel.Level)
 
+			// Print all the messages to stdout in the specified format
+			output, err := outputMessages.Print(msgOutputFormat, colorize)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), output)
+
+			// An extra message on success
 			if len(outputMessages) == 0 {
 				if parseErrors == 0 {
 					fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
@@ -246,13 +254,6 @@ istioctl analyze -L
 						fileOrFiles,
 					)
 				}
-
-			} else {
-				output, err := outputMessages.Print(msgOutputFormat, colorize)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintln(cmd.OutOrStdout(), output)
 			}
 
 			// Return code is based on the unfiltered validation message list/parse errors
