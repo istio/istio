@@ -195,8 +195,8 @@ func TestBagEnvoyAlsTcp(t *testing.T) {
 		{"source.port", int64(46346)},
 		{"connection.received.bytes", int64(uint64(334))},
 		{"connection.sent.bytes", int64(uint64(439))},
-		{"destination.principal", "spiffe://cluster.local/ns/default/sa/default"},
-		{"source.principal", "spiffe://cluster.local/ns/default/sa/bookinfo-productpage"},
+		{"destination.principal", "cluster.local/ns/default/sa/default"},
+		{"source.principal", "cluster.local/ns/default/sa/bookinfo-productpage"},
 	}
 
 	for _, r := range results {

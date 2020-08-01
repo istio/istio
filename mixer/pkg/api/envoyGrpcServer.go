@@ -223,12 +223,8 @@ func (s *GrpcServerEnvoy) StreamAccessLogs(srv accesslog.AccessLogService_Stream
 				errors = multierror.Append(errors, err)
 				continue
 			}
-			if reportBag != nil {
-				reportBag.Done()
-			}
-			if protoBag != nil {
-				protoBag.Done()
-			}
+			reportBag.Done()
+			protoBag.Done()
 
 		}
 		if err := reporter.Flush(); err != nil {

@@ -51,8 +51,14 @@ var envoyProtoBags = sync.Pool{
 }
 
 func fillAddress(reqMap map[string]interface{}, address *core.Address, name string) {
-	reqMap[name+".ip"] = []byte(net.ParseIP(address.GetSocketAddress().GetAddress()).To16())
-	reqMap[name+".port"] = int64(address.GetSocketAddress().GetPortValue())
+	socketaddress := address.GetSocketAddress()
+	if socketaddress != nil {
+		reqMap[name+".ip"] = []byte(net.ParseIP(socketaddress.GetAddress()).To16())
+		reqMap[name+".port"] = int64(socketaddress.GetPortValue())
+	} else {
+		reqMap[name+".ip"] = []byte{}
+		reqMap[name+".port"] = int64(0)
+	}
 }
 
 func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
@@ -60,8 +66,8 @@ func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
 }
 
 func isGrpc(headers map[string]string) bool {
-	if val, ok := headers["content-type"]; ok {
-		return strings.Contains(val, "grpc")
+	if contentType, ok := headers["content-type"]; ok {
+		return strings.HasPrefix(contentType, "application/grpc")
 	}
 	return false
 }
@@ -72,6 +78,14 @@ func fillContextProtocol(reqMap map[string]interface{}, headers map[string]strin
 	} else {
 		reqMap["context.protocol"] = "http"
 	}
+}
+
+func stripPrincipal(principal string) string {
+	spif := "spiffe://"
+	if strings.HasPrefix(principal, spif) {
+		return principal[len(spif):]
+	}
+	return principal
 }
 
 // AuthzProtoBag returns an attribute bag for an Ext-Authz Check Request.
@@ -89,8 +103,8 @@ func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 	reqMap["context.reporter.kind"] = "inbound"
 	fillAddress(reqMap, destination.GetAddress(), "destination")
 	fillAddress(reqMap, source.GetAddress(), "source")
-	reqMap["destination.principal"] = destination.GetPrincipal()
-	reqMap["source.principal"] = source.GetPrincipal()
+	reqMap["destination.principal"] = stripPrincipal(destination.GetPrincipal())
+	reqMap["source.principal"] = stripPrincipal(source.GetPrincipal())
 	reqMap["request.headers"] = attr.WrapStringMap(http.GetHeaders())
 	reqMap["request.host"] = http.GetHost()
 	reqMap["request.method"] = http.GetMethod()
@@ -143,15 +157,23 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 		reqMap["context.protocol"] = "tcp"
 	}
 	reqMap["context.reporter.kind"] = "inbound"
+
 	fillAddress(reqMap, commonproperties.GetDownstreamLocalAddress(), "destination")
 	fillAddress(reqMap, commonproperties.GetDownstreamRemoteAddress(), "source")
-	tlsproperties := commonproperties.GetTlsProperties()
-	reqMap["destination.principal"] = tlsproperties.GetLocalCertificateProperties().GetSubjectAltName()[0].GetUri()
-	reqMap["source.principal"] = tlsproperties.GetPeerCertificateProperties().GetSubjectAltName()[0].GetUri()
-	reqMap["connection.requested_server_name"] = commonproperties.GetTlsProperties().GetTlsSniHostname()
-	reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(commonproperties.GetResponseFlags())
-	pb.upstreamCluster = commonproperties.GetUpstreamCluster()
 
+	if tlsproperties := commonproperties.GetTlsProperties(); tlsproperties != nil {
+		if localaltname := tlsproperties.GetLocalCertificateProperties().GetSubjectAltName(); localaltname != nil {
+			reqMap["destination.principal"] = stripPrincipal(localaltname[0].GetUri())
+		}
+		if peeraltname := tlsproperties.GetPeerCertificateProperties().GetSubjectAltName(); peeraltname != nil {
+			reqMap["source.principal"] = stripPrincipal(peeraltname[0].GetUri())
+		}
+		reqMap["connection.requested_server_name"] = tlsproperties.GetTlsSniHostname()
+	}
+
+	reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(commonproperties.GetResponseFlags())
+
+	pb.upstreamCluster = commonproperties.GetUpstreamCluster()
 	pb.reqMap = reqMap
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
 	return pb
