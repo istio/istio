@@ -128,9 +128,9 @@ func (iptConfigurator *IptablesConfigurator) handleInboundPortsInclude() {
 			// In the ISTIOINBOUND chain, '-j ISTIODIVERT' reroutes to the loopback
 			// interface.
 			// Mark all inbound packets.
-			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-p", constants.TCP, "-j", constants.MARK, "--set-mark",
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.MARK, "--set-mark",
 				iptConfigurator.cfg.InboundTProxyMark)
-			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-p", constants.TCP, "-j", constants.ACCEPT)
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIODIVERT, constants.MANGLE, "-j", constants.ACCEPT)
 			// Route all packets marked in chain ISTIODIVERT using routing table ${INBOUND_TPROXY_ROUTE_TABLE}.
 			//TODO: (abhide): Move this out of this method
 			iptConfigurator.ext.RunOrFail(
@@ -244,63 +244,63 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv6Rules(ipv6RangesEx
 	}
 
 	// ::6 is bind connect from inbound passthrough cluster
-	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "-s", "::6/128", "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "::6/128", "-j", constants.RETURN)
 
 	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		// nolint: lll
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "!", "-d", "::1/128", "-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "::1/128", "-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 	}
 
 	for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		// nolint: lll
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "!", "-d", "::1/128", "-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "::1/128", "-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.
-	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-d", "::1/128", "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", "::1/128", "-j", constants.RETURN)
 	// Apply outbound IPv6 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv6RangesExclude.IPNets {
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-d", cidr.String(), "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
 	}
 	// Apply outbound IPv6 inclusions.
 	if ipv6RangesInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOREDIRECT)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.ISTIOREDIRECT)
 		for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
-			iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-p", constants.TCP, "-j", constants.RETURN)
+			iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 		}
 	} else if len(ipv6RangesInclude.IPNets) > 0 {
 		// User has specified a non-empty list of cidrs to be redirected to Envoy
 		for _, cidr := range ipv6RangesInclude.IPNets {
 			for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
 				iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface,
-					"-d", cidr.String(), "-p", constants.TCP, "-j", constants.ISTIOREDIRECT)
+					"-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 			}
-			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-p", constants.TCP, "-j", constants.ISTIOREDIRECT)
+			iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 		}
 		// All other traffic is not redirected.
-		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV6(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.RETURN)
 	}
 }
 
@@ -308,31 +308,31 @@ func (iptConfigurator *IptablesConfigurator) handleInboundIpv4Rules(ipv4RangesIn
 	// Apply outbound IP inclusions.
 	if ipv4RangesInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOREDIRECT)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.ISTIOREDIRECT)
 		for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
 			iptConfigurator.iptables.InsertRuleV4(
-				constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-p", constants.TCP, "-j", constants.ISTIOREDIRECT)
+				constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.ISTIOREDIRECT)
 		}
 	} else if len(ipv4RangesInclude.IPNets) > 0 {
 		// User has specified a non-empty list of cidrs to be redirected to Envoy.
 		for _, cidr := range ipv4RangesInclude.IPNets {
 			for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
 				iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface,
-					"-d", cidr.String(), "-p", constants.TCP, "-j", constants.ISTIOREDIRECT)
+					"-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 			}
 			iptConfigurator.iptables.AppendRuleV4(
-				constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-p", constants.TCP, "-j", constants.ISTIOREDIRECT)
+				constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 		}
 		// All other traffic is not redirected.
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-j", constants.RETURN)
 	}
 }
 
 func (iptConfigurator *IptablesConfigurator) shortCircuitKubeInternalInterface() {
 	for _, internalInterface := range split(iptConfigurator.cfg.KubevirtInterfaces) {
-		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-p", constants.TCP, "-j", constants.RETURN)
+		iptConfigurator.iptables.InsertRuleV4(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 		if iptConfigurator.cfg.EnableInboundIPv6 {
-			iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-p", constants.TCP, "-j", constants.RETURN)
+			iptConfigurator.iptables.InsertRuleV6(constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 		}
 	}
 }
@@ -411,50 +411,50 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	// 127.0.0.6 is bind connect from inbound passthrough cluster
-	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "-s", "127.0.0.6/32", "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-s", "127.0.0.6/32", "-j", constants.RETURN)
 
 	for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		// nolint: lll
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "!", "-d", "127.0.0.1/32", "-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
 		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
 		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
-			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--uid-owner", uid, "-j", constants.RETURN)
 		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
 	}
 
 	for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		// nolint: lll
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "!", "-d", "127.0.0.1/32", "-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "!", "-d", "127.0.0.1/32", "-m", "owner", "--gid-owner", gid, "-j", constants.ISTIOINREDIRECT)
 
 		// Do not redirect app calls to back itself via Envoy when using the endpoint address
 		// e.g. appN => appN by lo
 		// If loopback explicitly set via OutboundIPRangesInclude, then don't return.
 		if !ipv4RangesInclude.HasLoopBackIP && !ipv6RangesInclude.HasLoopBackIP {
-			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
+			iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-o", "lo", "-m", "owner", "!", "--gid-owner", gid, "-j", constants.RETURN)
 		}
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 	}
 	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.
-	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-d", "127.0.0.1/32", "-j", constants.RETURN)
+	iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-d", "127.0.0.1/32", "-j", constants.RETURN)
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv4RangesExclude.IPNets {
-		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-p", constants.TCP, "-d", cidr.String(), "-j", constants.RETURN)
+		iptConfigurator.iptables.AppendRuleV4(constants.ISTIOOUTPUT, constants.NAT, "-d", cidr.String(), "-j", constants.RETURN)
 	}
 
 	iptConfigurator.handleOutboundPortsInclude()
@@ -470,22 +470,22 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			// TODO: add ip6 as well
 			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
 				iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-					"-p", constants.UDP, "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 				iptConfigurator.iptables.AppendRuleV4(constants.POSTROUTING, constants.NAT,
-					"-p", constants.UDP, "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 			}
 		}
 
 		// from app to agent/envoy - dnat to 127.0.0.1:port
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
-			"-p", constants.UDP, "--dport", "53",
+			"-p", "udp", "--dport", "53",
 			"-j", "DNAT", "--to-destination", "127.0.0.1:"+dnsTargetPort)
 		// from envoy/agent to app - snat so that the receiver doesn't reject the UDP packet
 		// as the source provided (127.0.0.1) wont match what the receiver is expecting.
 		// the snat rule puts the correct source ip
 		// https://unix.stackexchange.com/questions/510781/redirect-all-outgoing-dns-queries-to-local-stub-resolver-at-127-0-0-153
 		iptConfigurator.iptables.AppendRuleV4(constants.POSTROUTING, constants.NAT,
-			"-p", constants.UDP, "--dport", "53", "-j", "SNAT", "--to-source", "127.0.0.1")
+			"-p", "udp", "--dport", "53", "-j", "SNAT", "--to-source", "127.0.0.1")
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {
