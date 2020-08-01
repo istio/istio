@@ -46,7 +46,7 @@ func ApplyListenerPatches(
 	push *model.PushContext,
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
-	defer runtime.HandleCrash(func() {
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
