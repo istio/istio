@@ -58,8 +58,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		return nil
 	}
 
-	_, localhost := getActualWildcardAndLocalHost(node)
-	address := util.BuildAddress(localhost, model.SidecarDNSListenerPort)
+	wildcard, _ := getActualWildcardAndLocalHost(node)
+	address := util.BuildAddress(wildcard, model.SidecarDNSListenerPort)
 	// Convert the address to a UDP address
 	address.GetSocketAddress().Protocol = core.SocketAddress_UDP
 
