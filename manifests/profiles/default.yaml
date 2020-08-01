@@ -178,9 +178,6 @@ spec:
         excludeInboundPorts: ""
         autoInject: enabled
         tracer: "zipkin"
-        dnsCapture:
-          enabled: false
-          ndots: 4
       proxy_init:
         image: proxyv2
         resources:
