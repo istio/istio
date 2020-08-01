@@ -4,9 +4,6 @@ kind: IstioOperator
 spec:
   meshConfig:
     accessLogFile: "/dev/stdout"
-    defaultConfig:
-      proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "ALL"
   values:
     global:
       proxy:
@@ -14,7 +11,9 @@ spec:
           requests:
             cpu: 10m
             memory: 40Mi
-
+        dnsCapture:
+          enabled: true
+          ndots: 4
     gateways:
       istio-ingressgateway:
         autoscaleMax: 1

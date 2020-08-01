@@ -5,6 +5,11 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
   values:
+    global:
+      proxy:
+        dnsCapture:
+          enabled: true
+          ndots: 4
     telemetry:
       v2:
         metadataExchange:

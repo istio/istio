@@ -109,6 +109,13 @@ global:
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"
 
+    # Specify if the sidecar should capture DNS requests and resolve them directly from the sidecar
+    # NOTE: If this option is enabled, the pod's DNS Config will be set to have ndots:4 for faster DNS resolution
+    # of internal names of kubernetes services. Adjust the ndots variable per your environmental constraints.
+    dnsCapture:
+      enabled: true
+      ndots: 4
+
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxyv2
