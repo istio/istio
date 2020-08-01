@@ -209,6 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	nameToServiceMap := push.ServiceByHostname
 
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
+	vhostCombinedMap := make(map[string]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -249,6 +250,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				continue
 			}
 
+			var hosts []string
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
 					// before merging this virtual service's routes, make sure that the existing one is not a tls redirect host
@@ -256,20 +258,30 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						vHost.Routes = append(vHost.Routes, routes...)
 					}
 				} else {
-					newVHost := &route.VirtualHost{
-						Name:                       domainName(string(hostname), port),
-						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
-						Routes:                     routes,
-						IncludeRequestAttemptCount: true,
-					}
-					vHostDedupMap[hostname] = newVHost
+					hosts = append(hosts, string(hostname))
 				}
+			}
+
+			if len(hosts) > 0 {
+				var domains []string
+				for _, h := range hosts {
+					domains = append(domains, buildGatewayVirtualHostDomains(h)...)
+				}
+
+				chost := strings.Join(hosts, "~")
+				newVHost := &route.VirtualHost{
+					Name:                       domainName(chost, port),
+					Domains:                    domains,
+					Routes:                     routes,
+					IncludeRequestAttemptCount: true,
+				}
+				vhostCombinedMap[chost] = newVHost
 			}
 		}
 	}
 
 	var virtualHosts []*route.VirtualHost
-	if len(vHostDedupMap) == 0 {
+	if len(vHostDedupMap)+len(vhostCombinedMap) == 0 {
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
 			Name:    domainName("blackhole", port),
@@ -290,8 +302,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		// add a name to the route
 		virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
 	} else {
-		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap)+len(vhostCombinedMap))
 		for _, v := range vHostDedupMap {
+			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
+			virtualHosts = append(virtualHosts, v)
+		}
+		for _, v := range vhostCombinedMap {
 			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
 			virtualHosts = append(virtualHosts, v)
 		}

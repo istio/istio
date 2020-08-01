@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -1027,6 +1028,22 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	gatewayWildcard := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
+			Name:             "gateway-wildcard",
+			Namespace:        "default",
+			GroupVersionKind: gvk.Gateway,
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{"dev1.company.com", "cell1.dev1.company.com", "*.dev1.company.com"},
+					Port:  &networking.Port{Name: "http", Number: 7442, Protocol: "HTTP"},
+				},
+			},
+		},
+	}
 	virtualServiceSpec := &networking.VirtualService{
 		Hosts:    []string{"example.org"},
 		Gateways: []string{"gateway", "gateway-redirect"},
@@ -1079,6 +1096,33 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 								Port: &networking.PortSelector{
 									Number: 80,
 								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	virtualServiceComWildcard := pilot_model.Config{
+		ConfigMeta: pilot_model.ConfigMeta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "virtual-service-com-wildcard",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"*.com"},
+			Gateways: []string{"gateway", "gateway-wildcard"},
+			Http: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Port: 7442,
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "cell1.company.com",
 							},
 						},
 					},
@@ -1152,7 +1196,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string]int{"example.org:80": 2},
+			map[string]int{"example.org:80": 1},
 		},
 		{
 			"duplicate by wildcard should merge",
@@ -1164,7 +1208,21 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string]int{"example.org:80": 2},
+			map[string]int{"example.org:80": 1},
+		},
+		{
+			"wildcard domains virtual hosts should merge",
+			[]pilot_model.Config{virtualServiceComWildcard},
+			[]pilot_model.Config{gatewayWildcard},
+			"http.7442",
+			map[string][]string{
+				"dev1.company.com~cell1.dev1.company.com~*.dev1.company.com:7442": {
+					"dev1.company.com", "dev1.company.com:*",
+					"cell1.dev1.company.com", "cell1.dev1.company.com:*",
+					"*.dev1.company.com", "*.dev1.company.com:*",
+				},
+			},
+			map[string]int{"dev1.company.com~cell1.dev1.company.com~*.dev1.company.com:7442": 1},
 		},
 	}
 	for _, tt := range cases {
@@ -1180,6 +1238,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			vh := make(map[string][]string)
 			hr := make(map[string]int)
 			for _, h := range route.VirtualHosts {
+				fmt.Println(h.Name)
+				fmt.Println(h.Routes)
 				vh[h.Name] = h.Domains
 				hr[h.Name] = len(h.Routes)
 				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
