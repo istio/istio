@@ -479,10 +479,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				"--set", "values.global.network="+networkName)
 		}
 
-		if c.environment.IsControlPlaneCluster(cluster) {
-			// Expose Istiod through ingress to allow remote clusters to connect
-			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
-		} else {
+		if !c.environment.IsControlPlaneCluster(cluster) {
 			installSettings = append(installSettings, "--set", "profile=remote")
 			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {
