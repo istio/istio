@@ -34,6 +34,10 @@ const (
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
+
+	// Credential fetcher type
+	GCE  = "GoogleComputeEngine"
+	Mock = "Mock" // testing only
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -96,9 +100,6 @@ type Options struct {
 
 	// EnableGatewaySDS indicates whether node agent works as ingress gateway agent.
 	EnableGatewaySDS bool
-
-	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
 
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.
@@ -172,6 +173,9 @@ type Options struct {
 	// CSR requires a token. This is a property of the CA.
 	// The default value is false because Istiod does not require a token in CSR.
 	UseTokenForCSR bool
+
+	// credential fetcher.
+	CredFetcher CredFetcher
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -204,7 +208,8 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(context.Context, string, string) (string, time.Time, int, error)
+	ExchangeToken(ctx context.Context, credFetcher CredFetcher, trustDomain,
+		serviceAccountToken string) (string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.
@@ -234,4 +239,15 @@ type SecretItem struct {
 	CreatedTime time.Time
 
 	ExpireTime time.Time
+}
+
+type CredFetcher interface {
+	// GetPlatformCredential fetches workload credential provided by the platform.
+	GetPlatformCredential() (string, error)
+
+	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
+	GetType() string
+
+	// The name of the IdentityProvider that can authenticate the workload credential.
+	GetIdentityProvider() string
 }
