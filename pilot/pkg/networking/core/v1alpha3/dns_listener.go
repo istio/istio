@@ -42,7 +42,7 @@ var knownSuffixes = []*stringmatcher.StringMatcher{
 	},
 }
 
-const resolverTimeout = 5 * time.Second
+const resolverTimeout = 10 * time.Second
 
 // This is a UDP listener is on port 15013.  It has a DNS listener filter containing the
 // cluster IPs of all services visible to the proxy (those that have one anyway).  The
@@ -193,8 +193,7 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 	}
 
 	return &dnstable.DnsTable{
-		VirtualDomains:     virtualDomains,
-		KnownSuffixes:      knownSuffixes,
-		ExternalRetryCount: 3,
+		VirtualDomains: virtualDomains,
+		KnownSuffixes:  knownSuffixes,
 	}
 }
