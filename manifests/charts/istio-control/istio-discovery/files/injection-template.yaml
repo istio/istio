@@ -250,10 +250,6 @@ template: |
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.trustDomain }}"
     {{- end }}
-    {{- if .Values.global.proxy.dnsCapture }}
-    - name: ISTIO_META_DNS_CAPTURE
-      value: "ALL"
-    {{- end }}
     {{- if and (eq .Values.global.proxy.tracer "datadog") (isset .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
     {{- range $key, $value := fromJSON (index .ObjectMeta.Annotations `apm.datadoghq.com/env`) }}
     - name: {{ $key }}
@@ -361,12 +357,6 @@ template: |
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
-  {{- if .Values.global.proxy.dnsCapture.enabled }}
-  dnsConfig:
-    options:
-    - name: "ndots"
-      value: "{{ .Values.global.proxy.dnsCapture.ndots }}"
-  {{- end }}
   volumes:
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
