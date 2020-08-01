@@ -466,6 +466,10 @@ func (iptConfigurator *IptablesConfigurator) run() {
 
 	if redirectDNS {
 		// Make sure that upstream DNS requests from agent/envoy dont get captured.
+		for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+				"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+		}
 		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
 			// TODO: add ip6 as well
 			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
