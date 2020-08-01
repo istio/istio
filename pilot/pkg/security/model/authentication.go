@@ -15,8 +15,11 @@
 package model
 
 import (
+	"time"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -119,7 +122,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 	rootSDSConfig = &tls.SdsSecretConfig{
@@ -139,7 +142,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 )
