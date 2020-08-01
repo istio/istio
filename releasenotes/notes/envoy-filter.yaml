@@ -3,7 +3,7 @@ kind: feature
 area: networking
 
 releaseNotes: |
-*Updated*  the envoy filter names that control plane generates to meet the canonical naming standard. See https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated
+*Updated* the envoy filter names that control plane generates to meet the canonical naming standard. See https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.14.0#deprecated
 
 upgradeNotes:
   - title: Use the new filter names for EnvoyFilter
