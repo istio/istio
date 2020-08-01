@@ -211,7 +211,19 @@ spec:
         istio.io/test-vm-version: {{ $subset.Version }}
     spec:
       # Disable kube-dns, to mirror VM
-      dnsPolicy: Default
+      # we set policy to none and explicitly provide a set of invalid values
+      # for nameservers, search namespaces, etc. ndots is set to 1 so that
+      # the application will first try to resolve the hostname (a, a.ns, etc.) as is
+      # before attempting to add the search namespaces.
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+        - "8.8.8.8"
+        searches:
+        - "com"
+        options:
+        - name: "ndots"
+          value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
       containers:
