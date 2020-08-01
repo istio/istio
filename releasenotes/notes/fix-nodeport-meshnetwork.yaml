@@ -1,0 +1,5 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes: |
+  *Fixed* an issue preventing NodePort services from being used as the `registryServiceName` in `meshNetworks`.
