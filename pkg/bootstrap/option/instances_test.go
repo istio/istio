@@ -16,7 +16,6 @@ package option_test
 
 import (
 	"encoding/base64"
-	"log"
 	"net"
 	"testing"
 	"time"
@@ -709,7 +708,6 @@ func TestOptions(t *testing.T) {
 					g.Expect(ok).To(BeFalse())
 				} else {
 					g.Expect(ok).To(BeTrue())
-					log.Println(actual)
 					g.Expect(actual).To(Equal(c.expected))
 				}
 			}
