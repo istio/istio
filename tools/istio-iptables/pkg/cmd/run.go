@@ -471,8 +471,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 			if gid != "0" { // not clear why gid 0 would be excluded - istio-proxy is not running as 0
 				iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
-				iptConfigurator.iptables.AppendRuleV4(constants.POSTROUTING, constants.NAT,
-					"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
 			}
 		}
 
@@ -480,12 +478,11 @@ func (iptConfigurator *IptablesConfigurator) run() {
 		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
 			"-p", "udp", "--dport", "53",
 			"-j", "DNAT", "--to-destination", "127.0.0.1:"+dnsTargetPort)
-		// from envoy/agent to app - snat so that the receiver doesn't reject the UDP packet
-		// as the source provided (127.0.0.1) wont match what the receiver is expecting.
-		// the snat rule puts the correct source ip
-		// https://unix.stackexchange.com/questions/510781/redirect-all-outgoing-dns-queries-to-local-stub-resolver-at-127-0-0-153
+		// overwrite the source IP so that when envoy/agent responds to the DNS request
+		// it responds to localhost on same interface. Otherwise, the connection will not
+		// match in the kernel. Note that the dest port here should be the rewritten port.
 		iptConfigurator.iptables.AppendRuleV4(constants.POSTROUTING, constants.NAT,
-			"-p", "udp", "--dport", "53", "-j", "SNAT", "--to-source", "127.0.0.1")
+			"-p", "udp", "--dport", dnsTargetPort, "-j", "SNAT", "--to-source", "127.0.0.1")
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {

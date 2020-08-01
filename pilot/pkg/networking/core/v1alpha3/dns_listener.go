@@ -58,8 +58,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarDNSListener(node *model.Proxy,
 		return nil
 	}
 
-	wildcard, _ := getActualWildcardAndLocalHost(node)
-	address := util.BuildAddress(wildcard, model.SidecarDNSListenerPort)
+	_, localhost := getActualWildcardAndLocalHost(node)
+	address := util.BuildAddress(localhost, model.SidecarDNSListenerPort)
 	// Convert the address to a UDP address
 	address.GetSocketAddress().Protocol = core.SocketAddress_UDP
 
@@ -193,8 +193,8 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 	}
 
 	return &dnstable.DnsTable{
-		VirtualDomains: virtualDomains,
-		KnownSuffixes:  knownSuffixes,
+		VirtualDomains:     virtualDomains,
+		KnownSuffixes:      knownSuffixes,
 		ExternalRetryCount: 3,
 	}
 }
