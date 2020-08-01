@@ -22,6 +22,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -169,6 +170,13 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 		return nil
 	}
 
+	var fetchTimeout *durationpb.Duration
+	if name == SDSDefaultResourceName || name == SDSRootResourceName {
+		fetchTimeout = ptypes.DurationProto(0)
+	} else {
+		fetchTimeout = features.InitialFetchTimeout
+	}
+
 	useV3 := useV3Sds(requestedType)
 
 	if name == SDSDefaultResourceName && useV3 {
@@ -200,7 +208,7 @@ func ConstructSdsSecretConfig(name, requestedType string) *tls.SdsSecretConfig {
 				},
 			},
 			ResourceApiVersion:  resourceVersion,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: fetchTimeout,
 		},
 	}
 
