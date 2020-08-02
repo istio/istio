@@ -19,6 +19,8 @@ RUN apt-get update && \
       knot-dnsutils \
       netcat \
       tcpdump \
+      conntrack \
+      bsdmainutils \
       net-tools \
       lsof \
       linux-tools-generic \
