@@ -269,7 +269,7 @@ spec:
 {{- end }}
         env:
         - name: RES_OPTIONS
-          value: "options ndots:0"
+          value: "options ndots:1"
         {{- range $name, $value := $.Environment }}
         - name: {{ $name }}
           value: "{{ $value }}"
