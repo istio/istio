@@ -1103,7 +1103,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	virtualServiceComWildcard := pilot_model.Config{
+	virtualServiceDotComWildcard := pilot_model.Config{
 		ConfigMeta: pilot_model.ConfigMeta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-com-wildcard",
@@ -1196,7 +1196,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string]int{"example.org:80": 1},
+			map[string]int{"example.org:80": 2},
 		},
 		{
 			"duplicate by wildcard should merge",
@@ -1208,11 +1208,11 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"example.org", "example.org:*",
 				},
 			},
-			map[string]int{"example.org:80": 1},
+			map[string]int{"example.org:80": 2},
 		},
 		{
 			"wildcard domains virtual hosts should merge",
-			[]pilot_model.Config{virtualServiceComWildcard},
+			[]pilot_model.Config{virtualServiceDotComWildcard},
 			[]pilot_model.Config{gatewayWildcard},
 			"http.7442",
 			map[string][]string{

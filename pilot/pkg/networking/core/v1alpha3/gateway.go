@@ -209,7 +209,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	nameToServiceMap := push.ServiceByHostname
 
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
-	vhostCombinedMap := make(map[string]*route.VirtualHost)
+	mergedHosts := make(map[host.Name]struct{})
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		if server.Tls != nil && server.Tls.HttpsRedirect {
@@ -250,38 +250,28 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				continue
 			}
 
-			var hosts []string
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
 					// before merging this virtual service's routes, make sure that the existing one is not a tls redirect host
 					if vHost.RequireTls == route.VirtualHost_NONE {
 						vHost.Routes = append(vHost.Routes, routes...)
+						mergedHosts[hostname] = struct{}{}
 					}
 				} else {
-					hosts = append(hosts, string(hostname))
+					newVHost := &route.VirtualHost{
+						Name:                       domainName(string(hostname), port),
+						Domains:                    buildGatewayVirtualHostDomains(string(hostname)),
+						Routes:                     routes,
+						IncludeRequestAttemptCount: true,
+					}
+					vHostDedupMap[hostname] = newVHost
 				}
-			}
-
-			if len(hosts) > 0 {
-				var domains []string
-				for _, h := range hosts {
-					domains = append(domains, buildGatewayVirtualHostDomains(h)...)
-				}
-
-				chost := strings.Join(hosts, "~")
-				newVHost := &route.VirtualHost{
-					Name:                       domainName(chost, port),
-					Domains:                    domains,
-					Routes:                     routes,
-					IncludeRequestAttemptCount: true,
-				}
-				vhostCombinedMap[chost] = newVHost
 			}
 		}
 	}
 
 	var virtualHosts []*route.VirtualHost
-	if len(vHostDedupMap)+len(vhostCombinedMap) == 0 {
+	if len(vHostDedupMap) == 0 {
 		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
 		virtualHosts = []*route.VirtualHost{{
 			Name:    domainName("blackhole", port),
@@ -302,14 +292,44 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		// add a name to the route
 		virtualHosts[0].Routes[0].Name = istio_route.DefaultRouteName
 	} else {
-		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap)+len(vhostCombinedMap))
-		for _, v := range vHostDedupMap {
-			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
-			virtualHosts = append(virtualHosts, v)
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap)+len(mergedHosts))
+		// First check if a server's virtual hosts can be combined in to a single virtual host
+		// with all of the domains merged. A Server virtual hosts can be merged if any of its
+		// hosts routes have not been merged i.e. all hosts share the same virtual service and
+		// hence same set of routes.
+		for _, server := range servers {
+			merged := false
+			for _, h := range server.Hosts {
+				if _, exists := mergedHosts[host.Name(h)]; exists {
+					merged = true
+					break
+				}
+			}
+			// If the server host routes have not merged, we can safely combine virtual hosts
+			// across all hosts with merged domains that share the same routes.
+			if !merged {
+				vname := strings.Join(server.Hosts, "~")
+				var domains []string
+				for _, h := range server.Hosts {
+					domains = append(domains, vHostDedupMap[host.Name(h)].Domains...)
+				}
+
+				mergedVHost := &route.VirtualHost{
+					Name:    domainName(vname, port),
+					Domains: domains,
+					// Select any hosts routes here because all of them will have same set of routes.
+					Routes:                     istio_route.CombineVHostRoutes(vHostDedupMap[host.Name(server.Hosts[0])].Routes),
+					IncludeRequestAttemptCount: true,
+				}
+				virtualHosts = append(virtualHosts, mergedVHost)
+			}
 		}
-		for _, v := range vhostCombinedMap {
-			v.Routes = istio_route.CombineVHostRoutes(v.Routes)
-			virtualHosts = append(virtualHosts, v)
+		// Now add the merged hosts's virtual hosts as is.
+		for h, v := range vHostDedupMap {
+			if _, exists := mergedHosts[h]; exists {
+				v.Routes = istio_route.CombineVHostRoutes(v.Routes)
+				virtualHosts = append(virtualHosts, v)
+			}
 		}
 	}
 
