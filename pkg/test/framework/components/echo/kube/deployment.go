@@ -221,9 +221,6 @@ spec:
         - "8.8.8.8"
         searches:
         - "com"
-        options:
-        - name: "ndots"
-          value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
       containers:
@@ -271,6 +268,8 @@ spec:
              "{{ $p.Port }}" \
 {{- end }}
         env:
+        - name: RES_OPTIONS
+          value: "options ndots:0"
         {{- range $name, $value := $.Environment }}
         - name: {{ $name }}
           value: "{{ $value }}"

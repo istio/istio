@@ -390,6 +390,12 @@ data:
           valueFrom:
             fieldRef:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
+        # To prevent Envoy from unnecessarily trying to run through DNS search domains first
+        # for every DNS query. ndots 0 forces it to resolve the hostname as is first before
+        # appending the DNS search domains to the query.
+        # This environment variable is used by c-ares DNS library that envoy uses.
+        - name: RES_OPTIONS
+          value: "options ndots:0"
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
@@ -547,12 +553,6 @@ data:
           {{ toYaml $value | indent 4 }}
           {{ end }}
           {{- end }}
-      {{- if .ProxyConfig.ProxyMetadata.ISTIO_META_DNS_CAPTURE }}
-      dnsConfig:
-        options:
-        - name: "ndots"
-          value: "4"
-      {{- end }}
       volumes:
       {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
       - name: custom-bootstrap-volume
