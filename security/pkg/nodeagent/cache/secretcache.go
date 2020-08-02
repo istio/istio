@@ -292,8 +292,8 @@ func (sc *SecretCache) addFileWatcher(file string, token string, connKey ConnKey
 	// checking for duplicates. This check is needed here to avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	npath := filepath.Clean(file)
-	watching := false
-	if _, watching = sc.fileCerts[npath]; !watching {
+	_, watching := sc.fileCerts[npath]
+	if !watching {
 		sc.fileCerts[npath] = make(map[ConnKey]struct{})
 	}
 	// Add connKey to the path - so that whenever it changes, connection is also pushed.
@@ -777,7 +777,7 @@ func (sc *SecretCache) generateFileSecret(connKey ConnKey, token string) (bool, 
 
 	// When there are existing root certificates, or private key and certificate under
 	// a well known path, they are used in the SDS response.
-	sdsFromFile := false
+	var sdsFromFile bool
 	var err error
 	var sitem *security.SecretItem
 
