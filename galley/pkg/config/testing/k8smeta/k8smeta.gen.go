@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -261,7 +262,7 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"k8smeta.yaml": &bintree{k8smetaYaml, map[string]*bintree{}},
+	"k8smeta.yaml": {k8smetaYaml, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory

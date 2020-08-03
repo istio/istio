@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -103,8 +104,7 @@ func AssetNames() []string {
 }
 
 // _bindata is a table, holding each asset generator, mapped to its name.
-var _bindata = map[string]func() (*asset, error){
-}
+var _bindata = map[string]func() (*asset, error){}
 
 // AssetDir returns the file names below a certain
 // directory embedded in the file by go-bindata.

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -312,8 +313,8 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"templates": &bintree{nil, map[string]*bintree{
-		"config.html": &bintree{templatesConfigHtml, map[string]*bintree{}},
+	"templates": {nil, map[string]*bintree{
+		"config.html": {templatesConfigHtml, map[string]*bintree{}},
 	}},
 }}
 

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -884,14 +885,14 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"builtin": &bintree{nil, map[string]*bintree{
-		"deployment.yaml": &bintree{builtinDeploymentYaml, map[string]*bintree{}},
-		"endpoints.yaml":  &bintree{builtinEndpointsYaml, map[string]*bintree{}},
-		"ingress.yaml":    &bintree{builtinIngressYaml, map[string]*bintree{}},
-		"namespace.yaml":  &bintree{builtinNamespaceYaml, map[string]*bintree{}},
-		"node.yaml":       &bintree{builtinNodeYaml, map[string]*bintree{}},
-		"pod.yaml":        &bintree{builtinPodYaml, map[string]*bintree{}},
-		"service.yaml":    &bintree{builtinServiceYaml, map[string]*bintree{}},
+	"builtin": {nil, map[string]*bintree{
+		"deployment.yaml": {builtinDeploymentYaml, map[string]*bintree{}},
+		"endpoints.yaml":  {builtinEndpointsYaml, map[string]*bintree{}},
+		"ingress.yaml":    {builtinIngressYaml, map[string]*bintree{}},
+		"namespace.yaml":  {builtinNamespaceYaml, map[string]*bintree{}},
+		"node.yaml":       {builtinNodeYaml, map[string]*bintree{}},
+		"pod.yaml":        {builtinPodYaml, map[string]*bintree{}},
+		"service.yaml":    {builtinServiceYaml, map[string]*bintree{}},
 	}},
 }}
 

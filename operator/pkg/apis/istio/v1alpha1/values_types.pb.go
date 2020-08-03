@@ -180,23 +180,23 @@ func (m *ArchConfig) GetS390X() uint32 {
 // Configuration for CNI.
 type CNIConfig struct {
 	// Controls whether CNI is enabled.
-	Enabled              *protobuf.BoolValue     `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Hub                  string                  `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                  interface{}          `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
-	Image                string                  `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
-	PullPolicy           string                  `protobuf:"bytes,5,opt,name=pullPolicy,proto3" json:"pullPolicy,omitempty"`
-	CniBinDir            string                  `protobuf:"bytes,6,opt,name=cniBinDir,proto3" json:"cniBinDir,omitempty"`
-	CniConfDir           string                  `protobuf:"bytes,7,opt,name=cniConfDir,proto3" json:"cniConfDir,omitempty"`
-	CniConfFileName      string                  `protobuf:"bytes,8,opt,name=cniConfFileName,proto3" json:"cniConfFileName,omitempty"`
-	ExcludeNamespaces    []string                `protobuf:"bytes,9,rep,name=excludeNamespaces,proto3" json:"excludeNamespaces,omitempty"`
+	Enabled              *protobuf.BoolValue    `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Hub                  string                 `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
+	Tag                  interface{}            `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	Image                string                 `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
+	PullPolicy           string                 `protobuf:"bytes,5,opt,name=pullPolicy,proto3" json:"pullPolicy,omitempty"`
+	CniBinDir            string                 `protobuf:"bytes,6,opt,name=cniBinDir,proto3" json:"cniBinDir,omitempty"`
+	CniConfDir           string                 `protobuf:"bytes,7,opt,name=cniConfDir,proto3" json:"cniConfDir,omitempty"`
+	CniConfFileName      string                 `protobuf:"bytes,8,opt,name=cniConfFileName,proto3" json:"cniConfFileName,omitempty"`
+	ExcludeNamespaces    []string               `protobuf:"bytes,9,rep,name=excludeNamespaces,proto3" json:"excludeNamespaces,omitempty"`
 	PodAnnotations       map[string]interface{} `protobuf:"bytes,10,opt,name=podAnnotations,proto3" json:"podAnnotations,omitempty"` // Deprecated: Do not use.
-	PspClusterRole       string                  `protobuf:"bytes,11,opt,name=psp_cluster_role,json=pspClusterRole,proto3" json:"psp_cluster_role,omitempty"`
-	LogLevel             string                  `protobuf:"bytes,12,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
-	Repair               *CNIRepairConfig        `protobuf:"bytes,13,opt,name=repair,proto3" json:"repair,omitempty"`
-	Chained              *protobuf.BoolValue     `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+	PspClusterRole       string                 `protobuf:"bytes,11,opt,name=psp_cluster_role,json=pspClusterRole,proto3" json:"psp_cluster_role,omitempty"`
+	LogLevel             string                 `protobuf:"bytes,12,opt,name=logLevel,proto3" json:"logLevel,omitempty"`
+	Repair               *CNIRepairConfig       `protobuf:"bytes,13,opt,name=repair,proto3" json:"repair,omitempty"`
+	Chained              *protobuf.BoolValue    `protobuf:"bytes,14,opt,name=chained,proto3" json:"chained,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
 func (m *CNIConfig) Reset()         { *m = CNIConfig{} }
@@ -326,7 +326,7 @@ type CNIRepairConfig struct {
 	// Controls whether repair behavior is enabled.
 	Enabled *protobuf.BoolValue `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Hub     string              `protobuf:"bytes,2,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag     interface{}      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	Tag     interface{}         `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
 	Image   string              `protobuf:"bytes,4,opt,name=image,proto3" json:"image,omitempty"`
 	// Controls whether various repair behaviors are enabled.
 	LabelPods            bool     `protobuf:"varint,5,opt,name=labelPods,proto3" json:"labelPods,omitempty"`
@@ -549,7 +549,7 @@ type CoreDNSConfig struct {
 	// K8s rolling update strategy
 	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,9,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"` // Deprecated: Do not use.
 	// K8s rolling update strategy
-	RollingMaxUnavailable            *IntOrStringForPB          `protobuf:"bytes,10,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`                       // Deprecated: Do not use.
+	RollingMaxUnavailable            *IntOrStringForPB        `protobuf:"bytes,10,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"`                       // Deprecated: Do not use.
 	PodAntiAffinityLabelSelector     []map[string]interface{} `protobuf:"bytes,11,opt,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`         // Deprecated: Do not use.
 	PodAntiAffinityTermLabelSelector []map[string]interface{} `protobuf:"bytes,12,opt,name=podAntiAffinityTermLabelSelector,proto3" json:"podAntiAffinityTermLabelSelector,omitempty"` // Deprecated: Do not use.
 	Tolerations                      []map[string]interface{} `protobuf:"bytes,13,opt,name=tolerations,proto3" json:"tolerations,omitempty"`                                           // Deprecated: Do not use.
@@ -821,8 +821,8 @@ type EgressGatewayConfig struct {
 	Enabled *protobuf.BoolValue `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
 	Env    map[string]interface{} `protobuf:"bytes,8,opt,name=env,proto3" json:"env,omitempty"`
-	Labels *GatewayLabelsConfig    `protobuf:"bytes,9,opt,name=labels,proto3" json:"labels,omitempty"`
-	Name   string                  `protobuf:"bytes,25,opt,name=name,proto3" json:"name,omitempty"`
+	Labels *GatewayLabelsConfig   `protobuf:"bytes,9,opt,name=labels,proto3" json:"labels,omitempty"`
+	Name   string                 `protobuf:"bytes,25,opt,name=name,proto3" json:"name,omitempty"`
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -871,18 +871,18 @@ type EgressGatewayConfig struct {
 	// See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
 	Type string `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
 	// Enables cross-cluster access using SNI matching.
-	Zvpn        *ZeroVPNConfig                 `protobuf:"bytes,19,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
+	Zvpn        *ZeroVPNConfig           `protobuf:"bytes,19,opt,name=zvpn,proto3" json:"zvpn,omitempty"`
 	Tolerations []map[string]interface{} `protobuf:"bytes,20,opt,name=tolerations,proto3" json:"tolerations,omitempty"` // Deprecated: Do not use.
 	// K8s rolling update strategy
 	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,21,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"` // Deprecated: Do not use.
 	// K8s rolling update strategy
-	RollingMaxUnavailable *IntOrStringForPB          `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
+	RollingMaxUnavailable *IntOrStringForPB        `protobuf:"bytes,22,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
 	ConfigVolumes         []map[string]interface{} `protobuf:"bytes,23,opt,name=configVolumes,proto3" json:"configVolumes,omitempty"`
 	AdditionalContainers  []map[string]interface{} `protobuf:"bytes,24,opt,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
-	RunAsRoot             *protobuf.BoolValue            `protobuf:"bytes,26,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
-	XXX_NoUnkeyedLiteral  struct{}                       `json:"-"`
-	XXX_unrecognized      []byte                         `json:"-"`
-	XXX_sizecache         int32                          `json:"-"`
+	RunAsRoot             *protobuf.BoolValue      `protobuf:"bytes,26,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
+	XXX_NoUnkeyedLiteral  struct{}                 `json:"-"`
+	XXX_unrecognized      []byte                   `json:"-"`
+	XXX_sizecache         int32                    `json:"-"`
 }
 
 func (m *EgressGatewayConfig) Reset()         { *m = EgressGatewayConfig{} }
@@ -1212,7 +1212,7 @@ type GlobalConfig struct {
 	// Default k8s resources settings for all Istio control plane components.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	DefaultResources   *DefaultResourcesConfig        `protobuf:"bytes,9,opt,name=defaultResources,proto3" json:"defaultResources,omitempty"`      // Deprecated: Do not use.
+	DefaultResources   *DefaultResourcesConfig  `protobuf:"bytes,9,opt,name=defaultResources,proto3" json:"defaultResources,omitempty"`      // Deprecated: Do not use.
 	DefaultTolerations []map[string]interface{} `protobuf:"bytes,55,opt,name=defaultTolerations,proto3" json:"defaultTolerations,omitempty"` // Deprecated: Do not use.
 	// Specifies the docker hub for Istio images.
 	Hub string `protobuf:"bytes,12,opt,name=hub,proto3" json:"hub,omitempty"`
@@ -1763,11 +1763,11 @@ type IngressGatewayConfig struct {
 	Enabled *protobuf.BoolValue `protobuf:"bytes,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
 	Env                      map[string]interface{} `protobuf:"bytes,11,opt,name=env,proto3" json:"env,omitempty"`
-	Labels                   *GatewayLabelsConfig    `protobuf:"bytes,15,opt,name=labels,proto3" json:"labels,omitempty"`
-	LoadBalancerIP           string                  `protobuf:"bytes,16,opt,name=loadBalancerIP,proto3" json:"loadBalancerIP,omitempty"`
-	LoadBalancerSourceRanges []string                `protobuf:"bytes,17,rep,name=loadBalancerSourceRanges,proto3" json:"loadBalancerSourceRanges,omitempty"`
-	MeshExpansionPorts       []*PortsConfig          `protobuf:"bytes,18,rep,name=meshExpansionPorts,proto3" json:"meshExpansionPorts,omitempty"`
-	Name                     string                  `protobuf:"bytes,44,opt,name=name,proto3" json:"name,omitempty"`
+	Labels                   *GatewayLabelsConfig   `protobuf:"bytes,15,opt,name=labels,proto3" json:"labels,omitempty"`
+	LoadBalancerIP           string                 `protobuf:"bytes,16,opt,name=loadBalancerIP,proto3" json:"loadBalancerIP,omitempty"`
+	LoadBalancerSourceRanges []string               `protobuf:"bytes,17,rep,name=loadBalancerSourceRanges,proto3" json:"loadBalancerSourceRanges,omitempty"`
+	MeshExpansionPorts       []*PortsConfig         `protobuf:"bytes,18,rep,name=meshExpansionPorts,proto3" json:"meshExpansionPorts,omitempty"`
+	Name                     string                 `protobuf:"bytes,44,opt,name=name,proto3" json:"name,omitempty"`
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -1801,16 +1801,16 @@ type IngressGatewayConfig struct {
 	// K8s rolling update strategy
 	RollingMaxSurge *IntOrStringForPB `protobuf:"bytes,31,opt,name=rollingMaxSurge,proto3" json:"rollingMaxSurge,omitempty"` // Deprecated: Do not use.
 	// K8s rolling update strategy
-	RollingMaxUnavailable *IntOrStringForPB          `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
-	ExternalTrafficPolicy string                         `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
+	RollingMaxUnavailable *IntOrStringForPB        `protobuf:"bytes,32,opt,name=rollingMaxUnavailable,proto3" json:"rollingMaxUnavailable,omitempty"` // Deprecated: Do not use.
+	ExternalTrafficPolicy string                   `protobuf:"bytes,34,opt,name=externalTrafficPolicy,proto3" json:"externalTrafficPolicy,omitempty"`
 	Tolerations           []map[string]interface{} `protobuf:"bytes,35,opt,name=tolerations,proto3" json:"tolerations,omitempty"` // Deprecated: Do not use.
 	IngressPorts          []map[string]interface{} `protobuf:"bytes,36,opt,name=ingressPorts,proto3" json:"ingressPorts,omitempty"`
 	AdditionalContainers  []map[string]interface{} `protobuf:"bytes,37,opt,name=additionalContainers,proto3" json:"additionalContainers,omitempty"`
 	ConfigVolumes         []map[string]interface{} `protobuf:"bytes,38,opt,name=configVolumes,proto3" json:"configVolumes,omitempty"`
-	RunAsRoot             *protobuf.BoolValue            `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
-	XXX_NoUnkeyedLiteral  struct{}                       `json:"-"`
-	XXX_unrecognized      []byte                         `json:"-"`
-	XXX_sizecache         int32                          `json:"-"`
+	RunAsRoot             *protobuf.BoolValue      `protobuf:"bytes,45,opt,name=runAsRoot,proto3" json:"runAsRoot,omitempty"`
+	XXX_NoUnkeyedLiteral  struct{}                 `json:"-"`
+	XXX_unrecognized      []byte                   `json:"-"`
+	XXX_sizecache         int32                    `json:"-"`
 }
 
 func (m *IngressGatewayConfig) Reset()         { *m = IngressGatewayConfig{} }
@@ -2332,9 +2332,9 @@ type PilotConfig struct {
 	// can be configured for a single control plane.
 	ConfigSource            *PilotConfigSource `protobuf:"bytes,31,opt,name=configSource,proto3" json:"configSource,omitempty"`
 	JwksResolverExtraRootCA string             `protobuf:"bytes,32,opt,name=jwksResolverExtraRootCA,proto3" json:"jwksResolverExtraRootCA,omitempty"`
-	Plugins                 []string   `protobuf:"bytes,33,opt,name=plugins,proto3" json:"plugins,omitempty"`
+	Plugins                 []string           `protobuf:"bytes,33,opt,name=plugins,proto3" json:"plugins,omitempty"`
 	Hub                     string             `protobuf:"bytes,34,opt,name=hub,proto3" json:"hub,omitempty"`
-	Tag                     interface{}     `protobuf:"bytes,35,opt,name=tag,proto3" json:"tag,omitempty"`
+	Tag                     interface{}        `protobuf:"bytes,35,opt,name=tag,proto3" json:"tag,omitempty"`
 	XXX_NoUnkeyedLiteral    struct{}           `json:"-"`
 	XXX_unrecognized        []byte             `json:"-"`
 	XXX_sizecache           int32              `json:"-"`
@@ -2873,15 +2873,15 @@ func (m *TelemetryV2PrometheusConfig) GetWasmEnabled() *protobuf.BoolValue {
 
 // Conrols telemetry v2 stackdriver settings.
 type TelemetryV2StackDriverConfig struct {
-	Enabled              *protobuf.BoolValue     `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	Logging              *protobuf.BoolValue     `protobuf:"bytes,2,opt,name=logging,proto3" json:"logging,omitempty"`
-	Monitoring           *protobuf.BoolValue     `protobuf:"bytes,3,opt,name=monitoring,proto3" json:"monitoring,omitempty"`
-	Topology             *protobuf.BoolValue     `protobuf:"bytes,4,opt,name=topology,proto3" json:"topology,omitempty"`
-	DisableOutbound      *protobuf.BoolValue     `protobuf:"bytes,6,opt,name=disableOutbound,proto3" json:"disableOutbound,omitempty"`
+	Enabled              *protobuf.BoolValue    `protobuf:"bytes,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Logging              *protobuf.BoolValue    `protobuf:"bytes,2,opt,name=logging,proto3" json:"logging,omitempty"`
+	Monitoring           *protobuf.BoolValue    `protobuf:"bytes,3,opt,name=monitoring,proto3" json:"monitoring,omitempty"`
+	Topology             *protobuf.BoolValue    `protobuf:"bytes,4,opt,name=topology,proto3" json:"topology,omitempty"`
+	DisableOutbound      *protobuf.BoolValue    `protobuf:"bytes,6,opt,name=disableOutbound,proto3" json:"disableOutbound,omitempty"`
 	ConfigOverride       map[string]interface{} `protobuf:"bytes,5,opt,name=configOverride,proto3" json:"configOverride,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
 func (m *TelemetryV2StackDriverConfig) Reset()         { *m = TelemetryV2StackDriverConfig{} }
@@ -3155,9 +3155,9 @@ type ProxyConfig struct {
 	// K8s resources settings.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
-	Resources            *Resources              `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
-	Tracer               Tracer                  `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
-	ExcludeOutboundPorts string                  `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
+	Resources            *Resources             `protobuf:"bytes,24,opt,name=resources,proto3" json:"resources,omitempty"` // Deprecated: Do not use.
+	Tracer               Tracer                 `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
+	ExcludeOutboundPorts string                 `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
 	Lifecycle            map[string]interface{} `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
 	// Causes the sidecar to be injected at the front of the container list and blocks the start of the other containers until the proxy is ready
 	HoldApplicationUntilProxyStarts *protobuf.BoolValue `protobuf:"bytes,37,opt,name=holdApplicationUntilProxyStarts,proto3" json:"holdApplicationUntilProxyStarts,omitempty"`
@@ -3426,9 +3426,9 @@ func (m *ResourcesRequestsConfig) GetMemory() string {
 // Configuration for the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
 type SDSConfig struct {
 	Token                map[string]interface{} `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"` // Deprecated: Do not use.
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
 func (m *SDSConfig) Reset()         { *m = SDSConfig{} }
@@ -3523,12 +3523,12 @@ func (m *SecretVolume) GetSecretName() string {
 // ServiceConfig is described in istio.io documentation.
 type ServiceConfig struct {
 	Annotations          map[string]interface{} `protobuf:"bytes,1,opt,name=annotations,proto3" json:"annotations,omitempty"`
-	ExternalPort         uint32                  `protobuf:"varint,2,opt,name=externalPort,proto3" json:"externalPort,omitempty"`
-	Name                 string                  `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	Type                 string                  `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+	ExternalPort         uint32                 `protobuf:"varint,2,opt,name=externalPort,proto3" json:"externalPort,omitempty"`
+	Name                 string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Type                 string                 `protobuf:"bytes,18,opt,name=type,proto3" json:"type,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
 }
 
 func (m *ServiceConfig) Reset()         { *m = ServiceConfig{} }
@@ -4055,7 +4055,7 @@ type Values struct {
 	IstioCni               *CNIConfig             `protobuf:"bytes,19,opt,name=istio_cni,json=istioCni,proto3" json:"istio_cni,omitempty"`
 	Revision               string                 `protobuf:"bytes,21,opt,name=revision,proto3" json:"revision,omitempty"`
 	// TODO can this import the real mesh config API?
-	MeshConfig           interface{}      `protobuf:"bytes,36,opt,name=meshConfig,proto3" json:"meshConfig,omitempty"`
+	MeshConfig           interface{}         `protobuf:"bytes,36,opt,name=meshConfig,proto3" json:"meshConfig,omitempty"`
 	Base                 *BaseConfig         `protobuf:"bytes,37,opt,name=base,proto3" json:"base,omitempty"`
 	IstiodRemote         *IstiodRemoteConfig `protobuf:"bytes,38,opt,name=istiodRemote,proto3" json:"istiodRemote,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
@@ -4178,10 +4178,6 @@ func (m *Values) GetIstiodRemote() *IstiodRemoteConfig {
 	return nil
 }
 
-
-
-
-
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
 type ZeroVPNConfig struct {
 	// Controls whether ZeroVPN is enabled.
@@ -4229,7 +4225,6 @@ func (m *ZeroVPNConfig) GetSuffix() string {
 	}
 	return ""
 }
-
 
 func init() {
 	proto.RegisterEnum("v1alpha1.IngressControllerMode", IngressControllerMode_name, IngressControllerMode_value)
