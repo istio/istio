@@ -67,9 +67,6 @@ const (
 	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
-	// identityTemplate is the format template of identity in the CSR request.
-	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
-
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
@@ -78,10 +75,6 @@ const (
 	// unblock the secret watch main thread in case those child threads got stuck due to any reason.
 	notifySecretRetrievalTimeout = 30 * time.Second
 )
-
-type k8sJwtPayload struct {
-	Sub string `json:"sub"`
-}
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
