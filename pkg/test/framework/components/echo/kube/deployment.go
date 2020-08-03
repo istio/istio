@@ -211,19 +211,7 @@ spec:
         istio.io/test-vm-version: {{ $subset.Version }}
     spec:
       # Disable kube-dns, to mirror VM
-      # we set policy to none and explicitly provide a set of invalid values
-      # for nameservers, search namespaces, etc. ndots is set to 1 so that
-      # the application will first try to resolve the hostname (a, a.ns, etc.) as is
-      # before attempting to add the search namespaces.
-      dnsPolicy: None
-      dnsConfig:
-        nameservers:
-        - "8.8.8.8"
-        searches:
-        - "com"
-        options:
-        - name: "ndots"
-          value: "1"
+      dnsPolicy: default
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
       containers:
@@ -247,8 +235,6 @@ spec:
           sudo sh -c 'echo PROV_CERT="" >> /var/lib/istio/envoy/cluster.env'
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
-          # Capture all DNS traffic in the VM and forward to Envoy
-          # sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
 
           # Setup the namespace
