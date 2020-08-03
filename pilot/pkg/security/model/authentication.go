@@ -20,7 +20,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -154,13 +153,6 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 		return nil
 	}
 
-	var fetchTimeout *durationpb.Duration
-	if name == SDSDefaultResourceName || name == SDSRootResourceName {
-		fetchTimeout = ptypes.DurationProto(time.Second * 0)
-	} else {
-		fetchTimeout = features.InitialFetchTimeout
-	}
-
 	if name == SDSDefaultResourceName {
 		return defaultSDSConfig
 	}
@@ -188,7 +180,7 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 			// set the fetch timeout to 0 here because workload certs are
 			// guaranteed to exist. while others like gateway certs may not
 			// exist.
-			InitialFetchTimeout: fetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 
