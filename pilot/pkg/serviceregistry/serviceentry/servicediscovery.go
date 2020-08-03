@@ -150,7 +150,9 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event m
 		}
 	}
 
-	s.deleteExistingInstances(key, instancesDelete)
+	if len(instancesDelete) > 0 {
+		s.deleteExistingInstances(key, instancesDelete)
+	}
 
 	if event != model.EventDelete {
 		s.updateExistingInstances(key, instances)
