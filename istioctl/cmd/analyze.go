@@ -232,7 +232,7 @@ istioctl analyze -L
 			outputMessages := result.Messages.SetDocRef("istioctl-analyze").Filter(outputLevel)
 
 			// Print all the messages to stdout in the specified format
-			output, err := Print(outputMessages, msgOutputFormat, colorize)
+			output, err := diag.Print(outputMessages, msgOutputFormat, colorize)
 			if err != nil {
 				return err
 			}
