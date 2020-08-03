@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and context.
+// InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and Context.
 func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
 
 	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
@@ -45,7 +45,7 @@ func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {
 }
 
 // buildClientConfig is a helper function that builds client config from a kubeconfig filepath.
-// It overrides the current context with the one provided (empty to use default).
+// It overrides the current Context with the one provided (empty to use default).
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.

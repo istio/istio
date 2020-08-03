@@ -19,6 +19,17 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+type ResourceType int
+
+const (
+	Namespace ResourceType = iota
+	Deployment
+	Pod
+	Label
+	Annotation
+	Container
+)
+
 // Cluster defines a tree of cluster resource names.
 type Resources struct {
 	// Root is the first level in the cluster resource hierarchy.

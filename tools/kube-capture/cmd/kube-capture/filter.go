@@ -27,16 +27,16 @@ import (
 // GetMatchingPaths returns a slice of matching paths, given a cluster tree and config.
 // config is the capture configuration.
 // cluster is the structure representing the cluster resource hierarchy.
-func GetMatchingPaths(config *kubeCaptureConfig, cluster *cluster.Resources) ([]string, error) {
+func GetMatchingPaths(config *KubeCaptureConfig, cluster *cluster.Resources) ([]string, error) {
 	paths := make(map[string]struct{})
-	for _, sp := range config.included {
+	for _, sp := range config.Included {
 		np, err := getMatchingPathsForSpec(config, cluster, sp)
 		if err != nil {
 			return nil, err
 		}
 		paths = mergeMaps(paths, np)
 	}
-	for _, sp := range config.excluded {
+	for _, sp := range config.Excluded {
 		np, err := getMatchingPathsForSpec(config, cluster, sp)
 		if err != nil {
 			return nil, err
@@ -64,12 +64,12 @@ func mergeMaps(a, b map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func getMatchingPathsForSpec(config *kubeCaptureConfig, cluster *cluster.Resources, sp *SelectionSpec) (map[string]struct{}, error) {
+func getMatchingPathsForSpec(config *KubeCaptureConfig, cluster *cluster.Resources, sp *SelectionSpec) (map[string]struct{}, error) {
 	paths := make(map[string]struct{})
 	return getMatchingPathsForSpecImpl(config, cluster, sp, cluster.Root, nil, paths)
 }
 
-func getMatchingPathsForSpecImpl(config *kubeCaptureConfig, cluster *cluster.Resources, sp *SelectionSpec, node map[string]interface{}, path util.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
+func getMatchingPathsForSpecImpl(config *KubeCaptureConfig, cluster *cluster.Resources, sp *SelectionSpec, node map[string]interface{}, path util.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
 	for pe, n := range node {
 		np := append(path, pe)
 		if nn, ok := n.(map[string]interface{}); ok {
@@ -91,13 +91,13 @@ func getMatchingPathsForSpecImpl(config *kubeCaptureConfig, cluster *cluster.Res
 	return matchingPaths, nil
 }
 
-func matchesKubeCaptureConfig(config *kubeCaptureConfig, namespace, deployment, pod, container string) bool {
-	for _, sp := range config.excluded {
+func matchesKubeCaptureConfig(config *KubeCaptureConfig, namespace, deployment, pod, container string) bool {
+	for _, sp := range config.Excluded {
 		if matchesSelectionSpec(sp, namespace, deployment, pod, container) {
 			return false
 		}
 	}
-	for _, sp := range config.included {
+	for _, sp := range config.Included {
 		if matchesSelectionSpec(sp, namespace, deployment, pod, container) {
 			return true
 		}
@@ -113,18 +113,22 @@ func matchesSelectionSpec(sp *SelectionSpec, namespace, deployment, pod, contain
 	if !matchesGlobs(namespace, sp.Namespaces[Include]) {
 		return false
 	}
-
-	if !matchesGlobs(deployment, []string{sp.DeploymentName}) {
+	if matchesGlobs(deployment, sp.Deployments[Exclude]) {
 		return false
 	}
-	if !matchesGlobs(pod, []string{sp.PodName}) {
+	if !matchesGlobs(deployment, sp.Deployments[Include]) {
 		return false
 	}
-
-	if matchesGlobs(container, sp.ContainerNames[Exclude]) {
+	if matchesGlobs(pod, sp.Pods[Exclude]) {
 		return false
 	}
-	if !matchesGlobs(container, sp.ContainerNames[Include]) {
+	if !matchesGlobs(pod, sp.Pods[Include]) {
+		return false
+	}
+	if matchesGlobs(container, sp.Containers[Exclude]) {
+		return false
+	}
+	if !matchesGlobs(container, sp.Containers[Include]) {
 		return false
 	}
 	return true

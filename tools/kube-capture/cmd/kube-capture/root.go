@@ -39,7 +39,7 @@ var (
 
 const (
 	kubeCaptureHelpKubeconfig      = "Path to kube config."
-	kubeCaptureHelpContext         = "Name of the kubeconfig context to use."
+	kubeCaptureHelpContext         = "Name of the kubeconfig Context to use."
 	kubeCaptureHelpFilename        = "Path to a file containing configuration in YAML format."
 	kubeCaptureHelpIstioNamespaces = "List of comma-separated namespaces where Istio control planes " +
 		"are installed."
@@ -54,7 +54,7 @@ const (
 	kubeCaptureHelpExcluded = "Spec for which pods' proxy logs to exclude from the archive, after the include spec " +
 		"is processed. See 'help' for examples."
 	kubeCaptureHelpStartTime = "Start time for the range of log entries to include in the archive. " +
-		"Default is the infinite past. If set, since must be unset."
+		"Default is the infinite past. If set, Since must be unset."
 	kubeCaptureHelpEndTime = "End time for the range of log entries to include in the archive. Default is now."
 	kubeCaptureHelpSince   = "How far to go back in time from end-time for log entries to include in the archive. " +
 		"Default is infinity. If set, start-time must be unset."
@@ -67,45 +67,43 @@ const (
 )
 
 var (
-	startTime, endTime string
-	gConfig            = &kubeCaptureConfig{}
+	startTime, endTime, included, excluded string
+	commandTimeout, since                  time.Duration
+	gConfig                                = &KubeCaptureConfig{}
 )
 
-func addFlags(cmd *cobra.Command, args *kubeCaptureConfig) {
+func addFlags(cmd *cobra.Command, args *KubeCaptureConfig) {
 	// k8s client config
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", kubeCaptureHelpKubeconfig)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", kubeCaptureHelpContext)
+	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", kubeCaptureHelpKubeconfig)
+	cmd.PersistentFlags().StringVar(&args.Context, "Context", "", kubeCaptureHelpContext)
 
 	// dry run and validation
-	cmd.PersistentFlags().BoolVarP(&args.dryRun, "dry-run", "", false, kubeCaptureHelpDryRun)
-	cmd.PersistentFlags().BoolVar(&args.strict, "strict", false, kubeCaptureHelpStrict)
-
-	// config input
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", kubeCaptureHelpFilename)
+	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, kubeCaptureHelpDryRun)
+	cmd.PersistentFlags().BoolVar(&args.Strict, "Strict", false, kubeCaptureHelpStrict)
 
 	// istio namespaces
-	cmd.PersistentFlags().StringSliceVarP(&args.istioNamespaces, "namespaces", "n", kubeCaptureDefaultIstioNamespaces, kubeCaptureHelpIstioNamespaces)
+	cmd.PersistentFlags().StringSliceVarP(&args.IstioNamespaces, "namespaces", "n", kubeCaptureDefaultIstioNamespaces, kubeCaptureHelpIstioNamespaces)
 
 	// timeouts and max sizes
-	cmd.PersistentFlags().DurationVar(&args.commandTimeout, "timeout", kubeCaptureDefaultTimeout, kubeCaptureHelpCommandTimeout)
-	cmd.PersistentFlags().Int32Var(&args.maxArchiveSizeMb, "max-size", kubeCaptureDefaultMaxSizeMb, kubeCaptureHelpMaxArchiveSizeMb)
+	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", kubeCaptureDefaultTimeout, kubeCaptureHelpCommandTimeout)
+	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", kubeCaptureDefaultMaxSizeMb, kubeCaptureHelpMaxArchiveSizeMb)
 
 	// include / exclude specs
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "include", "i", kubeCaptureDefaultInclude, kubeCaptureHelpIncluded)
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "exclude", "e", kubeCaptureDefaultExclude, kubeCaptureHelpExcluded)
+	cmd.PersistentFlags().StringVarP(&included, "include", "i", kubeCaptureDefaultInclude, kubeCaptureHelpIncluded)
+	cmd.PersistentFlags().StringVarP(&excluded, "exclude", "e", kubeCaptureDefaultExclude, kubeCaptureHelpExcluded)
 
 	// log time ranges
 	cmd.PersistentFlags().StringVar(&startTime, "start-time", "", kubeCaptureHelpStartTime)
 	cmd.PersistentFlags().StringVar(&endTime, "end-time", "", kubeCaptureHelpEndTime)
-	cmd.PersistentFlags().DurationVar(&args.since, "duration", 0, kubeCaptureHelpSince)
+	cmd.PersistentFlags().DurationVar(&since, "duration", 0, kubeCaptureHelpSince)
 
 	// log error control
-	cmd.PersistentFlags().StringSliceVar(&args.criticalErrors, "critical-errs", nil, kubeCaptureHelpCriticalErrors)
-	cmd.PersistentFlags().StringSliceVar(&args.whitelistedErrors, "whitelist-errs", nil, kubeCaptureHelpWhitelistedErrors)
+	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil, kubeCaptureHelpCriticalErrors)
+	cmd.PersistentFlags().StringSliceVar(&args.WhitelistedErrors, "whitelist-errs", nil, kubeCaptureHelpWhitelistedErrors)
 
 	// archive upload control
-	cmd.PersistentFlags().StringVar(&args.context, "gcs-url", "", kubeCaptureHelpGCSURL)
-	cmd.PersistentFlags().BoolVar(&args.strict, "upload", false, kubeCaptureHelpUploadToGCS)
+	cmd.PersistentFlags().StringVar(&args.Context, "gcs-url", "", kubeCaptureHelpGCSURL)
+	cmd.PersistentFlags().BoolVar(&args.Strict, "upload", false, kubeCaptureHelpUploadToGCS)
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -127,10 +125,10 @@ func GetRootCmd(args []string) *cobra.Command {
 	return rootCmd
 }
 
-func runKubeCaptureCommand(cmd *cobra.Command, config *kubeCaptureConfig) error {
+func runKubeCaptureCommand(cmd *cobra.Command, config *KubeCaptureConfig) error {
 	parseTimes(gConfig, startTime, endTime)
-	ValidateKubeCaptureConfig(gConfig)
-	rest, clientset, err := InitK8SRestClient(config.kubeConfigPath, config.context)
+	//ValidateKubeCaptureConfig(gConfig)
+	rest, clientset, err := InitK8SRestClient(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
@@ -151,25 +149,25 @@ func runKubeCaptureCommand(cmd *cobra.Command, config *kubeCaptureConfig) error 
 	return nil
 }
 
-func parseTimes(args *kubeCaptureConfig, startTime, endTime string) {
-	args.endTime = time.Now()
+func parseTimes(args *KubeCaptureConfig, startTime, endTime string) {
+	args.EndTime = time.Now()
 	if endTime != "" {
 		var err error
-		args.endTime, err = time.Parse(time.RFC3339, endTime)
+		args.EndTime, err = time.Parse(time.RFC3339, endTime)
 		if err != nil {
 			fmt.Printf("Bad format for end-time: %s, expect RFC3339 e.g. %s", endTime, time.RFC3339)
 			os.Exit(-1)
 		}
 	}
-	if args.since != 0 {
+	if args.Since != 0 {
 		if startTime != "" {
-			fmt.Println("Only one --start-time or --since may be set.")
+			fmt.Println("Only one --start-time or --Since may be set.")
 			os.Exit(-1)
 		}
-		args.startTime = args.endTime.Add(-1 * args.since)
+		args.StartTime = args.EndTime.Add(-1 * time.Duration(args.Since))
 	} else {
 		var err error
-		args.startTime, err = time.Parse(time.RFC3339, startTime)
+		args.StartTime, err = time.Parse(time.RFC3339, startTime)
 		if err != nil {
 			fmt.Printf("Bad format for start-time: %s, expect RFC3339 e.g. %s", startTime, time.RFC3339)
 			os.Exit(-1)
