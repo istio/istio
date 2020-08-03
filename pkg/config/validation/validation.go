@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
@@ -562,9 +562,10 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 									continue
 								}
 								// sub filter match requires the network filter to match to envoy http connection manager
-								if listenerMatch.FilterChain.Filter.Name != xdsUtil.HTTPConnectionManager {
+								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
+									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
 									errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
-										xdsUtil.HTTPConnectionManager))
+										wellknown.HTTPConnectionManager))
 									continue
 								}
 								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
