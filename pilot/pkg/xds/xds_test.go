@@ -308,7 +308,6 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func TestMeshNetworking(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/26048")
 	ingresses := []*corev1.Service{
 		{
 			ObjectMeta: metav1.ObjectMeta{
