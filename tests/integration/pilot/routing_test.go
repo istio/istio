@@ -261,8 +261,7 @@ func TestTraffic(t *testing.T) {
 			cases := map[string][]TrafficTestCase{}
 			cases["virtualservice"] = virtualServiceCases()
 			cases["sniffing"] = protocolSniffingCases()
-			// disable VM tests until we get a proper setup.
-			// cases["vm"] = vmTestCases(apps.vmA)
+			cases["vm"] = vmTestCases(apps.vmA)
 			for n, tts := range cases {
 				ctx.NewSubTest(n).Run(func(ctx framework.TestContext) {
 					for _, tt := range tts {
