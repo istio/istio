@@ -15,6 +15,7 @@
 package v1beta1
 
 import (
+	b64 "encoding/base64"
 	"fmt"
 	"regexp"
 	"sort"
@@ -219,8 +220,9 @@ func NewPolicyApplier(rootNamespace string,
 
 // Remove all Non-Alphanumeric Characters from a jwksURI and append to "n"
 func createFakeJwks(jwksURI string) string {
+	encodedString := b64.URLEncoding.EncodeToString([]byte(jwksURI))
 	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
-	processedString := reg.ReplaceAllString(jwksURI, "")
+	processedString := reg.ReplaceAllString(encodedString, "")
 	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"failedToFetchJwksFor%s"}]}`, processedString)
 }
 
