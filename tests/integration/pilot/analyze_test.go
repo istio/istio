@@ -355,9 +355,11 @@ func TestErrorLine(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
 			// Validation error if we have a gateway with invalid selector.
-			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile)
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, dirWithConfig, virtualServiceFile)
 
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(":9"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/some-dir/nested-dir/bad-annotation-service.yaml:7"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
 		})
 }
 

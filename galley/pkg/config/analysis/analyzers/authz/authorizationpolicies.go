@@ -143,24 +143,16 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Ins
 
 	for i, rule := range ap.Rules {
 		for j, from := range rule.From {
-			for k, ns := range from.Source.Namespaces {
+			for k, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
 				if !matchNamespace(ns, c) {
 					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
 
-					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)); ok {
-						m.Line = line
+					nsIndex := k
+					if nsIndex >= len(from.Source.Namespaces) {
+						nsIndex -= len(from.Source.Namespaces)
 					}
 
-					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
-				}
-			}
-
-			// Check source.notNamespaces
-			for k, ns := range from.Source.NotNamespaces {
-				if !matchNamespace(ns, c) {
-					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
-
-					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, k)); ok {
+					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, nsIndex)); ok {
 						m.Line = line
 					}
 
