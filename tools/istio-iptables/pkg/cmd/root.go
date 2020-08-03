@@ -115,6 +115,7 @@ func constructConfig() *config.Config {
 		} else {
 			userID = usr.Uid
 		}
+		cfg.ProxyUID = userID
 	}
 	// For TPROXY as its uid and gid are same.
 	if cfg.ProxyGID == "" {
