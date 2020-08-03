@@ -120,6 +120,14 @@ var (
 	// NoMatchingWorkloadsFound defines a diag.MessageType for message "NoMatchingWorkloadsFound".
 	// Description: There aren't workloads matching the resource labels
 	NoMatchingWorkloadsFound = diag.NewMessageType(diag.Warning, "IST0127", "No matching workloads for this resource with the following labels: %s")
+
+	// NoServerCertificateVerificationDestinationLevel defines a diag.MessageType for message "NoServerCertificateVerificationDestinationLevel".
+	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate.
+	NoServerCertificateVerificationDestinationLevel = diag.NewMessageType(diag.Error, "IST0128", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s")
+
+	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
+	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.
+	NoServerCertificateVerificationPortLevel = diag.NewMessageType(diag.Error, "IST0129", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s")
 )
 
 // All returns a list of all known message types.
@@ -153,6 +161,8 @@ func All() []*diag.MessageType {
 		InvalidAnnotation,
 		UnknownMeshNetworksServiceRegistry,
 		NoMatchingWorkloadsFound,
+		NoServerCertificateVerificationDestinationLevel,
+		NoServerCertificateVerificationPortLevel,
 	}
 }
 
@@ -429,5 +439,30 @@ func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Messa
 		NoMatchingWorkloadsFound,
 		r,
 		labels,
+	)
+}
+
+// NewNoServerCertificateVerificationDestinationLevel returns a new diag.Message based on NoServerCertificateVerificationDestinationLevel.
+func NewNoServerCertificateVerificationDestinationLevel(r *resource.Instance, destinationrule string, namespace string, mode string, host string) diag.Message {
+	return diag.NewMessage(
+		NoServerCertificateVerificationDestinationLevel,
+		r,
+		destinationrule,
+		namespace,
+		mode,
+		host,
+	)
+}
+
+// NewNoServerCertificateVerificationPortLevel returns a new diag.Message based on NoServerCertificateVerificationPortLevel.
+func NewNoServerCertificateVerificationPortLevel(r *resource.Instance, destinationrule string, namespace string, mode string, host string, port string) diag.Message {
+	return diag.NewMessage(
+		NoServerCertificateVerificationPortLevel,
+		r,
+		destinationrule,
+		namespace,
+		mode,
+		host,
+		port,
 	)
 }
