@@ -52,13 +52,8 @@ var envoyProtoBags = sync.Pool{
 
 func fillAddress(reqMap map[string]interface{}, address *core.Address, name string) {
 	socketaddress := address.GetSocketAddress()
-	if socketaddress != nil {
-		reqMap[name+".ip"] = []byte(net.ParseIP(socketaddress.GetAddress()).To16())
-		reqMap[name+".port"] = int64(socketaddress.GetPortValue())
-	} else {
-		reqMap[name+".ip"] = []byte{}
-		reqMap[name+".port"] = int64(0)
-	}
+	reqMap[name+".ip"] = []byte(net.ParseIP(socketaddress.GetAddress()).To16())
+	reqMap[name+".port"] = int64(socketaddress.GetPortValue())
 }
 
 func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
