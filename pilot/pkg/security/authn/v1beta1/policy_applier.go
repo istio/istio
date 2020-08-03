@@ -16,6 +16,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -216,6 +217,13 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
+// Remove all Non-Alphanumeric Characters from a jwksURI and append to "n"
+func createFakeJwks(jwksURI string) string {
+	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
+	processedString := reg.ReplaceAllString(jwksURI, "")
+	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"failedToFetchJwksFor%s"}]}`, processedString)
+}
+
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
@@ -258,6 +266,9 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
 			if err != nil {
 				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
+				// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
+				// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
+				jwtPubKey = createFakeJwks(jwtRule.JwksUri)
 			}
 		}
 		provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_LocalJwks{

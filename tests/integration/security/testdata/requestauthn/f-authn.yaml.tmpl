@@ -1,0 +1,14 @@
+---
+apiVersion: "security.istio.io/v1beta1"
+kind: "RequestAuthentication"
+metadata:
+  name: "request-authn-for-f"
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: f
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwks: '{ "keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"failedToFetchJwtPubKeyhttpsrawgithubusercontentcomistioistiorelease16securitytoolsjwtsamplesjwksjson"}]}'
+---
