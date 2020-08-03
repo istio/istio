@@ -120,6 +120,14 @@ var (
 	// NoMatchingWorkloadsFound defines a diag.MessageType for message "NoMatchingWorkloadsFound".
 	// Description: There aren't workloads matching the resource labels
 	NoMatchingWorkloadsFound = diag.NewMessageType(diag.Warning, "IST0127", "No matching workloads for this resource with the following labels: %s")
+
+	// PrecheckFailed defines a diag.MessageType for message "PrecheckFailed".
+	// Description: An error occurred during istio installation precheck for the cluster
+	PrecheckFailed = diag.NewMessageType(diag.Error, "IST0201", "Precheck error: %s")
+
+	// VerificationFailed defines a diag.MessageType for message "VerificationFailed".
+	// Description: An error occurred when verifying istio installation
+	VerificationFailed = diag.NewMessageType(diag.Error, "IST0202", "Verify install error: %s")
 )
 
 // All returns a list of all known message types.
@@ -153,6 +161,8 @@ func All() []*diag.MessageType {
 		InvalidAnnotation,
 		UnknownMeshNetworksServiceRegistry,
 		NoMatchingWorkloadsFound,
+		PrecheckFailed,
+		VerificationFailed,
 	}
 }
 
@@ -429,5 +439,23 @@ func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Messa
 		NoMatchingWorkloadsFound,
 		r,
 		labels,
+	)
+}
+
+// NewPrecheckFailed returns a new diag.Message based on PrecheckFailed.
+func NewPrecheckFailed(r *resource.Instance, detail string) diag.Message {
+	return diag.NewMessage(
+		PrecheckFailed,
+		r,
+		detail,
+	)
+}
+
+// NewVerificationFailed returns a new diag.Message based on VerificationFailed.
+func NewVerificationFailed(r *resource.Instance, detail string) diag.Message {
+	return diag.NewMessage(
+		VerificationFailed,
+		r,
+		detail,
 	)
 }

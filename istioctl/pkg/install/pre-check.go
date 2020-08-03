@@ -18,14 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/ghodss/yaml"
-	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	authorizationapi "k8s.io/api/authorization/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -36,6 +34,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -44,13 +44,16 @@ import (
 )
 
 const (
-	// Minimum K8 version required to run latest version of Istio
+	// Minimum K8S version required to run latest version of Istio
 	// https://istio.io/docs/setup/platform-setup/
 	minK8SVersion = "1.17"
 )
 
 var (
-	clientFactory = createKubeClient
+	clientFactory   = createKubeClient
+	colorize        = true
+	outputLevel     = diag.Info
+	msgOutputFormat = "log"
 )
 
 type istioInstall struct {
@@ -73,53 +76,27 @@ type preCheckExecClient interface {
 // Tell the user if Istio can be installed, and if not give the reason.
 // Note: this doesn't check the IstioOperator options.  It only checks a few things every
 // Istio install needs.  It does not check the Revision.
-func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) error {
-	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "Checking the cluster to make sure it is ready for Istio installation...\n")
-	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "#1. Kubernetes-api\n")
-	fmt.Fprintf(writer, "-----------------------\n")
-	var errs error
-	c, err := clientFactory(restClientGetter)
-	if err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
-		fmt.Fprintf(writer, "Failed to initialize the Kubernetes client: %v.\n", err)
-		return errs
-	}
-	fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
+func installPreCheck(istioNamespaceFlag string, c preCheckExecClient) (diag.Messages, error) {
+	msgs := diag.Messages{}
+
+	// Check Kubernetes API
 	v, err := c.serverVersion()
 	if err != nil {
-		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))
-		fmt.Fprintf(writer, "Failed to query the Kubernetes API Server: %v.\n", err)
-		fmt.Fprintf(writer, "Istio install NOT verified because the cluster is unreachable.\n")
-		return errs
+		return msgs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err)
 	}
-	fmt.Fprintf(writer, "Can query the Kubernetes API Server.\n")
 
-	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "#2. Kubernetes-version\n")
-	fmt.Fprintf(writer, "-----------------------\n")
+	// Check Kubernetes version
 	res, err := checkKubernetesVersion(v)
 	if err != nil {
-		errs = multierror.Append(errs, err)
-		fmt.Fprint(writer, err)
+		msgs.Add(msg.NewPrecheckFailed(nil, fmt.Sprintf("Kubernetes version error: %v", err)))
 	} else if !res {
-		msg := fmt.Sprintf("The Kubernetes API version: %v is lower than the minimum version: "+minK8SVersion, v)
-		errs = multierror.Append(errs, errors.New(msg))
-		fmt.Fprintf(writer, msg+"\n")
-	} else {
-		fmt.Fprintf(writer, "Istio is compatible with Kubernetes: %v.\n", v)
+		detail := fmt.Sprintf("The Kubernetes API version %v is lower than the minimum version %v", v, minK8SVersion)
+		msgs.Add(msg.NewPrecheckFailed(nil, detail))
 	}
 
-	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "#3. Istio-existence\n")
-	fmt.Fprintf(writer, "-----------------------\n")
 	_, _ = c.getNameSpace(istioNamespaceFlag)
-	fmt.Fprintf(writer, "Istio will be installed in the %v namespace.\n", istioNamespaceFlag)
 
-	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "#4. Kubernetes-setup\n")
-	fmt.Fprintf(writer, "-----------------------\n")
+	// Check Kubernetes setup
 	Resources := []struct {
 		namespace string
 		group     string
@@ -181,43 +158,21 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 			name:      "ConfigMap",
 		},
 	}
-	var createErrors error
-	resourceNames := make([]string, 0)
-	errResourceNames := make([]string, 0)
 	for _, r := range Resources {
 		err = checkCanCreateResources(c, r.namespace, r.group, r.version, r.name)
 		if err != nil {
-			createErrors = multierror.Append(createErrors, err)
-			errs = multierror.Append(errs, err)
-			errResourceNames = append(errResourceNames, r.name)
+			detail := fmt.Sprintf("Can not create necessary Kubernetes configuration %v: %v", r.name, err)
+			msgs.Add(msg.NewPrecheckFailed(nil, detail))
 		}
-		resourceNames = append(resourceNames, r.name)
-	}
-	if createErrors == nil {
-		fmt.Fprintf(writer, "Can create necessary Kubernetes configurations: %v. \n", strings.Join(resourceNames, ","))
-	} else {
-		fmt.Fprintf(writer, "Can not create necessary Kubernetes configurations: %v. \n", strings.Join(errResourceNames, ","))
 	}
 
-	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "#5. SideCar-Injector\n")
-	fmt.Fprintf(writer, "-----------------------\n")
+	// Check sidecar injector
 	err = c.checkMutatingWebhook()
 	if err != nil {
-		fmt.Fprintf(writer, "This Kubernetes cluster deployed without MutatingAdmissionWebhook support."+
-			"See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection\n")
-	} else {
-		fmt.Fprintf(writer, "This Kubernetes cluster supports automatic sidecar injection."+
-			" To enable automatic sidecar injection see https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#deploying-an-app\n")
+		msgs.Add(msg.NewPrecheckFailed(nil, "This Kubernetes cluster deployed without MutatingAdmissionWebhook support."+
+			"See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection"))
 	}
-	fmt.Fprintf(writer, "\n")
-	fmt.Fprintf(writer, "-----------------------\n")
-	if errs == nil {
-		fmt.Fprintf(writer, "Install Pre-Check passed! The cluster is ready for Istio installation.\n")
-	}
-	fmt.Fprintf(writer, "\n")
-	return errs
-
+	return msgs, nil
 }
 
 func checkKubernetesVersion(versionInfo *version.Info) (bool, error) {
@@ -276,7 +231,7 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 
 	if !response.Status.Allowed {
 		if len(response.Status.Reason) > 0 {
-			msg := fmt.Sprintf("Istio installation will not succeed.Create permission lacking for:%s: %v", name, response.Status.Reason)
+			msg := fmt.Sprintf("Istio installation will not succeed. Create permission lacking for:%s: %v", name, response.Status.Reason)
 			return errors.New(msg)
 		}
 		msg := fmt.Sprintf("Istio installation will not succeed. Create permission lacking for:%s", name)
@@ -382,7 +337,7 @@ func NewPrecheckCommand() *cobra.Command {
 
 			cli, err := clientFactory(kubeConfigFlags)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to initialize Kubernetes client: %v", err)
 			}
 
 			installs, err := cli.getIstioInstalls()
@@ -398,26 +353,25 @@ func NewPrecheckCommand() *cobra.Command {
 				}
 				// The user has Istio, but wants to install a new revision
 				if !matched {
-					return installPreCheck(targetNamespace, kubeConfigFlags, c.OutOrStdout())
+					msgs, err := installPreCheck(targetNamespace, cli)
+					return printOutput(c, msgs, err)
 				}
 				return nil
 			}
 
 			// No IstioOperator was found.  In 1.6.0 we fall back to checking for Istio namespace
-			nsExists, err := namespaceExists(targetNamespace, kubeConfigFlags)
+			nsExists, err := namespaceExists(targetNamespace, cli)
 			if err != nil {
 				return err
 			}
-			if !nsExists {
-				return installPreCheck(targetNamespace, kubeConfigFlags, c.OutOrStdout())
-			}
-			if specific {
-				return installPreCheck(targetNamespace, kubeConfigFlags, c.OutOrStdout())
+			if !nsExists || specific {
+				msgs, err := installPreCheck(targetNamespace, cli)
+				return printOutput(c, msgs, err)
 			}
 
 			// The Istio namespace does exist, but it wasn't installed by 1.6.0+ because no
 			// IstioOperator is there.
-			c.Printf("Istio already installed in namespace %q.  Skipping pre-check.  Confirm with 'istioctl verify-install'.\n", targetNamespace)
+			c.Printf("Istio already installed in namespace %q. Skipping pre-check. Confirm with 'istioctl verify-install'.\n", targetNamespace)
 			c.Printf("Use 'istioctl upgrade' to upgrade or 'istioctl install --set revision=<revision>' to install another control plane.\n")
 			return nil
 		},
@@ -429,7 +383,30 @@ func NewPrecheckCommand() *cobra.Command {
 	kubeConfigFlags.AddFlags(flags)
 	fileNameFlags.AddFlags(flags)
 	opts.AttachControlPlaneFlags(precheckCmd)
+	precheckCmd.PersistentFlags().BoolVar(&colorize, "color", true, "Default true. Disable with '=false'")
+	precheckCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
+		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
+	precheckCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", diag.LogFormat,
+		fmt.Sprintf("Output format: one of %v", diag.MsgOutputFormatKeys))
 	return precheckCmd
+}
+
+func printOutput(c *cobra.Command, msgs diag.Messages, err error) error {
+	if err != nil {
+		return err
+	}
+
+	outputMsgs := msgs.Filter(outputLevel)
+	if len(outputMsgs) == 0 {
+		fmt.Fprintf(c.ErrOrStderr(), "✔ Install pre-check passed! The cluster is ready for Istio installation.\n")
+	} else {
+		output, err := diag.Print(outputMsgs, msgOutputFormat, colorize)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(c.OutOrStdout(), output)
+	}
+	return nil
 }
 
 func findIstios(client dynamic.Interface) ([]istioInstall, error) {
@@ -479,11 +456,7 @@ func getIOPFromFile(filename string) (*operator_v1alpha1.IstioOperator, error) {
 	return iop, nil
 }
 
-func namespaceExists(ns string, restClientGetter genericclioptions.RESTClientGetter) (bool, error) {
-	c, err := clientFactory(restClientGetter)
-	if err != nil {
-		return false, err
-	}
-	_, err = c.getNameSpace(ns)
+func namespaceExists(ns string, c preCheckExecClient) (bool, error) {
+	_, err := c.getNameSpace(ns)
 	return err == nil, nil
 }

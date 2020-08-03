@@ -17,6 +17,7 @@ package install
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	authorizationapi "k8s.io/api/authorization/v1beta1"
@@ -32,9 +33,10 @@ type mockClientExecPreCheckConfig struct {
 	authConfig *authorizationapi.SelfSubjectAccessReview
 }
 type testcase struct {
-	description       string
-	config            *mockClientExecPreCheckConfig
-	expectedException bool
+	description          string
+	config               *mockClientExecPreCheckConfig
+	expectedException    bool
+	expectedErrorMessage bool
 }
 
 var (
@@ -73,7 +75,7 @@ func TestPreCheck(t *testing.T) {
 				version:   version1_8,
 				namespace: "test",
 			},
-			expectedException: true,
+			expectedErrorMessage: true,
 		},
 		{
 			description: "Invalid Kubernetes Version",
@@ -81,7 +83,7 @@ func TestPreCheck(t *testing.T) {
 				version:   versionInvalid,
 				namespace: "test",
 			},
-			expectedException: true,
+			expectedErrorMessage: true,
 		},
 		{
 			description: "Valid Kubernetes Version against GKE",
@@ -97,23 +99,26 @@ func TestPreCheck(t *testing.T) {
 				version:   version1_8GKE,
 				namespace: "test",
 			},
-			expectedException: true,
+			expectedErrorMessage: true,
 		},
-		{description: "Invalid Istio System",
+		{
+			description: "Invalid Istio System",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "istio-system",
 			},
 			expectedException: false, // It is fine to precheck an existing namespace; we might be installing canary control plane
 		},
-		{description: "Valid Istio System",
+		{
+			description: "Valid Istio System",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "test",
 			},
 			expectedException: false,
 		},
-		{description: "Lacking Permission",
+		{
+			description: "Lacking Permission",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "test",
@@ -129,9 +134,10 @@ func TestPreCheck(t *testing.T) {
 					},
 				},
 			},
-			expectedException: true,
+			expectedErrorMessage: true,
 		},
-		{description: "Valid Case",
+		{
+			description: "Valid Case",
 			config: &mockClientExecPreCheckConfig{
 				version:   version1_17,
 				namespace: "test",
@@ -156,14 +162,24 @@ func verifyOutput(t *testing.T, c testcase) {
 	precheckCmd.SetErr(&out)
 	fErr := precheckCmd.Execute()
 	output := out.String()
+
 	if c.expectedException {
 		if fErr == nil {
-			t.Fatalf("Wanted an exception for 'istioctl x precheck',"+
-				"didn't get one, output was %q", output)
+			t.Fatalf("Expected an exception but got none. Output was %q", output)
 		}
 	} else {
 		if fErr != nil {
-			t.Fatalf("Unwanted exception for 'istioctl x precheck': %v", fErr)
+			t.Fatalf("Unexpected exception: %v", fErr)
+		}
+	}
+
+	if c.expectedErrorMessage {
+		if !strings.Contains(output, "Error") {
+			t.Fatalf("Expected error messages but got none. Output was %q", output)
+		}
+	} else {
+		if strings.Contains(output, "Error") {
+			t.Fatalf("Unexpected error messages: %v", output)
 		}
 	}
 }
@@ -214,7 +230,6 @@ func (m *mockClientExecPreCheckConfig) checkAuthorization(
 		},
 	}
 	return authConfig, nil
-
 }
 
 func (m *mockClientExecPreCheckConfig) checkMutatingWebhook() error {
