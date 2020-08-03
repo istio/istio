@@ -22,6 +22,7 @@ import (
 	"net"
 	"strings"
 
+	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 )
 
@@ -50,6 +51,17 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	}
 	if err := c.conn.SetReadDeadline(deadline); err != nil {
 		return outBuffer.String(), err
+	}
+
+	// For server first protocol, we expect the server to send us the magic string first
+	if req.ServerFirst {
+		bytes, err := bufio.NewReader(c.conn).ReadBytes('\n')
+		if err != nil {
+			return "", err
+		}
+		if string(bytes) != common.ServerFirstMagicString {
+			return "", fmt.Errorf("did not receive magic sting. Want %q, got %q", common.ServerFirstMagicString, string(bytes))
+		}
 	}
 
 	// Make sure the client writes something to the buffer

@@ -35,11 +35,12 @@ import (
 )
 
 type request struct {
-	URL       string
-	Header    http.Header
-	RequestID int
-	Message   string
-	Timeout   time.Duration
+	URL         string
+	Header      http.Header
+	RequestID   int
+	Message     string
+	Timeout     time.Duration
+	ServerFirst bool
 }
 
 type protocol interface {
