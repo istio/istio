@@ -170,10 +170,11 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	debounceAfter = time.Millisecond * 50
-	debounceMax = debounceAfter * 2
-	syncPushTime := 2 * debounceMax
-	enableEDSDebounce = false
+	opts := debounceOptions{
+		debounceAfter:     time.Millisecond * 50,
+		debounceMax:       time.Millisecond * 100,
+		enableEDSDebounce: false,
+	}
 
 	tests := []struct {
 		name string
@@ -226,13 +227,13 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter / 2)
+				time.Sleep(opts.debounceAfter / 2)
 				expect(0, 1)
 			},
 		},
@@ -240,7 +241,7 @@ func TestDebounce(t *testing.T) {
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(debounceAfter + 10*time.Millisecond)
+				time.Sleep(opts.debounceAfter + 10*time.Millisecond)
 				updateCh <- &model.PushRequest{Full: true}
 				expect(0, 2)
 			},
@@ -268,7 +269,7 @@ func TestDebounce(t *testing.T) {
 						return
 					}
 					atomic.AddInt32(&fullPushes, 1)
-					time.Sleep(syncPushTime)
+					time.Sleep(opts.debounceMax * 2)
 					<-pushingCh
 				} else {
 					atomic.AddInt32(&partialPushes, 1)
@@ -277,7 +278,7 @@ func TestDebounce(t *testing.T) {
 
 			wg.Add(1)
 			go func() {
-				debounce(updateCh, stopCh, fakePush)
+				debounce(updateCh, stopCh, opts, fakePush)
 				wg.Done()
 			}()
 
@@ -296,7 +297,7 @@ func TestDebounce(t *testing.T) {
 						}
 						return nil
 					}
-				}, retry.Timeout(debounceAfter*8), retry.Delay(debounceAfter/2))
+				}, retry.Timeout(opts.debounceAfter*8), retry.Delay(opts.debounceAfter/2))
 				if err != nil {
 					t.Error(err)
 				}
