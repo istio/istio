@@ -25,6 +25,7 @@ export GO_TOP=${GO_TOP:-$(echo "${GOPATH}" | cut -d ':' -f1)}
 export OUT_DIR=${OUT_DIR:-${GO_TOP}/out}
 
 export GOPATH=${GOPATH:-$GO_TOP}
+
 # Normally set by Makefile
 export ISTIO_BIN=${ISTIO_BIN:-${GOPATH}/bin}
 
