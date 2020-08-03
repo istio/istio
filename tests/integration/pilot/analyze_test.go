@@ -339,6 +339,28 @@ func TestTimeout(t *testing.T) {
 		})
 }
 
+// Verify the error line number in the message is correct
+func TestErrorLine(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile)
+
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(":9"))
+		})
+}
+
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
 func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
