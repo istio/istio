@@ -102,9 +102,11 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
 	for _, v := range s.adsClients {
+		v.mu.RLock()
 		if v.node.ActiveExperimental[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
+		v.mu.RUnlock()
 	}
 	s.adsClientsMutex.RUnlock()
 
