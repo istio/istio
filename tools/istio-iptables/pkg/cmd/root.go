@@ -109,15 +109,12 @@ func constructConfig() *config.Config {
 	if cfg.ProxyUID == "" {
 		usr, err := user.Lookup(envoyUserVar.Get())
 		var userID string
-		// Default to the UID of ENVOY_USER and root
+		// Default to the UID of ENVOY_USER
 		if err != nil {
 			userID = constants.DefaultProxyUID
 		} else {
 			userID = usr.Uid
 		}
-		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list
-		// for the CA agent.
-		cfg.ProxyUID = userID + ",0"
 	}
 	// For TPROXY as its uid and gid are same.
 	if cfg.ProxyGID == "" {
