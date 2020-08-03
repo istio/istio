@@ -247,15 +247,17 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		t.Fatal(err)
 	}
 
-	if err := s.UpdateServiceShards(env.PushContext); err != nil {
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+	ctx := model.NewPushContext()
+	if err := ctx.InitContext(env, env.PushContext, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
+	if err := s.UpdateServiceShards(ctx); err != nil {
 		t.Fatal(err)
 	}
+	env.PushContext = ctx
 
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
 	fake := &FakeDiscoveryServer{
 		t:           t,
 		Store:       configController,
