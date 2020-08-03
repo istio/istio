@@ -208,7 +208,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 	nameToServiceMap := push.ServiceByHostname
 
-	gatewayRoutes := make(map[string][]*route.Route)
+	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
@@ -228,6 +228,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 			continue
 		}
+
 		virtualServices := push.VirtualServicesForGateway(node, gatewayName)
 
 		// TODO: if there are no virtual services for this server, setup a 404
@@ -247,13 +248,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			var routes []*route.Route
 			var exists bool
 			var err error
-			if routes, exists = gatewayRoutes[gatewayName]; !exists {
+			if _, exists = gatewayRoutes[gatewayName]; !exists {
+				gatewayRoutes[gatewayName] = make(map[string][]*route.Route)
+			}
+
+			vskey := virtualService.Name + "/" + virtualService.Namespace
+
+			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, push, virtualService, nameToServiceMap, port, map[string]bool{gatewayName: true})
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
 				}
-				gatewayRoutes[gatewayName] = routes
+				gatewayRoutes[gatewayName][vskey] = routes
 			}
 
 			for _, hostname := range intersectingHosts {
