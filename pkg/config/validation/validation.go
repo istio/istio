@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	grpcutil "istio.io/istio/pkg/util/grpc"
 	"istio.io/pkg/log"
 )
 
@@ -1975,8 +1976,7 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 
 	switch abort.ErrorType.(type) {
 	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
-		// TODO: gRPC status validation
-		errs = multierror.Append(errs, errors.New("gRPC abort fault injection not supported yet"))
+		errs = appendErrors(errs, validateGPRCStatus(abort.GetGrpcStatus()))
 	case *networking.HTTPFaultInjection_Abort_Http2Error:
 		// TODO: HTTP2 error validation
 		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
@@ -1990,6 +1990,13 @@ func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort)
 func validateHTTPStatus(status int32) error {
 	if status < 200 || status > 600 {
 		return fmt.Errorf("HTTP status %d is not in range 200-599", status)
+	}
+	return nil
+}
+
+func validateGPRCStatus(status string) error {
+	if _, ok := grpcutil.SupportedGRPCStatus[status]; !ok {
+		return fmt.Errorf("gRPC status %s is not supported", status)
 	}
 	return nil
 }

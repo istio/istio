@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
+	grpcutil "istio.io/istio/pkg/util/grpc"
 	"istio.io/pkg/log"
 )
 
@@ -921,8 +922,13 @@ func translateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 			out.Abort.ErrorType = &xdshttpfault.FaultAbort_HttpStatus{
 				HttpStatus: uint32(a.HttpStatus),
 			}
+		case *networking.HTTPFaultInjection_Abort_GrpcStatus:
+			code := grpcutil.SupportedGRPCStatus[a.GrpcStatus]
+			out.Abort.ErrorType = &xdshttpfault.FaultAbort_GrpcStatus{
+				GrpcStatus: uint32(code),
+			}
 		default:
-			log.Warnf("Non-HTTP type abort faults are not yet supported")
+			log.Warnf("Only HTTP and gRPC type abort faults are supported")
 			out.Abort = nil
 		}
 	}
