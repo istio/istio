@@ -10,7 +10,7 @@ spec:
   values:
     global:
       proxy:
-        image: "docker.io/dio123/proxyv2:release-1.7-ares-flag-nosearch.0"
+        image: "docker.io/dio123/proxyv2:release-1.7-ares-flag-nosearch.2"
         resources:
           requests:
             cpu: 10m
