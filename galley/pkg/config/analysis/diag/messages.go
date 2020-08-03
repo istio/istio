@@ -15,12 +15,7 @@
 package diag
 
 import (
-	"encoding/json"
-	"fmt"
 	"sort"
-	"strings"
-
-	"github.com/ghodss/yaml"
 )
 
 const (
@@ -105,39 +100,4 @@ func (ms *Messages) Filter(outputLevel Level) Messages {
 		}
 	}
 	return outputMessages
-}
-
-// Print output messages in the specified format with color options
-func (ms *Messages) Print(format string, colorize bool) (string, error) {
-	switch format {
-	case LogFormat:
-		return ms.PrintLog(colorize)
-	case JSONFormat:
-		return ms.PrintJSON()
-	case YAMLFormat:
-		return ms.PrintYAML()
-	default:
-		return "", fmt.Errorf("invalid format, expected one of %v but got %q", MsgOutputFormatKeys, format)
-	}
-}
-
-// PrintLog outputs messages in the log format
-func (ms *Messages) PrintLog(colorize bool) (string, error) {
-	var logOutput []string
-	for _, m := range *ms {
-		logOutput = append(logOutput, m.Render(colorize))
-	}
-	return strings.Join(logOutput, "\n"), nil
-}
-
-// PrintJSON outputs messages in the json format
-func (ms *Messages) PrintJSON() (string, error) {
-	jsonOutput, err := json.MarshalIndent(*ms, "", "\t")
-	return string(jsonOutput), err
-}
-
-// PrintYAML outputs messages in the yaml format
-func (ms *Messages) PrintYAML() (string, error) {
-	yamlOutput, err := yaml.Marshal(*ms)
-	return string(yamlOutput), err
 }
