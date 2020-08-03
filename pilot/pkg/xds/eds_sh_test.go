@@ -25,15 +25,14 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
-	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/tests/util"
 )
 
 // Testing the Split Horizon EDS.
@@ -49,24 +48,23 @@ type expectedResults struct {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	server, tearDown := initSplitHorizonTestEnv(t)
-	defer tearDown()
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
-	initRegistry(server, 1, []string{"159.122.219.1"}, 1)
+	initRegistry(s, 1, []string{"159.122.219.1"}, 1)
 	// Set up a cluster registry for network 2 with 2 instances for the service 'service5'
 	// Network has 1 gateway
-	initRegistry(server, 2, []string{"159.122.219.2"}, 2)
+	initRegistry(s, 2, []string{"159.122.219.2"}, 2)
 	// Set up a cluster registry for network 3 with 3 instances for the service 'service5'
 	// Network has 2 gateways
-	initRegistry(server, 3, []string{"159.122.219.3", "179.114.119.3"}, 3)
+	initRegistry(s, 3, []string{"159.122.219.3", "179.114.119.3"}, 3)
 	// Set up a cluster registry for network 4 with 4 instances for the service 'service5'
 	// but without any gateway, which is treated as accessible directly.
-	initRegistry(server, 4, []string{}, 4)
+	initRegistry(s, 4, []string{}, 4)
 
 	// Push contexts needs to be updated
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
 
 	tests := []struct {
@@ -151,39 +149,35 @@ func TestSplitHorizonEds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.network, func(t *testing.T) {
-			verifySplitHorizonResponse(t, tt.network, tt.sidecarID, tt.want)
+			verifySplitHorizonResponse(t, s, tt.network, tt.sidecarID, tt.want)
 		})
 	}
 }
 
 // Tests whether an EDS response from the provided network matches the expected results
-func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, expected expectedResults) {
+func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, network string, sidecarID string, expected expectedResults) {
 	t.Helper()
-	edsstr, cancel, err := connectADS(util.MockPilotGrpcAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	adscon := s.ConnectADS()
 
 	metadata := &structpb.Struct{Fields: map[string]*structpb.Value{
 		"ISTIO_VERSION": {Kind: &structpb.Value_StringValue{StringValue: "1.3"}},
 		"NETWORK":       {Kind: &structpb.Value_StringValue{StringValue: network}},
 	}}
 
-	err = sendCDSReqWithMetadata(sidecarID, metadata, edsstr)
+	err := sendCDSReqWithMetadata(sidecarID, metadata, adscon)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = adsReceive(edsstr, 5*time.Second)
+	_, err = adsReceive(adscon, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = sendEDSReqWithMetadata([]string{"outbound|1080||service5.default.svc.cluster.local"}, sidecarID, metadata, edsstr)
+	err = sendEDSReqWithMetadata([]string{"outbound|1080||service5.default.svc.cluster.local"}, sidecarID, metadata, adscon)
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := adsReceive(edsstr, 5*time.Second)
+	res, err := adsReceive(adscon, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,29 +213,15 @@ func verifySplitHorizonResponse(t *testing.T, network string, sidecarID string, 
 	}
 }
 
-func initSplitHorizonTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) {
-	initMutex.Lock()
-	defer initMutex.Unlock()
-	testEnv = env.NewTestSetup(env.XDSTest, t)
-	server, tearDown := util.EnsureTestServer()
-
-	testEnv.Ports().PilotGrpcPort = uint16(util.MockPilotGrpcPort)
-	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
-	testEnv.IstioSrc = env.IstioSrc
-	testEnv.IstioOut = env.IstioOut
-
-	return server, tearDown
-}
-
 // initRegistry creates and initializes a memory registry that holds a single
 // service with the provided amount of endpoints. It also creates a service for
 // the ingress with the provided external IP
-func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
+func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []string, numOfEndpoints int) {
 	id := fmt.Sprintf("network%d", clusterNum)
 	memRegistry := memory.NewServiceDiscovery(nil)
-	memRegistry.EDSUpdater = server.EnvoyXdsServer
+	memRegistry.EDSUpdater = server.Discovery
 
-	server.ServiceController().AddRegistry(serviceregistry.Simple{
+	server.Env.ServiceDiscovery.(*aggregate.Controller).AddRegistry(serviceregistry.Simple{
 		ClusterID:        id,
 		ProviderID:       serviceregistry.Mock,
 		ServiceDiscovery: memRegistry,
@@ -251,8 +231,8 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
 		if gatewayIP != "" {
-			if server.EnvoyXdsServer.Env.Networks() == nil {
-				server.EnvoyXdsServer.Env.NetworksWatcher = mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
+			if server.Env.Networks() == nil {
+				server.Env.NetworksWatcher = mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: map[string]*meshconfig.Network{},
 				})
 			}
@@ -267,7 +247,7 @@ func initRegistry(server *bootstrap.Server, clusterNum int, gatewaysIP []string,
 	}
 
 	if len(gws) != 0 {
-		server.EnvoyXdsServer.Env.Networks().Networks[id] = &meshconfig.Network{
+		server.Env.Networks().Networks[id] = &meshconfig.Network{
 			Gateways: gws,
 		}
 	}

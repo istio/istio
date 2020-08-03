@@ -35,9 +35,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/networking/apigen"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
-
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -60,7 +57,6 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/xds"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -222,7 +218,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
-	s.initGenerators()
 	s.initJwtPolicy()
 
 	// Options based on the current 'defaults' in istio.
@@ -478,6 +473,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
+		log.Infof("Starting ADS server")
 		s.EnvoyXdsServer.Start(stop)
 		return nil
 	})
@@ -1013,20 +1009,6 @@ func (s *Server) initNamespaceController(args *PilotArgs) {
 			return nil
 		})
 	}
-}
-
-// initGenerators initializes generators to be used by XdsServer.
-func (s *Server) initGenerators() {
-	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &xds.EdsGenerator{Server: s.EnvoyXdsServer}
-	s.EnvoyXdsServer.Generators["grpc/"+v2.EndpointType] = epGen
-	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
-	s.EnvoyXdsServer.Generators["api/"+v2.EndpointType] = epGen
-	s.EnvoyXdsServer.InternalGen = &xds.InternalGen{
-		Server: s.EnvoyXdsServer,
-	}
-	s.EnvoyXdsServer.Generators["api/"+xds.TypeURLConnections] = s.EnvoyXdsServer.InternalGen
-	s.EnvoyXdsServer.Generators["event"] = s.EnvoyXdsServer.InternalGen
 }
 
 // initJwtPolicy initializes JwtPolicy.
