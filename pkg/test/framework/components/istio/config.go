@@ -127,6 +127,9 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
+
+	// Expose istiod through ingress, for example for multicluster or VM setups
+	ExposeIstiod bool
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {

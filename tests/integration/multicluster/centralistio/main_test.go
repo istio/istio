@@ -50,6 +50,7 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 
 			cfg.Values["global.centralIstiod"] = "true"
+			cfg.ExposeIstiod = true
 
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues + `
