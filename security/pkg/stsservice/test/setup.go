@@ -241,7 +241,7 @@ func (e *Env) genStsReq(stsAddr string) (req *http.Request) {
 
 func setupSTS(stsPort int, backendURL string, enableCache bool) (*stsServer.Server, *google.Plugin, error) {
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(tokenBackend.FakeTrustDomain,
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, tokenBackend.FakeTrustDomain,
 		tokenBackend.FakeProjectNum, tokenBackend.FakeGKEClusterURL, enableCache)
 	federatedTokenTestingEndpoint := backendURL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := backendURL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"

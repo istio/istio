@@ -584,21 +584,30 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-
-			// if user not set PROV_CERT Directory Path for client to extract certs from path
-			// we will first check whether the token is expired or not
-			if sc.secOpts.ProvCert == "" && sc.isTokenExpired(&secret) {
+			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
+			if isTokenExpired(secret.Token) && !sc.useCertToRotate() {
 				cacheLog.Debugf("%s token expired", logPrefix)
-				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-				// requiring the client to send another SDS request.
-				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				return true
+				if sc.secOpts.CredFetcher != nil {
+					cacheLog.Infof("%s getting a new token through credential fetcher", logPrefix)
+					t, err := sc.secOpts.CredFetcher.GetPlatformCredential()
+					if err != nil {
+						cacheLog.Errorf("failed to get credential token: %v", err)
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
+					}
+					secret.Token = t
+				} else {
+					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+					// requiring the client to send another SDS request.
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				}
 			}
 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				cacheLog.Debugf("%s token is still valid, reuse token to generate key/cert", logPrefix)
+				cacheLog.Debugf("%s use token to generate key/cert", logPrefix)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likely this code path may not necessary, since TTL of cert is much longer than token.
@@ -839,12 +848,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
 	// otherwise just use sdsrequest.resourceName as csr host name.
-	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
-	if err != nil {
-		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-			" resource name: %s", logPrefix, err, connKey.ResourceName)
-		csrHostName = connKey.ResourceName
+	csrHostName := connKey.ResourceName
+	// TODO (liminw): This is probably not needed. CA is using claims in the credential to decide the identity in the certificate,
+	// instead of using host name in CSR. We can clean it up later.
+	if sc.secOpts.CredFetcher == nil {
+		csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
+		if err != nil {
+			cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
+				" resource name: %s", logPrefix, err, connKey.ResourceName)
+			csrHostName = connKey.ResourceName
+		}
 	}
+	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
 	options := pkiutil.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
@@ -927,13 +942,8 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 	return rotate
 }
 
-func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
-	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
-	if sc.configOptions.AlwaysValidTokenFlag {
-		return false
-	}
-
-	expired, err := util.IsJwtExpired(secret.Token, time.Now())
+func isTokenExpired(token string) bool {
+	expired, err := util.IsJwtExpired(token, time.Now())
 	if err != nil {
 		cacheLog.Errorf("JWT expiration checking error: %v. Consider as expired.", err)
 		return true
@@ -981,7 +991,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.TokenExchangers[0]
-			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
+			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.CredFetcher, sc.configOptions.TrustDomain, exchangedToken)
 		}
 		cacheLog.Debugf("%s", requestErrorString)
 
