@@ -17,6 +17,7 @@ package custom
 import (
 	"context"
 	"crypto/tls"
+	"encoding/pem"
 	"fmt"
 	"time"
 
@@ -133,40 +134,49 @@ func (c *CAClient) CreateCertificate(ctx context.Context,
 
 	resp, err := c.pbClient.CreateCertificate(timeoutCtx, req)
 	certChain := resp.GetCertChain()
-	responseChain := []string{certChain[0]}
+
+	if err != nil {
+		cLog.Errorf("cannot call CreateCertificate from Custom CA: %v", err)
+		return nil, fmt.Errorf("cannot call CreateCertificate from Custom CA: %v", err)
+	}
+
 	if len(certChain) < 2 {
 		cLog.Errorf("invalid certificate response: %v", resp.GetCertChain())
 		return nil, fmt.Errorf("invalid certificate response: %v", resp.GetCertChain())
 	}
-	_, _, certChains, rootCertBytes := c.opts.KeyCertBundle.GetAll()
-	if len(certChain) > 0 {
-		responseChain = append(responseChain, string(certChains))
+	var responseCertChains []string
+
+	for _, cert := range certChain {
+		parsedCert, err := validateAndParseCert(cert)
+		if err != nil {
+			cLog.Errorf("response certificate from Custom CA is invalid: %v", err)
+			return nil, fmt.Errorf("response certificate from Custom CA is invalid: %v", err)
+		}
+		responseCertChains = append(responseCertChains, parsedCert)
 	}
-	responseChain = append(responseChain, string(rootCertBytes))
+	rootCertBytes := c.opts.KeyCertBundle.GetRootCertPem()
+	// if len(certChain) > 0 {
+	// 	responseCertChains = append(responseCertChains, string(certChains))
+	// }
+	responseCertChains = append(responseCertChains, string(rootCertBytes))
 
 	return &pb.IstioCertificateResponse{
-		CertChain: responseChain,
+		CertChain: responseCertChains,
 	}, nil
 }
 
-// func (c *CAClient) updateCustomRootCertOnChanged(rootCert string) error {
-// 	keyCertBundle := c.opts.KeyCertBundle
-// 	rootCerts := keyCertBundle.GetRootCertPem()
+func validateAndParseCert(cert string) (string, error) {
+	certBytes, _ := pem.Decode([]byte(cert))
 
-// 	roots := x509.NewCertPool()
-// 	ok := roots.AppendCertsFromPEM(rootCerts)
+	if certBytes == nil {
+		return "", fmt.Errorf("input cert is invalid")
+	}
 
-// 	if !ok {
-// 		cLog.Errorf("failed to parse root certificate, rootCerts: %v", string(rootCerts))
-// 		return fmt.Errorf("failed to parse root certificate, rootCerts: %v", string(rootCerts))
-// 	}
+	block := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes.Bytes,
+	}
 
-// 	ok = roots.AppendCertsFromPEM([]byte(rootCert))
-
-// 	if !ok {
-// 		cLog.Errorf("failed to add new root cert, newRootCert: %v", rootCert)
-// 		return fmt.Errorf("failed to add new root cert, newRootCert: %v", rootCert)
-// 	}
-
-// 	return nil
-// }
+	c := pem.EncodeToMemory(block)
+	return string(c), nil
+}

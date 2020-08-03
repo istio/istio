@@ -363,18 +363,24 @@ func (s *sdsservice) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecre
 			con.mutex.Lock()
 			con.secret = secret
 			con.mutex.Unlock()
-
+			sdsServiceLog.Infof("pushSDS(con) - secret.PrivateKey: \n%v", string(secret.PrivateKey))
+			sdsServiceLog.Infof("pushSDS(con) - secret.CertificateChain: \n%v", string(secret.CertificateChain))
+			sdsServiceLog.Infof("pushSDS(con) - secret.RootCert: \n%v", string(secret.RootCert))
 			if err := pushSDS(con); err != nil {
 				sdsServiceLog.Errorf("%s Close connection. Failed to push key/cert to proxy %q: %v",
 					conIDresourceNamePrefix, discReq.Node.Id, err)
 				return err
 			}
 		case <-con.pushChannel:
+
 			con.mutex.RLock()
 			proxyID := con.proxyID
 			conID := con.conID
 			resourceName := con.ResourceName
 			secret := con.secret
+
+			sdsServiceLog.Infof("case <-con.pushChannel: resourceName: %v --  secret.RootCert\n%v", string(secret.RootCert))
+
 			con.mutex.RUnlock()
 			conIDresourceNamePrefix := sdsLogPrefix(resourceName)
 			sdsServiceLog.Debugf("%s received push channel request for proxy %q", conIDresourceNamePrefix, proxyID)
