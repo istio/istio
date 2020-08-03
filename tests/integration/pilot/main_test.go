@@ -89,8 +89,6 @@ func TestMain(m *testing.M) {
 			return ctx.Config().ApplyYAML("", string(crd))
 		}).
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
-			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
 			cfg.ControlPlaneValues = `
 values:
   global:
