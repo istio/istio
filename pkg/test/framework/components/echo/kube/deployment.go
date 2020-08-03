@@ -211,7 +211,7 @@ spec:
         istio.io/test-vm-version: {{ $subset.Version }}
     spec:
       # Disable kube-dns, to mirror VM
-      dnsPolicy: default
+      dnsPolicy: Default
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
       containers:
