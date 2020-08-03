@@ -15,7 +15,7 @@
 package diag
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 )
 
@@ -70,35 +70,18 @@ func GetUppercaseStringToLevelMap() map[string]Level {
 	return m
 }
 
-// MessageThreshold is a wrapper around Level to use as cobra command line arguments
-type MessageThreshold struct {
-	Level
-}
-
-// String satisfies interface pflag.Value
-func (m *MessageThreshold) String() string {
-	return m.Level.String()
-}
-
 // Type satisfies interface pflag.Value
-func (m *MessageThreshold) Type() string {
+func (l *Level) Type() string {
 	return "Level"
 }
 
 // Set satisfies interface pflag.Value
-func (m *MessageThreshold) Set(s string) error {
-	l, err := levelFromString(s)
-	if err != nil {
-		return err
-	}
-	m.Level = l
-	return nil
-}
-
-func levelFromString(s string) (Level, error) {
-	val, ok := GetUppercaseStringToLevelMap()[strings.ToUpper(s)]
+func (l *Level) Set(s string) error {
+	levelMap := GetUppercaseStringToLevelMap()
+	level, ok := levelMap[strings.ToUpper(s)]
 	if !ok {
-		return Level{}, fmt.Errorf("%q not a valid option, please choose from: %v", s, GetAllLevelStrings())
+		return errors.New("invalid level option")
 	}
-	return val, nil
+	*l = level
+	return nil
 }

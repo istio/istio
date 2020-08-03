@@ -64,8 +64,8 @@ func (f FileParseError) Error() string {
 var (
 	listAnalyzers     bool
 	useKube           bool
-	failureLevel      = diag.MessageThreshold{diag.Warning} // messages at least this level will generate an error exit code
-	outputLevel       = diag.MessageThreshold{diag.Info}    // messages at least this level will be included in the output
+	failureLevel      = diag.Warning // messages at least this level will generate an error exit code
+	outputLevel       = diag.Info    // messages at least this level will be included in the output
 	colorize          bool
 	msgOutputFormat   string
 	meshCfgFile       string
@@ -229,7 +229,7 @@ istioctl analyze -L
 			}
 
 			// Append a ref arg to the doc URL, and filter outputMessages by specified level
-			outputMessages := result.Messages.SetDocRef("istioctl-analyze").Filter(outputLevel.Level)
+			outputMessages := result.Messages.SetDocRef("istioctl-analyze").Filter(outputLevel)
 
 			// Print all the messages to stdout in the specified format
 			output, err := outputMessages.Print(msgOutputFormat, colorize)
@@ -398,7 +398,7 @@ func istioctlColorDefault(cmd *cobra.Command) bool {
 func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	foundIssues := false
 	for _, m := range messages {
-		if m.Type.Level().IsWorseThanOrEqualTo(failureLevel.Level) {
+		if m.Type.Level().IsWorseThanOrEqualTo(failureLevel) {
 			foundIssues = true
 		}
 	}
