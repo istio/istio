@@ -355,7 +355,7 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
 				c.Config().Service,
 				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Target.Config().Service,
+				opts.Host,
 				opts.Port.ServicePort,
 				opts.Path,
 				err)
