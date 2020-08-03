@@ -409,9 +409,9 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		createConfigs([]*model.Config{tcpDNS}, store, t)
 		expectServiceInstances(t, sd, tcpDNS, 0, instances1)
 		// Service change, so we need a full push
-		expectEvents(t, events, Event{kind: "eds", host: "tcpdns.com", namespace: "tcpDNS", endpoints: 2}, Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.
-		ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "tcpdns.com",
-			Namespace: tcpDNS.Namespace}: {}}}}) // service added
+		expectEvents(t, events,
+			Event{kind: "eds", host: "tcpdns.com", namespace: "tcpDNS", endpoints: 2},
+			Event{kind: "xds", pushReq: &model.PushRequest{ConfigsUpdated: map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "tcpdns.com", Namespace: tcpDNS.Namespace}: {}}}}) // service added
 
 		// now update the config
 		createConfigs([]*model.Config{tcpDNSUpdated}, store, t)
