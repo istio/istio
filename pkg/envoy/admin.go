@@ -25,7 +25,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 
-	"istio.io/istio/istioctl/cmd"
 	"istio.io/pkg/log"
 )
 
@@ -66,7 +65,7 @@ func GetServerInfo(adminPort uint32) (*envoyAdmin.ServerInfo, error) {
 
 // GetConfigDump polls Envoy admin port for the config dump and returns the response.
 func GetConfigDump(adminPort uint32) (*envoyAdmin.ConfigDump, error) {
-	buffer, err := doEnvoyGet(cmd.ConfigDumpPath, adminPort)
+	buffer, err := doEnvoyGet("config_dump?include_eds=true", adminPort)
 	if err != nil {
 		return nil, err
 	}

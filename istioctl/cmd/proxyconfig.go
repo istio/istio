@@ -39,7 +39,7 @@ const (
 	summaryOutput = "short"
 
 	// ConfigDumpPath is a path for envoy config_dump
-	ConfigDumpPath = "config_dump?include_eds"
+	ConfigDumpPath = "config_dump?include_eds=true"
 )
 
 var (

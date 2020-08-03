@@ -28,6 +28,8 @@ import (
 	"github.com/prometheus/common/expfmt"
 	kubeCore "k8s.io/api/core/v1"
 
+	"istio.io/istio/istioctl/cmd"
+
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/test"
@@ -102,7 +104,7 @@ func (s *sidecar) InfoOrFail(t test.Failer) *envoyAdmin.ServerInfo {
 
 func (s *sidecar) Config() (*envoyAdmin.ConfigDump, error) {
 	msg := &envoyAdmin.ConfigDump{}
-	if err := s.adminRequest("config_dump", msg); err != nil {
+	if err := s.adminRequest(cmd.ConfigDumpPath, msg); err != nil {
 		return nil, err
 	}
 
