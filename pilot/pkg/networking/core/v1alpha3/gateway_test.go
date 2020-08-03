@@ -15,7 +15,6 @@
 package v1alpha3
 
 import (
-	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -1238,8 +1237,6 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			vh := make(map[string][]string)
 			hr := make(map[string]int)
 			for _, h := range route.VirtualHosts {
-				fmt.Println(h.Name)
-				fmt.Println(h.Routes)
 				vh[h.Name] = h.Domains
 				hr[h.Name] = len(h.Routes)
 				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
