@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/security"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-	"istio.io/istio/security/pkg/util"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
@@ -443,33 +442,20 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *discovery.Discov
 
 func (s *sdsservice) getToken() (string, error) {
 	token := ""
-	needRenew := false
-	tok, err := ioutil.ReadFile(s.jwtPath)
-	if err != nil {
-		sdsServiceLog.Errorf("failed to get credential token: %v from path %s", err, s.jwtPath)
-		needRenew = true
+	if s.credFetcher != nil {
+		t, err := s.credFetcher.GetPlatformCredential()
+		if err != nil {
+			sdsServiceLog.Errorf("Failed to get credential token through credential fetcher: %v", err)
+			return "", err
+		}
+		token = t
 	} else {
-		tokenExpired, err := util.IsJwtExpired(string(tok), time.Now())
-		if err != nil || tokenExpired {
-			sdsServiceLog.Errorf("JWT expiration checking error: %v or token is expired %v", err, tokenExpired)
-			needRenew = true
-		} else {
-			// We have a valid token.
-			token = string(tok)
-			return token, nil
+		tok, err := ioutil.ReadFile(s.jwtPath)
+		if err != nil {
+			sdsServiceLog.Errorf("failed to get credential token: %v from path %s", err, s.jwtPath)
+			return "", err
 		}
-	}
-	if needRenew {
-		if s.credFetcher != nil {
-			t, err := s.credFetcher.GetPlatformCredential()
-			if err != nil {
-				sdsServiceLog.Errorf("Failed to get credential token through credential fetcher: %v", err)
-				return "", err
-			}
-			token = t
-		} else {
-			return "", fmt.Errorf("failed to read token from path %s and cannot renew token", s.jwtPath)
-		}
+		token = string(tok)
 	}
 	return token, nil
 }
