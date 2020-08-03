@@ -44,6 +44,8 @@ message ForwardEchoRequest {
   string message = 6;
   // If true, requests will be sent using h2c prior knowledge
   bool http2 = 7;
+  // If true, requests will not be sent until magic string is received
+  bool serverFirst = 8;
 }
 
 message ForwardEchoResponse {
