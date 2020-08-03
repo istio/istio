@@ -361,7 +361,7 @@ template: |
   dnsConfig:
     options:
     - name: "ndots"
-      value: "4"
+      value: "1"
   {{- end }}
   volumes:
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
