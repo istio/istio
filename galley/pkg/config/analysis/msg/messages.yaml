@@ -1,5 +1,7 @@
 # Please keep entries ordered by code.
-# NOTE: The range 0000-0100 is reserved for internal and/or future use.
+# NOTE: The range 0000-0100 is reserved for internal and/or future use,
+#                 0101-0200 is for config analysis,
+#                 0201-0300 is for control plane resource analysis.
 messages:
   - name: "InternalError"
     code: IST0001
@@ -296,4 +298,22 @@ messages:
     template: "No matching workloads for this resource with the following labels: %s"
     args:
       - name: labels
+        type: string
+
+  - name: "PrecheckFailed"
+    code: IST0201
+    level: Error
+    description: "An error occurred during istio installation precheck for the cluster"
+    template: "Precheck error: %s"
+    args:
+      - name: detail
+        type: string
+  
+  - name: "VerificationFailed"
+    code: IST0202
+    level: Error
+    description: "An error occurred when verifying istio installation"
+    template: "Verify install error: %s"
+    args:
+      - name: detail
         type: string
