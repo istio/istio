@@ -93,9 +93,6 @@ func TestMain(m *testing.M) {
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
 			cfg.ControlPlaneValues = `
 values:
-  global:
-    meshExpansion:
-      enabled: true
   pilot:
     env:
       PILOT_ENABLED_SERVICE_APIS: "true"`

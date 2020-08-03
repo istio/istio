@@ -41,10 +41,6 @@ func setupConfig(cfg *istio.Config) {
 	rootNamespace = cfg.SystemNamespace
 
 	cfg.ControlPlaneValues = `
-values:
-  global:
-    meshExpansion:
-      enabled: true
 components:
   egressGateways:
   - enabled: true
