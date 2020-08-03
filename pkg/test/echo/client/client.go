@@ -39,7 +39,7 @@ type Instance struct {
 // New creates a new echo client.Instance that is connected to the given server address.
 func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 	// Connect to the GRPC (command) endpoint of 'this' app.
-	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout*5)
 	defer cancel()
 	dialOptions := []grpc.DialOption{grpc.WithBlock()}
 	if tlsSettings == nil {
