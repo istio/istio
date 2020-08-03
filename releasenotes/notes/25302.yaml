@@ -8,9 +8,7 @@ issue:
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
-releaseNotes:
+releaseNotes: |
   *Added* code to kubesource and analyzers, build a flat map with the path of the field in the YAML resource as the key,
   and its line number as the value, to help analyzers find the error line number. The error message in the command line
   will display the exact error line number after applying this feature.
-
-
