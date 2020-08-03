@@ -132,8 +132,6 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
-github.com/cncf/udpa/go v0.0.0-20200313221541-5f7e5dd04533 h1:8wZizuKuZVu5COB7EsBYxBQz8nRcXXn5d4Gt91eJLvU=
-github.com/cncf/udpa/go v0.0.0-20200313221541-5f7e5dd04533/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354 h1:9kRtNpqLHbZVO/NNxhHp2ymxFxsHOe3x2efJGn//Tas=
 github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354/go.mod h1:WmhPx2Nbnhtbo57+VJT5O0JRkEi1Wbu0z5j0R8u5Hbk=
 github.com/cockroachdb/datadriven v0.0.0-20190809214429-80d97fb3cbaa/go.mod h1:zn76sxSg3SzpJ0PPJaLDCu+Bu0Lg3sKTORVIj19EIF8=
@@ -221,8 +219,8 @@ github.com/emicklei/go-restful v2.9.6+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
-github.com/envoyproxy/go-control-plane v0.9.6-0.20200623200256-ba7954ce7df4 h1:AX4Pc29Ia4Ry8Ip6Xq5MobZkLaBX6ZDQIEuVRhJ8qCU=
-github.com/envoyproxy/go-control-plane v0.9.6-0.20200623200256-ba7954ce7df4/go.mod h1:JvuSsUgXzeWfLVfAe9OeW40eBtd+E8yMydqNm0iuBxs=
+github.com/envoyproxy/go-control-plane v0.9.7-0.20200730005029-803dd64f0468 h1:d6NP0AddmfOtmgiEBSyNU7Q8FfCXUjISIyXWU76oaAc=
+github.com/envoyproxy/go-control-plane v0.9.7-0.20200730005029-803dd64f0468/go.mod h1:cwu0lG7PUMfa9snN8LXBig5ynNVH9qI8YYLbd1fK2po=
 github.com/envoyproxy/protoc-gen-validate v0.1.0 h1:EQciDnbrYxy13PgWoY8AqoxGiPrpgBZ1R8UNe3ddc+A=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8 h1:DM7gHzQfHwIj+St8zaPOI6iQEPAxOwIkskvw6s9rDaM=

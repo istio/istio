@@ -68,7 +68,7 @@ func init() {
 	enableEDSDebounce = features.EnableEDSDebounce.Get()
 }
 
-// DiscoveryServer is Pilot's gRPC implementation for Envoy's v2 xds APIs
+// DiscoveryServer is Pilot's gRPC implementation for Envoy's xds APIs
 type DiscoveryServer struct {
 	// Env is the model environment.
 	Env *model.Environment
@@ -190,6 +190,9 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// Register v3 server
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
+}
+
+func (s *DiscoveryServer) RegisterLegacyv2(rpcs *grpc.Server) {
 	// Register v2 server just for compatibility with gRPC. When gRPC v3 comes out, we can drop this
 	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }

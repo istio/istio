@@ -390,14 +390,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// redirects to Envoy.
 	iptConfigurator.iptables.AppendRuleV4(
 		constants.ISTIOREDIRECT, constants.NAT, "-p", constants.TCP, "-j", constants.REDIRECT, "--to-ports", iptConfigurator.cfg.ProxyPort)
-	if redirectDNS {
-		iptConfigurator.iptables.AppendRuleV4(
-			constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
-		if iptConfigurator.cfg.EnableInboundIPv6 {
-			iptConfigurator.iptables.AppendRuleV6(
-				constants.ISTIOREDIRECT, constants.NAT, "-p", constants.UDP, "-j", constants.REDIRECT, "--to-ports", dnsTargetPort)
-		}
-	}
 
 	// Use this chain also for redirecting inbound traffic to the common Envoy port
 	// when not using TPROXY.
@@ -411,9 +403,6 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic, and UDP dns (if enabled)
 	iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
-	if redirectDNS {
-		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT, "-p", constants.UDP, "--dport", "53", "-j", constants.ISTIOOUTPUT)
-	}
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if iptConfigurator.cfg.OutboundPortsExclude != "" {
 		for _, port := range split(iptConfigurator.cfg.OutboundPortsExclude) {
@@ -473,6 +462,29 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	iptConfigurator.handleInboundIpv4Rules(ipv4RangesInclude)
 	if iptConfigurator.cfg.EnableInboundIPv6 {
 		iptConfigurator.handleInboundIpv6Rules(ipv6RangesExclude, ipv6RangesInclude)
+	}
+
+	if redirectDNS {
+		// Make sure that upstream DNS requests from agent/envoy dont get captured.
+		for _, uid := range split(iptConfigurator.cfg.ProxyUID) {
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+				"-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", constants.RETURN)
+		}
+		for _, gid := range split(iptConfigurator.cfg.ProxyGID) {
+			// TODO: add ip6 as well
+			iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+				"-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", constants.RETURN)
+		}
+
+		// from app to agent/envoy - dnat to 127.0.0.1:port
+		iptConfigurator.iptables.AppendRuleV4(constants.OUTPUT, constants.NAT,
+			"-p", "udp", "--dport", "53",
+			"-j", "DNAT", "--to-destination", "127.0.0.1:"+dnsTargetPort)
+		// overwrite the source IP so that when envoy/agent responds to the DNS request
+		// it responds to localhost on same interface. Otherwise, the connection will not
+		// match in the kernel. Note that the dest port here should be the rewritten port.
+		iptConfigurator.iptables.AppendRuleV4(constants.POSTROUTING, constants.NAT,
+			"-p", "udp", "--dport", dnsTargetPort, "-j", "SNAT", "--to-source", "127.0.0.1")
 	}
 
 	if iptConfigurator.cfg.InboundInterceptionMode == constants.TPROXY {

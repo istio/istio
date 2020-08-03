@@ -32,7 +32,7 @@ func ApplyClusterPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	clusters []*cluster.Cluster) (out []*cluster.Cluster) {
-	defer runtime.HandleCrash(func() {
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.
