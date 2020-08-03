@@ -319,7 +319,7 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 
 	c := &cobra.Command{
 		Use:   "validate -f FILENAME [options]",
-		Short: "Validate Istio policy and rules (NOTE: validate is deprecated and will be removed in 1.6. Use 'istioctl analyze' to validate configuration.)",
+		Short: "Validate Istio policy and rules files",
 		Example: `
 		# Validate bookinfo-gateway.yaml
 		istioctl validate -f bookinfo-gateway.yaml
