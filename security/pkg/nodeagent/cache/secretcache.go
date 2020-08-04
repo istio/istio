@@ -155,8 +155,6 @@ type SecretCache struct {
 	// unique certs being watched with file watcher.
 	fileCerts map[string]map[ConnKey]struct{}
 	certMutex *sync.RWMutex
-
-	secOpts *security.Options
 }
 
 // NewSecretCache creates a new secret cache.
@@ -175,7 +173,6 @@ func NewSecretCache(fetcher *secretfetcher.SecretFetcher,
 		certWatcher:           newFileWatcher(),
 		fileCerts:             make(map[string]map[ConnKey]struct{}),
 		certMutex:             &sync.RWMutex{},
-		secOpts:               options,
 	}
 	randSource := rand.NewSource(time.Now().UnixNano())
 	ret.rand = rand.New(randSource)
@@ -584,21 +581,30 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-
-			// if user not set PROV_CERT Directory Path for client to extract certs from path
-			// we will first check whether the token is expired or not
-			if sc.secOpts.ProvCert == "" && sc.isTokenExpired(&secret) {
+			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
+			if sc.isTokenExpired(&secret) && !sc.useCertToRotate() {
 				cacheLog.Debugf("%s token expired", logPrefix)
-				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-				// requiring the client to send another SDS request.
-				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				return true
+				if sc.configOptions.CredFetcher != nil {
+					cacheLog.Infof("%s getting a new token through credential fetcher", logPrefix)
+					t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
+					if err != nil {
+						cacheLog.Errorf("failed to get credential token: %v", err)
+						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+						return true
+					}
+					secret.Token = t
+				} else {
+					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+					// requiring the client to send another SDS request.
+					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+					return true
+				}
 			}
 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				cacheLog.Debugf("%s token is still valid, reuse token to generate key/cert", logPrefix)
+				cacheLog.Debugf("%s use token to generate key/cert", logPrefix)
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likely this code path may not necessary, since TTL of cert is much longer than token.
@@ -839,12 +845,18 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 
 	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
 	// otherwise just use sdsrequest.resourceName as csr host name.
-	csrHostName, err := constructCSRHostName(sc.configOptions.TrustDomain, token)
-	if err != nil {
-		cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-			" resource name: %s", logPrefix, err, connKey.ResourceName)
-		csrHostName = connKey.ResourceName
+	csrHostName := connKey.ResourceName
+	// TODO (liminw): This is probably not needed. CA is using claims in the credential to decide the identity in the certificate,
+	// instead of using host name in CSR. We can clean it up later.
+	if sc.configOptions.CredFetcher == nil {
+		csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
+		if err != nil {
+			cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
+				" resource name: %s", logPrefix, err, connKey.ResourceName)
+			csrHostName = connKey.ResourceName
+		}
 	}
+	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
 	options := pkiutil.CertOptions{
 		Host:       csrHostName,
 		RSAKeySize: keySize,
@@ -928,8 +940,10 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 }
 
 func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
-	// skip check if the token passed from envoy is always valid (ex, normal k8s sa JWT).
-	if sc.configOptions.AlwaysValidTokenFlag {
+	// Skip check if the token should not be parsed in proxy.
+	// Parsing token may not always be possible because token may not be a JWT.
+	// If ParseToken is false, we should assume token is valid and leave token validation to CA.
+	if !sc.configOptions.ParseToken {
 		return false
 	}
 
@@ -981,7 +995,7 @@ func (sc *SecretCache) sendRetriableRequest(ctx context.Context, csrPEM []byte,
 		} else {
 			requestErrorString = fmt.Sprintf("%s TokExch", logPrefix)
 			p := sc.configOptions.TokenExchangers[0]
-			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.TrustDomain, exchangedToken)
+			exchangedToken, _, httpRespCode, err = p.ExchangeToken(ctx, sc.configOptions.CredFetcher, sc.configOptions.TrustDomain, exchangedToken)
 		}
 		cacheLog.Debugf("%s", requestErrorString)
 
@@ -1044,16 +1058,16 @@ func (sc *SecretCache) getExchangedToken(ctx context.Context, k8sJwtToken string
 // useCertToRotate checks if we can use cert instead of token to do CSR.
 func (sc *SecretCache) useCertToRotate() bool {
 	// Check if CA requires a token in CSR
-	if sc.secOpts.UseTokenForCSR {
+	if sc.configOptions.UseTokenForCSR {
 		return false
 	}
-	if sc.secOpts.ProvCert == "" {
+	if sc.configOptions.ProvCert == "" {
 		return false
 	}
 	// Check if cert exists.
-	_, err := tls.LoadX509KeyPair(sc.secOpts.ProvCert+"/cert-chain.pem", sc.secOpts.ProvCert+"/key.pem")
+	_, err := tls.LoadX509KeyPair(sc.configOptions.ProvCert+"/cert-chain.pem", sc.configOptions.ProvCert+"/key.pem")
 	if err != nil {
-		cacheLog.Errorf("cannot load key pair from %s: %s", sc.secOpts.ProvCert, err)
+		cacheLog.Errorf("cannot load key pair from %s: %s", sc.configOptions.ProvCert, err)
 		return false
 	}
 	return true

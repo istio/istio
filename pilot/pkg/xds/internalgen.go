@@ -26,7 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	pilot_xds_v3 "istio.io/istio/pilot/pkg/xds/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/log"
 )
 
@@ -102,9 +102,11 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
 	for _, v := range s.adsClients {
+		v.mu.RLock()
 		if v.node.ActiveExperimental[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
+		v.mu.RUnlock()
 	}
 	s.adsClientsMutex.RUnlock()
 
@@ -193,10 +195,10 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 	res := []*any.Any{}
 
 	stypes := []string{
-		pilot_xds_v3.ListenerType,
-		pilot_xds_v3.RouteType,
-		pilot_xds_v3.EndpointType,
-		pilot_xds_v3.ClusterType,
+		v3.ListenerType,
+		v3.RouteType,
+		v3.EndpointType,
+		v3.ClusterType,
 	}
 
 	sg.Server.adsClientsMutex.RLock()
@@ -213,13 +215,13 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 					pxc.Status = status.ConfigStatus_NOT_SENT
 				}
 				switch stype {
-				case pilot_xds_v3.ListenerType:
+				case v3.ListenerType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ListenerConfig{}
-				case pilot_xds_v3.RouteType:
+				case v3.RouteType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_RouteConfig{}
-				case pilot_xds_v3.EndpointType:
+				case v3.EndpointType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_EndpointConfig{}
-				case pilot_xds_v3.ClusterType:
+				case v3.ClusterType:
 					pxc.PerXdsConfig = &status.PerXdsConfig_ClusterConfig{}
 				}
 				xdsConfigs = append(xdsConfigs, pxc)

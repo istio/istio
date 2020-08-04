@@ -63,6 +63,8 @@ func TestMain(m *testing.M) {
         targetPort: 15012
         name: tcp-istiod
   global:
+    meshExpansion:
+      enabled: true
     centralIstiod: true
     caAddress: istiod.istio-system.svc:15012`
 			cfg.RemoteClusterValues = `

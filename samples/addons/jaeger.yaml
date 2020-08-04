@@ -78,6 +78,7 @@ metadata:
   labels:
     name: zipkin
   name: zipkin
+  namespace: istio-system
 spec:
   ports:
     - port: 9411

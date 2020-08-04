@@ -45,7 +45,12 @@ type Port struct {
 
 	// TLS determines if the port will use TLS.
 	TLS bool
+
+	// ServerFirst if a port will be server first
+	ServerFirst bool
 }
 
 // PortList is a set of ports
 type PortList []*Port
+
+var ServerFirstMagicString = "server-first-protocol\n"

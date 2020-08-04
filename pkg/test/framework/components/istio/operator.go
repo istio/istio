@@ -105,6 +105,8 @@ var leaderElectionConfigMaps = []string{
 }
 
 func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if _, ok := i.ingress[cluster.Index()]; !ok {
 		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
 			Namespace: i.settings.IngressNamespace,
@@ -140,6 +142,8 @@ func (i *operatorComponent) Close() (err error) {
 			}
 		}
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if i.ingress != nil {
 		for _, ing := range i.ingress {
 			ing.CloseClients()
@@ -475,10 +479,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				"--set", "values.global.network="+networkName)
 		}
 
-		if c.environment.IsControlPlaneCluster(cluster) {
-			// Expose Istiod through ingress to allow remote clusters to connect
-			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
-		} else {
+		if !c.environment.IsControlPlaneCluster(cluster) {
 			installSettings = append(installSettings, "--set", "profile=remote")
 			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {

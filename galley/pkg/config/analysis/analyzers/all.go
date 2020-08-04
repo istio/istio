@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
@@ -50,6 +51,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.DestinationRuleAnalyzer{},
 		&virtualservice.GatewayAnalyzer{},
 		&virtualservice.RegexAnalyzer{},
+		&destinationrule.CaCertificateAnalyzer{},
 	}
 
 	analyzers = append(analyzers, schema.AllValidationAnalyzers()...)

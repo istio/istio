@@ -16,9 +16,12 @@ package xds
 
 import (
 	"bytes"
+	"context"
+	"net"
 	"reflect"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/Masterminds/sprig"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -30,7 +33,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -41,12 +45,17 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
@@ -74,6 +83,7 @@ type FakeDiscoveryServer struct {
 	Discovery   *DiscoveryServer
 	PushContext *model.PushContext
 	Env         *model.Environment
+	listener    *bufconn.Listener
 }
 
 func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
@@ -110,12 +120,9 @@ func getConfigs(t test.Failer, opts FakeOptions) []model.Config {
 		}
 		configStr = buf.String()
 	}
-	configs, badKinds, err := crd.ParseInputs(configStr)
+	configs, _, err := crd.ParseInputs(configStr)
 	if err != nil {
 		t.Fatalf("failed to read config: %v", err)
-	}
-	if len(badKinds) != 0 {
-		t.Fatalf("Got unknown resources: %v", badKinds)
 	}
 	// setup default namespace if not defined
 	for i, c := range configs {
@@ -132,23 +139,19 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	t.Cleanup(func() {
 		close(stop)
 	})
+
 	configs := getConfigs(t, opts)
 	k8sObjects := getKubernetesObjects(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	env := &model.Environment{}
 	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health}
+
 	s := NewDiscoveryServer(env, plugins)
-	go func() {
-		for {
-			select {
-			// Read and drop events. This prevents the channel from getting backed up
-			// In the future, we can likely track these for use in tests
-			case <-s.pushChannel:
-			case <-stop:
-				return
-			}
-		}
-	}()
+	// Disable debounce to reduce test times
+	s.debounceOptions.debounceAfter = 0
+	s.MemRegistry = memregistry.NewServiceDiscovery(nil)
+	s.MemRegistry.EDSUpdater = s
+
 	configController := memory.NewSyncController(configStore)
 	go configController.Run(stop)
 
@@ -183,22 +186,140 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if err := s.UpdateServiceShards(env.PushContext); err != nil {
 		t.Fatal(err)
 	}
-	se.ResyncEDS()
-	if err := k8s.ResyncEndpoints(); err != nil {
-		t.Fatal(err)
-	}
 	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
+	s.MemRegistry.ClusterID = string(serviceregistry.Mock)
+	serviceDiscovery.AddRegistry(serviceregistry.Simple{
+		ClusterID:        string(serviceregistry.Mock),
+		ProviderID:       serviceregistry.Mock,
+		ServiceDiscovery: s.MemRegistry,
+		Controller:       s.MemRegistry.Controller,
+	})
+
+	// Setup config handlers
+	// TODO code re-use from server.go
+	configHandler := func(_, curr model.Config, event model.Event) {
+		pushReq := &model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{{
+				Kind:      curr.GroupVersionKind,
+				Name:      curr.Name,
+				Namespace: curr.Namespace,
+			}: {}},
+			Reason: []model.TriggerReason{model.ConfigUpdate},
+		}
+		s.ConfigUpdate(pushReq)
+	}
+	schemas := collections.Pilot.All()
+	if features.EnableServiceApis {
+		schemas = collections.PilotServiceApi.All()
+	}
+	for _, schema := range schemas {
+		// This resource type was handled in external/servicediscovery.go, no need to rehandle here.
+		if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Serviceentries.
+			Resource().GroupVersionKind() {
+			continue
+		}
+		if schema.Resource().GroupVersionKind() == collections.IstioNetworkingV1Alpha3Workloadentries.
+			Resource().GroupVersionKind() {
+			continue
+		}
+
+		configController.RegisterEventHandler(schema.Resource().GroupVersionKind(), configHandler)
+	}
+
+	// Start in memory gRPC listener
+	buffer := 1024 * 1024
+	listener := bufconn.Listen(buffer)
+	grpcServer := grpc.NewServer()
+	s.Register(grpcServer)
+	go func() {
+		if err := grpcServer.Serve(listener); err != nil && err != grpc.ErrServerStopped {
+			t.Fatal(err)
+		}
+	}()
+	t.Cleanup(func() {
+		grpcServer.Stop()
+	})
+
+	// Start the discovery server
+	s.CachesSynced()
+	s.Start(stop)
+
+	se.ResyncEDS()
+	if err := k8s.ResyncEndpoints(); err != nil {
+		t.Fatal(err)
+	}
+
+	s.updateMutex.RLock()
+	defer s.updateMutex.RUnlock()
 	fake := &FakeDiscoveryServer{
 		t:           t,
 		Store:       configController,
 		Discovery:   s,
 		PushContext: env.PushContext,
 		Env:         env,
+		listener:    listener,
 	}
 	return fake
+}
+
+// ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
+func (f *FakeDiscoveryServer) ConnectADS() discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient {
+	conn, err := grpc.Dial("buffcon", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return f.listener.Dial()
+	}))
+	if err != nil {
+		f.t.Fatalf("failed to connect: %v", err)
+	}
+	xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
+	client, err := xds.StreamAggregatedResources(context.Background())
+	if err != nil {
+		f.t.Fatalf("stream resources failed: %s", err)
+	}
+	f.t.Cleanup(func() {
+		_ = client.CloseSend()
+		_ = conn.Close()
+	})
+	return client
+}
+
+// ConnectADS starts an ADS connection to the server using adsc. It will automatically be cleaned up when the test ends
+// watch can be configured to determine the resources to watch initially, and wait can be configured to determine what
+// resources we should initially wait for.
+func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []string) *adsc.ADSC {
+	f.t.Helper()
+	p = f.SetupProxy(p)
+	if watch == nil {
+		watch = []string{v3.ClusterType}
+	}
+	if wait == nil {
+		watch = []string{v3.ClusterType}
+	}
+	adscConn, err := adsc.Dial("buffcon", "", &adsc.Config{
+		IP:        p.IPAddresses[0],
+		Meta:      p.Metadata.ToStruct(),
+		Namespace: p.ConfigNamespace,
+		Watch:     watch,
+		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return f.listener.Dial()
+		})},
+	})
+	if err != nil {
+		f.t.Fatalf("Error connecting: %v", err)
+	}
+	if len(wait) > 0 {
+		_, err = adscConn.Wait(10*time.Second, wait...)
+		if err != nil {
+			f.t.Fatalf("Error getting initial for %v config: %v", wait, err)
+		}
+	}
+	f.t.Cleanup(func() {
+		adscConn.Close()
+	})
+	return adscConn
 }
 
 // SetupProxy initializes a proxy for the current environment. This should generally be used when creating
@@ -225,6 +346,9 @@ func (f *FakeDiscoveryServer) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.IPAddresses = []string{"1.1.1.1"}
 	}
 	// Initialize data structures
+
+	f.Discovery.updateMutex.RLock()
+	defer f.Discovery.updateMutex.RUnlock()
 	p.SetSidecarScope(f.Discovery.Env.PushContext)
 	p.SetGatewaysForProxy(f.Discovery.Env.PushContext)
 	if err := p.SetServiceInstances(f.Discovery.Env.ServiceDiscovery); err != nil {
