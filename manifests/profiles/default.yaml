@@ -64,6 +64,12 @@ spec:
             - port: 443
               targetPort: 8443
               name: https
+            - port: 15012
+              targetPort: 15012
+              name: tcp-istiod
+            - port: 15017
+              targetPort: 15017
+              name: tcp-webhook
             - port: 15443
               targetPort: 15443
               name: tls
@@ -288,12 +294,6 @@ spec:
         zvpn: {}
         env: {}
         meshExpansionPorts:
-        - port: 15012
-          targetPort: 15012
-          name: tcp-istiod
-        - port: 853
-          targetPort: 8853
-          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs
