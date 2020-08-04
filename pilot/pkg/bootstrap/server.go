@@ -108,8 +108,7 @@ type readinessProbe func() (bool, error)
 type Server struct {
 	MonitorListeningAddr net.Addr
 
-	// TODO(nmittler): Consider alternatives to exposing these directly
-	EnvoyXdsServer *xds.DiscoveryServer
+	XDSServer *xds.DiscoveryServer
 
 	clusterID   string
 	environment *model.Environment
@@ -178,7 +177,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		EnvoyXdsServer:  xds.NewDiscoveryServer(e, args.Plugins),
+		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
@@ -300,7 +299,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	}
 
 	s.addReadinessProbe("discovery", func() (bool, error) {
-		return s.EnvoyXdsServer.IsServerReady(), nil
+		return s.XDSServer.IsServerReady(), nil
 	})
 
 	return s, nil
@@ -356,7 +355,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// Inform Discovery Server so that it can start accepting connections.
 	log.Infof("All caches have been synced up, marking server ready")
-	s.EnvoyXdsServer.CachesSynced()
+	s.XDSServer.CachesSynced()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
@@ -454,7 +453,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	}
 
 	// Debug Server.
-	s.EnvoyXdsServer.InitDebug(s.httpMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+	s.XDSServer.InitDebug(s.httpMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
 	// Monitoring Server.
 	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
@@ -474,7 +473,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		log.Infof("Starting ADS server")
-		s.EnvoyXdsServer.Start(stop)
+		s.XDSServer.Start(stop)
 		return nil
 	})
 
@@ -539,7 +538,7 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
-	s.EnvoyXdsServer.Register(s.grpcServer)
+	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
 }
 
@@ -629,7 +628,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	opts = append(opts, grpc.Creds(tlsCreds))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
-	s.EnvoyXdsServer.Register(s.secureGrpcServer)
+	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -734,7 +733,7 @@ func (s *Server) initRegistryEventHandlers() error {
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
-		s.EnvoyXdsServer.ConfigUpdate(pushReq)
+		s.XDSServer.ConfigUpdate(pushReq)
 	}
 	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
 		return fmt.Errorf("append service handler failed: %v", err)
@@ -744,7 +743,7 @@ func (s *Server) initRegistryEventHandlers() error {
 		// TODO: This is an incomplete code. This code path is called for legacy MCP, etc.
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
@@ -776,7 +775,7 @@ func (s *Server) initRegistryEventHandlers() error {
 				}: {}},
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
-			s.EnvoyXdsServer.ConfigUpdate(pushReq)
+			s.XDSServer.ConfigUpdate(pushReq)
 			if features.EnableStatus {
 				if event != model.EventDelete {
 					s.statusReporter.AddInProgressResource(curr)
@@ -1071,14 +1070,14 @@ func (s *Server) initMeshHandlers() {
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
-		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
 	s.environment.AddNetworksHandler(func() {
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})

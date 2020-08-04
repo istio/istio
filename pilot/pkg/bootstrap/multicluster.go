@@ -29,7 +29,7 @@ func (s *Server) initClusterRegistries(args *PilotArgs) (err error) {
 			args.RegistryOptions.ClusterRegistriesNamespace,
 			args.RegistryOptions.KubeOptions,
 			s.ServiceController(),
-			s.EnvoyXdsServer,
+			s.XDSServer,
 			s.environment)
 
 		if err != nil {
