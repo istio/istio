@@ -12,25 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package diag
+package formatting
 
 import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	. "istio.io/istio/galley/pkg/config/analysis/diag"
 )
+
+func TestFormatter_RenderWithColor(t *testing.T) {
+	g := NewWithT(t)
+	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
+	m := NewMessage(mt, nil, "Feta")
+
+	g.Expect(render(m, true)).To(Equal(
+		colorPrefixes[Error] + "Error\033[0m [IST-0042] Cheese type not found: \"Feta\""))
+}
 
 func TestFormatter_PrintLog(t *testing.T) {
 	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Explosion accident: %v"),
-		testResource("SoapBubble"),
+		MockResource("SoapBubble"),
 		"the bubble is too big",
 	)
 	secondMsg := NewMessage(
 		NewMessageType(Warning, "C1", "Collapse danger: %v"),
-		testResource("GrandCastle"),
+		MockResource("GrandCastle"),
 		"the castle is too old",
 	)
 
@@ -39,7 +50,7 @@ func TestFormatter_PrintLog(t *testing.T) {
 
 	g.Expect(output).To(Equal(
 		"Error [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
-			"Warn [C1] (GrandCastle) Collapse danger: the castle is too old",
+			"Warn [C1] (GrandCastle) Collapse danger: the castle is too old\n",
 	))
 }
 
@@ -48,12 +59,12 @@ func TestFormatter_PrintJSON(t *testing.T) {
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Explosion accident: %v"),
-		testResource("SoapBubble"),
+		MockResource("SoapBubble"),
 		"the bubble is too big",
 	)
 	secondMsg := NewMessage(
 		NewMessageType(Warning, "C1", "Collapse danger: %v"),
-		testResource("GrandCastle"),
+		MockResource("GrandCastle"),
 		"the castle is too old",
 	)
 
@@ -85,12 +96,12 @@ func TestFormatter_PrintYAML(t *testing.T) {
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Explosion accident: %v"),
-		testResource("SoapBubble"),
+		MockResource("SoapBubble"),
 		"the bubble is too big",
 	)
 	secondMsg := NewMessage(
 		NewMessageType(Warning, "C1", "Collapse danger: %v"),
-		testResource("GrandCastle"),
+		MockResource("GrandCastle"),
 		"the castle is too old",
 	)
 
@@ -117,12 +128,12 @@ func TestFormatter_PrintEmpty(t *testing.T) {
 
 	msgs := Messages{}
 
-	logOutput, _ := PrintLog(msgs, false)
+	logOutput, _ := Print(msgs, LogFormat, false)
 	g.Expect(logOutput).To(Equal(""))
 
-	jsonOutput, _ := PrintJSON(msgs)
+	jsonOutput, _ := Print(msgs, JSONFormat, false)
 	g.Expect(jsonOutput).To(Equal("[]"))
 
-	yamlOutput, _ := PrintYAML(msgs)
+	yamlOutput, _ := Print(msgs, YAMLFormat, false)
 	g.Expect(yamlOutput).To(Equal("[]\n"))
 }

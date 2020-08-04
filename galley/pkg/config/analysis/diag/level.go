@@ -15,7 +15,6 @@
 package diag
 
 import (
-	"errors"
 	"strings"
 )
 
@@ -68,20 +67,4 @@ func GetUppercaseStringToLevelMap() map[string]Level {
 		m[strings.ToUpper(l.name)] = l
 	}
 	return m
-}
-
-// Type satisfies interface pflag.Value
-func (l *Level) Type() string {
-	return "Level"
-}
-
-// Set satisfies interface pflag.Value
-func (l *Level) Set(s string) error {
-	levelMap := GetUppercaseStringToLevelMap()
-	level, ok := levelMap[strings.ToUpper(s)]
-	if !ok {
-		return errors.New("invalid level option")
-	}
-	*l = level
-	return nil
 }

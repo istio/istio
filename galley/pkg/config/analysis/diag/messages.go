@@ -18,24 +18,6 @@ import (
 	"sort"
 )
 
-const (
-	LogFormat  = "log"
-	JSONFormat = "json"
-	YAMLFormat = "yaml"
-)
-
-var (
-	MsgOutputFormatKeys = []string{LogFormat, JSONFormat, YAMLFormat}
-	MsgOutputFormats    = make(map[string]bool)
-)
-
-func init() {
-	sort.Strings(MsgOutputFormatKeys)
-	for _, key := range MsgOutputFormatKeys {
-		MsgOutputFormats[key] = true
-	}
-}
-
 // Messages is a slice of Message items.
 type Messages []Message
 
@@ -91,8 +73,8 @@ func (ms *Messages) SetDocRef(docRef string) *Messages {
 	return ms
 }
 
-// Filter only keeps messages at or above the specified output level
-func (ms *Messages) Filter(outputLevel Level) Messages {
+// FilterOutLowerThan only keeps messages at or above the specified output level
+func (ms *Messages) FilterOutLowerThan(outputLevel Level) Messages {
 	outputMessages := Messages{}
 	for _, m := range *ms {
 		if m.Type.Level().IsWorseThanOrEqualTo(outputLevel) {

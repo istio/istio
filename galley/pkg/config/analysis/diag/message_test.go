@@ -31,14 +31,6 @@ func TestMessage_String(t *testing.T) {
 	g.Expect(m.String()).To(Equal(`Error [IST-0042] Cheese type not found: "Feta"`))
 }
 
-func TestMessage_RenderWithColor(t *testing.T) {
-	g := NewWithT(t)
-	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")
-	m := NewMessage(mt, nil, "Feta")
-
-	g.Expect(m.Render(true)).To(Equal(colorPrefixes[Error] + "Error\033[0m [IST-0042] Cheese type not found: \"Feta\""))
-}
-
 func TestMessageWithResource_String(t *testing.T) {
 	g := NewWithT(t)
 	mt := NewMessageType(Error, "IST-0042", "Cheese type not found: %q")

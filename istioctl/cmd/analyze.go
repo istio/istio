@@ -23,23 +23,22 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/processing/snapshotter"
-
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-
-	"istio.io/pkg/env"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/local"
+	"istio.io/istio/galley/pkg/config/analysis/msg"
+	"istio.io/istio/galley/pkg/config/processing/snapshotter"
 	cfgKube "istio.io/istio/galley/pkg/config/source/kube"
+	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/env"
 )
 
 // AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
@@ -64,8 +63,8 @@ func (f FileParseError) Error() string {
 var (
 	listAnalyzers     bool
 	useKube           bool
-	failureLevel      = diag.Warning // messages at least this level will generate an error exit code
-	outputLevel       = diag.Info    // messages at least this level will be included in the output
+	failureThreshold  = formatting.MessageThreshold{diag.Warning} // messages at least this level will generate an error exit code
+	outputThreshold   = formatting.MessageThreshold{diag.Info}    // messages at least this level will be included in the output
 	colorize          bool
 	msgOutputFormat   string
 	meshCfgFile       string
@@ -110,7 +109,7 @@ istioctl analyze -L
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
-			_, ok := diag.MsgOutputFormats[msgOutputFormat]
+			_, ok := formatting.MsgOutputFormats[msgOutputFormat]
 			if !ok {
 				return CommandParseError{
 					fmt.Errorf("%s not a valid option for format. See istioctl analyze --help", msgOutputFormat),
@@ -229,10 +228,10 @@ istioctl analyze -L
 			}
 
 			// Append a ref arg to the doc URL, and filter outputMessages by specified level
-			outputMessages := result.Messages.SetDocRef("istioctl-analyze").Filter(outputLevel)
+			outputMessages := result.Messages.SetDocRef("istioctl-analyze").FilterOutLowerThan(outputThreshold.Level)
 
 			// Print all the messages to stdout in the specified format
-			output, err := diag.Print(outputMessages, msgOutputFormat, colorize)
+			output, err := formatting.Print(outputMessages, msgOutputFormat, colorize)
 			if err != nil {
 				return err
 			}
@@ -259,7 +258,7 @@ istioctl analyze -L
 			// Return code is based on the unfiltered validation message list/parse errors
 			// We're intentionally keeping failure threshold and output threshold decoupled for now
 			var returnError error
-			if msgOutputFormat == diag.LogFormat {
+			if msgOutputFormat == formatting.LogFormat {
 				returnError = errorIfMessagesExceedThreshold(result.Messages)
 				if returnError == nil && parseErrors > 0 {
 					returnError = FileParseError{}
@@ -277,12 +276,12 @@ istioctl analyze -L
 		"Default true.  Disable with '=false' or set $TERM to dumb")
 	analysisCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Enable verbose output")
-	analysisCmd.PersistentFlags().Var(&failureLevel, "failure-threshold",
+	analysisCmd.PersistentFlags().Var(&failureThreshold, "failure-threshold",
 		fmt.Sprintf("The severity level of analysis at which to set a non-zero exit code. Valid values: %v", diag.GetAllLevelStrings()))
-	analysisCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
+	analysisCmd.PersistentFlags().Var(&outputThreshold, "output-threshold",
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
-	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", diag.LogFormat,
-		fmt.Sprintf("Output format: one of %v", diag.MsgOutputFormatKeys))
+	analysisCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
+		fmt.Sprintf("Output format: one of %v", formatting.MsgOutputFormatKeys))
 	analysisCmd.PersistentFlags().StringVar(&meshCfgFile, "meshConfigFile", "",
 		"Overrides the mesh config values to use for analysis.")
 	analysisCmd.PersistentFlags().BoolVarP(&allNamespaces, "all-namespaces", "A", false,
@@ -398,7 +397,7 @@ func istioctlColorDefault(cmd *cobra.Command) bool {
 func errorIfMessagesExceedThreshold(messages []diag.Message) error {
 	foundIssues := false
 	for _, m := range messages {
-		if m.Type.Level().IsWorseThanOrEqualTo(failureLevel) {
+		if m.Type.Level().IsWorseThanOrEqualTo(failureThreshold.Level) {
 			foundIssues = true
 		}
 	}
@@ -449,5 +448,5 @@ func analyzeTargetAsString() string {
 
 // TODO: Refactor output writer so that it is smart enough to know when to output what.
 func isJSONorYAMLOutputFormat() bool {
-	return msgOutputFormat == diag.JSONFormat || msgOutputFormat == diag.YAMLFormat
+	return msgOutputFormat == formatting.JSONFormat || msgOutputFormat == formatting.YAMLFormat
 }
