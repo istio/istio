@@ -15,7 +15,6 @@
 package option
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -108,7 +107,6 @@ func TestTlsContextConvert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if got := convertToJSON(tlsContextConvert(tt.tls, tt.sni, tt.meta)); !reflect.DeepEqual(tt.expectTLSCtx, got) {
-				fmt.Println(got)
 				t.Errorf("%s: expected TLS ctx \n%v got \n%v", tt.desc, tt.expectTLSCtx, got)
 			}
 		})
