@@ -205,7 +205,7 @@ message EgressGatewayConfig {
   // Environment variables passed to the proxy container.
   TypeMapStringInterface env = 8;
 
-  GatewayLabelsConfig labels = 9;
+  map<string, string> labels = 9;
 
   string name = 25;
 
@@ -283,12 +283,6 @@ message EgressGatewayConfig {
   google.protobuf.BoolValue runAsRoot = 26;
 
   // Next available 27.
-}
-
-// GatewayLabelsConfig is a set of Configuration for gateway labels.
-message GatewayLabelsConfig {
-  string app = 1;
-  string istio = 2;
 }
 
 // Configuration for gateways.
@@ -508,7 +502,7 @@ message IngressGatewayConfig {
   // Environment variables passed to the proxy container.
   TypeMapStringInterface env = 11;
 
-  GatewayLabelsConfig labels = 15;
+  map<string, string> labels = 15;
 
   string loadBalancerIP = 16;
 

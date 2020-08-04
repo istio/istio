@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 58
+number_of_entries: 57
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -706,7 +706,7 @@ No
 </tr>
 <tr id="EgressGatewayConfig-labels">
 <td><code>labels</code></td>
-<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 </td>
 <td>
@@ -927,41 +927,6 @@ No
 <td>
 <p>K8s rolling update strategy</p>
 
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="GatewayLabelsConfig">GatewayLabelsConfig</h2>
-<section>
-<p>GatewayLabelsConfig is a set of Configuration for gateway labels.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="GatewayLabelsConfig-app">
-<td><code>app</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GatewayLabelsConfig-istio">
-<td><code>istio</code></td>
-<td><code>string</code></td>
-<td>
 </td>
 <td>
 No
@@ -1668,7 +1633,7 @@ No
 </tr>
 <tr id="IngressGatewayConfig-labels">
 <td><code>labels</code></td>
-<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 </td>
 <td>
