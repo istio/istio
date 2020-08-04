@@ -190,6 +190,12 @@ func (p *ProxyGen) AddClient(adsc *adsc.ADSC) {
 	p.server.m.Unlock()
 }
 
+func (p *ProxyGen) Close() {
+	if p.adsc != nil {
+		p.adsc.Close()
+	}
+}
+
 // TODO: remove clients, multiple clients (agent has only one)
 
 // Generate will forward the request to all remote XDS servers.

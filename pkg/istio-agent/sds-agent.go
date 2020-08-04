@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -133,6 +134,9 @@ type AgentConfig struct {
 	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
 	// Set for tests to 127.0.0.1:0.
 	LocalXDSAddr string
+
+	// Grpc dial options. Used for testing
+	GrpcOptions []grpc.DialOption
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -246,7 +250,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	// Start the XDS client and proxy.
 	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("xds proxy: %v", err)
 	}
 
 	return server, nil
