@@ -274,6 +274,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		args.RegistryOptions.KubeOptions.FetchCaRoot = s.fetchCARoot
 	}
 
+	// TODO(landow) ensure any multicluster registries are initialized before allowing IsServerReady to be true
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
 	}

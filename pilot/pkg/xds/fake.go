@@ -37,6 +37,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -237,6 +238,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	t.Cleanup(func() {
 		grpcServer.Stop()
 	})
+
+	cache.WaitForCacheSync(stop, serviceDiscovery.HasSynced)
 
 	// Start the discovery server
 	s.CachesSynced()

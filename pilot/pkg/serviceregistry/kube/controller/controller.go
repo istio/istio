@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -215,6 +217,10 @@ type Controller struct {
 
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
+
+	// initialSync becomes true only after the resources that exist at startup are processed
+	// to ensure correct ordering
+	initialSync bool
 }
 
 // NewController creates a new Kubernetes controller
@@ -439,7 +445,47 @@ func (c *Controller) HasSynced() bool {
 		!c.nodeInformer.HasSynced() {
 		return false
 	}
+
+	// after informer caches sync the first time, process resources in order
+	// TODO(landow) is it possible to start the informers one-by-one in order?
+	if !c.initialSync {
+		if err := c.SyncAll(); err != nil {
+			log.Errorf("one or more errors force-syncing resources: %v", err)
+		}
+		c.initialSync = true
+	}
+
 	return true
+}
+
+func (c *Controller) SyncAll() error {
+	var err *multierror.Error
+
+	nodes := c.nodeInformer.GetStore().List()
+	log.Debugf("initialzing %d nodes", len(nodes))
+	for _, s := range nodes {
+		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
+	}
+
+	services := c.serviceInformer.GetStore().List()
+	log.Debugf("initialzing %d services", len(services))
+	for _, s := range services {
+		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
+	}
+
+	pods := c.pods.informer.GetStore().List()
+	log.Debugf("initialzing %d pods", len(pods))
+	for _, s := range pods {
+		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
+	}
+
+	endpoints := c.endpoints.getInformer().GetStore().List()
+	log.Debugf("initialzing%d endpoints", len(endpoints))
+	for _, s := range endpoints {
+		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
+	}
+
+	return err.ErrorOrNil()
 }
 
 // Run all controllers until a signal is received
