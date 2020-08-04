@@ -174,7 +174,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 	mcpOptions := &mcp.Options{
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.RegistryOptions),
-		XDSUpdater:   s.EnvoyXdsServer,
+		XDSUpdater:   s.DiscoveryServer,
 		Revision:     args.Revision,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
@@ -385,7 +385,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
 		return nil
 	})
-	s.EnvoyXdsServer.StatusReporter = s.statusReporter
+	s.DiscoveryServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			controller := status.NewController(*s.kubeRestConfig, args.Namespace)
