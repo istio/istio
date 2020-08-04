@@ -147,6 +147,8 @@ var (
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
+	parseTokenEnv = env.RegisterBoolVar("PARSE_TOKEN", false,
+		"Parse token to inspect information like expiration time in proxy. This may not always be possible because token may not be a JWT.").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -285,6 +287,7 @@ var (
 			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
+			secOpts.ParseToken = parseTokenEnv
 
 			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
 			// GCE is the only supported plugin at the moment.
