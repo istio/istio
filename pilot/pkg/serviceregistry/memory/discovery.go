@@ -190,9 +190,8 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpoints []*model.IstioEndpoint) {
 
 	sh := host.Name(service)
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
 
+	sd.mutex.Lock()
 	svc := sd.services[sh]
 	if svc == nil {
 		return
@@ -240,6 +239,8 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
 	}
+	sd.mutex.Unlock()
+
 	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 

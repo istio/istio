@@ -271,23 +271,29 @@ func TestDNSServiceEndpointFlipFlops(t *testing.T) {
 	// Now update the service resolution to DNSLB with a DNS endpoint.
 	updateServiceResolution(s)
 
-	if _, err := adscConn.Wait(5*time.Second, "eds"); err != nil {
+	if _, err := adscConn.Wait(5*time.Second, "rds"); err != nil {
 		t.Fatal(err)
 	}
+	// clear all events
+	adscConn.WaitClear()
 
 	// Validate that endpoints are skipped.
 	lbe := adscConn.GetEndpoints()["outbound|8080||edsdns.svc.cluster.local"]
-	if lbe != nil && len(lbe.Endpoints) > 0 {
-		t.Fatalf("endpoints not expected for  %s,  but got %v", "edsdns.svc.cluster.local", adscConn.EndpointsJSON())
+	if lbe == nil || len(lbe.Endpoints) == 0 {
+		t.Fatalf("expect endpoints %s,  but got none", "edsdns.svc.cluster.local")
 	}
 
-	// Clear the endpoint and validate it does not trigger a full push.
-	s.Discovery.MemRegistry.SetEndpoints("edsdns.svc.cluster.local", "", []*model.IstioEndpoint{})
-
-	upd, _ := adscConn.Wait(5*time.Second, "eds")
-
-	if contains(upd, "cds") {
-		t.Fatalf("Expecting only EDS update as part of a partial push. But received CDS also %v", upd)
+	// Create a new endpoint and validate it does trigger a full push.
+	// Set the endpoints again and validate it does not trigger full push.
+	s.Discovery.MemRegistry.SetEndpoints("edsdns.svc.cluster.local", "",
+		[]*model.IstioEndpoint{
+			{
+				Address:         "10.10.1.1",
+				ServicePortName: "http",
+				EndpointPort:    8080,
+			}})
+	if _, err := adscConn.Wait(5*time.Second, "cds"); err != nil {
+		t.Fatalf("Expecting CDS update as it is DNS resolution type service")
 	}
 }
 
