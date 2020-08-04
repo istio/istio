@@ -38,9 +38,10 @@ import (
 	"istio.io/istio/galley/pkg/config/processor"
 	"istio.io/istio/galley/pkg/config/processor/transforms"
 	"istio.io/istio/galley/pkg/config/scope"
+	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	kube_inmemory "istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/util/kuberesource"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -243,7 +244,7 @@ func (sa *SourceAnalyzer) SetSuppressions(suppressions []snapshotter.AnalysisSup
 
 // AddReaderKubeSource adds a source based on the specified k8s yaml files to the current SourceAnalyzer
 func (sa *SourceAnalyzer) AddReaderKubeSource(readers []ReaderSource) error {
-	src := inmemory.NewKubeSource(sa.kubeResources)
+	src := kube_inmemory.NewKubeSource(sa.kubeResources)
 	src.SetDefaultNamespace(sa.namespace)
 
 	var errs error
@@ -291,6 +292,13 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 		Client:  k,
 		Schemas: sa.kubeResources,
 	})
+	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
+}
+
+// AddInMemorySource adds a source based on user supplied in-memory configs to the current SourceAnalyzer
+// Assumes that the in memory source has same or subset of resource types that this analyzer is configured with.
+// This can be used by external users who import the analyzer as a module within their own controllers.
+func (sa *SourceAnalyzer) AddInMemorySource(src *inmemory.Source) {
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
 
