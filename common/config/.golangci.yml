@@ -7,7 +7,7 @@
 
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the istio/tools repo.
-  golangci-lint-version: 1.27.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.30.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
@@ -34,6 +34,7 @@ linters:
   enable:
   - deadcode
   - errcheck
+  - gci
   - gocritic
   - gofmt
   - goimports
@@ -61,6 +62,10 @@ linters-settings:
     # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
     # default is false: such cases aren't reported by default.
     check-blank: false
+  gci:
+    # put imports beginning with prefix after 3rd-party packages;
+    # now only support one
+    local-prefixes: istio.io
   govet:
     # report about shadowed variables
     check-shadowing: false
