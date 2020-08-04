@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
@@ -651,7 +650,6 @@ func TestAdsPushScoping(t *testing.T) {
 			// Let events from previous tests complete
 			time.Sleep(time.Millisecond * 100)
 			adscConn.WaitClear()
-
 			var wantUpdates []string
 			wantUpdates = append(wantUpdates, c.expectUpdates...)
 			wantUpdates = append(wantUpdates, c.unexpectUpdates...)
