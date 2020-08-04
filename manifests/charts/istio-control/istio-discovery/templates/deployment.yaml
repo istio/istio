@@ -97,8 +97,8 @@ spec:
             httpGet:
               path: /ready
               port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 1
+            periodSeconds: 3
             timeoutSeconds: 5
           env:
           - name: REVISION
@@ -122,6 +122,8 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: spec.serviceAccountName
+          - name: KUBECONFIG
+            value: /var/run/secrets/remote/config
           {{- if .Values.pilot.env }}
           {{- range $key, $val := .Values.pilot.env }}
           - name: {{ $key }}
@@ -176,6 +178,9 @@ spec:
           - name: cacerts
             mountPath: /etc/cacerts
             readOnly: true
+          - name: istio-kubeconfig
+            mountPath: /var/run/secrets/remote
+            readOnly: true
           - name: inject
             mountPath: /var/lib/istio/inject
             readOnly: true
@@ -203,11 +208,14 @@ spec:
         secret:
           secretName: cacerts
           optional: true
+      - name: istio-kubeconfig
+        secret:
+          secretName: istio-kubeconfig
+          optional: true
       # Optional - image should have
       - name: inject
         configMap:
           name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-          optional: true
       - name: config-volume
         configMap:
           name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}

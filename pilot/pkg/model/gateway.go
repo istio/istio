@@ -16,14 +16,17 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/pkg/monitoring"
+
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/pkg/monitoring"
 )
 
 // MergedGateway describes a set of gateways for a workload merged into a single logical gateway.
@@ -46,6 +49,9 @@ type MergedGateway struct {
 	// Inverse of ServersByRouteName. Returning this as part of merge result allows to keep route name generation logic
 	// encapsulated within the model and, as a side effect, to avoid generating route names twice.
 	RouteNamesByServer map[*networking.Server]string
+
+	// SNIHostsByServer maps server to SNI Hosts so that recomputation is avoided on listener generation.
+	SNIHostsByServer map[*networking.Server][]string
 }
 
 var (
@@ -80,20 +86,31 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 	routeNamesByServer := make(map[*networking.Server]string)
 	gatewayNameForServer := make(map[*networking.Server]string)
 	tlsHostsByPort := map[uint32]map[string]struct{}{} // port -> host -> exists
+	sniHostsByServer := make(map[*networking.Server][]string)
 
 	log.Debugf("MergeGateways: merging %d gateways", len(gateways))
 	for _, gatewayConfig := range gateways {
-		gatewayName := fmt.Sprintf("%s/%s", gatewayConfig.Namespace, gatewayConfig.Name)
+		gatewayName := gatewayConfig.Namespace + "/" + gatewayConfig.Name // Format: %s/%s
 		names[gatewayName] = true
 
 		gatewayCfg := gatewayConfig.Spec.(*networking.Gateway)
 		log.Debugf("MergeGateways: merging gateway %q into %v:\n%v", gatewayName, names, gatewayCfg)
+		snames := sets.Set{}
 		for _, s := range gatewayCfg.Servers {
+			if len(s.Name) > 0 {
+				if snames.Contains(s.Name) {
+					log.Warnf("Server name %s is not unique in gateway %s and may create possible issues like stat prefix collision ",
+						s.Name, gatewayName)
+				} else {
+					snames.Insert(s.Name)
+				}
+			}
 			sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
 			log.Debugf("MergeGateways: gateway %q processing server %v", gatewayName, s.Hosts)
 			p := protocol.Parse(s.Port.Protocol)
 
+			sniHostsByServer[s] = GetSNIHostsForServer(s)
 			if s.Tls != nil {
 				// Envoy will reject config that has multiple filter chain matches with the same matching rules
 				// To avoid this, we need to make sure we don't have duplicated hosts, which will become
@@ -199,11 +216,37 @@ func MergeGateways(gateways ...Config) *MergedGateway {
 		GatewayNameForServer: gatewayNameForServer,
 		ServersByRouteName:   serversByRouteName,
 		RouteNamesByServer:   routeNamesByServer,
+		SNIHostsByServer:     sniHostsByServer,
 	}
 }
 
 func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {
 	return (current.IsHTTP() || current == p) && p.IsHTTP()
+}
+
+func GetSNIHostsForServer(server *networking.Server) []string {
+	if server.Tls == nil {
+		return nil
+	}
+	// sanitize the server hosts as it could contain hosts of form ns/host
+	sniHosts := make(map[string]bool)
+	for _, h := range server.Hosts {
+		if strings.Contains(h, "/") {
+			parts := strings.Split(h, "/")
+			h = parts[1]
+		}
+		// do not add hosts, that have already been added
+		if !sniHosts[h] {
+			sniHosts[h] = true
+		}
+	}
+	sniHostsSlice := make([]string, 0, len(sniHosts))
+	for host := range sniHosts {
+		sniHostsSlice = append(sniHostsSlice, host)
+	}
+	sort.Strings(sniHostsSlice)
+
+	return sniHostsSlice
 }
 
 // checkDuplicates returns all of the hosts provided that are already known

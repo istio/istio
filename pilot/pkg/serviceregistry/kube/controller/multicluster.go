@@ -19,17 +19,18 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/webhooks"
 	"istio.io/pkg/log"
 
-	"k8s.io/client-go/dynamic"
+	"istio.io/istio/pilot/pkg/features"
+	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/webhooks"
+
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/metadata"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/secretcontroller"
 )
 
@@ -106,14 +107,13 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 // AddMemberCluster is passed to the secret controller as a callback to be called
 // when a remote cluster is added.  This function needs to set up all the handlers
 // to watch for resources being added, deleted or changed on remote clusters.
-func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface,
-	dynamicClient dynamic.Interface, clusterID string) error {
+func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string) error {
 	// stopCh to stop controller created here when cluster removed.
 	stopCh := make(chan struct{})
 	var remoteKubeController kubeController
 	remoteKubeController.stopCh = stopCh
 	m.m.Lock()
-	kubectl := NewController(clientset, metadataClient, Options{
+	options := Options{
 		WatchedNamespaces: m.WatchedNamespaces,
 		ResyncPeriod:      m.ResyncPeriod,
 		DomainSuffix:      m.DomainSuffix,
@@ -121,7 +121,8 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 		ClusterID:         clusterID,
 		NetworksWatcher:   m.networksWatcher,
 		Metrics:           m.metrics,
-	})
+	}
+	kubectl := NewController(clients, options)
 
 	remoteKubeController.Controller = kubectl
 	m.serviceController.AddRegistry(kubectl)
@@ -129,34 +130,32 @@ func (m *Multicluster) AddMemberCluster(clientset kubernetes.Interface, metadata
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()
 
+	// Only need to add service handler for kubernetes registry as `initRegistryEventHandlers`,
+	// because when endpoints update `XDSUpdater.EDSUpdate` has already been called.
 	_ = kubectl.AppendServiceHandler(func(svc *model.Service, ev model.Event) { m.updateHandler(svc) })
-	_ = kubectl.AppendInstanceHandler(func(si *model.ServiceInstance, ev model.Event) { m.updateHandler(si.Service) })
 
 	go kubectl.Run(stopCh)
-	opts := Options{
-		ResyncPeriod: m.ResyncPeriod,
-		DomainSuffix: m.DomainSuffix,
-	}
 	webhookConfigName := strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, m.secretNamespace)
 	if m.fetchCaRoot != nil {
-		nc := NewNamespaceController(m.fetchCaRoot, opts, clientset)
+		nc := NewNamespaceController(m.fetchCaRoot, clients)
 		go nc.Run(stopCh)
-		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clientset, stopCh)
-		valicationWebhookController := webhooks.CreateValidationWebhookController(clientset, dynamicClient, webhookConfigName,
+		go webhooks.PatchCertLoop(features.InjectionWebhookConfigName.Get(), webhookName, m.caBundlePath, clients.Kube(), stopCh)
+		valicationWebhookController := webhooks.CreateValidationWebhookController(clients, webhookConfigName,
 			m.secretNamespace, m.caBundlePath, true)
 		if valicationWebhookController != nil {
 			go valicationWebhookController.Start(stopCh)
 		}
 	}
+
+	clients.RunAndWait(stopCh)
 	return nil
 }
 
-func (m *Multicluster) UpdateMemberCluster(clientset kubernetes.Interface, metadataClient metadata.Interface,
-	dynamicClient dynamic.Interface, clusterID string) error {
+func (m *Multicluster) UpdateMemberCluster(clients kubelib.Client, clusterID string) error {
 	if err := m.DeleteMemberCluster(clusterID); err != nil {
 		return err
 	}
-	return m.AddMemberCluster(clientset, metadataClient, dynamicClient, clusterID)
+	return m.AddMemberCluster(clients, clusterID)
 }
 
 // DeleteMemberCluster is passed to the secret controller as a callback to be called
@@ -185,7 +184,7 @@ func (m *Multicluster) updateHandler(svc *model.Service) {
 		req := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      model.ServiceEntryKind,
+				Kind:      gvk.ServiceEntry,
 				Name:      string(svc.Hostname),
 				Namespace: svc.Attributes.Namespace,
 			}: {}},

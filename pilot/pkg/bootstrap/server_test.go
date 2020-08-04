@@ -28,7 +28,6 @@ import (
 
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/testcerts"
 )
 
@@ -87,7 +86,7 @@ func TestReloadIstiodCert(t *testing.T) {
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.KeyFile, err)
 	}
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Validate that istiod cert is updated.
 	g.Eventually(func() bool {
@@ -102,6 +101,7 @@ func TestNewServer(t *testing.T) {
 		name           string
 		domain         string
 		expectedDomain string
+		secureGRPCport string
 	}{
 		{
 			name:           "default domain",
@@ -112,6 +112,12 @@ func TestNewServer(t *testing.T) {
 			name:           "override domain",
 			domain:         "mydomain.com",
 			expectedDomain: "mydomain.com",
+		},
+		{
+			name:           "override default secured grpc port",
+			domain:         "",
+			expectedDomain: constants.DefaultKubernetesDomain,
+			secureGRPCport: ":31128",
 		},
 	}
 
@@ -128,34 +134,26 @@ func TestNewServer(t *testing.T) {
 
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
-				p.DiscoveryOptions = DiscoveryServiceOptions{
+				p.ServerOptions = DiscoveryServerOptions{
 					// Dynamically assign all ports.
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
-					GrpcAddr:       ":0",
+					GRPCAddr:       ":0",
+					SecureGRPCAddr: c.secureGRPCport,
 				}
-				p.Config = ConfigArgs{
-					ControllerOptions: kubecontroller.Options{
+				p.RegistryOptions = RegistryOptions{
+					KubeOptions: kubecontroller.Options{
 						DomainSuffix: c.domain,
 					},
 					FileDir: configDir,
 				}
 
-				meshCfg := mesh.DefaultMeshConfig()
-				p.MeshConfig = &meshCfg
-
-				// Use the config store for service entries as well.
-				p.Service = ServiceArgs{
-					// A ServiceEntry registry is added by default, which is what we want. Don't include any other registries.
-					Registries: []string{},
-				}
-
-				// Include all of the default plugins for integration with Mixer, etc.
+				// Include all of the default plugins
 				p.Plugins = DefaultPlugins
 				p.ShutdownDuration = 1 * time.Millisecond
 			})
 
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			s, err := NewServer(args)
 			g.Expect(err).To(Succeed())
 

@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -38,7 +37,6 @@ import (
 func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "pass-through-filter-chain",
@@ -49,15 +47,14 @@ func TestPassThroughFilterChain(t *testing.T) {
 			}
 			policies := tmpl.EvaluateAllOrFail(t, args,
 				file.AsStringOrFail(t, "testdata/pass-through-filter-chain.yaml.tmpl"))
-			ctx.ApplyConfigOrFail(t, ns.Name(), policies...)
-			defer ctx.DeleteConfigOrFail(t, ns.Name(), policies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			newEchoConfig := func(service string) echo.Config {
 				return echo.Config{
 					Service:   service,
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
 					Ports: []echo.Port{
 						{
 							Name:     "grpc",
@@ -87,7 +84,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 			}
 
 			var x, a, b, c, d echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&x, newEchoConfig("x")).
 				With(&a, newEchoConfig("a")).
 				With(&b, newEchoConfig("b")).

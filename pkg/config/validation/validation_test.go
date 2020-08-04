@@ -23,14 +23,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
-
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -321,11 +317,9 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 
 	invalid := meshconfig.MeshConfig{
-		MixerCheckServer:  "10.0.0.100",
-		MixerReportServer: "10.0.0.100",
-		ProxyListenPort:   0,
-		ConnectTimeout:    types.DurationProto(-1 * time.Second),
-		DefaultConfig:     &meshconfig.ProxyConfig{},
+		ProxyListenPort: 0,
+		ConnectTimeout:  types.DurationProto(-1 * time.Second),
+		DefaultConfig:   &meshconfig.ProxyConfig{},
 	}
 
 	err := ValidateMeshConfig(&invalid)
@@ -356,7 +350,7 @@ func TestValidateProxyConfig(t *testing.T) {
 		StatsdUdpAddress:       "istio-statsd-prom-bridge.istio-system:9125",
 		EnvoyMetricsService:    &meshconfig.RemoteService{Address: "metrics-service.istio-system:15000"},
 		EnvoyAccessLogService:  &meshconfig.RemoteService{Address: "accesslog-service.istio-system:15000"},
-		ControlPlaneAuthPolicy: 1,
+		ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		Tracing:                nil,
 	}
 
@@ -660,428 +654,6 @@ func TestValidateProxyConfig(t *testing.T) {
 			}
 		default:
 			t.Errorf("expected a multi error as output")
-		}
-	}
-}
-
-var (
-	validService    = &mccpb.IstioService{Service: "*cnn.com"}
-	validAttributes = &mpb.Attributes{
-		Attributes: map[string]*mpb.Attributes_AttributeValue{
-			"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
-		},
-	}
-	invalidAttributes = &mpb.Attributes{
-		Attributes: map[string]*mpb.Attributes_AttributeValue{
-			"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{""}},
-		},
-	}
-)
-
-func TestValidateMixerAttributes(t *testing.T) {
-	cases := []struct {
-		name  string
-		in    *mpb.Attributes_AttributeValue
-		valid bool
-	}{
-		{"happy string",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{"my-service"}},
-			true},
-		{"invalid string",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringValue{""}},
-			false},
-		{"happy duration",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Seconds: 1}}},
-			true},
-		{"invalid duration",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_DurationValue{&types.Duration{Nanos: -1e9}}},
-			false},
-		{"happy bytes",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{[]byte{1, 2, 3}}},
-			true},
-		{"invalid bytes",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_BytesValue{[]byte{}}},
-			false},
-		{"happy timestamp",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{&types.Timestamp{}}},
-			true},
-		{"invalid timestamp",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{&types.Timestamp{Nanos: -1}}},
-			false},
-		{"nil timestamp",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_TimestampValue{nil}},
-			false},
-		{"happy stringmap",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{
-				&mpb.Attributes_StringMap{Entries: map[string]string{"foo": "bar"}}}},
-			true},
-		{"invalid stringmap",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{
-				&mpb.Attributes_StringMap{Entries: nil}}},
-			false},
-		{"nil stringmap",
-			&mpb.Attributes_AttributeValue{Value: &mpb.Attributes_AttributeValue_StringMapValue{nil}},
-			false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			attrs := &mpb.Attributes{
-				Attributes: map[string]*mpb.Attributes_AttributeValue{"key": c.in},
-			}
-			if got := ValidateMixerAttributes(attrs); (got == nil) != c.valid {
-				if c.valid {
-					t.Fatal("got error, wanted none")
-				} else {
-					t.Fatal("got no error, wanted one")
-				}
-			}
-		})
-	}
-}
-
-func TestValidateHTTPAPISpec(t *testing.T) {
-	var (
-		validPattern = &mccpb.HTTPAPISpecPattern{
-			Attributes: validAttributes,
-			HttpMethod: "POST",
-			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
-				UriTemplate: "/pet/{id}",
-			},
-		}
-		invalidPatternHTTPMethod = &mccpb.HTTPAPISpecPattern{
-			Attributes: validAttributes,
-			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
-				UriTemplate: "/pet/{id}",
-			},
-		}
-		invalidPatternURITemplate = &mccpb.HTTPAPISpecPattern{
-			Attributes: validAttributes,
-			HttpMethod: "POST",
-			Pattern:    &mccpb.HTTPAPISpecPattern_UriTemplate{},
-		}
-		invalidPatternRegex = &mccpb.HTTPAPISpecPattern{
-			Attributes: validAttributes,
-			HttpMethod: "POST",
-			Pattern:    &mccpb.HTTPAPISpecPattern_Regex{},
-		}
-		validAPIKey         = &mccpb.APIKey{Key: &mccpb.APIKey_Query{"api_key"}}
-		invalidAPIKeyQuery  = &mccpb.APIKey{Key: &mccpb.APIKey_Query{}}
-		invalidAPIKeyHeader = &mccpb.APIKey{Key: &mccpb.APIKey_Header{}}
-		invalidAPIKeyCookie = &mccpb.APIKey{Key: &mccpb.APIKey_Cookie{}}
-	)
-
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{
-			name: "missing pattern",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				ApiKeys:    []*mccpb.APIKey{validAPIKey},
-			},
-		},
-		{
-			name: "invalid pattern (bad attributes)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: invalidAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
-				ApiKeys:    []*mccpb.APIKey{validAPIKey},
-			},
-		},
-		{
-			name: "invalid pattern (bad http_method)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternHTTPMethod},
-				ApiKeys:    []*mccpb.APIKey{validAPIKey},
-			},
-		},
-		{
-			name: "invalid pattern (missing uri_template)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternURITemplate},
-				ApiKeys:    []*mccpb.APIKey{validAPIKey},
-			},
-		},
-		{
-			name: "invalid pattern (missing regex)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{invalidPatternRegex},
-				ApiKeys:    []*mccpb.APIKey{validAPIKey},
-			},
-		},
-		{
-			name: "invalid api-key (missing query)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
-				ApiKeys:    []*mccpb.APIKey{invalidAPIKeyQuery},
-			},
-		},
-		{
-			name: "invalid api-key (missing header)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
-				ApiKeys:    []*mccpb.APIKey{invalidAPIKeyHeader},
-			},
-		},
-		{
-			name: "invalid api-key (missing cookie)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
-				ApiKeys:    []*mccpb.APIKey{invalidAPIKeyCookie},
-			},
-		},
-		{
-			name: "valid",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: validAttributes,
-				Patterns:   []*mccpb.HTTPAPISpecPattern{validPattern},
-				ApiKeys:    []*mccpb.APIKey{validAPIKey},
-			},
-			valid: true,
-		},
-		{
-			name: "invalid attribute (nil)",
-			in: &mccpb.HTTPAPISpec{
-				Attributes: &mpb.Attributes{
-					Attributes: map[string]*mpb.Attributes_AttributeValue{"": nil},
-				},
-			},
-			valid: false,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateHTTPAPISpec(someName, someNamespace, c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateHTTPAPISpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
-func TestValidateHTTPAPISpecBinding(t *testing.T) {
-	var (
-		validHTTPAPISpecRef   = &mccpb.HTTPAPISpecReference{Name: "foo", Namespace: "bar"}
-		invalidHTTPAPISpecRef = &mccpb.HTTPAPISpecReference{Name: "foo", Namespace: "--bar"}
-	)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{
-			name: "no service",
-			in: &mccpb.HTTPAPISpecBinding{
-				Services: []*mccpb.IstioService{},
-				ApiSpecs: []*mccpb.HTTPAPISpecReference{validHTTPAPISpecRef},
-			},
-		},
-		{
-			name: "no spec",
-			in: &mccpb.HTTPAPISpecBinding{
-				Services: []*mccpb.IstioService{validService},
-				ApiSpecs: []*mccpb.HTTPAPISpecReference{},
-			},
-		},
-		{
-			name: "invalid spec",
-			in: &mccpb.HTTPAPISpecBinding{
-				Services: []*mccpb.IstioService{validService},
-				ApiSpecs: []*mccpb.HTTPAPISpecReference{invalidHTTPAPISpecRef},
-			},
-		},
-		{
-			name: "valid",
-			in: &mccpb.HTTPAPISpecBinding{
-				Services: []*mccpb.IstioService{validService},
-				ApiSpecs: []*mccpb.HTTPAPISpecReference{validHTTPAPISpecRef},
-			},
-			valid: true,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateHTTPAPISpecBinding(someName, someNamespace, c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateHTTPAPISpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
-func TestValidateQuotaSpec(t *testing.T) {
-	var (
-		validMatch = &mccpb.AttributeMatch{
-			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": {
-					MatchType: &mccpb.StringMatch_Exact{
-						Exact: "getPet",
-					},
-				},
-			},
-		}
-		invalidMatchExact = &mccpb.AttributeMatch{
-			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": {
-					MatchType: &mccpb.StringMatch_Exact{Exact: ""},
-				},
-			},
-		}
-		invalidMatchPrefix = &mccpb.AttributeMatch{
-			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": {
-					MatchType: &mccpb.StringMatch_Prefix{Prefix: ""},
-				},
-			},
-		}
-		invalidMatchRegex = &mccpb.AttributeMatch{
-			Clause: map[string]*mccpb.StringMatch{
-				"api.operation": {
-					MatchType: &mccpb.StringMatch_Regex{Regex: ""},
-				},
-			},
-		}
-		invalidQuota = &mccpb.Quota{
-			Quota:  "",
-			Charge: 0,
-		}
-		validQuota = &mccpb.Quota{
-			Quota:  "myQuota",
-			Charge: 2,
-		}
-	)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{
-			name: "no rules",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{}},
-			},
-		},
-		{
-			name: "invalid match (exact)",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{
-					Match:  []*mccpb.AttributeMatch{invalidMatchExact},
-					Quotas: []*mccpb.Quota{validQuota},
-				}},
-			},
-		},
-		{
-			name: "invalid match (prefix)",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{
-					Match:  []*mccpb.AttributeMatch{invalidMatchPrefix},
-					Quotas: []*mccpb.Quota{validQuota},
-				}},
-			},
-		},
-		{
-			name: "invalid match (regex)",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{
-					Match:  []*mccpb.AttributeMatch{invalidMatchRegex},
-					Quotas: []*mccpb.Quota{validQuota},
-				}},
-			},
-		},
-		{
-			name: "no quota",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{
-					Match:  []*mccpb.AttributeMatch{validMatch},
-					Quotas: []*mccpb.Quota{},
-				}},
-			},
-		},
-		{
-			name: "invalid quota/charge",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{
-					Match:  []*mccpb.AttributeMatch{validMatch},
-					Quotas: []*mccpb.Quota{invalidQuota},
-				}},
-			},
-		},
-		{
-			name: "valid",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{
-					Match:  []*mccpb.AttributeMatch{validMatch},
-					Quotas: []*mccpb.Quota{validQuota},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name: "regression test - nil clause",
-			in: &mccpb.QuotaSpec{
-				Rules: []*mccpb.QuotaRule{{
-					Match: []*mccpb.AttributeMatch{{
-						Clause: map[string]*mccpb.StringMatch{
-							"": nil,
-						},
-					}},
-				}},
-			},
-			valid: false,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateQuotaSpec(someName, someNamespace, c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateQuotaSpec(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
-func TestValidateQuotaSpecBinding(t *testing.T) {
-	var (
-		validQuotaSpecRef   = &mccpb.QuotaSpecBinding_QuotaSpecReference{Name: "foo", Namespace: "bar"}
-		invalidQuotaSpecRef = &mccpb.QuotaSpecBinding_QuotaSpecReference{Name: "foo", Namespace: "--bar"}
-	)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{
-			name: "no service",
-			in: &mccpb.QuotaSpecBinding{
-				Services:   []*mccpb.IstioService{},
-				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{validQuotaSpecRef},
-			},
-		},
-		{
-			name: "no spec",
-			in: &mccpb.QuotaSpecBinding{
-				Services:   []*mccpb.IstioService{validService},
-				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{},
-			},
-		},
-		{
-			name: "invalid spec",
-			in: &mccpb.QuotaSpecBinding{
-				Services:   []*mccpb.IstioService{validService},
-				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{invalidQuotaSpecRef},
-			},
-		},
-		{
-			name: "valid",
-			in: &mccpb.QuotaSpecBinding{
-				Services:   []*mccpb.IstioService{validService},
-				QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{validQuotaSpecRef},
-			},
-			valid: true,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateQuotaSpecBinding(someName, someNamespace, c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateQuotaSpecBinding(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 		}
 	}
 }
@@ -1476,6 +1048,137 @@ func TestValidateTlsOptions(t *testing.T) {
 				t.Fatalf("validateTlsOptions(%v) = %v, wanted %q", tt.in, err, tt.out)
 			}
 		})
+	}
+}
+
+func TestValidateTLS(t *testing.T) {
+	testCases := []struct {
+		name  string
+		tls   *networking.ClientTLSSettings
+		valid bool
+	}{
+		{
+			name: "SIMPLE: Credential Name set correctly",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "some credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: true,
+		},
+		{
+			name: "SIMPLE CredentialName set with ClientCertificate specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CredentialName set with PrivateKey specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "key",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "SIMPLE: CredentialName set with CACertficiates specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_SIMPLE,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "ca",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: Credential Name set correctly",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "some credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL CredentialName set with ClientCertificate specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName set with PrivateKey specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "key",
+				CaCertificates:    "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName set with CACertficiates specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				CredentialName:    "credential",
+				ClientCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "ca",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate and Key specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "cert",
+				PrivateKey:        "key",
+			},
+			valid: true,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate specified and Key missing",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "cert",
+				PrivateKey:        "",
+			},
+			valid: false,
+		},
+		{
+			name: "MUTUAL: CredentialName not set with ClientCertificate missing and Key specified",
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_MUTUAL,
+				ClientCertificate: "",
+				PrivateKey:        "key",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		if got := validateTLS(tc.tls); (got == nil) != tc.valid {
+			t.Errorf("ValidateTLS(%q) => got valid=%v, want valid=%v",
+				tc.name, got == nil, tc.valid)
+		}
 	}
 }
 
@@ -3573,261 +3276,6 @@ func TestValidateServiceEntries(t *testing.T) {
 	}
 }
 
-func TestValidateAuthenticationPolicy(t *testing.T) {
-	cases := []struct {
-		name       string
-		configName string
-		in         proto.Message
-		valid      bool
-	}{
-		{
-			name:       "empty policy with namespace-wide policy name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in:         &authn.Policy{},
-			valid:      true,
-		},
-		{
-			name:       "empty policy with non-default name",
-			configName: someName,
-			in:         &authn.Policy{},
-			valid:      false,
-		},
-		{
-			name:       "service-specific policy with namespace-wide name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: false,
-		},
-		{
-			name:       "Targets only policy",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Source mTLS",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Source JWT",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "Origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: true,
-		},
-		{
-			name:       "Bad JkwsURI",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Bad JkwsURI Port",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io:not-a-number/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Duplicate Jwt issuers",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Jwt{
-						// nolint: staticcheck
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				}},
-				// nolint: staticcheck
-				Origins: []*authn.OriginAuthenticationMethod{
-					{
-						Jwt: &authn.Jwt{
-							Issuer:     "istio.io",
-							JwksUri:    "https://secure.istio.io/oauth/v1/certs",
-							JwtHeaders: []string{"x-goog-iap-jwt-assertion"},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Just binding",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				PrincipalBinding: authn.PrincipalBinding_USE_ORIGIN,
-			},
-			valid: true,
-		},
-		{
-			name:       "Bad target name",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{
-					{
-						Name: "foo.bar",
-					},
-				},
-			},
-			valid: false,
-		},
-		{
-			name:       "Good target name",
-			configName: someName,
-			in: &authn.Policy{
-				// nolint: staticcheck
-				Targets: []*authn.TargetSelector{
-					{
-						Name: "good-service-name",
-					},
-				},
-			},
-			valid: true,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(c.configName, someNamespace, c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
-func TestValidateAuthenticationMeshPolicy(t *testing.T) {
-	cases := []struct {
-		name       string
-		configName string
-		in         proto.Message
-		valid      bool
-	}{
-		{
-			name:       "good name",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in:         &authn.Policy{},
-			valid:      true,
-		},
-		{
-			name:       "bad-name",
-			configName: someName,
-			in:         &authn.Policy{},
-			valid:      false,
-		},
-		{
-			name:       "has targets",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Targets: []*authn.TargetSelector{{
-					Name: "foo",
-				}},
-			},
-			valid: false,
-		},
-		{
-			name:       "good",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Peers: []*authn.PeerAuthenticationMethod{{
-					Params: &authn.PeerAuthenticationMethod_Mtls{},
-				}},
-			},
-			valid: true,
-		},
-		{
-			name:       "empty origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Origins: []*authn.OriginAuthenticationMethod{{}},
-			},
-			valid: false,
-		},
-		{
-			name:       "nil origin",
-			configName: constants.DefaultAuthenticationPolicyName,
-			in: &authn.Policy{
-				Origins: []*authn.OriginAuthenticationMethod{nil},
-			},
-			valid: false,
-		},
-	}
-	for _, c := range cases {
-		if got := ValidateAuthenticationPolicy(c.configName, "", c.in); (got == nil) != c.valid {
-			t.Errorf("ValidateAuthenticationPolicy(%v): got(%v) != want(%v): %v\n", c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
 func TestValidateAuthorizationPolicy(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -4456,56 +3904,6 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ValidateAuthorizationPolicy("", "", c.in); (got == nil) != c.valid {
 				t.Errorf("got: %v\nwant: %v", got, c.valid)
-			}
-		})
-	}
-}
-
-func TestValidateMixerService(t *testing.T) {
-	cases := []struct {
-		name  string
-		in    *mccpb.IstioService
-		valid bool
-	}{
-		{
-			name: "no name and service",
-			in:   &mccpb.IstioService{},
-		},
-		{
-			name: "specify both name and service",
-			in:   &mccpb.IstioService{Service: "test-service-service", Name: "test-service-name"},
-		},
-		{
-			name: "specify both namespace and service",
-			in:   &mccpb.IstioService{Service: "test-service-service", Namespace: "test-service-namespace"},
-		},
-		{
-			name: "specify both domain and service",
-			in:   &mccpb.IstioService{Service: "test-service-service", Domain: "test-service-domain"},
-		},
-		{
-			name: "invalid name label",
-			in:   &mccpb.IstioService{Name: strings.Repeat("x", 64)},
-		},
-		{
-			name: "invalid namespace label",
-			in:   &mccpb.IstioService{Name: "test-service-name", Namespace: strings.Repeat("x", 64)},
-		},
-		{
-			name: "invalid domain or labels",
-			in:   &mccpb.IstioService{Name: "test-service-name", Domain: strings.Repeat("x", 256)},
-		},
-		{
-			name:  "valid",
-			in:    validService,
-			valid: true,
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateMixerService(c.in); (got == nil) != c.valid {
-				t.Errorf("ValidateMixerService(%v): got(%v) != want(%v): %v", c.name, got == nil, c.valid, got)
 			}
 		})
 	}
@@ -5661,6 +5059,104 @@ func TestValidateMeshNetworks(t *testing.T) {
 			}
 			if err == nil && !tc.valid {
 				t.Errorf("expected an error on invalid meshnetworks: %v", *tc.mn)
+			}
+		})
+	}
+}
+
+func Test_validateExportTo(t *testing.T) {
+	tests := []struct {
+		name           string
+		namespace      string
+		exportTo       []string
+		isServiceEntry bool
+		wantErr        bool
+	}{
+		{
+			name:      "empty exportTo is okay",
+			namespace: "ns5",
+			wantErr:   false,
+		},
+		{
+			name:      "* is allowed",
+			namespace: "ns5",
+			exportTo:  []string{"*"},
+			wantErr:   false,
+		},
+		{
+			name:      ". and ns1 are allowed",
+			namespace: "ns5",
+			exportTo:  []string{".", "ns1"},
+			wantErr:   false,
+		},
+		{
+			name:      "bunch of namespaces in exportTo is okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1", "ns2", "ns5"},
+			wantErr:   false,
+		},
+		{
+			name:           "~ is allowed for service entry configs",
+			namespace:      "ns5",
+			exportTo:       []string{"~"},
+			isServiceEntry: true,
+			wantErr:        false,
+		},
+		{
+			name:      "~ not allowed for non service entry configs",
+			namespace: "ns5",
+			exportTo:  []string{"~", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:      ". and * together are not allowed",
+			namespace: "ns5",
+			exportTo:  []string{".", "*"},
+			wantErr:   true,
+		},
+		{
+			name:      "* and ns1 together are not allowed",
+			namespace: "ns5",
+			exportTo:  []string{"*", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:      ". and same namespace in exportTo is not okay",
+			namespace: "ns5",
+			exportTo:  []string{".", "ns5"},
+			wantErr:   true,
+		},
+		{
+			name:      "duplicate namespaces in exportTo is not okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1", "ns2", "ns1"},
+			wantErr:   true,
+		},
+		{
+			name:           "duplicate none in service entry exportTo is not okay",
+			namespace:      "ns5",
+			exportTo:       []string{"~", "~", "ns1"},
+			isServiceEntry: true,
+			wantErr:        true,
+		},
+		{
+			name:      "invalid namespace names are not okay",
+			namespace: "ns5",
+			exportTo:  []string{"ns1_"},
+			wantErr:   true,
+		},
+		{
+			name:           "none and other namespaces cannot be combined in service entry exportTo",
+			namespace:      "ns5",
+			exportTo:       []string{"~", "ns1"},
+			isServiceEntry: true,
+			wantErr:        true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateExportTo(tt.namespace, tt.exportTo, tt.isServiceEntry); (err != nil) != tt.wantErr {
+				t.Errorf("validateExportTo() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

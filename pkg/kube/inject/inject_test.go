@@ -32,6 +32,10 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 )
 
+var (
+	nullWarningHandler = func(_ string) {}
+)
+
 func TestIntoResourceFile(t *testing.T) {
 	cases := []struct {
 		in         string
@@ -40,16 +44,19 @@ func TestIntoResourceFile(t *testing.T) {
 		inFilePath string
 		mesh       func(m *meshapi.MeshConfig)
 	}{
-		//"testdata/hello.yaml" is tested in http_test.go (with debug)
+		// "testdata/hello.yaml" is tested in http_test.go (with debug)
 		{
 			in:   "hello.yaml",
 			want: "hello.yaml.injected",
 		},
 		// verify cni
 		{
-			in:       "hello.yaml",
-			want:     "hello.yaml.cni.injected",
-			setFlags: []string{"components.cni.enabled=true"},
+			in:   "hello.yaml",
+			want: "hello.yaml.cni.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+				"values.istio_cni.chained=true",
+			},
 		},
 		{
 			in:   "hello-mtls-not-ready.yaml",
@@ -235,6 +242,11 @@ func TestIntoResourceFile(t *testing.T) {
 			want: "status_annotations.yaml.injected",
 		},
 		{
+			// Verifies that the status annotations override the params.
+			in:   "status_annotations_zeroport.yaml",
+			want: "status_annotations_zeroport.yaml.injected",
+		},
+		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:   "kubevirtInterfaces.yaml",
 			want: "kubevirtInterfaces.yaml.injected",
@@ -274,6 +286,41 @@ func TestIntoResourceFile(t *testing.T) {
 			want:     "hello-mount-mtls-certs.yaml.injected",
 			setFlags: []string{`values.global.mountMtlsCerts=true`},
 		},
+		{
+			// Verifies that k8s.v1.cni.cncf.io/networks is set to istio-cni when not chained
+			in:   "hello.yaml",
+			want: "hello-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
+		{
+			// Verifies that istio-cni is appended to k8s.v1.cni.cncf.io/networks flat value if set
+			in:   "hello-existing-cncf-networks.yaml",
+			want: "hello-existing-cncf-networks.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
+		{
+			// Verifies that istio-cni is appended to k8s.v1.cni.cncf.io/networks JSON value
+			in:   "hello-existing-cncf-networks-json.yaml",
+			want: "hello-existing-cncf-networks-json.yaml.injected",
+			setFlags: []string{
+				`components.cni.enabled=true`,
+				`values.istio_cni.chained=false`,
+			},
+		},
+		{
+			// Verifies that HoldApplicationUntilProxyStarts in MeshConfig puts sidecar in front
+			in:   "hello.yaml",
+			want: "hello.proxyHoldsApplication.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
 	}
 
 	for i, c := range cases {
@@ -281,11 +328,10 @@ func TestIntoResourceFile(t *testing.T) {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			m := mesh.DefaultMeshConfig()
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, c.setFlags, c.inFilePath)
 			if c.mesh != nil {
-				c.mesh(&m)
+				c.mesh(m)
 			}
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, c.setFlags, c.inFilePath)
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -294,7 +340,7 @@ func TestIntoResourceFile(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got, nullWarningHandler); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -371,6 +417,21 @@ func TestRewriteAppProbe(t *testing.T) {
 			rewriteAppHTTPProbe: true,
 			want:                "ready_live.yaml.injected",
 		},
+		{
+			in:                  "startup_only.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_only.yaml.injected",
+		},
+		{
+			in:                  "startup_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_live.yaml.injected",
+		},
+		{
+			in:                  "startup_ready_live.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "startup_ready_live.yaml.injected",
+		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
 	}
@@ -378,8 +439,7 @@ func TestRewriteAppProbe(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			m := mesh.DefaultMeshConfig()
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, nil, "")
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
@@ -388,7 +448,7 @@ func TestRewriteAppProbe(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err != nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got, nullWarningHandler); err != nil {
 				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 			}
 
@@ -433,7 +493,7 @@ func TestInvalidAnnotations(t *testing.T) {
 	m := mesh.DefaultMeshConfig()
 	for _, c := range cases {
 		t.Run(c.annotation, func(t *testing.T) {
-			sidecarTemplate, valuesConfig := loadInjectionConfigMap(t, nil, "")
+			sidecarTemplate, valuesConfig, _ := loadInjectionSettings(t, nil, "")
 			inputFilePath := "testdata/inject/" + c.in
 			in, err := os.Open(inputFilePath)
 			if err != nil {
@@ -441,7 +501,7 @@ func TestInvalidAnnotations(t *testing.T) {
 			}
 			defer func() { _ = in.Close() }()
 			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got); err == nil {
+			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got, nullWarningHandler); err == nil {
 				t.Fatalf("expected error")
 			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
 				t.Fatalf("unexpected error: %v", err)
@@ -573,6 +633,61 @@ func TestCleanProxyConfig(t *testing.T) {
 			}
 			if !cmp.Equal(*roundTrip.GetDefaultConfig(), tt.proxy) {
 				t.Fatalf("round trip is not identical: got \n%+v, expected \n%+v", *roundTrip.GetDefaultConfig(), tt.proxy)
+			}
+		})
+	}
+}
+
+func TestAppendMultusNetwork(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "empty",
+			in:   "",
+			want: "istio-cni",
+		},
+		{
+			name: "flat-single",
+			in:   "macvlan-conf-1",
+			want: "macvlan-conf-1, istio-cni",
+		},
+		{
+			name: "flat-multiple",
+			in:   "macvlan-conf-1, macvlan-conf-2",
+			want: "macvlan-conf-1, macvlan-conf-2, istio-cni",
+		},
+		{
+			name: "json-single",
+			in:   `[{"name": "macvlan-conf-1"}]`,
+			want: `[{"name": "macvlan-conf-1"}, {"name": "istio-cni"}]`,
+		},
+		{
+			name: "json-multiple",
+			in:   `[{"name": "macvlan-conf-1"}, {"name": "macvlan-conf-2"}]`,
+			want: `[{"name": "macvlan-conf-1"}, {"name": "macvlan-conf-2"}, {"name": "istio-cni"}]`,
+		},
+		{
+			name: "json-multiline",
+			in: `[
+                   {"name": "macvlan-conf-1"},
+                   {"name": "macvlan-conf-2"}
+                   ]`,
+			want: `[
+                   {"name": "macvlan-conf-1"},
+                   {"name": "macvlan-conf-2"}
+                   , {"name": "istio-cni"}]`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			actual := appendMultusNetwork(tc.in, "istio-cni")
+			if actual != tc.want {
+				t.Fatalf("Unexpected result.\nExpected:\n%v\nActual:\n%v", tc.want, actual)
 			}
 		})
 	}

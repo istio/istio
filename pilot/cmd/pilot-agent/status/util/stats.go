@@ -63,7 +63,7 @@ func (s *Stats) String() string {
 
 // GetReadinessStats returns the current Envoy state by checking the "server.state" stat.
 func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, error) {
-	// If the localHostAddr was not set, we use 'localhost' to void emppty host in URL.
+	// If the localHostAddr was not set, we use 'localhost' to void empty host in URL.
 	if localHostAddr == "" {
 		localHostAddr = "localhost"
 	}
@@ -94,7 +94,7 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 
 // GetUpdateStatusStats returns the version stats for CDS and LDS.
 func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error) {
-	// If the localHostAddr was not set, we use 'localhost' to void emppty host in URL.
+	// If the localHostAddr was not set, we use 'localhost' to void empty host in URL.
 	if localHostAddr == "" {
 		localHostAddr = "localhost"
 	}

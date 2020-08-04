@@ -24,13 +24,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 )
 
 // execAndK8sConfigTestCase lets a test case hold some Envoy, Istio, and Kubernetes configuration
 type execAndK8sConfigTestCase struct {
-	configs    []model.Config   // Canned Istio configuration
 	k8sConfigs []runtime.Object // Canned K8s configuration
 	namespace  string
 
@@ -83,14 +81,15 @@ func verifyExecAndK8sConfigTestCaseTestOutput(t *testing.T, c execAndK8sConfigTe
 	t.Helper()
 
 	// Override the Istio config factory
-	clientFactory = mockClientFactoryGenerator(c.configs)
+	configStoreFactory = mockClientFactoryGenerator()
 
 	// Override the K8s config factory
 	interfaceFactory = mockInterfaceFactoryGenerator(c.k8sConfigs)
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 	if c.namespace != "" {
 		namespace = c.namespace
 	}

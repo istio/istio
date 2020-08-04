@@ -32,6 +32,7 @@ import (
 
 	iop "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/compare"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -76,8 +77,8 @@ type upgradeArgs struct {
 	skipConfirmation bool
 	// force means directly applying the upgrade without eligibility checks.
 	force bool
-	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
-	charts string
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 }
 
 // addUpgradeFlags adds upgrade related flags into cobra command
@@ -95,7 +96,8 @@ func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false,
 		"Apply the upgrade without eligibility checks")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 }
 
 // UpgradeCmd upgrades Istio control plane in-place with eligibility checks
@@ -131,9 +133,9 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
 	}
-	setFlags := applyFlagAliases(args.set, args.charts, "")
+	setFlags := applyFlagAliases(args.set, args.manifestsPath, "")
 	// Generate IOPS parseObjectSetFromManifest
-	targetIOPSYaml, targetIOPS, err := GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
+	targetIOPSYaml, targetIOPS, err := manifest.GenerateConfig(args.inFilenames, setFlags, args.force, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s, error: %s", args.inFilenames, err)
 	}
@@ -169,7 +171,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	// Read the overridden IOPS from args.inFilenames
 	overrideIOPSYaml := ""
 	if args.inFilenames != nil {
-		overrideIOPSYaml, err = ReadLayeredYAMLs(args.inFilenames)
+		overrideIOPSYaml, err = manifest.ReadLayeredYAMLs(args.inFilenames)
 		if err != nil {
 			return fmt.Errorf("failed to read override IOPS from file: %v, error: %v", args.inFilenames, err)
 		}
@@ -193,7 +195,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	} else {
 		currentSets = append(currentSets, "profile="+targetIOPS.Profile)
 	}
-	currentProfileIOPSYaml, _, err := genIOPSFromProfile(profile, "", currentSets, true, nil, l)
+	currentProfileIOPSYaml, _, err := manifest.GenIOPSFromProfile(profile, "", currentSets, true, nil, l)
 	if err != nil {
 		return fmt.Errorf("failed to generate Istio configs from file %s for the current version: %s, error: %v",
 			args.inFilenames, currentVersion, err)
@@ -203,26 +205,33 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	waitForConfirmation(args.skipConfirmation, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
-	err = ApplyManifests(applyFlagAliases(args.set, args.charts, ""), args.inFilenames, args.force, rootArgs.dryRun,
+	err = InstallManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
 		args.kubeConfigPath, args.context, args.readinessTimeout, l)
 	if err != nil {
 		return fmt.Errorf("failed to apply the Istio Control Plane specs. Error: %v", err)
 	}
 
-	// Waits for the upgrade to complete by periodically comparing the each
-	// component version to the target version.
-	err = waitUpgradeComplete(kubeClient, istioNamespace, targetVersion, l)
-	if err != nil {
-		return fmt.Errorf("failed to wait for the upgrade to complete. Error: %v", err)
+	if !rootArgs.dryRun {
+		// Waits for the upgrade to complete by periodically comparing the each
+		// component version to the target version.
+		err = waitUpgradeComplete(kubeClient, istioNamespace, targetVersion, l)
+		if err != nil {
+			return fmt.Errorf("failed to wait for the upgrade to complete. Error: %v", err)
+		}
+
+		// Read the upgraded Istio version from the the cluster
+		upgradeVer, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
+		if err != nil {
+			return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
+		}
+
+		l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
+	} else {
+		l.LogAndPrintf("Upgrade rollout completed. " +
+			"All Istio control plane pods are running on the target version.\n\n")
+		l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", targetVersion)
 	}
 
-	// Read the upgraded Istio version from the the cluster
-	upgradeVer, err := retrieveControlPlaneVersion(kubeClient, istioNamespace, l)
-	if err != nil {
-		return fmt.Errorf("failed to read the upgraded Istio version. Error: %v", err)
-	}
-
-	l.LogAndPrintf("Success. Now the Istio control plane is running at version %v.\n", upgradeVer)
 	l.LogAndPrintf(upgradeSidecarMessage)
 	return nil
 }
@@ -411,8 +420,6 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 		switch component {
 		case "statsd-prom-bridge":
 			continue
-		case "mixer":
-			component = pod.Labels["istio-mixer-type"]
 		}
 
 		server := ComponentVersion{

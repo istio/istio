@@ -32,7 +32,7 @@ func NewContext(goTest *testing.T, labels ...label.Instance) TestContext {
 }
 
 // newRootContext creates a new TestContext that has no parent. Delegates to the global runtime.
-func newRootContext(test *Test, goTest *testing.T, labels ...label.Instance) *testContext {
+func newRootContext(test *testImpl, goTest *testing.T, labels ...label.Instance) *testContext {
 	rtMu.Lock()
 	defer rtMu.Unlock()
 

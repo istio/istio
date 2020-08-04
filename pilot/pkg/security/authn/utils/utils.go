@@ -15,18 +15,24 @@
 package utils
 
 import (
-	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/spiffe"
+)
+
+const (
+	// Service account for Pilot (hardcoded values at setup time)
+	PilotSvcAccName string = "istio-pilot-service-account"
 )
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
@@ -39,7 +45,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 	meta := node.Metadata
 	var alpnIstioMatch *listener.FilterChainMatch
 	var ctx *tls.DownstreamTlsContext
-	if util.IsTCPMetadataExchangeEnabled(node) &&
+	if features.EnableTCPMetadataExchange &&
 		(listenerProtocol == networking.ListenerProtocolTCP || listenerProtocol == networking.ListenerProtocolAuto) {
 		alpnIstioMatch = &listener.FilterChainMatch{
 			ApplicationProtocols: util.ALPNInMeshWithMxc,
@@ -89,10 +95,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 				FilterChainMatch: alpnIstioMatch,
 				TLSContext:       ctx,
 				ListenerFilters: []*listener.ListenerFilter{
-					{
-						Name:       xdsutil.TlsInspector,
-						ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{})},
-					},
+					xdsfilters.TLSInspector,
 				},
 			},
 			{
@@ -101,4 +104,13 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		}
 	}
 	return nil
+}
+
+// GetSAN returns the SAN used for passed in identity for mTLS.
+func GetSAN(ns string, identity string) string {
+
+	if ns != "" {
+		return spiffe.MustGenSpiffeURI(ns, identity)
+	}
+	return spiffe.GenCustomSpiffe(identity)
 }

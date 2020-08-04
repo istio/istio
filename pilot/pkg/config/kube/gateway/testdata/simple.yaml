@@ -1,11 +1,11 @@
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
@@ -13,34 +13,32 @@ metadata:
 spec:
   class: istio
   listeners:
-  - name: primary
-    address:
-      type: NamedAddress
-      value: my.domain.example
+  - hostname:
+      match: Domain
+      name: domain.example
     port: 80
-    protocol: http
-  routes:
-  - group: networking.x-k8s.io/v1alpha1
-    resource: HTTPRoute
-    name: http
-  - group: networking.x-k8s.io/v1alpha1
-    resource: TcpRoute
-    name: tcp
+    protocol: HTTP
+    routes:
+      namespaceSelector: {}
+      routeSelector:
+        matchLabels:
+          selected: "yes"
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
 metadata:
   name: http
-  # TODO use different namespace
-  namespace: istio-system
+  namespace: default
+  labels:
+    selected: "yes"
 spec:
   hosts:
-  - hostname: "my.domain.example"
+  - hostnames: ["first.domain.example", "another.domain.example"]
     rules:
     - match:
         pathType: Prefix
         path: /get
-        header:
+        headers:
           my-header: some-value
       filter:
         headers:
@@ -49,14 +47,46 @@ spec:
           remove: [my-removed-header]
       action:
         forwardTo:
-          group: v1
-          resource: Service
-          name: httpbin
+          targetRef:
+            name: httpbin
+            group: ""
+            resource: ""
+  - hostnames: ["second.domain.example"]
+    rules:
+    - match:
+        pathType: Prefix
+        path: /second
+      action:
+        forwardTo:
+          targetRef:
+            name: httpbin-second
+            group: ""
+            resource: ""
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
+kind: HTTPRoute
+metadata:
+  name: http-not-selected
+  namespace: default
+  labels:
+    selected: "nope"
+spec:
+  hosts:
+  - hostnames: ["should.not.select"]
+    rules:
+    - match:
+        pathType: Prefix
+        path: /get
+      action:
+        forwardTo:
+          targetRef:
+            name: httpbin
+            group: ""
+            resource: ""
+---
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: TcpRoute
 metadata:
   name: tcp
-  # TODO use different namespace
-  namespace: istio-system
+  namespace: default
 spec: {}

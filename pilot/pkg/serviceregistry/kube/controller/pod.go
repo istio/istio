@@ -15,22 +15,16 @@
 package controller
 
 import (
-	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/listwatch"
+	"istio.io/istio/pilot/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
@@ -46,31 +40,23 @@ type PodCache struct {
 	// pod cache if a pod changes IP.
 	IPByPods map[string]string
 
+	// needResync is map of IP to endpoint names. This is used to requeue endpoint
+	// events when pod event comes. This typically happens when pod is not available
+	// in podCache when endpoint event comes.
+	needResync         map[string]sets.Set
+	queueEndpointEvent func(string)
+
 	c *Controller
 }
 
-func newPodCache(c *Controller, options Options) *PodCache {
-	namespaces := strings.Split(options.WatchedNamespaces, ",")
-
-	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.client.CoreV1().Pods(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.client.CoreV1().Pods(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &v1.Pod{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
+func newPodCache(c *Controller, informer coreinformers.PodInformer, queueEndpointEvent func(string)) *PodCache {
 	out := &PodCache{
-		informer: informer,
-		c:        c,
-		podsByIP: make(map[string]string),
-		IPByPods: make(map[string]string),
+		informer:           informer.Informer(),
+		c:                  c,
+		podsByIP:           make(map[string]string),
+		IPByPods:           make(map[string]string),
+		needResync:         make(map[string]sets.Set),
+		queueEndpointEvent: queueEndpointEvent,
 	}
 
 	return out
@@ -95,11 +81,10 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 	}
 
 	ip := pod.Status.PodIP
+
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
-
 	if len(ip) > 0 {
-		log.Debugf("Handling event %s for pod %s (%v) in namespace %s -> %v", ev, pod.Name, pod.Status.Phase, pod.Namespace, ip)
 		key := kube.KeyFunc(pod.Name, pod.Namespace)
 		switch ev {
 		case model.EventAdd:
@@ -116,19 +101,19 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				if pc.podsByIP[ip] == key {
 					pc.deleteIP(ip)
 				}
-				return nil
-			}
-			switch pod.Status.Phase {
-			case v1.PodPending, v1.PodRunning:
-				if key != pc.podsByIP[ip] {
-					// add to cache if the pod is running or pending
-					pc.update(ip, key)
-				}
+			} else {
+				switch pod.Status.Phase {
+				case v1.PodPending, v1.PodRunning:
+					if key != pc.podsByIP[ip] {
+						// add to cache if the pod is running or pending
+						pc.update(ip, key)
+					}
 
-			default:
-				// delete if the pod switched to other states and is in the cache
-				if pc.podsByIP[ip] == key {
-					pc.deleteIP(ip)
+				default:
+					// delete if the pod switched to other states and is in the cache
+					if pc.podsByIP[ip] == key {
+						pc.deleteIP(ip)
+					}
 				}
 			}
 		case model.EventDelete:
@@ -137,8 +122,33 @@ func (pc *PodCache) onEvent(curr interface{}, ev model.Event) error {
 				pc.deleteIP(ip)
 			}
 		}
+		// fire instance handles for workload
+		for _, handler := range pc.c.workloadHandlers {
+			ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(ip, 0, "")
+			handler(&model.WorkloadInstance{
+				Namespace: pod.Namespace,
+				Endpoint:  ep,
+				PortMap:   getPortMap(pod),
+			}, ev)
+		}
 	}
 	return nil
+}
+
+func getPortMap(pod *v1.Pod) map[string]uint32 {
+	pmap := map[string]uint32{}
+	for _, c := range pod.Spec.Containers {
+		for _, port := range c.Ports {
+			if port.Name == "" || port.Protocol != v1.ProtocolTCP {
+				continue
+			}
+			// First port wins, per Kubernetes (https://github.com/kubernetes/kubernetes/issues/54213)
+			if _, f := pmap[port.Name]; !f {
+				pmap[port.Name] = uint32(port.ContainerPort)
+			}
+		}
+	}
+	return pmap
 }
 
 func (pc *PodCache) deleteIP(ip string) {
@@ -155,7 +165,39 @@ func (pc *PodCache) update(ip, key string) {
 	pc.podsByIP[ip] = key
 	pc.IPByPods[key] = ip
 
+	if endpointsToUpdate, f := pc.needResync[ip]; f {
+		delete(pc.needResync, ip)
+		for ep := range endpointsToUpdate {
+			pc.queueEndpointEvent(ep)
+		}
+		endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
+	}
+
 	pc.proxyUpdates(ip)
+}
+
+// queueEndpointEventOnPodArrival registers this endpoint and queues endpoint event
+// when the corresponding pod arrives.
+func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
+	pc.Lock()
+	defer pc.Unlock()
+	if _, f := pc.needResync[ip]; !f {
+		pc.needResync[ip] = sets.NewSet(key)
+	} else {
+		pc.needResync[ip].Insert(key)
+	}
+	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
+}
+
+// endpointDeleted cleans up endpoint from resync endpoint list.
+func (pc *PodCache) endpointDeleted(key string, ip string) {
+	pc.Lock()
+	defer pc.Unlock()
+	delete(pc.needResync[ip], key)
+	if len(pc.needResync[ip]) == 0 {
+		delete(pc.needResync, ip)
+	}
+	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
 func (pc *PodCache) proxyUpdates(ip string) {
@@ -183,14 +225,4 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 		return nil
 	}
 	return item.(*v1.Pod)
-}
-
-// getPod loads the pod from k8s.
-func (pc *PodCache) getPod(name string, namespace string) *v1.Pod {
-	pod, err := pc.c.client.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		log.Warnf("failed to get pod %s/%s from kube-apiserver: %v", namespace, name, err)
-		return nil
-	}
-	return pod
 }

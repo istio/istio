@@ -17,17 +17,24 @@
 package cmd
 
 import (
-	"istio.io/istio/pilot/pkg/config/kube/crd/controller"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collections"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
+
+	kubecfg "istio.io/istio/pkg/kube"
 )
 
 var (
 	// Create a model.ConfigStore (or sortedConfigStore)
-	clientFactory = newClient
+	configStoreFactory = newConfigStore
 )
 
-func newClient() (model.ConfigStore, error) {
-	return controller.NewClient(kubeconfig, configContext, collections.Pilot,
-		"", &model.DisabledLedger{}, "")
+func newConfigStore() (istioclient.Interface, error) {
+	cfg, err := kubecfg.BuildClientConfig(kubeconfig, configContext)
+	if err != nil {
+		return nil, err
+	}
+	kclient, err := kubecfg.NewClient(kubecfg.NewClientConfigForRestConfig(cfg))
+	if err != nil {
+		return nil, err
+	}
+	return kclient.Istio(), nil
 }

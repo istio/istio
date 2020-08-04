@@ -19,12 +19,13 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/pkg/log"
 )
 
 func ApplyRouteConfigurationPatches(

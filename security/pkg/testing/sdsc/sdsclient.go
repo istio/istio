@@ -25,10 +25,10 @@ import (
 
 	"istio.io/pkg/log"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
@@ -41,7 +41,7 @@ import (
 type Client struct {
 	stream        sds.SecretDiscoveryService_StreamSecretsClient
 	conn          *grpc.ClientConn
-	updateChan    chan xdsapi.DiscoveryResponse
+	updateChan    chan *discovery.DiscoveryResponse
 	serverAddress string
 }
 
@@ -83,7 +83,7 @@ func NewClient(opt ClientOptions) (*Client, error) {
 	return &Client{
 		stream:        stream,
 		conn:          conn,
-		updateChan:    make(chan xdsapi.DiscoveryResponse, 1),
+		updateChan:    make(chan *discovery.DiscoveryResponse, 1),
 		serverAddress: opt.ServerAddress,
 	}, nil
 }
@@ -97,7 +97,7 @@ func (c *Client) Start() {
 				log.Errorf("Connection closed %v", err)
 				return
 			}
-			c.updateChan <- *msq
+			c.updateChan <- msq
 			log.Infof("Received response from sds server %v", msq)
 			if err := ValidateResponse(msq); err != nil {
 				log.Errorf("Failed to validate sds response %v", err)
@@ -113,12 +113,12 @@ func (c *Client) Stop() error {
 }
 
 // WaitForUpdate blocks until the error occurs or updates are pushed from the sds server.
-func (c *Client) WaitForUpdate(duration time.Duration) (*xdsapi.DiscoveryResponse, error) {
+func (c *Client) WaitForUpdate(duration time.Duration) (*discovery.DiscoveryResponse, error) {
 	t := time.NewTimer(duration)
 	for {
 		select {
 		case resp := <-c.updateChan:
-			return &resp, nil
+			return resp, nil
 		case <-t.C:
 			return nil, fmt.Errorf("timeout for updates")
 		}
@@ -130,7 +130,7 @@ func (c *Client) Send() error {
 	// TODO(incfly): just a place holder, need to follow xDS protocol.
 	// - Initial request version is empty.
 	// - Version & Nonce is needed for ack/rejecting.
-	return c.stream.Send(&xdsapi.DiscoveryRequest{
+	return c.stream.Send(&discovery.DiscoveryRequest{
 		VersionInfo: "",
 		Node: &core.Node{
 			Id: "sidecar~127.0.0.1~id2~local",
@@ -138,13 +138,13 @@ func (c *Client) Send() error {
 		ResourceNames: []string{
 			sdscache.WorkloadKeyCertResourceName,
 		},
-		TypeUrl: agent_sds.SecretType,
+		TypeUrl: agent_sds.SecretTypeV3,
 	})
 }
 
 // ValidateResponse validates the SDS response.
 // TODO(incfly): add more check around cert.
-func ValidateResponse(response *xdsapi.DiscoveryResponse) error {
+func ValidateResponse(response *discovery.DiscoveryResponse) error {
 	if response == nil {
 		return fmt.Errorf("discoveryResponse is empty")
 	}

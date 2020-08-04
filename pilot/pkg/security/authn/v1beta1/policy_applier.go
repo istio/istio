@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
-	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
+	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
+	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 )
 
 var (
@@ -79,8 +79,9 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
-	if proxyType != model.SidecarProxy {
+func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, istioMutualGateway bool,
+	config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+	if proxyType != model.SidecarProxy && !istioMutualGateway {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
 		return config
 	}
@@ -91,7 +92,20 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	p := config.Policy
 	p.Peers = []*authn_alpha.PeerAuthenticationMethod{}
 
-	effectiveMTLSMode := a.getMutualTLSModeForPort(port)
+	var effectiveMTLSMode model.MutualTLSMode
+	if proxyType == model.SidecarProxy {
+		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
+	} else {
+		// this is for gateway with a server whose TLS mode is ISTIO_MUTUAL
+		// this is effectively the same as strict mode. We dont really
+		// care about permissive or strict here. We simply need to validate that the peer cert is
+		// a proper spiffe cert so that authz policies can use source principal based validations here.
+		effectiveMTLSMode = model.MTLSStrict
+		// we should accept traffic from any trust domain. We expect the use of authZ policies to
+		// restrict which domains are actually allowed.
+		config.SkipValidateTrustDomain = true
+	}
+
 	if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
 		mode := authn_alpha.MutualTls_PERMISSIVE
 		if effectiveMTLSMode == model.MTLSStrict {
@@ -149,11 +163,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32, istioMutualGateway bool) *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with peer authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, filterConfigProto)
+	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, istioMutualGateway, filterConfigProto)
 	// Override the config with request authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
 
@@ -241,7 +255,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		jwtPubKey := jwtRule.Jwks
 		if jwtPubKey == "" {
 			var err error
-			jwtPubKey, err = model.JwtKeyResolver.GetPublicKey(jwtRule.JwksUri)
+			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
 			if err != nil {
 				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
 			}

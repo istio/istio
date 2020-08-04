@@ -13,6 +13,7 @@ spec:
           resources:
             requests:
               cpu: 111m
+              memory: 111Mi
       - name: user-ingressgateway
         enabled: true
         label:
@@ -22,6 +23,7 @@ spec:
           resources:
             requests:
               cpu: 222m
+              memory: 888Mi
       - namespace: user-ingressgateway-ns
         name: ilb-gateway
         enabled: true
@@ -46,5 +48,5 @@ spec:
             - kind: Deployment
               name: ilb-gateway
               patches:
-                - path: spec.template.spec.containers.[name:istio-proxy].volumeMounts.[name:ingressgateway-certs].name
-                  value: ilbgateway-certs # OVERRIDDEN
+                - path: spec.template.spec.containers.[name:istio-proxy].env.[name:PILOT_CERT_PROVIDER].value
+                  value: foobar # OVERRIDDEN

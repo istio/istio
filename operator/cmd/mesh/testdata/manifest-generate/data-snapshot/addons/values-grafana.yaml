@@ -14,6 +14,8 @@ podLabels:
 # Demo only, so we will have no authentication
 admin:
   existingSecret: true
+ldap:
+  existingSecret: true
 env:
   GF_SECURITY_ADMIN_USER: "-"
   GF_SECURITY_ADMIN_PASSWORD: "-"
@@ -24,6 +26,9 @@ env:
 # Expose on port 3000 to match the Istio docs
 service:
   port: 3000
+
+image:
+  tag: 7.0.5
 
 # Set up out dashboards
 dashboardProviders:

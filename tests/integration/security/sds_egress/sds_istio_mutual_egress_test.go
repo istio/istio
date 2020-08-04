@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/tests/integration/security/util"
 )
@@ -51,9 +50,7 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 	// Turn it back on once issue is fixed.
 	t.Skip("https://github.com/istio/istio/issues/17933")
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			ctx.RequireOrSkip(environment.Kube)
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -89,11 +86,11 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 func doIstioMutualTest(
 	ctx framework.TestContext, ns namespace.Instance, configPath, expectedResp string) {
 	var client echo.Instance
-	echoboot.NewBuilderOrFail(ctx, ctx).
-		With(&client, util.EchoConfig("client", ns, false, nil, p)).
+	echoboot.NewBuilder(ctx).
+		With(&client, util.EchoConfig("client", ns, false, nil)).
 		BuildOrFail(ctx)
-	ctx.ApplyConfigOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
-	defer ctx.DeleteConfigOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
+	ctx.Config().ApplyYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
+	defer ctx.Config().DeleteYAMLOrFail(ctx, ns.Name(), file.AsStringOrFail(ctx, configPath))
 
 	// give the configuration a moment to kick in
 	time.Sleep(time.Second * 20)
@@ -139,7 +136,7 @@ func applySetupConfig(ctx framework.TestContext, ns namespace.Instance) {
 	}
 
 	for _, c := range configFiles {
-		if err := ctx.ApplyConfig(ns.Name(), file.AsStringOrFail(ctx, c)); err != nil {
+		if err := ctx.Config().ApplyYAML(ns.Name(), file.AsStringOrFail(ctx, c)); err != nil {
 			ctx.Fatalf("failed to apply configuration file %s; err: %v", c, err)
 		}
 	}

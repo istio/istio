@@ -23,10 +23,10 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -148,12 +148,8 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-								MaxProgramSize: &wrappers.UInt32Value{
-									Value: uint32(maxRegExProgramSize),
-								},
-							}},
-							Regex: "*",
+							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
+							Regex:      "*",
 						},
 					},
 				},
@@ -167,12 +163,9 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-								MaxProgramSize: &wrappers.UInt32Value{
-									Value: uint32(maxRegExProgramSize),
-								},
-							}},
-							Regex: "*",
+							// nolint: staticcheck
+							EngineType: &matcher.RegexMatcher_GoogleRe2{},
+							Regex:      "*",
 						},
 					},
 					Headers: []*route.HeaderMatcher{
@@ -180,12 +173,9 @@ func TestIsCatchAllRoute(t *testing.T) {
 							Name: "Authentication",
 							HeaderMatchSpecifier: &route.HeaderMatcher_SafeRegexMatch{
 								SafeRegexMatch: &matcher.RegexMatcher{
-									EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-										MaxProgramSize: &wrappers.UInt32Value{
-											Value: uint32(maxRegExProgramSize),
-										},
-									}},
-									Regex: "*",
+									// nolint: staticcheck
+									EngineType: &matcher.RegexMatcher_GoogleRe2{},
+									Regex:      "*",
 								},
 							},
 						},
@@ -201,12 +191,9 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-								MaxProgramSize: &wrappers.UInt32Value{
-									Value: uint32(maxRegExProgramSize),
-								},
-							}},
-							Regex: "*",
+							// nolint: staticcheck
+							EngineType: &matcher.RegexMatcher_GoogleRe2{},
+							Regex:      "*",
 						},
 					},
 					QueryParameters: []*route.QueryParameterMatcher{
@@ -466,7 +453,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			},
 		},
 	}
-	if got := translateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
+	if got := translateCORSPolicy(corsPolicy, &model.Proxy{}); !reflect.DeepEqual(got, expectedCorsPolicy) {
 		t.Errorf("translateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
 	}
 }

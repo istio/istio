@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Prepare k8s. This can be used in multiple tests, to
@@ -109,12 +109,9 @@ func TestPodCache(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/20676
 func TestIPReuse(t *testing.T) {
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
 	defer c.Stop()
 	initTestEnv(t, c.client, fx)
-
-	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.serviceInformer.HasSynced, c.endpoints.HasSynced)
 
 	createPod(t, c, "128.0.0.1", "pod")
 	if p, f := c.pods.getPodKey("128.0.0.1"); !f || p != "ns/pod" {
@@ -156,14 +153,14 @@ func TestIPReuse(t *testing.T) {
 	}
 }
 
-func createPod(t *testing.T, c *Controller, ip, name string) {
+func createPod(t *testing.T, c *FakeController, ip, name string) {
 	addPods(t, c, generatePod(ip, name, "ns", "1", "", map[string]string{}, map[string]string{}))
 	if err := waitForPod(c, ip); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func waitForPod(c *Controller, ip string) error {
+func waitForPod(c *FakeController, ip string) error {
 	return wait.Poll(10*time.Millisecond, 5*time.Second, func() (bool, error) {
 		c.pods.RLock()
 		defer c.pods.RUnlock()
@@ -174,10 +171,17 @@ func waitForPod(c *Controller, ip string) error {
 	})
 }
 
+func waitForNode(c *FakeController, name string) error {
+	return retry.UntilSuccess(func() error {
+		_, err := c.nodeLister.Get(name)
+		return err
+	}, retry.Timeout(time.Second*5))
+}
+
 func testPodCache(t *testing.T) {
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{
-		mode:              EndpointsOnly,
-		watchedNamespaces: "nsa,nsb",
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{
+		Mode:              EndpointsOnly,
+		WatchedNamespaces: "nsa,nsb",
 	})
 	defer c.Stop()
 
@@ -188,12 +192,7 @@ func testPodCache(t *testing.T) {
 		generatePod("128.0.0.1", "cpod1", "nsa", "", "", map[string]string{"app": "test-app"}, map[string]string{}),
 		generatePod("128.0.0.2", "cpod2", "nsa", "", "", map[string]string{"app": "prod-app-1"}, map[string]string{}),
 		generatePod("128.0.0.3", "cpod3", "nsb", "", "", map[string]string{"app": "prod-app-2"}, map[string]string{}),
-
-		// Pods in namespaces not watched by the controller.
-		generatePod("128.0.0.4", "cpod4", "nsc", "", "", map[string]string{"app": "prod-app-3"}, map[string]string{}),
 	}
-	cache.WaitForCacheSync(c.stop, c.nodeMetadataInformer.HasSynced, c.pods.informer.HasSynced,
-		c.serviceInformer.HasSynced, c.endpoints.HasSynced)
 
 	for _, pod := range pods {
 		pod := pod
@@ -236,11 +235,11 @@ func testPodCache(t *testing.T) {
 // Checks that events from the watcher create the proper internal structures
 func TestPodCacheEvents(t *testing.T) {
 	t.Parallel()
-	c, fx := newFakeControllerWithOptions(fakeControllerOptions{mode: EndpointsOnly})
+	c, fx := NewFakeControllerWithOptions(FakeControllerOptions{Mode: EndpointsOnly})
 	defer c.Stop()
 
 	ns := "default"
-	podCache := newPodCache(c, Options{WatchedNamespaces: ns})
+	podCache := c.pods
 
 	f := podCache.onEvent
 

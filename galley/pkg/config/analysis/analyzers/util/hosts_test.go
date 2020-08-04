@@ -23,7 +23,7 @@ import (
 )
 
 func TestGetResourceNameFromHost(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// FQDN, same namespace
 	g.Expect(GetResourceNameFromHost("default", "foo.default.svc.cluster.local")).To(Equal(resource.NewFullName("default", "foo")))
@@ -36,7 +36,7 @@ func TestGetResourceNameFromHost(t *testing.T) {
 }
 
 func TestGetScopedFqdnHostname(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// FQDN, same namespace, local scope
 	g.Expect(NewScopedFqdn("default", "default", "foo.default.svc.cluster.local")).To(Equal(ScopedFqdn("default/foo.default.svc.cluster.local")))
@@ -68,7 +68,7 @@ func TestGetScopedFqdnHostname(t *testing.T) {
 }
 
 func TestScopedFqdn_GetScopeAndFqdn(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	ns, fqdn := ScopedFqdn("default/reviews.default.svc.cluster.local").GetScopeAndFqdn()
 	g.Expect(ns).To(Equal("default"))
@@ -81,4 +81,25 @@ func TestScopedFqdn_GetScopeAndFqdn(t *testing.T) {
 	ns, fqdn = ScopedFqdn("foo/*.xyz.abc").GetScopeAndFqdn()
 	g.Expect(ns).To(Equal("foo"))
 	g.Expect(fqdn).To(Equal("*.xyz.abc"))
+}
+
+func TestScopedFqdn_InScopeOf(t *testing.T) {
+	var tests = []struct {
+		ScFqdn    ScopedFqdn
+		Namespace string
+		Want      bool
+	}{
+		{"*/reviews.bookinfo.svc.cluster.local", "bookinfo", true},
+		{"*/reviews.bookinfo.svc.cluster.local", "foo", true},
+		{"./reviews.bookinfo.svc.cluster.local", "bookinfo", true},
+		{"./reviews.bookinfo.svc.cluster.local", "foo", false},
+		{"bookinfo/reviews.bookinfo.svc.cluster.local", "bookinfo", true},
+		{"bookinfo/reviews.bookinfo.svc.cluster.local", "foo", false},
+	}
+
+	for _, test := range tests {
+		if test.ScFqdn.InScopeOf(test.Namespace) != test.Want {
+			t.Errorf("%s is in the scope of %s: %t. It should be %t", test.ScFqdn, test.Namespace, !test.Want, test.Want)
+		}
+	}
 }

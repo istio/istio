@@ -21,7 +21,7 @@ import (
 )
 
 func TestIsExportToAllNamespaces(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Empty array
 	g.Expect(IsExportToAllNamespaces(nil)).To(Equal(true))

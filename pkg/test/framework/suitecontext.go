@@ -23,8 +23,8 @@ import (
 	"strings"
 	"sync"
 
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/features"
+	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -46,6 +46,7 @@ type suiteContext struct {
 	skipped bool
 
 	workDir string
+	yml.FileWriter
 
 	// context-level resources
 	globalScope *scope
@@ -70,11 +71,12 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		settings:     s,
 		globalScope:  newScope(scopeID, nil),
 		workDir:      workDir,
+		FileWriter:   yml.NewFileWriter(workDir),
 		suiteLabels:  labels,
 		contextNames: make(map[string]struct{}),
 	}
 
-	env, err := envFn(s.Environment, c)
+	env, err := envFn(c)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +135,12 @@ func (s *suiteContext) GetResource(ref interface{}) error {
 	return s.globalScope.get(ref)
 }
 
-// Environment implements ResourceContext
 func (s *suiteContext) Environment() resource.Environment {
 	return s.environment
+}
+
+func (s *suiteContext) Clusters() resource.Clusters {
+	return s.Environment().Clusters()
 }
 
 // Settings returns the current runtime.Settings.
@@ -172,52 +177,8 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
-func (s *suiteContext) ApplyConfig(ns string, yamlText ...string) error {
-	for _, c := range s.Environment().Clusters() {
-		if err := c.ApplyConfig(ns, yamlText...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *suiteContext) ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string) {
-	for _, c := range s.Environment().Clusters() {
-		c.ApplyConfigOrFail(t, ns, yamlText...)
-	}
-}
-
-func (s *suiteContext) DeleteConfig(ns string, yamlText ...string) error {
-	for _, c := range s.Environment().Clusters() {
-		if err := c.DeleteConfig(ns, yamlText...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *suiteContext) DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string) {
-	for _, c := range s.Environment().Clusters() {
-		c.DeleteConfigOrFail(t, ns, yamlText...)
-	}
-}
-
-func (s *suiteContext) ApplyConfigDir(ns string, configDir string) error {
-	for _, c := range s.Environment().Clusters() {
-		if err := c.ApplyConfigDir(ns, configDir); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *suiteContext) DeleteConfigDir(ns string, configDir string) error {
-	for _, c := range s.Environment().Clusters() {
-		if err := c.DeleteConfigDir(ns, configDir); err != nil {
-			return err
-		}
-	}
-	return nil
+func (s *suiteContext) Config(clusters ...resource.Cluster) resource.ConfigManager {
+	return newConfigManager(s, clusters)
 }
 
 type Outcome string
@@ -236,7 +197,7 @@ type TestOutcome struct {
 	FeatureLabels map[features.Feature][]string
 }
 
-func (s *suiteContext) registerOutcome(test *Test) {
+func (s *suiteContext) registerOutcome(test *testImpl) {
 	s.outcomeMu.Lock()
 	defer s.outcomeMu.Unlock()
 	o := Passed

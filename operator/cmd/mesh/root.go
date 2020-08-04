@@ -25,15 +25,18 @@ import (
 )
 
 const (
+	baseVersion    = binversion.OperatorCodeBaseVersion
+	releaseURL     = `https://github.com/istio/istio/releases/download/` + baseVersion + `/istio-` + baseVersion + `-linux-amd64.tar.gz`
 	setFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
 (--set profile=demo), enable or disable components (--set components.policy.enabled=true), or override Istio
 settings (--set values.grafana.enabled=true). See documentation for more info:
 https://istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec`
-	// ChartsFlagHelpStr is the command line description for --charts
-	ChartsFlagHelpStr = `Specify a path to a directory of charts and profiles
-(e.g. ~/Downloads/istio-1.6.0/manifests)
-or release tar URL (e.g. https://github.com/istio/istio/releases/download/1.6.0/istio-1.6.0-linux-amd64.tar.gz).
+	// ManifestsFlagHelpStr is the command line description for --manifests
+	ManifestsFlagHelpStr = `Specify a path to a directory of charts and profiles
+(e.g. ~/Downloads/istio-` + baseVersion + `/manifests)
+or release tar URL (e.g. ` + releaseURL + `).
 `
+	ChartsDeprecatedStr         = "Deprecated, use --manifests instead."
 	revisionFlagHelpStr         = `Target control plane revision for the command.`
 	skipConfirmationFlagHelpStr = `skipConfirmation determines whether the user is prompted for confirmation.
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`

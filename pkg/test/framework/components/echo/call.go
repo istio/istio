@@ -36,6 +36,9 @@ type CallOptions struct {
 	// port will be used (if feasible).
 	Scheme scheme.Instance
 
+	// If true, h2c will be used in HTTP requests
+	HTTP2 bool
+
 	// Host specifies the host to be used on the request. If not provided, an appropriate
 	// default is chosen for the target Instance.
 	Host string

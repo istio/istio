@@ -22,23 +22,19 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource/environment"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("cni", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(nil, func(cfg *istio.Config) {
+		Setup(istio.Setup(nil, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 components:
   cni:
      enabled: true
-     hub: gcr.io/istio-testing
-     tag: latest
      namespace: kube-system
 `
 		})).
@@ -56,19 +52,22 @@ func TestCNIReachability(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			kenv := ctx.Environment().(*kube.Environment)
 			cluster := kenv.KubeClusters[0]
-			_, err := cluster.WaitUntilPodsAreReady(cluster.NewSinglePodFetch("kube-system", "k8s-app=istio-cni-node"))
+			_, err := kube2.WaitUntilPodsAreReady(kube2.NewSinglePodFetch(cluster, "kube-system", "k8s-app=istio-cni-node"))
 			if err != nil {
 				ctx.Fatal(err)
 			}
-			rctx := reachability.CreateContext(ctx, pilot.NewOrFail(t, ctx, pilot.Config{}))
+			rctx := reachability.CreateContext(ctx, false)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
 				{
-					ConfigFile:          "global-mtls-on.yaml",
-					Namespace:           systemNM,
-					RequiredEnvironment: environment.Kube,
+					ConfigFile: "global-mtls-on.yaml",
+					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude headless naked service, because it is no sidecar
+						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
+							return false
+						}
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false

@@ -21,7 +21,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/golang/protobuf/ptypes"
 
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // GetDynamicListenerDump retrieves a listener dump with just dynamic active listeners in it
@@ -71,7 +71,7 @@ func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error)
 		return nil, err
 	}
 	listenerDump := &adminapi.ListenersConfigDump{}
-	err = ptypes.UnmarshalAny(&listenerDumpAny, listenerDump)
+	err = ptypes.UnmarshalAny(listenerDumpAny, listenerDump)
 	if err != nil {
 		return nil, err
 	}

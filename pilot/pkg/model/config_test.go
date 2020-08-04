@@ -22,7 +22,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
@@ -204,64 +204,6 @@ func TestConfigKey(t *testing.T) {
 	}
 }
 
-func TestResolveHostname(t *testing.T) {
-	cases := []struct {
-		meta model.ConfigMeta
-		svc  *mccpb.IstioService
-		want host.Name
-	}{
-		{
-			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &mccpb.IstioService{Name: "hello"},
-			want: "hello.default.svc.cluster.local",
-		},
-		{
-			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &mccpb.IstioService{Name: "hello",
-				Namespace: "default", Domain: "svc.cluster.local"},
-			want: "hello.default.svc.cluster.local",
-		},
-		{
-			meta: model.ConfigMeta{},
-			svc:  &mccpb.IstioService{Name: "hello"},
-			want: "hello",
-		},
-		{
-			meta: model.ConfigMeta{Namespace: "default"},
-			svc:  &mccpb.IstioService{Name: "hello"},
-			want: "hello.default",
-		},
-		{
-			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &mccpb.IstioService{Service: "reviews.service.consul"},
-			want: "reviews.service.consul",
-		},
-		{
-			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &mccpb.IstioService{Name: "hello", Service: "reviews.service.consul",
-				Namespace: "default", Domain: "svc.cluster.local"},
-			want: "reviews.service.consul",
-		},
-		{
-			meta: model.ConfigMeta{Namespace: "default", Domain: "cluster.local"},
-			svc:  &mccpb.IstioService{Service: "*cnn.com"},
-			want: "*cnn.com",
-		},
-		{
-			meta: model.ConfigMeta{Namespace: "foo", Domain: "foo"},
-			svc: &mccpb.IstioService{Name: "hello", Service: "*cnn.com",
-				Namespace: "default", Domain: "svc.cluster.local"},
-			want: "*cnn.com",
-		},
-	}
-
-	for _, test := range cases {
-		if got := model.ResolveHostname(test.meta, test.svc); got != test.want {
-			t.Errorf("ResolveHostname(%v, %v) => got %q, want %q", test.meta, test.svc, got, test.want)
-		}
-	}
-}
-
 func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
@@ -379,117 +321,11 @@ func (l *fakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 
-func TestIstioConfigStore_QuotaSpecByDestination(t *testing.T) {
-	ns := "ns1"
-	l := &fakeStore{
-		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Namespace: ns,
-						Domain:    "cluster.local",
-					},
-					Spec: &mccpb.QuotaSpecBinding{
-						Services: []*mccpb.IstioService{
-							{
-								Name:      "a",
-								Namespace: ns,
-							},
-						},
-						QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
-							{
-								Name: "request-count",
-							},
-							{
-								Name: "does-not-exist",
-							},
-						},
-					},
-				},
-			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "request-count",
-						Namespace: ns,
-					},
-					Spec: &mccpb.QuotaSpec{
-						Rules: []*mccpb.QuotaRule{
-							{
-								Quotas: []*mccpb.Quota{
-									{
-										Quota:  "requestcount",
-										Charge: 100,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	ii := model.MakeIstioStore(l)
-	cfgs := ii.QuotaSpecByDestination(host.Name("a." + ns + ".svc.cluster.local"))
-
-	if len(cfgs) != 1 {
-		t.Fatalf("did not find 1 matched quota")
-	}
-}
-
-func TestMatchesDestHost(t *testing.T) {
-	for _, tst := range []struct {
-		destinationHost string
-		svc             string
-		ans             bool
-	}{
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "myhost.ns.cluster.local",
-			ans:             true,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "*",
-			ans:             true,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "*.ns.*",
-			ans:             true,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "*.ns2.*",
-			ans:             false,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "myhost.ns2.cluster.local",
-			ans:             false,
-		},
-		{
-			destinationHost: "myhost.ns.cluster.local",
-			svc:             "ns.*.svc.cluster",
-			ans:             false,
-		},
-	} {
-		t.Run(fmt.Sprintf("%s-%s", tst.destinationHost, tst.svc), func(t *testing.T) {
-			ans := model.MatchesDestHost(tst.destinationHost, model.ConfigMeta{}, &mccpb.IstioService{
-				Service: tst.svc,
-			})
-			if ans != tst.ans {
-				t.Fatalf("want: %v, got: %v", tst.ans, ans)
-			}
-		})
-	}
-}
-
 func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 	ns := "ns1"
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): {
+			gvk.ServiceEntry: {
 				{
 					ConfigMeta: model.ConfigMeta{
 						Name:      "request-count-1",
@@ -502,26 +338,6 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 								Name:     "https",
 								Number:   443,
 								Protocol: "HTTP",
-							},
-						},
-					},
-				},
-			},
-			collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): {
-				{
-					ConfigMeta: model.ConfigMeta{
-						Name:      "request-count-2",
-						Namespace: ns,
-					},
-					Spec: &mccpb.QuotaSpec{
-						Rules: []*mccpb.QuotaRule{
-							{
-								Quotas: []*mccpb.Quota{
-									{
-										Quota:  "requestcount",
-										Charge: 100,
-									},
-								},
 							},
 						},
 					},
@@ -567,7 +383,7 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 
 	l := &fakeStore{
 		cfg: map[resource.GroupVersionKind][]model.Config{
-			collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): {gw1, gw2, gw3},
+			gvk.Gateway: {gw1, gw2, gw3},
 		},
 	}
 	ii := model.MakeIstioStore(l)

@@ -19,33 +19,27 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 	prom prometheus.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("sds_egress_workload_mtls_istio_mutual_test", m).
+		NewSuite(m).
 		Skip("https://github.com/istio/istio/issues/17933").
 		Label(label.CustomSetup).
-		RequireEnvironment(environment.Kube).
+
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
 			if prom, err = prometheus.New(ctx, prometheus.Config{}); err != nil {
 				return err
 			}

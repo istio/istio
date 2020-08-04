@@ -16,13 +16,12 @@ package networking
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/thrift_proxy/v2alpha1"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -43,7 +42,7 @@ const (
 )
 
 // ModelProtocolToListenerProtocol converts from a config.Protocol to its corresponding plugin.ListenerProtocol
-func ModelProtocolToListenerProtocol(node *model.Proxy, p protocol.Instance,
+func ModelProtocolToListenerProtocol(p protocol.Instance,
 	trafficDirection core.TrafficDirection) ListenerProtocol {
 	// If protocol sniffing is not enabled, the default value is TCP
 	if p == protocol.Unsupported {
@@ -94,6 +93,11 @@ type FilterChain struct {
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
+	// IstioMutualGateway is set only when this filter chain is part of a Gateway, and
+	// the Server corresponding to this filter chain is doing TLS termination with ISTIO_MUTUAL as the TLS mode.
+	// This allows the authN plugin to add the istio_authn filter to gateways in addition to sidecars.
+	IstioMutualGateway bool
+
 	// HTTP is the set of HTTP filters for this filter chain
 	HTTP []*http_conn.HttpFilter
 	// Thrift is the set of Thrift filters for this filter chain

@@ -42,7 +42,8 @@ func TestSetConnectionAgeCommandlineOptions(t *testing.T) {
 	ko.AttachCobraFlags(cmd)
 
 	buf := new(bytes.Buffer)
-	cmd.SetOutput(buf)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
 	sec := 1 * time.Second
 	cmd.SetArgs([]string{
 		fmt.Sprintf("--keepaliveMaxServerConnectionAge=%v", sec),

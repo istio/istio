@@ -90,6 +90,9 @@ func (s *scope) get(ref interface{}) error {
 	target := fmt.Sprintf("%v", targetT)
 	fmt.Printf("target: %s\n", target)
 	for _, res := range s.resources {
+		if res == nil {
+			continue
+		}
 		resVal := reflect.ValueOf(res)
 		if resVal.Type().AssignableTo(targetT) {
 			if refVal.Kind() == reflect.Slice {
@@ -99,6 +102,16 @@ func (s *scope) get(ref interface{}) error {
 				return nil
 			}
 		}
+	}
+
+	if s.parent != nil {
+		// either didn't find the value or need to continue filling the slice
+		return s.parent.get(ref)
+	}
+
+	if refVal.Kind() != reflect.Slice {
+		// didn't find the non-slice value
+		return fmt.Errorf("no %v in context", targetT)
 	}
 
 	return nil

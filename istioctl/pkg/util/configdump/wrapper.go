@@ -39,6 +39,7 @@ func (m *nonstrictResolver) Resolve(typeURL string) (proto.Message, error) {
 	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
 		mname = mname[slash+1:]
 	}
+	// nolint: staticcheck
 	mt := proto.MessageType(mname)
 	if mt == nil {
 		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types

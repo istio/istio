@@ -173,30 +173,6 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
-// BuildAddressV2 returns a SocketAddress with the given ip and port or uds.
-func BuildAddressV2(bind string, port uint32) *core.Address {
-	if port != 0 {
-		return &core.Address{
-			Address: &core.Address_SocketAddress{
-				SocketAddress: &core.SocketAddress{
-					Address: bind,
-					PortSpecifier: &core.SocketAddress_PortValue{
-						PortValue: port,
-					},
-				},
-			},
-		}
-	}
-
-	return &core.Address{
-		Address: &core.Address_Pipe{
-			Pipe: &core.Pipe{
-				Path: strings.TrimPrefix(bind, model.UnixAddressPrefix),
-			},
-		},
-	}
-}
-
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
 func BuildAddress(bind string, port uint32) *core.Address {
 	if port != 0 {
@@ -230,6 +206,7 @@ func MessageToAnyWithError(msg proto.Message) (*any.Any, error) {
 		return nil, err
 	}
 	return &any.Any{
+		// nolint: staticcheck
 		TypeUrl: "type.googleapis.com/" + proto.MessageName(msg),
 		Value:   b.Bytes(),
 	}, nil
@@ -274,6 +251,9 @@ func GogoDurationToDuration(d *types.Duration) *duration.Duration {
 // Envoy computes a hash of RDS to see if things have changed - hash is affected by order of elements in the filter. Therefore
 // we sort virtual hosts by name before handing them back so the ordering is stable across HTTP Route Configs.
 func SortVirtualHosts(hosts []*route.VirtualHost) {
+	if len(hosts) < 2 {
+		return
+	}
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
@@ -283,6 +263,12 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 func IsIstioVersionGE15(node *model.Proxy) bool {
 	return node.IstioVersion == nil ||
 		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 5, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE17 checks whether the given Istio version is greater than or equals 1.7.
+func IsIstioVersionGE17(node *model.Proxy) bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&model.IstioVersion{Major: 1, Minor: 7, Patch: -1}) >= 0
 }
 
 func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
@@ -295,11 +281,6 @@ func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
 
 func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
 	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
-// IsTCPMetadataExchangeEnabled checks whether Metadata Exchanged enabled for TCP using ALPN.
-func IsTCPMetadataExchangeEnabled(node *model.Proxy) bool {
-	return features.EnableTCPMetadataExchange && IsIstioVersionGE15(node)
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -379,14 +360,15 @@ func LbPriority(proxyLocality, endpointsLocality *core.Locality) int {
 }
 
 // return a shallow copy ClusterLoadAssignment
-func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) endpoint.ClusterLoadAssignment {
-	out := endpoint.ClusterLoadAssignment{}
+func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) *endpoint.ClusterLoadAssignment {
 	if original == nil {
-		return out
+		return nil
 	}
+	out := &endpoint.ClusterLoadAssignment{}
 
-	out = *original
-	out.Endpoints = cloneLocalityLbEndpoints(out.Endpoints)
+	out.ClusterName = original.ClusterName
+	out.Endpoints = cloneLocalityLbEndpoints(original.Endpoints)
+	out.Policy = original.Policy
 
 	return out
 }
@@ -395,56 +377,26 @@ func CloneClusterLoadAssignment(original *endpoint.ClusterLoadAssignment) endpoi
 func cloneLocalityLbEndpoints(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	out := make([]*endpoint.LocalityLbEndpoints, 0, len(endpoints))
 	for _, ep := range endpoints {
-		clone := *ep
+		clone := &endpoint.LocalityLbEndpoints{}
+		clone.Locality = ep.Locality
+		clone.LbEndpoints = ep.LbEndpoints
+		clone.Proximity = ep.Proximity
+		clone.Priority = ep.Priority
 		if ep.LoadBalancingWeight != nil {
 			clone.LoadBalancingWeight = &wrappers.UInt32Value{
 				Value: ep.GetLoadBalancingWeight().GetValue(),
 			}
 		}
-		out = append(out, &clone)
+		out = append(out, clone)
 	}
 	return out
 }
 
-// return a shallow copy LbEndpoint
-func CloneLbEndpoint(endpoint *endpoint.LbEndpoint) *endpoint.LbEndpoint {
-	if endpoint == nil {
-		return nil
-	}
-
-	clone := *endpoint
-	if endpoint.LoadBalancingWeight != nil {
-		clone.LoadBalancingWeight = &wrappers.UInt32Value{
-			Value: endpoint.GetLoadBalancingWeight().GetValue(),
-		}
-	}
-	return &clone
-}
-
 // BuildConfigInfoMetadata builds core.Metadata struct containing the
-// name.namespace of the config, the type, etc. Used by Mixer client
-// to generate attributes for policy and telemetry.
+// name.namespace of the config, the type, etc.
 func BuildConfigInfoMetadata(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
-	return &core.Metadata{
-		FilterMetadata: map[string]*pstruct.Struct{
-			IstioMetadataKey: {
-				Fields: map[string]*pstruct.Value{
-					"config": {
-						Kind: &pstruct.Value_StringValue{
-							StringValue: s,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func BuildConfigInfoMetadataV2(config model.ConfigMeta) *core.Metadata {
-	s := "/apis/" + config.Group + "/" + config.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.Type) + "/" + config.Name
+	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
+		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
 	return &core.Metadata{
 		FilterMetadata: map[string]*pstruct.Struct{
 			IstioMetadataKey: {
@@ -549,13 +501,8 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *model.PushContext) *core.Metadata {
-	if !push.IsMixerEnabled() {
-		// Only use UIDs when Mixer is enabled.
-		uid = ""
-	}
-
-	if uid == "" && network == "" && tlsMode == model.DisabledTLSModeLabel {
+func BuildLbEndpointMetadata(network string, tlsMode string, push *model.PushContext) *core.Metadata {
+	if network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}
 
@@ -563,13 +510,9 @@ func BuildLbEndpointMetadata(uid string, network string, tlsMode string, push *m
 		FilterMetadata: map[string]*pstruct.Struct{},
 	}
 
-	if uid != "" || network != "" {
+	if network != "" {
 		metadata.FilterMetadata[IstioMetadataKey] = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{},
-		}
-
-		if uid != "" {
-			metadata.FilterMetadata[IstioMetadataKey].Fields["uid"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: uid}}
 		}
 
 		if network != "" {

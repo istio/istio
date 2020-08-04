@@ -1,0 +1,29 @@
+{
+    "metric": {
+       "type": "istio.io/service/client/request_count",
+       "labels": {
+          "destination_canonical_revision": "v1",
+          "destination_canonical_service_name": "vm-server",
+          "destination_canonical_service_namespace": "{{ .EchoNamespace }}",
+          "destination_owner": "//compute.googleapis.com/some-creator",
+          "destination_port": "8090",
+          "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+          "destination_service_name": "server",
+          "destination_service_namespace": "{{ .EchoNamespace }}",
+          "destination_workload_name": "vm-server-v1",
+          "destination_workload_namespace": "{{ .EchoNamespace }}",
+          "mesh_uid": "test-mesh",
+          "request_operation": "GET",
+          "request_protocol": "http",
+          "response_code": "200",
+          "service_authentication_policy": "unknown",
+          "source_canonical_revision": "v1",
+          "source_canonical_service_name": "client",
+          "source_canonical_service_namespace": "{{ .EchoNamespace }}",
+          "source_owner": "kubernetes://apis/apps/v1/namespaces/{{ .EchoNamespace }}/deployments/client-v1",
+          "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+          "source_workload_name": "client-v1",
+          "source_workload_namespace": "{{ .EchoNamespace }}"
+       }
+    }
+}

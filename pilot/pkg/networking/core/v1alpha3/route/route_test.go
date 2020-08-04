@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/gogo/protobuf/types"
@@ -63,11 +64,19 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		DNSDomain:   "foo.com",
 		Metadata:    &model.NodeMetadata{},
 	}
+	node16 := &model.Proxy{
+		Type:         model.SidecarProxy,
+		IPAddresses:  []string{"1.1.1.1"},
+		ID:           "someID",
+		DNSDomain:    "foo.com",
+		Metadata:     &model.NodeMetadata{},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 6},
+	}
 
 	gatewayNames := map[string]bool{"some-gateway": true}
 
 	t.Run("for virtual service", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		os.Setenv("ISTIO_DEFAULT_REQUEST_TIMEOUT", "0ms")
 		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
@@ -88,7 +97,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with changed default timeout", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		dt := features.DefaultRequestTimeout
 		features.DefaultRequestTimeout = ptypes.DurationProto(1 * time.Second)
@@ -110,7 +119,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with timeout", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeout, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -128,7 +137,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with disabled timeout", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeoutDisabled, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -145,7 +154,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
 		for _, r := range routes {
@@ -158,7 +167,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with top level catch all route", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRouteWeightedDestination, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -172,7 +181,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with multi prefix catch all route", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllMultiPrefixRoute, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -186,7 +195,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with regex matching on URI", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -198,12 +207,29 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
-		g.Expect(routes[0].GetMatch().GetSafeRegex().GetGoogleRe2().GetMaxProgramSize().GetValue()).To(gomega.Equal(uint32(1024)))
+		// nolint: staticcheck
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetGoogleRe2().GetMaxProgramSize().GetValue()).To(gomega.Equal(uint32(0)))
+	})
 
+	t.Run("for virtual service with regex matching on URI with 1.6 proxy", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node16, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
+		// nolint: staticcheck
+		g.Expect(routes[0].GetMatch().GetSafeRegex().GetGoogleRe2().GetMaxProgramSize().GetValue()).To(gomega.Equal(uint32(1024)))
 	})
 
 	t.Run("for virtual service with regex matching on header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -218,7 +244,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -234,7 +260,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with presence matching on header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -251,7 +277,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with presence matching on header and without_header", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -272,7 +298,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cset := createVirtualServiceWithRegexMatchingForAllCasesOnHeader()
 
 		for _, c := range cset {
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 			routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, *c, serviceRegistry, 8080, gatewayNames)
 			// Valiate routes.
 			for _, r := range routes {
@@ -289,7 +315,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with source namespace matching", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		fooNode := *node
 		fooNode.Metadata = &model.NodeMetadata{
@@ -318,7 +344,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		ttl := types.Duration{Nanos: 100}
 		meshConfig := mesh.DefaultMeshConfig()
@@ -328,9 +354,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-					Name:    "acme",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "acme",
 				},
 				Spec: &networking.DestinationRule{
 					Host: "*.example.org",
@@ -374,7 +399,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with query param based ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
@@ -383,9 +408,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-					Name:    "acme",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "acme",
 				},
 				Spec: &networking.DestinationRule{
 					Host: "*.example.org",
@@ -425,13 +449,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with subsets with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		virtualService := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-				Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-				Name:    "acme",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "acme",
 			},
 			Spec: virtualServiceWithSubset,
 		}
@@ -443,9 +466,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-					Name:    "acme",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "acme",
 				},
 				Spec: &networking.DestinationRule{
 					Host:    "*.example.org",
@@ -476,11 +498,11 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
-		virtualService := model.Config{ConfigMeta: model.ConfigMeta{Type: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:    "acme",
+		virtualService := model.Config{ConfigMeta: model.ConfigMeta{
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme",
 		},
 			Spec: virtualServiceWithSubsetWithPortLevelSettings,
 		}
@@ -494,9 +516,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			{
 
 				ConfigMeta: model.ConfigMeta{
-					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-					Name:    "acme",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "acme",
 				},
 				Spec: portLevelDestinationRuleWithSubsetPolicy,
 			}})
@@ -523,22 +544,20 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("for virtual service with subsets and top level traffic policy with ring hash", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		virtualService := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-				Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-				Name:    "acme",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				Name:             "acme",
 			},
 			Spec: virtualServiceWithSubset,
 		}
 
 		cnfg := model.Config{
 			ConfigMeta: model.ConfigMeta{
-				Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-				Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-				Name:    "acme",
+				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				Name:             "acme",
 			},
 		}
 		rule := networkingDestinationRule
@@ -575,7 +594,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	})
 
 	t.Run("port selector based traffic policy", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
@@ -585,9 +604,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-					Name:    "acme",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "acme",
 				},
 				Spec: portLevelDestinationRule,
 			}})
@@ -614,8 +632,93 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(gomega.ConsistOf(hashPolicy))
 	})
 
+	t.Run("for header operations", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithHeaderOperations,
+			serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		r := routes[0]
+		g.Expect(len(r.RequestHeadersToAdd)).To(gomega.Equal(4))
+		g.Expect(len(r.ResponseHeadersToAdd)).To(gomega.Equal(4))
+		g.Expect(len(r.RequestHeadersToRemove)).To(gomega.Equal(2))
+		g.Expect(len(r.ResponseHeadersToRemove)).To(gomega.Equal(2))
+
+		g.Expect(r.RequestHeadersToAdd).To(gomega.Equal([]*core.HeaderValueOption{
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-req-set",
+					Value: "v1",
+				},
+				Append: &wrappers.BoolValue{Value: false},
+			},
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-req-add",
+					Value: "v2",
+				},
+				Append: &wrappers.BoolValue{Value: true},
+			},
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-route-req-set",
+					Value: "v1",
+				},
+				Append: &wrappers.BoolValue{Value: false},
+			},
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-route-req-add",
+					Value: "v2",
+				},
+				Append: &wrappers.BoolValue{Value: true},
+			},
+		}))
+		g.Expect(r.RequestHeadersToRemove).To(gomega.Equal([]string{"x-req-remove", "x-route-req-remove"}))
+
+		g.Expect(r.ResponseHeadersToAdd).To(gomega.Equal([]*core.HeaderValueOption{
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-resp-set",
+					Value: "v1",
+				},
+				Append: &wrappers.BoolValue{Value: false},
+			},
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-resp-add",
+					Value: "v2",
+				},
+				Append: &wrappers.BoolValue{Value: true},
+			},
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-route-resp-set",
+					Value: "v1",
+				},
+				Append: &wrappers.BoolValue{Value: false},
+			},
+			{
+				Header: &core.HeaderValue{
+					Key:   "x-route-resp-add",
+					Value: "v2",
+				},
+				Append: &wrappers.BoolValue{Value: true},
+			},
+		}))
+		g.Expect(r.ResponseHeadersToRemove).To(gomega.Equal([]string{"x-resp-remove", "x-route-resp-remove"}))
+	})
+
 	t.Run("for redirect code", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirect,
 			serviceRegistry, 8080, gatewayNames)
@@ -632,8 +735,33 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).NotTo(gomega.BeFalse())
 		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 	})
+
+	t.Run("for redirect and header manipulation", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirectAndSetHeader,
+			serviceRegistry, 8080, gatewayNames)
+		// Valiate routes.
+		for _, r := range routes {
+			if err := r.Validate(); err != nil {
+				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
+			}
+		}
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(len(routes)).To(gomega.Equal(1))
+
+		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).NotTo(gomega.BeFalse())
+		g.Expect(redirectAction.Redirect.ResponseCode).To(gomega.Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
+		g.Expect(len(routes[0].ResponseHeadersToAdd)).To(gomega.Equal(1))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Append.Value).To(gomega.BeFalse())
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Key).To(gomega.Equal("Strict-Transport-Security"))
+		g.Expect(routes[0].ResponseHeadersToAdd[0].Header.Value).To(gomega.Equal("max-age=31536000; includeSubDomains; preload"))
+
+	})
+
 	t.Run("for no virtualservice but has destinationrule with consistentHash loadbalancer", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Mesh: &meshConfig,
@@ -641,9 +769,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-					Name:    "acme",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "acme",
 				},
 				Spec: networkingDestinationRule,
 			}})
@@ -651,7 +778,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(gomega.BeNil())
 	})
 	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
-		g := gomega.NewGomegaWithT(t)
+		g := gomega.NewWithT(t)
 		meshConfig := mesh.DefaultMeshConfig()
 		push := &model.PushContext{
 			Mesh: &meshConfig,
@@ -659,9 +786,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]model.Config{
 			{
 				ConfigMeta: model.ConfigMeta{
-					Type:    collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Kind(),
-					Version: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().Version(),
-					Name:    "acme",
+					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+					Name:             "acme",
 				},
 				Spec: networkingDestinationRuleWithPortLevelTrafficPolicy,
 			}})
@@ -735,9 +861,8 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 
 var virtualServicePlain = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -762,9 +887,8 @@ var virtualServicePlain = model.Config{
 
 var virtualServiceWithTimeout = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -792,9 +916,8 @@ var virtualServiceWithTimeout = model.Config{
 
 var virtualServiceWithTimeoutDisabled = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -822,9 +945,8 @@ var virtualServiceWithTimeoutDisabled = model.Config{
 
 var virtualServiceWithCatchAllRoute = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -867,9 +989,8 @@ var virtualServiceWithCatchAllRoute = model.Config{
 
 var virtualServiceWithCatchAllMultiPrefixRoute = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -915,9 +1036,8 @@ var virtualServiceWithCatchAllMultiPrefixRoute = model.Config{
 
 var virtualServiceWithCatchAllRouteWeightedDestination = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{"headers.test.istio.io"},
@@ -964,11 +1084,58 @@ var virtualServiceWithCatchAllRouteWeightedDestination = model.Config{
 	},
 }
 
+var virtualServiceWithHeaderOperations = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{"headers.test.istio.io"},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host:   "c-weighted.extsvc.com",
+							Subset: "v1",
+						},
+						Headers: &networking.Headers{
+							Request: &networking.Headers_HeaderOperations{
+								Set:    map[string]string{"x-route-req-set": "v1"},
+								Add:    map[string]string{"x-route-req-add": "v2"},
+								Remove: []string{"x-route-req-remove"},
+							},
+							Response: &networking.Headers_HeaderOperations{
+								Set:    map[string]string{"x-route-resp-set": "v1"},
+								Add:    map[string]string{"x-route-resp-add": "v2"},
+								Remove: []string{"x-route-resp-remove"},
+							},
+						},
+						Weight: 100,
+					},
+				},
+				Headers: &networking.Headers{
+					Request: &networking.Headers_HeaderOperations{
+						Set:    map[string]string{"x-req-set": "v1"},
+						Add:    map[string]string{"x-req-add": "v2"},
+						Remove: []string{"x-req-remove"},
+					},
+					Response: &networking.Headers_HeaderOperations{
+						Set:    map[string]string{"x-resp-set": "v1"},
+						Add:    map[string]string{"x-resp-add": "v2"},
+						Remove: []string{"x-resp-remove"},
+					},
+				},
+			},
+		},
+	},
+}
+
 var virtualServiceWithRedirect = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -985,11 +1152,37 @@ var virtualServiceWithRedirect = model.Config{
 	},
 }
 
+var virtualServiceWithRedirectAndSetHeader = model.Config{
+	ConfigMeta: model.ConfigMeta{
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 var virtualServiceWithRegexMatchingOnURI = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -1018,9 +1211,8 @@ var virtualServiceWithRegexMatchingOnURI = model.Config{
 
 var virtualServiceWithRegexMatchingOnHeader = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -1054,9 +1246,8 @@ func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*model.Config 
 	regex := "*"
 	ret = append(ret, &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-			Name:    "acme",
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "acme",
 		},
 		Spec: &networking.VirtualService{
 			Hosts:    []string{},
@@ -1090,9 +1281,8 @@ func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*model.Config 
 
 var virtualServiceWithRegexMatchingOnWithoutHeader = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -1123,9 +1313,8 @@ var virtualServiceWithRegexMatchingOnWithoutHeader = model.Config{
 
 var virtualServiceWithPresentMatchingOnHeader = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -1152,9 +1341,8 @@ var virtualServiceWithPresentMatchingOnHeader = model.Config{
 
 var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts:    []string{},
@@ -1181,9 +1369,8 @@ var virtualServiceWithPresentMatchingOnWithoutHeader = model.Config{
 
 var virtualServiceMatchingOnSourceNamespace = model.Config{
 	ConfigMeta: model.ConfigMeta{
-		Type:    collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-		Version: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Version(),
-		Name:    "acme",
+		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+		Name:             "acme",
 	},
 	Spec: &networking.VirtualService{
 		Hosts: []string{},
@@ -1327,6 +1514,7 @@ var networkingSubsetWithPortLevelSettings = &networking.Subset{
 }
 
 func TestCombineVHostRoutes(t *testing.T) {
+	// nolint: staticcheck
 	regexEngine := &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(10),

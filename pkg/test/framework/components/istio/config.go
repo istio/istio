@@ -82,7 +82,7 @@ type Config struct {
 	// The namespace in which config, discovery and auto-injector are deployed.
 	ConfigNamespace string
 
-	// The namespace in which mixer, kiali, tracing providers, graphana, prometheus are deployed.
+	// The namespace in which kiali, tracing providers, graphana, prometheus are deployed.
 	TelemetryNamespace string
 
 	// The namespace in which istio policy checker is deployed.
@@ -105,7 +105,14 @@ type Config struct {
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
+	// These values are applied to non-remote clusters
 	ControlPlaneValues string
+
+	// Override values specifically for the ICP crd
+	// This is mostly required for cases where --set cannot be used
+	// These values are only applied to remote clusters
+	// Default value will be ControlPlaneValues if no remote values provided
+	RemoteClusterValues string
 
 	// Overrides for the Helm values file.
 	Values map[string]string
@@ -122,10 +129,10 @@ type Config struct {
 	CustomSidecarInjectorNamespace string
 }
 
-func (c *Config) IstioOperatorConfigYAML() string {
+func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
 	data := ""
-	if c.ControlPlaneValues != "" {
-		data = Indent(c.ControlPlaneValues, "  ")
+	if iopYaml != "" {
+		data = Indent(iopYaml, "  ")
 	}
 
 	s, err := image.SettingsFromCommandLine()

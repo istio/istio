@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"io/ioutil"
 	"reflect"
 	"testing"
@@ -28,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"istio.io/istio/security/pkg/k8s/configmap"
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
@@ -97,11 +95,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	rootCertFile := ""
 	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 		maxCertTTL, org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, false)
+		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -150,21 +149,6 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	if !signingCertFromSecret.Equal(signingCert) {
 		t.Error("CA signing cert does not match the K8s secret")
 	}
-
-	// Check the siging cert stored in K8s configmap.
-	cmc := configmap.NewController(caNamespace, client.CoreV1())
-	strCertFromConfigMap, err := cmc.GetCATLSRootCert()
-	if err != nil {
-		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
-	}
-	_, _, _, cert := ca.GetCAKeyCertBundle().GetAllPem()
-	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
-	if err != nil {
-		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
-	}
-	if !bytes.Equal(cert, certFromConfigMap) {
-		t.Errorf("The cert in configmap is not equal to the CA signing cert: %v VS (expected) %v", certFromConfigMap, cert)
-	}
 }
 
 func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
@@ -188,11 +172,12 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	caNamespace := "default"
 	const rootCertFile = ""
 	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
 		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
 		org, false, caNamespace, -1, client.CoreV1(),
-		rootCertFile, false)
+		rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -223,21 +208,6 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	if len(certChainBytesFromCA) != 0 {
 		t.Errorf("Cert chain should be empty")
 	}
-
-	// Check the siging cert stored in K8s configmap.
-	cmc := configmap.NewController(caNamespace, client.CoreV1())
-	strCertFromConfigMap, err := cmc.GetCATLSRootCert()
-	if err != nil {
-		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
-	}
-	_, _, _, cert := ca.GetCAKeyCertBundle().GetAllPem()
-	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
-	if err != nil {
-		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
-	}
-	if !bytes.Equal(cert, certFromConfigMap) {
-		t.Errorf("The cert in configmap is not equal to the CA signing cert: %v VS (expected) %v", certFromConfigMap, cert)
-	}
 }
 
 func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
@@ -253,6 +223,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	caNamespace := "default"
 	const rootCertFile = ""
 	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
 
 	client := fake.NewSimpleClientset()
 
@@ -262,7 +233,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
+		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err == nil {
 		t.Errorf("Expected error, but succeeded.")
 	} else if err.Error() != expectedErr {
@@ -281,7 +252,7 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	defer cancel1()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
 		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
-		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false)
+		caNamespace, time.Millisecond*10, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -319,19 +290,18 @@ func TestCreatePluggedCertCA(t *testing.T) {
 	certChainFile := "../testdata/multilevelpki/int2-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
-	caNamespace := "default"
+	rsaKeySize := 2048
 
-	defaultWorkloadCertTTL := 30 * time.Minute
+	defaultWorkloadCertTTL := 99999 * time.Hour
 	maxWorkloadCertTTL := time.Hour
 
-	client := fake.NewSimpleClientset()
-
 	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
 
+	t0 := time.Now()
 	ca, err := NewIstioCA(caopts)
 	if err != nil {
 		t.Errorf("Got error while creating plugged-cert CA: %v", err)
@@ -354,19 +324,17 @@ func TestCreatePluggedCertCA(t *testing.T) {
 		t.Errorf("Failed to verify loading of root cert pem.")
 	}
 
-	// Check the siging cert stored in K8s configmap.
-	cmc := configmap.NewController(caNamespace, client.CoreV1())
-	strCertFromConfigMap, err := cmc.GetCATLSRootCert()
+	certChain, err := util.ParsePemEncodedCertificate(certChainBytes)
 	if err != nil {
-		t.Errorf("Cannot get the CA cert from configmap (%v)", err)
+		t.Fatalf("Failed to parse cert chain pem.")
 	}
-	_, _, cert, _ := ca.GetCAKeyCertBundle().GetAllPem()
-	certFromConfigMap, err := base64.StdEncoding.DecodeString(strCertFromConfigMap)
-	if err != nil {
-		t.Errorf("Cannot decode the CA cert from configmap (%v)", err)
-	}
-	if !bytes.Equal(cert, certFromConfigMap) {
-		t.Errorf("The cert in configmap is not equal to the CA signing cert: %v VS (expected) %v", certFromConfigMap, cert)
+	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens
+	delta := certChain.NotAfter.Sub(t0.Add(ca.defaultCertTTL))
+	if delta >= time.Second*2 {
+		t.Errorf("Invalid default cert TTL, should be the same as cert chain: %v VS (expected) %v",
+			t0.Add(ca.defaultCertTTL),
+			certChain.NotAfter)
 	}
 }
 
@@ -596,15 +564,13 @@ func TestSignWithCertChain(t *testing.T) {
 	certChainFile := "../testdata/multilevelpki/int-cert-chain.pem"
 	signingCertFile := "../testdata/multilevelpki/int-cert.pem"
 	signingKeyFile := "../testdata/multilevelpki/int-key.pem"
-	caNamespace := "default"
+	rsaKeySize := 2048
 
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := time.Hour
 
-	client := fake.NewSimpleClientset()
-
 	caopts, err := NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile,
-		defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+		defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
 	}
@@ -663,16 +629,13 @@ func TestGenKeyCert(t *testing.T) {
 			signingKeyFile:  "../testdata/multilevelpki/ecc-int-key.pem",
 		},
 	}
-	caNamespace := "default"
-
 	defaultWorkloadCertTTL := 30 * time.Minute
 	maxWorkloadCertTTL := 3650 * 24 * time.Hour
+	rsaKeySize := 2048
 
 	for id, tc := range cases {
-		client := fake.NewSimpleClientset()
-
 		caopts, err := NewPluggedCertIstioCAOptions(tc.certChainFile, tc.signingCertFile, tc.signingKeyFile, tc.rootCertFile,
-			defaultWorkloadCertTTL, maxWorkloadCertTTL, caNamespace, client.CoreV1())
+			defaultWorkloadCertTTL, maxWorkloadCertTTL, rsaKeySize)
 		if err != nil {
 			t.Fatalf("%s: failed to create a plugged-cert CA Options: %v", id, err)
 		}

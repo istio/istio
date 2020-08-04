@@ -1,0 +1,28 @@
+{
+  "cniVersion": "0.3.1",
+  "name": "k8s-pod-network",
+  "plugins": [
+    {
+      "etcd_endpoints": "http://10.110.0.136:6666",
+      "ipam": {
+        "type": "calico-ipam"
+      },
+      "kubernetes": {
+        "kubeconfig": "/etc/cni/net.d/calico-kubeconfig"
+      },
+      "log_level": "info",
+      "mtu": 1500,
+      "policy": {
+        "type": "k8s"
+      },
+      "type": "calico"
+    },
+    {
+      "capabilities": {
+        "portMappings": true
+      },
+      "snat": true,
+      "type": "portmap"
+    }
+  ]
+}

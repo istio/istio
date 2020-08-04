@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"time"
 
+	"istio.io/istio/pkg/test/scopes"
+
 	"github.com/docker/docker/api/types"
 	dockerContainer "github.com/docker/docker/api/types/container"
 	dockerNetwork "github.com/docker/docker/api/types/network"
@@ -29,8 +31,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pkg/test/scopes"
 )
 
 type ContainerPort int
@@ -81,7 +81,7 @@ func NewContainer(dockerClient *client.Client, config ContainerConfig) (*Contain
 	}
 	networkName := config.Network.Name
 
-	scopes.CI.Infof("Creating Docker container for image %s in network %s", config.Image, networkName)
+	scopes.Framework.Infof("Creating Docker container for image %s in network %s", config.Image, networkName)
 	exposedPorts := make(nat.PortSet)
 	for k := range config.PortMap {
 		exposedPorts[toNatPort(k)] = struct{}{}
@@ -144,7 +144,7 @@ func NewContainer(dockerClient *client.Client, config ContainerConfig) (*Contain
 		}
 		config.PortMap[ContainerPort(port.Int())] = HostPort(hp)
 	}
-	scopes.CI.Infof("Docker container %s (image=%s) created in network %s", resp.ID, config.Image, networkName)
+	scopes.Framework.Infof("Docker container %s (image=%s) created in network %s", resp.ID, config.Image, networkName)
 	return c, nil
 }
 
@@ -228,7 +228,7 @@ func (c *Container) Logs() (string, error) {
 
 // Close stops and removes this container.
 func (c *Container) Close() error {
-	scopes.CI.Infof("Closing Docker container %s", c.id)
+	scopes.Framework.Infof("Closing Docker container %s", c.id)
 	// docker stop will send SIGTERM to the root process. In our case, this is the echo process not Istio
 	// To avoid 10s shutdown on every container, we set the time out to 0s instead.
 	instant := time.Duration(0)

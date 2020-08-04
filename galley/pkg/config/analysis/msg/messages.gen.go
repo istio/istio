@@ -79,7 +79,7 @@ var (
 
 	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".
 	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
-	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment is associated with multiple services using port %d but different protocols: %v")
+	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment %s is associated with multiple services using port %d but different protocols: %v")
 
 	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
 	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
@@ -116,6 +116,10 @@ var (
 	// UnknownMeshNetworksServiceRegistry defines a diag.MessageType for message "UnknownMeshNetworksServiceRegistry".
 	// Description: A service registry in Mesh Networks is unknown
 	UnknownMeshNetworksServiceRegistry = diag.NewMessageType(diag.Error, "IST0126", "Unknown service registry %s in network %s")
+
+	// NoMatchingWorkloadsFound defines a diag.MessageType for message "NoMatchingWorkloadsFound".
+	// Description: There aren't workloads matching the resource labels
+	NoMatchingWorkloadsFound = diag.NewMessageType(diag.Warning, "IST0127", "No matching workloads for this resource with the following labels: %s")
 )
 
 // All returns a list of all known message types.
@@ -148,6 +152,7 @@ func All() []*diag.MessageType {
 		NamespaceMultipleInjectionLabels,
 		InvalidAnnotation,
 		UnknownMeshNetworksServiceRegistry,
+		NoMatchingWorkloadsFound,
 	}
 }
 
@@ -415,5 +420,14 @@ func NewUnknownMeshNetworksServiceRegistry(r *resource.Instance, serviceregistry
 		r,
 		serviceregistry,
 		network,
+	)
+}
+
+// NewNoMatchingWorkloadsFound returns a new diag.Message based on NoMatchingWorkloadsFound.
+func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Message {
+	return diag.NewMessage(
+		NoMatchingWorkloadsFound,
+		r,
+		labels,
 	)
 }

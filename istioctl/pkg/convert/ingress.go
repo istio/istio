@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"k8s.io/api/networking/v1beta1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/model"
@@ -25,7 +26,7 @@ import (
 )
 
 // IstioIngresses converts K8s extensions/v1beta1 Ingresses with Istio rules to v1alpha3 gateway and virtual service
-func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.Config, error) {
+func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string, client kubernetes.Interface) ([]model.Config, error) {
 
 	if len(ingresses) == 0 {
 		return make([]model.Config, 0), nil
@@ -33,10 +34,9 @@ func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string) ([]model.
 	if len(domainSuffix) == 0 {
 		domainSuffix = constants.DefaultKubernetesDomain
 	}
-
 	ingressByHost := map[string]*model.Config{}
 	for _, ingrezz := range ingresses {
-		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost)
+		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost, &serviceListerWrapper{client: client})
 	}
 
 	out := make([]model.Config, 0, len(ingressByHost))

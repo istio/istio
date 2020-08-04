@@ -19,7 +19,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FINDFILES=find . \( -path ./common-protos -o -path ./.git -o -path ./out -o -path ./.github -o -path ./licenses \) -prune -o -type f
+FINDFILES=find . \( -path ./common-protos -o -path ./.git -o -path ./out -o -path ./.github -o -path ./licenses -o -path ./vendor \) -prune -o -type f
 XARGS = xargs -0 -r
 
 lint-dockerfiles:
@@ -39,6 +39,10 @@ lint-copyright-banner:
 	@${FINDFILES} \( -name '*.go' -o -name '*.cc' -o -name '*.h' -o -name '*.proto' -o -name '*.py' -o -name '*.sh' \) \( ! \( -name '*.gen.go' -o -name '*.pb.go' -o -name '*_pb2.py' \) \) -print0 |\
 		${XARGS} common/scripts/lint_copyright_banner.sh
 
+fix-copyright-banner:
+	@${FINDFILES} \( -name '*.go' -o -name '*.cc' -o -name '*.h' -o -name '*.proto' -o -name '*.py' -o -name '*.sh' \) \( ! \( -name '*.gen.go' -o -name '*.pb.go' -o -name '*_pb2.py' \) \) -print0 |\
+		${XARGS} common/scripts/fix_copyright_banner.sh
+
 lint-go:
 	@${FINDFILES} -name '*.go' \( ! \( -name '*.gen.go' -o -name '*.pb.go' \) \) -print0 | ${XARGS} common/scripts/lint_go.sh
 
@@ -49,7 +53,7 @@ lint-markdown:
 	@${FINDFILES} -name '*.md' -print0 | ${XARGS} mdl --ignore-front-matter --style common/config/mdl.rb
 
 lint-links:
-	@${FINDFILES} -name '*.md' -print0 | ${XARGS} awesome_bot --skip-save-results --allow_ssl --allow-timeout --allow-dupe --allow-redirect --white-list ${MARKDOWN_LINT_WHITELIST}
+	@${FINDFILES} -name '*.md' -print0 | ${XARGS} awesome_bot --skip-save-results --allow_ssl --allow-timeout --allow-dupe --allow-redirect --white-list ${MARKDOWN_LINT_ALLOWLIST}
 
 lint-sass:
 	@${FINDFILES} -name '*.scss' -print0 | ${XARGS} sass-lint -c common/config/sass-lint.yml --verbose
@@ -60,14 +64,16 @@ lint-typescript:
 lint-protos:
 	@if test -d common-protos; then $(FINDFILES) -name '*.proto' -print0 | $(XARGS) -L 1 prototool lint --protoc-bin-path=/usr/bin/protoc --protoc-wkt-path=common-protos; fi
 
-lint-licenses:
-	@-go mod download
+lint-licenses: mod-download-go
 	@license-lint --config common/config/license-lint.yml
 
 lint-all: lint-dockerfiles lint-scripts lint-yaml lint-helm lint-copyright-banner lint-go lint-python lint-markdown lint-sass lint-typescript lint-protos lint-licenses
 
 tidy-go:
 	@go mod tidy
+
+mod-download-go:
+	@-GOFLAGS="-mod=readonly" go mod download
 
 format-go: tidy-go
 	@${FINDFILES} -name '*.go' \( ! \( -name '*.gen.go' -o -name '*.pb.go' \) \) -print0 | ${XARGS} goimports -w -local "istio.io"
@@ -78,16 +84,13 @@ format-python:
 format-protos:
 	@$(FINDFILES) -name '*.proto' -print0 | $(XARGS) -L 1 prototool format -w
 
-dump-licenses:
-	@go mod download
+dump-licenses: mod-download-go
 	@license-lint --config common/config/license-lint.yml --report
 
-dump-licenses-csv:
-	@go mod download
+dump-licenses-csv: mod-download-go
 	@license-lint --config common/config/license-lint.yml --csv
 
-mirror-licenses:
-	@go mod download
+mirror-licenses: mod-download-go
 	@rm -fr licenses
 	@license-lint --mirror
 
@@ -120,4 +123,4 @@ tidy-docker:
 help: ## Show this help
 	@egrep -h '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort  | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common update-common-protos lint-licenses dump-licenses dump-licenses-csv check-clean-repo tidy-docker help
+.PHONY: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos lint-all format-go format-python format-protos update-common update-common-protos lint-licenses dump-licenses dump-licenses-csv check-clean-repo tidy-docker help tidy-go mod-download-go

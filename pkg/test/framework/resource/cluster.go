@@ -17,37 +17,72 @@ package resource
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/kube"
 )
 
 // ClusterIndex is the index of a cluster within the Environment
 type ClusterIndex int
 
-type ConfigManager interface {
-	// ApplyConfig applies the given config yaml text via Galley.
-	ApplyConfig(ns string, yamlText ...string) error
+// Clusters is an ordered list of Cluster instances.
+type Clusters []Cluster
 
-	// ApplyConfigOrFail applies the given config yaml text via Galley.
-	ApplyConfigOrFail(t test.Failer, ns string, yamlText ...string)
+// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
+func (c Clusters) IsMulticluster() bool {
+	return len(c) > 1
+}
 
-	// DeleteConfig deletes the given config yaml text via Galley.
-	DeleteConfig(ns string, yamlText ...string) error
+// Default returns the first cluster in the list.
+func (c Clusters) Default() Cluster {
+	return c[0]
+}
 
-	// DeleteConfigOrFail deletes the given config yaml text via Galley.
-	DeleteConfigOrFail(t test.Failer, ns string, yamlText ...string)
-
-	// ApplyConfigDir recursively applies all the config files in the specified directory
-	ApplyConfigDir(ns string, configDir string) error
-
-	// DeleteConfigDir recursively deletes all the config files in the specified directory
-	DeleteConfigDir(ns string, configDir string) error
+// GetOrDefault returns the given cluster if non-nil. Otherwise returns the first
+// Cluster in the list.
+func (c Clusters) GetOrDefault(cluster Cluster) Cluster {
+	if cluster != nil {
+		return cluster
+	}
+	return c.Default()
 }
 
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
-	ConfigManager
+	kube.ExtendedClient
+
+	// Name of this cluster
+	Name() string
+
+	// NetworkName the cluster is on
+	NetworkName() string
 
 	// Index of this Cluster within the Environment
 	Index() ClusterIndex
+}
+
+var _ Cluster = FakeCluster{}
+
+// FakeCluster used for testing.
+type FakeCluster struct {
+	kube.ExtendedClient
+
+	NameValue        string
+	NetworkNameValue string
+	IndexValue       int
+}
+
+func (m FakeCluster) String() string {
+	panic("implement me")
+}
+
+func (m FakeCluster) Name() string {
+	return m.NameValue
+}
+
+func (m FakeCluster) NetworkName() string {
+	return m.NetworkNameValue
+}
+
+func (m FakeCluster) Index() ClusterIndex {
+	return ClusterIndex(m.IndexValue)
 }

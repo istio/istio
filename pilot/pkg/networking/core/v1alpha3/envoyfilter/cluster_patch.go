@@ -16,7 +16,7 @@ package envoyfilter
 
 import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/pkg/log"

@@ -1,0 +1,275 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: httpbin
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+  namespace: httpbin
+  labels:
+    app: httpbin
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 80
+  selector:
+    app: httpbin
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+  namespace: httpbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: httpbin
+        version: v1
+    spec:
+      containers:
+      - image: docker.io/kennethreitz/httpbin
+        imagePullPolicy: IfNotPresent
+        name: httpbin
+        ports:
+        - containerPort: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: istio
+  namespace: httpbin
+spec:
+  hosts:
+  - subsystem.istio.io
+  - "*.kiali.io"
+  location: MESH_EXTERNAL
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DNS
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin # This is a correct scenario
+  namespace: httpbin
+spec:
+  selector: # There are workloads matching this selector
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"] # Namespace exists
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: meshwide-httpbin
+  namespace: istio-system # valid: it applies to whole mesh
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: meshwide-httpbin-v1
+  namespace: istio-system # invalid: no pods running anywhere in the mesh
+spec:
+  selector:
+    matchLabels:
+      version: bogus-version
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-empty-namespace-wide # Invalid, no pods running
+  namespace: httpbin-empty
+spec:
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-namespace-wide # valid, one pod running
+  namespace: httpbin
+spec:
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-nopods # Invalid: there aren't matching workloads for this selector
+  namespace: httpbin
+spec:
+  selector:
+    matchLabels:
+      app: bogus-label # Bogus label. No matching workloads
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces: ["httpbin"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: prod-httpbin
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: httpbin-test
+  labels:
+    istio-injection: "enabled"
+spec: {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-bogus-not-ns # Invalid: There are two namespaces in the source notNamespaces that doesn't exist
+  namespace: httpbin
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            notNamespaces:
+              - "prod-*"
+              - "*-test"
+              - "*-bogus" # No namespace matching
+              - "bogus-*" # No namespace matching
+              - "*"
+              - "httpbin"
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin-bogus-ns # Invalid: there is one source namespace expr that doesn't match any namespace
+  namespace: httpbin
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+      version: v1
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/sleep"]
+        - source:
+            namespaces:
+              - "prod-*"
+              - "*-test"
+              - "*-bogus" # No namespace matching
+              - "bogus-*" # No namespace matching
+              - "*"
+              - "httpbin"
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/info*"]
+        - operation:
+            methods: ["POST"]
+            paths: ["/data"]
+      when:
+        - key: request.auth.claims[iss]
+          values: ["https://accounts.google.com"]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: httpbin
+    version: v1
+  name: httpbin-55bf89f8c9-wzfrh
+  namespace: httpbin
+spec:
+  containers:
+    - image: gcr.io/google-samples/microservices-demo/adservice:v0.1.1
+      name: server

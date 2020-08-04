@@ -8,7 +8,7 @@ ARG BASE_VERSION=latest
 FROM docker.io/istio/base:${BASE_VERSION} as default
 
 # Copy Envoy bootstrap templates used by pilot-agent
-COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 RUN chown -R istio-proxy /var/lib/istio
@@ -23,7 +23,7 @@ COPY --from=default /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu
 COPY --from=default /etc/iproute2 /etc/iproute2
 
 # Copy Envoy bootstrap templates used by pilot-agent
-COPY --chown=nonroot:nonroot envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
+COPY --chown=nonroot:nonroot envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 COPY --chown=nonroot:nonroot gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 WORKDIR /
@@ -34,9 +34,10 @@ FROM ${BASE_DISTRIBUTION}
 
 ARG proxy_version
 ARG istio_version
+ARG SIDECAR=envoy
 
 # Install Envoy.
-COPY envoy /usr/local/bin/envoy
+COPY $SIDECAR /usr/local/bin/$SIDECAR
 
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
 ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
@@ -48,7 +49,9 @@ COPY pilot-agent /usr/local/bin/pilot-agent
 COPY envoy_policy.yaml.tmpl /var/lib/istio/envoy/envoy_policy.yaml.tmpl
 
 COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
+COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm
 COPY metadata-exchange-filter.wasm /etc/istio/extensions/metadata-exchange-filter.wasm
+COPY metadata-exchange-filter.compiled.wasm /etc/istio/extensions/metadata-exchange-filter.compiled.wasm
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]

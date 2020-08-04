@@ -19,28 +19,18 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
 	ist           istio.Instance
-	p             pilot.Instance
 	rootNamespace string
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("security", m).
+		NewSuite(m).
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(istio.Setup(&ist, setupConfig)).
 		Run()
 }
 
@@ -51,6 +41,10 @@ func setupConfig(cfg *istio.Config) {
 	rootNamespace = cfg.SystemNamespace
 
 	cfg.ControlPlaneValues = `
+values:
+  global:
+    meshExpansion:
+      enabled: true
 components:
   egressGateways:
   - enabled: true

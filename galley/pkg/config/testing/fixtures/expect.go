@@ -118,7 +118,7 @@ func ExpectNone(t *testing.T, acc *Accumulator) {
 // ExpectFilter works similar to Expect, except it filters out events based on the given function.
 func ExpectFilter(t *testing.T, acc *Accumulator, fn FilterFn, expected ...event.Event) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	wrapFn := func() []event.Event {
 		e := acc.Events()

@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test"
+	"istio.io/pkg/log"
 )
 
 // PathValue is a path/value type.
@@ -45,29 +46,30 @@ func (pv *PathValue) String() string {
 	return fmt.Sprintf("%s:%v", pv.path, pv.value)
 }
 
-// objectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
-type objectSet struct {
+// ObjectSet is a set of objects maintained both as a slice (for ordering) and map (for speed).
+type ObjectSet struct {
 	objSlice object.K8sObjects
 	objMap   map[string]*object.K8sObject
 	keySlice []string
 }
 
-// parseObjectSetFromManifest parses an objectSet from the given manifest.
-func parseObjectSetFromManifest(t test.Failer, manifest string) *objectSet {
-	ret := &objectSet{}
-	var err error
-	ret.objSlice, err = object.ParseK8sObjectsFromYAMLManifest(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, o := range ret.objSlice {
+// NewObjectSet creates a new ObjectSet from objs and returns a pointer to it.
+func NewObjectSet(objs object.K8sObjects) *ObjectSet {
+	ret := &ObjectSet{}
+	for _, o := range objs {
 		ret.append(o)
 	}
 	return ret
 }
 
+// parseObjectSetFromManifest parses an ObjectSet from the given manifest.
+func parseObjectSetFromManifest(manifest string) (*ObjectSet, error) {
+	objSlice, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
+	return NewObjectSet(objSlice), err
+}
+
 // append appends an object to o.
-func (o *objectSet) append(obj *object.K8sObject) {
+func (o *ObjectSet) append(obj *object.K8sObject) {
 	h := obj.Hash()
 	o.objSlice = append(o.objSlice, obj)
 	if o.objMap == nil {
@@ -78,17 +80,21 @@ func (o *objectSet) append(obj *object.K8sObject) {
 }
 
 // size reports the length of o.
-func (o *objectSet) size() int {
+func (o *ObjectSet) size() int {
 	return len(o.keySlice)
 }
 
 // nameMatches returns a subset of o where objects names match the given regex.
-func (o *objectSet) nameMatches(nameRegex string) *objectSet {
-	ret := &objectSet{}
+func (o *ObjectSet) nameMatches(nameRegex string) *ObjectSet {
+	ret := &ObjectSet{}
 	for k, v := range o.objMap {
 		_, _, objName := object.FromHash(k)
 		m, err := regexp.MatchString(nameRegex, objName)
-		if err != nil && m {
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		if m {
 			ret.append(v)
 		}
 	}
@@ -96,7 +102,7 @@ func (o *objectSet) nameMatches(nameRegex string) *objectSet {
 }
 
 // nameEquals returns the object in o whose name matches "name", or nil if no object name matches.
-func (o *objectSet) nameEquals(name string) *object.K8sObject {
+func (o *ObjectSet) nameEquals(name string) *object.K8sObject {
 	for k, v := range o.objMap {
 		_, _, objName := object.FromHash(k)
 		if objName == name {
@@ -107,8 +113,8 @@ func (o *objectSet) nameEquals(name string) *object.K8sObject {
 }
 
 // kind returns a subset of o where kind matches the given value.
-func (o *objectSet) kind(kind string) *objectSet {
-	ret := &objectSet{}
+func (o *ObjectSet) kind(kind string) *ObjectSet {
+	ret := &ObjectSet{}
 	for k, v := range o.objMap {
 		objKind, _, _ := object.FromHash(k)
 		if objKind == kind {
@@ -119,8 +125,8 @@ func (o *objectSet) kind(kind string) *objectSet {
 }
 
 // namespace returns a subset of o where namespace matches the given value or fails if it's not found in objs.
-func (o *objectSet) namespace(namespace string) *objectSet {
-	ret := &objectSet{}
+func (o *ObjectSet) namespace(namespace string) *ObjectSet {
+	ret := &ObjectSet{}
 	for k, v := range o.objMap {
 		_, objNamespace, _ := object.FromHash(k)
 		if objNamespace == namespace {
@@ -130,58 +136,96 @@ func (o *objectSet) namespace(namespace string) *objectSet {
 	return ret
 }
 
+// labels returns a subset of o where the object's labels match all the given labels.
+func (o *ObjectSet) labels(labels ...string) *ObjectSet {
+	ret := &ObjectSet{}
+	for _, obj := range o.objMap {
+		hasAll := true
+		for _, l := range labels {
+			lkv := strings.Split(l, "=")
+			if len(lkv) != 2 {
+				panic("label must have format key=value")
+			}
+			if !hasLabel(obj, lkv[0], lkv[1]) {
+				hasAll = false
+				break
+			}
+		}
+		if hasAll {
+			ret.append(obj)
+		}
+	}
+	return ret
+}
+
+// HasLabel reports whether 0 has the given label.
+func hasLabel(o *object.K8sObject, label, value string) bool {
+	got, found, err := tpath.Find(o.UnstructuredObject().UnstructuredContent(), util.PathFromString("metadata.labels"))
+	if err != nil {
+		log.Errorf("bad path: %s", err)
+		return false
+	}
+	if !found {
+		return false
+	}
+	return got.(map[string]interface{})[label] == value
+}
+
 // mustGetService returns the service with the given name or fails if it's not found in objs.
-func mustGetService(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
+func mustGetService(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.ServiceStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetDeployment returns the deployment with the given name or fails if it's not found in objs.
-func mustGetDeployment(g *gomega.WithT, objs *objectSet, deploymentName string) *object.K8sObject {
+func mustGetDeployment(g *gomega.WithT, objs *ObjectSet, deploymentName string) *object.K8sObject {
 	obj := objs.kind(name2.DeploymentStr).nameEquals(deploymentName)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
-func mustGetClusterRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
+func mustGetClusterRole(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.ClusterRoleStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
-func mustGetRole(g *gomega.WithT, objs *objectSet, name string) *object.K8sObject {
+func mustGetRole(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.RoleStr).nameEquals(name)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
-func mustGetContainer(g *gomega.WithT, objs *objectSet, deploymentName, containerName string) map[string]interface{} {
+func mustGetContainer(g *gomega.WithT, objs *ObjectSet, deploymentName, containerName string) map[string]interface{} {
 	obj := mustGetDeployment(g, objs, deploymentName)
 	container := obj.Container(containerName)
-	g.Expect(container).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(container).Should(gomega.Not(gomega.BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
 	return container
 }
 
 // mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
-func mustGetEndpoint(g *gomega.WithT, objs *objectSet, endpointName string) *object.K8sObject {
+func mustGetEndpoint(g *gomega.WithT, objs *ObjectSet, endpointName string) *object.K8sObject {
 	obj := objs.kind(name2.EndpointStr).nameEquals(endpointName)
+	if obj == nil {
+		return nil
+	}
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetMutatingWebhookConfiguration returns the mutatingWebhookConfiguration with the given name or fails if it's not found in objs.
-func mustGetMutatingWebhookConfiguration(g *gomega.WithT, objs *objectSet, mutatingWebhookConfigurationName string) *object.K8sObject {
+func mustGetMutatingWebhookConfiguration(g *gomega.WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *object.K8sObject {
 	obj := objs.kind(name2.MutatingWebhookConfigurationStr).nameEquals(mutatingWebhookConfigurationName)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
 }
 
 // mustGetValidatingWebhookConfiguration returns the validatingWebhookConfiguration with the given name or fails if it's not found in objs.
-func mustGetValidatingWebhookConfiguration(g *gomega.WithT, objs *objectSet, validatingWebhookConfigurationName string) *object.K8sObject {
+func mustGetValidatingWebhookConfiguration(g *gomega.WithT, objs *ObjectSet, validatingWebhookConfigurationName string) *object.K8sObject {
 	obj := objs.kind(name2.ValidatingWebhookConfigurationStr).nameEquals(validatingWebhookConfigurationName)
 	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
 	return obj
@@ -228,6 +272,55 @@ func (m *HavePathValueEqualMatcher) NegatedFailureMessage(actual interface{}) st
 	pv := m.expected.(PathValue)
 	node := actual.(map[string]interface{})
 	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to have path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+}
+
+// HavePathValueMatchRegex matches map[string]interface{} tree against a PathValue.
+func HavePathValueMatchRegex(expected interface{}) types.GomegaMatcher {
+	return &HavePathValueMatchRegexMatcher{
+		expected: expected,
+	}
+}
+
+// HavePathValueMatchRegexMatcher is a matcher type for HavePathValueMatchRegex.
+type HavePathValueMatchRegexMatcher struct {
+	expected interface{}
+}
+
+// Match implements the Matcher interface.
+func (m *HavePathValueMatchRegexMatcher) Match(actual interface{}) (bool, error) {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	got, f, err := tpath.GetPathContext(node, util.PathFromString(pv.path), false)
+	if err != nil || !f {
+		return false, err
+	}
+	if reflect.TypeOf(got.Node).Kind() != reflect.String || reflect.TypeOf(pv.value).Kind() != reflect.String {
+		return false, fmt.Errorf("comparison types must both be string: got %v(%T), want %v(%T)", got.Node, got.Node, pv.value, pv.value)
+	}
+	gotS := got.Node.(string)
+	wantS := pv.value.(string)
+	ok, err := regexp.MatchString(wantS, gotS)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, fmt.Errorf("values don't match: got %v, want %v", got.Node, pv.value)
+	}
+	return true, nil
+}
+
+// FailureMessage implements the Matcher interface.
+func (m *HavePathValueMatchRegexMatcher) FailureMessage(actual interface{}) string {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
+}
+
+// NegatedFailureMessage implements the Matcher interface.
+func (m *HavePathValueMatchRegexMatcher) NegatedFailureMessage(actual interface{}) string {
+	pv := m.expected.(PathValue)
+	node := actual.(map[string]interface{})
+	return fmt.Sprintf("Expected the following parseObjectSetFromManifest not to regex match path=value %s=%v\n\n%v", pv.path, pv.value, util.ToYAML(node))
 }
 
 // HavePathValueContain matches map[string]interface{} tree against a PathValue.
@@ -353,15 +446,6 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]interface{}, path string) 
 	return got.Node
 }
 
-// objectHashesOrdered returns a slice of the hashes of objs, retaining the original ordering.
-func objectHashesOrdered(objs object.K8sObjects) []string {
-	var out []string
-	for _, o := range objs {
-		out = append(out, o.Hash())
-	}
-	return out
-}
-
 func createTempDirOrFail(t *testing.T, prefix string) string {
 	dir, err := ioutil.TempDir("", prefix)
 	if err != nil {
@@ -425,7 +509,7 @@ func portVal(name string, port, targetPort int64) map[string]interface{} {
 }
 
 // checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
-func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
+func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(name2.RoleBindingStr).objSlice {
 		ou := o.Unstructured()
 		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
@@ -434,7 +518,7 @@ func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
 }
 
 // checkClusterRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
-func checkClusterRoleBindingsReferenceRoles(g *gomega.WithT, objs *objectSet) {
+func checkClusterRoleBindingsReferenceRoles(g *gomega.WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(name2.ClusterRoleBindingStr).objSlice {
 		ou := o.Unstructured()
 		rrname := mustGetValueAtPath(g, ou, "roleRef.name")

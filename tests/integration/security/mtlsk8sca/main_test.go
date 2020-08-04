@@ -19,30 +19,19 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("mtls_k8s_ca", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
 

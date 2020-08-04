@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
-
 	"github.com/pkg/errors"
 
 	"gopkg.in/yaml.v2"
@@ -32,6 +30,7 @@ import (
 	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds"
 )
 
 func NewIstioContext(stop <-chan struct{}) context.Context {
@@ -51,9 +50,12 @@ type inProgressEntry struct {
 }
 
 type Reporter struct {
-	mu                     sync.RWMutex
-	status                 map[string]string
-	reverseStatus          map[string][]string
+	mu sync.RWMutex
+	// map from connection id to latest nonce
+	status map[string]string
+	// map from nonce to connection ids for which it is current
+	// using map[string]struct to approximate a hashset
+	reverseStatus          map[string]map[string]struct{}
 	dirty                  bool
 	inProgressResources    map[string]*inProgressEntry
 	client                 v1.ConfigMapInterface
@@ -65,7 +67,7 @@ type Reporter struct {
 	distributionEventQueue chan distributionEvent
 }
 
-var _ v2.DistributionStatusCache = &Reporter{}
+var _ xds.DistributionStatusCache = &Reporter{}
 
 const labelKey = "internal.istio.io/distribution-report"
 const dataField = "distribution-report"
@@ -82,9 +84,9 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 	if r.UpdateInterval == 0 {
 		r.UpdateInterval = 500 * time.Millisecond
 	}
-	r.distributionEventQueue = make(chan distributionEvent, 10^5)
+	r.distributionEventQueue = make(chan distributionEvent, 100_000)
 	r.status = make(map[string]string)
-	r.reverseStatus = make(map[string][]string)
+	r.reverseStatus = make(map[string]map[string]struct{})
 	r.inProgressResources = make(map[string]*inProgressEntry)
 	go r.readFromEventQueue()
 	if !writeMode {
@@ -93,7 +95,7 @@ func (r *Reporter) Start(clientSet kubernetes.Interface, namespace string, store
 	r.client = clientSet.CoreV1().ConfigMaps(namespace)
 	r.cm = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   (r.PodName + "-distribution"),
+			Name:   r.PodName + "-distribution",
 			Labels: map[string]string{labelKey: "true"},
 		},
 		Data: make(map[string]string),
@@ -242,12 +244,12 @@ func CreateOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, client v
 
 type distributionEvent struct {
 	conID            string
-	distributionType v2.EventType
+	distributionType xds.EventType
 	nonce            string
 }
 
-func (r *Reporter) QueryLastNonce(conID string, distributionType v2.EventType) (noncePrefix string) {
-	key := conID + string(distributionType)
+func (r *Reporter) QueryLastNonce(conID string, distributionType xds.EventType) (noncePrefix string) {
+	key := conID + distributionType
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.status[key]
@@ -256,7 +258,7 @@ func (r *Reporter) QueryLastNonce(conID string, distributionType v2.EventType) (
 // Register that a dataplane has acknowledged a new version of the config.
 // Theoretically, we could use the ads connections themselves to harvest this data,
 // but the mutex there is pretty hot, and it seems best to trade memory for time.
-func (r *Reporter) RegisterEvent(conID string, distributionType v2.EventType, nonce string) {
+func (r *Reporter) RegisterEvent(conID string, distributionType xds.EventType, nonce string) {
 	d := distributionEvent{nonce: nonce, distributionType: distributionType, conID: conID}
 	select {
 	case r.distributionEventQueue <- d:
@@ -273,21 +275,24 @@ func (r *Reporter) readFromEventQueue() {
 	}
 
 }
-func (r *Reporter) processEvent(conID string, distributionType v2.EventType, nonce string) {
+func (r *Reporter) processEvent(conID string, distributionType xds.EventType, nonce string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
-	key := conID + string(distributionType) // TODO: delimit?
+	key := conID + distributionType // TODO: delimit?
 	r.deleteKeyFromReverseMap(key)
 	var version string
 	if len(nonce) > 12 {
-		version = nonce[:v2.VersionLen]
+		version = nonce[:xds.VersionLen]
 	} else {
 		version = nonce
 	}
 	// touch
 	r.status[key] = version
-	r.reverseStatus[version] = append(r.reverseStatus[version], key)
+	if _, ok := r.reverseStatus[version]; !ok {
+		r.reverseStatus[version] = make(map[string]struct{})
+	}
+	r.reverseStatus[version][key] = struct{}{}
 }
 
 // This is a helper function for keeping our reverseStatus map in step with status.
@@ -295,12 +300,7 @@ func (r *Reporter) processEvent(conID string, distributionType v2.EventType, non
 func (r *Reporter) deleteKeyFromReverseMap(key string) {
 	if old, ok := r.status[key]; ok {
 		if keys, ok := r.reverseStatus[old]; ok {
-			for i := range keys {
-				if keys[i] == key {
-					r.reverseStatus[old] = append(keys[:i], keys[i+1:]...)
-					break
-				}
-			}
+			delete(keys, key)
 			if len(r.reverseStatus[old]) < 1 {
 				delete(r.reverseStatus, old)
 			}
@@ -309,12 +309,12 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 }
 
 // When a dataplane disconnects, we should no longer count it, nor expect it to ack config.
-func (r *Reporter) RegisterDisconnect(conID string, types []v2.EventType) {
+func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.dirty = true
 	for _, xdsType := range types {
-		key := conID + string(xdsType) // TODO: delimit?
+		key := conID + xdsType // TODO: delimit?
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)
 	}

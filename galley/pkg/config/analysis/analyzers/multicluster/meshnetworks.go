@@ -18,6 +18,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -37,7 +38,6 @@ var (
 	serviceRegistries = []serviceregistry.ProviderID{
 		serviceregistry.Mock,
 		serviceregistry.Kubernetes,
-		serviceregistry.Consul,
 		serviceregistry.MCP,
 		serviceregistry.External,
 	}

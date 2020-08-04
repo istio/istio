@@ -15,6 +15,7 @@
 package status
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -31,11 +32,19 @@ import (
 	"syscall"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
+	"github.com/hashicorp/go-multierror"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/expfmt"
+	"go.opencensus.io/stats/view"
+
 	"istio.io/pkg/env"
 
-	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/pkg/model"
+
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -58,6 +67,8 @@ var PrometheusScrapingConfig = env.RegisterStringVar("ISTIO_PROMETHEUS_ANNOTATIO
 
 var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz)$`)
+
+	promRegistry *prometheus.Registry
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -91,6 +102,21 @@ type Server struct {
 	statusPort          uint16
 	lastProbeSuccessful bool
 	envoyStatsPort      int
+}
+
+func init() {
+	registry := prometheus.NewRegistry()
+	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", prometheus.Registerer(registry))
+	wrapped.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	wrapped.MustRegister(prometheus.NewGoCollector())
+
+	promRegistry = registry
+	// go collector metrics collide with other metrics.
+	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped})
+	if err != nil {
+		log.Fatalf("could not setup exporter: %v", err)
+	}
+	view.RegisterExporter(exporter)
 }
 
 // NewServer creates a new status server.
@@ -141,16 +167,22 @@ func NewServer(config Config) (*Server, error) {
 		if s.prometheus.Port == "" {
 			s.prometheus.Port = "80"
 		}
+		if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
+			return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+				"application port is the same as agent port, which may lead to a recursive loop. "+
+				"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+		}
 	}
 
 	return s, nil
 }
 
-// FormatProberURL returns a pair of HTTP URLs that pilot agent will serve to take over Kubernetes
+// FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
 // app probers.
-func FormatProberURL(container string) (string, string) {
+func FormatProberURL(container string) (string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
-		fmt.Sprintf("/app-health/%v/livez", container)
+		fmt.Sprintf("/app-health/%v/livez", container),
+		fmt.Sprintf("/app-health/%v/startupz", container)
 }
 
 // Run opens a the status port and begins accepting probes.
@@ -240,30 +272,58 @@ type PrometheusScrapeConfiguration struct {
 // the application metrics and merge them together.
 // The merge here is a simple string concatenation. This works for almost all cases, assuming the application
 // is not exposing the same metrics as Envoy.
-// TODO(https://github.com/istio/istio/issues/22825) expose istio-agent stats here as well
+// Note that we do not return any errors here. If we do, we will drop metrics. For example, the app may be having issues,
+// but we still want Envoy metrics. Instead, errors are tracked in the failed scrape metrics/logs.
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	var envoy, application []byte
+	scrapeTotals.Increment()
+	var envoy, application, agent []byte
 	var err error
+	// Gather all the metrics we will merge
 	if envoy, err = s.scrape(fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort), r.Header); err != nil {
-		log.Errora(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		log.Errorf("failed scraping envoy metrics: %v", err)
+		envoyScrapeErrors.Increment()
 	}
 	if s.prometheus != nil {
 		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
 		if application, err = s.scrape(url, r.Header); err != nil {
-			log.Errora(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			log.Errorf("failed scraping application metrics: %v", err)
+			appScrapeErrors.Increment()
 		}
 	}
+	if agent, err = scrapeAgentMetrics(); err != nil {
+		log.Errorf("failed scraping agent metrics: %v", err)
+		agentScrapeErrors.Increment()
+	}
+
+	// Write out the metrics
 	if _, err := w.Write(envoy); err != nil {
 		log.Errorf("failed to write envoy metrics: %v", err)
-		return
+		envoyScrapeErrors.Increment()
 	}
 	if _, err := w.Write(application); err != nil {
 		log.Errorf("failed to write application metrics: %v", err)
+		appScrapeErrors.Increment()
 	}
+	if _, err := w.Write(agent); err != nil {
+		log.Errorf("failed to write agent metrics: %v", err)
+		agentScrapeErrors.Increment()
+	}
+}
+
+func scrapeAgentMetrics() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	mfs, err := promRegistry.Gather()
+	enc := expfmt.NewEncoder(buf, expfmt.FmtText)
+	if err != nil {
+		return nil, err
+	}
+	var errs error
+	for _, mf := range mfs {
+		if err := enc.Encode(mf); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return buf.Bytes(), errs
 }
 
 func applyHeaders(into http.Header, from http.Header, keys ...string) {

@@ -188,7 +188,7 @@ messages:
     code: IST0116
     level: Warning
     description: "The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols."
-    template: "This deployment is associated with multiple services using port %d but different protocols: %v"
+    template: "This deployment %s is associated with multiple services using port %d but different protocols: %v"
     args:
       - name: deployment
         type: string
@@ -287,4 +287,13 @@ messages:
       - name: serviceregistry
         type: string
       - name: network
+        type: string
+
+  - name: "NoMatchingWorkloadsFound"
+    code: IST0127
+    level: Warning
+    description: "There aren't workloads matching the resource labels"
+    template: "No matching workloads for this resource with the following labels: %s"
+    args:
+      - name: labels
         type: string

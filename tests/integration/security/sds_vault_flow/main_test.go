@@ -19,10 +19,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 const (
@@ -45,25 +42,18 @@ const (
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
 	// Integration test for the SDS Vault CA flow, as well as mutual TLS
 	// with the certificates issued by the SDS Vault CA flow.
-	framework.NewSuite("sds_vault_flow_test", m).
+	framework.NewSuite(m).
 		Label(label.CustomSetup).
 		Skip("https://github.com/istio/istio/issues/17572").
 		// SDS requires Kubernetes 1.13
 		RequireEnvironmentVersion("1.13").
 		RequireSingleCluster().
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, setupConfig)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(istio.Setup(&inst, setupConfig)).
 		Run()
 }
 

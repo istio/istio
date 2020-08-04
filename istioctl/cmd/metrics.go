@@ -29,9 +29,9 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/istioctl/pkg/clioptions"
 )
 
 var (
@@ -90,12 +90,12 @@ type workloadMetrics struct {
 func run(c *cobra.Command, args []string) error {
 	log.Debugf("metrics command invoked for workload(s): %v", args)
 
-	client, err := clientExecFactory(kubeconfig, configContext, metricsOpts)
+	client, err := kubeClientWithRevision(kubeconfig, configContext, metricsOpts.Revision)
 	if err != nil {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
 
-	pl, err := client.PodsForSelector(istioNamespace, "app=prometheus")
+	pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=prometheus")
 	if err != nil {
 		return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 	}
@@ -106,40 +106,42 @@ func run(c *cobra.Command, args []string) error {
 
 	// only use the first pod in the list
 	promPod := pl.Items[0]
-	fw, err := client.BuildPortForwarder(promPod.Name, istioNamespace, "", 0, 9090)
+	fw, err := client.NewPortForwarder(promPod.Name, istioNamespace, "", 0, 9090)
 	if err != nil {
 		return fmt.Errorf("could not build port forwarder for prometheus: %v", err)
 	}
 
-	if err = kubernetes.RunPortForwarder(fw, func(fw *kubernetes.PortForward) error {
-		log.Debugf("port-forward to prometheus pod ready")
-
-		promAPI, err := prometheusAPI(fw.LocalPort)
-		if err != nil {
-			return err
-		}
-
-		printHeader(c.OutOrStdout())
-
-		workloads := args
-		for _, workload := range workloads {
-			sm, err := metrics(promAPI, workload)
-			if err != nil {
-				return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
-			}
-
-			printMetrics(c.OutOrStdout(), sm)
-		}
-		close(fw.StopChannel)
-		return nil
-	}); err != nil {
+	if err = fw.Start(); err != nil {
 		return fmt.Errorf("failure running port forward process: %v", err)
+	}
+
+	// Close the forwarder either when we exit or when an this processes is interrupted.
+	defer fw.Close()
+	closePortForwarderOnInterrupt(fw)
+
+	log.Debugf("port-forward to prometheus pod ready")
+
+	promAPI, err := prometheusAPI(fmt.Sprintf("http://%s", fw.Address()))
+	if err != nil {
+		return fmt.Errorf("failure running port forward process: %v", err)
+	}
+
+	printHeader(c.OutOrStdout())
+
+	workloads := args
+	for _, workload := range workloads {
+		sm, err := metrics(promAPI, workload)
+		if err != nil {
+			return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
+		}
+
+		printMetrics(c.OutOrStdout(), sm)
 	}
 	return nil
 }
 
-func prometheusAPI(port int) (promv1.API, error) {
-	promClient, err := api.NewClient(api.Config{Address: fmt.Sprintf("http://localhost:%d", port)})
+func prometheusAPI(address string) (promv1.API, error) {
+	promClient, err := api.NewClient(api.Config{Address: address})
 	if err != nil {
 		return nil, fmt.Errorf("could not build prometheus client: %v", err)
 	}

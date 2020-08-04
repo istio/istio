@@ -35,6 +35,7 @@ import (
 	"istio.io/api/label"
 
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -53,7 +54,7 @@ import (
 // listens on ports 80, 8080
 type Service struct {
 	// Attributes contains additional attributes associated with the service
-	// used mostly by mixer and RBAC for policy enforcement purposes.
+	// used mostly by RBAC for policy enforcement purposes.
 	Attributes ServiceAttributes
 
 	// Ports is the set of network ports where the service is listening for
@@ -70,7 +71,20 @@ type Service struct {
 	Hostname host.Name `json:"hostname"`
 
 	// Address specifies the service IPv4 address of the load balancer
+	// Do not access directly. Use GetServiceAddressForProxy
 	Address string `json:"address,omitempty"`
+
+	// AutoAllocatedAddress specifies the automatically allocated
+	// IPv4 address out of the reserved Class E subnet
+	// (240.240.0.0/16) for service entries with non-wildcard
+	// hostnames. The IPs assigned to services are not
+	// synchronized across istiod replicas as the DNS resolution
+	// for these service entries happens completely inside a pod
+	// whose proxy is managed by one istiod. That said, the algorithm
+	// to allocate IPs is pretty deterministic that at stable state, two
+	// istiods will allocate the exact same set of IPs for a given set of
+	// service entries.
+	AutoAllocatedAddress string `json:"autoAllocatedAddress,omitempty"`
 
 	// Protect concurrent ClusterVIPs read/write
 	Mutex sync.RWMutex
@@ -230,9 +244,28 @@ func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	}
 }
 
-// a custom comparison of foreign service instances based on the fields that we need
+type WorkloadInstance struct {
+	Namespace string            `json:"namespace,omitempty"`
+	Endpoint  *IstioEndpoint    `json:"endpoint,omitempty"`
+	PortMap   map[string]uint32 `json:"portMap,omitempty"`
+}
+
+// DeepCopy creates a copy of WorkloadInstance.
+func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
+	pmap := map[string]uint32{}
+	for k, v := range instance.PortMap {
+		pmap[k] = v
+	}
+	return &WorkloadInstance{
+		Namespace: instance.Namespace,
+		PortMap:   pmap,
+		Endpoint:  instance.Endpoint.DeepCopy(),
+	}
+}
+
+// a custom comparison of workload instances based on the fields that we need
 // i.e. excluding the ports. Returns true if equal, false otherwise.
-func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
+func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
 	}
@@ -259,6 +292,24 @@ func ForeignSeviceInstancesEqual(first, second *ServiceInstance) bool {
 	}
 	if first.Endpoint.UID != second.Endpoint.UID {
 		return false
+	}
+	if first.Namespace != second.Namespace {
+		return false
+	}
+	if !portMapEquals(first.PortMap, second.PortMap) {
+		return false
+	}
+	return true
+}
+
+func portMapEquals(a, b map[string]uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
 	}
 	return true
 }
@@ -381,7 +432,6 @@ type ServiceAttributes struct {
 
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
-//go:generate counterfeiter -o ../networking/core/v1alpha3/fakes/fake_service_discovery.gen.go --fake-name ServiceDiscovery . ServiceDiscovery
 type ServiceDiscovery interface {
 	// Services list declarations of all services in the system
 	Services() ([]*Service, error)
@@ -526,10 +576,15 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 
 // GetServiceAddressForProxy returns a Service's IP address specific to the cluster where the node resides
 func (s *Service) GetServiceAddressForProxy(node *Proxy) string {
+	// todo reduce unnecessary locking
 	s.Mutex.RLock()
 	defer s.Mutex.RUnlock()
 	if node.Metadata != nil && node.Metadata.ClusterID != "" && s.ClusterVIPs[node.Metadata.ClusterID] != "" {
 		return s.ClusterVIPs[node.Metadata.ClusterID]
+	}
+	if node.Metadata != nil && node.Metadata.DNSCapture != "" &&
+		s.Address == constants.UnspecifiedIP && s.AutoAllocatedAddress != "" {
+		return s.AutoAllocatedAddress
 	}
 	return s.Address
 }

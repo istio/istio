@@ -21,10 +21,13 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	authapi "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	sds "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
+	"istio.io/istio/pkg/security"
+
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -161,11 +164,11 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	// Create a SDS server talking to the fake servers
 	stsclient.GKEClusterURL = msts.FakeGKEClusterURL
 	stsclient.SecureTokenEndpoint = mockSTSServer.URL + "/v1/identitybindingtoken"
-	arg := Options{
-		EnableIngressGatewaySDS: false,
-		EnableWorkloadSDS:       true,
-		RecycleInterval:         100 * time.Millisecond,
-		WorkloadUDSPath:         socket,
+	arg := security.Options{
+		EnableGatewaySDS:  false,
+		EnableWorkloadSDS: true,
+		RecycleInterval:   100 * time.Millisecond,
+		WorkloadUDSPath:   socket,
 	}
 	caClient, err := gca.NewGoogleCAClient(mockMeshCAServer.Address, false)
 	if err != nil {
@@ -177,15 +180,15 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 		CaClient:    caClient,
 	}
 
-	workloadSdsCacheOptions := &cache.Options{}
+	workloadSdsCacheOptions := &security.Options{}
 	workloadSdsCacheOptions.TrustDomain = "FakeTrustDomain"
 	workloadSdsCacheOptions.Pkcs8Keys = false
-	workloadSdsCacheOptions.Plugins = NewPlugins([]string{"GoogleTokenExchange"})
+	workloadSdsCacheOptions.TokenExchangers = NewPlugins([]string{"GoogleTokenExchange"})
 	workloadSdsCacheOptions.RotationInterval = 10 * time.Minute
 	workloadSdsCacheOptions.InitialBackoffInMilliSec = 10
-	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, *workloadSdsCacheOptions)
+	workloadSecretCache := cache.NewSecretCache(wSecretFetcher, NotifyProxy, workloadSdsCacheOptions)
 
-	server, err := NewServer(arg, workloadSecretCache, nil)
+	server, err := NewServer(&arg, workloadSecretCache, nil)
 	if err != nil {
 		t.Fatalf("failed to start grpc server for sds: %v", err)
 	}
@@ -198,7 +201,8 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 
 func runSDSClientBasic(stream sds.SecretDiscoveryService_StreamSecretsClient, proxyID string,
 	notifyChan chan notifyMsg) {
-	req := &api.DiscoveryRequest{
+	req := &discovery.DiscoveryRequest{
+		TypeUrl:       SecretTypeV3,
 		ResourceNames: []string{testResourceName},
 		Node: &core.Node{
 			Id: proxyID,
@@ -257,8 +261,8 @@ func TestNodeAgentBasic(t *testing.T) {
 	connTwo.Close()
 }
 
-func validateSDSSResponse(resp *api.DiscoveryResponse) error {
-	var secret authapi.Secret
+func validateSDSSResponse(resp *discovery.DiscoveryResponse) error {
+	var secret tls.Secret
 	if resp == nil {
 		return fmt.Errorf("response is nil")
 	}
@@ -266,7 +270,7 @@ func validateSDSSResponse(resp *api.DiscoveryResponse) error {
 		return fmt.Errorf("unmarshalAny SDS response failed: %v", err)
 	}
 
-	tlsCert, ok := secret.Type.(*authapi.Secret_TlsCertificate)
+	tlsCert, ok := secret.Type.(*tls.Secret_TlsCertificate)
 	if !ok {
 		return fmt.Errorf("error validating SDS response: response secret type conversion failed")
 	}

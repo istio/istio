@@ -40,6 +40,15 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	return out
 }
 
+// NewSyncController return an implementation of model.ConfigStoreCache which processes events synchronously
+func NewSyncController(cs model.ConfigStore) model.ConfigStoreCache {
+	out := &controller{
+		configStore: cs,
+		monitor:     NewSyncMonitor(cs),
+	}
+	return out
+}
+
 func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
 	c.monitor.AppendEventHandler(kind, f)
 }
@@ -88,7 +97,7 @@ func (c *controller) Create(config model.Config) (revision string, err error) {
 }
 
 func (c *controller) Update(config model.Config) (newRevision string, err error) {
-	oldconfig := c.configStore.Get(config.GroupVersionKind(), config.Name, config.Namespace)
+	oldconfig := c.configStore.Get(config.GroupVersionKind, config.Name, config.Namespace)
 	if newRevision, err = c.configStore.Update(config); err == nil {
 		c.monitor.ScheduleProcessEvent(ConfigEvent{
 			old:    *oldconfig,

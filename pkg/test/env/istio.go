@@ -89,6 +89,9 @@ var (
 
 	// StackdriverInstallFilePath is the stackdriver installation file.
 	StackdriverInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/stackdriver/stackdriver.yaml")
+
+	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
+	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/gcemetadata/gce_metadata_server.yaml")
 )
 
 func getDefaultIstioSrc() string {

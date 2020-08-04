@@ -15,13 +15,10 @@
 package kube
 
 import (
-	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
 
@@ -30,7 +27,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/kube"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -45,8 +41,6 @@ const (
 	// that can be used to select a subset of nodes from the pool of k8s nodes
 	// It is used for multi-cluster scenario, and with nodePort type gateway service.
 	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
-
-	managementPortPrefix = "mgmt-"
 )
 
 func convertPort(port coreV1.ServicePort) *model.Port {
@@ -159,7 +153,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 	return istioService
 }
 
-func ExternalNameServiceInstances(k8sSvc coreV1.Service, svc *model.Service) []*model.ServiceInstance {
+func ExternalNameServiceInstances(k8sSvc *coreV1.Service, svc *model.Service) []*model.ServiceInstance {
 	if k8sSvc.Spec.Type != coreV1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
 		return nil
 	}
@@ -215,51 +209,6 @@ func KeyFunc(name, namespace string) string {
 		return name
 	}
 	return namespace + "/" + name
-}
-
-func ConvertProbePort(c *coreV1.Container, handler *coreV1.Handler) (*model.Port, error) {
-	if handler == nil {
-		return nil, nil
-	}
-
-	var p protocol.Instance
-	var portVal intstr.IntOrString
-
-	// Only two types of handler is allowed by Kubernetes (HTTPGet or TCPSocket)
-	switch {
-	case handler.HTTPGet != nil:
-		portVal = handler.HTTPGet.Port
-		p = protocol.HTTP
-	case handler.TCPSocket != nil:
-		portVal = handler.TCPSocket.Port
-		p = protocol.TCP
-	default:
-		return nil, nil
-	}
-
-	switch portVal.Type {
-	case intstr.Int:
-		port := portVal.IntValue()
-		return &model.Port{
-			Name:     managementPortPrefix + strconv.Itoa(port),
-			Port:     port,
-			Protocol: p,
-		}, nil
-	case intstr.String:
-		for _, named := range c.Ports {
-			if named.Name == portVal.String() {
-				port := int(named.ContainerPort)
-				return &model.Port{
-					Name:     managementPortPrefix + strconv.Itoa(port),
-					Port:     port,
-					Protocol: p,
-				}, nil
-			}
-		}
-		return nil, fmt.Errorf("missing named port %q", portVal)
-	default:
-		return nil, fmt.Errorf("incorrect port type %q", portVal.Type)
-	}
 }
 
 func formatUID(namespace, name string) string {

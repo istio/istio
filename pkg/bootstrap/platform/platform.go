@@ -15,7 +15,11 @@
 package platform
 
 import (
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+)
+
+const (
+	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
 )
 
 // Environment provides information for the platform on which the bootstrapping
@@ -29,7 +33,14 @@ type Environment interface {
 
 	// Locality returns the run location for the bootstrap transformed from the
 	// platform-specific representation into the Envoy Locality schema.
-	Locality() *corev3.Locality
+	Locality() *core.Locality
+
+	// Labels returns a collection of labels that exist on the underlying
+	// instance, structured as a map for label name to values.
+	Labels() map[string]string
+
+	// IsKubernetes determines if running on Kubernetes
+	IsKubernetes() bool
 }
 
 // Unknown provides a default platform environment for cases in which the platform
@@ -42,6 +53,16 @@ func (*Unknown) Metadata() map[string]string {
 }
 
 // Locality returns an empty core.Locality struct.
-func (*Unknown) Locality() *corev3.Locality {
-	return &corev3.Locality{}
+func (*Unknown) Locality() *core.Locality {
+	return &core.Locality{}
+}
+
+// Labels returns an empty map.
+func (*Unknown) Labels() map[string]string {
+	return map[string]string{}
+}
+
+// IsKubernetes is true to avoid label collisions
+func (*Unknown) IsKubernetes() bool {
+	return true
 }

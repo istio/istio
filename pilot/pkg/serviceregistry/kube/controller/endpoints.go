@@ -15,14 +15,10 @@
 package controller
 
 import (
-	"context"
-	"strings"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -30,8 +26,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/listwatch"
 )
 
 type endpointsController struct {
@@ -40,68 +36,15 @@ type endpointsController struct {
 
 var _ kubeEndpointsController = &endpointsController{}
 
-func newEndpointsController(c *Controller, options Options) *endpointsController {
-	namespaces := strings.Split(options.WatchedNamespaces, ",")
-
-	mlw := listwatch.MultiNamespaceListerWatcher(namespaces, func(namespace string) cache.ListerWatcher {
-		return &cache.ListWatch{
-			ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-				return c.client.CoreV1().Endpoints(namespace).List(context.TODO(), opts)
-			},
-			WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
-				return c.client.CoreV1().Endpoints(namespace).Watch(context.TODO(), opts)
-			},
-		}
-	})
-
-	informer := cache.NewSharedIndexInformer(mlw, &v1.Endpoints{}, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
+func newEndpointsController(c *Controller, informer coreinformers.EndpointsInformer) *endpointsController {
 	out := &endpointsController{
 		kubeEndpoints: kubeEndpoints{
 			c:        c,
-			informer: informer,
+			informer: informer.Informer(),
 		},
 	}
-	out.registerEndpointsHandler()
+	registerHandlers(informer.Informer(), c.queue, "Endpoints", out.onEvent, endpointsEqual)
 	return out
-}
-
-func (e *endpointsController) registerEndpointsHandler() {
-	e.informer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			// TODO: filtering functions to skip over un-referenced resources (perf)
-			AddFunc: func(obj interface{}) {
-				incrementEvent("Endpoints", "add")
-				e.c.queue.Push(func() error {
-					return e.onEvent(obj, model.EventAdd)
-				})
-			},
-			UpdateFunc: func(old, cur interface{}) {
-				// Avoid pushes if only resource version changed (kube-scheduller, cluster-autoscaller, etc)
-				oldE := old.(*v1.Endpoints)
-				curE := cur.(*v1.Endpoints)
-
-				if !compareEndpoints(oldE, curE) {
-					incrementEvent("Endpoints", "update")
-					e.c.queue.Push(func() error {
-						return e.onEvent(cur, model.EventUpdate)
-					})
-				} else {
-					incrementEvent("Endpoints", "updatesame")
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				incrementEvent("Endpoints", "delete")
-				// Deleting the endpoints results in an empty set from EDS perspective - only
-				// deleting the service should delete the resources. The full sync replaces the
-				// maps.
-				// c.updateEDS(obj.(*v1.Endpoints))
-				e.c.queue.Push(func() error {
-					return e.onEvent(obj, model.EventDelete)
-				})
-			},
-		})
 }
 
 func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance {
@@ -112,14 +55,14 @@ func (e *endpointsController) GetProxyServiceInstances(c *Controller, proxy *mod
 	}
 	out := make([]*model.ServiceInstance, 0)
 	for _, ep := range eps {
-		instances := e.proxyServiceInstances(c, ep, proxy)
+		instances := endpointServiceInstances(c, ep, proxy)
 		out = append(out, instances...)
 	}
 
 	return out
 }
 
-func (e *endpointsController) proxyServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
+func endpointServiceInstances(c *Controller, endpoints *v1.Endpoints, proxy *model.Proxy) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 
 	hostname := kube.ServiceHostname(endpoints.Name, endpoints.Namespace, c.domainSuffix)
@@ -214,11 +157,11 @@ func (e *endpointsController) InstancesByPort(c *Controller, svc *model.Service,
 	return out, nil
 }
 
-func (e *endpointsController) onEvent(curr interface{}, event model.Event) error {
-	if err := e.c.checkReadyForEvents(); err != nil {
-		return err
-	}
+func (e *endpointsController) getInformer() cache.SharedIndexInformer {
+	return e.informer
+}
 
+func (e *endpointsController) onEvent(curr interface{}, event model.Event) error {
 	ep, ok := curr.(*v1.Endpoints)
 	if !ok {
 		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
@@ -233,8 +176,60 @@ func (e *endpointsController) onEvent(curr interface{}, event model.Event) error
 		}
 	}
 
-	return e.handleEvent(ep.Name, ep.Namespace, event, curr, func(obj interface{}, event model.Event) {
-		ep := obj.(*v1.Endpoints)
-		e.c.updateEDS(ep, event)
-	})
+	return processEndpointEvent(e.c, e, ep.Name, ep.Namespace, event, curr)
+}
+
+func (e *endpointsController) forgetEndpoint(endpoint interface{}) {
+	ep := endpoint.(*v1.Endpoints)
+	key := kube.KeyFunc(ep.Name, ep.Namespace)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			e.c.pods.endpointDeleted(key, ea.IP)
+		}
+	}
+}
+
+func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host host.Name) []*model.IstioEndpoint {
+	endpoints := make([]*model.IstioEndpoint, 0)
+	ep := endpoint.(*v1.Endpoints)
+	for _, ss := range ep.Subsets {
+		for _, ea := range ss.Addresses {
+			pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
+			if pod == nil && expectedPod {
+				continue
+			}
+			builder := NewEndpointBuilder(e.c, pod)
+
+			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
+			for _, port := range ss.Ports {
+				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
+				endpoints = append(endpoints, istioEndpoint)
+			}
+		}
+	}
+	return endpoints
+}
+
+func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {
+	endpoint := ep.(*v1.Endpoints)
+	return kube.ServiceHostname(endpoint.Name, endpoint.Namespace, e.c.domainSuffix), endpoint.Name, endpoint.Namespace
+}
+
+// endpointsEqual returns true if the two endpoints are the same in aspects Pilot cares about
+// This currently means only looking at "Ready" endpoints
+func endpointsEqual(first, second interface{}) bool {
+	a := first.(*v1.Endpoints)
+	b := second.(*v1.Endpoints)
+	if len(a.Subsets) != len(b.Subsets) {
+		return false
+	}
+	for i := range a.Subsets {
+		if !portsEqual(a.Subsets[i].Ports, b.Subsets[i].Ports) {
+			return false
+		}
+		if !addressesEqual(a.Subsets[i].Addresses, b.Subsets[i].Addresses) {
+			return false
+		}
+	}
+	return true
 }

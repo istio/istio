@@ -61,38 +61,17 @@ pilot:
   image: pilot
   env:
     GODEBUG: gctrace=1
-  podAntiAffinityLabelSelector:
-  - key: istio
-    operator: In
-    values: pilot
-    topologyKey: "kubernetes.io/hostname"
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
-  policyNamespace: istio-policy
   tag: 1.2.3
-  telemetryNamespace: istio-telemetry
   proxy:
     readinessInitialDelaySeconds: 2
-  controlPlaneSecurityEnabled: false
-mixer:
-  policy:
-    enabled: true
-    image: mixer
-    replicaCount: 1
-  telemetry:
-    enabled: false
 `,
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
 components:
-   telemetry:
-     enabled: false
-   policy:
-     enabled: true
-     k8s:
-       replicaCount: 1
    pilot:
      enabled: true
      k8s:
@@ -106,7 +85,7 @@ components:
           scaleTargetRef:
             apiVersion: apps/v1
             kind: Deployment
-            name: istio-pilot
+            name: istiod
           metrics:
            - resource:
                name: cpu
@@ -130,24 +109,13 @@ components:
            maxUnavailable: 25%
 values:
   global:
-    controlPlaneSecurityEnabled: false
     istioNamespace: istio-system
     proxy:
       readinessInitialDelaySeconds: 2
-    policyNamespace: istio-policy
-    telemetryNamespace: istio-telemetry
   pilot:
     image: pilot
     autoscaleEnabled: true
     traceSampling: 1
-    podAntiAffinityLabelSelector:
-    - key: istio
-      operator: In
-      values: pilot
-      topologyKey: "kubernetes.io/hostname"
-  mixer:
-    policy:
-      image: mixer
 `,
 		},
 		{
@@ -156,14 +124,7 @@ values:
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
-  policyNamespace: istio-policy
   tag: 1.2.3
-  telemetryNamespace: istio-telemetry
-mixer:
-  policy:
-    enabled: true
-  telemetry:
-    enabled: true
 pilot:
   enabled: true
 istiocoredns:
@@ -183,10 +144,6 @@ gateways:
 hub: docker.io/istio
 tag: 1.2.3
 components:
-  telemetry:
-    enabled: true
-  policy:
-    enabled: true
   pilot:
     enabled: true
   ingressGateways:
@@ -206,8 +163,6 @@ addonComponents:
       enabled: true
 values:
   global:
-    policyNamespace: istio-policy
-    telemetryNamespace: istio-telemetry
     istioNamespace: istio-system
 `,
 		},
@@ -219,29 +174,16 @@ pilot:
 global:
   hub: docker.io/istio
   istioNamespace: istio-system
-  policyNamespace: istio-policy
   tag: 1.2.3
-  telemetryNamespace: istio-telemetry
-mixer:
-  policy:
-    enabled: true
-  telemetry:
-    enabled: false
 `,
 			want: `
 hub: docker.io/istio
 tag: 1.2.3
 components:
-   telemetry:
-     enabled: false
-   policy:
-     enabled: true
    pilot:
      enabled: true
 values:
   global:
-    telemetryNamespace: istio-telemetry
-    policyNamespace: istio-policy
     istioNamespace: istio-system
 `,
 		},

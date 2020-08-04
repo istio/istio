@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
@@ -86,6 +87,7 @@ var testGrid = []testCase{
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "VirtualService productpage.foo"},
+			{msg.Deprecated, "Sidecar no-selector.default"},
 		},
 	},
 	{
@@ -294,6 +296,22 @@ var testGrid = []testCase{
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks meshnetworks.istio-system"},
 		},
 	},
+	{
+		name: "authorizationpolicies",
+		inputFiles: []string{
+			"testdata/authorizationpolicies.yaml",
+		},
+		analyzer: &authz.AuthorizationPoliciesAnalyzer{},
+		expected: []message{
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy meshwide-httpbin-v1.istio-system"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-empty-namespace-wide.httpbin-empty"},
+			{msg.NoMatchingWorkloadsFound, "AuthorizationPolicy httpbin-nopods.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
+			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -312,7 +330,7 @@ func TestAnalyzers(t *testing.T) {
 	for _, tc := range testGrid {
 		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := tc.analyzer.Metadata().Name
@@ -342,7 +360,7 @@ func TestAnalyzers(t *testing.T) {
 	// Verify that the collections actually accessed during testing actually match
 	// the collections declared as inputs for each of the analyzers
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 	outer:
 		for _, a := range All() {
 			analyzerName := a.Metadata().Name
@@ -372,7 +390,7 @@ func TestAnalyzers(t *testing.T) {
 
 // Verify that all of the analyzers tested here are also registered in All()
 func TestAnalyzersInAll(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var allNames []string
 	for _, a := range All() {
@@ -385,7 +403,7 @@ func TestAnalyzersInAll(t *testing.T) {
 }
 
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	existingNames := make(map[string]struct{})
 	for _, a := range All() {
@@ -403,7 +421,7 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 }
 
 func TestAnalyzersHaveDescription(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	for _, a := range All() {
 		g.Expect(a.Metadata().Description).ToNot(Equal(""))

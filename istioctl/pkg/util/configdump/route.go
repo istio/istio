@@ -22,7 +22,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/ptypes"
 
-	v3 "istio.io/istio/pilot/pkg/proxy/envoy/v3"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // GetLastUpdatedDynamicRouteTime retrieves the LastUpdated timestamp of the
@@ -107,7 +107,7 @@ func (w *Wrapper) GetRouteConfigDump() (*adminapi.RoutesConfigDump, error) {
 		return nil, err
 	}
 	routeDump := &adminapi.RoutesConfigDump{}
-	err = ptypes.UnmarshalAny(&routeDumpAny, routeDump)
+	err = ptypes.UnmarshalAny(routeDumpAny, routeDump)
 	if err != nil {
 		return nil, err
 	}

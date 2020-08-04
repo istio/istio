@@ -21,15 +21,11 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -40,17 +36,11 @@ func TestMain(m *testing.M) {
 	//   is used for data plane to control plane TLS authentication.
 	// - Secure naming information is respected in the mTLS handshake.
 	framework.
-		NewSuite("mtlscert_pluginca_securenaming_test", m).
+		NewSuite(m).
 		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
-		RequireEnvironment(environment.Kube).
+
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&inst, nil, cert.CreateCASecret)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(istio.Setup(&inst, nil, cert.CreateCASecret)).
 		Run()
 }

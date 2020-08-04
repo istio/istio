@@ -15,21 +15,27 @@
 package utils
 
 import (
-	"reflect"
+	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/config/filter/listener/tls_inspector/v2"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/spiffe"
+)
+
+const (
+	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
 func TestBuildInboundFilterChain(t *testing.T) {
@@ -131,10 +137,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 					},
 					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{})},
-						},
+						xdsfilters.TLSInspector,
 					},
 				},
 				{
@@ -163,9 +166,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									Name: "default",
 									SdsConfig: &core.ConfigSource{
 										InitialFetchTimeout: features.InitialFetchTimeout,
+										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -185,9 +190,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 										Name: "ROOTCA",
 										SdsConfig: &core.ConfigSource{
 											InitialFetchTimeout: features.InitialFetchTimeout,
+											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
-													ApiType: core.ApiConfigSource_GRPC,
+													ApiType:             core.ApiConfigSource_GRPC,
+													TransportApiVersion: core.ApiVersion_V3,
 													GrpcServices: []*core.GrpcService{
 														{
 															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -275,10 +282,18 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("BuildInboundFilterChain() = %v, want %v", spew.Sdump(got), spew.Sdump(tt.want))
-				t.Logf("got:\n%v\n", got[0].TLSContext.CommonTlsContext.TlsCertificateSdsSecretConfigs[0])
+			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol)
+			if diff := cmp.Diff(got, tt.want, protocmp.Transform()); diff != "" {
+				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}
 		})
+	}
+}
+
+func TestGetPilotSAN(t *testing.T) {
+	spiffe.SetTrustDomain("cluster.local")
+	pilotSANs := GetSAN("istio-system", PilotSvcAccName)
+	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
+		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}
 }

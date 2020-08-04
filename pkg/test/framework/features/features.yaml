@@ -18,6 +18,7 @@ features:
   # features that relate to measuring or exploring your service mesh or the services which comprise it.
   observability:
     telemetry:
+      stackdriver:
       stats:
         prometheus:
           customize-metric:
@@ -31,21 +32,58 @@ features:
         client:
         server:
       dashboard:
+      istioctl:
   # features relating to controlling the traffic of the service mesh.
   traffic:
+    reachability:
+    shifting:
     routing:
     short-circuiting:
     mirroring:
+    ingress:
+      loadbalancing:
   usability:
     observability:
+      describe:
+      version:
+      wait:
       status:
+      proxy-config:
+      proxy-status:
+      authz-check:
+    helpers:
+      add-to-mesh:
+      remove-from-mesh:
   # features that allow users to secure their services and service mesh.
   security:
     peer:
+      secure-naming:
     user:
+    ingress:
+      mtls:
+      tls:
+    egress:
+      mtls:
+        sds:
+      tls:
+        filebased:
+        sds:
     control-plane:
       k8s-certs:
+      plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:
   # features releated to the lifecycle of istio installations
   installation:
+    istioctl:
+      uninstall_revision:
+      uninstall_manifest:
+      uninstall_purge:
+    multicluster:
+      central-istiod:
+      multimaster:
+      remote:
+  # describes internal build and testing infrastrcuture
+  infrastructure:
+    # the testing framework
+    framework:

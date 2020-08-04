@@ -19,18 +19,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/pkg/log"
 )
@@ -45,8 +42,8 @@ type manifestGenerateArgs struct {
 	set []string
 	// force proceeds even if there are validation errors
 	force bool
-	// charts is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
-	charts string
+	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
+	manifestsPath string
 	// revision is the Istio control plane revision the command targets.
 	revision string
 }
@@ -56,7 +53,8 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path.")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
-	cmd.PersistentFlags().StringVarP(&args.charts, "charts", "d", "", ChartsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
+	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 }
 
@@ -96,14 +94,18 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.charts, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
 
 	if mgArgs.outFilename == "" {
-		for _, m := range orderedManifests(manifests) {
-			l.Print(m + "\n")
+		ordered, err := orderedManifests(manifests)
+		if err != nil {
+			return fmt.Errorf("failed to order manifests: %v", err)
+		}
+		for _, m := range ordered {
+			l.Print(m + object.YAMLSeparator)
 		}
 	} else {
 		if err := os.MkdirAll(mgArgs.outFilename, os.ModePerm); err != nil {
@@ -117,49 +119,29 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 	return nil
 }
 
-// GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
-// representation of path-values passed through the --set flag.
-// If force is set, validation errors will not cause processing to abort but will result in warnings going to the
-// supplied logger.
-func GenManifests(inFilename []string, setFlags []string, force bool,
-	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
+// orderedManifests generates a list of manifests from the given map sorted by the default object order
+// This allows
+func orderedManifests(mm name.ManifestMap) ([]string, error) {
+	var rawOutput []string
+	var output []string
+	for _, mfs := range mm {
+		rawOutput = append(rawOutput, mfs...)
+	}
+	objects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(rawOutput, helm.YAMLSeparator))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, l)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS, t)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := cp.Run(); err != nil {
-		return nil, nil, err
+	// For a given group of objects, sort in order to avoid missing dependencies, such as creating CRDs first
+	objects.Sort(object.DefaultObjectOrder())
+	for _, obj := range objects {
+		yml, err := obj.YAML()
+		if err != nil {
+			return nil, err
+		}
+		output = append(output, string(yml))
 	}
 
-	manifests, errs := cp.RenderManifest()
-	if errs != nil {
-		return manifests, mergedIOPS, errs.ToError()
-	}
-	return manifests, mergedIOPS, nil
-}
-
-// orderedManifests generates a list of manifests from the given map sorted by the map keys.
-func orderedManifests(mm name.ManifestMap) []string {
-	var keys, out []string
-	for k := range mm {
-		keys = append(keys, string(k))
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		out = append(out, strings.Join(mm[name.ComponentName(k)], helm.YAMLSeparator))
-	}
-	return out
+	return output, nil
 }
 
 // RenderToDir writes manifests to a local filesystem directory tree.

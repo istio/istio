@@ -8,9 +8,12 @@ node:
   id: id
   cluster: unknown
 dynamic_resources:
-  lds_config: { ads: {} }
+  lds_config:
+    ads: {}
+    resource_api_version: V3
   ads_config:
     api_type: GRPC
+    transport_api_version: V3
     grpc_services:
     - google_grpc:
         target_uri: localhost:{{.Ports.DiscoveryPort}}

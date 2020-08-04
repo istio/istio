@@ -20,13 +20,11 @@ import (
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy/envoy"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config/constants"
 )
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	role = &model.Proxy{}
 	role.DNSDomain = ""
 	registryID = serviceregistry.Kubernetes
@@ -36,19 +34,8 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
 }
 
-func TestPilotDefaultDomainConsul(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	role := &model.Proxy{}
-	role.DNSDomain = ""
-	registryID = serviceregistry.Consul
-
-	domain := getDNSDomain("", role.DNSDomain)
-
-	g.Expect(domain).To(gomega.Equal("service.consul"))
-}
-
 func TestPilotDefaultDomainOthers(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	role = &model.Proxy{}
 	role.DNSDomain = ""
 	registryID = serviceregistry.Mock
@@ -59,40 +46,13 @@ func TestPilotDefaultDomainOthers(t *testing.T) {
 }
 
 func TestPilotDomain(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	role.DNSDomain = "my.domain"
 	registryID = serviceregistry.Mock
 
 	domain := getDNSDomain("", role.DNSDomain)
 
 	g.Expect(domain).To(gomega.Equal("my.domain"))
-}
-
-func TestCustomMixerSanIfAuthenticationMutualDomainKubernetes(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	role = &model.Proxy{}
-	role.DNSDomain = ""
-	trustDomain = "mesh.com"
-	mixerIdentity = "mixer-identity"
-	registryID = serviceregistry.Kubernetes
-
-	setSpiffeTrustDomain("", role.DNSDomain)
-	mixerSAN := envoy.GetSAN("", mixerIdentity)
-
-	g.Expect(mixerSAN).To(gomega.Equal("spiffe://mesh.com/mixer-identity"))
-}
-
-func TestDedupeStrings(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	in := []string{
-		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
-		constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert,
-	}
-	expected := []string{constants.DefaultCertChain, constants.DefaultKey, constants.DefaultRootCert}
-
-	actual := dedupeStrings(in)
-
-	g.Expect(actual).To(gomega.ConsistOf(expected))
 }
 
 func TestIsIPv6Proxy(t *testing.T) {

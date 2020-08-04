@@ -20,7 +20,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"strings"
+
+	"golang.org/x/net/http2"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -39,8 +42,13 @@ func (c *httpProtocol) setHost(r *http.Request, host string) {
 	if r.URL.Scheme == "https" {
 		// Set SNI value to be same as the request Host
 		// For use with SNI routing tests
-		httpTransport := c.client.Transport.(*http.Transport)
-		httpTransport.TLSClientConfig.ServerName = host
+		httpTransport, ok := c.client.Transport.(*http.Transport)
+		if ok {
+			httpTransport.TLSClientConfig.ServerName = host
+		} else {
+			httpTransport := c.client.Transport.(*http2.Transport)
+			httpTransport.TLSClientConfig.ServerName = host
+		}
 	}
 }
 
@@ -75,7 +83,13 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 
 	outBuffer.WriteString(fmt.Sprintf("[%d] %s=%d\n", req.RequestID, response.StatusCodeField, httpResp.StatusCode))
 
-	for key, values := range httpResp.Header {
+	keys := []string{}
+	for k := range httpResp.Header {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		values := httpResp.Header[key]
 		for _, value := range values {
 			outBuffer.WriteString(fmt.Sprintf("[%d] ResponseHeader=%s:%s\n", req.RequestID, key, value))
 		}
@@ -102,5 +116,6 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 }
 
 func (c *httpProtocol) Close() error {
+	c.client.CloseIdleConnections()
 	return nil
 }

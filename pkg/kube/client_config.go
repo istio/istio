@@ -34,6 +34,13 @@ type clientConfig struct {
 	restConfig rest.Config
 }
 
+// NewClientConfigForRestConfig creates a new k8s clientcmd.ClientConfig from the given rest.Config.
+func NewClientConfigForRestConfig(restConfig *rest.Config) clientcmd.ClientConfig {
+	return &clientConfig{
+		restConfig: *restConfig,
+	}
+}
+
 func (c *clientConfig) RawConfig() (api.Config, error) {
 	cfg := api.Config{
 		Kind:        "Config",

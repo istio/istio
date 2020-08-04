@@ -39,7 +39,7 @@ func TestCreateConfig(t *testing.T) {
 }
 
 func TestNewKubeWithInvalidConfigFileShouldFail(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	_, err := kube.NewInterfacesFromConfigFile("badconfigfile")
 	g.Expect(err).ToNot(BeNil())
 }

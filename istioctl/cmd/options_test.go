@@ -34,7 +34,8 @@ var (
 func TestLogHelp(t *testing.T) {
 	var out bytes.Buffer
 	rootCmd := GetRootCmd([]string{"options"})
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 
 	fErr := rootCmd.Execute()
 	if fErr != nil {

@@ -127,6 +127,11 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 					ApiListener: util.MessageToAny(&v2.HttpConnectionManager{
 						RouteSpecifier: &v2.HttpConnectionManager_Rds{
 							Rds: &v2.Rds{
+								ConfigSource: &envoycore.ConfigSource{
+									ConfigSourceSpecifier: &envoycore.ConfigSource_Ads{
+										Ads: &envoycore.AggregatedConfigSource{},
+									},
+								},
 								RouteConfigName: hp,
 							},
 						},

@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/common/expfmt"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -136,40 +137,36 @@ func TestNewServer(t *testing.T) {
 
 func TestStats(t *testing.T) {
 	cases := []struct {
-		name   string
-		envoy  string
-		app    string
-		output string
+		name             string
+		envoy            string
+		app              string
+		output           string
+		expectParseError bool
 	}{
-		{
-			name:   "simple string",
-			envoy:  "foo",
-			output: "foo",
-		},
 		{
 			name: "envoy metric only",
 			envoy: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 			output: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 		},
 		{
 			name: "app metric only",
 			app: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 			output: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 		},
 		{
@@ -185,6 +182,51 @@ my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
 `,
+		},
+		{
+			name:  "agent metric",
+			envoy: ``,
+			app:   ``,
+			// Agent metric is dynamic, so we just check a substring of it not the actual metric
+			output: `
+# TYPE istio_agent_scrapes_total counter
+istio_agent_scrapes_total`,
+		},
+		// When the application and envoy share a metric, Prometheus will fail. This negative check validates this
+		// assumption.
+		{
+			name: "conflict metric",
+			envoy: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+			app: `# TYPE my_metric counter
+my_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+# TYPE my_metric counter
+my_metric{} 0
+`,
+			expectParseError: true,
+		},
+		{
+			name: "conflict metric labeled",
+			envoy: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+`,
+			app: `# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			expectParseError: true,
 		},
 	}
 	for _, tt := range cases {
@@ -217,15 +259,22 @@ my_other_metric{} 0
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
-			if rec.Body.String() != tt.output {
+			if !strings.Contains(rec.Body.String(), tt.output) {
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
+			}
+
+			parser := expfmt.TextParser{}
+			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+			if err != nil && !tt.expectParseError {
+				t.Fatalf("failed to parse metrics: %v", err)
+			} else if err == nil && tt.expectParseError {
+				t.Fatalf("expected a prse error, got %+v", mfMap)
 			}
 		})
 	}
 }
 
 func TestStatsError(t *testing.T) {
-	rec := httptest.NewRecorder()
 	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -246,12 +295,11 @@ func TestStatsError(t *testing.T) {
 		name  string
 		envoy int
 		app   int
-		resp  int
 	}{
-		{"both pass", passPort, passPort, 200},
-		{"envoy pass", passPort, failPort, 503},
-		{"app pass", failPort, passPort, 503},
-		{"both fail", failPort, failPort, 503},
+		{"both pass", passPort, passPort},
+		{"envoy pass", passPort, failPort},
+		{"app pass", failPort, passPort},
+		{"both fail", failPort, failPort},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -263,6 +311,7 @@ func TestStatsError(t *testing.T) {
 				envoyStatsPort: tt.envoy,
 			}
 			req := &http.Request{}
+			rec := httptest.NewRecorder()
 			server.handleStats(rec, req)
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)

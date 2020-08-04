@@ -19,18 +19,18 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/mixer"
+	util "istio.io/istio/tests/integration/telemetry"
 	util_prometheus "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
@@ -49,17 +49,16 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 	framework.
 		NewTest(t).
 		Features("observability.telemetry.stats.prometheus.tcp").
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			addr := ing.HTTPAddress()
 			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 			)
-			defer ctx.DeleteConfig(
+			defer ctx.Config().DeleteYAML(
 				bookinfoNs.Name(),
 				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
 				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
@@ -71,12 +70,12 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 				t.Errorf("unable to load config %s, err:%v", cleanupFilterConfig, err)
 			}
 
-			ctx.ApplyConfigOrFail(
+			ctx.Config().ApplyYAMLOrFail(
 				t,
 				systemNM.Name(),
 				cleanup,
 			)
-			defer ctx.DeleteConfig(
+			defer ctx.Config().DeleteYAML(
 				systemNM.Name(),
 				cleanup,
 			)
@@ -98,24 +97,12 @@ func TestTcpMetric(t *testing.T) { // nolint:interfacer
 
 func TestMain(m *testing.M) {
 	framework.
-		NewSuite("stats_tcp_filter", m).
-		RequireEnvironment(environment.Kube).
+		NewSuite(m).
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		SetupOnEnv(environment.Kube, istio.Setup(&ist, setupConfig)).
+		Setup(istio.Setup(&ist, nil)).
 		Setup(testsetup).
 		Run()
-}
-
-func setupConfig(cfg *istio.Config) {
-	if cfg == nil {
-		return
-	}
-	// disable mixer telemetry and enable telemetry v2
-	// This turns on telemetry v2 for both HTTP and TCP.
-	cfg.Values["telemetry.enabled"] = "true"
-	cfg.Values["telemetry.v1.enabled"] = "false"
-	cfg.Values["telemetry.v2.enabled"] = "true"
 }
 
 func testsetup(ctx resource.Context) (err error) {
@@ -135,10 +122,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB}); err != nil {
 		return err
 	}
-	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
-	if err != nil {
-		return err
-	}
+	ing = ist.IngressFor(ctx.Clusters().Default())
 	prom, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return err
@@ -147,7 +131,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = ctx.ApplyConfig(bookinfoNs.Name(), yamlText)
+	err = ctx.Config().ApplyYAML(bookinfoNs.Name(), yamlText)
 	if err != nil {
 		return err
 	}

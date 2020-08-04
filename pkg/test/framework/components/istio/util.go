@@ -19,46 +19,47 @@ import (
 	"net"
 	"time"
 
-	kubeenv "istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/resource"
 
-	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
-	dummyValidationRuleTemplate = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
+	dummyValidationVirtualServiceTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: validation-readiness-dummy-rule
+  name: validation-readiness-dummy-virtual-service
   namespace: %s
 spec:
-  match: request.headers["foo"] == "bar"
-  actions:
-  - handler: validation-readiness-dummy
-    instances:
-    - validation-readiness-dummy
+  hosts:
+    - non-existent-host
+  http:
+    - route:
+      - destination:
+          host: non-existent-host
+          subset: v1
+        weight: 75
+      - destination:
+          host: non-existent-host
+          subset: v2
+        weight: 25
 `
 )
 
-var (
-	igwServiceName = "istio-ingressgateway"
-	discoveryPort  = 15012
-)
-
-func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
-	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
+func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
+	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
-		e := accessor.DeleteContents("", dummyValidationRule)
+		e := ctx.Config(cluster).DeleteYAML("", dummyValidationVirtualService)
 		if e != nil {
-			scopes.Framework.Warnf("error deleting dummy rule for waiting the validation webhook: %v", e)
+			scopes.Framework.Warnf("error deleting dummy virtual service for waiting the validation webhook: %v", e)
 		}
 	}()
 
-	scopes.CI.Info("Creating dummy rule to check for validation webhook readiness")
+	scopes.Framework.Info("Creating dummy virtual service to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
-		_, err := accessor.ApplyContents("", dummyValidationRule)
+		err := ctx.Config(cluster).ApplyYAML("", dummyValidationVirtualService)
 		if err == nil {
 			return nil
 		}
@@ -67,48 +68,14 @@ func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
 	}, retry.Timeout(time.Minute))
 }
 
-func GetRemoteDiscoveryAddress(namespace string, cluster kubeenv.Cluster, useNodePort bool) (net.TCPAddr, error) {
-	svc, err := cluster.GetService(namespace, igwServiceName)
+func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
+	cp, err := i.environment.GetControlPlaneCluster(cluster)
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
-
-	// if useNodePort is set, we look for the node port service. This is generally used on kind or k8s without a LB
-	// and that do not have metallb installed
-	if useNodePort {
-		pods, err := cluster.GetPods(namespace, "istio=ingressgateway")
-		if err != nil {
-			return net.TCPAddr{}, err
-		}
-		if len(pods) == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no ingress pod found")
-		}
-		ip := pods[0].Status.HostIP
-		if ip == "" {
-			return net.TCPAddr{}, fmt.Errorf("no Host IP available on the ingress node yet")
-		}
-		if len(svc.Spec.Ports) == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no ports found in service istio-ingressgateway")
-		}
-
-		var nodePort int32
-		for _, svcPort := range svc.Spec.Ports {
-			if svcPort.Protocol == "TCP" && svcPort.Port == int32(discoveryPort) {
-				nodePort = svcPort.NodePort
-				break
-			}
-		}
-		if nodePort == 0 {
-			return net.TCPAddr{}, fmt.Errorf("no port found in service: istio-ingressgateway")
-		}
-		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, nil
+	addr := i.IngressFor(cp).DiscoveryAddress()
+	if addr.IP.String() == "<nil>" {
+		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())
 	}
-
-	// If running in KinD, MetalLB must be installed to enable LoadBalancer resources
-	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-		return net.TCPAddr{}, fmt.Errorf("service ingress is not available yet: %s/%s", svc.Namespace, svc.Name)
-	}
-
-	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: discoveryPort}, nil
+	return addr, nil
 }

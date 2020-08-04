@@ -27,8 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
@@ -36,6 +34,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
 	oversion "istio.io/istio/operator/version"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -109,9 +108,7 @@ func NewTranslator() *Translator {
 			"MeshConfig":  {OutPath: "meshConfig"},
 		},
 		GlobalNamespaces: map[name.ComponentName]string{
-			name.PilotComponentName:     "istioNamespace",
-			name.TelemetryComponentName: "telemetryNamespace",
-			name.PolicyComponentName:    "policyNamespace",
+			name.PilotComponentName: "istioNamespace",
 		},
 		ComponentMaps: map[name.ComponentName]*ComponentMaps{
 			name.IstioBaseComponentName: {
@@ -125,20 +122,6 @@ func NewTranslator() *Translator {
 				ContainerName:        "discovery",
 				HelmSubdir:           "istio-control/istio-discovery",
 				ToHelmValuesTreeRoot: "pilot",
-			},
-			name.PolicyComponentName: {
-				ResourceType:         "Deployment",
-				ResourceName:         "istio-policy",
-				ContainerName:        "mixer",
-				HelmSubdir:           "istio-policy",
-				ToHelmValuesTreeRoot: "mixer.policy",
-			},
-			name.TelemetryComponentName: {
-				ResourceType:         "Deployment",
-				ResourceName:         "istio-telemetry",
-				ContainerName:        "mixer",
-				HelmSubdir:           "istio-telemetry/mixer-telemetry",
-				ToHelmValuesTreeRoot: "mixer.telemetry",
 			},
 			name.IngressComponentName: {
 				ResourceType:         "Deployment",
@@ -172,42 +155,6 @@ func NewTranslator() *Translator {
 				ContainerName:        "coredns",
 				HelmSubdir:           "istiocoredns",
 				ToHelmValuesTreeRoot: "istiocoredns",
-			},
-			name.ComponentName("Tracing"): {
-				ResourceType:         "Deployment",
-				ResourceName:         "istio-tracing",
-				ContainerName:        "jaeger",
-				HelmSubdir:           "istio-telemetry/tracing",
-				ToHelmValuesTreeRoot: "tracing.jaeger",
-			},
-			name.ComponentName("PrometheusOperator"): {
-				ResourceType:         "Deployment",
-				ResourceName:         "prometheus",
-				ContainerName:        "prometheus",
-				HelmSubdir:           "istio-telemetry/prometheusOperator",
-				ToHelmValuesTreeRoot: "prometheus",
-				SkipReverseTranslate: true,
-			},
-			name.ComponentName("Kiali"): {
-				ResourceType:         "Deployment",
-				ResourceName:         "kiali",
-				ContainerName:        "kiali",
-				HelmSubdir:           "istio-telemetry/kiali",
-				ToHelmValuesTreeRoot: "kiali",
-			},
-			name.ComponentName("Grafana"): {
-				ResourceType:         "Deployment",
-				ResourceName:         "grafana",
-				ContainerName:        "grafana",
-				HelmSubdir:           "istio-telemetry/grafana",
-				ToHelmValuesTreeRoot: "grafana",
-			},
-			name.ComponentName("Prometheus"): {
-				ResourceType:         "Deployment",
-				ResourceName:         "prometheus",
-				ContainerName:        "prometheus",
-				HelmSubdir:           "istio-telemetry/prometheus",
-				ToHelmValuesTreeRoot: "prometheus",
 			},
 		},
 		// nolint: lll
@@ -270,6 +217,9 @@ func (t *Translator) OverlayK8sSettings(yml string, iop *v1alpha1.IstioOperatorS
 		if mint, ok := util.ToIntValue(m); ok && mint == 0 {
 			scope.Debugf("path %s is int 0, skip mapping.", inPath)
 			continue
+		}
+		if componentName == name.IstioBaseComponentName {
+			return "", fmt.Errorf("base component can only have k8s.overlays, not other K8s settings")
 		}
 		outPath, err := t.renderResourceComponentPathTemplate(v.OutPath, componentName, resourceName, addonName, iop.Revision)
 		if err != nil {

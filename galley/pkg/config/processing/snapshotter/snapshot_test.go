@@ -28,7 +28,7 @@ import (
 )
 
 func TestSnapshot_Basics(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	set := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build())
 	set.Collection(basicmeta.K8SCollection1.Name()).Set(data.EntryN1I1V1)
@@ -51,7 +51,7 @@ func TestSnapshot_Basics(t *testing.T) {
 }
 
 func TestSnapshot_SerializeError(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	set := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build())
 	e := data.Event1Col1AddItem1.Resource.Clone()
@@ -64,7 +64,7 @@ func TestSnapshot_SerializeError(t *testing.T) {
 }
 
 func TestSnapshot_WrongCollection(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	set := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).Build())
 	set.Collection(basicmeta.K8SCollection1.Name()).Set(data.Event1Col1AddItem1.Resource)
