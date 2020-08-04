@@ -52,7 +52,7 @@ values:
 func TestMtlsGatewaysK8sca(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features( "security.ingress.mtls.gateway.K8sca").
+		Features("security.ingress.mtls.gateway.K8sca").
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiMtlsGateways(ctx, inst)
 		})
