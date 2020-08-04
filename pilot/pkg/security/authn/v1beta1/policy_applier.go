@@ -15,9 +15,8 @@
 package v1beta1
 
 import (
-	b64 "encoding/base64"
+	"encoding/base64"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -218,12 +217,10 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
-// Remove all Non-Alphanumeric Characters from a jwksURI and append to "n"
 func createFakeJwks(jwksURI string) string {
-	encodedString := b64.URLEncoding.EncodeToString([]byte(jwksURI))
-	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
-	processedString := reg.ReplaceAllString(encodedString, "")
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s"}]}`, processedString)
+	// Encode jwksURI with base64 to make dynamic n in jwks
+	encodedString := base64.RawURLEncoding.EncodeToString([]byte(jwksURI))
+	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"Error-IstiodFailedToFetchJwksUri-%s"}]}`, encodedString)
 }
 
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.

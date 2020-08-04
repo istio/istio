@@ -303,33 +303,6 @@ func TestRequestAuthentication(t *testing.T) {
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 				},
-				{
-					Name: "invalid-jwks-expired-token-noauthz",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   f,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-							Headers: map[string][]string{
-								authHeaderKey: {"Bearer " + jwt.TokenExpired},
-							},
-						},
-					},
-					ExpectResponseCode: response.StatusUnauthorized,
-				},
-				{
-					Name: "invalid-jwks-no-token-noauthz",
-					Request: connection.Checker{
-						From: a,
-						Options: echo.CallOptions{
-							Target:   f,
-							PortName: "http",
-							Scheme:   scheme.HTTP,
-						},
-					},
-					ExpectResponseCode: response.StatusCodeOK,
-				},
 			}
 			for _, c := range testCases {
 				t.Run(c.Name, func(t *testing.T) {
