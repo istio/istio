@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
 	istioVersion "istio.io/pkg/version"
+	v1 "k8s.io/api/core/v1"
 )
 
 type sidecarSyncStatus struct {
@@ -32,7 +33,7 @@ type sidecarSyncStatus struct {
 
 // GetProxyInfo retrieves infos of proxies that connect to the Istio control plane of specific revision.
 func GetProxyInfo(kubeconfig, configContext, revision, istioNamespace string) (*[]istioVersion.ProxyInfo, error) {
-	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
+	kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), v1.NamespaceAll, revision)
 	if err != nil {
 		return nil, err
 	}
