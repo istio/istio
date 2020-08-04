@@ -91,11 +91,9 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
+			cfg.ExposeIstiod = true
 			cfg.ControlPlaneValues = `
 values:
-  global:
-    meshExpansion:
-      enabled: true
   pilot:
     env:
       PILOT_ENABLED_SERVICE_APIS: "true"`
