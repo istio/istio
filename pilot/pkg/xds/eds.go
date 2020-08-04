@@ -172,6 +172,14 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 	inboundEDSUpdates.Increment()
 	// Update the eds data structures and trigger a push.
 	fp := s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints)
+	if !fp {
+		svc, _ := s.Env.GetService(host.Name(serviceName))
+		// should trigger cds push when svc resolution is DNS
+		// TODO: maybe only cds?
+		if svc != nil && svc.Resolution == model.DNSLB {
+			fp = true
+		}
+	}
 	s.ConfigUpdate(&model.PushRequest{
 		Full: fp,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
