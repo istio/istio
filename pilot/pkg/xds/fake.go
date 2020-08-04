@@ -183,12 +183,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
 	}
-	if err := s.UpdateServiceShards(env.PushContext); err != nil {
-		t.Fatal(err)
-	}
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
 
 	s.MemRegistry.ClusterID = string(serviceregistry.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
@@ -249,12 +243,21 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Start(stop)
 
 	se.ResyncEDS()
-	if err := k8s.ResyncEndpoints(); err != nil {
+	if err := k8s.ForceResync(); err != nil {
 		t.Fatal(err)
 	}
 
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+	ctx := model.NewPushContext()
+	if err := ctx.InitContext(env, env.PushContext, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateServiceShards(ctx); err != nil {
+		t.Fatal(err)
+	}
+	env.PushContext = ctx
+
 	fake := &FakeDiscoveryServer{
 		t:           t,
 		Store:       configController,
