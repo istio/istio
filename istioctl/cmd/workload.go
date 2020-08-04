@@ -40,6 +40,9 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 )
 
 var (
@@ -184,8 +187,11 @@ This includes a MeshConfig resource, the cluster.env file, and necessary certifi
 					return err
 				}
 			} else {
-				// TODO: figure out why workloadgroups isn't a recognized resource
-				wg, err = networkingclientv1alpha3.New(kubeClient.REST()).WorkloadGroups(namespace).Get(context.Background(), name, metav1.GetOptions{})
+				networkingClient, err := networkingclientv1alpha3.NewForConfig(injectWorkloadGroup(kubeClient.RESTConfig()))
+				if err != nil {
+					return err
+				}
+				wg, err = networkingClient.WorkloadGroups(namespace).Get(context.Background(), name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -207,6 +213,18 @@ This includes a MeshConfig resource, the cluster.env file, and necessary certifi
 	return configureCmd
 }
 
+// return a modified REST config where WorkloadGroup is a recognized Kubernetes resource
+func injectWorkloadGroup(config *rest.Config) *rest.Config {
+	schemeGroupVersion := schema.GroupVersion{
+		Group:   collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Group(),
+		Version: collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Version(),
+	}
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypes(schemeGroupVersion, &clientv1alpha3.WorkloadGroup{})
+	config.GroupVersion = &schemeGroupVersion
+	return config
+}
+
 func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error {
 	f, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -220,6 +238,7 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 
 // Creates all the relevant config for the given workload group and cluster
 func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, outputName string) error {
+	fillWorkloadGroup(wg)
 	temp, err := ioutil.TempDir("./", outputName)
 	if err != nil {
 		return err
@@ -239,6 +258,19 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 		return err
 	}
 	return nil
+}
+
+// used to populate nil WorkloadGroup structs (template, metadata, and spec)
+func fillWorkloadGroup(wg *clientv1alpha3.WorkloadGroup) {
+	if wg.Spec.Template == nil {
+		wg.Spec.Template = &networkingv1alpha3.WorkloadEntryTemplate{}
+	}
+	if wg.Spec.Template.Metadata == nil {
+		wg.Spec.Template.Metadata = &metav1.ObjectMeta{}
+	}
+	if wg.Spec.Template.Spec == nil {
+		wg.Spec.Template.Spec = &networkingv1alpha3.WorkloadEntry{}
+	}
 }
 
 // Write cluster.env into the given directory
@@ -304,7 +336,10 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		return err
 	}
 
-	labels := wg.Spec.Template.Metadata.Labels
+	labels := map[string]string{}
+	for k, v := range wg.Spec.Template.Metadata.Labels {
+		labels[k] = v
+	}
 	// case where a user provided custom workload group has labels in the workload entry spec field
 	for k, v := range wg.Spec.Template.Spec.Labels {
 		labels[k] = v
@@ -337,9 +372,9 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	return ioutil.WriteFile(dir+"/mesh", []byte(meshYAML), tempPerms)
 }
 
-// Packs files inside source into target.tar
+// Packs files inside a source folder into target.tar
 func Tar(source, target string) error {
-	target = fmt.Sprintf("%s.tar", filepath.Base(target))
+	target = fmt.Sprintf("%s.tar", target)
 	tarfile, err := os.Create(target)
 	if err != nil {
 		return err
@@ -348,16 +383,17 @@ func Tar(source, target string) error {
 	tw := tar.NewWriter(tarfile)
 	defer tw.Close()
 
+	// return an error if source folder doesn't exist
 	info, err := os.Stat(source)
 	if err != nil {
-		return nil
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a folder", source)
 	}
 
-	var baseDir string
-	if info.IsDir() {
-		baseDir = filepath.Base(source)
-	}
-
+	// match filepath walk format for trimming the path prefix later
+	source = strings.TrimPrefix(source, "./")
 	return filepath.Walk(source,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -367,26 +403,25 @@ func Tar(source, target string) error {
 			if err != nil {
 				return err
 			}
+			header.Name = strings.TrimPrefix(path, source)
 
-			if baseDir != "" {
-				header.Name = strings.TrimPrefix(path, source)
-			}
-
+			// write the header, and write the content if a file
 			if err := tw.WriteHeader(header); err != nil {
 				return err
 			}
+			if !info.IsDir() {
+				file, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				defer file.Close()
 
-			if info.IsDir() {
-				return nil
+				_, err = io.Copy(tw, file)
+				if err != nil {
+					return err
+				}
 			}
-
-			file, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-			_, err = io.Copy(tw, file)
-			return err
+			return nil
 		})
 }
 
