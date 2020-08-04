@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -102,6 +102,7 @@ func Analyze() *cobra.Command {
 	for k := range msgOutputFormats {
 		msgOutputFormatKeys = append(msgOutputFormatKeys, k)
 	}
+	sort.Strings(msgOutputFormatKeys)
 
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
@@ -258,6 +259,7 @@ istioctl analyze -L
 				}
 			}
 
+			var returnError error
 			switch msgOutputFormat {
 			case LogOutput:
 				// Print validation message output, or a line indicating that none were found
@@ -281,6 +283,14 @@ istioctl analyze -L
 						fmt.Fprintln(cmd.OutOrStdout(), renderMessage(m))
 					}
 				}
+
+				// Return code is based on the unfiltered validation message list/parse errors
+				// We're intentionally keeping failure threshold and output threshold decoupled for now
+				returnError = errorIfMessagesExceedThreshold(result.Messages)
+				if returnError == nil && parseErrors > 0 {
+					returnError = FileParseError{}
+				}
+
 			case JSONOutput:
 				jsonOutput, err := json.MarshalIndent(outputMessages, "", "\t")
 				if err != nil {
@@ -297,12 +307,6 @@ istioctl analyze -L
 				panic(fmt.Sprintf("%q not found in output format switch statement post validate?", msgOutputFormat))
 			}
 
-			// Return code is based on the unfiltered validation message list/parse errors
-			// We're intentionally keeping failure threshold and output threshold decoupled for now
-			returnError := errorIfMessagesExceedThreshold(result.Messages)
-			if returnError == nil && parseErrors > 0 {
-				returnError = FileParseError{}
-			}
 			return returnError
 		},
 	}
@@ -343,7 +347,7 @@ func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error
 
 		// Handle "-" as stdin as a special case.
 		if f == "-" {
-			if isatty.IsTerminal(os.Stdin.Fd()) {
+			if isatty.IsTerminal(os.Stdin.Fd()) && !isJSONorYAMLOutputFormat() {
 				fmt.Fprint(cmd.OutOrStdout(), "Reading from stdin:\n")
 			}
 			r = os.Stdin
@@ -364,7 +368,7 @@ func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error
 			readers = append(readers, dirReaders...)
 		} else {
 			if !isValidFile(f) {
-				fmt.Fprintf(cmd.OutOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", f, fileExtensions)
+				fmt.Fprintf(cmd.ErrOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", f, fileExtensions)
 				continue
 			}
 			rs, err := gatherFile(f)
@@ -403,7 +407,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		}
 
 		if !isValidFile(path) {
-			fmt.Fprintf(cmd.OutOrStdout(), "Skipping file %v, recognized file extensions are: %v\n", path, fileExtensions)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", path, fileExtensions)
 			return nil
 		}
 
@@ -550,4 +554,9 @@ func analyzeTargetAsString() string {
 		return "all namespaces"
 	}
 	return fmt.Sprintf("namespace: %s", selectedNamespace)
+}
+
+// TODO: Refactor output writer so that it is smart enough to know when to output what.
+func isJSONorYAMLOutputFormat() bool {
+	return msgOutputFormat == JSONOutput || msgOutputFormat == YamlOutput
 }

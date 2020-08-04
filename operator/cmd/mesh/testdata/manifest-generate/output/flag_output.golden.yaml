@@ -19,6 +19,8 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/port: "15014"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: istiod
@@ -57,6 +59,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.serviceAccountName
+        - name: KUBECONFIG
+          value: /var/run/secrets/remote/config
         - name: PILOT_TRACE_SAMPLING
           value: "1"
         - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
@@ -71,6 +75,8 @@ spec:
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: CENTRAL_ISTIOD
+          value: "false"
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -107,12 +113,15 @@ spec:
         - mountPath: /etc/cacerts
           name: cacerts
           readOnly: true
+        - mountPath: /var/run/secrets/remote
+          name: istio-kubeconfig
+          readOnly: true
         - mountPath: /var/lib/istio/inject
           name: inject
           readOnly: true
       securityContext:
         fsGroup: 1337
-      serviceAccountName: istio-pilot-service-account
+      serviceAccountName: istiod-service-account
       volumes:
       - emptyDir:
           medium: Memory
@@ -128,9 +137,12 @@ spec:
         secret:
           optional: true
           secretName: cacerts
+      - name: istio-kubeconfig
+        secret:
+          optional: true
+          secretName: istio-kubeconfig
       - configMap:
           name: istio-sidecar-injector
-          optional: true
         name: inject
       - configMap:
           name: istio

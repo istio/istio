@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,10 @@ import (
 	"sort"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/golang/protobuf/ptypes"
+
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // GetDynamicListenerDump retrieves a listener dump with just dynamic active listeners in it
@@ -31,23 +33,29 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 
 	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	for _, l := range listenerDump.DynamicListeners {
+		// If a listener was reloaded, it would contain both the active and draining state
+		// delete the draining state for proper comparison
+		l.DrainingState = nil
 		if l.ActiveState != nil {
 			dal = append(dal, l)
 		}
 	}
 
 	sort.Slice(dal, func(i, j int) bool {
-		listener := &xdsapi.Listener{}
-		err = ptypes.UnmarshalAny(dal[i].ActiveState.Listener, listener)
+		l := &listener.Listener{}
+		// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+		dal[i].ActiveState.Listener.TypeUrl = v3.ListenerType
+		dal[j].ActiveState.Listener.TypeUrl = v3.ListenerType
+		err = ptypes.UnmarshalAny(dal[i].ActiveState.Listener, l)
 		if err != nil {
 			return false
 		}
-		name := listener.Name
-		err = ptypes.UnmarshalAny(dal[j].ActiveState.Listener, listener)
+		name := l.Name
+		err = ptypes.UnmarshalAny(dal[j].ActiveState.Listener, l)
 		if err != nil {
 			return false
 		}
-		return name < listener.Name
+		return name < l.Name
 	})
 	if stripVersions {
 		for i := range dal {
@@ -66,7 +74,7 @@ func (w *Wrapper) GetListenerConfigDump() (*adminapi.ListenersConfigDump, error)
 		return nil, err
 	}
 	listenerDump := &adminapi.ListenersConfigDump{}
-	err = ptypes.UnmarshalAny(&listenerDumpAny, listenerDump)
+	err = ptypes.UnmarshalAny(listenerDumpAny, listenerDump)
 	if err != nil {
 		return nil, err
 	}

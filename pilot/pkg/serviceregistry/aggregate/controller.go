@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ func (c *Controller) Services() ([]*model.Service, error) {
 		// may modify one of the service's cluster ID
 		clusterAddressesMutex.Lock()
 		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
-			// If the service does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
+			// If the service does not have a cluster ID (ServiceEntries, CloudFoundry, etc.)
 			// Do not bother checking for the cluster ID.
 			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 			// VIPs or CIDR ranges in the address field
@@ -168,7 +168,7 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 			continue
 		}
 		if r.Cluster() == "" { // Should we instead check for registry name to be on safe side?
-			// If the service does not have a cluster ID (consul, ServiceEntries, CloudFoundry, etc.)
+			// If the service does not have a cluster ID (ServiceEntries, CloudFoundry, etc.)
 			// Do not bother checking for the cluster ID.
 			// DO NOT ASSIGN CLUSTER ID to non-k8s registries. This will prevent service entries with multiple
 			// VIPs or CIDR ranges in the address field
@@ -201,28 +201,6 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 	return out, errs
 }
 
-// ManagementPorts retrieves set of health check ports by instance IP
-// Return on the first hit.
-func (c *Controller) ManagementPorts(addr string) model.PortList {
-	for _, r := range c.GetRegistries() {
-		if portList := r.ManagementPorts(addr); portList != nil {
-			return portList
-		}
-	}
-	return nil
-}
-
-// WorkloadHealthCheckInfo returne the health check information for IP addr
-// Return on the first hit.
-func (c *Controller) WorkloadHealthCheckInfo(addr string) model.ProbeList {
-	for _, r := range c.GetRegistries() {
-		if probeList := r.WorkloadHealthCheckInfo(addr); probeList != nil {
-			return probeList
-		}
-	}
-	return nil
-}
-
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
 func (c *Controller) InstancesByPort(svc *model.Service, port int,
@@ -233,11 +211,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, port int,
 		var err error
 		tmpInstances, err = r.InstancesByPort(svc, port, labels)
 		if err != nil {
+			log.Warnf("get service %s instance from registry %s/%s failed: %v", svc.Hostname, r.Provider(), r.Cluster(), err)
 			errs = multierror.Append(errs, err)
 		} else if len(tmpInstances) > 0 {
-			if errs != nil {
-				log.Warnf("Instances() found match but encountered an error: %v", errs)
-			}
 			instances = append(instances, tmpInstances...)
 		}
 	}
@@ -292,7 +268,6 @@ func (c *Controller) GetProxyServiceInstances(node *model.Proxy) ([]*model.Servi
 			errs = multierror.Append(errs, err)
 		} else if len(instances) > 0 {
 			out = append(out, instances...)
-			node.ClusterID = instances[0].Endpoint.Locality.ClusterID
 			break
 		}
 	}
@@ -369,6 +344,16 @@ func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.
 	for _, r := range c.GetRegistries() {
 		if err := r.AppendInstanceHandler(f); err != nil {
 			log.Infof("Fail to append instance handler to adapter %s", r.Provider())
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
+	for _, r := range c.GetRegistries() {
+		if err := r.AppendWorkloadHandler(f); err != nil {
+			log.Infof("Fail to append workload handler to adapter %s", r.Provider())
 			return err
 		}
 	}

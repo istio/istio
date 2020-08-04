@@ -1,12 +1,5 @@
 base:
   enabled: true
-citadel:
-  enabled: false
-  k8s:
-    strategy:
-      rollingUpdate:
-        maxSurge: 100%
-        maxUnavailable: 25%
 cni:
   enabled: false
 egressGateways:
@@ -76,8 +69,8 @@ ingressGateways:
     service:
       ports:
       - name: status-port
-        port: 15020
-        targetPort: 15020
+        port: 15021
+        targetPort: 15021
       - name: http2
         port: 80
         targetPort: 8080
@@ -92,6 +85,8 @@ ingressGateways:
         maxSurge: 100%
         maxUnavailable: 25%
   name: istio-ingressgateway
+istiodRemote:
+  enabled: false
 pilot:
   enabled: false
   k8s:
@@ -119,66 +114,6 @@ pilot:
         maxUnavailable: 25%
 policy:
   enabled: false
-  k8s:
-    env:
-    - name: POD_NAMESPACE
-      valueFrom:
-        fieldRef:
-          apiVersion: v1
-          fieldPath: metadata.namespace
-    hpaSpec:
-      maxReplicas: 5
-      metrics:
-      - resource:
-          name: cpu
-          targetAverageUtilization: 80
-        type: Resource
-      minReplicas: 1
-      scaleTargetRef:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: istio-policy
-    strategy:
-      rollingUpdate:
-        maxSurge: 100%
-        maxUnavailable: 25%
-proxy:
-  enabled: false
-sidecarInjector:
-  enabled: false
 telemetry:
   enabled: false
-  k8s:
-    env:
-    - name: POD_NAMESPACE
-      valueFrom:
-        fieldRef:
-          apiVersion: v1
-          fieldPath: metadata.namespace
-    - name: GOMAXPROCS
-      value: "6"
-    hpaSpec:
-      maxReplicas: 5
-      metrics:
-      - resource:
-          name: cpu
-          targetAverageUtilization: 80
-        type: Resource
-      minReplicas: 1
-      scaleTargetRef:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: istio-telemetry
-    replicaCount: 1
-    resources:
-      limits:
-        cpu: 4800m
-        memory: 4G
-      requests:
-        cpu: 1000m
-        memory: 1G
-    strategy:
-      rollingUpdate:
-        maxSurge: 100%
-        maxUnavailable: 25%
 

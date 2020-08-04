@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 func TestConvert(t *testing.T) {
-	if _, err := ConvertConfig(collections.IstioNetworkingV1Alpha3Virtualservices, model.Config{}); err == nil {
+	if _, err := ConvertConfig(model.Config{}); err == nil {
 		t.Errorf("expected error for converting empty config")
 	}
 	if _, err := ConvertObject(collections.IstioNetworkingV1Alpha3Virtualservices, &IstioKind{Spec: map[string]interface{}{"x": 1}}, "local"); err != nil {
@@ -32,20 +32,18 @@ func TestConvert(t *testing.T) {
 	}
 	config := model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:            collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind(),
-			Group:           "networking.istio.io",
-			Version:         "v1alpha3",
-			Name:            "test",
-			Namespace:       "default",
-			Domain:          "cluster",
-			ResourceVersion: "1234",
-			Labels:          map[string]string{"label": "value"},
-			Annotations:     map[string]string{"annotation": "value"},
+			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			Name:             "test",
+			Namespace:        "default",
+			Domain:           "cluster",
+			ResourceVersion:  "1234",
+			Labels:           map[string]string{"label": "value"},
+			Annotations:      map[string]string{"annotation": "value"},
 		},
 		Spec: mock.ExampleVirtualService,
 	}
 
-	obj, err := ConvertConfig(collections.IstioNetworkingV1Alpha3Virtualservices, config)
+	obj, err := ConvertConfig(config)
 	if err != nil {
 		t.Errorf("ConvertConfig() => unexpected error %v", err)
 	}

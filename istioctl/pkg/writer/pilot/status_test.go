@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	v2 "istio.io/istio/pilot/pkg/proxy/envoy/v2"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/tests/util"
 )
 
@@ -38,30 +38,30 @@ func newNonce() string {
 func TestStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   map[string][]v2.SyncStatus
+		input   map[string][]xds.SyncStatus
 		want    string
 		wantErr bool
 	}{
 		{
-			name: "prints multiple pilot inputs to buffer in alphabetical order by pod name",
-			input: map[string][]v2.SyncStatus{
-				"pilot1": statusInput1(),
-				"pilot2": statusInput2(),
-				"pilot3": statusInput3(),
+			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
+			input: map[string][]xds.SyncStatus{
+				"istiod1": statusInput1(),
+				"istiod2": statusInput2(),
+				"istiod3": statusInput3(),
 			},
 			want: "testdata/multiStatusMultiPilot.txt",
 		},
 		{
-			name: "prints single pilot input to buffer in alphabetical order by pod name",
-			input: map[string][]v2.SyncStatus{
-				"pilot1": append(statusInput1(), statusInput2()...),
+			name: "prints single istiod input to buffer in alphabetical order by pod name",
+			input: map[string][]xds.SyncStatus{
+				"istiod1": append(statusInput1(), statusInput2()...),
 			},
 			want: "testdata/multiStatusSinglePilot.txt",
 		},
 		{
 			name: "error if given non-syncstatus info",
-			input: map[string][]v2.SyncStatus{
-				"pilot1": {},
+			input: map[string][]xds.SyncStatus{
+				"istiod1": {},
 			},
 			wantErr: true,
 		},
@@ -75,9 +75,9 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 				b, _ := json.Marshal(ss)
 				input[key] = b
 			}
-			if len(tt.input["pilot1"]) == 0 {
+			if len(tt.input["istiod1"]) == 0 {
 				input = map[string][]byte{
-					"pilot1": []byte(`gobbledygook`),
+					"istiod1": []byte(`gobbledygook`),
 				}
 			}
 			err := sw.PrintAll(input)
@@ -97,40 +97,40 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 func TestStatusWriter_PrintSingle(t *testing.T) {
 	tests := []struct {
 		name      string
-		input     map[string][]v2.SyncStatus
+		input     map[string][]xds.SyncStatus
 		filterPod string
 		want      string
 		wantErr   bool
 	}{
 		{
-			name: "prints multiple pilot inputs to buffer filtering for pod",
-			input: map[string][]v2.SyncStatus{
-				"pilot1": statusInput1(),
-				"pilot2": statusInput2(),
+			name: "prints multiple istiod inputs to buffer filtering for pod",
+			input: map[string][]xds.SyncStatus{
+				"istiod1": statusInput1(),
+				"istiod2": statusInput2(),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatus.txt",
 		},
 		{
-			name: "single pilot input to buffer filtering for pod",
-			input: map[string][]v2.SyncStatus{
-				"pilot2": append(statusInput1(), statusInput2()...),
+			name: "single istiod input to buffer filtering for pod",
+			input: map[string][]xds.SyncStatus{
+				"istiod2": append(statusInput1(), statusInput2()...),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatus.txt",
 		},
 		{
 			name: "fallback to proxy version",
-			input: map[string][]v2.SyncStatus{
-				"pilot2": statusInputProxyVersion(),
+			input: map[string][]xds.SyncStatus{
+				"istiod2": statusInputProxyVersion(),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatusFallback.txt",
 		},
 		{
 			name: "error if given non-syncstatus info",
-			input: map[string][]v2.SyncStatus{
-				"pilot1": {},
+			input: map[string][]xds.SyncStatus{
+				"istiod1": {},
 			},
 			wantErr: true,
 		},
@@ -144,9 +144,9 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 				b, _ := json.Marshal(ss)
 				input[key] = b
 			}
-			if len(tt.input["pilot1"]) == 0 && len(tt.input["pilot2"]) == 0 {
+			if len(tt.input["istiod1"]) == 0 && len(tt.input["istiod2"]) == 0 {
 				input = map[string][]byte{
-					"pilot1": []byte(`gobbledygook`),
+					"istiod1": []byte(`gobbledygook`),
 				}
 			}
 			err := sw.PrintSingle(input, tt.filterPod)
@@ -163,8 +163,8 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 	}
 }
 
-func statusInput1() []v2.SyncStatus {
-	return []v2.SyncStatus{
+func statusInput1() []xds.SyncStatus {
+	return []xds.SyncStatus{
 		{
 			ProxyID:       "proxy1",
 			IstioVersion:  "1.1",
@@ -178,8 +178,8 @@ func statusInput1() []v2.SyncStatus {
 	}
 }
 
-func statusInput2() []v2.SyncStatus {
-	return []v2.SyncStatus{
+func statusInput2() []xds.SyncStatus {
+	return []xds.SyncStatus{
 		{
 			ProxyID:       "proxy2",
 			IstioVersion:  "1.1",
@@ -195,8 +195,8 @@ func statusInput2() []v2.SyncStatus {
 	}
 }
 
-func statusInput3() []v2.SyncStatus {
-	return []v2.SyncStatus{
+func statusInput3() []xds.SyncStatus {
+	return []xds.SyncStatus{
 		{
 			ProxyID:       "proxy3",
 			IstioVersion:  "1.1",
@@ -211,8 +211,8 @@ func statusInput3() []v2.SyncStatus {
 	}
 }
 
-func statusInputProxyVersion() []v2.SyncStatus {
-	return []v2.SyncStatus{
+func statusInputProxyVersion() []xds.SyncStatus {
+	return []xds.SyncStatus{
 		{
 			ProxyID:       "proxy2",
 			ProxyVersion:  "1.1",

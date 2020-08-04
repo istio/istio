@@ -1,0 +1,15 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    global:
+      multiCluster:
+        enabled: true
+
+      meshExpansion:
+        enabled: true
+
+    # Provides dns resolution for service entries of form
+    # name.namespace.global
+    istiocoredns:
+      enabled: true

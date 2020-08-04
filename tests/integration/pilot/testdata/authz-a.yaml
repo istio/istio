@@ -1,0 +1,15 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+ name: integ-test
+spec:
+ rules:
+ - from:
+   - source:
+       principals: ["cluster.local/ns/default/sa/sleep"]
+   to:
+   - operation:
+       methods: ["GET"]
+   when:
+   - key: request.headers[version]
+     values: ["v1", "v2"]

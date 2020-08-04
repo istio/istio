@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	v1beta12 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -32,6 +32,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver/stats"
+	"istio.io/istio/pkg/listwatch"
 )
 
 func (p *Provider) initKnownAdapters() {
@@ -49,12 +50,27 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1.Service: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
+				client, err := p.interfaces.KubeClient()
 				if err != nil {
 					return nil, err
 				}
 
-				return informer.Core().V1().Services().Informer(), nil
+				mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces,
+					func(namespace string) cache.ListerWatcher {
+						return &cache.ListWatch{
+							ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+								return client.CoreV1().Services(namespace).List(context.TODO(), opts)
+							},
+							WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+								return client.CoreV1().Services(namespace).Watch(context.TODO(), opts)
+							},
+						}
+					})
+
+				informer := cache.NewSharedIndexInformer(mlw, &v1.Service{}, p.resyncPeriod,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+				return informer, nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1.Service{}
@@ -139,12 +155,27 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1.Pod: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
+				client, err := p.interfaces.KubeClient()
 				if err != nil {
 					return nil, err
 				}
 
-				return informer.Core().V1().Pods().Informer(), nil
+				mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces,
+					func(namespace string) cache.ListerWatcher {
+						return &cache.ListWatch{
+							ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+								return client.CoreV1().Pods(namespace).List(context.TODO(), opts)
+							},
+							WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+								return client.CoreV1().Pods(namespace).Watch(context.TODO(), opts)
+							},
+						}
+					})
+
+				informer := cache.NewSharedIndexInformer(mlw, &v1.Pod{}, p.resyncPeriod,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+				return informer, nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1.Pod{}
@@ -169,12 +200,27 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1.Secret: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
+				client, err := p.interfaces.KubeClient()
 				if err != nil {
 					return nil, err
 				}
 
-				return informer.Core().V1().Secrets().Informer(), nil
+				mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces,
+					func(namespace string) cache.ListerWatcher {
+						return &cache.ListWatch{
+							ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+								return client.CoreV1().Secrets(namespace).List(context.TODO(), opts)
+							},
+							WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+								return client.CoreV1().Secrets(namespace).Watch(context.TODO(), opts)
+							},
+						}
+					})
+
+				informer := cache.NewSharedIndexInformer(mlw, &v1.Secret{}, p.resyncPeriod,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+				return informer, nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1.Secret{}
@@ -198,12 +244,27 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1.Endpoints: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
+				client, err := p.interfaces.KubeClient()
 				if err != nil {
 					return nil, err
 				}
 
-				return informer.Core().V1().Endpoints().Informer(), nil
+				mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces,
+					func(namespace string) cache.ListerWatcher {
+						return &cache.ListWatch{
+							ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+								return client.CoreV1().Endpoints(namespace).List(context.TODO(), opts)
+							},
+							WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+								return client.CoreV1().Endpoints(namespace).Watch(context.TODO(), opts)
+							},
+						}
+					})
+
+				informer := cache.NewSharedIndexInformer(mlw, &v1.Endpoints{}, p.resyncPeriod,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+				return informer, nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1.Endpoints{}
@@ -239,12 +300,27 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
+				client, err := p.interfaces.KubeClient()
 				if err != nil {
 					return nil, err
 				}
 
-				return informer.Extensions().V1beta1().Ingresses().Informer(), nil
+				mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces,
+					func(namespace string) cache.ListerWatcher {
+						return &cache.ListWatch{
+							ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+								return client.ExtensionsV1beta1().Ingresses(namespace).List(context.TODO(), opts)
+							},
+							WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+								return client.ExtensionsV1beta1().Ingresses(namespace).Watch(context.TODO(), opts)
+							},
+						}
+					})
+
+				informer := cache.NewSharedIndexInformer(mlw, &v1beta1.Ingress{}, p.resyncPeriod,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+				return informer, nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1beta1.Ingress{}
@@ -260,10 +336,10 @@ func (p *Provider) initKnownAdapters() {
 		asTypesKey("apiextensions.k8s.io", "CustomResourceDefinition"): {
 			extractObject: defaultExtractObject,
 			extractResource: func(o interface{}) (proto.Message, error) {
-				if obj, ok := o.(*v1beta12.CustomResourceDefinition); ok {
+				if obj, ok := o.(*apiextensionv1.CustomResourceDefinition); ok {
 					return &obj.Spec, nil
 				}
-				return nil, fmt.Errorf("unable to convert to v1beta1.Ingress: %T", o)
+				return nil, fmt.Errorf("unable to convert to v1.CustomResourceDefinition: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
 				ext, err := p.interfaces.APIExtensionsClientset()
@@ -273,13 +349,13 @@ func (p *Provider) initKnownAdapters() {
 				inf := cache.NewSharedIndexInformer(
 					&cache.ListWatch{
 						ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), options)
+							return ext.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), options)
 						},
 						WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-							return ext.ApiextensionsV1beta1().CustomResourceDefinitions().Watch(context.TODO(), options)
+							return ext.ApiextensionsV1().CustomResourceDefinitions().Watch(context.TODO(), options)
 						},
 					},
-					&v1beta12.CustomResourceDefinition{},
+					&apiextensionv1.CustomResourceDefinition{},
 					0,
 					cache.Indexers{})
 
@@ -287,7 +363,7 @@ func (p *Provider) initKnownAdapters() {
 
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
-				out := &v1beta12.CustomResourceDefinition{}
+				out := &apiextensionv1.CustomResourceDefinition{}
 				if _, _, err := deserializer.Decode(input, nil, out); err != nil {
 					return nil, err
 				}
@@ -307,12 +383,27 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1.Deployment: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
+				client, err := p.interfaces.KubeClient()
 				if err != nil {
 					return nil, err
 				}
 
-				return informer.Apps().V1().Deployments().Informer(), nil
+				mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces,
+					func(namespace string) cache.ListerWatcher {
+						return &cache.ListWatch{
+							ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+								return client.AppsV1().Deployments(namespace).List(context.TODO(), opts)
+							},
+							WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+								return client.AppsV1().Deployments(namespace).Watch(context.TODO(), opts)
+							},
+						}
+					})
+
+				informer := cache.NewSharedIndexInformer(mlw, &appsv1.Deployment{}, p.resyncPeriod,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+				return informer, nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &appsv1.Deployment{}
@@ -335,12 +426,27 @@ func (p *Provider) initKnownAdapters() {
 				return nil, fmt.Errorf("unable to convert to v1.ConfigMap: %T", o)
 			},
 			newInformer: func() (cache.SharedIndexInformer, error) {
-				informer, err := p.sharedInformerFactory()
+				client, err := p.interfaces.KubeClient()
 				if err != nil {
 					return nil, err
 				}
 
-				return informer.Core().V1().ConfigMaps().Informer(), nil
+				mlw := listwatch.MultiNamespaceListerWatcher(p.namespaces,
+					func(namespace string) cache.ListerWatcher {
+						return &cache.ListWatch{
+							ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
+								return client.CoreV1().ConfigMaps(namespace).List(context.TODO(), opts)
+							},
+							WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {
+								return client.CoreV1().ConfigMaps(namespace).Watch(context.TODO(), opts)
+							},
+						}
+					})
+
+				informer := cache.NewSharedIndexInformer(mlw, &v1.ConfigMap{}, p.resyncPeriod,
+					cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+				return informer, nil
 			},
 			parseJSON: func(input []byte) (interface{}, error) {
 				out := &v1.ConfigMap{}

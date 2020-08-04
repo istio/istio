@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,7 +62,6 @@ import (
 )
 
 /* TODO:
- *   - Support only tracing when trace context information is already present (mixer)
  *   - Support tracing for some percentage of requests (pilot)
  */
 

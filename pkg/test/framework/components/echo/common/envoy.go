@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package common
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
@@ -50,6 +51,11 @@ func WaitForConfig(fetch ConfigFetchFunc, accept ConfigAcceptFunc, options ...re
 	_, err := retry.Do(func() (result interface{}, completed bool, err error) {
 		cfg, err = fetch()
 		if err != nil {
+			if strings.Contains(err.Error(), "could not resolve Any message type") {
+				// Unable to parse an Any in the message, likely due to missing imports.
+				// This is not a recoverable error.
+				return nil, true, err
+			}
 			return nil, false, err
 		}
 
@@ -126,7 +132,7 @@ func CheckOutboundConfig(source echo.Instance, target echo.Instance, port echo.P
 			Check()
 	}
 
-	if !target.Config().Headless && source.Config().ClusterIndex() == target.Config().ClusterIndex() {
+	if !target.Config().Headless && source.Config().Cluster.Name() == target.Config().Cluster.Name() {
 		// TCP case: Make sure we have an outbound listener configured.
 		listenerName := listenerName(target.Address(), port)
 		return validator.

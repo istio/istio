@@ -1,4 +1,0 @@
-NOTE: This output only contains routes loaded via RDS.
-NAME                                                    VIRTUAL HOSTS
-15004                                                   2
-inbound|9080||productpage.default.svc.cluster.local     1

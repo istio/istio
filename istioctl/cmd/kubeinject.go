@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -306,7 +306,18 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig, reader, writer)
+			var warnings []string
+			retval := inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig,
+				reader, writer, func(warning string) {
+					warnings = append(warnings, warning)
+				})
+			if len(warnings) > 0 {
+				fmt.Fprintln(c.ErrOrStderr())
+			}
+			for _, warning := range warnings {
+				fmt.Fprintln(c.ErrOrStderr(), warning)
+			}
+			return retval
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;

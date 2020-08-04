@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
@@ -73,7 +74,7 @@ func TestStartTwice(t *testing.T) {
 }
 
 func TestStartStop_WithStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -105,7 +106,7 @@ func TestStopTwiceShouldSucceed(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Create the source
 	w, _, cl := createMocks()
@@ -132,7 +133,7 @@ func TestReport(t *testing.T) {
 }
 
 func TestEvents(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -194,7 +195,7 @@ func TestEvents(t *testing.T) {
 }
 
 func TestEvents_WatchUpdatesStatusCtl(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -299,7 +300,7 @@ func TestEvents_CRDEventAfterFullSync(t *testing.T) {
 }
 
 func TestEvents_NonAddEvent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -325,7 +326,7 @@ func TestEvents_NonAddEvent(t *testing.T) {
 }
 
 func TestEvents_NoneForDisabled(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	w, wcrd, cl := createMocks()
 	defer wcrd.Stop()
@@ -398,7 +399,7 @@ func TestSource_WatcherFailsCreatingInformer(t *testing.T) {
 }
 
 func TestUpdateMessage_NoStatusController_Panic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	defer func() {
 		r := recover()
@@ -495,26 +496,26 @@ func toEntry(obj *unstructured.Unstructured, schema resource2.Schema) *resource.
 	}
 }
 
-func toCrd(schema collection.Schema) *v1beta1.CustomResourceDefinition {
+func toCrd(schema collection.Schema) *apiextensionv1.CustomResourceDefinition {
 	r := schema.Resource()
-	return &v1beta1.CustomResourceDefinition{
+	return &apiextensionv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:            r.Plural() + "." + r.Group(),
 			ResourceVersion: "v1",
 		},
 
-		Spec: v1beta1.CustomResourceDefinitionSpec{
+		Spec: apiextensionv1.CustomResourceDefinitionSpec{
 			Group: r.Group(),
-			Names: v1beta1.CustomResourceDefinitionNames{
+			Names: apiextensionv1.CustomResourceDefinitionNames{
 				Plural: r.Plural(),
 				Kind:   r.Kind(),
 			},
-			Versions: []v1beta1.CustomResourceDefinitionVersion{
+			Versions: []apiextensionv1.CustomResourceDefinitionVersion{
 				{
 					Name: r.Version(),
 				},
 			},
-			Scope: v1beta1.NamespaceScoped,
+			Scope: apiextensionv1.NamespaceScoped,
 		},
 	}
 }

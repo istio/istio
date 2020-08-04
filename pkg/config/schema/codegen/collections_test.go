@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -145,6 +145,10 @@ var (
 	// PilotServiceApi contains only collections used by Pilot, including experimental Service Api.
 	PilotServiceApi = collection.NewSchemasBuilder().
 		Build()
+
+	// Deprecated contains only collections used by that will soon be used by nothing.
+	Deprecated = collection.NewSchemasBuilder().
+		Build()
 )
 `,
 		},
@@ -152,7 +156,7 @@ var (
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			s, err := StaticCollections(c.packageName, c.m)
 			if c.err != "" {

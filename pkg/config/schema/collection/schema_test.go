@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 func TestSchema_NewSchema(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s, err := collection.Builder{
 		Name:     "foo",
@@ -37,7 +37,7 @@ func TestSchema_NewSchema(t *testing.T) {
 }
 
 func TestSchema_NewSchema_Error(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	_, err := collection.Builder{
 		Name:     "$",
@@ -47,7 +47,7 @@ func TestSchema_NewSchema_Error(t *testing.T) {
 }
 
 func TestSchema_MustNewSchema(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).To(BeNil())
@@ -63,7 +63,7 @@ func TestSchema_MustNewSchema(t *testing.T) {
 }
 
 func TestSchema_MustNewSchema_Error(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer func() {
 		r := recover()
 		g.Expect(r).NotTo(BeNil())
@@ -79,7 +79,7 @@ func TestSchema_MustNewSchema_Error(t *testing.T) {
 }
 
 func TestSchema_String(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := collection.Builder{
 		Name: "foo",

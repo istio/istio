@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,26 +99,24 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 		component = NewCRDComponent(opts)
 	case name.PilotComponentName:
 		component = NewPilotComponent(opts)
-	case name.PolicyComponentName:
-		component = NewPolicyComponent(opts)
-	case name.TelemetryComponentName:
-		component = NewTelemetryComponent(opts)
 	case name.CNIComponentName:
 		component = NewCNIComponent(opts)
+	case name.IstiodRemoteComponentName:
+		component = NewIstiodRemoteComponent(opts)
 	default:
 		panic("Unknown component componentName: " + string(cn))
 	}
 	return component
 }
 
-// CRDComponent is the pilot component.
-type CRDComponent struct {
+// BaseComponent is the base component.
+type BaseComponent struct {
 	*CommonComponentFields
 }
 
-// NewCRDComponent creates a new CRDComponent and returns a pointer to it.
-func NewCRDComponent(opts *Options) *CRDComponent {
-	return &CRDComponent{
+// NewCRDComponent creates a new BaseComponent and returns a pointer to it.
+func NewCRDComponent(opts *Options) *BaseComponent {
+	return &BaseComponent{
 		&CommonComponentFields{
 			Options:       opts,
 			ComponentName: name.IstioBaseComponentName,
@@ -127,32 +125,32 @@ func NewCRDComponent(opts *Options) *CRDComponent {
 }
 
 // Run implements the IstioComponent interface.
-func (c *CRDComponent) Run() error {
+func (c *BaseComponent) Run() error {
 	return runComponent(c.CommonComponentFields)
 }
 
 // RenderManifest implements the IstioComponent interface.
-func (c *CRDComponent) RenderManifest() (string, error) {
+func (c *BaseComponent) RenderManifest() (string, error) {
 	return renderManifest(c, c.CommonComponentFields)
 }
 
 // ComponentName implements the IstioComponent interface.
-func (c *CRDComponent) ComponentName() name.ComponentName {
+func (c *BaseComponent) ComponentName() name.ComponentName {
 	return c.CommonComponentFields.ComponentName
 }
 
 // ResourceName implements the IstioComponent interface.
-func (c *CRDComponent) ResourceName() string {
+func (c *BaseComponent) ResourceName() string {
 	return c.CommonComponentFields.ResourceName
 }
 
 // Namespace implements the IstioComponent interface.
-func (c *CRDComponent) Namespace() string {
+func (c *BaseComponent) Namespace() string {
 	return c.CommonComponentFields.Namespace
 }
 
 // Enabled implements the IstioComponent interface.
-func (c *CRDComponent) Enabled() bool {
+func (c *BaseComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
@@ -203,104 +201,12 @@ func (c *PilotComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 
-// PolicyComponent is the pilot component.
-type PolicyComponent struct {
-	*CommonComponentFields
-}
-
-// NewPolicyComponent creates a new PilotComponent and returns a pointer to it.
-func NewPolicyComponent(opts *Options) *PolicyComponent {
-	cn := name.PolicyComponentName
-	return &PolicyComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			ComponentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *PolicyComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *PolicyComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *PolicyComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *PolicyComponent) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *PolicyComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *PolicyComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// TelemetryComponent is the pilot component.
-type TelemetryComponent struct {
-	*CommonComponentFields
-}
-
-// NewTelemetryComponent creates a new PilotComponent and returns a pointer to it.
-func NewTelemetryComponent(opts *Options) *TelemetryComponent {
-	cn := name.TelemetryComponentName
-	return &TelemetryComponent{
-		&CommonComponentFields{
-			Options:       opts,
-			ComponentName: cn,
-		},
-	}
-}
-
-// Run implements the IstioComponent interface.
-func (c *TelemetryComponent) Run() error {
-	return runComponent(c.CommonComponentFields)
-}
-
-// RenderManifest implements the IstioComponent interface.
-func (c *TelemetryComponent) RenderManifest() (string, error) {
-	return renderManifest(c, c.CommonComponentFields)
-}
-
-// ComponentName implements the IstioComponent interface.
-func (c *TelemetryComponent) ComponentName() name.ComponentName {
-	return c.CommonComponentFields.ComponentName
-}
-
-// ResourceName implements the IstioComponent interface.
-func (c *TelemetryComponent) ResourceName() string {
-	return c.CommonComponentFields.ResourceName
-}
-
-// Namespace implements the IstioComponent interface.
-func (c *TelemetryComponent) Namespace() string {
-	return c.CommonComponentFields.Namespace
-}
-
-// Enabled implements the IstioComponent interface.
-func (c *TelemetryComponent) Enabled() bool {
-	return isCoreComponentEnabled(c.CommonComponentFields)
-}
-
-// CNIComponent is the egress gateway component.
+// CNIComponent is the istio cni component.
 type CNIComponent struct {
 	*CommonComponentFields
 }
 
-// NewCNIComponent creates a new IngressComponent and returns a pointer to it.
+// NewCNIComponent creates a new NewCNIComponent and returns a pointer to it.
 func NewCNIComponent(opts *Options) *CNIComponent {
 	cn := name.CNIComponentName
 	return &CNIComponent{
@@ -338,6 +244,52 @@ func (c *CNIComponent) Namespace() string {
 
 // Enabled implements the IstioComponent interface.
 func (c *CNIComponent) Enabled() bool {
+	return isCoreComponentEnabled(c.CommonComponentFields)
+}
+
+// IstiodRemoteComponent is the istiod remote component.
+type IstiodRemoteComponent struct {
+	*CommonComponentFields
+}
+
+// NewIstiodRemoteComponent creates a new NewIstiodRemoteComponent and returns a pointer to it.
+func NewIstiodRemoteComponent(opts *Options) *IstiodRemoteComponent {
+	cn := name.IstiodRemoteComponentName
+	return &IstiodRemoteComponent{
+		&CommonComponentFields{
+			Options:       opts,
+			ComponentName: cn,
+		},
+	}
+}
+
+// Run implements the IstioComponent interface.
+func (c *IstiodRemoteComponent) Run() error {
+	return runComponent(c.CommonComponentFields)
+}
+
+// RenderManifest implements the IstioComponent interface.
+func (c *IstiodRemoteComponent) RenderManifest() (string, error) {
+	return renderManifest(c, c.CommonComponentFields)
+}
+
+// ComponentName implements the IstioComponent interface.
+func (c *IstiodRemoteComponent) ComponentName() name.ComponentName {
+	return c.CommonComponentFields.ComponentName
+}
+
+// ResourceName implements the IstioComponent interface.
+func (c *IstiodRemoteComponent) ResourceName() string {
+	return c.CommonComponentFields.ResourceName
+}
+
+// Namespace implements the IstioComponent interface.
+func (c *IstiodRemoteComponent) Namespace() string {
+	return c.CommonComponentFields.Namespace
+}
+
+// Enabled implements the IstioComponent interface.
+func (c *IstiodRemoteComponent) Enabled() bool {
 	return isCoreComponentEnabled(c.CommonComponentFields)
 }
 

@@ -1,12 +1,12 @@
 # Mismatch shows that we don't generate config for Gateways that do not match the GatewayClass
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controller: istio.io/gateway-controller
 ---
-apiVersion: networking.x.k8s.io/v1alpha1
+apiVersion: networking.x-k8s.io/v1alpha1
 kind: Gateway
 metadata:
   name: gateway
@@ -14,4 +14,5 @@ metadata:
 spec:
   class: something-else
   listeners: []
-  routes: []
+  routes:
+    namespaceSelector: {}

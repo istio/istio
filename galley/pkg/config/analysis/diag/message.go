@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package diag
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"istio.io/istio/pkg/config/resource"
 )
@@ -46,6 +47,7 @@ func (m *MessageType) Code() string { return m.code }
 func (m *MessageType) Template() string { return m.template }
 
 // Message is a specific diagnostic message
+// TODO: Implement using Analysis message API
 type Message struct {
 	Type *MessageType
 
@@ -78,7 +80,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	if m.DocRef != "" {
 		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
 	}
-	result["documentation_url"] = fmt.Sprintf("%s/%s%s", DocPrefix, m.Type.Code(), docQueryString)
+	result["documentation_url"] = fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
 
 	return result
 }

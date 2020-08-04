@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,8 @@ import (
 	"net/http"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework/components/ingress"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 

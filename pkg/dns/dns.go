@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@ import (
 
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 // Based on istio-ecosystem/istio-coredns-plugin
@@ -60,7 +62,6 @@ type IstioDNS struct {
 	server *dns.Server
 
 	// TODO: add a dns-over-TCP server and capture, for istio-agent.
-
 	// local DNS-TLS server. This is active only in istiod.
 	tlsServer *dns.Server
 
@@ -97,7 +98,7 @@ var (
 	// except for tests.
 	// By default will be active, set to empty string to disable DNS functionality.
 	// Iptables interception matches this.
-	DNSAgentAddr = ":15013"
+	DNSAgentAddr = ":15053"
 
 	// DNSTLSEnableAgent activates the DNS-over-TLS in istio-agent.
 	// This will just attempt to connect to Istiod and start the DNS server on the default port -
@@ -105,7 +106,8 @@ var (
 	// Not using a bool - it's error prone in template, annotations, helm.
 	// For now any non-empty value will enable TLS in the agent - we may further customize
 	// the mode, for example specify DNS-HTTPS vs DNS-TLS
-	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "DNS-over-TLS upstream server")
+	DNSTLSEnableAgent = env.RegisterStringVar("DNS_AGENT", "", "If set, enable the "+
+		"capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
 	// DNSUpstream allows overriding the upstream server. By default we use [discovery-address]:853
 	// If a secure DNS server is available - set this to point to the server.
@@ -167,7 +169,7 @@ func InitDNSAgent(discoveryAddress string, domain string, cert []byte, suffixes 
 	}
 
 	dnsDomainL := strings.Split(domain, ".")
-	clusterLocal := "cluster.local"
+	clusterLocal := constants.DefaultKubernetesDomain
 	if len(dnsDomainL) > 3 {
 		clusterLocal = strings.Join(dnsDomainL[2:], ".")
 	}
@@ -248,8 +250,6 @@ func (h *IstioDNS) StartDNS(udpAddr string, tlsListener net.Listener) {
 }
 
 // ServerDNS is the implementation of DNS interface
-//
-// -
 func (h *IstioDNS) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	t0 := time.Now()
 	var err error
@@ -310,7 +310,7 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 	// By using this code, the latency is around 800us - with ~400 us in istiod
 	origID := r.MsgHdr.Id
 	var key uint16
-	ch := make(chan *dns.Msg)
+	ch := make(chan *dns.Msg, 1)
 	h.m.Lock()
 	h.outID++
 	key = h.outID
@@ -347,13 +347,14 @@ func (h *IstioDNS) ServeDNSTLS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 
-	to := time.After(2 * time.Second)
+	to := time.NewTimer(2 * time.Second)
 	select {
 	case m := <-ch:
+		to.Stop()
 		m.MsgHdr.Id = origID
 		response = m
 		_ = w.WriteMsg(m)
-	case <-to:
+	case <-to.C:
 		return
 	}
 	if false {
@@ -368,6 +369,16 @@ func (h *IstioDNS) Close() {
 		h.conn.Close()
 	}
 	h.m.Unlock()
+	if h.server != nil {
+		if err := h.server.Shutdown(); err != nil {
+			log.Errorf("error in shutting down dns server :%v", err)
+		}
+	}
+	if h.tlsServer != nil {
+		if err := h.tlsServer.Shutdown(); err != nil {
+			log.Errorf("error in shutting down tls dns server :%v", err)
+		}
+	}
 }
 
 func (h *IstioDNS) connTLS() *dns.Conn {

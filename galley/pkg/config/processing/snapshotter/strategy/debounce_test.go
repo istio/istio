@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 )
 
 func TestStrategy_StartStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Minute, time.Millisecond*500)
 
@@ -42,7 +42,7 @@ func TestStrategy_StartStop(t *testing.T) {
 }
 
 func TestStrategy_DoubleStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Minute, time.Millisecond*500)
 
@@ -59,7 +59,7 @@ func TestStrategy_DoubleStart(t *testing.T) {
 }
 
 func TestStrategy_DoubleStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Hour, time.Millisecond*500)
 
@@ -74,7 +74,7 @@ func TestStrategy_DoubleStop(t *testing.T) {
 }
 
 func TestStrategy_ChangeBeforeStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Millisecond*100, time.Millisecond)
 	s.OnChange()
@@ -91,7 +91,7 @@ func TestStrategy_ChangeBeforeStart(t *testing.T) {
 }
 
 func TestStrategy_FireEvent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Millisecond*200, time.Millisecond*100)
 
@@ -108,7 +108,7 @@ func TestStrategy_FireEvent(t *testing.T) {
 }
 
 func TestStrategy_StopBeforeMaxTimeout(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Second*5, time.Second)
 
@@ -125,7 +125,7 @@ func TestStrategy_StopBeforeMaxTimeout(t *testing.T) {
 }
 
 func TestStrategy_ChangeBeforeQuiesce(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Second*5, time.Second)
 
@@ -144,7 +144,7 @@ func TestStrategy_ChangeBeforeQuiesce(t *testing.T) {
 }
 
 func TestStrategy_MaxTimeout(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := NewDebounce(time.Second, time.Millisecond*500)
 
@@ -163,7 +163,7 @@ func TestStrategy_MaxTimeout(t *testing.T) {
 }
 
 func TestStrategy_NewWithDefaults(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	s := NewDebounceWithDefaults()
 	g.Expect(s.quiesceDuration).To(Equal(defaultQuiesceDuration))
 	g.Expect(s.maxWaitDuration).To(Equal(defaultMaxWaitDuration))

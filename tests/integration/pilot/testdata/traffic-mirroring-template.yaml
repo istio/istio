@@ -2,7 +2,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: {{.Name}}
-  namespace: {{.Namespace}}
 spec:
   hosts:
     - b
@@ -13,6 +12,6 @@ spec:
       mirror:
         host: {{.MirrorHost}}
 {{- if not .Absent }}
-      mirror_percentage: 
+      mirrorPercentage:
         value: {{.Percent}}
 {{- end }}

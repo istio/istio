@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"context"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	dto "github.com/prometheus/client_model/go"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -48,8 +49,8 @@ type Builder interface {
 
 	// Build and initialize all Echo Instances. Upon returning, the Instance pointers
 	// are assigned and all Instances are ready to communicate with each other.
-	Build() error
-	BuildOrFail(t test.Failer)
+	Build() (Instances, error)
+	BuildOrFail(t test.Failer) Instances
 }
 
 // Instance is a component that provides access to a deployed echo service.
@@ -160,4 +161,7 @@ type Sidecar interface {
 	Logs() (string, error)
 	// LogsOrFail returns the logs for the sidecar container, or aborts if an error is found
 	LogsOrFail(t test.Failer) string
+
+	Stats() (map[string]*dto.MetricFamily, error)
+	StatsOrFail(t test.Failer) map[string]*dto.MetricFamily
 }

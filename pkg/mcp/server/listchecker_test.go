@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -50,14 +50,14 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name:     "empty tlsinfo",
-			mode:     AuthWhiteList,
+			mode:     AuthAllowlist,
 			authInfo: credentials.TLSInfo{},
 			err:      "no allowed identity found in peer's authentication info",
 			ids:      []string{"foo"},
 		},
 		{
 			name: "empty cert chain",
-			mode: AuthWhiteList,
+			mode: AuthAllowlist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -67,7 +67,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "error extracting ids",
-			mode: AuthWhiteList,
+			mode: AuthAllowlist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -79,7 +79,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "id mismatch",
-			mode: AuthWhiteList,
+			mode: AuthAllowlist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -91,7 +91,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "success",
-			mode: AuthWhiteList,
+			mode: AuthAllowlist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -103,7 +103,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "success with Set()",
-			mode: AuthWhiteList,
+			mode: AuthAllowlist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -115,7 +115,7 @@ func TestListAuthChecker(t *testing.T) {
 		},
 		{
 			name: "removed",
-			mode: AuthWhiteList,
+			mode: AuthAllowlist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -127,8 +127,8 @@ func TestListAuthChecker(t *testing.T) {
 			ids:    []string{"foo"},
 		},
 		{
-			name: "blacklist allow",
-			mode: AuthBlackList,
+			name: "denylist allow",
+			mode: AuthDenylist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
@@ -138,15 +138,15 @@ func TestListAuthChecker(t *testing.T) {
 			allowed: []string{"foo", "bar", "baz"},
 		},
 		{
-			name: "blacklist block",
-			mode: AuthBlackList,
+			name: "denylist block",
+			mode: AuthDenylist,
 			authInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{{}}}},
 			},
 			extractIDsFn: func(exts []pkix.Extension) ([]string, error) {
 				return []string{"foo"}, nil
 			},
-			err:     "id is blacklisted: foo",
+			err:     "id is denylisted: foo",
 			ids:     []string{"foo"},
 			allowed: []string{"bar", "baz"},
 		},
@@ -184,7 +184,7 @@ func TestListAuthChecker(t *testing.T) {
 			}
 
 			for _, id := range testCase.allowed {
-				if testCase.mode == AuthWhiteList {
+				if testCase.mode == AuthAllowlist {
 					if !c.Allowed(id) {
 						t.Fatalf("Allowed(%v) failed", id)
 					}
@@ -228,12 +228,12 @@ func TestListAuthChecker_Allowed(t *testing.T) {
 		expect bool
 		mode   AuthListMode
 	}{
-		{mode: AuthBlackList, testid: "foo", expect: true},
-		{mode: AuthBlackList, id: "foo", testid: "foo", expect: false},
-		{mode: AuthBlackList, id: "foo", testid: "bar", expect: true},
-		{mode: AuthWhiteList, testid: "foo", expect: false},
-		{mode: AuthWhiteList, id: "foo", testid: "foo", expect: true},
-		{mode: AuthWhiteList, id: "foo", testid: "bar", expect: false},
+		{mode: AuthDenylist, testid: "foo", expect: true},
+		{mode: AuthDenylist, id: "foo", testid: "foo", expect: false},
+		{mode: AuthDenylist, id: "foo", testid: "bar", expect: true},
+		{mode: AuthAllowlist, testid: "foo", expect: false},
+		{mode: AuthAllowlist, id: "foo", testid: "foo", expect: true},
+		{mode: AuthAllowlist, id: "foo", testid: "bar", expect: false},
 	}
 
 	for i, c := range cases {
@@ -261,7 +261,7 @@ func TestListAuthChecker_String(t *testing.T) {
 	}()
 
 	options := DefaultListAuthCheckerOptions()
-	options.AuthMode = AuthBlackList
+	options.AuthMode = AuthDenylist
 	c := NewListAuthChecker(options)
 
 	c.Set("1", "2", "3")
@@ -269,7 +269,7 @@ func TestListAuthChecker_String(t *testing.T) {
 	// Make sure it doesn't crash
 	_ = c.String()
 
-	c.SetMode(AuthWhiteList)
+	c.SetMode(AuthAllowlist)
 
 	// Make sure it doesn't crash
 	_ = c.String()

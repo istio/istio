@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ spec:
 )
 
 func TestCache_Apply_Basic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
@@ -125,7 +125,7 @@ func TestCache_Apply_Basic(t *testing.T) {
 }
 
 func TestCache_Apply_MultiPart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
@@ -173,7 +173,7 @@ func TestCache_Apply_MultiPart(t *testing.T) {
 }
 
 func TestCache_Apply_Add_Update(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
@@ -206,7 +206,7 @@ func TestCache_Apply_Add_Update(t *testing.T) {
 }
 
 func TestCache_Apply_SameContent(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
@@ -232,7 +232,7 @@ func TestCache_Apply_SameContent(t *testing.T) {
 }
 
 func TestCache_Clear(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
@@ -257,7 +257,7 @@ func TestCache_Clear(t *testing.T) {
 }
 
 func TestCache_GetFileFor_Empty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
@@ -269,7 +269,7 @@ func TestCache_GetFileFor_Empty(t *testing.T) {
 }
 
 func TestCache_Delete(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)
@@ -300,7 +300,7 @@ func TestCache_Delete(t *testing.T) {
 }
 
 func TestCache_Delete_Missing(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	d, err := ioutil.TempDir(os.TempDir(), t.Name())
 	g.Expect(err).To(BeNil())
 	t.Logf("Test Dir: %q", d)

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // MutualTLSMode is the mutule TLS mode specified by authentication policy.
@@ -40,6 +40,10 @@ const (
 
 	// MTLSStrict if authentication policy enable mTLS in strict mode.
 	MTLSStrict
+)
+
+const (
+	ResourceSeparator = "~"
 )
 
 // String converts MutualTLSMode to human readable string for debugging.
@@ -87,7 +91,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.RequestAuthentication, NamespaceAll); err == nil {
 		sortConfigByCreationTime(configs)
 		policy.addRequestAuthentication(configs)
 	} else {
@@ -95,7 +99,7 @@ func initAuthenticationPolicies(env *Environment) (*AuthenticationPolicies, erro
 	}
 
 	if configs, err := env.List(
-		collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(), NamespaceAll); err == nil {
+		gvk.PeerAuthentication, NamespaceAll); err == nil {
 		policy.addPeerAuthentication(configs)
 	} else {
 		return nil, err
@@ -108,7 +112,7 @@ func (policy *AuthenticationPolicies) addRequestAuthentication(configs []Config)
 	for _, config := range configs {
 		reqPolicy := config.Spec.(*v1beta1.RequestAuthentication)
 		// Follow OIDC discovery to resolve JwksURI if need to.
-		JwtKeyResolver.ResolveJwksURI(reqPolicy)
+		GetJwtKeyResolver().ResolveJwksURI(reqPolicy)
 		policy.requestAuthentications[config.Namespace] =
 			append(policy.requestAuthentications[config.Namespace], config)
 	}
@@ -236,13 +240,13 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 					continue
 				}
 				var selector labels.Instance
-				switch cfg.Type {
-				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels())
-				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().Kind():
-					selector = labels.Instance(cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels())
+				switch cfg.GroupVersionKind {
+				case collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
+				case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
+					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
-					log.Warnf("Not support authentication type %q", cfg.Type)
+					log.Warnf("Not support authentication type %q", cfg.GroupVersionKind)
 					continue
 				}
 				if workloadLabels.IsSupersetOf(selector) {
@@ -255,6 +259,7 @@ func getConfigsForWorkload(configsByNamespace map[string][]Config,
 	return configs
 }
 
+// SdsCertificateConfig holds TLS certs needed to build SDS TLS context.
 type SdsCertificateConfig struct {
 	CertificatePath   string
 	PrivateKeyPath    string
@@ -263,27 +268,43 @@ type SdsCertificateConfig struct {
 
 // GetResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name
 func (s SdsCertificateConfig) GetResourceName() string {
-	return fmt.Sprintf("file-cert:%s~%s", s.CertificatePath, s.PrivateKeyPath)
+	if s.IsKeyCertificate() {
+		return "file-cert:" + s.CertificatePath + ResourceSeparator + s.PrivateKeyPath // Format: file-cert:%s~%s
+	}
+	return ""
 }
 
 // GetRootResourceName converts a SdsCertificateConfig to a string to be used as an SDS resource name for the root
 func (s SdsCertificateConfig) GetRootResourceName() string {
-	return fmt.Sprintf("file-root:%s", s.CaCertificatePath)
+	if s.IsRootCertificate() {
+		return "file-root:" + s.CaCertificatePath // Format: file-root:%s
+	}
+	return ""
+}
+
+// IsRootCertificate returns true if this config represents a root certificate config.
+func (s SdsCertificateConfig) IsRootCertificate() bool {
+	return s.CaCertificatePath != ""
+}
+
+// IsKeyCertificate returns true if this config represents key certificate config.
+func (s SdsCertificateConfig) IsKeyCertificate() bool {
+	return s.CertificatePath != "" && s.PrivateKeyPath != ""
 }
 
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
-// If the resource name is not valid, _, false is returned.
+// If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
 	if strings.HasPrefix(resource, "file-cert:") {
 		filesString := strings.TrimPrefix(resource, "file-cert:")
-		split := strings.Split(filesString, "~")
+		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 2 {
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{split[0], split[1], ""}, true
 	} else if strings.HasPrefix(resource, "file-root:") {
 		filesString := strings.TrimPrefix(resource, "file-root:")
-		split := strings.Split(filesString, "~")
+		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 1 {
 			return SdsCertificateConfig{}, false
 		}

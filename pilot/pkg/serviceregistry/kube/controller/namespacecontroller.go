@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,14 +21,12 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	informer "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	certutil "istio.io/istio/security/pkg/util"
 )
@@ -52,46 +50,42 @@ type NamespaceController struct {
 	getData func() map[string]string
 	client  corev1.CoreV1Interface
 
-	queue queue.Instance
-
-	// Controller and store for namespace objects
-	namespaceController cache.Controller
-	// Controller and store for ConfigMap objects
-	configMapController cache.Controller
+	queue              queue.Instance
+	namespacesInformer cache.SharedInformer
+	configMapInformer  cache.SharedInformer
 }
 
 // NewNamespaceController returns a pointer to a newly constructed NamespaceController instance.
-func NewNamespaceController(data func() map[string]string, options Options, kubeClient kubernetes.Interface) *NamespaceController {
+func NewNamespaceController(data func() map[string]string, kubeClient kube.Client) *NamespaceController {
 	c := &NamespaceController{
 		getData: data,
 		client:  kubeClient.CoreV1(),
 		queue:   queue.NewQueue(time.Second),
 	}
 
-	configmapInformer := informer.NewFilteredConfigMapInformer(kubeClient, metav1.NamespaceAll, options.ResyncPeriod,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-		func(options *metav1.ListOptions) {
-			options.LabelSelector = fields.SelectorFromSet(configMapLabel).String()
-		})
-	configmapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj, newObj interface{}) {
+	c.configMapInformer = kubeClient.KubeInformer().Core().V1().ConfigMaps().Informer()
+	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(_, obj interface{}) {
+			cm, err := convertToConfigMap(obj)
+			if err != nil {
+				log.Errorf("failed to convert to configmap: %v", err)
+			}
+			// This is a change to a configmap we don't watch, ignore it
+			if cm.Name != CACertNamespaceConfigMap {
+				return
+			}
 			c.queue.Push(func() error {
-				return c.configMapChange(newObj)
+				return c.configMapChange(cm)
 			})
 		},
 		DeleteFunc: func(obj interface{}) {
-			cm, ok := obj.(*v1.ConfigMap)
-			if !ok {
-				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-				if !ok {
-					log.Errorf("error decoding object, invalid type")
-					return
-				}
-				cm, ok = tombstone.Obj.(*v1.ConfigMap)
-				if !ok {
-					log.Errorf("error decoding object tombstone, invalid type")
-					return
-				}
+			cm, err := convertToConfigMap(obj)
+			if err != nil {
+				log.Errorf("failed to convert to configmap: %v", err)
+			}
+			// This is a change to a configmap we don't watch, ignore it
+			if cm.Name != CACertNamespaceConfigMap {
+				return
 			}
 			c.queue.Push(func() error {
 				ns, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), cm.Namespace, metav1.GetOptions{})
@@ -107,31 +101,27 @@ func NewNamespaceController(data func() map[string]string, options Options, kube
 			})
 		},
 	})
-	c.configMapController = configmapInformer
 
-	namespaceInformer := informer.NewNamespaceInformer(kubeClient, options.ResyncPeriod, cache.Indexers{})
-	namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.namespacesInformer = kubeClient.KubeInformer().Core().V1().Namespaces().Informer()
+	c.namespacesInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.queue.Push(func() error {
-				return c.namespaceChange(obj)
+				return c.namespaceChange(obj.(*v1.Namespace))
 			})
 		},
 		UpdateFunc: func(_, obj interface{}) {
 			c.queue.Push(func() error {
-				return c.namespaceChange(obj)
+				return c.namespaceChange(obj.(*v1.Namespace))
 			})
 		},
 	})
-	c.namespaceController = namespaceInformer
 
 	return c
 }
 
 // Run starts the NamespaceController until a value is sent to stopCh.
 func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
-	go nc.namespaceController.Run(stopCh)
-	go nc.configMapController.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, nc.namespaceController.HasSynced, nc.configMapController.HasSynced)
+	cache.WaitForCacheSync(stopCh, nc.namespacesInformer.HasSynced, nc.configMapInformer.HasSynced)
 	log.Infof("Namespace controller started")
 	go nc.queue.Run(stopCh)
 }
@@ -150,23 +140,32 @@ func (nc *NamespaceController) insertDataForNamespace(ns string) error {
 
 // On namespace change, update the config map.
 // If terminating, this will be skipped
-func (nc *NamespaceController) namespaceChange(obj interface{}) error {
-	ns, ok := obj.(*v1.Namespace)
-
-	if ok && ns.Status.Phase != v1.NamespaceTerminating {
+func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) error {
+	if ns.Status.Phase != v1.NamespaceTerminating {
 		return nc.insertDataForNamespace(ns.Name)
 	}
 	return nil
 }
 
 // When a config map is changed, merge the data into the configmap
-func (nc *NamespaceController) configMapChange(obj interface{}) error {
-	cm, ok := obj.(*v1.ConfigMap)
-
-	if ok {
-		if err := certutil.UpdateDataInConfigMap(nc.client, cm.DeepCopy(), nc.getData()); err != nil {
-			return fmt.Errorf("error when inserting CA cert to configmap %v: %v", cm.Name, err)
-		}
+func (nc *NamespaceController) configMapChange(cm *v1.ConfigMap) error {
+	if err := certutil.UpdateDataInConfigMap(nc.client, cm.DeepCopy(), nc.getData()); err != nil {
+		return fmt.Errorf("error when inserting CA cert to configmap %v: %v", cm.Name, err)
 	}
 	return nil
+}
+
+func convertToConfigMap(obj interface{}) (*v1.ConfigMap, error) {
+	cm, ok := obj.(*v1.ConfigMap)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return nil, fmt.Errorf("couldn't get object from tombstone %#v", obj)
+		}
+		cm, ok = tombstone.Obj.(*v1.ConfigMap)
+		if !ok {
+			return nil, fmt.Errorf("tombstone contained object that is not a ConfigMap %#v", obj)
+		}
+	}
+	return cm, nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 )
 
 func TestNewSet(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := coll.NewSet(collection.NewSchemasBuilder().MustAdd(basicmeta.K8SCollection1).MustAdd(basicmeta.Collection2).Build())
 
@@ -39,7 +39,7 @@ func TestNewSet(t *testing.T) {
 }
 
 func TestNewSetFromCollections(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := coll.New(basicmeta.K8SCollection1)
 	g.Expect(s1).NotTo(BeNil())
@@ -58,7 +58,7 @@ func TestNewSetFromCollections(t *testing.T) {
 }
 
 func TestSet_Clone(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := coll.New(basicmeta.K8SCollection1)
 	g.Expect(s1).NotTo(BeNil())
@@ -79,7 +79,7 @@ func TestSet_Clone(t *testing.T) {
 }
 
 func TestSet_Names(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := coll.New(basicmeta.K8SCollection1)
 	s2 := coll.New(basicmeta.Collection2)

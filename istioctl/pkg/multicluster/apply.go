@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,8 +45,8 @@ func updateRemoteSecret(prev, curr *v1.Secret) (changed bool) {
 		}
 	}
 
-	if prev.Annotations[clusterContextAnnotationKey] != curr.Annotations[clusterContextAnnotationKey] {
-		prev.Annotations[clusterContextAnnotationKey] = curr.Annotations[clusterContextAnnotationKey]
+	if prev.Annotations[clusterNameAnnotationKey] != curr.Annotations[clusterNameAnnotationKey] {
+		prev.Annotations[clusterNameAnnotationKey] = curr.Annotations[clusterNameAnnotationKey]
 		changed = true
 	}
 

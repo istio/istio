@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package helmreconciler
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -28,13 +29,14 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/pkg/version"
 )
 
@@ -47,6 +49,9 @@ type HelmReconciler struct {
 	opts       *Options
 	// copy of the last generated manifests.
 	manifests name.ManifestMap
+	// dependencyWaitCh is a map of signaling channels. A parent with children ch1...chN will signal
+	// dependencyWaitCh[ch1]...dependencyWaitCh[chN] when it's completely installed.
+	dependencyWaitCh map[name.ComponentName]chan struct{}
 }
 
 // Options are options for HelmReconciler.
@@ -60,13 +65,15 @@ type Options struct {
 	Wait bool
 	// WaitTimeout controls the amount of time to wait for resources in a component to become ready before giving up.
 	WaitTimeout time.Duration
-	// ProgressLog tracks the installation progress for all components.
-	ProgressLog *util.ProgressLog
+	// Log tracks the installation progress for all components.
+	ProgressLog *progress.Log
+	// Force ignores validation errors
+	Force bool
 }
 
 var defaultOptions = &Options{
 	Log:         clog.NewDefaultLogger(),
-	ProgressLog: util.NewProgressLog(),
+	ProgressLog: progress.NewLog(),
 }
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
@@ -75,12 +82,27 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		opts = defaultOptions
 	}
 	if opts.ProgressLog == nil {
-		opts.ProgressLog = util.NewProgressLog()
+		opts.ProgressLog = progress.NewLog()
+	}
+	if waitForResourcesTimeoutStr, found := os.LookupEnv("WAIT_FOR_RESOURCES_TIMEOUT"); found {
+		if waitForResourcesTimeout, err := time.ParseDuration(waitForResourcesTimeoutStr); err == nil {
+			opts.WaitTimeout = waitForResourcesTimeout
+		} else {
+			scope.Warnf("invalid env variable value: %s for 'WAIT_FOR_RESOURCES_TIMEOUT'! falling back to default value...", waitForResourcesTimeoutStr)
+			// fallback to default wait resource timeout
+			opts.WaitTimeout = defaultWaitResourceTimeout
+		}
+	} else {
+		// fallback to default wait resource timeout
+		opts.WaitTimeout = defaultWaitResourceTimeout
 	}
 	if iop == nil {
 		// allows controller code to function for cases where IOP is not provided (e.g. operator remove).
 		iop = &valuesv1alpha1.IstioOperator{}
 		iop.Spec = &v1alpha1.IstioOperatorSpec{}
+	}
+	if operatorRevision, found := os.LookupEnv("REVISION"); found {
+		iop.Spec.Revision = operatorRevision
 	}
 	var cs *kubernetes.Clientset
 	var err error
@@ -91,12 +113,24 @@ func NewHelmReconciler(client client.Client, restConfig *rest.Config, iop *value
 		return nil, err
 	}
 	return &HelmReconciler{
-		client:     client,
-		restConfig: restConfig,
-		clientSet:  cs,
-		iop:        iop,
-		opts:       opts,
+		client:           client,
+		restConfig:       restConfig,
+		clientSet:        cs,
+		iop:              iop,
+		opts:             opts,
+		dependencyWaitCh: initDependencies(),
 	}, nil
+}
+
+// initDependencies initializes the dependencies channel tree.
+func initDependencies() map[name.ComponentName]chan struct{} {
+	ret := make(map[name.ComponentName]chan struct{})
+	for _, parent := range ComponentDependencies {
+		for _, child := range parent {
+			ret[child] = make(chan struct{}, 1)
+		}
+	}
+	return ret
 }
 
 // Reconcile reconciles the associated resources.
@@ -108,8 +142,8 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 
 	status := h.processRecursive(manifestMap)
 
-	h.opts.ProgressLog.SetState(util.StatePruning)
-	pruneErr := h.Prune(manifestMap)
+	h.opts.ProgressLog.SetState(progress.StatePruning)
+	pruneErr := h.Prune(manifestMap, false)
 	return status, pruneErr
 }
 
@@ -130,7 +164,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 			var processedObjs object.K8sObjects
 			var deployedObjects int
 			defer wg.Done()
-			if s := DependencyWaitCh[c]; s != nil {
+			if s := h.dependencyWaitCh[c]; s != nil {
 				scope.Infof("%s is waiting on dependency...", c)
 				<-s
 				scope.Infof("Dependency for %s has completed, proceeding.", c)
@@ -149,7 +183,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 					Name:    c,
 					Content: name.MergeManifestSlices(ms),
 				}
-				processedObjs, deployedObjects, err = h.ApplyManifest(m, len(ComponentDependencies[c]) > 0)
+				processedObjs, deployedObjects, err = h.ApplyManifest(m)
 				if err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if len(processedObjs) != 0 || deployedObjects > 0 {
@@ -164,7 +198,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 			// Signal all the components that depend on us.
 			for _, ch := range ComponentDependencies[c] {
 				scope.Infof("Unblocking dependency %s.", ch)
-				DependencyWaitCh[ch] <- struct{}{}
+				h.dependencyWaitCh[ch] <- struct{}{}
 			}
 		}()
 	}
@@ -180,11 +214,30 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // Delete resources associated with the custom resource instance
 func (h *HelmReconciler) Delete() error {
-	manifestMap, err := h.RenderCharts()
+	iop := h.iop
+	if iop.Spec.Revision == "" {
+		return h.Prune(nil, true)
+	}
+	// Delete IOP with revision:
+	// for this case we update the status field to pending if there are still proxies pointing to this revision
+	// and we do not prune shared resources, same effect as `istioctl uninstall --revision foo` command.
+	status, err := h.PruneControlPlaneByRevisionWithController(iop.Spec.Namespace, iop.Spec.Revision)
 	if err != nil {
 		return err
 	}
-	return h.Prune(manifestMap)
+	if err := h.SetStatusComplete(status); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteAll deletes all Istio resources in the cluster.
+func (h *HelmReconciler) DeleteAll() error {
+	manifestMap := name.ManifestMap{}
+	for _, c := range name.AllComponentNames {
+		manifestMap[c] = nil
+	}
+	return h.Prune(manifestMap, true)
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
@@ -277,10 +330,19 @@ func (h *HelmReconciler) getCoreOwnerLabels() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	crNamespace, err := h.getCRNamespace()
+	if err != nil {
+		return nil, err
+	}
 	labels := make(map[string]string)
 
 	labels[operatorLabelStr] = operatorReconcileStr
-	labels[owningResourceKey] = crName
+	if crName != "" {
+		labels[OwningResourceName] = crName
+	}
+	if crNamespace != "" {
+		labels[OwningResourceNamespace] = crNamespace
+	}
 	labels[istioVersionLabelStr] = version.Info.Version
 
 	return labels, nil
@@ -295,16 +357,12 @@ func (h *HelmReconciler) addComponentLabels(coreLabels map[string]string, compon
 	if h.iop != nil {
 		revision = h.iop.Spec.Revision
 	}
-
-	// Only pilot component uses revisions
-	if componentName == string(name.PilotComponentName) {
-		if revision == "" {
-			revision = "default"
-		}
-		labels[model.RevisionLabel] = revision
+	if revision == "" {
+		revision = "default"
 	}
+	labels[label.IstioRev] = revision
 
-	labels[istioComponentLabelStr] = componentName
+	labels[IstioComponentLabelStr] = componentName
 
 	return labels
 }
@@ -357,7 +415,11 @@ func (h *HelmReconciler) getCRHash(componentName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.Join([]string{crName, crNamespace, componentName}, "-"), nil
+	var host string
+	if h.restConfig != nil {
+		host = h.restConfig.Host
+	}
+	return strings.Join([]string{crName, crNamespace, componentName, host}, "-"), nil
 }
 
 // getCRNamespace returns the namespace of the CR associated with h.
@@ -369,7 +431,7 @@ func (h *HelmReconciler) getCRNamespace() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return objAccessor.GetName(), nil
+	return objAccessor.GetNamespace(), nil
 }
 
 // getClient returns the kubernetes client associated with this HelmReconciler

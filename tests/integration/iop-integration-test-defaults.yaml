@@ -2,26 +2,18 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  components:
-    egressGateways:
-    - name: istio-egressgateway
-      enabled: false
-  addonComponents:
-    prometheus:
-      enabled: false
+  meshConfig:
+    accessLogFile: "/dev/stdout"
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "ALL"
   values:
     global:
       proxy:
-        concurrency: 0
         resources:
           requests:
             cpu: 10m
             memory: 40Mi
-
-        accessLogFile: "/dev/stdout"
-
-    prometheus:
-      scrapeInterval: 5s
 
     gateways:
       istio-ingressgateway:
@@ -43,28 +35,3 @@ spec:
           limits:
             cpu: 100m
             memory: 128Mi
-
-    mixer:
-      policy:
-        replicaCount: 2
-        autoscaleEnabled: false
-        resources:
-          requests:
-            cpu: 10m
-            memory: 100Mi
-          limits:
-            cpu: 100m
-            memory: 100Mi
-      telemetry:
-        loadshedding:
-          mode: disabled
-        resources:
-          requests:
-            cpu: 50m
-            memory: 100Mi
-          limits:
-            cpu: 100m
-            memory: 100Mi
-      adapters:
-        stdio:
-          enabled: true

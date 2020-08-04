@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ var (
 )
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(liveServerStats)
 	defer server.Close()
@@ -109,7 +109,7 @@ server.state: 0`,
 }
 
 func TestEnvoyInitializing(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(initServerStats)
 	defer server.Close()
@@ -121,7 +121,7 @@ func TestEnvoyInitializing(t *testing.T) {
 }
 
 func TestEnvoyNoClusterManagerStats(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(onlyServerStats)
 	defer server.Close()
@@ -133,7 +133,7 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 }
 
 func TestEnvoyNoServerStats(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(noServerStats)
 	defer server.Close()

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,12 @@
 package core
 
 import (
-	v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"
@@ -28,13 +31,13 @@ type ConfigGenerator interface {
 	// BuildListeners returns the list of inbound/outbound listeners for the given proxy. This is the LDS output
 	// Internally, the computation will be optimized to ensure that listeners are computed only
 	// once and shared across multiple invocations of this function.
-	BuildListeners(node *model.Proxy, push *model.PushContext) []*v2.Listener
+	BuildListeners(node *model.Proxy, push *model.PushContext) []*listener.Listener
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters(node *model.Proxy, push *model.PushContext) []*v2.Cluster
+	BuildClusters(node *model.Proxy, push *model.PushContext) []*cluster.Cluster
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
-	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*v2.RouteConfiguration
+	BuildHTTPRoutes(node *model.Proxy, push *model.PushContext, routeNames []string) []*route.RouteConfiguration
 
 	// ConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)

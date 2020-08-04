@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 )
 
 func TestBasicSingleSource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := &fixtures.Source{}
 
@@ -47,7 +47,7 @@ func TestBasicSingleSource(t *testing.T) {
 }
 
 func TestWaitAndCombineFullSync(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}
@@ -81,7 +81,7 @@ func TestWaitAndCombineFullSync(t *testing.T) {
 }
 
 func TestPrecedence(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s1 := &fixtures.Source{}
 	s2 := &fixtures.Source{}

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,58 +15,67 @@
 package utils
 
 import (
-	"reflect"
+	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/spiffe"
+)
+
+const (
+	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
 func TestBuildInboundFilterChain(t *testing.T) {
-	tlsContext := &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/cert-chain.pem",
+	tlsContext := func(alpnProtocols []string) *auth.DownstreamTlsContext {
+		return &auth.DownstreamTlsContext{
+			CommonTlsContext: &auth.CommonTlsContext{
+				TlsCertificates: []*auth.TlsCertificate{
+					{
+						CertificateChain: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/cert-chain.pem",
+							},
 						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/key.pem",
-						},
-					},
-				},
-			},
-			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: &auth.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/root-cert.pem",
+						PrivateKey: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/key.pem",
+							},
 						},
 					},
 				},
+				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
+					ValidationContext: &auth.CertificateValidationContext{
+						TrustedCa: &core.DataSource{
+							Specifier: &core.DataSource_Filename{
+								Filename: "/etc/certs/root-cert.pem",
+							},
+						},
+					},
+				},
+				AlpnProtocols: alpnProtocols,
 			},
-			AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
-		},
-		RequireClientCertificate: protovalue.BoolTrue,
+			RequireClientCertificate: protovalue.BoolTrue,
+		}
 	}
 
 	type args struct {
-		mTLSMode   model.MutualTLSMode
-		sdsUdsPath string
-		node       *model.Proxy
+		mTLSMode         model.MutualTLSMode
+		sdsUdsPath       string
+		node             *model.Proxy
+		listenerProtocol networking.ListenerProtocol
 	}
 	tests := []struct {
 		name string
@@ -80,6 +89,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
+				listenerProtocol: networking.ListenerProtocolAuto,
 			},
 			// No need to set up filter chain, default one is okay.
 			want: nil,
@@ -91,6 +101,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
+				listenerProtocol: networking.ListenerProtocolAuto,
 			},
 			want: nil,
 		},
@@ -101,10 +112,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			want: []networking.FilterChain{
 				{
-					TLSContext: tlsContext,
+					TLSContext: tlsContext([]string{"h2", "http/1.1"}),
 				},
 			},
 		},
@@ -115,19 +127,17 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
+				listenerProtocol: networking.ListenerProtocolTCP,
 			},
 			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
 			want: []networking.FilterChain{
 				{
-					TLSContext: tlsContext,
+					TLSContext: tlsContext([]string{"istio-peer-exchange", "h2", "http/1.1"}),
 					FilterChainMatch: &listener.FilterChainMatch{
 						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
 					},
 					ListenerFilters: []*listener.ListenerFilter{
-						{
-							Name:       "envoy.listener.tls_inspector",
-							ConfigType: &listener.ListenerFilter_Config{&structpb.Struct{}},
-						},
+						xdsfilters.TLSInspector,
 					},
 				},
 				{
@@ -145,6 +155,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						SdsEnabled: true,
 					},
 				},
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			want: []networking.FilterChain{
 				{
@@ -155,9 +166,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									Name: "default",
 									SdsConfig: &core.ConfigSource{
 										InitialFetchTimeout: features.InitialFetchTimeout,
+										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -177,9 +190,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 										Name: "ROOTCA",
 										SdsConfig: &core.ConfigSource{
 											InitialFetchTimeout: features.InitialFetchTimeout,
+											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
-													ApiType: core.ApiConfigSource_GRPC,
+													ApiType:             core.ApiConfigSource_GRPC,
+													TransportApiVersion: core.ApiVersion_V3,
 													GrpcServices: []*core.GrpcService{
 														{
 															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -193,7 +208,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -208,10 +223,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				node: &model.Proxy{
 					Metadata: &model.NodeMetadata{},
 				},
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			want: []networking.FilterChain{
 				{
-					TLSContext: tlsContext,
+					TLSContext: tlsContext([]string{"h2", "http/1.1"}),
 				},
 			},
 		},
@@ -226,6 +242,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 						TLSServerRootCert:  "/custom/path/to/root.pem",
 					},
 				},
+				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
 			// Only one filter chain with mTLS settings should be generated.
 			want: []networking.FilterChain{
@@ -255,7 +272,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 									},
 								},
 							},
-							AlpnProtocols: []string{"istio-peer-exchange", "h2", "http/1.1"},
+							AlpnProtocols: []string{"h2", "http/1.1"},
 						},
 						RequireClientCertificate: protovalue.BoolTrue,
 					},
@@ -265,10 +282,18 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("BuildInboundFilterChain() = %v, want %v", spew.Sdump(got), spew.Sdump(tt.want))
-				t.Logf("got:\n%v\n", got[0].TLSContext.CommonTlsContext.TlsCertificateSdsSecretConfigs[0])
+			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol)
+			if diff := cmp.Diff(got, tt.want, protocmp.Transform()); diff != "" {
+				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}
 		})
+	}
+}
+
+func TestGetPilotSAN(t *testing.T) {
+	spiffe.SetTrustDomain("cluster.local")
+	pilotSANs := GetSAN("istio-system", PilotSvcAccName)
+	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
+		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}
 }

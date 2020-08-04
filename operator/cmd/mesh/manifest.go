@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,36 +30,23 @@ func ManifestCmd(logOpts *log.Options) *cobra.Command {
 
 	mgcArgs := &manifestGenerateArgs{}
 	mdcArgs := &manifestDiffArgs{}
-	macArgs := &manifestApplyArgs{}
-	mvArgs := &manifestVersionsArgs{}
-	mmcArgs := &manifestMigrateArgs{}
 
 	args := &rootArgs{}
 
 	mgc := manifestGenerateCmd(args, mgcArgs, logOpts)
 	mdc := manifestDiffCmd(args, mdcArgs)
-	mac := manifestApplyCmd(args, macArgs, logOpts)
-	mvc := manifestVersionsCmd(args, mvArgs)
-	mmc := manifestMigrateCmd(args, mmcArgs)
+	ic := InstallCmd(logOpts)
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
 	addFlags(mdc, args)
-	addFlags(mac, args)
-	addFlags(mvc, args)
-	addFlags(mmc, args)
 
 	addManifestGenerateFlags(mgc, mgcArgs)
 	addManifestDiffFlags(mdc, mdcArgs)
-	addManifestApplyFlags(mac, macArgs)
-	addManifestVersionsFlags(mvc, mvArgs)
-	addManifestMigrateFlags(mmc, mmcArgs)
 
 	mc.AddCommand(mgc)
 	mc.AddCommand(mdc)
-	mc.AddCommand(mac)
-	mc.AddCommand(mmc)
-	mc.AddCommand(mvc)
+	mc.AddCommand(ic)
 
 	return mc
 }

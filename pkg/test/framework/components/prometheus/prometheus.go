@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 type Instance interface {
@@ -45,15 +44,14 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster resource.Cluster
+
+	// If true, connect to an existing prometheus rather than creating a new one
+	SkipDeploy bool
 }
 
 // New returns a new instance of echo.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, c)
-	})
-	return
+	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new Prometheus instance or fails test.

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -30,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -42,23 +46,32 @@ func (c CommandParseError) Error() string {
 	return c.e.Error()
 }
 
+const (
+	// Location to read istioctl defaults from
+	defaultIstioctlConfig = "$HOME/.istioctl/config.yaml"
+)
+
 var (
+	// IstioConfig is the name of the istioctl config file (if any)
+	IstioConfig = env.RegisterStringVar("ISTIOCONFIG", defaultIstioctlConfig,
+		"Default values for istioctl flags").Get()
+
 	kubeconfig       string
 	configContext    string
 	namespace        string
 	istioNamespace   string
 	defaultNamespace string
 
-	// Create a kubernetes.ExecClient (or mockExecClient) for talking to control plane components
-	clientExecFactory = newPilotExecClient
+	// Create a kubernetes client (or mockClient) for talking to control plane components
+	kubeClientWithRevision = newKubeClientWithRevision
 
 	// Create a kubernetes.ExecClient (or mock) for talking to data plane components
-	envoyClientFactory = newEnvoyClient
-
-	// Create a kubernetes.ExecClientSDS
-	clientExecSdsFactory = newSDSExecClient
+	kubeClient = newKubeClient
 
 	loggingOptions = defaultLogOptions()
+
+	// scope is for dev logging.  Warning: log levels are not set by --log_output_level until command is Run().
+	scope = log.RegisterScope("cli", "istioctl", 0)
 )
 
 func defaultLogOptions() *log.Options {
@@ -71,10 +84,43 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("analysis", log.WarnLevel)
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
-	o.SetOutputLevel("kube", log.ErrorLevel)
+	o.SetOutputLevel("adsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
 
 	return o
+}
+
+// ConfigAndEnvProcessing uses spf13/viper for overriding CLI parameters
+func ConfigAndEnvProcessing() error {
+	configPath := filepath.Dir(IstioConfig)
+	baseName := filepath.Base(IstioConfig)
+	configType := filepath.Ext(IstioConfig)
+	configName := baseName[0 : len(baseName)-len(configType)]
+	if configType != "" {
+		configType = configType[1:]
+	}
+
+	// Allow users to override some variables through $HOME/.istioctl/config.yaml
+	// and environment variables.
+	viper.SetEnvPrefix("ISTIOCTL")
+	viper.AutomaticEnv()
+	viper.AllowEmptyEnv(true) // So we can say ISTIOCTL_CERT_DIR="" to suppress certs
+	viper.SetConfigName(configName)
+	viper.SetConfigType(configType)
+	viper.AddConfigPath(configPath)
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	err := viper.ReadInConfig()
+	// Ignore errors reading the configuration unless the file is explicitly customized
+	if IstioConfig != defaultIstioctlConfig {
+		return err
+	}
+
+	return nil
+}
+
+func init() {
+	viper.SetDefault("istioNamespace", controller.IstioNamespace)
+	viper.SetDefault("xds-port", 15012)
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -98,7 +144,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.PersistentFlags().StringVar(&configContext, "context", "",
 		"The name of the kubeconfig context to use")
 
-	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", controller.IstioNamespace,
+	rootCmd.PersistentFlags().StringVarP(&istioNamespace, "istioNamespace", "i", viper.GetString("istioNamespace"),
 		"Istio system namespace")
 
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", v1.NamespaceAll,
@@ -114,7 +160,6 @@ debug and diagnose their Istio mesh.
 
 	cmd.AddFlags(rootCmd)
 
-	rootCmd.AddCommand(newVersionCommand())
 	rootCmd.AddCommand(register())
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
@@ -130,12 +175,40 @@ debug and diagnose their Istio mesh.
 		Short:   "Experimental commands that may be modified or deprecated",
 	}
 
+	xdsBasedTroubleshooting := []*cobra.Command{
+		xdsVersionCommand(),
+		xdsStatusCommand(),
+	}
+	debugBasedTroubleshooting := []*cobra.Command{
+		newVersionCommand(),
+		statusCommand(),
+	}
+	var debugCmdAttachmentPoint *cobra.Command
+	if viper.GetBool("PREFER-EXPERIMENTAL") {
+		legacyCmd := &cobra.Command{
+			Use:   "legacy",
+			Short: "Legacy command variants",
+		}
+		rootCmd.AddCommand(legacyCmd)
+		for _, c := range xdsBasedTroubleshooting {
+			rootCmd.AddCommand(c)
+		}
+		debugCmdAttachmentPoint = legacyCmd
+	} else {
+		debugCmdAttachmentPoint = rootCmd
+	}
+	for _, c := range xdsBasedTroubleshooting {
+		experimentalCmd.AddCommand(c)
+	}
+	for _, c := range debugBasedTroubleshooting {
+		debugCmdAttachmentPoint.AddCommand(c)
+	}
+
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
 
 	rootCmd.AddCommand(convertIngress())
 	rootCmd.AddCommand(dashboard())
-	rootCmd.AddCommand(statusCommand())
 	rootCmd.AddCommand(Analyze())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
@@ -150,7 +223,10 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
 	experimentalCmd.AddCommand(softGraduatedCmd(Analyze()))
+	experimentalCmd.AddCommand(vmBootstrapCommand())
 	experimentalCmd.AddCommand(waitCmd())
+	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
+	experimentalCmd.AddCommand(configCmd())
 
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)

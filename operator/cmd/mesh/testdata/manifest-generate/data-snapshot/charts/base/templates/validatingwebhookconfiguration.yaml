@@ -1,4 +1,5 @@
-apiVersion: admissionregistration.k8s.io/v1beta1
+{{- if .Values.global.configValidation }}
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-{{ .Values.global.istioNamespace }}
@@ -9,10 +10,14 @@ metadata:
 webhooks:
   - name: validation.istio.io
     clientConfig:
+      {{- if .Values.base.validationURL }}
+      url: {{ .Values.base.validationURL }}
+      {{- else }}
       service:
         name: istiod
         namespace: {{ .Values.global.istioNamespace }}
         path: "/validate"
+      {{- end }}
       caBundle: "" # patched at runtime when the webhook is ready.
     rules:
       - operations:
@@ -20,7 +25,6 @@ webhooks:
         - UPDATE
         apiGroups:
         - config.istio.io
-        - rbac.istio.io
         - security.istio.io
         - authentication.istio.io
         - networking.istio.io
@@ -33,4 +37,6 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
 ---
+{{- end }}

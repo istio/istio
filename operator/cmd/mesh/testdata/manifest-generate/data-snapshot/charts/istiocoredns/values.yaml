@@ -3,6 +3,9 @@
 #
 istiocoredns:
   enabled: false
+  autoscaleEnabled: true
+  autoscaleMin: 1
+  autoscaleMax: 5
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
@@ -36,3 +39,69 @@ istiocoredns:
   # "security" and value "S1".
   podAntiAffinityLabelSelector: []
   podAntiAffinityTermLabelSelector: []
+
+  cpu:
+    targetAverageUtilization: 80
+
+global:
+  # Specify pod scheduling arch(amd64, ppc64le, s390x) and weight as follows:
+  #   0 - Never scheduled
+  #   1 - Least preferred
+  #   2 - No preference
+  #   3 - Most preferred
+  arch:
+    amd64: 2
+    s390x: 2
+    ppc64le: 2
+
+  # Default node selector to be applied to all deployments so that all pods can be
+  # constrained to run a particular nodes. Each component can overwrite these default
+  # values by adding its node selector block in the relevant section below and setting
+  # the desired values.
+  defaultNodeSelector: {}
+
+  # enable pod disruption budget for the control plane, which is used to
+  # ensure Istio control plane components are gradually upgraded or recovered.
+  defaultPodDisruptionBudget:
+    enabled: true
+    # The values aren't mutable due to a current PodDisruptionBudget limitation
+    # minAvailable: 1
+
+  # A minimal set of requested resources to applied to all deployments so that
+  # Horizontal Pod Autoscaler will be able to function (if set).
+  # Each component can overwrite these default values by adding its own resources
+  # block in the relevant section below and setting the desired resources values.
+  defaultResources:
+    requests:
+      cpu: 10m
+    #   memory: 128Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 128Mi
+
+  # Default node tolerations to be applied to all deployments so that all pods can be
+  # scheduled to a particular nodes with matching taints. Each component can overwrite
+  # these default values by adding its tolerations block in the relevant section below
+  # and setting the desired values.
+  # Configure this field in case that all pods of Istio control plane are expected to
+  # be scheduled to particular nodes with specified taints.
+  defaultTolerations: []
+
+  # Specify image pull policy if default behavior isn't desired.
+  # Default behavior: latest images will be Always else IfNotPresent.
+  imagePullPolicy: ""
+
+  # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
+  # ImagePullSecrets will be added to the corresponding Deployment(StatefulSet) objects.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+  # - private-registry-key
+
+  # Kubernetes >=v1.11.0 will create two PriorityClass, including system-cluster-critical and
+  # system-node-critical, it is better to configure this in order to make sure your Istio pods
+  # will not be killed because of low priority class.
+  # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+  # for more detail.
+  priorityClassName: ""

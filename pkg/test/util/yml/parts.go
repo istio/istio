@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,9 @@ package yml
 import (
 	"regexp"
 	"strings"
+
+	"github.com/ghodss/yaml"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -29,6 +32,21 @@ var (
 	// is indented).
 	splitRegex = regexp.MustCompile(`(^|\n)---`)
 )
+
+// SplitYamlByKind splits the given YAML into parts indexed by kind.
+func SplitYamlByKind(content string) map[string]string {
+	cfgs := SplitString(content)
+	result := map[string]string{}
+	for _, cfg := range cfgs {
+		var typeMeta kubeApiMeta.TypeMeta
+		if e := yaml.Unmarshal([]byte(cfg), &typeMeta); e != nil {
+			// Ignore invalid parts. This most commonly happens when it's empty or contains only comments.
+			continue
+		}
+		result[typeMeta.Kind] = JoinString(result[typeMeta.Kind], cfg)
+	}
+	return result
+}
 
 // SplitString splits the given yaml doc if it's multipart document.
 func SplitString(yamlText string) []string {

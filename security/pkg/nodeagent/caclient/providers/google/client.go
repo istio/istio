@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	"istio.io/istio/pkg/security"
 	gcapb "istio.io/istio/security/proto/providers/google"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -47,7 +47,7 @@ type googleCAClient struct {
 }
 
 // NewGoogleCAClient create a CA client for Google CA.
-func NewGoogleCAClient(endpoint string, tls bool) (caClientInterface.Client, error) {
+func NewGoogleCAClient(endpoint string, tls bool) (security.Client, error) {
 	c := &googleCAClient{
 		caEndpoint: endpoint,
 		enableTLS:  tls,

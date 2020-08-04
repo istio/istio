@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -45,11 +45,11 @@ func (*AllowAllChecker) Check(credentials.AuthInfo) error { return nil }
 type AuthListMode bool
 
 const (
-	// AuthBlackList indicates that the list should work as a black list
-	AuthBlackList AuthListMode = false
+	// AuthDenylist indicates that the list should work as a deny list
+	AuthDenylist AuthListMode = false
 
-	// AuthWhiteList indicates that the list should work as a white list
-	AuthWhiteList AuthListMode = true
+	// AuthAllowlist indicates that the list should work as an allowlist
+	AuthAllowlist AuthListMode = true
 )
 
 // ListAuthChecker implements AuthChecker function and is backed by a set of ids.
@@ -82,7 +82,7 @@ func DefaultListAuthCheckerOptions() *ListAuthCheckerOptions {
 	return &ListAuthCheckerOptions{
 		AuthzFailureLogBurstSize: 1,
 		AuthzFailureLogFreq:      time.Minute,
-		AuthMode:                 AuthWhiteList,
+		AuthMode:                 AuthAllowlist,
 	}
 }
 
@@ -141,10 +141,10 @@ func (l *ListAuthChecker) Allowed(id string) bool {
 	l.idsMutex.RLock()
 	defer l.idsMutex.RUnlock()
 
-	if l.mode == AuthWhiteList {
+	if l.mode == AuthAllowlist {
 		return l.contains(id)
 	}
-	return !l.contains(id) // AuthBlackList
+	return !l.contains(id) // AuthDenylist
 }
 
 func (l *ListAuthChecker) contains(id string) bool {
@@ -165,10 +165,10 @@ func (l *ListAuthChecker) String() string {
 
 	result := ""
 	switch l.mode {
-	case AuthWhiteList:
-		result += "Mode: whitelist\n"
-	case AuthBlackList:
-		result += "Mode: blacklist\n"
+	case AuthAllowlist:
+		result += "Mode: allowlist\n"
+	case AuthDenylist:
+		result += "Mode: denylist\n"
 	}
 
 	result += "Known ids:\n"
@@ -220,20 +220,20 @@ func (l *ListAuthChecker) check(authInfo credentials.AuthInfo) error {
 			for _, id := range ids {
 				if l.contains(id) {
 					switch l.mode {
-					case AuthWhiteList:
+					case AuthAllowlist:
 						scope.Infof("Allowing access from peer with id: %s", id)
 						return nil
-					case AuthBlackList:
+					case AuthDenylist:
 						scope.Infof("Blocking access from peer with id: %s", id)
-						return fmt.Errorf("id is blacklisted: %s", id)
+						return fmt.Errorf("id is denylisted: %s", id)
 					}
 				}
 			}
 		}
 	}
 
-	if l.mode == AuthWhiteList {
+	if l.mode == AuthAllowlist {
 		return errors.New("no allowed identity found in peer's authentication info")
 	}
-	return nil // AuthBlackList
+	return nil // AuthDenylist
 }

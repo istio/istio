@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,12 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -38,7 +39,7 @@ type ClusterFilter struct {
 }
 
 // Verify returns true if the passed cluster matches the filter fields
-func (c *ClusterFilter) Verify(cluster *xdsapi.Cluster) bool {
+func (c *ClusterFilter) Verify(cluster *cluster.Cluster) bool {
 	name := cluster.Name
 	if c.FQDN == "" && c.Port == 0 && c.Subset == "" && c.Direction == "" {
 		return true
@@ -67,17 +68,19 @@ func (c *ConfigWriter) PrintClusterSummary(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE")
-	for _, cluster := range clusters {
-		if filter.Verify(cluster) {
-			if len(strings.Split(cluster.Name, "|")) > 3 {
-				direction, subset, fqdn, port := model.ParseSubsetKey(cluster.Name)
+	_, _ = fmt.Fprintln(w, "SERVICE FQDN\tPORT\tSUBSET\tDIRECTION\tTYPE\tDESTINATION RULE")
+	for _, c := range clusters {
+		if filter.Verify(c) {
+			if len(strings.Split(c.Name, "|")) > 3 {
+				direction, subset, fqdn, port := model.ParseSubsetKey(c.Name)
 				if subset == "" {
 					subset = "-"
 				}
-				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", fqdn, port, subset, direction, cluster.GetType())
+				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", fqdn, port, subset, direction, c.GetType(),
+					describeManagement(c.GetMetadata()))
 			} else {
-				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\n", cluster.Name, "-", "-", "-", cluster.GetType())
+				_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%s\t%s\n", c.Name, "-", "-", "-", c.GetType(),
+					describeManagement(c.GetMetadata()))
 			}
 		}
 	}
@@ -104,7 +107,7 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	return nil
 }
 
-func (c *ConfigWriter) setupClusterConfigWriter() (*tabwriter.Writer, []*xdsapi.Cluster, error) {
+func (c *ConfigWriter) setupClusterConfigWriter() (*tabwriter.Writer, []*cluster.Cluster, error) {
 	clusters, err := c.retrieveSortedClusterSlice()
 	if err != nil {
 		return nil, nil, err
@@ -113,7 +116,7 @@ func (c *ConfigWriter) setupClusterConfigWriter() (*tabwriter.Writer, []*xdsapi.
 	return w, clusters, nil
 }
 
-func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
+func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*cluster.Cluster, error) {
 	if c.configDump == nil {
 		return nil, fmt.Errorf("config writer has not been primed")
 	}
@@ -121,21 +124,25 @@ func (c *ConfigWriter) retrieveSortedClusterSlice() ([]*xdsapi.Cluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	clusters := make([]*xdsapi.Cluster, 0)
-	for _, cluster := range clusterDump.DynamicActiveClusters {
-		if cluster.Cluster != nil {
-			clusterTyped := &xdsapi.Cluster{}
-			err = ptypes.UnmarshalAny(cluster.Cluster, clusterTyped)
+	clusters := make([]*cluster.Cluster, 0)
+	for _, c := range clusterDump.DynamicActiveClusters {
+		if c.Cluster != nil {
+			clusterTyped := &cluster.Cluster{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			c.Cluster.TypeUrl = v3.ClusterType
+			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
 			if err != nil {
 				return nil, err
 			}
 			clusters = append(clusters, clusterTyped)
 		}
 	}
-	for _, cluster := range clusterDump.StaticClusters {
-		if cluster.Cluster != nil {
-			clusterTyped := &xdsapi.Cluster{}
-			err = ptypes.UnmarshalAny(cluster.Cluster, clusterTyped)
+	for _, c := range clusterDump.StaticClusters {
+		if c.Cluster != nil {
+			clusterTyped := &cluster.Cluster{}
+			// Support v2 or v3 in config dump. See ads.go:RequestedTypes for more info.
+			c.Cluster.TypeUrl = v3.ClusterType
+			err = ptypes.UnmarshalAny(c.Cluster, clusterTyped)
 			if err != nil {
 				return nil, err
 			}

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors. All Rights Reserved.
+// Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,15 @@ package v1alpha3
 import (
 	"fmt"
 
-	apiv2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/api/v2/endpoint"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -50,14 +53,14 @@ func NewClusterBuilder(proxy *model.Proxy, push *model.PushContext) *ClusterBuil
 
 // applyDestinationRule applies the destination rule if it exists for the Service. It returns the subset clusters if any created as it
 // applies the destination rule.
-func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *apiv2.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
-	proxyNetworkView map[string]bool) []*apiv2.Cluster {
+func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode ClusterMode, service *model.Service, port *model.Port,
+	proxyNetworkView map[string]bool) []*cluster.Cluster {
 	destRule := cb.push.DestinationRule(cb.proxy, service)
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
 	opts := buildClusterOpts{
 		push:        cb.push,
-		cluster:     cluster,
+		cluster:     c,
 		policy:      destinationRule.TrafficPolicy,
 		port:        port,
 		clusterMode: clusterMode,
@@ -73,19 +76,21 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *apiv
 		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(service, port)
 	}
 
+	// merge with applicable port level traffic policy settings
+	opts.policy = MergeTrafficPolicy(nil, opts.policy, opts.port)
 	// Apply traffic policy for the main default cluster.
 	applyTrafficPolicy(opts)
 
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
-	maybeApplyEdsConfig(cluster)
+	maybeApplyEdsConfig(c)
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
 		clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
-		cluster.Metadata = clusterMetadata
+		c.Metadata = clusterMetadata
 	}
-	subsetClusters := make([]*apiv2.Cluster, 0)
+	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.Subsets {
 		var subsetClusterName string
 		var defaultSni string
@@ -96,14 +101,18 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *apiv
 		} else {
 			subsetClusterName = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subset.Name, service.Hostname, port.Port)
 		}
-		// clusters with discovery type STATIC, STRICT_DNS rely on cluster.hosts field
+		// clusters with discovery type STATIC, STRICT_DNS rely on cluster.LoadAssignment field.
 		// ServiceEntry's need to filter hosts based on subset.labels in order to perform weighted routing
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
-		if cluster.GetType() != apiv2.Cluster_EDS && len(subset.Labels) != 0 {
-			lbEndpoints = buildLocalityLbEndpoints(proxy, cb.push, proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
+		if c.GetType() != cluster.Cluster_EDS {
+			if len(subset.Labels) != 0 {
+				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, []labels.Instance{subset.Labels})
+			} else {
+				lbEndpoints = cb.buildLocalityLbEndpoints(proxyNetworkView, service, port.Port, nil)
+			}
 		}
 
-		subsetCluster := cb.buildDefaultCluster(subsetClusterName, cluster.GetType(), lbEndpoints,
+		subsetCluster := cb.buildDefaultCluster(subsetClusterName, c.GetType(), lbEndpoints,
 			model.TrafficDirectionOutbound, nil, service.MeshExternal)
 
 		if subsetCluster == nil {
@@ -116,15 +125,12 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *apiv
 
 		// Apply traffic policy for subset cluster with the destination rule traffice policy.
 		opts.cluster = subsetCluster
-		opts.policy = destinationRule.TrafficPolicy
 		opts.istioMtlsSni = defaultSni
-		applyTrafficPolicy(opts)
 
 		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-		if subset.TrafficPolicy != nil {
-			opts.policy = subset.TrafficPolicy
-			applyTrafficPolicy(opts)
-		}
+		opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
+		// Apply traffic policy for the subset cluster.
+		applyTrafficPolicy(opts)
 
 		maybeApplyEdsConfig(subsetCluster)
 
@@ -134,29 +140,78 @@ func (cb *ClusterBuilder) applyDestinationRule(proxy *model.Proxy, cluster *apiv
 	return subsetClusters
 }
 
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
+	}
+
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
+	}
+
+	mergedPolicy := &networking.TrafficPolicy{}
+	if original != nil {
+		mergedPolicy.ConnectionPool = original.ConnectionPool
+		mergedPolicy.LoadBalancer = original.LoadBalancer
+		mergedPolicy.OutlierDetection = original.OutlierDetection
+		mergedPolicy.Tls = original.Tls
+	}
+
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				// per the docs, port level policies do not inherit and intead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool
+				mergedPolicy.OutlierDetection = p.OutlierDetection
+				mergedPolicy.LoadBalancer = p.LoadBalancer
+				mergedPolicy.Tls = p.Tls
+				break
+			}
+		}
+	}
+	return mergedPolicy
+}
+
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
-func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.Cluster_DiscoveryType,
+func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster.Cluster_DiscoveryType,
 	localityLbEndpoints []*endpoint.LocalityLbEndpoints, direction model.TrafficDirection,
-	port *model.Port, meshExternal bool) *apiv2.Cluster {
-	cluster := &apiv2.Cluster{
+	port *model.Port, meshExternal bool) *cluster.Cluster {
+	c := &cluster.Cluster{
 		Name:                 name,
-		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: discoveryType},
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 	}
 
 	switch discoveryType {
-	case apiv2.Cluster_STRICT_DNS:
-		cluster.DnsLookupFamily = apiv2.Cluster_V4_ONLY
+	case cluster.Cluster_STRICT_DNS:
+		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
-		cluster.DnsRefreshRate = dnsRate
-		cluster.RespectDnsTtl = true
+		c.DnsRefreshRate = dnsRate
+		c.RespectDnsTtl = true
 		fallthrough
-	case apiv2.Cluster_STATIC:
+	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
-			cb.push.AddMetric(model.DNSNoEndpointClusters, cluster.Name, cb.proxy,
-				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), cluster.Name))
+			cb.push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxy,
+				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
 			return nil
 		}
-		cluster.LoadAssignment = &apiv2.ClusterLoadAssignment{
+		c.LoadAssignment = &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
 			Endpoints:   localityLbEndpoints,
 		}
@@ -166,7 +221,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.C
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
 		push:            cb.push,
-		cluster:         cluster,
+		cluster:         c,
 		policy:          cb.defaultTrafficPolicy(discoveryType),
 		port:            port,
 		serviceAccounts: nil,
@@ -178,13 +233,81 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType apiv2.C
 	}
 	applyTrafficPolicy(opts)
 
-	return cluster
+	return c
+}
+
+func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]bool, service *model.Service,
+	port int, labels labels.Collection) []*endpoint.LocalityLbEndpoints {
+	if service.Resolution != model.DNSLB {
+		return nil
+	}
+
+	instances, err := cb.push.InstancesByPort(service, port, labels)
+	if err != nil {
+		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
+		return nil
+	}
+
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := cb.push.IsClusterLocal(service)
+
+	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
+	for _, instance := range instances {
+		// Only send endpoints from the networks in the network view requested by the proxy.
+		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
+		// the default network assigned to endpoints that don't have an explicit network
+		if !proxyNetworkView[instance.Endpoint.Network] {
+			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
+			continue
+		}
+		// If the downstream service is configured as cluster-local, only include endpoints that
+		// reside in the same cluster.
+		if isClusterLocal && (cb.proxy.Metadata.ClusterID != instance.Endpoint.Locality.ClusterID) {
+			continue
+		}
+		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
+		ep := &endpoint.LbEndpoint{
+			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+				Endpoint: &endpoint.Endpoint{
+					Address: addr,
+				},
+			},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+		}
+		if instance.Endpoint.LbWeight > 0 {
+			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
+		}
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, cb.push)
+		locality := instance.Endpoint.Locality.Label
+		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
+	}
+
+	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
+
+	for locality, eps := range lbEndpoints {
+		var weight uint32
+		for _, ep := range eps {
+			weight += ep.LoadBalancingWeight.GetValue()
+		}
+		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
+			Locality:    util.ConvertLocality(locality),
+			LbEndpoints: eps,
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: weight,
+			},
+		})
+	}
+
+	return localityLbEndpoints
 }
 
 // buildInboundPassthroughClusters builds passthrough clusters for inbound.
-func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*apiv2.Cluster {
+func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*cluster.Cluster {
 	// ipv4 and ipv6 feature detection. Envoy cannot ignore a config where the ip version is not supported
-	clusters := make([]*apiv2.Cluster, 0, 2)
+	clusters := make([]*cluster.Cluster, 0, 2)
 	if cb.proxy.SupportsIPv4() {
 		inboundPassthroughClusterIpv4 := cb.buildDefaultPassthroughCluster()
 		inboundPassthroughClusterIpv4.Name = util.InboundPassthroughClusterIpv4
@@ -216,24 +339,25 @@ func (cb *ClusterBuilder) buildInboundPassthroughClusters() []*apiv2.Cluster {
 
 // generates a cluster that sends traffic to dummy localport 0
 // This cluster is used to catch all traffic to unresolved destinations in virtual service
-func (cb *ClusterBuilder) buildBlackHoleCluster() *apiv2.Cluster {
-	cluster := &apiv2.Cluster{
+func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
+	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
-		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_STATIC},
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
 		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
-		LbPolicy:             apiv2.Cluster_ROUND_ROBIN,
+		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
-	return cluster
+	return c
 }
 
 // generates a cluster that sends traffic to the original destination.
 // This cluster is used to catch all traffic to unknown listener ports
-func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *apiv2.Cluster {
-	cluster := &apiv2.Cluster{
+func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
+	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
-		ClusterDiscoveryType: &apiv2.Cluster_Type{Type: apiv2.Cluster_ORIGINAL_DST},
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		ConnectTimeout:       gogo.DurationToProtoDuration(cb.push.Mesh.ConnectTimeout),
-		LbPolicy:             apiv2.Cluster_CLUSTER_PROVIDED,
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
 	applyConnectionPool(cb.push, cluster, passthroughSettings)
@@ -241,9 +365,9 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *apiv2.Cluster {
 }
 
 // defaultTrafficPolicy builds a default traffic policy applying default connection timeouts.
-func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType apiv2.Cluster_DiscoveryType) *networking.TrafficPolicy {
+func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_DiscoveryType) *networking.TrafficPolicy {
 	lbPolicy := DefaultLbType
-	if discoveryType == apiv2.Cluster_ORIGINAL_DST {
+	if discoveryType == cluster.Cluster_ORIGINAL_DST {
 		lbPolicy = networking.LoadBalancerSettings_PASSTHROUGH
 	}
 	return &networking.TrafficPolicy{
@@ -274,19 +398,20 @@ func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationR
 }
 
 // maybeApplyEdsConfig applies EdsClusterConfig on the passed in cluster if it is an EDS type of cluster.
-func maybeApplyEdsConfig(cluster *apiv2.Cluster) {
-	switch v := cluster.ClusterDiscoveryType.(type) {
-	case *apiv2.Cluster_Type:
-		if v.Type != apiv2.Cluster_EDS {
+func maybeApplyEdsConfig(c *cluster.Cluster) {
+	switch v := c.ClusterDiscoveryType.(type) {
+	case *cluster.Cluster_Type:
+		if v.Type != cluster.Cluster_EDS {
 			return
 		}
 	}
-	cluster.EdsClusterConfig = &apiv2.Cluster_EdsClusterConfig{
-		ServiceName: cluster.Name,
+	c.EdsClusterConfig = &cluster.Cluster_EdsClusterConfig{
+		ServiceName: c.Name,
 		EdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_Ads{
 				Ads: &core.AggregatedConfigSource{},
 			},
+			ResourceApiVersion:  core.ApiVersion_V3,
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}

@@ -1,6 +1,6 @@
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 {{- if not .Values.global.operatorManageWebhooks }}
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}
@@ -20,6 +20,8 @@ webhooks:
         namespace: {{ .Release.Namespace }}
         path: "/inject"
       caBundle: ""
+    sideEffects: None
+    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
@@ -61,6 +63,14 @@ webhooks:
         operator: NotIn
         values:
         - "false"
+{{- else if .Values.revision }}
+      matchExpressions:
+      - key: "sidecar.istio.io/inject"
+        operator: DoesNotExist
+      - key: istio.io/rev
+        operator: In
+        values:
+        - {{ .Values.revision }}
 {{- else }}
       matchLabels:
         "sidecar.istio.io/inject": "true"

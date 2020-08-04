@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 )
 
 func TestMessages_Sort(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -60,7 +60,7 @@ func TestMessages_Sort(t *testing.T) {
 }
 
 func TestMessages_SortWithNilOrigin(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -87,7 +87,7 @@ func TestMessages_SortWithNilOrigin(t *testing.T) {
 }
 
 func TestMessages_SortedCopy(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),

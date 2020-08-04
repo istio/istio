@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -120,7 +121,7 @@ func NewMockTokenExchangeServer(errors uint64) *TokenExchangeServer {
 }
 
 // ExchangeToken returns a dumb token or errors depending on the settings.
-func (s *TokenExchangeServer) ExchangeToken(context.Context, string, string) (string, time.Time, int, error) {
+func (s *TokenExchangeServer) ExchangeToken(context.Context, security.CredFetcher, string, string) (string, time.Time, int, error) {
 	s.errorCountMutex.Lock()
 	if s.errorCount < s.errors {
 		s.errorCount++

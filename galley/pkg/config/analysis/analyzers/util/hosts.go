@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,13 @@ type ScopedFqdn string
 func (s ScopedFqdn) GetScopeAndFqdn() (string, string) {
 	parts := strings.SplitN(string(s), "/", 2)
 	return parts[0], parts[1]
+}
+
+// InScopeOf returns true if ns is in the scope of ScopedFqdn
+func (s ScopedFqdn) InScopeOf(ns string) bool {
+	scope, fqdn := s.GetScopeAndFqdn()
+	fn := GetFullNameFromFQDN(fqdn)
+	return scope == "*" || scope == "." && ns == fn.Namespace.String() || scope == ns
 }
 
 // NewScopedFqdn converts the passed host to FQDN if needed and applies the passed scope.

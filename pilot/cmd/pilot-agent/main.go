@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,18 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
+	"google.golang.org/grpc/grpclog"
+
+	"istio.io/istio/pkg/security"
 
 	"istio.io/istio/pkg/dns"
 
@@ -36,11 +41,9 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/proxy"
-	envoyDiscovery "istio.io/istio/pilot/pkg/proxy/envoy"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
@@ -48,6 +51,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
@@ -68,8 +72,6 @@ var (
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
 	trustDomain        string
-	pilotIdentity      string
-	mixerIdentity      string
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -88,13 +90,18 @@ var (
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
+	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
 		"the provider of Pilot DNS certificate.").Get()
-	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.JWTPolicyThirdPartyJWT,
+	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
+	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
+	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
+	// with extra SAN (labels, etc) in data path.
+	provCert = env.RegisterStringVar("PROV_CERT", "",
+		"Set to a directory containing provisioned certs, for VMs").Get()
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
@@ -103,6 +110,42 @@ var (
 		"",
 		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
 	).Get()
+
+	caProviderEnv = env.RegisterStringVar("CA_PROVIDER", "Citadel", "name of authentication provider").Get()
+	// TODO: default to same as discovery address
+	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffee certificate provider. Defaults to discoveryAddress").Get()
+
+	// TODO: this is a horribly named env, it's really TOKEN_EXCHANGE_PLUGINS - but to avoid breaking
+	// it's left unchanged. It may not be needed because we autodetect.
+	pluginNamesEnv = env.RegisterStringVar("PLUGINS", "", "Token exchange plugins").Get()
+
+	// This is also disabled by presence of the SDS socket directory
+	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
+		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
+
+	// TODO: This is already present in ProxyConfig !!!
+	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
+		"The trust domain for spiffe certificates").Get()
+
+	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
+		"The cert lifetime requested by istio agent").Get()
+
+	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
+		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+	secretRotationIntervalEnv = env.RegisterDurationVar("SECRET_ROTATION_CHECK_INTERVAL", 5*time.Minute,
+		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar("STALED_CONNECTION_RECYCLE_RUN_INTERVAL", 5*time.Minute,
+		"The ticker to detect and close stale connections").Get()
+	initialBackoffInMilliSecEnv = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", 0, "").Get()
+	pkcs8KeysEnv                = env.RegisterBoolVar("PKCS8_KEY", false,
+		"Whether to generate PKCS#8 private keys").Get()
+	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
+	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
+	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
+	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
+		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
+	parseTokenEnv = env.RegisterBoolVar("PARSE_TOKEN", false,
+		"Parse token to inspect information like expiration time in proxy. This may not always be possible because token may not be a JWT.").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -127,6 +170,7 @@ var (
 			if err := log.Configure(loggingOptions); err != nil {
 				return err
 			}
+			grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 			// Extract pod variables.
 			podName := podNameVar.Get()
@@ -150,7 +194,7 @@ var (
 			}
 
 			// Obtain all the IPs from the node
-			if ipAddrs, ok := proxy.GetPrivateIPs(context.Background()); ok {
+			if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
 				log.Infof("Obtained private IP %v", ipAddrs)
 				if len(role.IPAddresses) == 1 {
 					for _, ip := range ipAddrs {
@@ -177,8 +221,6 @@ var (
 			if len(role.ID) == 0 {
 				if registryID == serviceregistry.Kubernetes {
 					role.ID = podName + "." + podNamespace
-				} else if registryID == serviceregistry.Consul {
-					role.ID = role.IPAddresses[0] + ".service.consul"
 				} else {
 					role.ID = role.IPAddresses[0]
 				}
@@ -200,51 +242,74 @@ var (
 			log.Infof("Proxy role: %#v", role)
 
 			var jwtPath string
-			if jwtPolicy.Get() == jwt.JWTPolicyThirdPartyJWT {
+			if jwtPolicy.Get() == jwt.PolicyThirdParty {
 				log.Info("JWT policy is third-party-jwt")
 				jwtPath = trustworthyJWTPath
-			} else if jwtPolicy.Get() == jwt.JWTPolicyFirstPartyJWT {
+			} else if jwtPolicy.Get() == jwt.PolicyFirstParty {
 				log.Info("JWT policy is first-party-jwt")
 				jwtPath = securityModel.K8sSAJwtFileName
 			} else {
 				log.Info("Using existing certs")
 			}
 
-			sa := istio_agent.NewSDSAgent(proxyConfig.DiscoveryAddress, proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				pilotCertProvider, jwtPath, outputKeyCertToDir)
+			secOpts := &security.Options{
+				PilotCertProvider:  pilotCertProvider,
+				OutputKeyCertToDir: outputKeyCertToDir,
+				ProvCert:           provCert,
+				JWTPath:            jwtPath,
+				ClusterID:          clusterIDVar.Get(),
+				FileMountedCerts:   fileMountedCertsEnv,
+				CAEndpoint:         caEndpointEnv,
+				UseTokenForCSR:     useTokenForCSREnv,
+				CredFetcher:        nil,
+			}
+			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
-			// Connection to Istiod secure port
-			if sa.RequireCerts {
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+			secOpts.EnableWorkloadSDS = true
+
+			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
+			secOpts.CAProviderName = caProviderEnv
+
+			// TODO: extract from ProxyConfig
+			secOpts.TrustDomain = trustDomainEnv
+			secOpts.Pkcs8Keys = pkcs8KeysEnv
+			secOpts.ECCSigAlg = eccSigAlgEnv
+			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
+			secOpts.ECCSigAlg = eccSigAlgEnv
+			secOpts.SecretTTL = secretTTLEnv
+			secOpts.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
+			secOpts.RotationInterval = secretRotationIntervalEnv
+			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
+			// Disable the secret eviction for istio agent.
+			secOpts.EvictionDuration = 0
+			secOpts.ParseToken = parseTokenEnv
+
+			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+			// GCE is the only supported plugin at the moment.
+			if credFetcherTypeEnv == security.GCE {
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
+				if err != nil {
+					return fmt.Errorf("failed to create credential fetcher: %v", err)
+				}
+				log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, secOpts.TrustDomain)
+				secOpts.CredFetcher = credFetcher
 			}
 
-			var pilotSAN, mixerSAN []string
+			sa := istio_agent.NewAgent(&proxyConfig,
+				&istio_agent.AgentConfig{}, secOpts)
+
+			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
-				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), envoyDiscovery.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
 			log.Infof("PilotSAN %#v", pilotSAN)
-			log.Infof("MixerSAN %#v", mixerSAN)
 
 			// Start in process SDS.
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
 			if err != nil {
 				log.Fatala("Failed to start in-process SDS", err)
-			}
-
-			// dedupe cert paths so we don't set up 2 watchers for the same file
-			tlsCerts := dedupeStrings(getTLSCerts(proxyConfig))
-
-			// Since Envoy needs the file-mounted certs for mTLS, we wait for them to become available
-			// before starting it.
-			if len(tlsCerts) > 0 {
-				log.Infof("Monitored certs: %#v", tlsCerts)
-				for _, cert := range tlsCerts {
-					waitForFile(cert, 2*time.Minute)
-				}
 			}
 
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
@@ -284,7 +349,7 @@ var (
 					localHostAddr = localHostIPv6
 				}
 				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{TrustDomain: trustDomain})
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,
@@ -320,7 +385,6 @@ var (
 				LogLevel:            proxyLogLevel,
 				ComponentLogLevel:   proxyComponentLogLevel,
 				PilotSubjectAltName: pilotSAN,
-				MixerSubjectAltName: mixerSAN,
 				NodeIPs:             role.IPAddresses,
 				PodName:             podName,
 				PodNamespace:        podNamespace,
@@ -331,12 +395,19 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
+				Sidecar:             role.Type == model.SidecarProxy,
 			})
 
-			agent := envoy.NewAgent(envoyProxy, features.TerminationDrainDuration())
+			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
+			if ds, f := features.TerminationDrainDuration.Lookup(); f {
+				// Legacy environment variable is set, us that instead
+				drainDuration = time.Second * time.Duration(ds)
+			}
+
+			agent := envoy.NewAgent(envoyProxy, drainDuration)
 
 			// Watcher is also kicking envoy start.
-			watcher := envoy.NewWatcher(tlsCerts, agent.Restart)
+			watcher := envoy.NewWatcher(agent.Restart)
 			go watcher.Run(ctx)
 
 			// On SIGINT or SIGTERM, cancel the context, triggering a graceful shutdown
@@ -347,23 +418,14 @@ var (
 	}
 )
 
-// dedupes the string array and also ignores the empty string.
-func dedupeStrings(in []string) []string {
-	set := sets.NewSet(in...)
-	return set.UnsortedList()
-}
-
-// explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
+// explicitly set the trustdomain so the pilot SAN will have same trustdomain
 // and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
 func setSpiffeTrustDomain(podNamespace string, domain string) {
 	pilotTrustDomain := trustDomain
 	if len(pilotTrustDomain) == 0 {
 		if registryID == serviceregistry.Kubernetes &&
-			(domain == podNamespace+".svc.cluster.local" || domain == "") {
-			pilotTrustDomain = "cluster.local"
-		} else if registryID == serviceregistry.Consul &&
-			(domain == "service.consul" || domain == "") {
-			pilotTrustDomain = ""
+			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
+			pilotTrustDomain = constants.DefaultKubernetesDomain
 		} else {
 			pilotTrustDomain = domain
 		}
@@ -371,23 +433,10 @@ func setSpiffeTrustDomain(podNamespace string, domain string) {
 	spiffe.SetTrustDomain(pilotTrustDomain)
 }
 
-func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
-	var san []string
-	if overrideIdentity == "" {
-		san = append(san, envoyDiscovery.GetSAN(ns, defaultSA))
-	} else {
-		san = append(san, envoyDiscovery.GetSAN("", overrideIdentity))
-
-	}
-	return san
-}
-
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
 		if registryID == serviceregistry.Kubernetes {
-			domain = podNamespace + ".svc.cluster.local"
-		} else if registryID == serviceregistry.Consul {
-			domain = "service.consul"
+			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
 		} else {
 			domain = ""
 		}
@@ -395,22 +444,11 @@ func getDNSDomain(podNamespace, domain string) string {
 	return domain
 }
 
-func fromJSON(j string) *meshconfig.RemoteService {
-	var m meshconfig.RemoteService
-	err := jsonpb.UnmarshalString(j, &m)
-	if err != nil {
-		log.Warnf("Unable to unmarshal %s: %v", j, err)
-		return nil
-	}
-
-	return &m
-}
-
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
 		string(serviceregistry.Kubernetes),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
+			serviceregistry.Kubernetes, serviceregistry.Mock))
 	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -419,14 +457,10 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&pilotIdentity, "pilotIdentity", "",
-		"The identity used as the suffix for pilot's spiffe SAN ")
-	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
-		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+
-			"PROXY_CONFIG environment variable or istio.io/proxyConfig annotation.")
+			"PROXY_CONFIG environment variable or proxy.istio.io/config annotation.")
 	proxyCmd.PersistentFlags().IntVar(&stsPort, "stsPort", 0,
 		"HTTP Port on which to serve Security Token Service (STS). If zero, STS service will not be provided.")
 	proxyCmd.PersistentFlags().StringVar(&tokenManagerPlugin, "tokenManagerPlugin", tokenmanager.GoogleTokenExchange,
@@ -463,37 +497,6 @@ func init() {
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",
 	}))
-}
-
-func waitForFile(fname string, maxWait time.Duration) bool {
-	log.Infof("waiting %v for %s", maxWait, fname)
-
-	logDelay := 1 * time.Second
-	nextLog := time.Now().Add(logDelay)
-	endWait := time.Now().Add(maxWait)
-
-	for {
-		_, err := os.Stat(fname)
-		if err == nil {
-			return true
-		}
-		if !os.IsNotExist(err) { // another error (e.g., permission) - likely no point in waiting longer
-			log.Errora("error while waiting for file", err.Error())
-			return false
-		}
-
-		now := time.Now()
-		if now.After(endWait) {
-			log.Warna("file still not available after", maxWait)
-			return false
-		}
-		if now.After(nextLog) {
-			log.Infof("waiting for file")
-			logDelay *= 2
-			nextLog.Add(logDelay)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
 }
 
 // TODO: get the config and bootstrap from istiod, by passing the env

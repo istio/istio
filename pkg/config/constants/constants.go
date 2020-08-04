@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,6 +59,9 @@ const (
 	// IstioIngressNamespace is the namespace where Istio ingress controller is deployed
 	IstioIngressNamespace = "istio-system"
 
+	// DefaultKubernetesDomain the default service domain suffix for Kubernetes, if not overridden in config.
+	DefaultKubernetesDomain = "cluster.local"
+
 	// IstioLabel indicates that a workload is part of a named Istio system component.
 	IstioLabel = "istio"
 
@@ -73,10 +76,6 @@ const (
 	// policy with this name in the cluster-scoped will be considered.
 	DefaultAuthenticationPolicyName = "default"
 
-	// DefaultRbacConfigName is the name of the mesh global RbacConfig name. Only RbacConfig with this
-	// name will be considered.
-	DefaultRbacConfigName = "default"
-
 	// IstioMeshGateway is the built in gateway for all sidecars
 	IstioMeshGateway = "mesh"
 
@@ -90,4 +89,8 @@ const (
 	// PodInfoAnnotationsPath is the filepath that pod annotations will be stored
 	// This is typically set by the downward API
 	PodInfoAnnotationsPath = "./etc/istio/pod/annotations"
+
+	// DefaultSdsUdsPath is the path used for SDS communication between istio-agent and proxy during
+	// mtls.
+	DefaultSdsUdsPath = "unix:./etc/istio/proxy/SDS"
 )

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,21 +15,24 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 
+	"istio.io/pkg/log"
+
+	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/kubernetes"
+	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/compare"
-	sdscompare "istio.io/istio/istioctl/pkg/writer/compare/sds"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
-)
-
-var (
-	sdsDump bool
-	sdsJSON bool
+	pilotxds "istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/kube"
 )
 
 func statusCommand() *cobra.Command {
@@ -39,53 +42,58 @@ func statusCommand() *cobra.Command {
 		Use:   "proxy-status [<pod-name[.namespace]>]",
 		Short: "Retrieves the synchronization status of each Envoy in the mesh [kube only]",
 		Long: `
-Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in the mesh
+Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
 
 `,
 		Example: `# Retrieve sync status for all Envoys in a mesh
 	istioctl proxy-status
 
-# Retrieve sync diff for a single Envoy and Pilot
+# Retrieve sync diff for a single Envoy and Istiod
 	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+
+# Write proxy config-dump to file, and compare to Istio control plane
+    kubectl port-forward -n istio-system istio-egressgateway-59585c5b9c-ndc59 15000 &
+    curl localhost:15000/config_dump > cd.json
+    istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system --file cd.json
 `,
 		Aliases: []string{"ps"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if (len(args) == 0) && (configDumpFile != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("--file can only be used when pod-name is specified")
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
-			kubeClient, err := clientExecSdsFactory(kubeconfig, configContext, opts)
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return err
 			}
 			if len(args) > 0 {
 				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
-				path := "config_dump"
-				envoyDump, err := kubeClient.EnvoyDo(podName, ns, "GET", path, nil)
+				var envoyDump []byte
+				if configDumpFile != "" {
+					envoyDump, err = readConfigFile(configDumpFile)
+				} else {
+					path := "config_dump"
+					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+				}
 				if err != nil {
 					return err
 				}
 
-				// when sds flag set, should diff node agent secrets with active Envoy secrets
-				if sdsDump {
-					var outputFormat sdscompare.Format
-					if sdsJSON {
-						outputFormat = sdscompare.JSON
-					} else {
-						outputFormat = sdscompare.TABULAR
-					}
-					writer := sdscompare.NewSDSWriter(c.OutOrStdout(), outputFormat)
-					return sdsDiff(kubeClient, writer, podName, ns)
-				}
-
-				path = fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
-				pilotDumps, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", path, nil)
+				path := fmt.Sprintf("/debug/config_dump?proxyID=%s.%s", podName, ns)
+				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, path)
 				if err != nil {
 					return err
 				}
-				c, err := compare.NewComparator(c.OutOrStdout(), pilotDumps, envoyDump)
+				c, err := compare.NewComparator(c.OutOrStdout(), istiodDumps, envoyDump)
 				if err != nil {
 					return err
 				}
 				return c.Diff()
 			}
-			statuses, err := kubeClient.AllPilotsDiscoveryDo(istioNamespace, "GET", "/debug/syncz", nil)
+			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "/debug/syncz")
 			if err != nil {
 				return err
 			}
@@ -94,45 +102,109 @@ Retrieves last sent and last acknowledged xDS sync from Pilot to each Envoy in t
 		},
 	}
 
-	statusCmd.Flags().BoolVarP(&sdsDump, "sds", "s", false,
-		"(experimental) Retrieve synchronization between active secrets on Envoy instance with those on corresponding node agents")
-	statusCmd.Flags().BoolVar(&sdsJSON, "sds-json", false,
-		"Determines whether SDS dump outputs JSON")
 	opts.AttachControlPlaneFlags(statusCmd)
+	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
 
 	return statusCmd
 }
 
-// sdsDiff diffs pod secrets with corresponding node agent secrets
-func sdsDiff(
-	c kubernetes.ExecClientSDS, w sdscompare.SDSWriter, podName, namespace string) error {
-	nodeAgentSecretItems, err := c.GetPodNodeAgentSecrets(podName, namespace, istioNamespace)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve node agent secrets: %v", err)
+func readConfigFile(filename string) ([]byte, error) {
+	file := os.Stdin
+	if filename != "-" {
+		var err error
+		file, err = os.Open(filename)
+		if err != nil {
+			return nil, err
+		}
 	}
-	envoyDump, err := c.EnvoyDo(podName, namespace, "GET", "config_dump", nil)
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Errorf("failed to close %s: %s", filename, err)
+		}
+	}()
+	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		return fmt.Errorf("could not get sidecar config dump for %s.%s: %v",
-			podName, namespace, err)
+		return nil, err
 	}
-
-	comparator, err := sdscompare.NewSDSComparator(
-		w, nodeAgentSecretItems, envoyDump, podName)
-	if err != nil {
-		return fmt.Errorf("failed to create SDS comparator: %v", comparator)
-	}
-
-	return comparator.Diff()
+	return data, nil
 }
 
-func newPilotExecClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (kubernetes.ExecClient, error) {
-	return kubernetes.NewExtendedClient(kubeconfig, configContext, opts)
+func newKubeClientWithRevision(kubeconfig, configContext string, revision string) (kube.ExtendedClient, error) {
+	return kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), revision)
 }
 
-func newEnvoyClient(kubeconfig, configContext string) (kubernetes.ExecClient, error) {
-	return kubernetes.NewClient(kubeconfig, configContext)
+func newKubeClient(kubeconfig, configContext string) (kube.ExtendedClient, error) {
+	return newKubeClientWithRevision(kubeconfig, configContext, "")
 }
 
-func newSDSExecClient(kubeconfig, configContext string, opts clioptions.ControlPlaneOptions) (kubernetes.ExecClientSDS, error) {
-	return kubernetes.NewExtendedClient(kubeconfig, configContext, opts)
+func xdsStatusCommand() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	var centralOpts clioptions.CentralControlPlaneOptions
+
+	statusCmd := &cobra.Command{
+		Use:   "proxy-status [<pod-name[.namespace]>]",
+		Short: "Retrieves the synchronization status of each Envoy in the mesh",
+		Long: `
+Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
+
+`,
+		Example: `# Retrieve sync status for all Envoys in a mesh
+	istioctl proxy-status
+
+# Retrieve sync diff for a single Envoy and Istiod
+	istioctl proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+`,
+		Aliases: []string{"ps"},
+		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return err
+			}
+
+			if len(args) > 0 {
+				podName, ns := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
+				path := "config_dump"
+				envoyDump, err := kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path, nil)
+				if err != nil {
+					return fmt.Errorf("could not contact sidecar: %w", err)
+				}
+
+				xdsRequest := xdsapi.DiscoveryRequest{
+					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
+					Node: &envoy_corev3.Node{
+						Id: "debug~0.0.0.0~istioctl~cluster.local",
+					},
+					TypeUrl: pilotxds.TypeDebugConfigDump,
+				}
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+				if err != nil {
+					return err
+				}
+				c, err := compare.NewXdsComparator(c.OutOrStdout(), xdsResponses, envoyDump)
+				if err != nil {
+					return err
+				}
+				return c.Diff()
+			}
+
+			xdsRequest := xdsapi.DiscoveryRequest{
+				Node: &envoy_corev3.Node{
+					Id: "debug~0.0.0.0~istioctl~cluster.local",
+				},
+				TypeUrl: pilotxds.TypeDebugSyncronization,
+			}
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, &centralOpts, istioNamespace, kubeClient)
+			if err != nil {
+				return err
+			}
+			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+			return sw.PrintAll(xdsResponses)
+		},
+	}
+
+	opts.AttachControlPlaneFlags(statusCmd)
+	centralOpts.AttachControlPlaneFlags(statusCmd)
+
+	return statusCmd
 }

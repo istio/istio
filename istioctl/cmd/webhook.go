@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 
-	"k8s.io/api/admissionregistration/v1beta1"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -361,10 +361,10 @@ istioctl experimental post-install webhook status --validation --validation-conf
 
 // Create the validatingwebhookconfiguration
 func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
-	config *v1beta1.ValidatingWebhookConfiguration, writer io.Writer) (*v1beta1.ValidatingWebhookConfiguration, error) {
-	var whConfig, curConfig *v1beta1.ValidatingWebhookConfiguration
+	config *kubeApiAdmission.ValidatingWebhookConfiguration, writer io.Writer) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
+	var whConfig, curConfig *kubeApiAdmission.ValidatingWebhookConfiguration
 	var err error
-	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
+	client := k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
 	curConfig, err = client.Get(context.TODO(), config.Name, metav1.GetOptions{})
 	if err == nil {
 		fmt.Fprintf(writer, "update webhook configuration %v\n", config.Name)
@@ -379,10 +379,10 @@ func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 
 // Create the mutatingwebhookconfiguration
 func createMutatingWebhookConfig(k8sClient kubernetes.Interface,
-	config *v1beta1.MutatingWebhookConfiguration, writer io.Writer) (*v1beta1.MutatingWebhookConfiguration, error) {
-	var curConfig, whConfig *v1beta1.MutatingWebhookConfiguration
+	config *kubeApiAdmission.MutatingWebhookConfiguration, writer io.Writer) (*kubeApiAdmission.MutatingWebhookConfiguration, error) {
+	var curConfig, whConfig *kubeApiAdmission.MutatingWebhookConfiguration
 	var err error
-	client := k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
+	client := k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	curConfig, err = client.Get(context.TODO(), config.Name, metav1.GetOptions{})
 	if err == nil {
 		fmt.Fprintf(writer, "update webhook configuration %v\n", config.Name)
@@ -466,11 +466,11 @@ func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions
 	var validationErr error
 	var injectionErr error
 	if opt.disableValidationWebhook {
-		validationErr = k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().
+		validationErr = k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().
 			Delete(context.TODO(), opt.validatingWebhookConfigName, metav1.DeleteOptions{})
 	}
 	if opt.disableInjectionWebhook {
-		injectionErr = k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().
+		injectionErr = k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations().
 			Delete(context.TODO(), opt.mutatingWebhookConfigName, metav1.DeleteOptions{})
 	}
 	return validationErr, injectionErr
@@ -491,7 +491,7 @@ func displayWebhookConfig(client kubernetes.Interface, opt *statusCliOptions, wr
 
 // Display validation webhook configuration
 func displayValidationWebhookConfig(client kubernetes.Interface, opt *statusCliOptions, writer io.Writer) error {
-	config, err := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(
+	config, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
 		context.TODO(),
 		opt.validatingWebhookConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -508,7 +508,7 @@ func displayValidationWebhookConfig(client kubernetes.Interface, opt *statusCliO
 
 // Display mutation webhook configuration
 func displayMutationWebhookConfig(client kubernetes.Interface, opt *statusCliOptions, writer io.Writer) error {
-	config, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(
+	config, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
 		context.TODO(),
 		opt.mutatingWebhookConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -602,13 +602,13 @@ func waitForServerRunning(client kubernetes.Interface, namespace, svc string, ma
 // Build the desired validatingwebhookconfiguration from the specified CA
 // and webhook config file.
 func buildValidatingWebhookConfig(
-	caCert []byte, webhookConfigPath string) (*v1beta1.ValidatingWebhookConfiguration, error) {
+	caCert []byte, webhookConfigPath string) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigPath)
 	if err != nil {
 		return nil, err
 	}
-	var webhookConfig v1beta1.ValidatingWebhookConfiguration
+	var webhookConfig kubeApiAdmission.ValidatingWebhookConfiguration
 	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
 		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v",
 			webhookConfigPath, err)
@@ -625,13 +625,13 @@ func buildValidatingWebhookConfig(
 // Build the desired mutatingwebhookconfiguration from the specified CA
 // and webhook config file.
 func buildMutatingWebhookConfig(
-	caCert []byte, webhookConfigPath string) (*v1beta1.MutatingWebhookConfiguration, error) {
+	caCert []byte, webhookConfigPath string) (*kubeApiAdmission.MutatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigPath)
 	if err != nil {
 		return nil, err
 	}
-	var webhookConfig v1beta1.MutatingWebhookConfiguration
+	var webhookConfig kubeApiAdmission.MutatingWebhookConfiguration
 	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
 		return nil, fmt.Errorf("could not decode mutatingwebhookconfiguration from %v: %v",
 			webhookConfigPath, err)

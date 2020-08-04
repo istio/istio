@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,16 +21,17 @@ import (
 	"strings"
 	"testing"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	fault "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/fault/v2"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/testing/protocmp"
+
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
@@ -38,15 +39,16 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 
+	"istio.io/istio/pilot/pkg/config/memory"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	istio_proto "istio.io/istio/pkg/proto"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/fakes"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -59,26 +61,22 @@ var (
 	}
 )
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) *fakes.IstioConfigStore {
-	return &fakes.IstioConfigStore{
-		ListStub: func(kind resource.GroupVersionKind, namespace string) (configs []model.Config, e error) {
-			if kind == collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind() {
-				// to emulate returning multiple envoy filter configs
-				for i, cp := range configPatches {
-					configs = append(configs, model.Config{
-						ConfigMeta: model.ConfigMeta{
-							Name:      fmt.Sprintf("test-envoyfilter-%d", i),
-							Namespace: "not-default",
-						},
-						Spec: &networking.EnvoyFilter{
-							ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-						},
-					})
-				}
-			}
-			return
-		},
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+
+	for i, cp := range configPatches {
+		store.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
+				Namespace:        "not-default",
+				GroupVersionKind: gvk.EnvoyFilter,
+			},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
+			},
+		})
 	}
+	return store
 }
 
 func buildPatchStruct(config string) *types.Struct {
@@ -262,7 +260,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Sni: "*.foo.com",
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      xdsutil.HTTPConnectionManager,
+								Name:      wellknown.HTTPConnectionManager,
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -283,7 +281,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      xdsutil.HTTPConnectionManager,
+								Name:      wellknown.HTTPConnectionManager,
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -304,7 +302,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      xdsutil.HTTPConnectionManager,
+								Name:      wellknown.HTTPConnectionManager,
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -326,8 +324,8 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      xdsutil.HTTPConnectionManager,
-								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "envoy.fault"},
+								Name:      wellknown.HTTPConnectionManager,
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "envoy.fault"}, // Use deprecated name for test.
 							},
 						},
 					},
@@ -336,7 +334,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.fault",
+{"name": "envoy.filters.http.fault",
 "typed_config": {
         "@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
         "downstreamNodes": ["foo"]
@@ -353,7 +351,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      xdsutil.HTTPConnectionManager,
+								Name:      wellknown.HTTPConnectionManager,
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -374,9 +372,9 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: xdsutil.HTTPConnectionManager,
+								Name: wellknown.HTTPConnectionManager,
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{
-									Name: xdsutil.Fault,
+									Name: wellknown.Fault,
 								},
 							},
 						},
@@ -385,7 +383,9 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
-				Value:     buildPatchStruct(`{"config": {"upstream_cluster": "scooby"}}`),
+				Value: buildPatchStruct(`{"typed_config": {
+"@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
+"upstream_cluster": "scooby"}}`),
 			},
 		},
 		{
@@ -397,7 +397,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: xdsutil.HTTPConnectionManager,
+								Name: wellknown.HTTPConnectionManager,
 							},
 						},
 					},
@@ -406,7 +406,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.http_connection_manager",
+{"name": "envoy.filters.network.http_connection_manager",
  "typed_config": {
         "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
          "xffNumTrustedHops": "4"
@@ -426,7 +426,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: xdsutil.HTTPConnectionManager,
+								Name: "envoy.http_connection_manager", // Use deprecated name for test.
 							},
 						},
 					},
@@ -435,7 +435,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.http_connection_manager", 
+{"name": "envoy.filters.network.http_connection_manager", 
  "typed_config": {
         "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "mergeSlashes": true,
@@ -446,7 +446,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundIn := []*xdsapi.Listener{
+	sidecarOutboundIn := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -472,7 +472,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundOut := []*xdsapi.Listener{
+	sidecarOutboundOut := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -501,7 +501,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundInNoAdd := []*xdsapi.Listener{
+	sidecarOutboundInNoAdd := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -527,7 +527,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarOutboundOutNoAdd := []*xdsapi.Listener{
+	sidecarOutboundOutNoAdd := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -562,7 +562,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		DownstreamNodes: []string{"foo"},
 	}
 	faultFilterOutAny, _ := ptypes.MarshalAny(faultFilterOut)
-	sidecarInboundIn := []*xdsapi.Listener{
+	sidecarInboundIn := []*listener.Listener{
 		{
 			Name: "12345",
 			Address: &core.Address{
@@ -590,17 +590,22 @@ func TestApplyListenerPatches(t *testing.T) {
 			FilterChains: []*listener.FilterChain{
 				{
 					FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
-					TlsContext:       &auth.DownstreamTlsContext{},
-					Filters:          []*listener.Filter{{Name: "network-filter"}},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: util.MessageToAny(&tls.DownstreamTlsContext{}),
+						},
+					},
+					Filters: []*listener.Filter{{Name: "network-filter"}},
 				},
 				{
 					Filters: []*listener.Filter{
 						{
-							Name: xdsutil.HTTPConnectionManager,
+							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: xdsutil.Fault,
+										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
@@ -614,7 +619,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarInboundOut := []*xdsapi.Listener{
+	sidecarInboundOut := []*listener.Listener{
 		{
 			Name: "another-listener",
 			Address: &core.Address{
@@ -631,13 +636,14 @@ func TestApplyListenerPatches(t *testing.T) {
 				{
 					Filters: []*listener.Filter{
 						{
-							Name: xdsutil.HTTPConnectionManager,
+							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops: 4,
-									MergeSlashes:      true,
+									XffNumTrustedHops:            4,
+									MergeSlashes:                 true,
+									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: xdsutil.Fault,
+										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
@@ -653,7 +659,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	gatewayIn := []*xdsapi.Listener{
+	gatewayIn := []*listener.Listener{
 		{
 			Name: "80",
 			Address: &core.Address{
@@ -672,7 +678,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: xdsutil.HTTPConnectionManager,
+							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
@@ -708,7 +714,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	gatewayOut := []*xdsapi.Listener{
+	gatewayOut := []*listener.Listener{
 		{
 			Name: "80",
 			Address: &core.Address{
@@ -728,7 +734,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: xdsutil.HTTPConnectionManager,
+							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
@@ -765,11 +771,11 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarVirtualInboundIn := []*xdsapi.Listener{
+	sidecarVirtualInboundIn := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
-			UseOriginalDst:   istio_proto.BoolTrue,
-			TrafficDirection: core.TrafficDirection_INBOUND,
+			Name:                                VirtualInboundListenerName,
+			HiddenEnvoyDeprecatedUseOriginalDst: istio_proto.BoolTrue,
+			TrafficDirection:                    core.TrafficDirection_INBOUND,
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
@@ -788,11 +794,11 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: xdsutil.HTTPConnectionManager,
+							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: xdsutil.Fault,
+										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
@@ -806,11 +812,11 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 
-	sidecarVirtualInboundOut := []*xdsapi.Listener{
+	sidecarVirtualInboundOut := []*listener.Listener{
 		{
-			Name:             VirtualInboundListenerName,
-			UseOriginalDst:   istio_proto.BoolTrue,
-			TrafficDirection: core.TrafficDirection_INBOUND,
+			Name:                                VirtualInboundListenerName,
+			HiddenEnvoyDeprecatedUseOriginalDst: istio_proto.BoolTrue,
+			TrafficDirection:                    core.TrafficDirection_INBOUND,
 			Address: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
@@ -829,13 +835,14 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: xdsutil.HTTPConnectionManager,
+							Name: wellknown.HTTPConnectionManager,
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-									XffNumTrustedHops: 4,
-									MergeSlashes:      true,
+									XffNumTrustedHops:            4,
+									MergeSlashes:                 true,
+									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: xdsutil.Fault,
+										{Name: wellknown.Fault,
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
@@ -874,7 +881,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
@@ -883,13 +890,13 @@ func TestApplyListenerPatches(t *testing.T) {
 		patchContext networking.EnvoyFilter_PatchContext
 		proxy        *model.Proxy
 		push         *model.PushContext
-		listeners    []*xdsapi.Listener
+		listeners    []*listener.Listener
 		skipAdds     bool
 	}
 	tests := []struct {
 		name string
 		args args
-		want []*xdsapi.Listener
+		want []*listener.Listener
 	}{
 		{
 			name: "sidecar inbound lds",
@@ -951,7 +958,7 @@ func TestApplyListenerPatches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyListenerPatches(tt.args.patchContext, tt.args.proxy, tt.args.push,
 				tt.args.listeners, tt.args.skipAdds)
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
@@ -961,7 +968,7 @@ func TestApplyListenerPatches(t *testing.T) {
 // This benchmark measures the performance of Telemetry V2 EnvoyFilter patches. The intent here is to
 // measure overhead of using EnvoyFilters rather than native code.
 func BenchmarkTelemetryV2Filters(b *testing.B) {
-	l := &xdsapi.Listener{
+	l := &listener.Listener{
 		Name: "another-listener",
 		Address: &core.Address{
 			Address: &core.Address_SocketAddress{
@@ -977,14 +984,15 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			{
 				Filters: []*listener.Filter{
 					{
-						Name: xdsutil.HTTPConnectionManager,
+						Name: wellknown.HTTPConnectionManager,
 						ConfigType: &listener.Filter_TypedConfig{
 							TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
-								XffNumTrustedHops: 4,
-								MergeSlashes:      true,
+								XffNumTrustedHops:            4,
+								MergeSlashes:                 true,
+								AlwaysSetRequestIdInResponse: true,
 								HttpFilters: []*http_conn.HttpFilter{
 									{Name: "http-filter3"},
-									{Name: xdsutil.Router},
+									{Name: "envoy.router"}, // Use deprecated name for test.
 									{Name: "http-filter2"},
 								},
 							}),
@@ -995,28 +1003,24 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 		},
 	}
 
-	path := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata")
-	files, err := ioutil.ReadDir(path)
+	file, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml"))
 	if err != nil {
 		b.Fatalf("failed to read telemetry v2 Envoy Filters")
 	}
-	if len(files) != 2 {
-		// Cheap attempt to make sure someone notices this test exists if they make changes to the folder and break things.
-		b.Fatalf("Expected to find 2 EnvoyFilters for telemetry v2.")
-	}
 	var configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch
-	for _, patchFile := range files {
-		f, err := ioutil.ReadFile(filepath.Join(path, patchFile.Name()))
-		if err != nil {
-			b.Fatalf("failed to read file %v", patchFile)
+
+	configs, _, err := crd.ParseInputs(string(file))
+	if err != nil {
+		b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
+	}
+	for _, c := range configs {
+		if c.GroupVersionKind != gvk.EnvoyFilter {
+			continue
 		}
-		configs, _, err := crd.ParseInputs(string(f))
-		if err != nil {
-			b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
-		}
-		for _, c := range configs {
-			configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
-		}
+		configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
+	}
+	if len(configPatches) == 0 {
+		b.Fatalf("found no patches, failed to read telemetry config?")
 	}
 
 	sidecarProxy := &model.Proxy{
@@ -1030,7 +1034,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			},
 		},
 	}
-	serviceDiscovery := &fakes.ServiceDiscovery{}
+	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	_ = push.InitContext(e, nil, nil)
@@ -1040,7 +1044,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		copied := proto.Clone(l)
 		got = ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, sidecarProxy, push,
-			[]*xdsapi.Listener{copied.(*xdsapi.Listener)}, false)
+			[]*listener.Listener{copied.(*listener.Listener)}, false)
 	}
 	_ = got
 }

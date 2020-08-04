@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package crd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
@@ -77,7 +78,11 @@ func FromJSONMap(s collection.Schema, data interface{}) (proto.Message, error) {
 
 // ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
 func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*model.Config, error) {
-	data, err := FromJSONMap(schema, object.GetSpec())
+	js, err := json.Marshal(object.GetSpec())
+	if err != nil {
+		return nil, err
+	}
+	data, err := FromJSON(schema, string(js))
 	if err != nil {
 		return nil, err
 	}
@@ -85,9 +90,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Type:              schema.Resource().Kind(),
-			Group:             schema.Resource().Group(),
-			Version:           schema.Resource().Version(),
+			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
 			Domain:            domain,
@@ -101,7 +104,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, error) {
+func ConvertConfig(cfg model.Config) (IstioObject, error) {
 	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
@@ -112,8 +115,8 @@ func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, err
 	}
 	return &IstioKind{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind:       schema.Resource().Kind(),
-			APIVersion: schema.Resource().APIVersion(),
+			Kind:       cfg.GroupVersionKind.Kind,
+			APIVersion: cfg.GroupVersionKind.Group + "/" + cfg.GroupVersionKind.Version,
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:              cfg.Name,

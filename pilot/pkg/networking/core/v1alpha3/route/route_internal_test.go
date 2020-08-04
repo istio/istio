@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +18,15 @@ import (
 	"reflect"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	xdstype "github.com/envoyproxy/go-control-plane/envoy/type"
-	envoy_type_matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -144,8 +146,11 @@ func TestIsCatchAllRoute(t *testing.T) {
 			route: &route.Route{
 				Name: "catch-all",
 				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Regex{
-						Regex: "*",
+					PathSpecifier: &route.RouteMatch_SafeRegex{
+						SafeRegex: &matcher.RegexMatcher{
+							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
+							Regex:      "*",
+						},
 					},
 				},
 			},
@@ -156,14 +161,22 @@ func TestIsCatchAllRoute(t *testing.T) {
 			route: &route.Route{
 				Name: "non-catch-all",
 				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Regex{
-						Regex: "*",
+					PathSpecifier: &route.RouteMatch_SafeRegex{
+						SafeRegex: &matcher.RegexMatcher{
+							// nolint: staticcheck
+							EngineType: &matcher.RegexMatcher_GoogleRe2{},
+							Regex:      "*",
+						},
 					},
 					Headers: []*route.HeaderMatcher{
 						{
 							Name: "Authentication",
-							HeaderMatchSpecifier: &route.HeaderMatcher_RegexMatch{
-								RegexMatch: "Bearer .+?\\..+?\\..+?",
+							HeaderMatchSpecifier: &route.HeaderMatcher_SafeRegexMatch{
+								SafeRegexMatch: &matcher.RegexMatcher{
+									// nolint: staticcheck
+									EngineType: &matcher.RegexMatcher_GoogleRe2{},
+									Regex:      "*",
+								},
 							},
 						},
 					},
@@ -176,8 +189,12 @@ func TestIsCatchAllRoute(t *testing.T) {
 			route: &route.Route{
 				Name: "non-catch-all",
 				Match: &route.RouteMatch{
-					PathSpecifier: &route.RouteMatch_Regex{
-						Regex: "*",
+					PathSpecifier: &route.RouteMatch_SafeRegex{
+						SafeRegex: &matcher.RegexMatcher{
+							// nolint: staticcheck
+							EngineType: &matcher.RegexMatcher_GoogleRe2{},
+							Regex:      "*",
+						},
 					},
 					QueryParameters: []*route.QueryParameterMatcher{
 						{
@@ -415,12 +432,12 @@ func TestTranslateCORSPolicy(t *testing.T) {
 		},
 	}
 	expectedCorsPolicy := &route.CorsPolicy{
-		AllowOriginStringMatch: []*envoy_type_matcher.StringMatcher{
-			{MatchPattern: &envoy_type_matcher.StringMatcher_Exact{Exact: "exact"}},
-			{MatchPattern: &envoy_type_matcher.StringMatcher_Prefix{Prefix: "prefix"}},
+		AllowOriginStringMatch: []*matcher.StringMatcher{
+			{MatchPattern: &matcher.StringMatcher_Exact{Exact: "exact"}},
+			{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: "prefix"}},
 			{
-				MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
-					SafeRegex: &envoy_type_matcher.RegexMatcher{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
 						EngineType: regexEngine,
 						Regex:      "regex",
 					},
@@ -436,7 +453,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			},
 		},
 	}
-	if got := translateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
+	if got := translateCORSPolicy(corsPolicy, &model.Proxy{}); !reflect.DeepEqual(got, expectedCorsPolicy) {
 		t.Errorf("translateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
 	}
 }

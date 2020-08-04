@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 )
 
 const defaultTimeout = 5 * time.Second
+const Platforms = 3
 
 // Discover attempts to discover the host platform, defaulting to
 // `Unknown` if a platform cannot be discovered.
@@ -30,11 +31,11 @@ func Discover() Environment {
 // DiscoverWithTimeout attempts to discover the host platform, defaulting to
 // `Unknown` after the provided timeout.
 func DiscoverWithTimeout(timeout time.Duration) Environment {
-	plat := make(chan Environment, 2) // sized to match number of platform goroutines
+	plat := make(chan Environment, Platforms) // sized to match number of platform goroutines
 	done := make(chan bool)
 
 	var wg sync.WaitGroup
-	wg.Add(2) // check GCP and AWS
+	wg.Add(Platforms) // check GCP, AWS, and Azure
 
 	go func() {
 		if IsGCP() {
@@ -46,6 +47,13 @@ func DiscoverWithTimeout(timeout time.Duration) Environment {
 	go func() {
 		if IsAWS() {
 			plat <- NewAWS()
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		if IsAzure() {
+			plat <- NewAzure()
 		}
 		wg.Done()
 	}()

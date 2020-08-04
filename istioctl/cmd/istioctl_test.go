@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,38 +17,18 @@ package cmd
 import (
 	"bytes"
 	"regexp"
-	"sort"
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/config/schema/collections"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 
-	"istio.io/pkg/ledger"
+	"istio.io/istio/pkg/kube"
 
-	"istio.io/istio/pilot/pkg/config/memory"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
-// sortedConfigStore lets us facade any ConfigStore (such as memory.Make()'s) providing
-// a stable List() which helps with testing `istioctl get` output.
-type sortedConfigStore struct {
-	store model.ConfigStore
-}
-
-func (cs sortedConfigStore) GetLedger() ledger.Ledger {
-	return cs.store.GetLedger()
-}
-
-func (cs sortedConfigStore) SetLedger(l ledger.Ledger) error {
-	return cs.store.SetLedger(l)
-}
-
 type testCase struct {
-	configs []model.Config
-	args    []string
+	args []string
 
 	// Typically use one of the three
 	expectedOutput string         // Expected constant output
@@ -94,78 +74,28 @@ func TestBadParse(t *testing.T) {
 }
 
 // mockClientFactoryGenerator creates a factory for model.ConfigStore preloaded with data
-func mockClientFactoryGenerator(configs []model.Config) func() (model.ConfigStore, error) {
-	outFactory := func() (model.ConfigStore, error) {
-		// Initialize memory based model.ConfigStore with configs
-		outConfig := memory.Make(collections.Pilot)
-		for _, config := range configs {
-			if _, err := outConfig.Create(config); err != nil {
-				return nil, err
-			}
+func mockClientFactoryGenerator(setupFn ...func(c istioclient.Interface)) func() (istioclient.Interface, error) {
+	outFactory := func() (istioclient.Interface, error) {
+		c := kube.NewFakeClient().Istio()
+		for _, f := range setupFn {
+			f(c)
 		}
-
-		// Wrap the memory ConfigStore so List() is sorted
-		return sortedConfigStore{store: outConfig}, nil
+		return c, nil
 	}
 
 	return outFactory
-}
-
-func (cs sortedConfigStore) Create(config model.Config) (string, error) {
-	return cs.store.Create(config)
-}
-
-func (cs sortedConfigStore) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
-	return cs.store.Get(typ, name, namespace)
-}
-
-func (cs sortedConfigStore) Update(config model.Config) (string, error) {
-	return cs.store.Update(config)
-}
-func (cs sortedConfigStore) Delete(typ resource.GroupVersionKind, name, namespace string) error {
-	return cs.store.Delete(typ, name, namespace)
-}
-
-func (cs sortedConfigStore) Schemas() collection.Schemas {
-	return cs.store.Schemas()
-}
-
-func (cs sortedConfigStore) Version() string {
-	return cs.store.Version()
-}
-func (cs sortedConfigStore) GetResourceAtVersion(version string, key string) (resourceVersion string, err error) {
-	return cs.store.GetResourceAtVersion(version, key)
-}
-
-// List() is a facade that always returns cs.store items sorted by name/namespace
-func (cs sortedConfigStore) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
-	out, err := cs.store.List(typ, namespace)
-	if err != nil {
-		return out, err
-	}
-
-	// Sort by name, namespace
-	sort.Slice(out, func(i, j int) bool {
-		iName := out[i].ConfigMeta.Name
-		jName := out[j].ConfigMeta.Name
-		if iName == jName {
-			return out[i].ConfigMeta.Namespace < out[j].ConfigMeta.Namespace
-		}
-		return iName < jName
-	})
-
-	return out, nil
 }
 
 func verifyOutput(t *testing.T, c testCase) {
 	t.Helper()
 
 	// Override the client factory used by main.go
-	clientFactory = mockClientFactoryGenerator(c.configs)
+	configStoreFactory = mockClientFactoryGenerator()
 
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(c.args)
-	rootCmd.SetOutput(&out)
+	rootCmd.SetOut(&out)
+	rootCmd.SetErr(&out)
 
 	fErr := rootCmd.Execute()
 	output := out.String()

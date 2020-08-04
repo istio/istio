@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/processing/snapshotter"
@@ -38,7 +38,7 @@ var (
 		Name: "k8s/crd",
 		Resource: resource.Builder{
 			Group:   "apiextensions.k8s.io",
-			Version: "v1beta1",
+			Version: "v1",
 			Plural:  "customresourcedefinitions",
 			Kind:    "CustomResourceDefinition",
 		}.BuildNoValidate(),
@@ -125,7 +125,7 @@ func (s *Source) Start() {
 
 	// Start the CRD listener. When the listener is fully-synced, the listening of actual resources will start.
 	scope.Source.Infof("Beginning CRD Discovery, to figure out resources that are available...")
-	s.provider = rt.NewProvider(s.options.Client, s.options.ResyncPeriod)
+	s.provider = rt.NewProvider(s.options.Client, s.options.WatchedNamespaces, s.options.ResyncPeriod)
 	a := s.provider.GetAdapter(crdKubeResource.Resource())
 	s.crdWatcher = newWatcher(crdKubeResource, a, s.statusCtl)
 	s.crdWatcher.dispatch(event.HandlerFromFn(s.onCrdEvent))
@@ -151,7 +151,7 @@ func (s *Source) onCrdEvent(e event.Event) {
 
 	switch e.Kind {
 	case event.Added:
-		crd := e.Resource.Message.(*v1beta1.CustomResourceDefinitionSpec)
+		crd := e.Resource.Message.(*v1.CustomResourceDefinitionSpec)
 		g := crd.Group
 		k := crd.Names.Kind
 		key := asKey(g, k)

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,10 @@ type Controller interface {
 	// AppendInstanceHandler notifies about changes to the service instances
 	// for a service.
 	AppendInstanceHandler(f func(*ServiceInstance, Event)) error
+
+	// AppendWorkloadHandler notifies about changes to workloads. This differs from InstanceHandler,
+	// which deals with service instances (the result of a merge of Service and Workload)
+	AppendWorkloadHandler(f func(*WorkloadInstance, Event)) error
 
 	// Run until a signal is received
 	Run(stop <-chan struct{})

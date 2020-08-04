@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package install
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -40,11 +39,14 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 )
 
 const (
-	minK8SVersion = "1.13"
+	// Minimum K8 version required to run latest version of Istio
+	// https://istio.io/docs/setup/platform-setup/
+	minK8SVersion = "1.17"
 )
 
 var (
@@ -82,9 +84,9 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to initialize the Kubernetes client: %v", err))
 		fmt.Fprintf(writer, "Failed to initialize the Kubernetes client: %v.\n", err)
-	} else {
-		fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
+		return errs
 	}
+	fmt.Fprintf(writer, "Can initialize the Kubernetes client.\n")
 	v, err := c.serverVersion()
 	if err != nil {
 		errs = multierror.Append(errs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err))
@@ -316,7 +318,7 @@ func (c *preCheckClient) checkAuthorization(s *authorizationapi.SelfSubjectAcces
 }
 
 func (c *preCheckClient) checkMutatingWebhook() error {
-	_, err := c.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(context.TODO(), meta_v1.ListOptions{})
+	_, err := c.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), meta_v1.ListOptions{})
 	return err
 }
 
@@ -433,7 +435,7 @@ func NewPrecheckCommand() *cobra.Command {
 func findIstios(client dynamic.Interface) ([]istioInstall, error) {
 	retval := make([]istioInstall, 0)
 
-	// First, look for IstioOperator CRs left by 'istioctl manifest apply' or 'kubectl apply'
+	// First, look for IstioOperator CRs left by 'istioctl install' or 'kubectl apply'
 	iops, err := allOperatorsInCluster(client)
 	if err != nil {
 		return retval, err
@@ -469,12 +471,8 @@ func getIOPFromFile(filename string) (*operator_v1alpha1.IstioOperator, error) {
 	// and ask operator code to unmarshal.
 
 	un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
-	by, err := json.Marshal(un)
-	if err != nil {
-		return nil, err
-	}
-
-	iop, err := operator_istio.UnmarshalIstioOperator(string(by))
+	by := util.ToYAML(un)
+	iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 	if err != nil {
 		return nil, err
 	}

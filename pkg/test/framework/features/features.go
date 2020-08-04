@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,14 +14,87 @@
 
 package features
 
-// TODO: this file should be generated from YAML to make it more easy to modify.
+import (
+	"fmt"
+	"io/ioutil"
+	"strings"
 
-// WARNING: changes to existing elements in this file will cause corruption of test coverage data.
-// don't change existing entries unless absolutely necessary
+	"istio.io/istio/pkg/test/env"
+
+	"github.com/ghodss/yaml"
+
+	"istio.io/pkg/log"
+)
 
 type Feature string
 
-const (
-	UsabilityObservabilityStatus              Feature = "Usability.Observability.Status"
-	UsabilityObservabilityStatusDefaultExists Feature = "Usability.Observability.Status.DefaultExists"
-)
+// Checker ensures that the values passed to Features() are in the features.yaml file
+type Checker interface {
+	Check(feature Feature) (check bool, scenario string)
+}
+
+type checkerImpl struct {
+	m map[string]interface{}
+}
+
+func BuildChecker(yamlPath string) (Checker, error) {
+	data, err := ioutil.ReadFile(yamlPath)
+	if err != nil {
+		log.Errorf("Error reading feature file: %s", yamlPath)
+		return nil, err
+	}
+	m := make(map[string]interface{})
+
+	err = yaml.Unmarshal(data, &m)
+	if err != nil {
+		log.Errorf("Error parsing features file: %s", err)
+		return nil, err
+	}
+	return &checkerImpl{m["features"].(map[string]interface{})}, nil
+}
+
+// returns true if the feature is defined in features.yaml,
+// false if not
+func (c *checkerImpl) Check(feature Feature) (check bool, scenario string) {
+	return checkPathSegment(c.m, strings.Split(string(feature), "."))
+}
+
+func checkPathSegment(m map[string]interface{}, path []string) (check bool, scenario string) {
+	segment := path[0]
+	if val, ok := m[segment]; ok {
+		if valmap, ok := val.(map[string]interface{}); ok {
+			return checkPathSegment(valmap, path[1:])
+		} else if val == nil {
+			return true, strings.Join(path[1:], ".")
+		}
+	}
+	return false, ""
+}
+
+var GlobalAllowlist = fromFile(env.IstioSrc + "/pkg/test/framework/features/allowlist.txt")
+
+type Allowlist struct {
+	hashset map[string]bool
+}
+
+func fromFile(path string) *Allowlist {
+	result := &Allowlist{hashset: map[string]bool{}}
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Errorf("Error reading allowlist file: %s", path)
+		return nil
+	}
+	for _, i := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(i, "//") {
+			continue
+		}
+		result.hashset[i] = true
+	}
+	return result
+
+}
+
+func (w *Allowlist) Contains(suite, test string) bool {
+	_, ok := w.hashset[fmt.Sprintf("%s,%s", suite, test)]
+	return ok
+}

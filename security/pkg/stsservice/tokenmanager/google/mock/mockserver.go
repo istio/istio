@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,18 +26,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/duration"
-
 	"istio.io/pkg/log"
 )
 
 var (
-	FakeFederatedToken = "FakeFederatedToken"
-	FakeAccessToken    = "FakeAccessToken"
-	FakeTrustDomain    = "FakeTrustDomain"
-	FakeSubjectToken   = "FakeSubjectToken"
-	FakeProjectNum     = "1234567"
-	FakeGKEClusterURL  = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
+	FakeFederatedToken   = "FakeFederatedToken"
+	FakeAccessToken      = "FakeAccessToken"
+	FakeTrustDomain      = "FakeTrustDomain"
+	FakeSubjectToken     = "FakeSubjectToken"
+	FakeProjectNum       = "1234567"
+	FakeGKEClusterURL    = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
+	FakeExpiresInSeconds = 3600
 )
 
 type federatedTokenRequest struct {
@@ -56,11 +55,18 @@ type federatedTokenResponse struct {
 	ExpiresIn       int32  `json:"expires_in"` // Expiration time in seconds
 }
 
+type Duration struct {
+	// Signed seconds of the span of time. Must be from -315,576,000,000
+	// to +315,576,000,000 inclusive. Note: these bounds are computed from:
+	// 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years
+	Seconds int64 `json:"seconds"`
+}
+
 type accessTokenRequest struct {
-	Name      string            `json:"name"`
-	Delegates []string          `json:"delegates"` // nolint: structcheck, unused
-	Scope     []string          `json:"scope"`
-	LifeTime  duration.Duration `json:"lifetime"` // nolint: structcheck, unused
+	Name      string   `json:"name"`
+	Delegates []string `json:"delegates"` // nolint: structcheck, unused
+	Scope     []string `json:"scope"`
+	LifeTime  Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
@@ -275,7 +281,7 @@ func (ms *AuthorizationServer) getFederatedToken(w http.ResponseWriter, req *htt
 		AccessToken:     FakeFederatedToken,
 		IssuedTokenType: "urn:ietf:params:oauth:token-type:access_token",
 		TokenType:       "Bearer",
-		ExpiresIn:       3600,
+		ExpiresIn:       int32(FakeExpiresInSeconds),
 	}
 	_ = json.NewEncoder(w).Encode(resp)
 }

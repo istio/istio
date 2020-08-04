@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 )
 
 func TestInstance_Basics(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inst := collection.New(basicmeta.K8SCollection1)
 
@@ -83,7 +83,7 @@ func TestInstance_Basics(t *testing.T) {
 }
 
 func TestInstance_Clone(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inst := collection.New(basicmeta.K8SCollection1)
 	inst.Set(data.EntryN1I1V1)
@@ -116,7 +116,7 @@ func TestInstance_Clone(t *testing.T) {
 }
 
 func TestInstance_ForEach_False(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inst := collection.New(basicmeta.K8SCollection1)
 	inst.Set(data.EntryN1I1V2)
@@ -139,7 +139,7 @@ func TestInstance_ForEach_False(t *testing.T) {
 }
 
 func TestInstance_Get(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	inst := collection.New(basicmeta.K8SCollection1)
 	inst.Set(data.EntryN1I1V1)

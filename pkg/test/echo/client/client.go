@@ -1,4 +1,4 @@
-//  Copyright 2018 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -39,7 +40,8 @@ type Instance struct {
 // New creates a new echo client.Instance that is connected to the given server address.
 func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 	// Connect to the GRPC (command) endpoint of 'this' app.
-	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+	// TODO: make use of common.ConnectionTimeout once it increases
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	dialOptions := []grpc.DialOption{grpc.WithBlock()}
 	if tlsSettings == nil {

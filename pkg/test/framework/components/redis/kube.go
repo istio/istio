@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +15,16 @@
 package redis
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
 
 	environ "istio.io/istio/pkg/test/env"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -40,23 +41,23 @@ var (
 type kubeComponent struct {
 	id      resource.ID
 	ns      namespace.Instance
-	cluster kube.Cluster
+	cluster resource.Cluster
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: kube.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
-	scopes.CI.Info("=== BEGIN: Deploy Redis ===")
+	scopes.Framework.Info("=== BEGIN: Deploy Redis ===")
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("redis deployment failed: %v", err) // nolint:golint
-			scopes.CI.Infof("=== FAILED: Deploy Redis ===")
+			scopes.Framework.Infof("=== FAILED: Deploy Redis ===")
 			_ = c.Close()
 		} else {
-			scopes.CI.Info("=== SUCCEEDED: Deploy Redis ===")
+			scopes.Framework.Info("=== SUCCEEDED: Deploy Redis ===")
 		}
 	}()
 
@@ -71,7 +72,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to file service account file %s, err: %v", environ.ServiceAccountFilePath, err)
 	}
 
-	if err := c.cluster.Apply("kube-system", environ.ServiceAccountFilePath); err != nil {
+	if err := c.cluster.ApplyYAMLFiles("kube-system", environ.ServiceAccountFilePath); err != nil {
 		return nil, fmt.Errorf("failed to apply %s, err: %v", environ.ServiceAccountFilePath, err)
 	}
 
@@ -94,12 +95,12 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to render %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	if _, err := c.cluster.ApplyContents(c.ns.Name(), yamlContent); err != nil {
+	if err := ctx.Config(c.cluster).ApplyYAML(c.ns.Name(), yamlContent); err != nil {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", environ.RedisInstallFilePath, err)
 	}
 
-	fetchFn := c.cluster.NewPodFetch(c.ns.Name(), "app=redis")
-	if _, err := c.cluster.WaitUntilPodsAreReady(fetchFn); err != nil {
+	fetchFn := kube2.NewPodFetch(c.cluster, c.ns.Name(), "app=redis")
+	if _, err := kube2.WaitUntilPodsAreReady(fetchFn); err != nil {
 		return nil, err
 	}
 
@@ -112,9 +113,8 @@ func (c *kubeComponent) ID() resource.ID {
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
-	scopes.CI.Infof("Deleting Redis Install")
-	_ = c.cluster.DeleteNamespace(redisNamespace)
-	_ = c.cluster.WaitForNamespaceDeletion(redisNamespace)
+	_ = c.cluster.CoreV1().Namespaces().Delete(context.TODO(), redisNamespace, kube2.DeleteOptionsForeground())
+	_ = kube2.WaitForNamespaceDeletion(c.cluster, redisNamespace)
 	return nil
 }
 

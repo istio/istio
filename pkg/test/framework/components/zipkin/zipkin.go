@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 // Instance represents a zipkin deployment on kube
@@ -52,11 +51,7 @@ type Trace struct {
 
 // New returns a new instance of zipkin.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, c)
-	})
-	return
+	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new zipkin instance or fails test.

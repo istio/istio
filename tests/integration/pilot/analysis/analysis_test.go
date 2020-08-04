@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package analysis
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -34,19 +35,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented
 	framework.NewTest(t).
-		NotImplementedYet(features.UsabilityObservabilityStatusDefaultExists)
+		NotImplementedYet(features.Usability_Observability_Status_DefaultExists)
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	framework.NewTest(t).
-		Features(features.UsabilityObservabilityStatus).
+		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
 		// Label(features.Usability.Observability.Status).
 		Run(func(ctx framework.TestContext) {
@@ -57,7 +57,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 				Labels:   nil,
 			})
 			// Apply bad config (referencing invalid host)
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -76,7 +76,7 @@ spec:
 				return expectStatus(t, ctx, ns, true)
 			}, retry.Timeout(time.Minute*5))
 			// Apply config to make this not invalid
-			g.ApplyConfigOrFail(t, ns, `
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), `
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -100,11 +100,13 @@ spec:
 }
 
 func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, hasError bool) error {
-	x, err := kube.ClusterOrDefault(nil, ctx.Environment()).GetUnstructured(schema.GroupVersionResource{
+	c := ctx.Clusters().Default()
+	gvr := schema.GroupVersionResource{
 		Group:    "networking.istio.io",
 		Version:  "v1alpha3",
 		Resource: "virtualservices",
-	}, ns.Name(), "reviews")
+	}
+	x, err := c.Dynamic().Resource(gvr).Namespace(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("unexpected test failure: can't get bogus virtualservice: %v", err)
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,16 +19,18 @@ import (
 	"testing"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
 
 	"github.com/gogo/protobuf/proto"
 
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 )
 
 const (
@@ -204,11 +206,8 @@ func yamlPolicy(t *testing.T, filename string) *model.AuthorizationPolicies {
 	for i := range c {
 		configs = append(configs, &c[i])
 	}
-	m, err := NewAuthzPolicies(configs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return m
+
+	return newAuthzPolicies(t, configs)
 }
 
 func yamlConfig(t *testing.T, filename string, forTCP bool) proto.Message {
@@ -245,4 +244,21 @@ func convertTCP(in []*tcppb.Filter) []proto.Message {
 		ret[i] = in[i]
 	}
 	return ret
+}
+
+func newAuthzPolicies(t *testing.T, policies []*model.Config) *model.AuthorizationPolicies {
+	store := model.MakeIstioStore(memory.Make(collections.Pilot))
+	for _, p := range policies {
+		if _, err := store.Create(*p); err != nil {
+			t.Fatalf("newAuthzPolicies: %v", err)
+		}
+	}
+
+	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
+		IstioConfigStore: store,
+	})
+	if err != nil {
+		t.Fatalf("newAuthzPolicies: %v", err)
+	}
+	return authzPolicies
 }

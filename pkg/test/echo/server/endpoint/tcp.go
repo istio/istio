@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,14 +44,13 @@ func newTCP(config Config) Instance {
 }
 
 func (s *tcpInstance) Start(onReady OnReadyFunc) error {
-
 	var listener net.Listener
 	var port int
 	var err error
 	if s.Port.TLS {
 		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if cerr != nil {
-			return fmt.Errorf("could not load TLS keys: %v", err)
+			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
@@ -100,6 +99,11 @@ func (s *tcpInstance) echo(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 	}()
+
+	// If this is server first, client expects a message from server. Send the magic string.
+	if s.Port.ServerFirst {
+		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
+	}
 
 	initialReply := true
 	for {

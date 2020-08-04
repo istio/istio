@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ yaml: foo`,
 func TestJoinBytes(t *testing.T) {
 	for i, c := range joinCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			var by [][]byte
 			for _, s := range c.split {
@@ -99,7 +99,7 @@ func TestJoinBytes(t *testing.T) {
 func TestJoinString(t *testing.T) {
 	for i, c := range joinCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			actual := JoinString(c.split...)
 
@@ -128,7 +128,7 @@ func TestLineNumber(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			reader := bufio.NewReader(strings.NewReader(tc.input))
 			decoder := NewYAMLReader(reader)

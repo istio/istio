@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ func (w *Wrapper) GetBootstrapConfigDump() (*adminapi.BootstrapConfigDump, error
 		return nil, err
 	}
 	bootstrapDump := &adminapi.BootstrapConfigDump{}
-	err = ptypes.UnmarshalAny(&bootstrapDumpAny, bootstrapDump)
+	err = ptypes.UnmarshalAny(bootstrapDumpAny, bootstrapDump)
 	if err != nil {
 		return nil, err
 	}

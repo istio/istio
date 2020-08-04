@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,5 +33,5 @@ type Options struct {
 
 	StatusController status.Controller
 
-	// TODO: Add target namespaces here when we do namespace specific listeners.
+	WatchedNamespaces string
 }

@@ -21,15 +21,32 @@
       }
     }
   },
+  "layered_runtime": {
+      "layers": [
+          {
+              "name": "deprecation",
+              "static_layer": {
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+              }
+          },
+          {
+              "name": "admin",
+              "admin_layer": {}
+          }
+      ]
+  },
   "dynamic_resources": {
     "lds_config": {
+      "resource_api_version": "V3",
       "ads": {}
      },
     "cds_config": {
+      "resource_api_version": "V3",
       "ads": {}
     },
     "ads_config": {
       "api_type": "GRPC",
+      "transport_api_version": "V3",
       "grpc_services": {
         "envoy_grpc": {
           "cluster_name": "xds-grpc"
@@ -148,7 +165,7 @@
     ]
   },
     {
-        "name": "mixertcpproxy",
+        "name": "tcpproxy",
         "address": {
           "socket_address": {
             "address": "0.0.0.0",
@@ -162,7 +179,7 @@
                 "name": "envoy.tcp_proxy",
                 "typed_config": {
                 "@type": "type.googleapis.com/envoy.config.filter.network.tcp_proxy.v2.TcpProxy",
-                  "stat_prefix": "mixertcpproxy",
+                  "stat_prefix": "tcpproxy",
                   "cluster": "service1"
                 }
               }
@@ -193,7 +210,7 @@
                   ],
                   "rds": {
                       "route_config_name": "80",
-                       "config_source": {"ads": {}}
+                       "config_source": {"resource_api_version": "V3","ads": {}}
                   },
                   "http_protocol_options": {
                     "allow_absolute_url": true
@@ -236,7 +253,7 @@
                   ],
                   "rds": {
                       "route_config_name": "http_proxy",
-                       "config_source": {"ads": {}}
+                       "config_source": {"resource_api_version": "V3","ads": {}}
                   },
                   "http_protocol_options": {
                     "allow_absolute_url": true
@@ -356,25 +373,6 @@
       ],
       "http2_protocol_options": {}
       },
-      {
-        "name": "mixer_server",
-        "type": "STRICT_DNS",
-        "connect_timeout": {
-        "seconds": 5,
-        "nanos": 0
-        },
-        "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-        {
-          "socket_address": {
-          "address": "127.0.0.1",
-          "port_value": {{.Ports.MixerPort}}
-        }
-        }
-        ],
-        "http2_protocol_options": {}
-      }
-
     ]
   }
 }

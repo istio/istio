@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,15 +31,15 @@ func IsJwtExpired(token string, now time.Time) (bool, error) {
 	}
 
 	var expiration time.Time
-	if claims["iat"] == nil {
-		// The JWT doesn't have "iat", so it's always valid. E.g., the K8s first party JWT.
+	if claims["exp"] == nil {
+		// The JWT doesn't have "exp", so it's always valid. E.g., the K8s first party JWT.
 		return false, nil
 	}
-	switch iat := claims["iat"].(type) {
+	switch exp := claims["exp"].(type) {
 	case float64:
-		expiration = time.Unix(int64(iat), 0)
+		expiration = time.Unix(int64(exp), 0)
 	case json.Number:
-		v, _ := iat.Int64()
+		v, _ := exp.Int64()
 		expiration = time.Unix(v, 0)
 	}
 	if now.After(expiration) {

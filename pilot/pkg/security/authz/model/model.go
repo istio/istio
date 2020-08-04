@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,9 +18,10 @@ import (
 	"fmt"
 	"strings"
 
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v2"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 
 	authzpb "istio.io/api/security/v1beta1"
+
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
 
@@ -49,13 +50,6 @@ const (
 	methodHeader = ":method"
 	pathMatcher  = "path-matcher"
 	hostHeader   = ":authority"
-)
-
-type position int
-
-const (
-	first position = iota
-	last
 )
 
 type rule struct {
@@ -88,41 +82,41 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 		k := when.Key
 		switch {
 		case k == attrDestIP:
-			basePermission.insertAt(last, destIPGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(destIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrDestPort:
-			basePermission.insertAt(last, destPortGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(destPortGenerator{}, k, when.Values, when.NotValues)
 		case k == attrConnSNI:
-			basePermission.insertAt(last, connSNIGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(connSNIGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrEnvoyFilter):
-			basePermission.insertAt(last, envoyFilterGenerator{}, k, when.Values, when.NotValues)
+			basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcIP:
-			basePrincipal.insertAt(last, srcIPGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcNamespace:
-			basePrincipal.insertAt(last, srcNamespaceGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
-			basePrincipal.insertAt(last, srcPrincipalGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPrincipal:
-			basePrincipal.insertAt(last, requestPrincipalGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestAudiences:
-			basePrincipal.insertAt(last, requestAudiencesGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPresenter:
-			basePrincipal.insertAt(last, requestPresenterGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestHeader):
-			basePrincipal.insertAt(last, requestHeaderGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
-			basePrincipal.insertAt(last, requestClaimGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
 	}
 
 	for _, from := range r.From {
-		merged := basePrincipal
+		merged := basePrincipal.copy()
 		if s := from.Source; s != nil {
-			merged.insertAt(first, srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
-			merged.insertAt(first, srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			merged.insertAt(first, requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
-			merged.insertAt(first, srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
+			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
+			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
+			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
 		}
 		m.principals = append(m.principals, merged)
 	}
@@ -131,12 +125,12 @@ func New(r *authzpb.Rule, isIstioVersionGE15 bool) (*Model, error) {
 	}
 
 	for _, to := range r.To {
-		merged := basePermission
+		merged := basePermission.copy()
 		if o := to.Operation; o != nil {
-			merged.insertAt(first, destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
-			merged.insertAt(first, pathGenerator{isIstioVersionGE15: isIstioVersionGE15}, pathMatcher, o.Paths, o.NotPaths)
-			merged.insertAt(first, methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
-			merged.insertAt(first, hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
+			merged.insertFront(destPortGenerator{}, attrDestPort, o.Ports, o.NotPorts)
+			merged.insertFront(pathGenerator{isIstioVersionGE15: isIstioVersionGE15}, pathMatcher, o.Paths, o.NotPaths)
+			merged.insertFront(methodGenerator{}, methodHeader, o.Methods, o.NotMethods)
+			merged.insertFront(hostGenerator{}, hostHeader, o.Hosts, o.NotHosts)
 		}
 		m.permissions = append(m.permissions, merged)
 	}
@@ -163,7 +157,7 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 	}
 }
 
-// Generate generates the Envoy RBAC policy from the model.
+// Generate generates the Envoy RBAC config from the model.
 func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
 	for _, rl := range m.permissions {
@@ -301,8 +295,13 @@ func (r rule) checkError(forDeny bool, err error) error {
 	return err
 }
 
-// insert a new rule to the ruleList at the given position.
-func (p *ruleList) insertAt(pos position, g generator, key string, values, notValues []string) {
+func (p *ruleList) copy() ruleList {
+	r := ruleList{}
+	r.rules = append([]*rule{}, p.rules...)
+	return r
+}
+
+func (p *ruleList) insertFront(g generator, key string, values, notValues []string) {
 	if len(values) == 0 && len(notValues) == 0 {
 		return
 	}
@@ -313,9 +312,19 @@ func (p *ruleList) insertAt(pos position, g generator, key string, values, notVa
 		g:         g,
 	}
 
-	if pos == first {
-		p.rules = append([]*rule{r}, p.rules...)
-	} else {
-		p.rules = append(p.rules, r)
+	p.rules = append([]*rule{r}, p.rules...)
+}
+
+func (p *ruleList) appendLast(g generator, key string, values, notValues []string) {
+	if len(values) == 0 && len(notValues) == 0 {
+		return
 	}
+	r := &rule{
+		key:       key,
+		values:    values,
+		notValues: notValues,
+		g:         g,
+	}
+
+	p.rules = append(p.rules, r)
 }

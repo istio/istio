@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright 2020 Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,126 +15,130 @@
 package configdump
 
 import (
-	"bytes"
-	"io/ioutil"
 	"testing"
 
-	"istio.io/istio/pilot/test/util"
+	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 )
 
-func TestConfigWriter_PrintListenerSummary(t *testing.T) {
+func TestListenerFilter_Verify(t *testing.T) {
 	tests := []struct {
-		name           string
-		filter         ListenerFilter
-		wantOutputFile string
-		callPrime      bool
-		wantErr        bool
+		desc       string
+		inFilter   *ListenerFilter
+		inListener *listener.Listener
+		expect     bool
 	}{
 		{
-			name:           "display all listeners when no filter is passed",
-			filter:         ListenerFilter{},
-			wantOutputFile: "testdata/listenersummary.txt",
-			callPrime:      true,
+			desc: "filter-fields-empty",
+			inFilter: &ListenerFilter{
+				Address: "",
+				Port:    0,
+				Type:    "",
+			},
+			inListener: &listener.Listener{},
+			expect:     true,
 		},
 		{
-			name:           "filter listeners in the summary",
-			filter:         ListenerFilter{Address: "172.21.134.116"},
-			wantOutputFile: "testdata/listenersummaryfiltered.txt",
-			callPrime:      true,
+			desc: "addrs-dont-match",
+			inFilter: &ListenerFilter{
+				Address: "0.0.0.0",
+			},
+			inListener: &listener.Listener{
+				Address: &v3.Address{
+					Address: &v3.Address_SocketAddress{
+						SocketAddress: &v3.SocketAddress{Address: "1.1.1.1"},
+					},
+				},
+			},
+			expect: false,
 		},
 		{
-			name:           "handles port filtering",
-			filter:         ListenerFilter{Port: 443},
-			wantOutputFile: "testdata/listenersummaryfiltered.txt",
-			callPrime:      true,
+			desc: "ports-dont-match",
+			inFilter: &ListenerFilter{
+				Port: 10,
+			},
+			inListener: &listener.Listener{
+				Address: &v3.Address{
+					Address: &v3.Address_SocketAddress{
+						SocketAddress: &v3.SocketAddress{
+							PortSpecifier: &v3.SocketAddress_PortValue{
+								PortValue: 11,
+							},
+						},
+					},
+				},
+			},
+			expect: false,
 		},
 		{
-			name:           "handles type filtering",
-			filter:         ListenerFilter{Type: "TCP"},
-			wantOutputFile: "testdata/listenersummaryfiltered.txt",
-			callPrime:      true,
+			desc: "http-type-match",
+			inFilter: &ListenerFilter{
+				Type: "HTTP",
+			},
+			inListener: &listener.Listener{
+				FilterChains: []*listener.FilterChain{{
+					Filters: []*listener.Filter{{
+						Name: wellknown.HTTPConnectionManager,
+					},
+					},
+				},
+				},
+			},
+			expect: true,
 		},
 		{
-			name:      "errors if config writer is not primed",
-			callPrime: false,
-			wantErr:   true,
+			desc: "http-tcp-type-match",
+			inFilter: &ListenerFilter{
+				Type: "HTTP+TCP",
+			},
+			inListener: &listener.Listener{
+				FilterChains: []*listener.FilterChain{{
+					Filters: []*listener.Filter{{
+						Name: wellknown.TCPProxy,
+					},
+						{
+							Name: wellknown.TCPProxy,
+						},
+						{
+							Name: wellknown.HTTPConnectionManager,
+						}},
+				}},
+			},
+			expect: true,
+		},
+		{
+			desc: "tcp-type-match",
+			inFilter: &ListenerFilter{
+				Type: "TCP",
+			},
+			inListener: &listener.Listener{
+				FilterChains: []*listener.FilterChain{{
+					Filters: []*listener.Filter{{
+						Name: wellknown.TCPProxy,
+					}},
+				}},
+			},
+			expect: true,
+		},
+		{
+			desc: "unknown-type",
+			inFilter: &ListenerFilter{
+				Type: "UNKNOWN",
+			},
+			inListener: &listener.Listener{
+				FilterChains: []*listener.FilterChain{{
+					Filters: []*listener.Filter{},
+				}},
+			},
+			expect: true,
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotOut := &bytes.Buffer{}
-			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
-			if tt.callPrime {
-				cw.Prime(cd)
-			}
-			err := cw.PrintListenerSummary(tt.filter)
-			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
-			}
-			if err == nil && tt.wantErr {
-				t.Errorf("PrintListenerSummary (%v) did not produce expected err", tt.name)
-			} else if err != nil && !tt.wantErr {
-				t.Errorf("PrintListenerSummary (%v) produced unexpected err: %v", tt.name, err)
-			}
-		})
-	}
-}
 
-func TestConfigWriter_PrintListenerDump(t *testing.T) {
-	tests := []struct {
-		name           string
-		filter         ListenerFilter
-		wantOutputFile string
-		callPrime      bool
-		wantErr        bool
-	}{
-		{
-			name:           "display all listeners when no filter is passed",
-			filter:         ListenerFilter{},
-			wantOutputFile: "testdata/listenerdump.json",
-			callPrime:      true,
-		},
-		{
-			name:           "filter listeners in the dump",
-			filter:         ListenerFilter{Address: "172.21.134.116"},
-			wantOutputFile: "testdata/listenerdumpfiltered.json",
-			callPrime:      true,
-		},
-		{
-			name:           "handles port filtering",
-			filter:         ListenerFilter{Port: 443},
-			wantOutputFile: "testdata/listenerdumpfiltered.json",
-			callPrime:      true,
-		},
-		{
-			name:           "handles type filtering",
-			filter:         ListenerFilter{Type: "TCP"},
-			wantOutputFile: "testdata/listenerdumpfiltered.json",
-			callPrime:      true,
-		},
-		{
-			name:      "errors if config writer is not primed",
-			callPrime: false,
-			wantErr:   true,
-		},
-	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotOut := &bytes.Buffer{}
-			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := ioutil.ReadFile("testdata/configdump.json")
-			if tt.callPrime {
-				cw.Prime(cd)
-			}
-			err := cw.PrintListenerDump(tt.filter)
-			if tt.wantOutputFile != "" {
-				util.CompareContent(gotOut.Bytes(), tt.wantOutputFile, t)
-			}
-			if err == nil && tt.wantErr {
-				t.Errorf("PrintListenerDump (%v) did not produce expected err", tt.name)
-			} else if err != nil && !tt.wantErr {
-				t.Errorf("PrintListenerDump (%v) produced unexpected err: %v", tt.name, err)
+		t.Run(tt.desc, func(t *testing.T) {
+			if got := tt.inFilter.Verify(tt.inListener); got != tt.expect {
+				t.Errorf("%s: expect %v got %v", tt.desc, tt.expect, got)
 			}
 		})
 	}

@@ -1,4 +1,4 @@
-//  Copyright 2020 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -15,20 +15,24 @@
 package stackdriver
 
 import (
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
+	cloudtracepb "google.golang.org/genproto/googleapis/devtools/cloudtrace/v1"
 	loggingpb "google.golang.org/genproto/googleapis/logging/v2"
 	monitoringpb "google.golang.org/genproto/googleapis/monitoring/v3"
+
+	"istio.io/istio/pkg/test"
+	edgespb "istio.io/istio/pkg/test/framework/components/stackdriver/edges"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 // Instance represents a deployed Stackdriver app instance in a Kubernetes cluster.
 type Instance interface {
+	Address() string
 	// Gets the namespace in which stackdriver is deployed.
 	GetStackdriverNamespace() string
 	ListTimeSeries() ([]*monitoringpb.TimeSeries, error)
 	ListLogEntries() ([]*loggingpb.LogEntry, error)
+	ListTrafficAssertions() ([]*edgespb.TrafficAssertion, error)
+	ListTraces() ([]*cloudtracepb.Trace, error)
 }
 
 type Config struct {
@@ -38,11 +42,7 @@ type Config struct {
 
 // New returns a new instance of stackdriver.
 func New(ctx resource.Context, c Config) (i Instance, err error) {
-	err = resource.UnsupportedEnvironment(ctx.Environment())
-	ctx.Environment().Case(environment.Kube, func() {
-		i, err = newKube(ctx, c)
-	})
-	return
+	return newKube(ctx, c)
 }
 
 // NewOrFail returns a new Stackdriver instance or fails test.

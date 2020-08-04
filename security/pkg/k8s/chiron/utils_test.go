@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ func TestGenKeyCertK8sCA(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -245,7 +245,7 @@ func TestReloadCACert(t *testing.T) {
 	for _, tc := range testCases {
 		client := fake.NewSimpleClientset()
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -325,7 +325,7 @@ func TestSubmitCSR(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 		if err != nil {
 			t.Errorf("failed at creating webhook controller: %v", err)
@@ -439,7 +439,7 @@ func TestReadSignedCertificate(t *testing.T) {
 		client.PrependReactor("get", "certificatesigningrequests", defaultReactionFunc(csr))
 
 		wc, err := NewWebhookController(tc.gracePeriodRatio, tc.minGracePeriod,
-			client.CoreV1(), client.AdmissionregistrationV1beta1(), client.CertificatesV1beta1(),
+			client.CoreV1(), client.AdmissionregistrationV1(), client.CertificatesV1beta1(),
 			tc.k8sCaCertFile, tc.secretNames, tc.dnsNames, tc.serviceNamespaces)
 
 		if err != nil {
@@ -449,7 +449,8 @@ func TestReadSignedCertificate(t *testing.T) {
 
 		// 4. Read the signed certificate
 		csrName := fmt.Sprintf("domain-%s-ns-%s-secret-%s", spiffe.GetTrustDomain(), tc.secretNameSpace, tc.secretName)
-		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName, certReadInterval, maxNumCertRead, wc.k8sCaCertFile)
+		_, _, err = readSignedCertificate(wc.certClient.CertificateSigningRequests(), csrName,
+			certReadInterval, certWatchTimeout, maxNumCertRead, wc.k8sCaCertFile)
 
 		if tc.expectFail {
 			if err == nil {

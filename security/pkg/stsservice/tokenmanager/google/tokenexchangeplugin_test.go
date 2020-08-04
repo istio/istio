@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@ type testSetUp struct {
 
 // setUpTest sets up token manager, authorization server.
 func setUpTest(t *testing.T, setup testSetUp) (*Plugin, *mock.AuthorizationServer, string, string) {
-	tm, _ := CreateTokenManagerPlugin(mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
+	tm, _ := CreateTokenManagerPlugin(nil, mock.FakeTrustDomain, mock.FakeProjectNum, mock.FakeGKEClusterURL, setup.enableCache)
 	ms, err := mock.StartNewServer(t, mock.Config{Port: 0})
 	ms.EnableDynamicAccessToken(setup.enableDynamicToken)
 	if err != nil {
@@ -241,5 +241,42 @@ func TestTokenExchangePluginWithCache(t *testing.T) {
 	}
 	if thirdToken == fourthToken {
 		t.Errorf("should not return cached token")
+	}
+}
+
+// TestAccessTokenRequestToJson verifies the result of AccessTokenRequest-to-Json conversion.
+func TestAccessTokenRequestToJson(t *testing.T) {
+	tests := []struct {
+		name      string
+		delegates []string
+		scope     []string
+		lifetime  Duration
+		want      string
+	}{
+		{
+			name:      "OneHourInSecondLifetime",
+			delegates: []string{},
+			scope:     []string{"https://www.googleapis.com/auth/cloud-platform"},
+			lifetime:  Duration{Seconds: 3600},
+			want:      `{"name":"OneHourInSecondLifetime","delegates":[],"scope":["https://www.googleapis.com/auth/cloud-platform"],"lifetime":{"seconds":3600}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := accessTokenRequest{
+				Name:      tt.name,
+				Delegates: tt.delegates,
+				Scope:     tt.scope,
+				LifeTime:  tt.lifetime,
+			}
+			jsonQuery, err := json.Marshal(query)
+			if err != nil {
+				t.Errorf("%s: query: %v, err in json.Marshal: %v", tt.name, query, err)
+			}
+			got := string(jsonQuery)
+			if !(got == tt.want) {
+				t.Errorf("%s: got: %v, want: %v", tt.name, got, tt.want)
+			}
+		})
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,11 +23,14 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
@@ -63,10 +66,11 @@ func newHTTP(config Config) Instance {
 }
 
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
+	h2s := &http2.Server{}
 	s.server = &http.Server{
-		Handler: &httpHandler{
+		Handler: h2c.NewHandler(&httpHandler{
 			Config: s.Config,
-		},
+		}, h2s),
 	}
 
 	var listener net.Listener
@@ -78,7 +82,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	} else if s.Port.TLS {
 		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if cerr != nil {
-			return fmt.Errorf("could not load TLS keys: %v", err)
+			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
@@ -284,9 +288,15 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, "Proto", r.Proto)
 	writeField(body, "RemoteAddr", r.RemoteAddr)
 
-	for name, values := range r.Header {
+	keys := []string{}
+	for k := range r.Header {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		values := r.Header[key]
 		for _, value := range values {
-			writeField(body, response.Field(name), value)
+			writeField(body, response.Field(key), value)
 		}
 	}
 

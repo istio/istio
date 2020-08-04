@@ -1,4 +1,4 @@
-# Copyright 2017 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ spec:
     spec:
       containers:
       - name: mysqldb
-        image: docker.io/istio/examples-bookinfo-mysqldb:1.15.0
+        image: docker.io/istio/examples-bookinfo-mysqldb:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3306
@@ -74,5 +74,5 @@ spec:
           mountPath: /var/lib/mysql
       volumes:
       - name: var-lib-mysql
-        emptyDir:
+        emptyDir: {}
 ---

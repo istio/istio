@@ -9,11 +9,5 @@ spec:
       enabled: false
     telemetry:
       enabled: false
-    proxy:
-      enabled: false
-    sidecarInjector:
-      enabled: false
-    citadel:
-      enabled: false
     cni:
       enabled: false

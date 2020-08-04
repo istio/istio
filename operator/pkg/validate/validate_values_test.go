@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,15 +61,10 @@ global:
   podDNSSearchNamespaces:
   - "my-namespace"
   proxy:
-    enabled: true
     includeIPRanges: "1.1.0.0/16,2.2.0.0/16"
     excludeIPRanges: "3.3.0.0/16,4.4.0.0/16"
     excludeInboundPorts: "333,444"
     clusterDomain: "my.domain"
-    connectTimeout: "11s"
-    drainDuration: "22s"
-    parentShutdownDuration: "33s"
-    concurrency: 5
     lifecycle:
       preStop:
         exec:
@@ -170,8 +165,6 @@ cni:
 }
 
 func TestValidateValuesFromProfile(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/20112")
-	// TODO port to new api
 	tests := []struct {
 		desc     string
 		profile  string
@@ -189,7 +182,7 @@ func TestValidateValuesFromProfile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			pf, err := helm.ReadProfileYAML(tt.profile)
+			pf, err := helm.ReadProfileYAML(tt.profile, filepath.Join(env.IstioSrc, "manifests"))
 			if err != nil {
 				t.Fatalf("fail to read profile: %s", tt.profile)
 			}
@@ -208,7 +201,7 @@ func TestValidateValuesFromValuesYAMLs(t *testing.T) {
 	valuesYAML := ""
 	var allFiles []string
 	manifestDir := filepath.Join(repoRootDir, "manifests/charts")
-	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-telemetry", "istio-control", "istio-policy"} {
+	for _, sd := range []string{"base", "gateways", "istio-cni", "istiocoredns", "istio-control"} {
 		dir := filepath.Join(manifestDir, sd)
 		files, err := util.FindFiles(dir, yamlFileFilter)
 		if err != nil {

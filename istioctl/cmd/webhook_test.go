@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 
 	"istio.io/istio/security/pkg/pki/ca"
 
-	"k8s.io/api/admissionregistration/v1beta1"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -517,7 +517,7 @@ func TestCreateValidatingWebhookConfig(t *testing.T) {
 
 	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		var webhookConfig *v1beta1.ValidatingWebhookConfiguration
+		var webhookConfig *kubeApiAdmission.ValidatingWebhookConfiguration
 		var err error
 		if tc.createWebhookConfig {
 			webhookConfig, err = buildValidatingWebhookConfig(
@@ -571,7 +571,7 @@ func TestCreateMutatingWebhookConfig(t *testing.T) {
 
 	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		var webhookConfig *v1beta1.MutatingWebhookConfiguration
+		var webhookConfig *kubeApiAdmission.MutatingWebhookConfiguration
 		var err error
 		if tc.createWebhookConfig {
 			webhookConfig, err = buildMutatingWebhookConfig(

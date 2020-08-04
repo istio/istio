@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	mixervalidate "istio.io/istio/mixer/pkg/validate"
-	"istio.io/istio/pkg/test/env"
 )
 
 const (
@@ -211,29 +208,14 @@ spec:
           host: c
           subset: v2
         weight: 25`
-	validMixerRule = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
+	invalidVirtualServiceV1Beta1 = `
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
 metadata:
-  name: valid-rule
+  name: invalid-virtual-service
 spec:
-  match: request.headers["clnt"] == "abc"
-  actions:
-  - handler: handler-for-valid-rule.denier
-    instances:
-    - instance-for-valid-rule.checknothing`
-	invalidMixerRule = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
-metadata:
-  name: valid-rule
-spec:
-  badField: oops
-  match: request.headers["clnt"] == "abc"
-  actions:
-  - handler: handler-for-valid-rule.denier
-    instances:
-    - instance-for-valid-rule.checknothing`
+  http:
+`
 	invalidYAML = `
 (...!)`
 	validKubernetesYAML = `
@@ -241,12 +223,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-system`
-	invalidMixerKind = `
-apiVersion: config.istio.io/v1alpha2
-kind: instance
-metadata:
-  name: invalid-kind
-spec:`
 	invalidUnsupportedKey = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -255,7 +231,7 @@ metadata:
 unexpected_junk:
    still_more_junk:
 spec:
-	host: productpage`
+  host: productpage`
 	versionLabelMissingDeployment = `
 apiVersion: apps/v1
 kind: Deployment
@@ -292,6 +268,17 @@ spec:
     grafana:
       enabled: true
 `
+	invalidDuplicateKey = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: productpage
+spec:
+trafficPolicy: {}
+trafficPolicy:
+  tls:
+    mode: ISTIO_MUTUAL
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -319,13 +306,8 @@ func TestValidateResource(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:  "valid mixer configuration",
-			in:    validMixerRule,
-			valid: true,
-		},
-		{
-			name:  "invalid mixer configuration",
-			in:    invalidMixerRule,
+			name:  "invalid pilot configuration v1beta1",
+			in:    invalidVirtualServiceV1Beta1,
 			valid: false,
 		},
 		{
@@ -392,29 +374,12 @@ func TestValidateResource(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v ", i, c.name), func(tt *testing.T) {
-			v := &validator{
-				mixerValidator: mixervalidate.NewDefaultValidator(false),
-			}
+			v := &validator{}
 			err := v.validateResource("istio-system", fromYAML(c.in))
 			if (err == nil) != c.valid {
 				tt.Fatalf("unexpected validation result: got %v want %v: err=%v", err == nil, c.valid, err)
 			}
 		})
-	}
-}
-
-func TestValidateFiles(t *testing.T) {
-	files := []string{
-		env.IstioSrc + "/mixer/testdata/config/attributes.yaml",
-		env.IstioSrc + "/mixer/template/metric/template.yaml",
-		env.IstioSrc + "/mixer/test/prometheus/prometheus-nosession.yaml",
-		env.IstioSrc + "/samples/httpbin/policy/keyval-template.yaml",
-		env.IstioSrc + "/samples/bookinfo/policy/mixer-rule-deny-ip-crd.yaml",
-	}
-	istioNamespace := "istio-system"
-	b := bytes.Buffer{}
-	if err := validateFiles(&istioNamespace, files, true, &b); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -444,7 +409,6 @@ func createTestFile(t *testing.T, data string) (string, io.Closer) {
 func TestValidateCommand(t *testing.T) {
 	valid := buildMultiDocYAML([]string{validVirtualService, validVirtualService1})
 	invalid := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1})
-	unsupportedMixerRule := buildMultiDocYAML([]string{validVirtualService, validMixerRule})
 
 	validFilename, closeValidFile := createTestFile(t, valid)
 	defer closeValidFile.Close()
@@ -452,17 +416,11 @@ func TestValidateCommand(t *testing.T) {
 	invalidFilename, closeInvalidFile := createTestFile(t, invalid)
 	defer closeInvalidFile.Close()
 
-	unsupportedMixerRuleFilename, closeMixerRuleFile := createTestFile(t, unsupportedMixerRule)
-	defer closeMixerRuleFile.Close()
-
 	invalidYAMLFile, closeInvalidYAMLFile := createTestFile(t, invalidYAML)
 	defer closeInvalidYAMLFile.Close()
 
 	validKubernetesYAMLFile, closeKubernetesYAMLFile := createTestFile(t, validKubernetesYAML)
 	defer closeKubernetesYAMLFile.Close()
-
-	invalidMixerKindFile, closeInvalidMixerKindFile := createTestFile(t, invalidMixerKind)
-	defer closeInvalidMixerKindFile.Close()
 
 	versionLabelMissingDeploymentFile, closeVersionLabelMissingDeploymentFile := createTestFile(t, versionLabelMissingDeployment)
 	defer closeVersionLabelMissingDeploymentFile.Close()
@@ -471,6 +429,9 @@ func TestValidateCommand(t *testing.T) {
 	defer closePortNameMissingSvcFile.Close()
 
 	unsupportedKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidUnsupportedKey)
+	defer closeUnsupportedKeyFile.Close()
+
+	duplicateKeyFilename, closeUnsupportedKeyFile := createTestFile(t, invalidDuplicateKey)
 	defer closeUnsupportedKeyFile.Close()
 
 	validPortNamingSvcFile, closeValidPortNamingSvcFile := createTestFile(t, validPortNamingSvc)
@@ -522,11 +483,6 @@ func TestValidateCommand(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:      "unsupported mixer rule",
-			args:      []string{"--filename", unsupportedMixerRuleFilename},
-			wantError: true,
-		},
-		{
 			name:      "invalid filename",
 			args:      []string{"--filename", "INVALID_FILE_NAME"},
 			wantError: true,
@@ -544,14 +500,10 @@ $`),
 			wantError: false,
 		},
 		{
-			name:      "invalid Mixer kind",
-			args:      []string{"--filename", invalidMixerKindFile},
-			wantError: true,
-		},
-		{
-			name:      "invalid top-level key",
-			args:      []string{"--filename", unsupportedKeyFilename},
-			wantError: true,
+			name:           "invalid top-level key",
+			args:           []string{"--filename", unsupportedKeyFilename},
+			expectedRegexp: regexp.MustCompile(`.*unknown field "unexpected_junk"`),
+			wantError:      true,
 		},
 		{
 			name:      "version label missing deployment",
@@ -563,6 +515,12 @@ $`),
 			args:      []string{"--filename", portNameMissingSvcFile},
 			wantError: true,
 		},
+		{
+			name:           "duplicate key",
+			args:           []string{"--filename", duplicateKeyFilename},
+			expectedRegexp: regexp.MustCompile(`.*key ".*" already set`),
+			wantError:      true,
+		},
 	}
 	istioNamespace := "istio-system"
 	for i, c := range cases {
@@ -572,7 +530,8 @@ $`),
 
 			// capture output to keep test logs clean
 			var out bytes.Buffer
-			validateCmd.SetOutput(&out)
+			validateCmd.SetOut(&out)
+			validateCmd.SetErr(&out)
 
 			err := validateCmd.Execute()
 			if (err != nil) != c.wantError {

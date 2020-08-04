@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,20 +23,22 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/security/pkg/util"
 )
 
 func TestNamespaceController(t *testing.T) {
-	client := fake.NewSimpleClientset()
+	client := kube.NewFakeClient()
 	testdata := map[string]string{"key": "value"}
 	nc := NewNamespaceController(func() map[string]string {
 		return testdata
-	}, Options{}, client)
+	}, client)
 
 	stop := make(chan struct{})
+	client.RunAndWait(stop)
 	nc.Run(stop)
 
 	createNamespace(t, client, "foo")
@@ -52,14 +54,14 @@ func TestNamespaceController(t *testing.T) {
 	expectConfigMap(t, client, "foo", testdata)
 }
 
-func deleteConfigMap(t *testing.T, client *fake.Clientset, ns string) {
+func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
 	t.Helper()
 	if err := client.CoreV1().ConfigMaps(ns).Delete(context.TODO(), CACertNamespaceConfigMap, metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func createNamespace(t *testing.T, client *fake.Clientset, ns string) {
+func createNamespace(t *testing.T, client kubernetes.Interface, ns string) {
 	t.Helper()
 	if _, err := client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: ns},
@@ -68,7 +70,7 @@ func createNamespace(t *testing.T, client *fake.Clientset, ns string) {
 	}
 }
 
-func expectConfigMap(t *testing.T, client *fake.Clientset, ns string, data map[string]string) {
+func expectConfigMap(t *testing.T, client kubernetes.Interface, ns string, data map[string]string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		cm, err := client.CoreV1().ConfigMaps(ns).Get(context.TODO(), CACertNamespaceConfigMap, metav1.GetOptions{})

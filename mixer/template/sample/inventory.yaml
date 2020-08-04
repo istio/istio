@@ -1,4 +1,0 @@
-apa/Apa_proto.descriptor_set: "istio.io/istio/mixer/template/sample/apa"
-check/CheckTesterTemplate_proto.descriptor_set: "istio.io/istio/mixer/template/sample/check"
-quota/QuotaTesterTemplate_proto.descriptor_set: "istio.io/istio/mixer/template/sample/quota"
-report/ReportTesterTemplate_proto.descriptor_set: "istio.io/istio/mixer/template/sample/report"

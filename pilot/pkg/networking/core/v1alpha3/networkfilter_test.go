@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ package v1alpha3
 import (
 	"testing"
 
-	listener "github.com/envoyproxy/go-control-plane/envoy/api/v2/listener"
-	redis_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/redis_proxy/v2"
-	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/tcp_proxy/v2"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"github.com/golang/protobuf/ptypes"
 
@@ -31,11 +31,11 @@ import (
 
 func TestBuildRedisFilter(t *testing.T) {
 	redisFilter := buildRedisFilter("redis", "redis-cluster")
-	if redisFilter.Name != xdsutil.RedisProxy {
-		t.Errorf("redis filter name is %s not %s", redisFilter.Name, xdsutil.RedisProxy)
+	if redisFilter.Name != wellknown.RedisProxy {
+		t.Errorf("redis filter name is %s not %s", redisFilter.Name, wellknown.RedisProxy)
 	}
 	if config, ok := redisFilter.ConfigType.(*listener.Filter_TypedConfig); ok {
-		redisProxy := redis_proxy.RedisProxy{}
+		redisProxy := redis.RedisProxy{}
 		if err := ptypes.UnmarshalAny(config.TypedConfig, &redisProxy); err != nil {
 			t.Errorf("unmarshal failed: %v", err)
 		}
@@ -78,12 +78,9 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 
-			env := buildListenerEnv(services, nil)
+			env := buildListenerEnv(services)
 			env.PushContext.InitContext(&env, nil, nil)
 			env.PushContext.Mesh.InboundClusterStatName = tt.statPattern
-
-			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 
 			instance := &model.ServiceInstance{
 
@@ -102,8 +99,8 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				Endpoint: &model.IstioEndpoint{},
 			}
 
-			listeners := buildInboundNetworkFilters(env.PushContext, &proxy, instance)
-			tcp := &tcp_proxy.TcpProxy{}
+			listeners := buildInboundNetworkFilters(env.PushContext, instance)
+			tcp := &tcp.TcpProxy{}
 			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)
@@ -208,15 +205,16 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 
-			env := buildListenerEnv(services, nil)
+			env := buildListenerEnv(services)
 			env.PushContext.InitContext(&env, nil, nil)
 			env.PushContext.Mesh.OutboundClusterStatName = tt.statPattern
 
+			proxy := getProxy()
 			proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
 			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
 
-			listeners := buildOutboundNetworkFilters(&proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, model.ConfigMeta{Name: "test.com", Namespace: "ns"})
-			tcp := &tcp_proxy.TcpProxy{}
+			listeners := buildOutboundNetworkFilters(proxy, tt.routes, env.PushContext, &model.Port{Port: 9999}, model.ConfigMeta{Name: "test.com", Namespace: "ns"})
+			tcp := &tcp.TcpProxy{}
 			ptypes.UnmarshalAny(listeners[0].GetTypedConfig(), tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
 				t.Fatalf("Unexpected Stat Prefix, Expecting %s, Got %s", tt.expectedStatPrefix, tcp.StatPrefix)

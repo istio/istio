@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ spec:
 `
 
 func TestFileSnapshotNoFilter(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{"gateway.yml": []byte(gatewayYAML)},
@@ -83,7 +83,7 @@ func TestFileSnapshotNoFilter(t *testing.T) {
 }
 
 func TestFileSnapshotWithFilter(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{
@@ -105,7 +105,7 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 }
 
 func TestFileSnapshotSorting(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{

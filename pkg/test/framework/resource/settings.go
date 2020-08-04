@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,9 @@ import (
 	"path"
 	"strings"
 
-	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-
 	"github.com/google/uuid"
+
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 const (
@@ -36,9 +35,6 @@ type Settings struct {
 	TestID string
 
 	RunID uuid.UUID
-
-	// Environment to run the tests in. By default, a local environment will be used.
-	Environment string
 
 	// Do not cleanup the resources after the test run.
 	NoCleanup bool
@@ -56,6 +52,10 @@ type Settings struct {
 	// The number of times to retry failed tests.
 	// This should not be depended on as a primary means for reducing test flakes.
 	Retries int
+
+	// If enabled, namespaces will be reused rather than created with dynamic names each time.
+	// This is useful when combined with NoCleanup, to allow quickly iterating on tests.
+	StableNamespaces bool
 
 	// The label selector that the user has specified.
 	SelectorString string
@@ -91,8 +91,7 @@ func (s *Settings) Clone() *Settings {
 // DefaultSettings returns a default settings instance.
 func DefaultSettings() *Settings {
 	return &Settings{
-		Environment: environment.DefaultName().String(),
-		RunID:       uuid.New(),
+		RunID: uuid.New(),
 	}
 }
 
@@ -100,7 +99,6 @@ func DefaultSettings() *Settings {
 func (s *Settings) String() string {
 	result := ""
 
-	result += fmt.Sprintf("Environment:       %v\n", s.Environment)
 	result += fmt.Sprintf("TestID:            %s\n", s.TestID)
 	result += fmt.Sprintf("RunID:             %s\n", s.RunID.String())
 	result += fmt.Sprintf("NoCleanup:         %v\n", s.NoCleanup)

@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,13 +25,14 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/api/networking/v1beta1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/pkg/log"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
 )
@@ -39,13 +40,9 @@ import (
 var (
 	inFilenames        []string
 	outConvertFilename string
-
-	schemas = collection.SchemasFor(
-		collections.IstioNetworkingV1Alpha3Virtualservices,
-		collections.IstioNetworkingV1Alpha3Gateways)
 )
 
-func convertConfigs(readers []io.Reader, writer io.Writer) error {
+func convertConfigs(readers []io.Reader, writer io.Writer, client kubernetes.Interface) error {
 	configs, ingresses, err := readConfigs(readers)
 	if err != nil {
 		return err
@@ -63,14 +60,14 @@ func convertConfigs(readers []io.Reader, writer io.Writer) error {
 	}
 
 	out := make([]model.Config, 0)
-	convertedIngresses, err := convert.IstioIngresses(ingresses, "")
+	convertedIngresses, err := convert.IstioIngresses(ingresses, "", client)
 	if err == nil {
 		out = append(out, convertedIngresses...)
 	} else {
 		return multierror.Prefix(err, "Ingress rules invalid")
 	}
 
-	writeYAMLOutput(schemas, out, writer)
+	writeYAMLOutput(out, writer)
 
 	// sanity check that the outputs are valid
 	if err := validateConfigs(out); err != nil {
@@ -132,14 +129,9 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 	return out, outIngresses, nil
 }
 
-func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer io.Writer) {
+func writeYAMLOutput(configs []model.Config, writer io.Writer) {
 	for i, cfg := range configs {
-		s, exists := schemas.FindByGroupVersionKind(cfg.GroupVersionKind())
-		if !exists {
-			log.Errorf("Unknown kind %q for %v", cfg.Type, cfg.Name)
-			continue
-		}
-		obj, err := crd.ConvertConfig(s, cfg)
+		obj, err := crd.ConvertConfig(cfg)
 		if err != nil {
 			log.Errorf("Could not decode %v: %v", cfg.Name, err)
 			continue
@@ -159,7 +151,7 @@ func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer 
 func validateConfigs(configs []model.Config) error {
 	var errs error
 	for _, cfg := range configs {
-		if collections.IstioNetworkingV1Alpha3Virtualservices.Resource().Kind() == cfg.Type {
+		if collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() == cfg.GroupVersionKind {
 			if err := validation.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
 				errs = multierror.Append(err, errs)
 			}
@@ -196,6 +188,12 @@ func convertIngress() *cobra.Command {
 			"The conversion of v1alpha1 Istio rules has been removed from istioctl.",
 		Example: "istioctl convert-ingress -f samples/bookinfo/platform/kube/bookinfo-ingress.yaml",
 		RunE: func(c *cobra.Command, args []string) error {
+			var opts clioptions.ControlPlaneOptions
+			client, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
+			if err != nil {
+				return fmt.Errorf("failed to create k8s client: %v", err)
+			}
+
 			if len(inFilenames) == 0 {
 				return fmt.Errorf("no input files provided")
 			}
@@ -234,7 +232,7 @@ func convertIngress() *cobra.Command {
 				writer = file
 			}
 
-			return convertConfigs(readers, writer)
+			return convertConfigs(readers, writer, client)
 		},
 	}
 

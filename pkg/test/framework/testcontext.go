@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // TestContext is a test-level context that can be created as part of test executing tests.
@@ -41,7 +42,7 @@ type TestContext interface {
 	// create their own Golang *testing.T with the name provided.
 	//
 	// If this TestContext was not created by a Test or if that Test is not running, this method will panic.
-	NewSubTest(name string) *Test
+	NewSubTest(name string) Test
 
 	// WorkDir allocated for this test.
 	WorkDir() string
@@ -51,9 +52,6 @@ type TestContext interface {
 
 	// CreateTmpDirectoryOrFail creates a new temporary directory with the given prefix in the workdir, or fails the test.
 	CreateTmpDirectoryOrFail(prefix string) string
-
-	// RequireOrSkip skips the test if the environment is not as expected.
-	RequireOrSkip(envName environment.Name)
 
 	// WhenDone runs the given function when the test context completes.
 	// This function may not (safely) access the test context.
@@ -81,11 +79,13 @@ var _ test.Failer = &testContext{}
 
 // testContext for the currently executing test.
 type testContext struct {
+	yml.FileWriter
+
 	// The id of the test context. useful for debugging the test framework itself.
 	id string
 
 	// The currently running Test. Non-nil if this context was created by a Test
-	test *Test
+	test *testImpl
 
 	// The underlying Go testing.T for this context.
 	*testing.T
@@ -100,7 +100,48 @@ type testContext struct {
 	workDir string
 }
 
-func newTestContext(test *Test, goTest *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
+// Before executing a new context, we should wait for existing contexts to terminate if they are NOT parents of this context.
+// This is to workaround termination of functions run with RunParallel. When this is used, child tests will not run until the parent
+// has terminated. This means that the parent cannot synchronously cleanup, or it would block its children. However, if we do async cleanup,
+// then new tests can unexpectedly start during the cleanup of another. This may lead to odd results, like a test cleanup undoing the setup of a future test.
+// To workaround this, we maintain a set of all contexts currently terminating. Before starting the context, we will search this set;
+// if any non-parent contexts are found, we will wait.
+func waitForParents(test *testImpl) {
+	iterations := 0
+	for {
+		iterations++
+		done := true
+		globalParentLock.Range(func(key, value interface{}) bool {
+			k := key.(*testImpl)
+			current := test
+			for current != nil {
+				if current == k {
+					return true
+				}
+				current = current.parent
+
+			}
+			// We found an item in the list, and we are *not* a child of it. This means another test hierarchy has exclusive access right now
+			// Wait until they are finished before proceeding
+			done = false
+			return true
+		})
+		if done {
+			return
+		}
+		time.Sleep(time.Millisecond * 50)
+		// Add some logging in case something locks up so we can debug
+		if iterations%10 == 0 {
+			globalParentLock.Range(func(key, value interface{}) bool {
+				scopes.Framework.Warnf("Stuck waiting for parent test suites to terminate... %v is blocking", key.(*testImpl).goTest.Name())
+				return true
+			})
+		}
+	}
+}
+
+func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentScope *scope, labels label.Set) *testContext {
+	waitForParents(test)
 	id := s.allocateContextID(goTest.Name())
 
 	allLabels := s.suiteLabels.Merge(labels)
@@ -122,12 +163,13 @@ func newTestContext(test *Test, goTest *testing.T, s *suiteContext, parentScope 
 
 	scopeID := fmt.Sprintf("[%s]", id)
 	return &testContext{
-		id:      id,
-		test:    test,
-		T:       goTest,
-		suite:   s,
-		scope:   newScope(scopeID, parentScope),
-		workDir: workDir,
+		id:         id,
+		test:       test,
+		T:          goTest,
+		suite:      s,
+		scope:      newScope(scopeID, parentScope),
+		workDir:    workDir,
+		FileWriter: yml.NewFileWriter(workDir),
 	}
 }
 
@@ -142,12 +184,20 @@ func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
+func (c *testContext) GetResource(ref interface{}) error {
+	return c.scope.get(ref)
+}
+
 func (c *testContext) WorkDir() string {
 	return c.workDir
 }
 
 func (c *testContext) Environment() resource.Environment {
 	return c.suite.environment
+}
+
+func (c *testContext) Clusters() resource.Clusters {
+	return c.Environment().Clusters()
 }
 
 func (c *testContext) CreateDirectory(name string) (string, error) {
@@ -182,6 +232,10 @@ func (c *testContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
+func (c *testContext) Config(clusters ...resource.Cluster) resource.ConfigManager {
+	return newConfigManager(c, clusters)
+}
+
 func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
 	tmp, err := c.CreateTmpDirectory(prefix)
 	if err != nil {
@@ -190,17 +244,11 @@ func (c *testContext) CreateTmpDirectoryOrFail(prefix string) string {
 	return tmp
 }
 
-func (c *testContext) RequireOrSkip(envName environment.Name) {
-	if c.Environment().EnvironmentName() != envName {
-		c.Skipf("Skipping %q: expected environment not found: %s", c.Name(), envName)
-	}
-}
-
-func (c *testContext) newChildContext(test *Test) *testContext {
+func (c *testContext) newChildContext(test *testImpl) *testContext {
 	return newTestContext(test, test.goTest, c.suite, c.scope, label.NewSet(test.labels...))
 }
 
-func (c *testContext) NewSubTest(name string) *Test {
+func (c *testContext) NewSubTest(name string) Test {
 	if c.test == nil {
 		panic(fmt.Sprintf("Attempting to create subtest %s from a TestContext with no associated Test", name))
 	}
@@ -209,10 +257,11 @@ func (c *testContext) NewSubTest(name string) *Test {
 		panic(fmt.Sprintf("Attempting to create subtest %s before running parent", name))
 	}
 
-	return &Test{
-		name:   name,
-		parent: c.test,
-		s:      c.test.s,
+	return &testImpl{
+		name:          name,
+		parent:        c.test,
+		s:             c.test.s,
+		featureLabels: c.test.featureLabels,
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,12 @@ type Port struct {
 
 	// TLS determines if the port will use TLS.
 	TLS bool
+
+	// ServerFirst if a port will be server first
+	ServerFirst bool
 }
 
 // PortList is a set of ports
 type PortList []*Port
+
+var ServerFirstMagicString = "server-first-protocol\n"

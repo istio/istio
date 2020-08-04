@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,15 +25,17 @@ func ProfileCmd() *cobra.Command {
 		Short: "Commands related to Istio configuration profiles",
 		Long:  "The profile subcommand lists, dumps or diffs Istio configuration profiles.",
 		Example: "istioctl profile list\n" +
-			"istioctl manifest apply --set profile=demo  # Use a profile from the list",
+			"istioctl install --set profile=demo  # Use a profile from the list",
 	}
 
 	pdArgs := &profileDumpArgs{}
+	plArgs := &profileListArgs{}
+	pdfArgs := &profileDiffArgs{}
 	args := &rootArgs{}
 
-	plc := profileListCmd(args)
+	plc := profileListCmd(args, plArgs)
 	pdc := profileDumpCmd(args, pdArgs)
-	pdfc := profileDiffCmd(args)
+	pdfc := profileDiffCmd(args, pdfArgs)
 
 	addFlags(pc, args)
 	addFlags(plc, args)
@@ -41,6 +43,8 @@ func ProfileCmd() *cobra.Command {
 	addFlags(pdfc, args)
 
 	addProfileDumpFlags(pdc, pdArgs)
+	addProfileListFlags(plc, plArgs)
+	addProfileDiffFlags(pdfc, pdfArgs)
 
 	pc.AddCommand(plc)
 	pc.AddCommand(pdc)

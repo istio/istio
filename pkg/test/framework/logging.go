@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@ package framework
 
 import (
 	"flag"
+	"io/ioutil"
 
-	"istio.io/istio/pkg/test/scopes"
+	"google.golang.org/grpc/grpclog"
+
 	"istio.io/pkg/log"
 )
 
@@ -35,14 +37,11 @@ func init() {
 		flag.BoolVar)
 }
 
-func configureLogging(ciMode bool) error {
+func configureLogging() error {
 	o := *logOptionsFromCommandline
 
-	if ciMode {
-		o.SetOutputLevel(scopes.CI.Name(), log.InfoLevel)
-	} else {
-		o.SetOutputLevel(scopes.CI.Name(), log.NoneLevel)
-	}
+	o.LogGrpc = false
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 
 	return log.Configure(&o)
 }

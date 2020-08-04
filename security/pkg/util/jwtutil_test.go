@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ import (
 
 var (
 	// thirdPartyJwt is generated in a testing K8s cluster, using the "istio-token" projected volume.
-	// Expiration time is 2020-04-04 22:13:54.
+	// Token is issued at 2020-04-04 22:13:54 Pacific Daylight time.
+	// Expiration time is 2020-04-05 10:13:54 Pacific Daylight time.
 	thirdPartyJwt = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9." +
 		"eyJhdWQiOlsieW9uZ2dhbmdsLWlzdGlvLTQuc3ZjLmlkLmdvb2ciXSwiZXhwIjoxNTg2MTA2ODM0LCJpYXQiOjE1" +
 		"ODYwNjM2MzQsImlzcyI6Imh0dHBzOi8vY29udGFpbmVyLmdvb2dsZWFwaXMuY29tL3YxL3Byb2plY3RzL3lvbmdn" +
@@ -59,7 +60,7 @@ func TestIsJwtExpired(t *testing.T) {
 	}{
 		"Not expired JWT": {
 			jwt:       thirdPartyJwt,
-			now:       time.Date(2019, time.November, 10, 23, 0, 0, 0, time.UTC),
+			now:       time.Date(2020, time.April, 5, 6, 0, 0, 0, time.FixedZone("UTC-7", 0)),
 			expResult: false,
 			expErr:    nil,
 		},

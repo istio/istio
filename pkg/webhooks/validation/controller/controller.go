@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,21 +27,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
+	multierror "github.com/hashicorp/go-multierror"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	kubeLabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers"
+	admissionregistrationv1 "k8s.io/client-go/informers/admissionregistration/v1"
+	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -49,15 +49,15 @@ import (
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
 
 type Options struct {
-	// Istio system namespace in which galley and istiod reside.
+	// Istio system namespace where istiod resides.
 	WatchedNamespace string
 
 	// Periodically resync with the kube-apiserver. Set to zero to disable.
@@ -74,22 +74,8 @@ type Options struct {
 	// Name of the service running the webhook server.
 	ServiceName string
 
-	// If true, the controller will run but actively try to remove the
-	// validatingwebhookconfiguration instead of creating it. This is
-	// useful in cases where validation was previously enabled and
-	// subsequently disabled. The controller can clean up after itself
-	// without relying on the user to manually delete configs.
-	// Deprecated: istiod webhook controller shouldn't use this.
-	UnregisterValidationWebhook bool
-}
-
-func DefaultArgs() Options {
-	return Options{
-		WatchedNamespace:  "istio-system",
-		CAPath:            constants.DefaultRootCert,
-		WebhookConfigName: "istio-galley",
-		ServiceName:       "istio-galley",
-	}
+	// RemoteWebhookConfig defines whether the webhook config is coming from remote cluster
+	RemoteWebhookConfig bool
 }
 
 // Validate the options that exposed to end users
@@ -118,26 +104,30 @@ func (o Options) String() string {
 	_, _ = fmt.Fprintf(buf, "CAPath: %v\n", o.CAPath)
 	_, _ = fmt.Fprintf(buf, "WebhookConfigName: %v\n", o.WebhookConfigName)
 	_, _ = fmt.Fprintf(buf, "ServiceName: %v\n", o.ServiceName)
-	_, _ = fmt.Fprintf(buf, "UnregisterValidationWebhook: %v\n", o.UnregisterValidationWebhook)
 	return buf.String()
 }
 
 type readFileFunc func(filename string) ([]byte, error)
 
 type Controller struct {
-	o                             Options
-	client                        kubernetes.Interface
-	dynamicResourceInterface      dynamic.ResourceInterface
+	o                        Options
+	client                   kubernetes.Interface
+	dynamicResourceInterface dynamic.ResourceInterface
+	endpointsInformer        v1.EndpointsInformer
+	webhookInformer          admissionregistrationv1.ValidatingWebhookConfigurationInformer
+
 	queue                         workqueue.RateLimitingInterface
-	sharedInformers               informers.SharedInformerFactory
-	endpointReadyOnce             bool
 	dryRunOfInvalidConfigRejected bool
 	fw                            filewatcher.FileWatcher
+
+	stopCh <-chan struct{}
 
 	// unittest hooks
 	readFile      readFileFunc
 	reconcileDone func()
 }
+
+const QuitSignal = "unblock client on queue.Get return and exit the current go routine"
 
 type reconcileRequest struct {
 	description string
@@ -230,14 +220,13 @@ var (
 	}
 )
 
-func New(o Options, client kubernetes.Interface, dface dynamic.Interface) (*Controller, error) {
-	return newController(o, client, dface, filewatcher.NewWatcher, ioutil.ReadFile, nil)
+func New(o Options, client kube.Client) (*Controller, error) {
+	return newController(o, client, filewatcher.NewWatcher, ioutil.ReadFile, nil)
 }
 
 func newController(
 	o Options,
-	client kubernetes.Interface,
-	dface dynamic.Interface,
+	client kube.Client,
 	newFileWatcher filewatcher.NewFileWatcherFunc,
 	readFile readFileFunc,
 	reconcileDone func(),
@@ -247,7 +236,7 @@ func newController(
 		return nil, err
 	}
 
-	dynamicResourceInterface := dface.Resource(istioGatewayGVK).Namespace(o.WatchedNamespace)
+	dynamicResourceInterface := client.Dynamic().Resource(istioGatewayGVK).Namespace(o.WatchedNamespace)
 
 	c := &Controller{
 		o:                        o,
@@ -259,24 +248,27 @@ func newController(
 		reconcileDone:            reconcileDone,
 	}
 
-	c.sharedInformers = informers.NewSharedInformerFactoryWithOptions(client, o.ResyncPeriod,
-		informers.WithNamespace(o.WatchedNamespace))
+	c.webhookInformer = client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations()
+	c.webhookInformer.Informer().AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
 
-	webhookInformer := c.sharedInformers.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer()
-	webhookInformer.AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
-
-	endpointInformer := c.sharedInformers.Core().V1().Endpoints().Informer()
-	endpointInformer.AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	if !o.RemoteWebhookConfig {
+		c.endpointsInformer = client.KubeInformer().Core().V1().Endpoints()
+		c.endpointsInformer.Informer().AddEventHandler(makeHandler(c.queue, endpointGVK, o.ServiceName))
+	}
 
 	return c, nil
 }
 
 func (c *Controller) Start(stop <-chan struct{}) {
+	c.stopCh = stop
 	go c.startFileWatcher(stop)
-	go c.sharedInformers.Start(stop)
-
-	for _, ready := range c.sharedInformers.WaitForCacheSync(stop) {
-		if !ready {
+	if !cache.WaitForCacheSync(stop, c.webhookInformer.Informer().HasSynced) {
+		log.Errorf("failed to wait for cache sync")
+		return
+	}
+	if c.endpointsInformer != nil {
+		if !cache.WaitForCacheSync(stop, c.endpointsInformer.Informer().HasSynced) {
+			log.Errorf("failed to wait for cache sync")
 			return
 		}
 	}
@@ -285,6 +277,9 @@ func (c *Controller) Start(stop <-chan struct{}) {
 	c.queue.Add(req)
 
 	go c.runWorker()
+
+	<-stop
+	c.queue.Add(&reconcileRequest{QuitSignal})
 }
 
 func (c *Controller) startFileWatcher(stop <-chan struct{}) {
@@ -320,6 +315,12 @@ func (c *Controller) processNextWorkItem() (cont bool) {
 		return true
 	}
 
+	// return false when leader lost in case go routine leak.
+	if req.description == QuitSignal {
+		c.queue.Forget(req)
+		return false
+	}
+
 	if err := c.reconcileRequest(req); err != nil {
 		c.queue.AddRateLimited(obj)
 		utilruntime.HandleError(err)
@@ -340,20 +341,11 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
-	if c.o.UnregisterValidationWebhook {
-		return c.deleteValidatingWebhookConfiguration()
-	}
-
-	ready, err := c.readyForFailClose()
-	if err != nil {
-		return err
-	}
-
 	failurePolicy := kubeApiAdmission.Ignore
+	ready := c.readyForFailClose()
 	if ready {
 		failurePolicy = kubeApiAdmission.Fail
 	}
-
 	caBundle, err := c.loadCABundle()
 	if err != nil {
 		scope.Errorf("Failed to load CA bundle: %v", err)
@@ -364,46 +356,18 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 	return c.updateValidatingWebhookConfiguration(caBundle, failurePolicy)
 }
 
-func (c *Controller) readyForFailClose() (bool, error) {
-	// don't create the webhook config before the endpoint is ready
-	if !c.endpointReadyOnce {
-		ready, reason, err := c.isEndpointReady()
-		if err != nil {
-			scope.Errorf("Error checking endpoint readiness: %v", err)
-			return false, err
-		}
-		if !ready {
-			scope.Infof("Endpoint %v is not ready: %v", c.o.ServiceName, reason)
-			return false, nil
-		}
-		scope.Infof("Endpoint %v is not ready", c.o.ServiceName)
-		c.endpointReadyOnce = true
-	}
-
+func (c *Controller) readyForFailClose() bool {
 	if !c.dryRunOfInvalidConfigRejected {
 		if rejected, reason := c.isDryRunOfInvalidConfigRejected(); !rejected {
 			scope.Infof("Not ready to switch validation to fail-closed: %v", reason)
 			req := &reconcileRequest{"retry dry-run creation of invalid config"}
 			c.queue.AddAfter(req, time.Second)
-			return false, nil
+			return false
 		}
 		scope.Info("Endpoint successfully rejected invalid config. Switching to fail-close.")
 		c.dryRunOfInvalidConfigRejected = true
 	}
-	return true, nil
-}
-
-func (c *Controller) isEndpointReady() (ready bool, reason string, err error) {
-	endpoint, err := c.sharedInformers.Core().V1().
-		Endpoints().Lister().Endpoints(c.o.WatchedNamespace).Get(c.o.ServiceName)
-	if err != nil {
-		if kubeErrors.IsNotFound(err) {
-			return false, "resource not found", nil
-		}
-		return false, fmt.Sprintf("error getting resource: %v", err), err
-	}
-	ready, reason = isEndpointReady(endpoint)
-	return ready, reason, nil
+	return true
 }
 
 const (
@@ -441,45 +405,8 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	return false, fmt.Sprintf("dummy invalid rejected for the wrong reason: %v", err)
 }
 
-func isEndpointReady(endpoint *kubeApiCore.Endpoints) (ready bool, reason string) {
-	if len(endpoint.Subsets) == 0 {
-		return false, "no subsets"
-	}
-	for _, subset := range endpoint.Subsets {
-		if len(subset.Addresses) > 0 {
-			return true, ""
-		}
-	}
-	return false, "no subset addresses ready"
-}
-
-func (c *Controller) galleyPodsRunning() (running bool, err error) {
-	selector := kubeLabels.SelectorFromSet(map[string]string{"istio": "galley"})
-	pods, err := c.sharedInformers.Core().V1().Pods().Lister().List(selector)
-	if err != nil {
-		return true, err
-	}
-	if len(pods) > 0 {
-		return true, nil
-	}
-	return false, nil
-}
-
-func (c *Controller) deleteValidatingWebhookConfiguration() error {
-	err := c.client.AdmissionregistrationV1beta1().
-		ValidatingWebhookConfigurations().Delete(context.TODO(), c.o.WebhookConfigName, kubeApiMeta.DeleteOptions{})
-	if err != nil {
-		scope.Errorf("Failed to delete validatingwebhookconfiguration: %v", err)
-		reportValidationConfigDeleteError(kubeErrors.ReasonForError(err))
-		return err
-	}
-	scope.Info("Successfully deleted validatingwebhookconfiguration")
-	return nil
-}
-
 func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failurePolicy kubeApiAdmission.FailurePolicyType) error {
-	current, err := c.sharedInformers.Admissionregistration().V1beta1().
-		ValidatingWebhookConfigurations().Lister().Get(c.o.WebhookConfigName)
+	current, err := c.webhookInformer.Lister().Get(c.o.WebhookConfigName)
 
 	if err != nil {
 		if kubeErrors.IsNotFound(err) {
@@ -501,7 +428,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 	}
 
 	if !reflect.DeepEqual(updated, current) {
-		latest, err := c.client.AdmissionregistrationV1beta1().
+		latest, err := c.client.AdmissionregistrationV1().
 			ValidatingWebhookConfigurations().Update(context.TODO(), updated, kubeApiMeta.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",

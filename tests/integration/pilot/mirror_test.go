@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,11 +30,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/istio/tests/integration/mixer/outboundtrafficpolicy"
 )
 
 //	Virtual service topology
@@ -47,24 +44,23 @@ import (
 
 type VirtualServiceMirrorConfig struct {
 	Name       string
-	Namespace  string
 	Absent     bool
 	Percent    float64
 	MirrorHost string
 }
 
 type testCaseMirror struct {
-	name       string
-	absent     bool
-	percentage float64
-	threshold  float64
+	name                string
+	absent              bool
+	percentage          float64
+	threshold           float64
+	expectedDestination echo.Instance
 }
 
 type mirrorTestOptions struct {
-	t              *testing.T
-	cases          []testCaseMirror
-	mirrorHost     string
-	fnInjectConfig func(ns namespace.Instance, instances [3]echo.Instance)
+	t          *testing.T
+	cases      []testCaseMirror
+	mirrorHost string
 }
 
 var (
@@ -102,108 +98,45 @@ func TestMirroring(t *testing.T) {
 	})
 }
 
-// Tests mirroring to an external service. Uses same topology as the test above, a -> b -> c, with "c" being external.
+// Tests mirroring to an external service. Uses same topology as the test above, a -> b -> external, with "external" being external.
 //
 // Since we don't want to rely on actual external websites, we simulate that by using a Sidecar to limit connectivity
-// from "a" so that it cannot reach "c" directly, and we use a ServiceEntry to define our "external" website, which
-// is static and points to the service "c" ip.
+// from "a" so that it cannot reach "external" directly, and we use a ServiceEntry to define our "external" website, which
+// is static and points to the service "external" ip.
 
-// Thus when "a" tries to mirror to the external service, it is actually connecting to "c" (which is not part of the
-// mesh because of the Sidecar), then we can inspect "c" logs to verify the requests were properly mirrored.
-
-const (
-	fakeExternalURL = "external-website-url-just-for-testing.extension"
-
-	serviceEntry = `
-apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: external-service
-spec:
-  hosts:
-  - %s
-  location: MESH_EXTERNAL
-  ports:
-  - name: http
-    number: 80
-    protocol: HTTP
-  - name: grpc
-    number: 7070
-    protocol: GRPC
-  resolution: STATIC
-  endpoints:
-  - address: %s
-`
-
-	sidecar = `
-apiVersion: networking.istio.io/v1alpha3
-kind: Sidecar
-metadata:
-  name: restrict-to-service-entry
-spec:
-  egress:
-  - hosts:
-    - "./b.%s.svc.%s"
-    - "*/%s"
-  outboundTrafficPolicy:
-    mode: REGISTRY_ONLY
-`
-)
-
+// Thus when "a" tries to mirror to the external service, it is actually connecting to "external" (which is not part of the
+// mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
 	cases := []testCaseMirror{
 		{
-			name:       "mirror-external",
-			absent:     true,
-			percentage: 100.0,
-			threshold:  0.0,
+			name:                "mirror-external",
+			absent:              true,
+			percentage:          100.0,
+			threshold:           0.0,
+			expectedDestination: apps.external,
 		},
 	}
 
 	runMirrorTest(mirrorTestOptions{
 		t:          t,
 		cases:      cases,
-		mirrorHost: fakeExternalURL,
-		fnInjectConfig: func(ns namespace.Instance, instances [3]echo.Instance) {
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(sidecar, ns.Name(),
-				instances[1].Config().Domain, fakeExternalURL))
-			g.ApplyConfigOrFail(t, ns, fmt.Sprintf(serviceEntry, fakeExternalURL, instances[2].Address()))
-			if err := outboundtrafficpolicy.WaitUntilNotCallable(instances[0], instances[2]); err != nil {
-				t.Fatalf("failed to apply sidecar, %v", err)
-			}
-		},
+		mirrorHost: apps.externalHost,
 	})
 }
 
 func runMirrorTest(options mirrorTestOptions) {
 	framework.
 		NewTest(options.t).
+		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-			ns := namespace.NewOrFail(options.t, ctx, namespace.Config{
-				Prefix: "mirroring",
-				Inject: true,
-			})
-
-			var instances [3]echo.Instance
-			echoboot.NewBuilderOrFail(options.t, ctx).
-				With(&instances[0], echoConfig(ns, "a")). // client
-				With(&instances[1], echoConfig(ns, "b")). // target
-				With(&instances[2], echoConfig(ns, "c")). // receives mirrored requests
-				BuildOrFail(options.t)
-
-			if options.fnInjectConfig != nil {
-				options.fnInjectConfig(ns, instances)
-			}
-
 			for _, c := range options.cases {
 				options.t.Run(c.name, func(t *testing.T) {
 					mirrorHost := options.mirrorHost
 					if len(mirrorHost) == 0 {
-						mirrorHost = instances[2].Config().Service
+						mirrorHost = apps.podC.Config().Service
 					}
 					vsc := VirtualServiceMirrorConfig{
 						c.name,
-						ns.Name(),
 						c.absent,
 						c.percentage,
 						mirrorHost,
@@ -211,21 +144,21 @@ func runMirrorTest(options mirrorTestOptions) {
 
 					deployment := tmpl.EvaluateOrFail(t,
 						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					g.ApplyConfigOrFail(t, ns, deployment)
-					defer g.DeleteConfigOrFail(t, ns, deployment)
+					ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), deployment)
+					defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), deployment)
 
 					for _, proto := range mirrorProtocols {
 						t.Run(string(proto), func(t *testing.T) {
 							retry.UntilSuccessOrFail(t, func() error {
 								testID := util.RandomString(16)
-								if err := sendTrafficMirror(instances, proto, testID); err != nil {
+								if err := sendTrafficMirror(apps.podA, apps.podB, proto, testID); err != nil {
 									return err
 								}
-
-								if err := verifyTrafficMirror(instances, c, testID); err != nil {
-									return err
+								expected := c.expectedDestination
+								if expected == nil {
+									expected = apps.podC
 								}
-								return nil
+								return verifyTrafficMirror(apps.podB, expected, c, testID)
 							}, retry.Delay(time.Second))
 						})
 					}
@@ -234,9 +167,9 @@ func runMirrorTest(options mirrorTestOptions) {
 		})
 }
 
-func sendTrafficMirror(instances [3]echo.Instance, proto protocol.Instance, testID string) error {
+func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
-		Target:   instances[1],
+		Target:   to,
 		Count:    50,
 		PortName: strings.ToLower(string(proto)),
 	}
@@ -249,7 +182,7 @@ func sendTrafficMirror(instances [3]echo.Instance, proto protocol.Instance, test
 		return fmt.Errorf("protocol not supported in mirror testing: %s", proto)
 	}
 
-	_, err := instances[0].Call(options)
+	_, err := from.Call(options)
 	if err != nil {
 		return err
 	}
@@ -257,13 +190,13 @@ func sendTrafficMirror(instances [3]echo.Instance, proto protocol.Instance, test
 	return nil
 }
 
-func verifyTrafficMirror(instances [3]echo.Instance, tc testCaseMirror, testID string) error {
-	countB, err := logCount(instances[1], testID)
+func verifyTrafficMirror(dest, mirror echo.Instance, tc testCaseMirror, testID string) error {
+	countB, err := logCount(dest, testID)
 	if err != nil {
 		return err
 	}
 
-	countC, err := logCount(instances[2], testID)
+	countC, err := logCount(mirror, testID)
 	if err != nil {
 		return err
 	}
@@ -291,11 +224,11 @@ func logCount(instance echo.Instance, testID string) (float64, error) {
 
 	var logs string
 	for _, w := range workloads {
-		log, err := w.Logs()
+		l, err := w.Logs()
 		if err != nil {
-			return -1, err
+			return -1, fmt.Errorf("failed getting logs: %v", err)
 		}
-		logs += log
+		logs += l
 	}
 
 	return float64(strings.Count(logs, testID)), nil

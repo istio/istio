@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,17 +25,13 @@ import (
 	"strings"
 	"time"
 
-	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	authn "istio.io/api/authentication/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
-	rbac "istio.io/api/rbac/v1alpha1"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/pkg/log"
@@ -138,16 +134,6 @@ func ValidatePort(port int) error {
 	return fmt.Errorf("port number %d must be in the range 1..65535", port)
 }
 
-// ValidatePorts checks if all ports are in range [0, 65535]
-func ValidatePorts(ports []int32) bool {
-	for _, port := range ports {
-		if ValidatePort(int(port)) != nil {
-			return false
-		}
-	}
-	return true
-}
-
 // ValidateFQDN checks a fully-qualified domain name
 func ValidateFQDN(fqdn string) error {
 	if err := checkDNS1123Preconditions(fqdn); err != nil {
@@ -198,42 +184,6 @@ func validateDNS1123Labels(domain string) error {
 		}
 	}
 	return nil
-}
-
-// ValidateMixerService checks for validity of a service reference
-func ValidateMixerService(svc *mccpb.IstioService) (errs error) {
-	if svc.Name == "" && svc.Service == "" {
-		errs = multierror.Append(errs, errors.New("name or service is mandatory for a service reference"))
-	} else if svc.Service != "" && svc.Name != "" {
-		errs = multierror.Append(errs, errors.New("specify either name or service, not both"))
-	} else if svc.Service != "" {
-		if svc.Namespace != "" {
-			errs = multierror.Append(errs, errors.New("namespace is not valid when service is provided"))
-		}
-		if svc.Domain != "" {
-			errs = multierror.Append(errs, errors.New("domain is not valid when service is provided"))
-		}
-	} else if svc.Name != "" {
-		if !labels.IsDNS1123Label(svc.Name) {
-			errs = multierror.Append(errs, fmt.Errorf("name %q must be a valid label", svc.Name))
-		}
-	}
-
-	if svc.Namespace != "" && !labels.IsDNS1123Label(svc.Namespace) {
-		errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", svc.Namespace))
-	}
-
-	if svc.Domain != "" {
-		if err := ValidateFQDN(svc.Domain); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	if err := labels.Instance(svc.Labels).Validate(); err != nil {
-		errs = multierror.Append(errs, err)
-	}
-
-	return
 }
 
 // ValidateHTTPHeaderName validates a header name
@@ -334,6 +284,10 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 		portNames := make(map[string]bool)
 
 		for _, s := range value.Servers {
+			if s == nil {
+				errs = appendErrors(errs, fmt.Errorf("server may not be nil"))
+				continue
+			}
 			if s.Port != nil {
 				if portNames[s.Port.Name] {
 					errs = appendErrors(errs, fmt.Errorf("port names in servers must be unique: duplicate name %s", s.Port.Name))
@@ -346,6 +300,9 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 	})
 
 func validateServer(server *networking.Server) (errs error) {
+	if server == nil {
+		return fmt.Errorf("cannot have nil server")
+	}
 	if len(server.Hosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("server config must contain at least one host"))
 	} else {
@@ -446,7 +403,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
-	func(_, _ string, msg proto.Message) (errs error) {
+	func(_, namespace string, msg proto.Message) (errs error) {
 		rule, ok := msg.(*networking.DestinationRule)
 		if !ok {
 			return fmt.Errorf("cannot cast to destination rule")
@@ -457,19 +414,64 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
+			if subset == nil {
+				errs = appendErrors(errs, errors.New("subset may not be null"))
+				continue
+			}
 			errs = appendErrors(errs, validateSubset(subset))
 		}
 
-		errs = appendErrors(errs, validateExportTo(rule.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, rule.ExportTo, false))
 		return
 	})
 
-func validateExportTo(exportTo []string) (errs error) {
+func validateExportTo(namespace string, exportTo []string, isServiceEntry bool) (errs error) {
 	if len(exportTo) > 0 {
-		if len(exportTo) > 1 {
-			errs = appendErrors(errs, fmt.Errorf("exportTo should have only one entry (. or *) in the current release"))
-		} else {
-			errs = appendErrors(errs, visibility.Instance(exportTo[0]).Validate())
+		// Make sure there are no duplicates
+		exportToMap := make(map[string]struct{})
+		for _, e := range exportTo {
+			key := e
+			if visibility.Instance(e) == visibility.Private {
+				// substitute this with the current namespace so that we
+				// can check for duplicates like ., namespace
+				key = namespace
+			}
+			if _, exists := exportToMap[key]; exists {
+				if key != e {
+					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo: . and current namespace %s", namespace))
+				} else {
+					errs = appendErrors(errs, fmt.Errorf("duplicate entries in exportTo for entry %s", e))
+				}
+			} else {
+				// if this is a serviceEntry, allow ~ in exportTo as it can be used to create
+				// a service that is not even visible within the local namespace to anyone other
+				// than the proxies of that service.
+				if isServiceEntry && visibility.Instance(e) == visibility.None {
+					exportToMap[key] = struct{}{}
+				} else {
+					if err := visibility.Instance(key).Validate(); err != nil {
+						errs = appendErrors(errs, err)
+					} else {
+						exportToMap[key] = struct{}{}
+					}
+				}
+			}
+		}
+
+		// Make sure we have only one of . or *
+		if _, public := exportToMap[string(visibility.Public)]; public {
+			// make sure that there are no other entries in the exportTo
+			// i.e. no point in saying ns1,ns2,*. Might as well say *
+			if len(exportTo) > 1 {
+				errs = appendErrors(errs, fmt.Errorf("cannot have both public (*) and non-public exportTo values for a resource"))
+			}
+		}
+
+		// if this is a service entry, then we need to disallow * and ~ together. Or ~ and other namespaces
+		if _, none := exportToMap[string(visibility.None)]; none {
+			if len(exportTo) > 1 {
+				errs = appendErrors(errs, fmt.Errorf("cannot export service entry to no one (~) and someone"))
+			}
 		}
 	}
 
@@ -507,6 +509,10 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 		}
 
 		for _, cp := range rule.ConfigPatches {
+			if cp == nil {
+				errs = appendErrors(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: golint,stylecheck
+				continue
+			}
 			if cp.ApplyTo == networking.EnvoyFilter_INVALID {
 				errs = appendErrors(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: golint,stylecheck
 				continue
@@ -556,9 +562,10 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 									continue
 								}
 								// sub filter match requires the network filter to match to envoy http connection manager
-								if listenerMatch.FilterChain.Filter.Name != xdsUtil.HTTPConnectionManager {
+								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
+									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
 									errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
-										xdsUtil.HTTPConnectionManager))
+										wellknown.HTTPConnectionManager))
 									continue
 								}
 								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
@@ -667,6 +674,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 
 		portMap := make(map[uint32]struct{})
 		for _, i := range rule.Ingress {
+			if i == nil {
+				errs = appendErrors(errs, fmt.Errorf("sidecar: ingress may not be null"))
+				continue
+			}
 			if i.Port == nil {
 				errs = appendErrors(errs, fmt.Errorf("sidecar: port is required for ingress listeners"))
 				continue
@@ -710,6 +721,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		udsMap := make(map[string]struct{})
 		catchAllEgressListenerFound := false
 		for index, i := range rule.Egress {
+			if i == nil {
+				errs = appendErrors(errs, errors.New("egress listener may not be null"))
+				continue
+			}
 			// there can be only one catch all egress listener with empty port, and it should be the last listener.
 			if i.Port == nil {
 				if !catchAllEgressListenerFound {
@@ -856,15 +871,8 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error)
 	if outlier.BaseEjectionTime != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
 	}
-	if outlier.ConsecutiveErrors < 0 {
-		errs = appendErrors(errs, fmt.Errorf("outlier detection consecutive errors cannot be negative"))
-	}
-	if outlier.Consecutive_5XxErrors != nil || outlier.ConsecutiveGatewayErrors != nil {
-		// ConsecutiveErrors is deprecated for Consecutive_5XxErrors and
-		// ConsecutiveGatewayErrors; they should not be set at the same time.
-		if outlier.ConsecutiveErrors > 0 {
-			errs = appendErrors(errs, fmt.Errorf("consecutive_errors should not be set with consecutive_5xx_errors or consecutive_gateway_errors"))
-		}
+	if outlier.ConsecutiveErrors != 0 {
+		scope.Warnf("outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead")
 	}
 	if outlier.Interval != nil {
 		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
@@ -942,6 +950,18 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 		return
 	}
 
+	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&
+		settings.CredentialName != "" {
+		if settings.ClientCertificate != "" || settings.CaCertificates != "" || settings.PrivateKey != "" {
+			errs = appendErrors(errs,
+				fmt.Errorf("cannot specify client certificates or CA certificate If credentialName is set"))
+		}
+
+		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
+		// remotely. ServerCertificate and CaCertificates fields are not required.
+		return
+	}
+
 	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
 		if settings.ClientCertificate == "" {
 			errs = appendErrors(errs, fmt.Errorf("client certificate required for mutual tls"))
@@ -962,6 +982,10 @@ func validateSubset(subset *networking.Subset) error {
 
 func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
 	for _, t := range pls {
+		if t == nil {
+			errs = appendErrors(errs, fmt.Errorf("traffic policy may not be null"))
+			continue
+		}
 		if t.Port == nil {
 			errs = appendErrors(errs, fmt.Errorf("portTrafficPolicy must have valid port"))
 		}
@@ -1147,18 +1171,6 @@ func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
 
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (errs error) {
-	if mesh.MixerCheckServer != "" {
-		if err := ValidateProxyAddress(mesh.MixerCheckServer); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid Policy Check Server address:"))
-		}
-	}
-
-	if mesh.MixerReportServer != "" {
-		if err := ValidateProxyAddress(mesh.MixerReportServer); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid Telemetry Server address:"))
-		}
-	}
-
 	if err := ValidatePort(int(mesh.ProxyListenPort)); err != nil {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid proxy listen port:"))
 	}
@@ -1290,294 +1302,6 @@ func ValidateProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
 	return
 }
 
-// ValidateMixerAttributes checks that Mixer attributes is
-// well-formed.
-func ValidateMixerAttributes(msg proto.Message) error {
-	in, ok := msg.(*mpb.Attributes)
-	if !ok {
-		return errors.New("cannot case to attributes")
-	}
-	if in == nil || len(in.Attributes) == 0 {
-		return errors.New("list of attributes is nil/empty")
-	}
-	var errs error
-	for k, v := range in.Attributes {
-		if v == nil {
-			errs = multierror.Append(errs, errors.New("an attribute cannot be empty"))
-			continue
-		}
-		switch val := v.Value.(type) {
-		case *mpb.Attributes_AttributeValue_StringValue:
-			if val.StringValue == "" {
-				errs = multierror.Append(errs,
-					fmt.Errorf("string attribute for %q should not be empty", k))
-			}
-		case *mpb.Attributes_AttributeValue_DurationValue:
-			if val.DurationValue == nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("duration attribute for %q should not be nil", k))
-			}
-			if err := ValidateGogoDuration(val.DurationValue); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		case *mpb.Attributes_AttributeValue_BytesValue:
-			if len(val.BytesValue) == 0 {
-				errs = multierror.Append(errs,
-					fmt.Errorf("bytes attribute for %q should not be ", k))
-			}
-		case *mpb.Attributes_AttributeValue_TimestampValue:
-			if val.TimestampValue == nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("timestamp attribute for %q should not be nil", k))
-			}
-			if _, err := types.TimestampFromProto(val.TimestampValue); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		case *mpb.Attributes_AttributeValue_StringMapValue:
-			if val.StringMapValue == nil || val.StringMapValue.Entries == nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("stringmap attribute for %q should not be nil", k))
-			}
-		}
-	}
-	return errs
-}
-
-// ValidateHTTPAPISpec checks that HTTPAPISpec is well-formed.
-var ValidateHTTPAPISpec = registerValidateFunc("ValidateHTTPAPISpec",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*mccpb.HTTPAPISpec)
-		if !ok {
-			return errors.New("cannot case to HTTPAPISpec")
-		}
-		var errs error
-		// top-level list of attributes is optional
-		if in.Attributes != nil {
-			if err := ValidateMixerAttributes(in.Attributes); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-		if len(in.Patterns) == 0 {
-			errs = multierror.Append(errs, errors.New("at least one pattern must be specified"))
-		}
-		for _, pattern := range in.Patterns {
-			if err := ValidateMixerAttributes(in.Attributes); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-			if pattern.HttpMethod == "" {
-				errs = multierror.Append(errs, errors.New("http_method cannot be empty"))
-			}
-			switch m := pattern.Pattern.(type) {
-			case *mccpb.HTTPAPISpecPattern_UriTemplate:
-				if m.UriTemplate == "" {
-					errs = multierror.Append(errs, errors.New("uri_template cannot be empty"))
-				}
-			case *mccpb.HTTPAPISpecPattern_Regex:
-				if m.Regex == "" {
-					errs = multierror.Append(errs, errors.New("regex cannot be empty"))
-				}
-			}
-		}
-		for _, key := range in.ApiKeys {
-			switch m := key.Key.(type) {
-			case *mccpb.APIKey_Query:
-				if m.Query == "" {
-					errs = multierror.Append(errs, errors.New("query cannot be empty"))
-				}
-			case *mccpb.APIKey_Header:
-				if m.Header == "" {
-					errs = multierror.Append(errs, errors.New("header cannot be empty"))
-				}
-			case *mccpb.APIKey_Cookie:
-				if m.Cookie == "" {
-					errs = multierror.Append(errs, errors.New("cookie cannot be empty"))
-				}
-			}
-		}
-		return errs
-	})
-
-// ValidateHTTPAPISpecBinding checks that HTTPAPISpecBinding is well-formed.
-var ValidateHTTPAPISpecBinding = registerValidateFunc("ValidateHTTPAPISpecBinding",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*mccpb.HTTPAPISpecBinding)
-		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
-		}
-		var errs error
-		if len(in.Services) == 0 {
-			errs = multierror.Append(errs, errors.New("at least one service must be specified"))
-		}
-		for _, service := range in.Services {
-			if err := ValidateMixerService(service); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-		if len(in.ApiSpecs) == 0 {
-			errs = multierror.Append(errs, errors.New("at least one spec must be specified"))
-		}
-		for _, spec := range in.ApiSpecs {
-			if spec.Name == "" {
-				errs = multierror.Append(errs, errors.New("name is mandatory for HTTPAPISpecReference"))
-			}
-			if spec.Namespace != "" && !labels.IsDNS1123Label(spec.Namespace) {
-				errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
-			}
-		}
-		return errs
-	})
-
-// ValidateQuotaSpec checks that Quota is well-formed.
-var ValidateQuotaSpec = registerValidateFunc("ValidateQuotaSpec",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*mccpb.QuotaSpec)
-		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
-		}
-		var errs error
-		if len(in.Rules) == 0 {
-			errs = multierror.Append(errs, errors.New("a least one rule must be specified"))
-		}
-		for _, rule := range in.Rules {
-			for _, match := range rule.Match {
-				for name, clause := range match.Clause {
-					if clause == nil {
-						errs = multierror.Append(errs, errors.New("a clause cannot be empty"))
-						continue
-					}
-					switch matchType := clause.MatchType.(type) {
-					case *mccpb.StringMatch_Exact:
-						if matchType.Exact == "" {
-							errs = multierror.Append(errs,
-								fmt.Errorf("StringMatch_Exact for attribute %q cannot be empty", name)) // nolint: golint
-						}
-					case *mccpb.StringMatch_Prefix:
-						if matchType.Prefix == "" {
-							errs = multierror.Append(errs,
-								fmt.Errorf("StringMatch_Prefix for attribute %q cannot be empty", name)) // nolint: golint
-						}
-					case *mccpb.StringMatch_Regex:
-						if matchType.Regex == "" {
-							errs = multierror.Append(errs,
-								fmt.Errorf("StringMatch_Regex for attribute %q cannot be empty", name)) // nolint: golint
-						}
-					}
-				}
-			}
-			if len(rule.Quotas) == 0 {
-				errs = multierror.Append(errs, errors.New("a least one quota must be specified"))
-			}
-			for _, quota := range rule.Quotas {
-				if quota.Quota == "" {
-					errs = multierror.Append(errs, errors.New("quota name cannot be empty"))
-				}
-				if quota.Charge <= 0 {
-					errs = multierror.Append(errs, errors.New("quota charge amount must be positive"))
-				}
-			}
-		}
-		return errs
-	})
-
-// ValidateQuotaSpecBinding checks that QuotaSpecBinding is well-formed.
-var ValidateQuotaSpecBinding = registerValidateFunc("ValidateQuotaSpecBinding",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*mccpb.QuotaSpecBinding)
-		if !ok {
-			return errors.New("cannot case to HTTPAPISpecBinding")
-		}
-		var errs error
-		if len(in.Services) == 0 {
-			errs = multierror.Append(errs, errors.New("at least one service must be specified"))
-		}
-		for _, service := range in.Services {
-			if err := ValidateMixerService(service); err != nil {
-				errs = multierror.Append(errs, err)
-			}
-		}
-		if len(in.QuotaSpecs) == 0 {
-			errs = multierror.Append(errs, errors.New("at least one spec must be specified"))
-		}
-		for _, spec := range in.QuotaSpecs {
-			if spec.Name == "" {
-				errs = multierror.Append(errs, errors.New("name is mandatory for QuotaSpecReference"))
-			}
-			if spec.Namespace != "" && !labels.IsDNS1123Label(spec.Namespace) {
-				errs = multierror.Append(errs, fmt.Errorf("namespace %q must be a valid label", spec.Namespace))
-			}
-		}
-		return errs
-	})
-
-// ValidateAuthenticationPolicy checks that AuthenticationPolicy is well-formed.
-var ValidateAuthenticationPolicy = registerValidateFunc("ValidateAuthenticationPolicy",
-	func(name, namespace string, msg proto.Message) error {
-		// Empty namespace indicate policy is from cluster-scoped CRD.
-		clusterScoped := namespace == ""
-		in, ok := msg.(*authn.Policy)
-		if !ok {
-			return errors.New("cannot cast to AuthenticationPolicy")
-		}
-		var errs error
-
-		if !clusterScoped {
-			// nolint: staticcheck
-			if len(in.Targets) == 0 && name != constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("authentication policy with no target rules  must be named %q, found %q",
-					constants.DefaultAuthenticationPolicyName, name))
-			}
-			// nolint: staticcheck
-			if len(in.Targets) > 0 && name == constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("authentication policy with name %q must not have any target rules", name))
-			}
-			// nolint: staticcheck
-			for _, target := range in.Targets {
-				errs = appendErrors(errs, validateAuthNPolicyTarget(target))
-			}
-		} else {
-			if name != constants.DefaultAuthenticationPolicyName {
-				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy name must be %q, found %q",
-					constants.DefaultAuthenticationPolicyName, name))
-			}
-			// nolint: staticcheck
-			if len(in.Targets) > 0 {
-				errs = appendErrors(errs, fmt.Errorf("cluster-scoped authentication policy must not have targets"))
-			}
-		}
-
-		jwtIssuers := make(map[string]bool)
-		for _, method := range in.Peers {
-			// nolint: staticcheck
-			if jwt := method.GetJwt(); jwt != nil {
-				if _, jwtExist := jwtIssuers[jwt.Issuer]; jwtExist {
-					errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", jwt.Issuer))
-				} else {
-					jwtIssuers[jwt.Issuer] = true
-				}
-				errs = appendErrors(errs, validateJwt(jwt))
-			}
-		}
-		// nolint: staticcheck
-		for _, method := range in.Origins {
-			if method == nil {
-				errs = multierror.Append(errs, errors.New("origin cannot be empty"))
-				continue
-			}
-			if method.Jwt == nil {
-				errs = multierror.Append(errs, errors.New("jwt cannot be empty"))
-				continue
-			}
-			if _, jwtExist := jwtIssuers[method.Jwt.Issuer]; jwtExist {
-				errs = appendErrors(errs, fmt.Errorf("jwt with issuer %q already defined", method.Jwt.Issuer))
-			} else {
-				jwtIssuers[method.Jwt.Issuer] = true
-			}
-			errs = appendErrors(errs, validateJwt(method.Jwt))
-		}
-
-		return errs
-	})
-
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
 	var errs error
 	if selector != nil {
@@ -1614,10 +1338,18 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 		var errs error
 		for i, rule := range in.GetRules() {
+			if rule == nil {
+				errs = appendErrors(errs, fmt.Errorf("`rule` must not be null, found at rule %d in %s.%s", i, name, namespace))
+				continue
+			}
 			if rule.From != nil && len(rule.From) == 0 {
 				errs = appendErrors(errs, fmt.Errorf("`from` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 			}
 			for _, from := range rule.From {
+				if from == nil {
+					errs = appendErrors(errs, fmt.Errorf("`from` must not be null, found at rule %d in %s.%s", i, name, namespace))
+					continue
+				}
 				if from.Source == nil {
 					errs = appendErrors(errs, fmt.Errorf("`from.source` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
@@ -1642,6 +1374,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 				errs = appendErrors(errs, fmt.Errorf("`to` must not be empty, found at rule %d in %s.%s", i, name, namespace))
 			}
 			for _, to := range rule.To {
+				if to == nil {
+					errs = appendErrors(errs, fmt.Errorf("`to` must not be nil, found at rule %d in %s.%s", i, name, namespace))
+					continue
+				}
 				if to.Operation == nil {
 					errs = appendErrors(errs, fmt.Errorf("`to.operation` must not be nil, found at rule %d in %s.%s", i, name, namespace))
 				} else {
@@ -1721,6 +1457,10 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 
 	for _, location := range rule.FromHeaders {
+		if location == nil {
+			errs = multierror.Append(errs, errors.New("location header name must be non-null"))
+			continue
+		}
 		if len(location.Name) == 0 {
 			errs = multierror.Append(errs, errors.New("location header name must be non-empty string"))
 		}
@@ -1732,11 +1472,6 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 		}
 	}
 	return
-}
-
-// ValidateAccept always returns true
-func ValidateAccept(_, _ string, _ proto.Message) error {
-	return nil
 }
 
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
@@ -1771,257 +1506,9 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 		return errs
 	})
 
-// ValidateServiceRole checks that ServiceRole is well-formed.
-var ValidateServiceRole = registerValidateFunc("ValidateServiceRole",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*rbac.ServiceRole)
-		if !ok {
-			return errors.New("cannot cast to ServiceRole")
-		}
-		var errs error
-		if len(in.Rules) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("at least 1 rule must be specified"))
-		}
-		for i, rule := range in.Rules {
-			// Regular rules and not rules (e.g. methods and not_methods should not be defined together).
-			sameAttributeKindError := "cannot have both regular and *not* attributes for the same kind (%s) for rule %d"
-			if len(rule.Methods) > 0 && len(rule.NotMethods) > 0 {
-				errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. methods and not_methods", i))
-			}
-			if len(rule.Ports) > 0 && len(rule.NotPorts) > 0 {
-				errs = appendErrors(errs, fmt.Errorf(sameAttributeKindError, "i.e. ports and not_ports", i))
-			}
-			if !ValidatePorts(rule.Ports) || !ValidatePorts(rule.NotPorts) {
-				errs = appendErrors(errs, fmt.Errorf("at least one port is not in the range of [0, 65535]"))
-			}
-			for j, constraint := range rule.Constraints {
-				if len(constraint.Key) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("key cannot be empty for constraint %d in rule %d", j, i))
-				}
-				if len(constraint.Values) == 0 {
-					errs = appendErrors(errs, fmt.Errorf("at least 1 value must be specified for constraint %d in rule %d", j, i))
-				}
-				if hasExistingFirstClassFieldInRole(constraint.Key, rule) {
-					errs = appendErrors(errs, fmt.Errorf("cannot define %s for rule %d because a similar first-class field has been defined", constraint.Key, i))
-				}
-			}
-		}
-		return errs
-	})
-
-// Returns true if the user defines a constraint that already exists in the first-class fields, false
-// if none has overlapped.
-// First-class fields are the immediate-level fields right after the `rules` field in a ServiceRole, e.g.
-// methods, services, etc., or after the `subjects` field in a binding, e.g. names, groups, etc. In shorts,
-// they are not fields under Constraints (in ServiceRole) and Properties (in binding).
-// This prevents the user from defining the same key, e.g. port of the serving service, in multiple places
-// in a ServiceRole definition.
-func hasExistingFirstClassFieldInRole(constraintKey string, rule *rbac.AccessRule) bool {
-	// Same as authz.attrDestPort
-	// Cannot use authz.attrDestPort since there is a import cycle. However, these constants can be
-	// defined at another place and both authz and model package can access them.
-	const attrDestPort = "destination.port"
-	// Only check for port since we only have ports (or not_ports) as first-class field and in destination.port
-	// in a ServiceRole definition.
-	if constraintKey == attrDestPort && len(rule.Ports) > 0 {
-		return true
-	}
-	if constraintKey == attrDestPort && len(rule.NotPorts) > 0 {
-		return true
-	}
-	return false
-}
-
-// checkServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-func checkServiceRoleBinding(in *rbac.ServiceRoleBinding) error {
-	var errs error
-	if len(in.Subjects) == 0 {
-		errs = appendErrors(errs, fmt.Errorf("at least 1 subject must be specified"))
-	}
-	for i, subject := range in.Subjects {
-		if isFirstClassFieldEmpty(subject) {
-			errs = appendErrors(errs, fmt.Errorf("empty subjects are not allowed. Found an empty subject at index %d", i))
-		}
-		for propertyKey := range subject.Properties {
-			if hasExistingFirstClassFieldInBinding(propertyKey, subject) {
-				errs = appendErrors(errs, fmt.Errorf("cannot define %s for binding %d because a similar first-class field has been defined", propertyKey, i))
-			}
-		}
-		// Since source.principal = "*" in binding properties is different than User: "*" from the old API,
-		// we want to remove ambiguity when the user defines "*" in names or not_names
-		if isStarInNames(subject.Names) || isStarInNames(subject.NotNames) {
-			errs = appendErrors(errs, fmt.Errorf("do not use * for names or not_names (in rule %d)", i))
-		}
-	}
-	roleFieldCount := 0
-	if in.RoleRef != nil {
-		roleFieldCount++
-	}
-	if len(in.Actions) > 0 {
-		roleFieldCount++
-	}
-	if in.Role != "" {
-		roleFieldCount++
-	}
-	if roleFieldCount != 1 {
-		errs = appendErrors(errs, fmt.Errorf("exactly one of `roleRef`, `role`, or `actions` must be specified"))
-	}
-	if in.RoleRef != nil {
-		expectKind := "ServiceRole"
-		if in.RoleRef.Kind != expectKind {
-			errs = appendErrors(errs, fmt.Errorf("kind set to %q, currently the only supported value is %q",
-				in.RoleRef.Kind, expectKind))
-		}
-		if len(in.RoleRef.Name) == 0 {
-			errs = appendErrors(errs, fmt.Errorf("`name` in `roleRef` cannot be empty"))
-		}
-	}
-	if len(in.Actions) > 0 {
-		inlineServiceRole := &rbac.ServiceRole{Rules: in.Actions}
-		errs = appendErrors(errs, ValidateServiceRole("", "", inlineServiceRole))
-	}
-	if in.Role != "" {
-		// Same as rootNamespacePrefix in rbac_v2.go
-		const rootNamespacePrefix = "/"
-		if in.Role == rootNamespacePrefix {
-			errs = appendErrors(errs, fmt.Errorf("`role` cannot have an empty ServiceRole name"))
-		}
-	}
-	return errs
-}
-
-// ValidateServiceRoleBinding checks that ServiceRoleBinding is well-formed.
-var ValidateServiceRoleBinding = registerValidateFunc("ValidateServiceRoleBinding",
-	func(_, _ string, msg proto.Message) error {
-		in, ok := msg.(*rbac.ServiceRoleBinding)
-		if !ok {
-			return errors.New("cannot cast to ServiceRoleBinding")
-		}
-		return checkServiceRoleBinding(in)
-	})
-
-// isFirstClassFieldEmpty return false if there is at least one first class field (e.g. properties)
-func isFirstClassFieldEmpty(subject *rbac.Subject) bool {
-	return len(subject.User) == 0 && len(subject.Group) == 0 && len(subject.Properties) == 0 &&
-		len(subject.Namespaces) == 0 && len(subject.NotNamespaces) == 0 && len(subject.Groups) == 0 &&
-		len(subject.NotGroups) == 0 && len(subject.Ips) == 0 && len(subject.NotIps) == 0 &&
-		len(subject.Names) == 0 && len(subject.NotNames) == 0
-}
-
-// Returns true if the user defines a property that already exists in the first-class fields, false
-// if none has overlapped.
-// In the future when we introduce expression conditions in properties field, we might need to revisit
-// this function.
-func hasExistingFirstClassFieldInBinding(propertiesKey string, subject *rbac.Subject) bool {
-	switch propertiesKey {
-	case "source.principal":
-		return len(subject.Names) > 0
-	case "request.auth.claims[groups]":
-		return len(subject.Groups) > 0
-	case "source.namespace":
-		return len(subject.Namespaces) > 0
-	case "source.ip":
-		return len(subject.Ips) > 0
-	}
-	return false
-}
-
-// isStarInNames returns true if there is a "*" in the names slice.
-func isStarInNames(names []string) bool {
-	for _, name := range names {
-		if name == "*" {
-			return true
-		}
-	}
-	return false
-}
-
-func checkRbacConfig(name, typ string, msg proto.Message) error {
-	in, ok := msg.(*rbac.RbacConfig)
-	if !ok {
-		return errors.New("cannot cast to " + typ)
-	}
-
-	if name != constants.DefaultRbacConfigName {
-		return fmt.Errorf("%s has invalid name(%s), name must be %q", typ, name, constants.DefaultRbacConfigName)
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_INCLUSION && in.Inclusion == nil {
-		return errors.New("inclusion cannot be null (use 'inclusion: {}' for none)")
-	}
-
-	if in.Mode == rbac.RbacConfig_ON_WITH_EXCLUSION && in.Exclusion == nil {
-		return errors.New("exclusion cannot be null (use 'exclusion: {}' for none)")
-	}
-
-	return nil
-}
-
-// ValidateClusterRbacConfig checks that ClusterRbacConfig is well-formed.
-var ValidateClusterRbacConfig = registerValidateFunc("ValidateClusterRbacConfig",
-	func(name, _ string, msg proto.Message) error {
-		return checkRbacConfig(name, "ClusterRbacConfig", msg)
-	})
-
-// ValidateRbacConfig checks that RbacConfig is well-formed.
-var ValidateRbacConfig = registerValidateFunc("ValidateRbacConfig",
-	func(name, _ string, msg proto.Message) error {
-		scope.Warnf("RbacConfig is deprecated, use ClusterRbacConfig instead.")
-		return checkRbacConfig(name, "RbacConfig", msg)
-	})
-
-func validateJwt(jwt *authn.Jwt) (errs error) {
-	if jwt == nil {
-		return nil
-	}
-	if jwt.Issuer == "" {
-		errs = multierror.Append(errs, errors.New("issuer must be set"))
-	}
-	for _, audience := range jwt.Audiences {
-		if audience == "" {
-			errs = multierror.Append(errs, errors.New("audience must be non-empty string"))
-		}
-	}
-	if jwt.JwksUri != "" {
-		if _, err := security.ParseJwksURI(jwt.JwksUri); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-
-	for _, location := range jwt.JwtHeaders {
-		if location == "" {
-			errs = multierror.Append(errs, errors.New("location header must be non-empty string"))
-		}
-	}
-
-	for _, location := range jwt.JwtParams {
-		if location == "" {
-			errs = multierror.Append(errs, errors.New("location query must be non-empty string"))
-		}
-	}
-	return
-}
-
-func validateAuthNPolicyTarget(target *authn.TargetSelector) (errs error) {
-	if target == nil {
-		return
-	}
-
-	// AuthN policy target (host)name must be a shortname
-	if !labels.IsDNS1123Label(target.Name) {
-		errs = multierror.Append(errs, fmt.Errorf("target name %q must be a valid label", target.Name))
-	}
-
-	for _, port := range target.Ports {
-		errs = appendErrors(errs, validateAuthNPortSelector(port))
-	}
-
-	return
-}
-
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
-	func(_, _ string, msg proto.Message) (errs error) {
+	func(_, namespace string, msg proto.Message) (errs error) {
 		virtualService, ok := msg.(*networking.VirtualService)
 		if !ok {
 			return errors.New("cannot cast to virtual service")
@@ -2099,6 +1586,10 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
 		for _, httpRoute := range virtualService.Http {
+			if httpRoute == nil {
+				errs = appendErrors(errs, errors.New("http route may not be null"))
+				continue
+			}
 			if !appliesToGateway && httpRoute.Delegate != nil {
 				errs = appendErrors(errs, errors.New("http delegate only applies to gateway"))
 			}
@@ -2111,7 +1602,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 			errs = appendErrors(errs, validateTCPRoute(tcpRoute))
 		}
 
-		errs = appendErrors(errs, validateExportTo(virtualService.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, virtualService.ExportTo, false))
 		return
 	})
 
@@ -2133,6 +1624,10 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 }
 
 func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.VirtualService) (errs error) {
+	if match == nil {
+		errs = appendErrors(errs, errors.New("TLS match may not be null"))
+		return
+	}
 	if len(match.SniHosts) == 0 {
 		errs = appendErrors(errs, fmt.Errorf("TLS match must have at least one SNI host"))
 	} else {
@@ -2188,6 +1683,10 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 }
 
 func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
+	if match == nil {
+		errs = multierror.Append(errs, errors.New("tcp match may not be nil"))
+		return
+	}
 	for _, destinationSubnet := range match.DestinationSubnets {
 		errs = appendErrors(errs, ValidateIPSubnet(destinationSubnet))
 	}
@@ -2256,6 +1755,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
 				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
 			}
 
 			if match.Port != 0 {
@@ -2263,6 +1763,13 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 			}
 			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
 			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+			errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+			for _, qp := range match.GetQueryParams() {
+				errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
+			}
 		}
 	}
 
@@ -2288,6 +1795,20 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 	}
 
 	return
+}
+
+func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
+	re := sm.GetRegex()
+	if re == "" {
+		return nil
+	}
+
+	_, err := regexp.Compile(re)
+	if err == nil {
+		return nil
+	}
+
+	return fmt.Errorf("%q: %w; Istio uses RE2 style regex-based match (https://github.com/google/re2/wiki/Syntax)", where, err)
 }
 
 func validateGatewayNames(gatewayNames []string) (errs error) {
@@ -2319,6 +1840,10 @@ func validateGatewayNames(gatewayNames []string) (errs error) {
 func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
+		if weight == nil {
+			errs = multierror.Append(errs, errors.New("weight may not be nil"))
+			continue
+		}
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
@@ -2356,6 +1881,10 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
+		if weight == nil {
+			errs = multierror.Append(errs, errors.New("weight may not be nil"))
+			continue
+		}
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
@@ -2413,7 +1942,7 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 	if match == "" {
 		return fmt.Errorf("'%v' is not a valid match type for CORS allow origins", match)
 	}
-	return nil
+	return validateStringMatchRegexp(origin, "corsPolicy.allowOrigins")
 }
 
 func validateHTTPMethod(method string) error {
@@ -2526,23 +2055,6 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	return
 }
 
-func validateAuthNPortSelector(selector *authn.PortSelector) error {
-	if selector == nil {
-		return nil
-	}
-
-	// port selector is either a name or a number
-	name := selector.GetName()
-	number := int(selector.GetNumber())
-	if name == "" && number == 0 {
-		// an unset value is indistinguishable from a zero value, so return both errors
-		return appendErrors(validateSubsetName(name), ValidatePort(number))
-	} else if number != 0 {
-		return ValidatePort(number)
-	}
-	return validateSubsetName(name)
-}
-
 func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	if retries == nil {
 		return
@@ -2611,7 +2123,7 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(_, _ string, config proto.Message) (errs error) {
+	func(_, namespace string, config proto.Message) (errs error) {
 		serviceEntry, ok := config.(*networking.ServiceEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to service entry")
@@ -2652,6 +2164,10 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		servicePortNumbers := make(map[uint32]bool)
 		servicePorts := make(map[string]bool, len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
+			if port == nil {
+				errs = appendErrors(errs, fmt.Errorf("service entry port may not be null"))
+				continue
+			}
 			if servicePorts[port.Name] {
 				errs = appendErrors(errs, fmt.Errorf("service entry port name %q already defined", port.Name))
 			}
@@ -2749,13 +2265,17 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		}
 
 		for _, port := range serviceEntry.Ports {
+			if port == nil {
+				errs = appendErrors(errs, errors.New("port may not be null"))
+				continue
+			}
 			errs = appendErrors(errs,
 				ValidatePortName(port.Name),
 				ValidateProtocol(port.Protocol),
 				ValidatePort(int(port.Number)))
 		}
 
-		errs = appendErrors(errs, validateExportTo(serviceEntry.ExportTo))
+		errs = appendErrors(errs, validateExportTo(namespace, serviceEntry.ExportTo, true))
 		return
 	})
 
@@ -2898,4 +2418,46 @@ func validateLocalities(localities []string) error {
 	}
 
 	return nil
+}
+
+// ValidateMeshNetworks validates meshnetworks.
+func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
+	for name, network := range meshnetworks.Networks {
+		if err := validateNetwork(network); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
+		}
+	}
+	return
+}
+
+func validateNetwork(network *meshconfig.Network) (errs error) {
+	for _, n := range network.Endpoints {
+		switch e := n.Ne.(type) {
+		case *meshconfig.Network_NetworkEndpoints_FromCidr:
+			if err := ValidateIPSubnet(e.FromCidr); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_NetworkEndpoints_FromRegistry:
+			if ok := labels.IsDNS1123Label(e.FromRegistry); !ok {
+				errs = multierror.Append(errs, fmt.Errorf("invalid registry name: %v", e.FromRegistry))
+			}
+		}
+
+	}
+	for _, n := range network.Gateways {
+		switch g := n.Gw.(type) {
+		case *meshconfig.Network_IstioNetworkGateway_RegistryServiceName:
+			if err := ValidateFQDN(g.RegistryServiceName); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		case *meshconfig.Network_IstioNetworkGateway_Address:
+			if err := ValidateIPAddress(g.Address); err != nil {
+				errs = multierror.Append(errs, err)
+			}
+		}
+		if err := ValidatePort(int(n.Port)); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+	return
 }

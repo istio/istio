@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ type Instance interface {
 	// ShutdownAndWait is a helper that calls Shutdown and waits for the process to terminate.
 	ShutdownAndWait() Waitable
 
-	// DrainListeners drains inbound listeners of Envoy so that inflight requests
+	// DrainListeners drains listeners of Envoy so that inflight requests
 	// can gracefully finish and even continue making outbound calls as needed.
 	DrainListeners() error
 }
@@ -376,7 +376,7 @@ func (i *instance) ShutdownAndWait() Waitable {
 }
 
 func (i *instance) DrainListeners() error {
-	return DrainListeners(i.adminPort)
+	return DrainListeners(i.adminPort, true)
 }
 
 func (i *instance) close() {

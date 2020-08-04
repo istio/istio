@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@ package server
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -30,17 +28,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
-	kubeApiAdmission "k8s.io/api/admission/v1beta1"
-	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeApiAdmission "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/mcp/testing/testcerts"
 	"istio.io/istio/pkg/test/config"
+	"istio.io/istio/pkg/testcerts"
 )
 
 const (
@@ -48,16 +44,6 @@ const (
 	// CRD resources.
 	testDomainSuffix = "local.cluster"
 )
-
-type fakeValidator struct{ err error }
-
-func (fv *fakeValidator) Validate(*store.BackendEvent) error {
-	return fv.err
-}
-
-func (fv *fakeValidator) SupportsKind(string) bool {
-	return true
-}
 
 func TestArgs_String(t *testing.T) {
 	p := DefaultArgs()
@@ -94,12 +80,10 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 
 	options := Options{
-		CertFile:       certFile,
-		KeyFile:        keyFile,
-		Port:           port,
-		DomainSuffix:   testDomainSuffix,
-		Schemas:        collections.Mocks,
-		MixerValidator: &fakeValidator{},
+		Port:         port,
+		DomainSuffix: testDomainSuffix,
+		Schemas:      collections.Mocks,
+		Mux:          http.NewServeMux(),
 	}
 	wh, err := New(options)
 	if err != nil {
@@ -175,7 +159,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid create",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -185,7 +169,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid update",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Update,
 			},
@@ -195,7 +179,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "unsupported operation",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Delete,
 			},
@@ -205,7 +189,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid spec",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -215,7 +199,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "corrupt object",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -225,7 +209,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid extra key create",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -243,170 +227,15 @@ func TestAdmitPilot(t *testing.T) {
 	}
 }
 
-func makeMixerConfig(t *testing.T, i int, includeBogusKey bool) []byte {
-	t.Helper()
-
-	name := fmt.Sprintf("%s%d", "mock-config", i)
-
-	r := collections.Mock.Resource()
-	var un unstructured.Unstructured
-	un.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   r.Group(),
-		Version: r.Version(),
-		Kind:    r.Kind(),
-	})
-	un.SetName(name)
-	un.Object["spec"] = map[string]interface{}{"foo": 1}
-	if includeBogusKey {
-		un.Object["unexpected_key"] = "any value"
-	}
-
-	raw, err := json.Marshal(&un)
-	if err != nil {
-		t.Fatalf("Marshal(%v) failed: %v", un, err)
-	}
-	return raw
-}
-
-func TestAdmitMixer(t *testing.T) {
-	rawConfig := makeMixerConfig(t, 0, false)
-	extraKeyConfig := makeMixerConfig(t, 0, true)
-	wh, cancel := createTestWebhook(t)
-	defer cancel()
-
-	cases := []struct {
-		name      string
-		in        *kubeApiAdmission.AdmissionRequest
-		allowed   bool
-		validator store.BackendValidator
-	}{
-		{
-			name: "valid create",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "valid-create",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "valid update",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "valid-update",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Update,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "valid delete",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "valid-delete",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Delete,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "invalid update",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid-update",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Update,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
-		},
-		{
-			name: "invalid delete",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "to-be-deleted",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Delete,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   true,
-		},
-		{
-			name: "invalid delete (missing name)",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Delete,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
-		},
-		{
-			name: "invalid create",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid create",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
-		},
-		{
-			name: "invalid operation",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid operation",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Connect,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "invalid object",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid object",
-				Object:    runtime.RawExtension{Raw: append([]byte("---"), rawConfig...)},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{},
-			allowed:   false,
-		},
-		{
-			name: "invalid extra key create",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid extra key create",
-				Object:    runtime.RawExtension{Raw: extraKeyConfig},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{},
-			allowed:   false,
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
-			wh.validator = c.validator // override mixer backend validator
-			got := wh.admitMixer(c.in)
-			if c.allowed != got.Allowed {
-				t.Fatalf("got %v want %v", got, c.allowed)
-			}
-		})
-	}
-}
-
 func makeTestReview(t *testing.T, valid bool) []byte {
 	t.Helper()
 	review := kubeApiAdmission.AdmissionReview{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "admission.k8s.io/v1",
+			Kind:       "AdmissionReview",
+		},
 		Request: &kubeApiAdmission.AdmissionRequest{
-			Kind: kubeApisMeta.GroupVersionKind{},
+			Kind: metav1.GroupVersionKind{},
 			Object: runtime.RawExtension{
 				Raw: makePilotConfig(t, 0, valid, false),
 			},
@@ -539,41 +368,6 @@ func TestServe(t *testing.T) {
 	}
 }
 
-func checkCert(t *testing.T, whc *Webhook, cert, key []byte) bool {
-	t.Helper()
-	actual, _ := whc.getCert(nil)
-	expected, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		t.Fatalf("fail to load test certs.")
-	}
-	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
-}
-
-func TestReloadCert(t *testing.T) {
-	wh, cleanup := createTestWebhook(t)
-	defer cleanup()
-	stop := make(chan struct{})
-	defer func() {
-		close(stop)
-	}()
-	go wh.Run(stop)
-
-	checkCert(t, wh, testcerts.ServerCert, testcerts.ServerKey)
-	// Update cert/key files.
-	if err := ioutil.WriteFile(wh.certFile, testcerts.RotatedCert, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.certFile, err)
-	}
-	if err := ioutil.WriteFile(wh.keyFile, testcerts.RotatedKey, 0644); err != nil { // nolint: vetshadow
-		cleanup()
-		t.Fatalf("WriteFile(%v) failed: %v", wh.keyFile, err)
-	}
-	g := gomega.NewGomegaWithT(t)
-	g.Eventually(func() bool {
-		return checkCert(t, wh, testcerts.RotatedCert, testcerts.RotatedKey)
-	}, "10s", "100ms").Should(gomega.BeTrue())
-}
-
 // scenario is a common struct used by many tests in this context.
 type scenario struct {
 	wrapFunc      func(*Options)
@@ -585,14 +379,6 @@ func TestValidate(t *testing.T) {
 		"valid": {
 			wrapFunc:      func(args *Options) {},
 			expectedError: "",
-		},
-		"cert unset": {
-			wrapFunc:      func(args *Options) { args.CertFile = "" },
-			expectedError: "cert file not specified",
-		},
-		"key unset": {
-			wrapFunc:      func(args *Options) { args.KeyFile = "" },
-			expectedError: "key file not specified",
 		},
 		"invalid port": {
 			wrapFunc:      func(args *Options) { args.Port = 100000 },

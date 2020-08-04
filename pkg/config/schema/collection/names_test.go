@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 )
 
 func TestNames_Clone(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	n := collection.Names{basicmeta.K8SCollection1.Name(), basicmeta.Collection2.Name()}
 
@@ -34,7 +34,7 @@ func TestNames_Clone(t *testing.T) {
 }
 
 func TestNames_Sort(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	n := collection.Names{data.Foo.Name(), data.Baz.Name(), data.Bar.Name()}
 	expected := collection.Names{data.Bar.Name(), data.Baz.Name(), data.Foo.Name()}

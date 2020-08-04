@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -45,7 +43,6 @@ func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "req-authn",
@@ -62,16 +59,16 @@ func TestRequestAuthentication(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
 			)
-			g.ApplyConfigOrFail(t, ns, jwtPolicies...)
-			defer g.DeleteConfigOrFail(t, ns, jwtPolicies...)
+			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
 			var a, b, c, d, e echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, g, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, g, p)).
-				With(&e, util.EchoConfig("e", ns, false, nil, g, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
+				With(&e, util.EchoConfig("e", ns, false, nil)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
@@ -276,15 +273,8 @@ func TestRequestAuthentication(t *testing.T) {
 // The policy is also set at global namespace, with authorization on ingressgateway.
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
 		Run(func(ctx framework.TestContext) {
-			var ingr ingress.Instance
-			var err error
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: ist,
-			}); err != nil {
-				t.Fatal(err)
-			}
+			ingr := ist.IngressFor(ctx.Clusters().Default())
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "req-authn-ingress",
@@ -299,20 +289,20 @@ func TestIngressRequestAuthentication(t *testing.T) {
 
 			applyPolicy := func(filename string, ns namespace.Instance) []string {
 				policy := tmpl.EvaluateAllOrFail(t, namespaceTmpl, file.AsStringOrFail(t, filename))
-				g.ApplyConfigOrFail(t, ns, policy...)
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
 				return policy
 			}
 
 			securityPolicies := applyPolicy("testdata/requestauthn/global-jwt.yaml.tmpl", rootNS{})
 			ingressCfgs := applyPolicy("testdata/requestauthn/ingress.yaml.tmpl", ns)
 
-			defer g.DeleteConfigOrFail(t, rootNS{}, securityPolicies...)
-			defer g.DeleteConfigOrFail(t, ns, ingressCfgs...)
+			defer ctx.Config().DeleteYAMLOrFail(t, rootNS{}.Name(), securityPolicies...)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), ingressCfgs...)
 
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, g, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, g, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
 			// These test cases verify in-mesh traffic doesn't need tokens.

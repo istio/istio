@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 )
 
 const (
@@ -86,6 +86,14 @@ func (a *awsEnv) Locality() *core.Locality {
 		Zone:   a.identity.AvailabilityZone,
 		Region: a.identity.Region,
 	}
+}
+
+func (a *awsEnv) Labels() map[string]string {
+	return map[string]string{}
+}
+
+func (a *awsEnv) IsKubernetes() bool {
+	return true
 }
 
 func getEC2MetadataClient() *ec2metadata.EC2Metadata {

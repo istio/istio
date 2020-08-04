@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,12 +61,17 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	vs := r.Message.(*v1alpha3.VirtualService)
 	ns := r.Metadata.FullName.Namespace
 
-	destinations := getRouteDestinations(vs)
-
-	for _, destination := range destinations {
+	for _, destination := range getRouteDestinations(vs) {
 		if !d.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
 			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 				msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+		}
+	}
+
+	for _, destination := range getHTTPMirrorDestinations(vs) {
+		if !d.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
+				msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
 		}
 	}
 }

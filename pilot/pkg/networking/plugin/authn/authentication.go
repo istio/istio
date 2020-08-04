@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@ package authn
 import (
 	"fmt"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	"istio.io/istio/pkg/config/constants"
+
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -37,14 +40,14 @@ func NewPlugin() plugin.Plugin {
 // OnInboundFilterChains setups filter chains based on the authentication policy.
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
-		in.ServiceInstance, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, in.Push.Mesh.SdsUdsPath, in.Node)
+		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
+		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol)
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
 // Can be used to add additional filters on the outbound path
 func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	if in.ServiceInstance == nil || in.Node.Type != model.Router {
+	if in.Node.Type != model.Router {
 		// Only care about router.
 		return nil
 	}
@@ -52,8 +55,12 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.Mut
 	return buildFilter(in, mutable)
 }
 
+func (Plugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
+	return nil
+}
+
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
-// Can be used to add additional filters (e.g., mixer filter) or add more stuff to the HTTP connection manager
+// Can be used to add additional filters or add more stuff to the HTTP connection manager
 // on the inbound path
 func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	if in.Node.Type != model.SidecarProxy {
@@ -65,17 +72,23 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Muta
 
 func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) error {
 	ns := in.Node.Metadata.Namespace
-	applier := factory.NewPolicyApplier(in.Push, in.ServiceInstance, ns, labels.Collection{in.Node.Metadata.Labels})
+	applier := factory.NewPolicyApplier(in.Push, ns, labels.Collection{in.Node.Metadata.Labels})
 	if mutable.Listener == nil || (len(mutable.Listener.FilterChains) != len(mutable.FilterChains)) {
 		return fmt.Errorf("expected same number of filter chains in listener (%d) and mutable (%d)", len(mutable.Listener.FilterChains), len(mutable.FilterChains))
 	}
+	endpointPort := uint32(0)
+	if in.ServiceInstance != nil {
+		endpointPort = in.ServiceInstance.Endpoint.EndpointPort
+	}
+
 	for i := range mutable.Listener.FilterChains {
 		if in.ListenerProtocol == networking.ListenerProtocolHTTP || mutable.FilterChains[i].ListenerProtocol == networking.ListenerProtocolHTTP {
 			// Adding Jwt filter and authn filter, if needed.
 			if filter := applier.JwtFilter(); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
-			if filter := applier.AuthNFilter(in.Node.Type, in.ServiceInstance.Endpoint.EndpointPort); filter != nil {
+			istioMutualGateway := (in.Node.Type == model.Router) && mutable.FilterChains[i].IstioMutualGateway
+			if filter := applier.AuthNFilter(in.Node.Type, endpointPort, istioMutualGateway); filter != nil {
 				mutable.FilterChains[i].HTTP = append(mutable.FilterChains[i].HTTP, filter)
 			}
 		}
@@ -90,19 +103,19 @@ func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *networking.Muta
 }
 
 // OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
 }
 
 // OnOutboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
 }
 
 // OnInboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *xdsapi.RouteConfiguration) {
+func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
 }
 
 // OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *xdsapi.Cluster) {
+func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.
@@ -113,7 +126,7 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 // OnInboundPassthroughFilterChains is called for plugin to update the pass through filter chain.
 func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
-	applier := factory.NewPolicyApplier(in.Push, nil /* ServiceInstance */, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
+	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	// Pass 0 for endpointPort so that it never matches any port-level policy.
-	return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node)
+	return applier.InboundFilterChain(0, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol)
 }

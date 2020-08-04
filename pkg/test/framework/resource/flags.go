@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"os"
 
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 )
 
 var (
@@ -57,8 +56,8 @@ func init() {
 	flag.StringVar(&settingsFromCommandLine.BaseDir, "istio.test.work_dir", os.TempDir(),
 		"Local working directory for creating logs/temp files. If left empty, os.TempDir() is used.")
 
-	flag.StringVar(&settingsFromCommandLine.Environment, "istio.test.env", settingsFromCommandLine.Environment,
-		fmt.Sprintf("Specify the environment to run the tests against. Allowed values are: %v", environment.Names()))
+	var env string
+	flag.StringVar(&env, "istio.test.env", "", "Deprecated. This flag does nothing")
 
 	flag.BoolVar(&settingsFromCommandLine.NoCleanup, "istio.test.nocleanup", settingsFromCommandLine.NoCleanup,
 		"Do not cleanup resources after test completion")
@@ -71,6 +70,9 @@ func init() {
 
 	flag.IntVar(&settingsFromCommandLine.Retries, "istio.test.retries", settingsFromCommandLine.Retries,
 		"Number of times to retry tests")
+
+	flag.BoolVar(&settingsFromCommandLine.StableNamespaces, "istio.test.stableNamespaces", settingsFromCommandLine.StableNamespaces,
+		"If set, will use consistent namespace rather than randomly generated. Useful with nocleanup to develop tests.")
 
 	flag.BoolVar(&settingsFromCommandLine.FailOnDeprecation, "istio.test.deprecation_failure", settingsFromCommandLine.FailOnDeprecation,
 		"Make tests fail if any usage of deprecated stuff (e.g. Envoy flags) is detected.")

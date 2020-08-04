@@ -1,0 +1,700 @@
+{
+    "0.0.0.0_7070": {
+      "name": "0.0.0.0_7070",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "0.0.0.0",
+            "PortSpecifier": {
+              "PortValue": 7070
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "inbound|7070|tcplocal|s1tcp.none"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "inbound|7070|tcplocal|s1tcp.none"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2000": {
+      "name": "127.0.0.1_2000",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2000
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2000||s1tcp.none"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2000||s1tcp.none"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2005": {
+      "name": "127.0.0.1_2005",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2005
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2005||s2.external.test.istio.io"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2005||s2.external.test.istio.io"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2006": {
+      "name": "127.0.0.1_2006",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2006
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2006||s2dns.external.test.istio.io"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2006||s2dns.external.test.istio.io"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2007": {
+      "name": "127.0.0.1_2007",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2007
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2007||tcpmeshdns.seexamples.svc"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2007||tcpmeshdns.seexamples.svc"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2008": {
+      "name": "127.0.0.1_2008",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2008
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2008||tcpmeshstatic.seexamples.svc"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2008||tcpmeshstatic.seexamples.svc"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2009": {
+      "name": "127.0.0.1_2009",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2009
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2009||tcpmeshstaticint.seexamples.svc"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2009||tcpmeshstaticint.seexamples.svc"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": null
+    },
+    "127.0.0.1_2443": {
+      "name": "127.0.0.1_2443",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "127.0.0.1",
+            "PortSpecifier": {
+              "PortValue": 2443
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filter_chain_match": {
+            "server_names": [
+              "www1.googleapis.com"
+            ]
+          },
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2443||www1.googleapis.com"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2443||www1.googleapis.com"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "filter_chain_match": {
+            "server_names": [
+              "api1.facebook.com"
+            ]
+          },
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "access_log": {
+                      "Kind": {
+                        "ListValue": {
+                          "values": [
+                            {
+                              "Kind": {
+                                "StructValue": {
+                                  "fields": {
+                                    "config": {
+                                      "Kind": {
+                                        "StructValue": {
+                                          "fields": {
+                                            "path": {
+                                              "Kind": {
+                                                "StringValue": "/dev/stdout"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "name": {
+                                      "Kind": {
+                                        "StringValue": "envoy.file_access_log"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "outbound|2443||api1.facebook.com"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "outbound|2443||api1.facebook.com"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "listener_filters": [
+        {
+          "name": "envoy.listener.tls_inspector",
+          "ConfigType": null
+        }
+      ]
+    },
+    "virtual": {
+      "name": "virtual",
+      "address": {
+        "Address": {
+          "SocketAddress": {
+            "address": "0.0.0.0",
+            "PortSpecifier": {
+              "PortValue": 15001
+            }
+          }
+        }
+      },
+      "filter_chains": [
+        {
+          "filters": [
+            {
+              "name": "envoy.tcp_proxy",
+              "ConfigType": {
+                "Config": {
+                  "fields": {
+                    "cluster": {
+                      "Kind": {
+                        "StringValue": "BlackHoleCluster"
+                      }
+                    },
+                    "stat_prefix": {
+                      "Kind": {
+                        "StringValue": "BlackHoleCluster"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "use_original_dst": {
+        "value": true
+      },
+      "listener_filters": null
+    }
+  }

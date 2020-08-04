@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/common/expfmt"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pkg/test/util/retry"
 
 	"istio.io/istio/pkg/test/env"
@@ -35,9 +41,24 @@ import (
 
 type handler struct{}
 
+const (
+	testHeader      = "Some-Header"
+	testHeaderValue = "some-value"
+	testHostValue   = "host"
+)
+
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/header" {
+		if r.Host != testHostValue {
+			log.Errorf("Missing expected host header, got %v", r.Host)
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		if r.Header.Get(testHeader) != testHeaderValue {
+			log.Errorf("Missing expected Some-Header, got %v", r.Header)
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}
 	if r.URL.Path != "/hello/sunnyvale" && r.URL.Path != "/" {
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.Write([]byte("welcome, it works"))
@@ -87,6 +108,11 @@ func TestNewServer(t *testing.T) {
 		{
 			probe: `{}`,
 		},
+		// A valid input with probing path not starting with /, which happens when HTTPGetAction.Path does not start with a /.
+		{
+			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "hello/sunnyvale", "port": 8080}},
+"/app-health/business/livez": {"httpGet": {"port": 9090}}}`,
+		},
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Config{
@@ -111,40 +137,36 @@ func TestNewServer(t *testing.T) {
 
 func TestStats(t *testing.T) {
 	cases := []struct {
-		name   string
-		envoy  string
-		app    string
-		output string
+		name             string
+		envoy            string
+		app              string
+		output           string
+		expectParseError bool
 	}{
-		{
-			name:   "simple string",
-			envoy:  "foo",
-			output: "foo",
-		},
 		{
 			name: "envoy metric only",
 			envoy: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 			output: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 		},
 		{
 			name: "app metric only",
 			app: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 			output: `# TYPE my_metric counter
-		my_metric{} 0
-		# TYPE my_other_metric counter
-		my_other_metric{} 0
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
 `,
 		},
 		{
@@ -160,6 +182,51 @@ my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
 `,
+		},
+		{
+			name:  "agent metric",
+			envoy: ``,
+			app:   ``,
+			// Agent metric is dynamic, so we just check a substring of it not the actual metric
+			output: `
+# TYPE istio_agent_scrapes_total counter
+istio_agent_scrapes_total`,
+		},
+		// When the application and envoy share a metric, Prometheus will fail. This negative check validates this
+		// assumption.
+		{
+			name: "conflict metric",
+			envoy: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`,
+			app: `# TYPE my_metric counter
+my_metric{} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+# TYPE my_metric counter
+my_metric{} 0
+`,
+			expectParseError: true,
+		},
+		{
+			name: "conflict metric labeled",
+			envoy: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+`,
+			app: `# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			output: `# TYPE my_metric counter
+my_metric{app="foo"} 0
+# TYPE my_metric counter
+my_metric{app="bar"} 0
+`,
+			expectParseError: true,
 		},
 	}
 	for _, tt := range cases {
@@ -192,15 +259,22 @@ my_other_metric{} 0
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
-			if rec.Body.String() != tt.output {
+			if !strings.Contains(rec.Body.String(), tt.output) {
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
+			}
+
+			parser := expfmt.TextParser{}
+			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+			if err != nil && !tt.expectParseError {
+				t.Fatalf("failed to parse metrics: %v", err)
+			} else if err == nil && tt.expectParseError {
+				t.Fatalf("expected a prse error, got %+v", mfMap)
 			}
 		})
 	}
 }
 
 func TestStatsError(t *testing.T) {
-	rec := httptest.NewRecorder()
 	fail := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -221,12 +295,11 @@ func TestStatsError(t *testing.T) {
 		name  string
 		envoy int
 		app   int
-		resp  int
 	}{
-		{"both pass", passPort, passPort, 200},
-		{"envoy pass", passPort, failPort, 503},
-		{"app pass", failPort, passPort, 503},
-		{"both fail", failPort, failPort, 503},
+		{"both pass", passPort, passPort},
+		{"envoy pass", passPort, failPort},
+		{"app pass", failPort, passPort},
+		{"both fail", failPort, failPort},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -238,6 +311,7 @@ func TestStatsError(t *testing.T) {
 				envoyStatsPort: tt.envoy,
 			}
 			req := &http.Request{}
+			rec := httptest.NewRecorder()
 			server.handleStats(rec, req)
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
@@ -255,57 +329,116 @@ func TestAppProbe(t *testing.T) {
 	go http.Serve(listener, &handler{})
 	appPort := listener.Addr().(*net.TCPAddr).Port
 
-	// Starts the pilot agent status server.
-	server, err := NewServer(Config{
-		StatusPort: 0,
-		KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v}},
-"/app-health/hello-world/livez": {"httpGet":{"port": %v}}}`, appPort, appPort),
-	})
-	if err != nil {
-		t.Errorf("failed to create status server %v", err)
-		return
+	simpleConfig := KubeAppProbers{
+		"/app-health/hello-world/readyz": &Prober{
+			HTTPGet: &v1.HTTPGetAction{
+				Path: "/hello/sunnyvale",
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
+		"/app-health/hello-world/livez": &Prober{
+			HTTPGet: &v1.HTTPGetAction{
+				Port: intstr.IntOrString{IntVal: int32(appPort)},
+			},
+		},
 	}
-	go server.Run(context.Background())
-
-	var statusPort uint16
-	for statusPort == 0 {
-		server.mutex.RLock()
-		statusPort = server.statusPort
-		server.mutex.RUnlock()
-	}
-
-	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
+	_ = simpleConfig
 	testCases := []struct {
 		probePath  string
+		config     KubeAppProbers
 		statusCode int
 	}{
 		{
-			probePath:  fmt.Sprintf(":%v/bad-path-should-be-404", statusPort),
+			probePath:  "bad-path-should-be-404",
+			config:     simpleConfig,
 			statusCode: http.StatusNotFound,
 		},
 		{
-			probePath:  fmt.Sprintf(":%v/app-health/hello-world/readyz", statusPort),
+			probePath:  "app-health/hello-world/readyz",
+			config:     simpleConfig,
 			statusCode: http.StatusOK,
 		},
 		{
-			probePath:  fmt.Sprintf(":%v/app-health/hello-world/livez", statusPort),
+			probePath:  "app-health/hello-world/livez",
+			config:     simpleConfig,
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath: "app-health/header/readyz",
+			config: KubeAppProbers{
+				"/app-health/header/readyz": &Prober{
+					HTTPGet: &v1.HTTPGetAction{
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+						Path: "/header",
+						HTTPHeaders: []v1.HTTPHeader{
+							{"Host", testHostValue},
+							{testHeader, testHeaderValue},
+						},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath: "app-health/hello-world/readyz",
+			config: KubeAppProbers{
+				"/app-health/hello-world/readyz": &Prober{
+					HTTPGet: &v1.HTTPGetAction{
+						Path: "hello/texas",
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			probePath: "app-health/hello-world/livez",
+			config: KubeAppProbers{
+				"/app-health/hello-world/livez": &Prober{
+					HTTPGet: &v1.HTTPGetAction{
+						Path: "hello/texas",
+						Port: intstr.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
 			statusCode: http.StatusOK,
 		},
 	}
 	for _, tc := range testCases {
-		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
-		if err != nil {
-			t.Errorf("[%v] failed to create request", tc.probePath)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatal("request failed")
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != tc.statusCode {
-			t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
-		}
+		t.Run(tc.probePath, func(t *testing.T) {
+			// Starts the pilot agent status server.
+			server, err := NewServer(Config{
+				StatusPort: 0,
+			})
+			if err != nil {
+				t.Fatalf("failed to create status server %v", err)
+			}
+			server.appKubeProbers = tc.config
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			go server.Run(ctx)
+
+			var statusPort uint16
+			for statusPort == 0 {
+				server.mutex.RLock()
+				statusPort = server.statusPort
+				server.mutex.RUnlock()
+			}
+
+			client := http.Client{}
+			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
+			if err != nil {
+				t.Fatalf("[%v] failed to create request", tc.probePath)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed")
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.statusCode {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", tc.probePath, tc.statusCode, resp.StatusCode)
+			}
+		})
 	}
 }
 

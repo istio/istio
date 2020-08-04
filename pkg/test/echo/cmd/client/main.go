@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,15 +33,17 @@ import (
 )
 
 var (
-	count     int
-	timeout   time.Duration
-	qps       int
-	url       string
-	uds       string
-	headerKey string
-	headerVal string
-	headers   string
-	msg       string
+	count       int
+	timeout     time.Duration
+	qps         int
+	url         string
+	uds         string
+	headerKey   string
+	headerVal   string
+	headers     string
+	msg         string
+	http2       bool
+	serverFirst bool
 
 	caFile string
 
@@ -118,6 +120,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
 	rootCmd.PersistentFlags().StringVar(&msg, "msg", "HelloWorld",
 		"message to send (for websockets)")
+	rootCmd.PersistentFlags().BoolVar(&http2, "http2", false,
+		"send http requests as HTTP with prior knowledge")
+	rootCmd.PersistentFlags().BoolVar(&serverFirst, "server-first", false,
+		"Treat as a server first protocol; do not send request until magic string is received")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -131,6 +137,8 @@ func getRequest() (*proto.ForwardEchoRequest, error) {
 		Count:         int32(count),
 		Qps:           int32(qps),
 		Message:       msg,
+		Http2:         http2,
+		ServerFirst:   serverFirst,
 	}
 
 	// Old http add header - deprecated

@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -297,7 +297,7 @@ func (i *Instance) findValue(path string) (interface{}, error) {
 	}
 	values, err := parser.FindResults(i.structure)
 	if err != nil {
-		return nil, fmt.Errorf("err finding results for path: %v - %v", path, err)
+		return nil, fmt.Errorf("err finding results for path: %v: %v. Structure: %v", path, err, i.structure)
 	}
 	if len(values) == 0 || len(values[0]) == 0 {
 		return nil, fmt.Errorf("no value for path: %v", path)

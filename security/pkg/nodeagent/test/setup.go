@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@ import (
 	"google.golang.org/grpc"
 	ghc "google.golang.org/grpc/health/grpc_health_v1"
 
-	proxyEnv "istio.io/istio/mixer/test/client/env"
+	"istio.io/istio/pkg/security"
+
 	"istio.io/istio/pkg/spiffe"
 	istioEnv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -38,7 +39,12 @@ import (
 
 const (
 	proxyTokenPath = "/tmp/sds-envoy-token.jwt"
-	jwtToken       = "thisisafakejwt"
+	jwtToken       = "eyJhbGciOiJSUzI1NiIsImtpZCI6IkRIRmJwb0lVcXJZOHQyenBBMnFYZkNtcjVWTzVaRXI0UnpIVV8tZW52dlEiLCJ0eXAiOiJKV1QifQ." +
+		"eyJleHAiOjQ2ODU5ODk3MDAsImZvbyI6ImJhciIsImlhdCI6MTUzMjM4OTcwMCwiaXNzIjoidGVzdGluZ0BzZWN1cmUuaXN0aW8uaW8iLCJzdWIiOiJ0ZX" +
+		"N0aW5nQHNlY3VyZS5pc3Rpby5pbyJ9.CfNnxWP2tcnR9q0vxyxweaF3ovQYHYZl82hAUsn21bwQd9zP7c-LS9qd_vpdLG4Tn1A15NxfCjp5f7QNBUo-KC9" +
+		"PJqYpgGbaXhaGx7bEdFWjcwv3nZzvc7M__ZpaCERdwU7igUmJqYGBYQ51vr2njU9ZimyKkfDe3axcyiBZde7G6dabliUosJvvKOPcKIWPccCgefSj_GNfw" +
+		"Iip3-SsFdlR7BtbVUcqR-yv-XOxJ3Uc1MI0tz3uMiiZcyPV7sNCU4KRnemRIMHVOfuvHsU60_GhGbiSFzgPTAa9WTltbnarTbxudb_YEOx12JiwYToeX0D" +
+		"CPb43W1tzIBxgm8NxUg"
 )
 
 var rotateCertInterval time.Duration
@@ -51,7 +57,7 @@ func RotateCert(interval time.Duration) {
 
 // Env manages test setup and teardown.
 type Env struct {
-	ProxySetup           *proxyEnv.TestSetup
+	ProxySetup           *istioEnv.TestSetup
 	OutboundListenerPort int
 	InboundListenerPort  int
 	// SDS server
@@ -110,14 +116,13 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 
 	env := &Env{}
 	// Set up test environment for Proxy
-	proxySetup := proxyEnv.NewTestSetup(testID, t)
-	proxySetup.SetNoMixer(true)
+	proxySetup := istioEnv.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = string(getDataFromFile(istioEnv.IstioSrc+"/security/pkg/nodeagent/test/testdata/bootstrap.yaml", t))
 	env.ProxySetup = proxySetup
 	env.OutboundListenerPort = int(proxySetup.Ports().ClientProxyPort)
 	env.InboundListenerPort = int(proxySetup.Ports().ServerProxyPort)
 	env.DumpPortMap(t)
-	ca, err := caserver.NewCAServer(int(proxySetup.Ports().MixerPort))
+	ca, err := caserver.NewCAServer(int(proxySetup.Ports().ExtraPort))
 	if err != nil {
 		t.Fatalf("failed to start CA server: %+v", err)
 	}
@@ -132,7 +137,6 @@ func SetupTest(t *testing.T, testID uint16) *Env {
 // inbound listener       : ServerProxyPort
 // test backend           : BackendPort
 // proxy admin            : AdminPort
-// CSR server             : MixerPort
 // SDS path               : SDSPath
 func (e *Env) DumpPortMap(t *testing.T) {
 	t.Logf("\n\tport allocation status\t\t\t\n"+
@@ -144,7 +148,7 @@ func (e *Env) DumpPortMap(t *testing.T) {
 		"SDS path\t\t\t:\t%s\n", e.ProxySetup.Ports().AdminPort,
 		e.ProxySetup.Ports().ClientProxyPort,
 		e.ProxySetup.Ports().ServerProxyPort, e.ProxySetup.Ports().BackendPort,
-		e.ProxySetup.Ports().MixerPort, e.ProxySetup.SDSPath())
+		e.ProxySetup.Ports().ExtraPort, e.ProxySetup.SDSPath())
 }
 
 // StartProxy starts proxy.
@@ -157,16 +161,16 @@ func (e *Env) StartProxy(t *testing.T) {
 
 // StartSDSServer starts SDS server
 func (e *Env) StartSDSServer(t *testing.T) {
-	serverOptions := sds.Options{
+	serverOptions := &security.Options{
 		WorkloadUDSPath:   e.ProxySetup.SDSPath(),
 		UseLocalJWT:       true,
 		JWTPath:           proxyTokenPath,
-		CAEndpoint:        fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().MixerPort),
+		CAEndpoint:        fmt.Sprintf("127.0.0.1:%d", e.ProxySetup.Ports().ExtraPort),
 		EnableWorkloadSDS: true,
 		RecycleInterval:   5 * time.Minute,
 	}
 
-	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil)
+	caClient, err := citadel.NewCitadelClient(serverOptions.CAEndpoint, false, nil, "")
 	if err != nil {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
@@ -183,9 +187,9 @@ func (e *Env) StartSDSServer(t *testing.T) {
 	e.SDSServer = sdsServer
 }
 
-func (e *Env) cacheOptions(t *testing.T) cache.Options {
+func (e *Env) cacheOptions(t *testing.T) *security.Options {
 	// Default options does not rotate cert until cert expires after 1 hour.
-	opt := cache.Options{
+	opt := &security.Options{
 		SecretTTL:                      1 * time.Hour,
 		TrustDomain:                    spiffe.GetTrustDomain(),
 		RotationInterval:               5 * time.Minute,

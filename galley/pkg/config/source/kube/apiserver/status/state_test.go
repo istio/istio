@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 )
 
 func TestState_SetLastKnown_NoEntry(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -51,7 +51,7 @@ func TestState_SetLastKnown_NoEntry(t *testing.T) {
 }
 
 func TestState_SetLastKnown_NoReconciliation(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.setObserved(basicmeta.K8SCollection1.Name(), data.EntryN1I1V1.Metadata.FullName, data.EntryN1I1V1.Metadata.Version, "foo")
@@ -60,7 +60,7 @@ func TestState_SetLastKnown_NoReconciliation(t *testing.T) {
 }
 
 func TestState_SetLastKnown_TwoEntries(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -91,7 +91,7 @@ func TestState_SetLastKnown_TwoEntries(t *testing.T) {
 }
 
 func TestState_SetLastKnown_ExistingEntry(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -113,7 +113,7 @@ func TestState_SetLastKnown_ExistingEntry(t *testing.T) {
 }
 
 func TestState_ClearLastKnown_NoEntry(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -126,7 +126,7 @@ func TestState_ClearLastKnown_NoEntry(t *testing.T) {
 }
 
 func TestState_ClearLastKnown_ExistingEntry(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -150,7 +150,7 @@ func TestState_ClearLastKnown_ExistingEntry(t *testing.T) {
 }
 
 func TestState_Quiesce_PendingWork(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -164,7 +164,7 @@ func TestState_Quiesce_PendingWork(t *testing.T) {
 }
 
 func TestState_Quiesce_WaitingForWork(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 
@@ -187,7 +187,7 @@ func TestState_Quiesce_WaitingForWork(t *testing.T) {
 }
 
 func TestState_ApplyMessages_New(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 
@@ -216,7 +216,7 @@ func TestState_ApplyMessages_New(t *testing.T) {
 }
 
 func TestState_ApplyMessages_AgainstExistingUnappliedState(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -251,7 +251,7 @@ func TestState_ApplyMessages_AgainstExistingUnappliedState(t *testing.T) {
 }
 
 func TestState_ClearMessages_AgainstAppliedState(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation
@@ -274,7 +274,7 @@ func TestState_ClearMessages_AgainstAppliedState(t *testing.T) {
 }
 
 func TestState_ClearMessages_AgainstAppliedEmptyState(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := newState()
 	s.applyMessages(NewMessageSet()) // start reconciliation

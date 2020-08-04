@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors.
+// Copyright Istio Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -543,7 +543,7 @@ func serviceStatus(addresses ...address) *v1.ServiceStatus {
 }
 
 func TestReadIngressGatewayAddresses(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	applyTestCases := []struct {
 		in      *v1.ServiceStatus

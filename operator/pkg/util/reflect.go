@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -267,6 +267,19 @@ func InsertIntoMap(parentMap interface{}, key interface{}, value interface{}) er
 	}
 
 	v.SetMapIndex(kv, vv)
+
+	return nil
+}
+
+// DeleteFromMap deletes an entry with the given key parent, which must be a map.
+func DeleteFromMap(parentMap interface{}, key interface{}) error {
+	scope.Debugf("DeleteFromMap key=%s, parent:\n%s\n", key, pretty.Sprint(parentMap))
+	pv := reflect.ValueOf(parentMap)
+
+	if !IsMap(parentMap) {
+		return fmt.Errorf("deleteFromMap parent type is %T, must be map", parentMap)
+	}
+	pv.SetMapIndex(reflect.ValueOf(key), reflect.Value{})
 
 	return nil
 }

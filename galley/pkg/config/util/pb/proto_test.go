@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 )
 
 func TestToProto_Success(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	data := map[string]interface{}{
 		"foo": "bar",
@@ -47,7 +47,7 @@ func TestToProto_Success(t *testing.T) {
 }
 
 func TestToProto_UnknownFields(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	data := map[string]interface{}{
 		"foo": "bar",
@@ -63,7 +63,7 @@ func TestToProto_UnknownFields(t *testing.T) {
 }
 
 func TestToProto_Error(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	data := map[string]interface{}{
 		"value": 23,

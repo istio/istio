@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,6 @@ var (
 	collectionList         = flag.String("collections", "", "Comma separated list of collections to watch")
 	useWellKnownTypes      = flag.Bool("use-wkt", false, "Use well known collections types")
 	useWellKnownPilotTypes = flag.Bool("use-wkt-pilot", false, "Use well known collections for pilot")
-	useWellKnownMixerTypes = flag.Bool("use-wkt-mixer", false, "Use well known collections for mixer")
 	id                     = flag.String("id", "", "The node id for the client")
 	output                 = flag.String("output", "short", "Output format. One of: long|short|stats|jsonpath=<template>")
 	labels                 = flag.String("labels", "", "Comma separated key/value pairs, e.g. -labels=k1=v1,k2=v2")
@@ -333,18 +332,8 @@ func main() {
 		// pilot sortedCollections
 		case strings.HasPrefix(collection, "istio/networking/"),
 			strings.HasPrefix(collection, "istio/authentication/"),
-			strings.HasPrefix(collection, "istio/config/v1alpha2/httpapispecs"),
-			strings.HasPrefix(collection, "istio/config/v1alpha2/httpapispecbindings"),
-			strings.HasPrefix(collection, "istio/mixer/v1/config/client"),
 			strings.HasPrefix(collection, "istio/rbac"):
 			if *useWellKnownTypes || *useWellKnownPilotTypes {
-				collectionsMap[collection] = struct{}{}
-			}
-
-		// mixer sortedCollections
-		case strings.HasPrefix(collection, "istio/policy/"),
-			strings.HasPrefix(collection, "istio/config/"):
-			if *useWellKnownTypes || *useWellKnownMixerTypes {
 				collectionsMap[collection] = struct{}{}
 			}
 

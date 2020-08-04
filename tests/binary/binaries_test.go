@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ func TestVersion(t *testing.T) {
 
 var (
 	// If this flag is present, it means "testing" was imported by code that is built by the binary
-	blacklistedFlags = []string{
+	denylistedFlags = []string{
 		"--test.memprofilerate",
 	}
 )
@@ -104,8 +104,8 @@ func TestFlags(t *testing.T) {
 				t.Fatalf("--help failed with error: %v. Output: %v", err, string(out))
 			}
 
-			for _, blacklist := range blacklistedFlags {
-				if strings.Contains(string(out), blacklist) {
+			for _, denylist := range denylistedFlags {
+				if strings.Contains(string(out), denylist) {
 					t.Fatalf("binary contains unexpected flags: %v", string(out))
 				}
 			}

@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 
 		// Filter any unsupported types before appending to the result.
 		for _, cfg := range configs {
-			if !f.configTypeFilter[cfg.GroupVersionKind()] {
+			if !f.configTypeFilter[cfg.GroupVersionKind] {
 				continue
 			}
 			result = append(result, cfg)
@@ -120,7 +120,7 @@ func parseInputs(data []byte, domainSuffix string) ([]*model.Config, error) {
 	return refs, err
 }
 
-// byKey is an array of config objects that is capable or sorting by Namespace, Type, and Name.
+// byKey is an array of config objects that is capable or sorting by Namespace, GroupVersionKind, and Name.
 type byKey []*model.Config
 
 func (rs byKey) Len() int {

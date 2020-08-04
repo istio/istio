@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import (
 
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 
-	proxyEnv "istio.io/istio/mixer/test/client/env"
 	istioEnv "istio.io/istio/pkg/test/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
@@ -46,7 +45,7 @@ const (
 
 // Env manages test setup and teardown.
 type Env struct {
-	ProxySetup *proxyEnv.TestSetup
+	ProxySetup *istioEnv.TestSetup
 	AuthServer *tokenBackend.AuthorizationServer
 
 	stsServer           *stsServer.Server
@@ -96,7 +95,7 @@ func WriteDataToFile(path string, content string) error {
 // That token credential is provisioned by STS server.
 // enableCache indicates whether to enable token cache at STS server side.
 // Here is a map between ports and servers
-// auth server            : MixerPort
+// auth server            : ExtraPort
 // STS server             : STSPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
@@ -108,8 +107,7 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 		initialToken: jwtToken,
 	}
 	// Set up test environment for Proxy
-	proxySetup := proxyEnv.NewTestSetup(testID, t)
-	proxySetup.SetNoMixer(true)
+	proxySetup := istioEnv.NewTestSetup(testID, t)
 	proxySetup.EnvoyTemplate = getDataFromFile(istioEnv.IstioSrc+"/security/pkg/stsservice/test/testdata/bootstrap.yaml", t)
 	// Set up credential files for bootstrap config
 	if err := WriteDataToFile(proxySetup.JWTTokenPath(), jwtToken); err != nil {
@@ -125,7 +123,7 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 	// Set up auth server that provides token service
 	backend, err := tokenBackend.StartNewServer(t, tokenBackend.Config{
 		SubjectToken: jwtToken,
-		Port:         int(proxySetup.Ports().MixerPort),
+		Port:         int(proxySetup.Ports().ExtraPort),
 		AccessToken:  cb.ExpectedToken(),
 	})
 	if err != nil {
@@ -160,7 +158,7 @@ func SetupTest(t *testing.T, cb *xdsService.XDSCallbacks, testID uint16, enableC
 }
 
 // DumpPortMap dumps port allocation status
-// auth server            : MixerPort
+// auth server            : ExtraPort
 // STS server             : STSPort
 // Dynamic proxy listener : ClientProxyPort
 // Static proxy listener  : TCPProxyPort
@@ -175,7 +173,7 @@ func (e *Env) DumpPortMap(t *testing.T) {
 		"static listener port\t:\t%d\n"+
 		"XDS server\t\t:\t%d\n"+
 		"test backend\t\t:\t%d\n"+
-		"proxy admin\t\t:\t%d", e.ProxySetup.Ports().MixerPort,
+		"proxy admin\t\t:\t%d", e.ProxySetup.Ports().ExtraPort,
 		e.ProxySetup.Ports().STSPort, e.ProxySetup.Ports().ClientProxyPort,
 		e.ProxySetup.Ports().TCPProxyPort, e.ProxySetup.Ports().DiscoveryPort,
 		e.ProxySetup.Ports().BackendPort, e.ProxySetup.Ports().AdminPort)
@@ -243,7 +241,7 @@ func (e *Env) genStsReq(stsAddr string) (req *http.Request) {
 
 func setupSTS(stsPort int, backendURL string, enableCache bool) (*stsServer.Server, *google.Plugin, error) {
 	// Create token exchange Google plugin
-	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(tokenBackend.FakeTrustDomain,
+	tokenExchangePlugin, _ := google.CreateTokenManagerPlugin(nil, tokenBackend.FakeTrustDomain,
 		tokenBackend.FakeProjectNum, tokenBackend.FakeGKEClusterURL, enableCache)
 	federatedTokenTestingEndpoint := backendURL + "/v1/identitybindingtoken"
 	accessTokenTestingEndpoint := backendURL + "/v1/projects/-/serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"

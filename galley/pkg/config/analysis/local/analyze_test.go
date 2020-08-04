@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/galley/pkg/config/meshcfg"
+	"istio.io/istio/galley/pkg/config/mesh"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
 	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
@@ -70,7 +70,7 @@ func (a *testAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func TestAbortWithNoSources(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -80,7 +80,7 @@ func TestAbortWithNoSources(t *testing.T) {
 }
 
 func TestAnalyzersRun(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -110,7 +110,7 @@ func TestAnalyzersRun(t *testing.T) {
 }
 
 func TestFilterOutputByNamespace(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -135,20 +135,21 @@ func TestFilterOutputByNamespace(t *testing.T) {
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	mk := mock.NewKube()
 
 	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
+	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
+	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.sources).To(HaveLen(1))
 	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
 
-func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
-	g := NewGomegaWithT(t)
+func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
+	g := NewWithT(t)
 
 	istioNamespace := resource.Namespace("istio-system")
 
@@ -159,7 +160,8 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 			Name: meshConfigMapName,
 		},
 		Data: map[string]string{
-			meshConfigMapKey: fmt.Sprintf("rootNamespace: %s", testRootNamespace),
+			meshConfigMapKey:   fmt.Sprintf("rootNamespace: %s", testRootNamespace),
+			meshNetworksMapKey: `networks: {"n1": {}, "n2": {}}`,
 		},
 	}
 
@@ -176,12 +178,13 @@ func TestAddRunningKubeSourceWithMeshCfg(t *testing.T) {
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
+	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
 	g.Expect(sa.sources).To(HaveLen(1))
 	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&apiserver.Source{})) // Resources via api server
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
@@ -190,7 +193,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
 	g.Expect(err).To(BeNil())
-	g.Expect(*sa.meshCfg).To(Equal(*meshcfg.Default())) // Base default meshcfg
+	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.sources).To(HaveLen(1))
 	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{})) // Resources via files
 
@@ -205,7 +208,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 }
 
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
@@ -218,7 +221,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 }
 
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	sa := NewSourceAnalyzer(basicmeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
 
@@ -242,7 +245,7 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 }
 
 func TestResourceFiltering(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set up mock apiServer so we can peek at the options it gets started with
 	prevApiserverNew := apiserverNew

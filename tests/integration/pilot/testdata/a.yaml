@@ -1,0 +1,49 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: a
+spec:
+  hosts:
+  - a
+  http:
+  # (This 'match' clause started as a work-around, because WaitUntilCallable() times out if
+  # all destinations have a subset.  We are now using it for testing.)
+  - match:
+    - headers:
+        end-user:
+          exact: jason
+    route:
+    - destination:
+        host: a
+  # Fallthrough
+  - route:
+    - destination:
+        host: a
+        subset: v1
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: a
+spec:
+  host: a
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: integ-test
+spec:
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/default/sa/sleep"]
+    to:
+    - operation:
+        methods: ["GET"]
+    when:
+    - key: request.headers[version]
+      values: ["v1", "v2"]

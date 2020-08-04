@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,10 @@ import (
 	"sort"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/golang/protobuf/ptypes"
+
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 // GetDynamicClusterDump retrieves a cluster dump with just dynamic active clusters in it
@@ -29,8 +31,12 @@ func (w *Wrapper) GetDynamicClusterDump(stripVersions bool) (*adminapi.ClustersC
 		return nil, err
 	}
 	dac := clusterDump.GetDynamicActiveClusters()
+	// Allow sorting to work even if we don't have the exact same type
+	for i := range dac {
+		dac[i].Cluster.TypeUrl = v3.ClusterType
+	}
 	sort.Slice(dac, func(i, j int) bool {
-		cluster := &xdsapi.Cluster{}
+		cluster := &cluster.Cluster{}
 		err = ptypes.UnmarshalAny(dac[i].Cluster, cluster)
 		if err != nil {
 			return false
@@ -58,7 +64,7 @@ func (w *Wrapper) GetClusterConfigDump() (*adminapi.ClustersConfigDump, error) {
 		return nil, err
 	}
 	clusterDump := &adminapi.ClustersConfigDump{}
-	err = ptypes.UnmarshalAny(&clusterDumpAny, clusterDump)
+	err = ptypes.UnmarshalAny(clusterDumpAny, clusterDump)
 	if err != nil {
 		return nil, err
 	}

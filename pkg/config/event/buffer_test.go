@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 )
 
 func TestBuffer_Basics(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
@@ -46,7 +46,7 @@ func TestBuffer_Basics(t *testing.T) {
 }
 
 func TestBuffer_Clear(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
@@ -63,7 +63,7 @@ func TestBuffer_Clear(t *testing.T) {
 }
 
 func TestBuffer_DoubleProcess(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}
@@ -100,7 +100,7 @@ func TestBuffer_DoubleProcess(t *testing.T) {
 }
 
 func TestBuffer_Stress(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	s := &fixtures.Source{}
 	acc := &fixtures.Accumulator{}

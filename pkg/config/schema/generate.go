@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ package schema
 // Create collection constants
 // nolint: lll
 //go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go collections metadata.yaml "$REPO_ROOT/pkg/config/schema/collections/collections.gen.go"
+//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go gvk metadata.yaml "$REPO_ROOT/pkg/config/schema/gvk/resources.gen.go"
 
 // Create snapshot constants
 // nolint: lll

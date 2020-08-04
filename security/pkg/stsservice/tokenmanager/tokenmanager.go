@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 )
@@ -39,6 +40,7 @@ type TokenManager struct {
 }
 
 type Config struct {
+	CredFetcher security.CredFetcher
 	TrustDomain string
 }
 
@@ -82,7 +84,7 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 		if projectInfo := getGCPProjectInfo(); len(projectInfo.Number) > 0 {
 			gkeClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 				projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)
-			if p, err := google.CreateTokenManagerPlugin(config.TrustDomain, projectInfo.Number, gkeClusterURL, true); err == nil {
+			if p, err := google.CreateTokenManagerPlugin(config.CredFetcher, config.TrustDomain, projectInfo.Number, gkeClusterURL, true); err == nil {
 				tm.plugin = p
 			}
 		}

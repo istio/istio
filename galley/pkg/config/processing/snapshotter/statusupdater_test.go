@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 )
 
 func TestInMemoryStatusUpdaterWriteThenWait(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
 
@@ -40,7 +40,7 @@ func TestInMemoryStatusUpdaterWriteThenWait(t *testing.T) {
 }
 
 func TestInMemoryStatusUpdaterWriteNothingThenWait(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
 
@@ -54,7 +54,7 @@ func TestInMemoryStatusUpdaterWriteNothingThenWait(t *testing.T) {
 }
 
 func TestInMemoryStatusUpdaterWaitThenWrite(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
 
@@ -73,7 +73,7 @@ func TestInMemoryStatusUpdaterWaitThenWrite(t *testing.T) {
 }
 
 func TestInMemoryStatusUpdaterTimesOut(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	su := &InMemoryStatusUpdater{WaitTimeout: 0}
 
@@ -84,7 +84,7 @@ func TestInMemoryStatusUpdaterTimesOut(t *testing.T) {
 }
 
 func TestInMemoryStatusUpdaterCancelled(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	su := &InMemoryStatusUpdater{WaitTimeout: 1 * time.Second}
 

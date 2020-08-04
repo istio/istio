@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 )
 
 func TestEmptyDoc(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	yaml := `
 `
@@ -83,7 +83,7 @@ b
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			parts := yml.SplitString(c.doc)
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			g.Expect(parts).To(Equal(expected))
 		})
 	}
@@ -103,7 +103,7 @@ b
     b2`,
 	}
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	parts := yml.SplitString(doc)
 	g.Expect(parts).To(Equal(expected))
 }
@@ -129,7 +129,7 @@ b
 ---
 b`
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	doc := yml.JoinString(parts...)
 	g.Expect(doc).To(Equal(expected))
 }

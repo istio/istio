@@ -1,0 +1,121 @@
+meshConfig:
+
+  # Config for the default ProxyConfig.
+  # Initially using directly the proxy metadata - can also be activated using annotations
+  # on the pod. This is an unsupported low-level API, pending review and decisions on
+  # enabling the feature. Enabling the DNS listener is safe - and allows further testing
+  # and gradual adoption by setting capture only on specific workloads. It also allows
+  # VMs to use other DNS options, like dnsmasq or unbound.
+  defaultConfig:
+    proxyMetadata:
+      # If empty, agent will not start :15013 DNS listener and will not attempt
+      # to connect to Istiod DNS-TLS. This will also disable the core dns sidecar in
+      # istiod and the dns-over-tls listener.
+      # DNS_AGENT: DNS-TLS
+      DNS_AGENT: ""
+
+      # If empty, DNS capture is disabled.
+      # If set, intercept UDP port :53 and redirect to localhost:15013
+      # Currently only 'ALL' capture is supported - we may refine it if we want
+      # finer grained control.
+      # ISTIO_META_DNS_CAPTURE: ALL
+
+  # The namespace to treat as the administrative root namespace for Istio configuration.
+  # When processing a leaf namespace Istio will search for declarations in that namespace first
+  # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
+  # is processed as if it were declared in the leaf namespace.
+  rootNamespace: "istio-system"
+
+sidecarInjectorWebhook:
+  # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
+  # always skip the injection on pods that match that label selector, regardless of the global policy.
+  # See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#more-control-adding-exceptions
+  neverInjectSelector: []
+  alwaysInjectSelector: []
+
+  # injectedAnnotations are additional annotations that will be added to the pod spec after injection
+  # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
+  #
+  # annotations:
+  #   apparmor.security.beta.kubernetes.io/allowedProfileNames: runtime/default
+  #   apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+  #
+  # The PSP controller would add corresponding annotations to the pod spec for each container. However, this happens before
+  # the inject adds additional containers, so we must specify them explicitly here. With the above example, we could specify:
+  # injectedAnnotations:
+  #   container.apparmor.security.beta.kubernetes.io/istio-init: runtime/default
+  #   container.apparmor.security.beta.kubernetes.io/istio-proxy: runtime/default
+  injectedAnnotations: {}
+
+  # This enables injection of sidecar in all namespaces,
+  # with the exception of namespaces with "istio-injection:disabled" annotation
+  # Only one environment should have this enabled.
+  enableNamespacesByDefault: false
+
+  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
+  # except when 1.2 istio-injection label is used, which must be set to "enabled".
+  injectLabel: istio-injection
+
+  # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
+  # It is disabled by default since this function will only work after k8s v1.15.
+  objectSelector:
+    enabled: false
+    autoInject: true
+
+  # caBundle to be patched at runtime or user can specify it manually
+  caBundle: ""
+
+istiodRemote:
+  # Sidecar injector mutating webhook configuration url
+  # For example: https://$remotePilotAddress:15017/inject
+  injectionURL: ""
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
+
+telemetry:
+  enabled: false
+  v1:
+    # Set true to enable Mixer based telemetry
+    enabled: false
+  v2:
+    # For Null VM case now. If enabled, will set disableMixerHttpReports to true and not define mixerReportServer
+    # This also enables metadata exchange.
+    enabled: true
+    metadataExchange:
+      # Indicates whether to enable WebAssembly runtime for metadata exchange filter.
+      wasmEnabled: false
+    # Indicate if prometheus stats filter is enabled or not
+    prometheus:
+      enabled: true
+      # Indicates whether to enable WebAssembly runtime for stats filter.
+      wasmEnabled: false
+    # stackdriver filter settings.
+    stackdriver:
+      enabled: false
+      logging: false
+      monitoring: false
+      topology: false
+      disableOutbound: false
+      #  configOverride parts give you the ability to override the low level configuration params passed to envoy filter.
+
+      configOverride: {}
+      #  e.g.
+      #  enable_mesh_edges_reporting: true
+      #  disable_server_access_logging: false
+      #  meshEdgesReportingDuration: 500s
+      #  disable_host_header_fallback: true
+    # Access Log Policy Filter Settings. This enables filtering of access logs from stackdriver.
+    accessLogPolicy:
+      enabled: false
+      # To reduce the number of successful logs, default log window duration is
+      # set to 12 hours.
+      logWindowDuration: "43200s"
+pilot:
+  # Install the mesh config map, generated from values.yaml.
+  # If false, pilot wil use default values (by default) or user-supplied values.
+  configMap: true
+global:
+
+  # One central istiod controls all remote clusters: disabled by default
+  centralIstiod: false

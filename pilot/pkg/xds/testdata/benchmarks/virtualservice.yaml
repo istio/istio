@@ -1,0 +1,54 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: proxy-service-instance
+spec:
+  hosts:
+  - example.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 1.1.1.1
+---
+# Set up .Services VirtualServices, each pointing to a different Service
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-{{$i}}
+spec:
+  hosts:
+    - random-{{$i}}.host.example
+  http:
+  - name: "match-route"
+    match:
+    - uri:
+        prefix: "/foo"
+    - uri:
+        regex: "/bar"
+    rewrite:
+      uri: "/new-url"
+    route:
+      - destination:
+          host: random-{{$i}}.host.example
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-{{$i}}
+spec:
+  hosts:
+  - random-{{$i}}.host.example
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  endpoints:
+  - address: 1.2.3.4
+---
+{{- end }}

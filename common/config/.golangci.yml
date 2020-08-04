@@ -7,7 +7,7 @@
 
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the istio/tools repo.
-  golangci-lint-version: 1.21.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.27.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
@@ -41,7 +41,6 @@ linters:
   - gosimple
   - govet
   - ineffassign
-  - interfacer
   - lll
   - misspell
   - staticcheck
@@ -187,6 +186,11 @@ issues:
       linters:
         - errcheck
         - maligned
+
+    # TODO(https://github.com/dominikh/go-tools/issues/732) remove this once we update
+    - linters:
+        - staticcheck
+      text: "SA1019: package github.com/golang/protobuf"
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

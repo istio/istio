@@ -1,4 +1,4 @@
-//  Copyright 2019 Istio Authors
+//  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/test/framework/features"
+	"istio.io/istio/pkg/test/util/yml"
 
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -45,6 +46,7 @@ type suiteContext struct {
 	skipped bool
 
 	workDir string
+	yml.FileWriter
 
 	// context-level resources
 	globalScope *scope
@@ -69,11 +71,12 @@ func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, la
 		settings:     s,
 		globalScope:  newScope(scopeID, nil),
 		workDir:      workDir,
+		FileWriter:   yml.NewFileWriter(workDir),
 		suiteLabels:  labels,
 		contextNames: make(map[string]struct{}),
 	}
 
-	env, err := envFn(s.Environment, c)
+	env, err := envFn(c)
 	if err != nil {
 		return nil, err
 	}
@@ -128,9 +131,16 @@ func (s *suiteContext) TrackResource(r resource.Resource) resource.ID {
 	return rid
 }
 
-// Environment implements ResourceContext
+func (s *suiteContext) GetResource(ref interface{}) error {
+	return s.globalScope.get(ref)
+}
+
 func (s *suiteContext) Environment() resource.Environment {
 	return s.environment
+}
+
+func (s *suiteContext) Clusters() resource.Clusters {
+	return s.Environment().Clusters()
 }
 
 // Settings returns the current runtime.Settings.
@@ -167,6 +177,10 @@ func (s *suiteContext) CreateTmpDirectory(prefix string) (string, error) {
 	return dir, err
 }
 
+func (s *suiteContext) Config(clusters ...resource.Cluster) resource.ConfigManager {
+	return newConfigManager(s, clusters)
+}
+
 type Outcome string
 
 const (
@@ -180,10 +194,10 @@ type TestOutcome struct {
 	Name          string
 	Type          string
 	Outcome       Outcome
-	FeatureLabels []features.Feature
+	FeatureLabels map[features.Feature][]string
 }
 
-func (s *suiteContext) registerOutcome(test *Test) {
+func (s *suiteContext) registerOutcome(test *testImpl) {
 	s.outcomeMu.Lock()
 	defer s.outcomeMu.Unlock()
 	o := Passed

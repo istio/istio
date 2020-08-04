@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,45 +16,66 @@ package istio
 
 import (
 	"fmt"
+	"net"
 	"time"
 
-	"istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/framework/resource"
+
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
-	dummyValidationRuleTemplate = `
-apiVersion: "config.istio.io/v1alpha2"
-kind: rule
+	dummyValidationVirtualServiceTemplate = `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: validation-readiness-dummy-rule
+  name: validation-readiness-dummy-virtual-service
   namespace: %s
 spec:
-  match: request.headers["foo"] == "bar"
-  actions:
-  - handler: validation-readiness-dummy
-    instances:
-    - validation-readiness-dummy
+  hosts:
+    - non-existent-host
+  http:
+    - route:
+      - destination:
+          host: non-existent-host
+          subset: v1
+        weight: 75
+      - destination:
+          host: non-existent-host
+          subset: v2
+        weight: 25
 `
 )
 
-func waitForValidationWebhook(accessor *kube.Accessor, cfg Config) error {
-	dummyValidationRule := fmt.Sprintf(dummyValidationRuleTemplate, cfg.SystemNamespace)
+func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cfg Config) error {
+	dummyValidationVirtualService := fmt.Sprintf(dummyValidationVirtualServiceTemplate, cfg.SystemNamespace)
 	defer func() {
-		e := accessor.DeleteContents("", dummyValidationRule)
+		e := ctx.Config(cluster).DeleteYAML("", dummyValidationVirtualService)
 		if e != nil {
-			scopes.Framework.Warnf("error deleting dummy rule for waiting the validation webhook: %v", e)
+			scopes.Framework.Warnf("error deleting dummy virtual service for waiting the validation webhook: %v", e)
 		}
 	}()
 
-	scopes.CI.Info("Creating dummy rule to check for validation webhook readiness")
+	scopes.Framework.Info("Creating dummy virtual service to check for validation webhook readiness")
 	return retry.UntilSuccess(func() error {
-		_, err := accessor.ApplyContents("", dummyValidationRule)
+		err := ctx.Config(cluster).ApplyYAML("", dummyValidationVirtualService)
 		if err == nil {
 			return nil
 		}
 
 		return fmt.Errorf("validation webhook not ready yet: %v", err)
 	}, retry.Timeout(time.Minute))
+}
+
+func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
+	cp, err := i.environment.GetControlPlaneCluster(cluster)
+	if err != nil {
+		return net.TCPAddr{}, err
+	}
+	addr := i.IngressFor(cp).DiscoveryAddress()
+	if addr.IP.String() == "<nil>" {
+		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())
+	}
+	return addr, nil
 }

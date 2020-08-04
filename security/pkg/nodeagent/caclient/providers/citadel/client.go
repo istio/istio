@@ -1,4 +1,4 @@
-// Copyright 2018 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
-	pb "istio.io/istio/security/proto"
+	pb "istio.io/api/security/v1alpha1"
 	"istio.io/pkg/log"
 )
 
@@ -53,35 +53,25 @@ type citadelClient struct {
 	enableTLS     bool
 	caTLSRootCert []byte
 	client        pb.IstioCertificateServiceClient
+	clusterID     string
+	conn          *grpc.ClientConn
 }
 
 // NewCitadelClient create a CA client for Citadel.
-func NewCitadelClient(endpoint string, tls bool, rootCert []byte) (caClientInterface.Client, error) {
+func NewCitadelClient(endpoint string, tls bool, rootCert []byte, clusterID string) (security.Client, error) {
 	c := &citadelClient{
 		caEndpoint:    endpoint,
 		enableTLS:     tls,
 		caTLSRootCert: rootCert,
+		clusterID:     clusterID,
 	}
 
-	var opts grpc.DialOption
-	var err error
-	if tls {
-		opts, err = c.getTLSDialOption()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		opts = grpc.WithInsecure()
-	}
-
-	// TODO(JimmyCYJ): This connection is create at construction time. If conn is broken at anytime,
-	//  need a way to reconnect.
-	conn, err := grpc.Dial(endpoint, opts)
+	conn, err := c.buildConnection()
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", endpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", endpoint)
 	}
-
+	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return c, nil
 }
@@ -93,10 +83,18 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		Csr:              string(csrPEM),
 		ValidityDuration: certValidTTLInSec,
 	}
+	if token != "" {
+		// add Bearer prefix, which is required by Citadel.
+		token = bearerTokenPrefix + token
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
+	} else {
+		err := c.reconnect()
+		if err != nil {
+			citadelClientLog.Errorf("Failed to Reconnect: %v", err)
+			return nil, err
+		}
+	}
 
-	// add Bearer prefix, which is required by Citadel.
-	token = bearerTokenPrefix + token
-	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to create certificate: %v", err)
@@ -137,7 +135,11 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 				// Load the certificate from disk
 				certificate, err = tls.LoadX509KeyPair(ProvCert+"/cert-chain.pem", ProvCert+"/key.pem")
 				if err != nil {
-					return nil, fmt.Errorf("cannot load key pair: %s", err)
+					// we will return an empty cert so that when user sets the Prov cert path
+					// but not have such cert in the file path we use the token to provide verification
+					// instead of just broken the workflow
+					citadelClientLog.Warnf("cannot load key pair, using token instead : %+v", err)
+					return &certificate, nil
 				}
 			}
 			return &certificate, nil
@@ -159,4 +161,40 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
+}
+
+func (c *citadelClient) buildConnection() (*grpc.ClientConn, error) {
+	var opts grpc.DialOption
+	var err error
+	if c.enableTLS {
+		opts, err = c.getTLSDialOption()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		opts = grpc.WithInsecure()
+	}
+
+	conn, err := grpc.Dial(c.caEndpoint, opts)
+	if err != nil {
+		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.caEndpoint, err)
+		return nil, fmt.Errorf("failed to connect to endpoint %s", c.caEndpoint)
+	}
+
+	return conn, nil
+}
+
+func (c *citadelClient) reconnect() error {
+	err := c.conn.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close connection")
+	}
+
+	conn, err := c.buildConnection()
+	if err != nil {
+		return err
+	}
+	c.conn = conn
+	c.client = pb.NewIstioCertificateServiceClient(conn)
+	return err
 }

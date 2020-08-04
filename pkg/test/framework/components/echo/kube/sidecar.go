@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package kube
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -23,11 +24,16 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
+
+	// Import all XDS config types
+	_ "istio.io/istio/pkg/config/xds"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
-	kube2 "istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeCore "k8s.io/api/core/v1"
@@ -43,10 +49,10 @@ type sidecar struct {
 	nodeID       string
 	podNamespace string
 	podName      string
-	cluster      kube2.Cluster
+	cluster      resource.Cluster
 }
 
-func newSidecar(pod kubeCore.Pod, cluster kube2.Cluster) (*sidecar, error) {
+func newSidecar(pod kubeCore.Pod, cluster resource.Cluster) (*sidecar, error) {
 	sidecar := &sidecar{
 		podNamespace: pod.Namespace,
 		podName:      pod.Name,
@@ -161,24 +167,54 @@ func (s *sidecar) ListenersOrFail(t test.Failer) *envoyAdmin.Listeners {
 	return listeners
 }
 
+func (s *sidecar) Stats() (map[string]*dto.MetricFamily, error) {
+	return s.proxyStats()
+}
+
+func (s *sidecar) StatsOrFail(t test.Failer) map[string]*dto.MetricFamily {
+	t.Helper()
+	stats, err := s.Stats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stats
+}
+
+func (s *sidecar) proxyStats() (map[string]*dto.MetricFamily, error) {
+	// Exec onto the pod and make a curl request to the admin port, writing
+	command := "pilot-agent request GET /stats/prometheus"
+	stdout, stderr, err := s.cluster.PodExec(s.podName, s.podNamespace, proxyContainerName, command)
+	if err != nil {
+		return nil, fmt.Errorf("failed exec on pod %s/%s: %v. Command: %s. Output:\n%s",
+			s.podNamespace, s.podName, err, command, stdout+stderr)
+	}
+
+	parser := expfmt.TextParser{}
+	mfMap, err := parser.TextToMetricFamilies(strings.NewReader(stdout))
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing prometheus stats: %v", err)
+	}
+	return mfMap, nil
+}
+
 func (s *sidecar) adminRequest(path string, out proto.Message) error {
 	// Exec onto the pod and make a curl request to the admin port, writing
 	command := fmt.Sprintf("pilot-agent request GET %s", path)
-	response, err := s.cluster.Exec(s.podNamespace, s.podName, proxyContainerName, command)
+	stdout, stderr, err := s.cluster.PodExec(s.podName, s.podNamespace, proxyContainerName, command)
 	if err != nil {
 		return fmt.Errorf("failed exec on pod %s/%s: %v. Command: %s. Output:\n%s",
-			s.podNamespace, s.podName, err, command, response)
+			s.podNamespace, s.podName, err, command, stdout+stderr)
 	}
 
 	jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
-	if err := jspb.Unmarshal(strings.NewReader(response), out); err != nil {
-		return fmt.Errorf("failed parsing Envoy admin response from '/%s': %v\nResponse JSON: %s", path, err, response)
+	if err := jspb.Unmarshal(strings.NewReader(stdout), out); err != nil {
+		return fmt.Errorf("failed parsing Envoy admin response from '/%s': %v\nResponse JSON: %s", path, err, stdout)
 	}
 	return nil
 }
 
 func (s *sidecar) Logs() (string, error) {
-	return s.cluster.Logs(s.podNamespace, s.podName, proxyContainerName, false)
+	return s.cluster.PodLogs(context.TODO(), s.podName, s.podNamespace, proxyContainerName, false)
 }
 
 func (s *sidecar) LogsOrFail(t test.Failer) string {

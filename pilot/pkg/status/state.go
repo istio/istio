@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/apimachinery/pkg/labels"
 
@@ -36,10 +37,12 @@ import (
 	"k8s.io/utils/clock"
 
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 var scope = log.RegisterScope("status",
-	"component for writing distribution status to istiio CRDs", 0)
+	"CRD distribution status debugging", 0)
 
 type Progress struct {
 	AckedInstances int
@@ -56,54 +59,56 @@ type DistributionController struct {
 	CurrentState     map[Resource]map[string]Progress
 	ObservationTime  map[string]time.Time
 	UpdateInterval   time.Duration
-	client           dynamic.Interface
+	dynamicClient    dynamic.Interface
 	clock            clock.Clock
 	knownResources   map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	currentlyWriting ResourceLock
 	StaleInterval    time.Duration
-	QPS              float32
-	Burst            int
+	cmInformer       cache.SharedIndexInformer
 }
 
-func (c *DistributionController) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
-	scope.Info("Starting status leader controller")
-	// default UpdateInterval
-	if c.UpdateInterval == 0 {
-		c.UpdateInterval = 200 * time.Millisecond
+func NewController(restConfig rest.Config, namespace string) *DistributionController {
+	c := &DistributionController{
+		CurrentState:    make(map[Resource]map[string]Progress),
+		ObservationTime: make(map[string]time.Time),
+		knownResources:  make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface),
+		UpdateInterval:  200 * time.Millisecond,
+		StaleInterval:   time.Minute,
+		clock:           clock.RealClock{},
 	}
-	// default StaleInterval
-	if c.StaleInterval == 0 {
-		c.StaleInterval = time.Minute
-	}
-	if c.clock == nil {
-		c.clock = clock.RealClock{}
-	}
-	c.CurrentState = make(map[Resource]map[string]Progress)
-	c.ObservationTime = make(map[string]time.Time)
-	c.knownResources = make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface)
 
 	// client-go defaults to 5 QPS, with 10 Boost, which is insufficient for updating status on all the config
 	// in the mesh.  These values can be configured using environment variables for tuning (see pilot/pkg/features)
-	restConfig.QPS = c.QPS
-	restConfig.Burst = c.Burst
+	restConfig.QPS = float32(features.StatusQPS)
+	restConfig.Burst = features.StatusBurst
 	var err error
-	if c.client, err = dynamic.NewForConfig(restConfig); err != nil {
+	if c.dynamicClient, err = dynamic.NewForConfig(&restConfig); err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
-	// create watch
-	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute,
+
+	// configmap informer
+	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(&restConfig), 1*time.Minute,
 		informers.WithNamespace(namespace),
 		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
 			listOptions.LabelSelector = labels.Set(map[string]string{labelKey: "true"}).AsSelector().String()
 		})).
 		Core().V1().ConfigMaps()
+	c.cmInformer = i.Informer()
 	i.Informer().AddEventHandler(&DistroReportHandler{dc: c})
+
+	return c
+}
+
+func (c *DistributionController) Start(stop <-chan struct{}) {
+	scope.Info("Starting status leader controller")
+
 	// this will list all existing configmaps, as well as updates, right?
 	ctx := NewIstioContext(stop)
-	go i.Informer().Run(ctx.Done())
+	go c.cmInformer.Run(ctx.Done())
 
-	//create Status Writer
+	//  create Status Writer
 	t := c.clock.Tick(c.UpdateInterval)
+
 	go func() {
 		for {
 			select {
@@ -158,7 +163,7 @@ func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource
 	if result, ok := c.knownResources[gvr]; ok {
 		return result
 	}
-	result = c.client.Resource(gvr)
+	result = c.dynamicClient.Resource(gvr)
 	c.knownResources[gvr] = result
 	return
 }
@@ -256,7 +261,7 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 	conditionIndex := -1
 	for i, c := range currentStatus.Conditions {
 		if c.Type == Reconciled {
-			currentCondition = &c
+			currentCondition = &currentStatus.Conditions[i]
 			conditionIndex = i
 		}
 	}

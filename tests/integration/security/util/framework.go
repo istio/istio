@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,10 @@ package util
 import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/galley"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 )
 
-func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations, g galley.Instance, p pilot.Instance) echo.Config {
+func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.Annotations) echo.Config {
 	out := echo.Config{
 		Service:        name,
 		Namespace:      ns,
@@ -50,8 +48,6 @@ func EchoConfig(name string, ns namespace.Instance, headless bool, annos echo.An
 				Protocol: protocol.GRPC,
 			},
 		},
-		Galley: g,
-		Pilot:  p,
 	}
 
 	// for headless service with selector, the port and target port must be equal

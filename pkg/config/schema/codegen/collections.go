@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,23 @@ import (
 
 	"istio.io/istio/pkg/config/schema/ast"
 )
+
+const staticResourceTemplate = `
+// GENERATED FILE -- DO NOT EDIT
+//
+
+package {{.PackageName}}
+
+import (
+	"istio.io/istio/pkg/config/schema/collections"
+)
+
+var (
+{{- range .Entries }}
+	{{.Resource.Kind}} = collections.{{ .Collection.VariableName }}.Resource().GroupVersionKind()
+{{- end }}
+)
+`
 
 const staticCollectionsTemplate = `
 // GENERATED FILE -- DO NOT EDIT
@@ -96,12 +113,54 @@ var (
 		{{- end}}
 	{{- end }}
 		Build()
+
+	// Deprecated contains only collections used by that will soon be used by nothing.
+	Deprecated = collection.NewSchemasBuilder().
+	{{- range .Entries }}
+		{{- if .Collection.Deprecated }}
+		MustAdd({{ .Collection.VariableName }}).
+		{{- end}}
+	{{- end }}
+		Build()
 )
 `
 
 type colEntry struct {
 	Collection *ast.Collection
 	Resource   *ast.Resource
+}
+
+func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
+	entries := make([]colEntry, 0, len(m.Collections))
+	for _, c := range m.Collections {
+		if !c.Pilot {
+			continue
+		}
+		r := m.FindResourceForGroupKind(c.Group, c.Kind)
+		if r == nil {
+			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
+		}
+
+		entries = append(entries, colEntry{
+			Collection: c,
+			Resource:   r,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return strings.Compare(entries[i].Collection.Name, entries[j].Collection.Name) < 0
+	})
+
+	context := struct {
+		Entries     []colEntry
+		PackageName string
+	}{
+		Entries:     entries,
+		PackageName: packageName,
+	}
+
+	// Calculate the Go packages that needs to be imported for the proto types to be registered.
+	return applyTemplate(staticResourceTemplate, context)
 }
 
 // StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.

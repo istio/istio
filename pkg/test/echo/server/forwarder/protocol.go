@@ -1,4 +1,4 @@
-// Copyright 2017 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-
+	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/test/echo/common"
@@ -35,11 +35,12 @@ import (
 )
 
 type request struct {
-	URL       string
-	Header    http.Header
-	RequestID int
-	Message   string
-	Timeout   time.Duration
+	URL         string
+	Header      http.Header
+	RequestID   int
+	Message     string
+	Timeout     time.Duration
+	ServerFirst bool
 }
 
 type protocol interface {
@@ -71,9 +72,13 @@ func newProtocol(cfg Config) (protocol, error) {
 
 	switch scheme.Instance(u.Scheme) {
 	case scheme.HTTP, scheme.HTTPS:
-		return &httpProtocol{
+		proto := &httpProtocol{
 			client: &http.Client{
 				Transport: &http.Transport{
+					// We are creating a Transport on each ForwardEcho request. Transport is what holds connections,
+					// so this means every ForwardEcho request will create a new connection. Without setting an idle timeout,
+					// we would never close these connections.
+					IdleConnTimeout: time.Second,
 					TLSClientConfig: &tls.Config{
 						InsecureSkipVerify: true,
 					},
@@ -82,7 +87,29 @@ func newProtocol(cfg Config) (protocol, error) {
 				Timeout: timeout,
 			},
 			do: cfg.Dialer.HTTP,
-		}, nil
+		}
+		if cfg.Request.Http2 && scheme.Instance(u.Scheme) == scheme.HTTPS {
+			proto.client.Transport = &http2.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return tls.Dial(network, addr, cfg)
+				},
+			}
+		} else if cfg.Request.Http2 {
+			proto.client.Transport = &http2.Transport{
+				// Golang doesn't have first class support for h2c, so we provide some workarounds
+				// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
+				// So http2.Transport doesn't complain the URL scheme isn't 'https'
+				AllowHTTP: true,
+				// Pretend we are dialing a TLS endpoint. (Note, we ignore the passed tls.Config)
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return net.Dial(network, addr)
+				},
+			}
+		}
+		return proto, nil
 	case scheme.GRPC:
 		// grpc-go sets incorrect authority header
 		authority := headers.Get(hostHeader)
@@ -99,8 +126,7 @@ func newProtocol(cfg Config) (protocol, error) {
 		grpcConn, err := cfg.Dialer.GRPC(ctx,
 			address,
 			security,
-			grpc.WithAuthority(authority),
-			grpc.WithBlock())
+			grpc.WithAuthority(authority))
 		if err != nil {
 			return nil, err
 		}

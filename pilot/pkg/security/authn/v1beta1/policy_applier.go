@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,10 +19,10 @@ import (
 	"sort"
 	"strings"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	route "github.com/envoyproxy/go-control-plane/envoy/api/v2/route"
-	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/config/filter/http/jwt_authn/v2alpha"
-	http_conn "github.com/envoyproxy/go-control-plane/envoy/config/filter/network/http_connection_manager/v2"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
+	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"istio.io/api/security/v1beta1"
@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/pilot/pkg/security/authn"
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	authn_alpha "istio.io/istio/security/proto/authentication/v1alpha1"
-	authn_filter "istio.io/istio/security/proto/envoy/config/filter/http/authn/v2alpha1"
+	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
+	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 )
 
 var (
@@ -79,8 +79,9 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
-	if proxyType != model.SidecarProxy {
+func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeType, port uint32, istioMutualGateway bool,
+	config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+	if proxyType != model.SidecarProxy && !istioMutualGateway {
 		authnLog.Debugf("AuthnFilter: skip setting peer for type %v", proxyType)
 		return config
 	}
@@ -91,7 +92,20 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForPeerAuthn(proxyType model.NodeTy
 	p := config.Policy
 	p.Peers = []*authn_alpha.PeerAuthenticationMethod{}
 
-	effectiveMTLSMode := a.getMutualTLSModeForPort(port)
+	var effectiveMTLSMode model.MutualTLSMode
+	if proxyType == model.SidecarProxy {
+		effectiveMTLSMode = a.getMutualTLSModeForPort(port)
+	} else {
+		// this is for gateway with a server whose TLS mode is ISTIO_MUTUAL
+		// this is effectively the same as strict mode. We dont really
+		// care about permissive or strict here. We simply need to validate that the peer cert is
+		// a proper spiffe cert so that authz policies can use source principal based validations here.
+		effectiveMTLSMode = model.MTLSStrict
+		// we should accept traffic from any trust domain. We expect the use of authZ policies to
+		// restrict which domains are actually allowed.
+		config.SkipValidateTrustDomain = true
+	}
+
 	if effectiveMTLSMode == model.MTLSPermissive || effectiveMTLSMode == model.MTLSStrict {
 		mode := authn_alpha.MutualTls_PERMISSIVE
 		if effectiveMTLSMode == model.MTLSStrict {
@@ -149,11 +163,11 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // - If PeerAuthentication is used, it overwrite the settings for peer principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32) *http_conn.HttpFilter {
+func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32, istioMutualGateway bool) *http_conn.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with peer authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, filterConfigProto)
+	filterConfigProto = a.setAuthnFilterForPeerAuthn(proxyType, port, istioMutualGateway, filterConfigProto)
 	// Override the config with request authentication, if applicable.
 	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
 
@@ -167,10 +181,11 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy) []networking.FilterChain {
+func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
+	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
-	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node)
+	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.
@@ -240,7 +255,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule) *envoy_jwt.JwtAuthenti
 		jwtPubKey := jwtRule.Jwks
 		if jwtPubKey == "" {
 			var err error
-			jwtPubKey, err = model.JwtKeyResolver.GetPublicKey(jwtRule.JwksUri)
+			jwtPubKey, err = model.GetJwtKeyResolver().GetPublicKey(jwtRule.JwksUri)
 			if err != nil {
 				log.Errorf("Failed to fetch jwt public key from %q: %s", jwtRule.JwksUri, err)
 			}

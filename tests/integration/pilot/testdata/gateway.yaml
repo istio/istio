@@ -1,0 +1,16 @@
+# Gateway with bad selector
+#
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: httpbin-gateway-bogus
+spec:
+  selector:
+    istio: ingresstypo
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"

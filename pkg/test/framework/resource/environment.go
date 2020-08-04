@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,32 +14,52 @@
 
 package resource
 
-import (
-	"fmt"
+// EnvironmentFactory creates an Environment.
+type EnvironmentFactory func(ctx Context) (Environment, error)
 
-	"istio.io/istio/pkg/test/framework/resource/environment"
-)
+var _ EnvironmentFactory = NilEnvironmentFactory
 
-// EnvironmentFactory is a function that creates an Environment by name.
-type EnvironmentFactory func(name string, ctx Context) (Environment, error)
+// NilEnvironmentFactory is an EnvironmentFactory that returns nil.
+func NilEnvironmentFactory(Context) (Environment, error) {
+	return nil, nil
+}
 
 // Environment is the ambient environment that the test runs in.
 type Environment interface {
 	Resource
 
-	EnvironmentName() environment.Name
-
-	// IsMulticluster is a utility method that indicates whether there are multiple Clusters available.
-	IsMulticluster() bool
+	EnvironmentName() string
 
 	// Clusters in this Environment. There will always be at least one.
-	Clusters() []Cluster
-
-	// Case calls the given function if this environment has the given name.
-	Case(e environment.Name, fn func())
+	Clusters() Clusters
 }
 
-// UnsupportedEnvironment generates an error indicating that the given environment is not supported.
-func UnsupportedEnvironment(env Environment) error {
-	return fmt.Errorf("unsupported environment: %q", string(env.EnvironmentName()))
+var _ Environment = FakeEnvironment{}
+
+// FakeEnvironment for testing.
+type FakeEnvironment struct {
+	Name        string
+	NumClusters int
+	IDValue     string
+}
+
+func (f FakeEnvironment) ID() ID {
+	return FakeID(f.IDValue)
+}
+
+func (f FakeEnvironment) EnvironmentName() string {
+	if len(f.Name) == 0 {
+		return "fake"
+	}
+	return f.Name
+}
+
+func (f FakeEnvironment) Clusters() Clusters {
+	out := make([]Cluster, f.NumClusters)
+	for i := 0; i < f.NumClusters; i++ {
+		out[i] = FakeCluster{
+			IndexValue: i,
+		}
+	}
+	return out
 }

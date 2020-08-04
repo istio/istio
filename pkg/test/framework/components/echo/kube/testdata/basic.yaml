@@ -36,12 +36,10 @@ spec:
       - name: app
         image: testing.hub/app:latest
         imagePullPolicy: Always
-        securityContext:
-          runAsUser: 1
         args:
           - --metrics=15014
           - --cluster
-          - "0"
+          - "cluster-0"
           - --port
           - "8090"
           - --port

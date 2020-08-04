@@ -1,4 +1,4 @@
-// Copyright 2019 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,11 +18,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/pkg/log"
 
@@ -30,16 +35,16 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 var (
@@ -49,7 +54,7 @@ var (
 		excluded  []string
 	}{
 		{
-			"istio-grafana-configuration-dashboards-pilot-dashboard",
+			"istio-grafana-dashboards",
 			"pilot-dashboard.json",
 			[]string{
 				"pilot_xds_push_errors",
@@ -70,7 +75,7 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-mesh-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-mesh-dashboard.json",
 			[]string{
 				"galley_",
@@ -78,21 +83,21 @@ var (
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-service-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-service-dashboard.json",
 			[]string{
 				"istio_tcp_",
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-workload-dashboard",
+			"istio-services-grafana-dashboards",
 			"istio-workload-dashboard.json",
 			[]string{
 				"istio_tcp_",
 			},
 		},
 		{
-			"istio-grafana-configuration-dashboards-istio-performance-dashboard",
+			"istio-grafana-dashboards",
 			"istio-performance-dashboard.json",
 			[]string{
 				// TODO add these back: https://github.com/istio/istio/issues/20175
@@ -102,20 +107,12 @@ var (
 				"container_fs_usage_bytes",
 			},
 		},
-		{
-			"istio-grafana-configuration-dashboards-mixer-dashboard",
-			"mixer-dashboard.json",
-			[]string{
-				// Exclude all metrics -- mixer is disabled by default
-				"_",
-			},
-		},
 	}
 )
 
 func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
-		RequiresEnvironment(environment.Kube).
+		Features("observability.telemetry.dashboard").
 		Run(func(ctx framework.TestContext) {
 
 			p := prometheus.NewOrFail(ctx, ctx, prometheus.Config{})
@@ -125,7 +122,8 @@ func TestDashboard(t *testing.T) {
 			for _, d := range dashboards {
 				d := d
 				ctx.NewSubTest(d.name).RunParallel(func(t framework.TestContext) {
-					cm, err := kenv.KubeClusters[0].GetConfigMap(d.configmap, i.Settings().TelemetryNamespace)
+					cm, err := kenv.KubeClusters[0].CoreV1().ConfigMaps(i.Settings().TelemetryNamespace).Get(
+						context.TODO(), d.configmap, kubeApiMeta.GetOptions{})
 					if err != nil {
 						t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
 					}
@@ -202,7 +200,7 @@ func checkMetric(p prometheus.Instance, query string, excluded []string) error {
 		}
 	} else {
 		if numSamples != 0 {
-			scopes.CI.Debugf("Filtered out metric '%v', but got samples: %v", query, value)
+			scopes.Framework.Infof("Filtered out metric '%v', but got samples: %v", query, value)
 		}
 	}
 	return nil
@@ -284,15 +282,20 @@ func setupDashboardTest(t framework.TestContext) {
 		Prefix: "dashboard",
 		Inject: true,
 	})
-	g.ApplyConfigOrFail(t, ns, fmt.Sprintf(gatewayConfig, ns.Name()))
+	t.Config().ApplyYAMLOrFail(t, ns.Name(), fmt.Sprintf(gatewayConfig, ns.Name()))
+
+	// Apply just the grafana dashboards
+	cfg, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/addons/grafana.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Config().ApplyYAMLOrFail(t, "istio-system", yml.SplitYamlByKind(string(cfg))["ConfigMap"])
 
 	var instance echo.Instance
 	echoboot.
-		NewBuilderOrFail(t, t).
+		NewBuilder(t).
 		With(&instance, echo.Config{
 			Service:   "server",
-			Pilot:     p,
-			Galley:    g,
 			Namespace: ns,
 			Subsets:   []echo.SubsetConfig{{}},
 			Ports: []echo.Port{
