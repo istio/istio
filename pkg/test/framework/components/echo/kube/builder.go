@@ -128,7 +128,7 @@ func (b *builder) initializeInstances(instances []echo.Instance) error {
 			}
 			if err := inst.(*instance).initialize(pods); err != nil {
 				aggregateErrMux.Lock()
-				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("initialize %v: %v", inst.ID(), err))
+				aggregateErr = multierror.Append(aggregateErr, fmt.Errorf("initialize %v/%v/%v: %v", inst.ID(), inst.Config().Service, inst.Address(), err))
 				aggregateErrMux.Unlock()
 			}
 		}()
