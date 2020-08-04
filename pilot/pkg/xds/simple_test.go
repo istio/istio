@@ -144,7 +144,7 @@ func localPilotTestEnv(
 	initFunc(server)
 
 	// Trigger a push, to initiate push context with contents of registry.
-	server.DiscoveryServer.Push(&model.PushRequest{Full: true})
+	server.XDSServer.Push(&model.PushRequest{Full: true})
 
 	// Wait till a push is propagated.
 	time.Sleep(200 * time.Millisecond)
@@ -165,7 +165,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 	return localPilotTestEnv(t, func(server *bootstrap.Server) {
 		// Service and endpoints for hello.default - used in v1 pilot tests
 		hostname := host.Name("hello.default.svc.cluster.local")
-		server.DiscoveryServer.MemRegistry.AddService(hostname, &model.Service{
+		server.XDSServer.MemRegistry.AddService(hostname, &model.Service{
 			Hostname: hostname,
 			Address:  "10.10.0.3",
 			Ports:    testPorts(0),
@@ -175,7 +175,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 		})
 
-		server.DiscoveryServer.MemRegistry.SetEndpoints(string(hostname), "default", []*model.IstioEndpoint{
+		server.XDSServer.MemRegistry.SetEndpoints(string(hostname), "default", []*model.IstioEndpoint{
 			{
 				Address:         "127.0.0.1",
 				EndpointPort:    uint32(testEnv.Ports().BackendPort),
@@ -187,7 +187,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 
 		// "local" service points to the current host
 		hostname = "local.default.svc.cluster.local"
-		server.DiscoveryServer.MemRegistry.AddService(hostname, &model.Service{
+		server.XDSServer.MemRegistry.AddService(hostname, &model.Service{
 			Hostname: hostname,
 			Address:  "10.10.0.4",
 			Ports: []*model.Port{
@@ -202,7 +202,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 		})
 
-		server.DiscoveryServer.MemRegistry.SetEndpoints(string(hostname), "default", []*model.IstioEndpoint{
+		server.XDSServer.MemRegistry.SetEndpoints(string(hostname), "default", []*model.IstioEndpoint{
 			{
 				Address:         localIP,
 				EndpointPort:    uint32(testEnv.Ports().BackendPort),
@@ -214,7 +214,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 		// Explicit test service, in the v2 memory registry. Similar with mock.MakeService,
 		// but easier to read.
 		hostname = "service3.default.svc.cluster.local"
-		server.DiscoveryServer.MemRegistry.AddService(hostname, &model.Service{
+		server.XDSServer.MemRegistry.AddService(hostname, &model.Service{
 			Hostname: hostname,
 			Address:  "10.10.0.1",
 			Ports:    testPorts(0),
@@ -234,10 +234,10 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			}
 		}
 
-		server.DiscoveryServer.MemRegistry.SetEndpoints(string(hostname), "default", svc3Endpoints)
+		server.XDSServer.MemRegistry.SetEndpoints(string(hostname), "default", svc3Endpoints)
 
 		// Mock ingress service
-		server.DiscoveryServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
+		server.XDSServer.MemRegistry.AddService("istio-ingress.istio-system.svc.cluster.local", &model.Service{
 			Hostname: "istio-ingress.istio-system.svc.cluster.local",
 			Address:  "10.10.0.2",
 			Ports: []*model.Port{
@@ -254,7 +254,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 			},
 			// TODO: set attribute for this service. It may affect TestLDSIsolated as we now having service defined in istio-system namespaces
 		})
-		server.DiscoveryServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+		server.XDSServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 			Endpoint: &model.IstioEndpoint{
 				Address:         ingressIP,
 				EndpointPort:    80,
@@ -268,7 +268,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 				Protocol: protocol.HTTP,
 			},
 		})
-		server.DiscoveryServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
+		server.XDSServer.MemRegistry.AddInstance("istio-ingress.istio-system.svc.cluster.local", &model.ServiceInstance{
 			Endpoint: &model.IstioEndpoint{
 				Address:         ingressIP,
 				EndpointPort:    443,
@@ -285,7 +285,7 @@ func initLocalPilotTestEnv(t *testing.T) (*bootstrap.Server, util.TearDownFunc) 
 
 		// RouteConf Service4 is using port 80, to test that we generate multiple clusters (regression)
 		// service4 has no endpoints
-		server.DiscoveryServer.MemRegistry.AddHTTPService("service4.default.svc.cluster.local", "10.1.0.4", 80)
+		server.XDSServer.MemRegistry.AddHTTPService("service4.default.svc.cluster.local", "10.1.0.4", 80)
 	})
 }
 

@@ -137,7 +137,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.DiscoveryServer.ConfigUpdate(&model.PushRequest{Full: true})
+	server.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
@@ -197,7 +197,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.DiscoveryServer.ConfigUpdate(&model.PushRequest{Full: true})
+	server.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
@@ -298,7 +298,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.DiscoveryServer.ConfigUpdate(&model.PushRequest{Full: true})
+	server.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
@@ -376,7 +376,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.DiscoveryServer.ConfigUpdate(&model.PushRequest{Full: true})
+	server.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	tests := []struct {
