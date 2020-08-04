@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
-// MessageThreshold is an alias of Level to be used as a cobra command line argument.
+// MessageThreshold is a wrapper around Level to be used as a cobra command line argument.
 // It should satisfy the pflag.Value interface.
 type MessageThreshold struct {
 	diag.Level
