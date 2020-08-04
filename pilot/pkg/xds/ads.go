@@ -416,7 +416,9 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 		return true
 	}
 
+	con.mu.RLock()
 	previousInfo := con.node.Active[stype]
+	con.mu.RUnlock()
 
 	// If this is a case of Envoy reconnecting Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
@@ -842,6 +844,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 }
 
 func (conn *Connection) NonceAcked(stype string) string {
+	conn.mu.RLock()
+	defer conn.mu.RUnlock()
 	if conn.node.Active != nil && conn.node.Active[stype] != nil {
 		return conn.node.Active[stype].NonceAcked
 	}
@@ -849,6 +853,8 @@ func (conn *Connection) NonceAcked(stype string) string {
 }
 
 func (conn *Connection) NonceSent(stype string) string {
+	conn.mu.RLock()
+	defer conn.mu.RUnlock()
 	if conn.node.Active != nil && conn.node.Active[stype] != nil {
 		return conn.node.Active[stype].NonceSent
 	}
@@ -856,6 +862,8 @@ func (conn *Connection) NonceSent(stype string) string {
 }
 
 func (conn *Connection) Clusters() []string {
+	conn.mu.RLock()
+	defer conn.mu.RUnlock()
 	if conn.node.Active != nil && conn.node.Active[v3.EndpointShortType] != nil {
 		return conn.node.Active[v3.EndpointShortType].ResourceNames
 	}
@@ -863,6 +871,8 @@ func (conn *Connection) Clusters() []string {
 }
 
 func (conn *Connection) Routes() []string {
+	conn.mu.RLock()
+	defer conn.mu.RUnlock()
 	if conn.node.Active != nil && conn.node.Active[v3.RouteShortType] != nil {
 		return conn.node.Active[v3.RouteShortType].ResourceNames
 	}
@@ -870,6 +880,8 @@ func (conn *Connection) Routes() []string {
 }
 
 func (conn *Connection) Watching(stype string) bool {
+	conn.mu.RLock()
+	defer conn.mu.RUnlock()
 	if conn.node.Active != nil && conn.node.Active[stype] != nil {
 		return true
 	}
