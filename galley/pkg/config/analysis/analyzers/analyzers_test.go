@@ -16,6 +16,7 @@ package analyzers
 
 import (
 	"fmt"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
 	"os"
 	"regexp"
 	"strings"
@@ -414,6 +415,76 @@ var testGrid = []testCase{
 		expected:   []message{
 			// no messages, this test case verifies no false positives
 		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel and simple at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-simple-mutual.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel and mutual at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-mutual-simple.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with both cacerts",
+		inputFiles: []string{
+			"testdata/destinationrule-with-ca.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
 	},
 }
 
