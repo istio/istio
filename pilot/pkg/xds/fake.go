@@ -243,9 +243,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Start(stop)
 
 	se.ResyncEDS()
-	if err := k8s.ForceResync(); err != nil {
-		t.Fatal(err)
-	}
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
