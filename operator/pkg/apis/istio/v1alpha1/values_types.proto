@@ -914,7 +914,7 @@ message ProxyConfig {
 
   TypeMapStringInterface lifecycle = 36;
 
-  // Causes the sidecar to be injected at the front of the container list and blocks the start of the other containers until the proxy is ready
+  // Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
   google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37;
 }
 
