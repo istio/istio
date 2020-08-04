@@ -30,14 +30,11 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	networkingclientv1alpha3 "istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
@@ -162,8 +159,13 @@ func configureCommand() *cobra.Command {
 		Use:   "configure",
 		Short: "Generates all the required configuration files for a workload instance running on a VM or non-k8s environment",
 		Long: `Generates all the required configuration files for workload instance on a VM or non-k8s environment from a WorkloadGroup artifact.
-This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.`,
-		Example: "configure -f workloadgroup.yaml -o config",
+This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.
+Configure requires either the WorkloadGroup artifact path or its location on the API server.`,
+		Example: `# configure example using a local WorkloadGroup artifact
+configure -f workloadgroup.yaml -o config
+
+# configure example using the API server
+configure --name foo --namespace bar -o config`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" && (name == "" || namespace == "") {
 				return fmt.Errorf("expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup")
@@ -187,11 +189,8 @@ This includes a MeshConfig resource, the cluster.env file, and necessary certifi
 					return err
 				}
 			} else {
-				networkingClient, err := networkingclientv1alpha3.NewForConfig(injectWorkloadGroup(kubeClient.RESTConfig()))
-				if err != nil {
-					return err
-				}
-				wg, err = networkingClient.WorkloadGroups(namespace).Get(context.Background(), name, metav1.GetOptions{})
+				wg, err = kubeClient.Istio().NetworkingV1alpha3().WorkloadGroups(namespace).Get(context.Background(), name, metav1.GetOptions{})
+				// errors if the requested workload group does not exist in the given namespace
 				if err != nil {
 					return err
 				}
@@ -213,18 +212,6 @@ This includes a MeshConfig resource, the cluster.env file, and necessary certifi
 	return configureCmd
 }
 
-// return a modified REST config where WorkloadGroup is a recognized Kubernetes resource
-func injectWorkloadGroup(config *rest.Config) *rest.Config {
-	schemeGroupVersion := schema.GroupVersion{
-		Group:   collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Group(),
-		Version: collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().Version(),
-	}
-	scheme := runtime.NewScheme()
-	scheme.AddKnownTypes(schemeGroupVersion, &clientv1alpha3.WorkloadGroup{})
-	config.GroupVersion = &schemeGroupVersion
-	return config
-}
-
 func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error {
 	f, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -239,7 +226,8 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 // Creates all the relevant config for the given workload group and cluster
 func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, outputName string) error {
 	fillWorkloadGroup(wg)
-	temp, err := ioutil.TempDir("./", outputName)
+	// use default temp directory
+	temp, err := ioutil.TempDir("", "istioctl-workloadgroup")
 	if err != nil {
 		return err
 	}
@@ -276,30 +264,39 @@ func fillWorkloadGroup(wg *clientv1alpha3.WorkloadGroup) {
 // Write cluster.env into the given directory
 func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 	we := wg.Spec.Template.Spec
+	ports := []string{}
 	for _, v := range we.Ports {
 		ports = append(ports, fmt.Sprint(v))
 	}
+	// respect the inbound port annotation and capture all traffic if no inbound ports are set
+	portBehavior := "*"
+	if len(ports) > 0 {
+		portBehavior = strings.Join(ports, ",")
+	}
+
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	clusterEnv := map[string]string{
 		"ISTIO_CP_AUTH":       "MUTUAL_TLS",
-		"ISTIO_INBOUND_PORTS": strings.Join(ports, ","),
+		"ISTIO_INBOUND_PORTS": portBehavior,
 		"ISTIO_NAMESPACE":     wg.Namespace,
 		"ISTIO_PILOT_PORT":    "15012",
 		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
 		"ISTIO_SERVICE_CIDR":  "*",
 		"SERVICE_ACCOUNT":     we.ServiceAccount,
 	}
-	return ioutil.WriteFile(dir+"/cluster.env", []byte(mapToString(clusterEnv)), tempPerms)
+	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), tempPerms)
 }
 
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and
 // the token is generated by kubectl under the workload group's namespace and service account
+// TODO: Make the following accurate when using the Kubernetes certificate signer
 func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, dir string) error {
 	rootCert, err := kubeClient.CoreV1().ConfigMaps(wg.Namespace).Get(context.Background(), controller.CACertNamespaceConfigMap, metav1.GetOptions{})
+	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
 		return err
 	}
-	if err = ioutil.WriteFile(dir+"/root-cert", []byte(rootCert.Data["root-cert.pem"]), tempPerms); err != nil {
+	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), tempPerms); err != nil {
 		return err
 	}
 
@@ -309,24 +306,28 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 			ExpirationSeconds: &tokenDuration,
 		},
 	}
-	namespace, serviceAccount := wg.Namespace, wg.Spec.Template.Spec.ServiceAccount
+	namespace := wg.Namespace
+	serviceAccount := wg.Spec.Template.Spec.ServiceAccount
 	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
+	// errors if the token could not be created with the given service account in the given namespace
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(dir+"/istio-token", []byte(tokenReq.Status.Token), tempPerms); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(dir, "istio-token"), []byte(tokenReq.Status.Token), tempPerms); err != nil {
 		return err
 	}
 	return nil
 }
 
+// TODO: Support the proxy.istio.io/config annotation
 func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) error {
 	istioCM := "istio"
 	// Case with multiple control planes
 	if revision != "" {
 		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
 	}
-	istio, err := kubeClient.CoreV1().ConfigMaps("istio-system").Get(context.Background(), istioCM, metav1.GetOptions{})
+	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
+	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
 		return err
 	}
@@ -368,7 +369,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(dir+"/mesh", []byte(meshYAML), tempPerms)
+	return ioutil.WriteFile(filepath.Join(dir, "mesh"), []byte(meshYAML), tempPerms)
 }
 
 // Packs files inside a source folder into target.tar
