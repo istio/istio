@@ -115,7 +115,9 @@ func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 		s.sendErrorResponse(w, invalidRequest, validationError)
 		return
 	}
-	if stsDirect.Get() {
+	// Authentication using the original JWT.
+	if reqParam.Scope == "" {
+		stsServerLog.Infoa("STS local request: ", reqParam)
 		tokInfo := &stsservice.StsResponseParameters{
 			AccessToken: reqParam.SubjectToken,
 			TokenType:   "Bearer",
@@ -136,6 +138,7 @@ func (s *Server) ServeStsRequests(w http.ResponseWriter, req *http.Request) {
 		s.sendErrorResponse(w, invalidTarget, genError)
 		return
 	}
+	stsServerLog.Infoa("STS request: ", reqParam)
 	s.sendSuccessfulResponse(w, tokenDataJSON)
 }
 
