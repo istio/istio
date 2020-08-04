@@ -11,31 +11,7 @@ apiVersion: release-notes/v2
 # - test -- Used to describe additional testing added. This file is optional for
 #   tests, but included for completeness.
 kind: bug-fix 
-
-# area describes the area that this change affects. 
-# Valid values are:
-# - traffic-management
-# - security
-# - telemetry
-# - installation
-# - istioctl
-# - documentation
 area: installation
-
-# issue is a list of GitHub issues resolved in this note.
-issue: 
-
-# releaseNotes is a markdown listing of any user facing changes. This will appear in the
-# release notes.
 releaseNotes: |
-Updated install script to bypass Github API Rate Limiting
+  *Updated* install script to bypass Github API Rate Limiting.
 
-# upgradeNotes is a markdown listing of any changes that will affect the upgrade
-# process. This will appear in the release notes. 
-upgradeNotes:
-  title:
-  content:
-
-# securityNotes is a markdown listing of any changes related to the security of
-# Istio.
-securityNotes:
