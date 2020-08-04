@@ -50,7 +50,7 @@ func TestFormatter_PrintLog(t *testing.T) {
 
 	g.Expect(output).To(Equal(
 		"Error [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
-			"Warn [C1] (GrandCastle) Collapse danger: the castle is too old\n",
+			"Warn [C1] (GrandCastle) Collapse danger: the castle is too old",
 	))
 }
 
