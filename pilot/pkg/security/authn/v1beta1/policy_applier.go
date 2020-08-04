@@ -220,10 +220,11 @@ func NewPolicyApplier(rootNamespace string,
 
 // Remove all Non-Alphanumeric Characters from a jwksURI and append to "n"
 func createFakeJwks(jwksURI string) string {
+	jwksURI = "failedToFetchJwksFrom_" + jwksURI
 	encodedString := b64.URLEncoding.EncodeToString([]byte(jwksURI))
 	reg := regexp.MustCompile("[^a-zA-Z0-9]+")
 	processedString := reg.ReplaceAllString(encodedString, "")
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"failedToFetchJwksFor%s"}]}`, processedString)
+	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"%s"}]}`, processedString)
 }
 
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
