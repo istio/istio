@@ -176,6 +176,10 @@ type Options struct {
 
 	// credential fetcher.
 	CredFetcher CredFetcher
+
+	// Need to parse token to inspect information like expiration time
+	// Default is false.
+	ParseToken bool
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
