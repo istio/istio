@@ -176,10 +176,10 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		}
 
 		// This is K8S typically
+		service.Mutex.RLock()
 		if out == nil {
 			out = service.DeepCopy()
 		} else {
-			service.Mutex.RLock()
 			// ClusterExternalAddresses and ClusterExternalPorts are only used for getting gateway address
 			externalAddrs := service.Attributes.ClusterExternalAddresses[r.Cluster()]
 			if len(externalAddrs) > 0 {
@@ -195,8 +195,8 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 				}
 				out.Attributes.ClusterExternalPorts[r.Cluster()] = externalPorts
 			}
-			service.Mutex.RUnlock()
 		}
+		service.Mutex.RUnlock()
 	}
 	return out, errs
 }
