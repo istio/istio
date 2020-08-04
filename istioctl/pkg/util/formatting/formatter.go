@@ -21,7 +21,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	. "istio.io/istio/galley/pkg/config/analysis/diag"
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
 // Formatting options for Messages
@@ -43,7 +43,7 @@ func init() {
 }
 
 // Print output messages in the specified format with color options
-func Print(ms Messages, format string, colorize bool) (string, error) {
+func Print(ms diag.Messages, format string, colorize bool) (string, error) {
 	switch format {
 	case LogFormat:
 		return printLog(ms, colorize), nil
@@ -56,42 +56,42 @@ func Print(ms Messages, format string, colorize bool) (string, error) {
 	}
 }
 
-func printLog(ms Messages, colorize bool) string {
-	var logOutput strings.Builder
+func printLog(ms diag.Messages, colorize bool) string {
+	var logOutput []string
 	for _, m := range ms {
-		fmt.Fprintf(&logOutput, render(m, colorize)+"\n")
+		logOutput = append(logOutput, render(m, colorize))
 	}
-	return logOutput.String()
+	return strings.Join(logOutput, "\n")
 }
 
-func printJSON(ms Messages) (string, error) {
+func printJSON(ms diag.Messages) (string, error) {
 	jsonOutput, err := json.MarshalIndent(ms, "", "\t")
 	return string(jsonOutput), err
 }
 
-func printYAML(ms Messages) (string, error) {
+func printYAML(ms diag.Messages) (string, error) {
 	yamlOutput, err := yaml.Marshal(ms)
 	return string(yamlOutput), err
 }
 
 // Formatting options for Message
 var (
-	colorPrefixes = map[Level]string{
-		Info:    "",           // no special color for info messages
-		Warning: "\033[33m",   // yellow
-		Error:   "\033[1;31m", // bold red
+	colorPrefixes = map[diag.Level]string{
+		diag.Info:    "",           // no special color for info messages
+		diag.Warning: "\033[33m",   // yellow
+		diag.Error:   "\033[1;31m", // bold red
 	}
 )
 
 // render turns a Message instance into a string with an option of colored bash output
-func render(m Message, colorize bool) string {
+func render(m diag.Message, colorize bool) string {
 	return fmt.Sprintf("%s%v%s [%v]%s %s",
 		colorPrefix(m, colorize), m.Type.Level(), colorSuffix(colorize),
 		m.Type.Code(), m.Origin(), fmt.Sprintf(m.Type.Template(), m.Parameters...),
 	)
 }
 
-func colorPrefix(m Message, colorize bool) string {
+func colorPrefix(m diag.Message, colorize bool) string {
 	if !colorize {
 		return ""
 	}
