@@ -28,10 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/pkg/util/gogo"
-
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
@@ -39,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/util/gogo"
 )
 
 func TestBuildHTTPRoutes(t *testing.T) {

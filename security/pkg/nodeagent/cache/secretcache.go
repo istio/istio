@@ -29,18 +29,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pkg/security"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
+	"github.com/google/uuid"
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
-
-	"github.com/google/uuid"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var (

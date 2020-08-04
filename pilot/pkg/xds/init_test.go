@@ -25,11 +25,9 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
-
-	"istio.io/istio/pilot/pkg/model"
-
 	"google.golang.org/genproto/googleapis/rpc/status"
 
+	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 

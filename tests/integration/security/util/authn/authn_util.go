@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	"istio.io/istio/tests/integration/security/util/connection"
 )
 

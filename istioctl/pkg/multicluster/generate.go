@@ -27,11 +27,9 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	iop "istio.io/api/operator/v1alpha1"
-
 	operatorV1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/validate"
-
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/util/protomarshal"
 )

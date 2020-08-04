@@ -15,9 +15,8 @@
 package crdclient
 
 import (
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/monitoring"
 )
 
 var (

@@ -18,9 +18,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"istio.io/istio/pkg/config/resource"
-
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/config/resource"
 )
 
 func TestMessage_String(t *testing.T) {

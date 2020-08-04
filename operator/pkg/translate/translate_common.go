@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"istio.io/api/operator/v1alpha1"
-
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"

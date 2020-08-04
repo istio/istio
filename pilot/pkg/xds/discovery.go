@@ -25,18 +25,17 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pilot/pkg/networking/apigen"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
 var (

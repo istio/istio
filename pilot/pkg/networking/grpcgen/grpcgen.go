@@ -26,12 +26,10 @@ import (
 	envoy_config_listener_v2 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v2"
 	"github.com/golang/protobuf/ptypes/any"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-
 	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
 // To avoid a recoursive depenency to v2.

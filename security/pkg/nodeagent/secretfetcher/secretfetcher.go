@@ -30,11 +30,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/security"
-
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
-
-	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 
 const (

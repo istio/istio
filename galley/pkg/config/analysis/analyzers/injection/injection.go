@@ -19,10 +19,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/api/label"
-
 	"istio.io/api/annotation"
-
+	"istio.io/api/label"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
