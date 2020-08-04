@@ -29,6 +29,7 @@ replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20
 require (
 	cloud.google.com/go v0.61.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
+	contrib.go.opencensus.io/exporter/stackdriver v0.13.2
 	fortio.org/fortio v1.6.3
 	github.com/Azure/go-autorest/autorest v0.9.4 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.8.3 // indirect
