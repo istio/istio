@@ -3159,7 +3159,7 @@ type ProxyConfig struct {
 	Tracer               Tracer                  `protobuf:"varint,25,opt,name=tracer,proto3,enum=v1alpha1.Tracer" json:"tracer,omitempty"`
 	ExcludeOutboundPorts string                  `protobuf:"bytes,28,opt,name=excludeOutboundPorts,proto3" json:"excludeOutboundPorts,omitempty"`
 	Lifecycle            map[string]interface{} `protobuf:"bytes,36,opt,name=lifecycle,proto3" json:"lifecycle,omitempty"`
-	// Causes the sidecar to be injected at the front of the container list and blocks the start of the other containers until the proxy is ready
+	// Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
 	HoldApplicationUntilProxyStarts *protobuf.BoolValue `protobuf:"bytes,37,opt,name=holdApplicationUntilProxyStarts,proto3" json:"holdApplicationUntilProxyStarts,omitempty"`
 	XXX_NoUnkeyedLiteral            struct{}            `json:"-"`
 	XXX_unrecognized                []byte              `json:"-"`
