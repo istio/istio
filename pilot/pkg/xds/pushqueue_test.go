@@ -78,6 +78,7 @@ func TestProxyQueue(t *testing.T) {
 	}
 
 	t.Run("simple add and remove", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		p.Enqueue(proxies[1], &model.PushRequest{})
@@ -87,6 +88,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("remove too many", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &model.PushRequest{})
 
@@ -95,6 +97,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("add multiple times", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		p.Enqueue(proxies[1], &model.PushRequest{})
@@ -106,6 +109,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("add and remove and markdone", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		ExpectDequeue(t, p, proxies[0])
@@ -116,6 +120,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("add and remove and add and markdone", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		ExpectDequeue(t, p, proxies[0])
@@ -127,6 +132,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("remove should block", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
@@ -140,6 +146,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("should merge model.PushRequest", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		firstTime := time.Now()
 		p.Enqueue(proxies[0], &model.PushRequest{
@@ -183,6 +190,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("two removes, one should block one should return", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		wg := &sync.WaitGroup{}
 		wg.Add(2)
@@ -212,6 +220,7 @@ func TestProxyQueue(t *testing.T) {
 	})
 
 	t.Run("concurrent", func(t *testing.T) {
+		t.Parallel()
 		p := NewPushQueue()
 		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.ConID, eds) }
 
