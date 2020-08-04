@@ -551,7 +551,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 }
-
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 	store, sd, events, stopFn := initServiceDiscovery()
 	defer stopFn()
@@ -569,6 +568,12 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 			Labels:         map[string]string{"app": "wle2"},
 			ServiceAccount: "default",
 		})
+	wle3 := createWorkloadEntry("wl3", selector.Name,
+		&networking.WorkloadEntry{
+			Address:        "3.3.3.3",
+			Labels:         map[string]string{"app": "wle"},
+			ServiceAccount: "default",
+		})
 
 	t.Run("service entry", func(t *testing.T) {
 		// Add just the ServiceEntry with selector. We should see no instances
@@ -579,7 +584,7 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectEvents(t, events, Event{kind: "xds"})
 	})
 
-	t.Run("change label", func(t *testing.T) {
+	t.Run("change label removing all", func(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*model.Config{wle}, store, t)
 		instances := []*model.ServiceInstance{
@@ -599,6 +604,42 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 0})
+	})
+
+	t.Run("change label removing one", func(t *testing.T) {
+		// Add a WLE, we expect this to update
+		createConfigs([]*model.Config{wle, wle3}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0],
+				map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "2.2.2.2", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1],
+				map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "3.3.3.3", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0],
+				map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1],
+				map[string]string{"app": "wle"}, "default"),
+		}
+		expectProxyInstances(t, sd, instances[:2], "2.2.2.2")
+		expectProxyInstances(t, sd, instances[2:], "3.3.3.3")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
+
+		createConfigs([]*model.Config{wle2}, store, t)
+		instances = []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selector, "3.3.3.3", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0],
+				map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "3.3.3.3", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1],
+				map[string]string{"app": "wle"}, "default"),
+		}
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectProxyInstances(t, sd, instances, "3.3.3.3")
+		expectEvents(t, events, Event{kind: "eds", host: "selector.com", namespace: selector.Namespace, endpoints: 2})
 	})
 }
 
