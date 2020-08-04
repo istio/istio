@@ -105,6 +105,8 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecr
 
 // Preconfigured SDS configs to avoid excessive memory allocations
 var (
+	// set the fetch timeout to 0 here in defaultSDSConfig and rootSDSConfig
+	// because workload certs are guaranteed exist.
 	defaultSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSDefaultResourceName,
 		SdsConfig: &core.ConfigSource{
@@ -176,11 +178,8 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 					},
 				},
 			},
-			ResourceApiVersion: core.ApiVersion_V3,
-			// set the fetch timeout to 0 here because workload certs are
-			// guaranteed to exist. while others like gateway certs may not
-			// exist.
-			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
 

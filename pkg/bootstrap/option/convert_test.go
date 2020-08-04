@@ -15,6 +15,7 @@
 package option
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -56,7 +57,7 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni:          "",
 			meta:         &model.BootstrapNodeMetadata{},
-			expectTLSCtx: `{"common_tls_context":{"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:foo.pem","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"transport_api_version":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"initial_fetch_timeout":{},"resource_api_version":2}}}},"alpn_protocols":["h2"]}}`,
+			expectTLSCtx: `{"common_tls_context":{"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:foo.pem","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"transport_api_version":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}}},"alpn_protocols":["h2"]}}`,
 		},
 		{
 			desc: "tls-simple-cert-cli-meta",
@@ -71,7 +72,7 @@ func TestTlsContextConvert(t *testing.T) {
 					TLSClientRootCert: "/foo/bar/baz.pem",
 				},
 			},
-			expectTLSCtx: `{"common_tls_context":{"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/foo/bar/baz.pem","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"transport_api_version":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"initial_fetch_timeout":{},"resource_api_version":2}}}},"alpn_protocols":["h2"]}}`,
+			expectTLSCtx: `{"common_tls_context":{"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/foo/bar/baz.pem","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"transport_api_version":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}}},"alpn_protocols":["h2"]}}`,
 		},
 		{
 			desc: "tls-cli-mutual-missing-certs",
@@ -91,7 +92,7 @@ func TestTlsContextConvert(t *testing.T) {
 			},
 			sni:          "",
 			meta:         &model.BootstrapNodeMetadata{},
-			expectTLSCtx: `{"common_tls_context":{"tls_certificate_sds_secret_configs":[{"name":"file-cert:foo~im-private-foo","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"transport_api_version":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"initial_fetch_timeout":{},"resource_api_version":2}}],"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{}}},"alpn_protocols":["h2"]}}`,
+			expectTLSCtx: `{"common_tls_context":{"tls_certificate_sds_secret_configs":[{"name":"file-cert:foo~im-private-foo","sds_config":{"ConfigSourceSpecifier":{"ApiConfigSource":{"api_type":2,"transport_api_version":2,"grpc_services":[{"TargetSpecifier":{"EnvoyGrpc":{"cluster_name":"sds-grpc"}}}]}},"resource_api_version":2}}],"ValidationContextType":{"CombinedValidationContext":{"default_validation_context":{}}},"alpn_protocols":["h2"]}}`,
 		},
 		{
 			desc: "tls-istio-mutual-no-certs",
@@ -107,6 +108,7 @@ func TestTlsContextConvert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if got := convertToJSON(tlsContextConvert(tt.tls, tt.sni, tt.meta)); !reflect.DeepEqual(tt.expectTLSCtx, got) {
+				fmt.Println(got)
 				t.Errorf("%s: expected TLS ctx \n%v got \n%v", tt.desc, tt.expectTLSCtx, got)
 			}
 		})
