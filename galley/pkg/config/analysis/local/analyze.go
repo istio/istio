@@ -297,6 +297,7 @@ func (sa *SourceAnalyzer) AddRunningKubeSource(k kube.Interfaces) {
 
 // AddInMemorySource adds a source based on user supplied in-memory configs to the current SourceAnalyzer
 // Assumes that the in memory source has same or subset of resource types that this analyzer is configured with.
+// This can be used by external users who import the analyzer as a module within their own controllers.
 func (sa *SourceAnalyzer) AddInMemorySource(src *inmemory.Source) {
 	sa.sources = append(sa.sources, precedenceSourceInput{src: src, cols: sa.kubeResources.CollectionNames()})
 }
