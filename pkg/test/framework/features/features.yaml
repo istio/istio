@@ -65,34 +65,27 @@ features:
         generic-compoundrotation:
         nongeneric-compoundrotation:
         gateway:
-          invalid-secret:
-          valid-secret:
-          K8sca:
       tls:
         secretrotation:
         gateway:
-          invalid-secret:
-          K8sca:
     egress:
       mtls:
         sds:
       tls:
         filebased:
         sds:
-    vault:
-      sds:
     authorization:
-      jwt:
+      mtls-local:
+      jwt-token:
       workload-selector:
-      deny:
+      deny-action:
       negative-match:
       ingress-gateway:
       egress-gateway:
-      tcp:
+      tcp-deny:
       conditions:
-      grpc:
-      path:
-      mtls:
+      grpc-restful:
+      path-get:
     authentication:
       jwt:
       ingressjwt:
