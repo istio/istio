@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zipkin
+  namespace: istio-system
   labels:
     app: zipkin
 spec:
@@ -45,6 +46,7 @@ metadata:
   labels:
     name: zipkin
   name: zipkin
+  namespace: istio-system
 spec:
   ports:
     - port: 9411

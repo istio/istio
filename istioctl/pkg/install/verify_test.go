@@ -19,9 +19,6 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"istio.io/api/operator/v1alpha1"
 )
 
 var (
@@ -97,39 +94,6 @@ var (
 			},
 		},
 	}
-
-	sampleIOP = unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"kind":       "IstioOperator",
-			"apiVersion": "install.istio.io/v1alpha1",
-			"metadata": map[string]interface{}{
-				"name":              "installed-state",
-				"namespace":         "istio-system",
-				"creationTimestamp": "2020-07-29T07:08:55Z",
-				"managedFields": []map[string]interface{}{
-					{
-						"fieldsType": "FieldsV1",
-						"fieldsV1": map[string]interface{}{
-							"f:metadata": map[string]interface{}{},
-						},
-						"manager":   "istioctl",
-						"operation": "Update",
-						"time":      "2020-07-29T07:09:05Z",
-					},
-				},
-			},
-			"spec": map[string]interface{}{
-				"profile": "default",
-			},
-			"status": map[string]interface{}{
-				"status": "HEALTHY",
-				"componentStatus": map[string]interface{}{
-					"Base": map[string]interface{}{
-						"status": "HEALTHY",
-					},
-				},
-			},
-		}}
 )
 
 func TestGetDeploymentStatus(t *testing.T) {
@@ -231,25 +195,5 @@ func TestFindResourceInSpec(t *testing.T) {
 				tt.Fatalf("unexpected plural from kind: got %v want %v", plural, c.plural)
 			}
 		})
-	}
-}
-
-func TestIstioOperatorConversion(t *testing.T) {
-	out, err := convertToIstioOperator(sampleIOP.Object)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if out.Status.Status != v1alpha1.InstallStatus_HEALTHY || out.GetCreationTimestamp().Unix() == 0 {
-		t.Fatal("Failed to unmarshal")
-	}
-}
-
-func BenchmarkConvertIstioOperator(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		_, err := convertToIstioOperator(sampleIOP.Object)
-		if err != nil {
-			b.Fatal(err)
-		}
 	}
 }
