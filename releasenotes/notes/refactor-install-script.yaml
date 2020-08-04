@@ -28,7 +28,7 @@ issue:
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
 releaseNotes: |
-*Updated* install script to bypass Github API Rate Limiting
+Updated install script to bypass Github API Rate Limiting
 
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes. 
