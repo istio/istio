@@ -19,10 +19,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
 	istioVersion "istio.io/pkg/version"
-	v1 "k8s.io/api/core/v1"
 )
 
 type sidecarSyncStatus struct {
