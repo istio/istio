@@ -860,8 +860,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name                    string
-		isGateway               bool
+		name                         string
+		isGateway                    bool
 		gatewayServerUsesIstioMutual bool
 		skipTrustDomainValidate      bool
 		jwtIn                        []*model.Config
