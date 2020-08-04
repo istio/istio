@@ -220,6 +220,7 @@ type Controller struct {
 
 	// initialSync becomes true only after the resources that exist at startup are processed
 	// to ensure correct ordering
+	syncMu      sync.Mutex
 	initialSync bool
 }
 
@@ -448,6 +449,8 @@ func (c *Controller) HasSynced() bool {
 
 	// after informer caches sync the first time, process resources in order
 	// TODO(landow) is it possible to start the informers one-by-one in order?
+	c.syncMu.Lock()
+	defer c.syncMu.Unlock()
 	if !c.initialSync {
 		if err := c.SyncAll(); err != nil {
 			log.Errorf("one or more errors force-syncing resources: %v", err)
