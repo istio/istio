@@ -55,7 +55,8 @@ const (
 
 var (
 	crdFactory = createDynamicInterface
-	revision   string
+	// istio control plane revision (experimental)
+	revision string
 )
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.

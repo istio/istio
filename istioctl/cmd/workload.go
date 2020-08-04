@@ -27,22 +27,22 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
-
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	networkingclientv1alpha3 "istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
+
+	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	networkingclientv1alpha3 "istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 var (
@@ -62,7 +62,7 @@ const (
 func workloadCommands() *cobra.Command {
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
-		Short: "Commands to assist in configuring and deploying workloads",
+		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-k8s environments",
 	}
 	workloadCmd.AddCommand(groupCommand())
 	workloadCmd.AddCommand(entryCommand())
@@ -72,7 +72,7 @@ func workloadCommands() *cobra.Command {
 func groupCommand() *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:   "group",
-		Short: "Commands dealing with workload groups",
+		Short: "Commands dealing with WorkloadGroup resources",
 	}
 	groupCmd.AddCommand(createCommand())
 	return groupCmd
@@ -81,7 +81,7 @@ func groupCommand() *cobra.Command {
 func entryCommand() *cobra.Command {
 	entryCmd := &cobra.Command{
 		Use:   "entry",
-		Short: "Commands dealing with workload entries",
+		Short: "Commands dealing with WorkloadEntry resources",
 	}
 	entryCmd.AddCommand(configureCommand())
 	return entryCmd
@@ -90,16 +90,16 @@ func entryCommand() *cobra.Command {
 func createCommand() *cobra.Command {
 	createCmd := &cobra.Command{
 		Use:   "create",
-		Short: "Creates a WorkloadGroup YAML artifact representing workload instances",
-		Long: `Creates a WorkloadGroup API YAML artifact to send to the Kubernetes API server.
-To send the generated artifact to Kubernetes, run kubectl apply -f workloadgroup.yaml`,
+		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
+		Long: `Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries.
+The default output is serialized YAML, which can be piped into 'kubectl apply -f -' to send the artifact to the API Server.`,
 		Example: "create --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
-				return fmt.Errorf("expecting a service name")
+				return fmt.Errorf("expecting a workload name")
 			}
 			if namespace == "" {
-				return fmt.Errorf("expecting a service namespace")
+				return fmt.Errorf("expecting a workload namespace")
 			}
 			return nil
 		},
@@ -160,13 +160,13 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 func configureCommand() *cobra.Command {
 	configureCmd := &cobra.Command{
 		Use:   "configure",
-		Short: "Generates all the required configuration files for a workload deployment",
-		Long: `Generates all the required configuration files for workload deployment from a WorkloadGroup artifact. 
+		Short: "Generates all the required configuration files for a workload instance running on a VM or non-k8s environment",
+		Long: `Generates all the required configuration files for workload instance on a VM or non-k8s environment from a WorkloadGroup artifact.
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.`,
 		Example: "configure -f workloadgroup.yaml -o config",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if filename == "" && (name == "" || namespace == "") {
-				return fmt.Errorf("expecting a WorkloadGroup artifact file or both the workload name and namespace")
+				return fmt.Errorf("expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup")
 			}
 			if outputName == "" {
 				return fmt.Errorf("expecting an output filename")
@@ -292,11 +292,10 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 	return ioutil.WriteFile(dir+"/cluster.env", []byte(mapToString(clusterEnv)), tempPerms)
 }
 
-// Get and store the needed certificate and token. The certificate comes from the `istio-ca-root-cert`, and
+// Get and store the needed certificate and token. The certificate comes from the CA root cert, and
 // the token is generated by kubectl under the workload group's namespace and service account
-// OSS requires both while ASM (will eventually) require only the token
 func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, dir string) error {
-	rootCert, err := kubeClient.CoreV1().ConfigMaps(wg.Namespace).Get(context.Background(), "istio-ca-root-cert", metav1.GetOptions{})
+	rootCert, err := kubeClient.CoreV1().ConfigMaps(wg.Namespace).Get(context.Background(), controller.CACertNamespaceConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

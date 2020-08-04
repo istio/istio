@@ -60,19 +60,19 @@ func TestCreateGroup(t *testing.T) {
 			description:       "Invalid command args - missing service name and namespace",
 			args:              strings.Split("experimental workload group create", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting a service name\n",
+			expectedOutput:    "Error: expecting a workload name\n",
 		},
 		{
 			description:       "Invalid command args - missing service name",
 			args:              strings.Split("experimental workload group create --namespace bar", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting a service name\n",
+			expectedOutput:    "Error: expecting a workload name\n",
 		},
 		{
 			description:       "Invalid command args - missing service namespace",
 			args:              strings.Split("experimental workload group create --name foo", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting a service namespace\n",
+			expectedOutput:    "Error: expecting a workload namespace\n",
 		},
 		{
 			description:       "valid case - minimal flags, infer defaults",
@@ -107,9 +107,15 @@ func TestGenerateConfig(t *testing.T) {
 	cases := []testcase{
 		{
 			description:       "Invalid command args - missing valid input spec",
-			args:              strings.Split("experimental workload entry configure -o temp --clusterID cid", " "),
+			args:              strings.Split("experimental workload entry configure --name foo -o temp --clusterID cid", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or both the workload name and namespace\n",
+			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup\n",
+		},
+		{
+			description:       "Invalid command args - missing valid input spec",
+			args:              strings.Split("experimental workload entry configure -n bar -o temp --clusterID cid", " "),
+			expectedException: true,
+			expectedOutput:    "Error: expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup\n",
 		},
 		{
 			description:       "Invalid command args - valid filename input but missing output filename",
