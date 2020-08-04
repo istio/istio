@@ -50,21 +50,11 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 
 			cfg.Values["global.centralIstiod"] = "true"
+			cfg.ExposeIstiod = true
 
 			// Set the control plane values on the config.
 			cfg.ControlPlaneValues = controlPlaneValues + `
-  gateways:
-    istio-ingressgateway:
-      meshExpansionPorts:
-      - port: 15017
-        targetPort: 15017
-        name: tcp-webhook
-      - port: 15012
-        targetPort: 15012
-        name: tcp-istiod
   global:
-    meshExpansion:
-      enabled: true
     centralIstiod: true
     caAddress: istiod.istio-system.svc:15012`
 			cfg.RemoteClusterValues = `
