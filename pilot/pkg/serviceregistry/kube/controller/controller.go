@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -209,6 +211,11 @@ type Controller struct {
 
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
+
+	// initialSync becomes true only after the resources that exist at startup are processed
+	// to ensure correct ordering
+	syncMu      sync.Mutex
+	initialSync bool
 }
 
 // NewController creates a new Kubernetes controller
@@ -399,20 +406,25 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 		}
 	}
 
+	wrappedHandler := func(obj interface{}, event model.Event) error {
+		obj = tryGetLatestObject(informer, obj)
+		return handler(obj, event)
+	}
+
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
 				q.Push(func() error {
-					return handler(obj, model.EventAdd)
+					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !filter(old, cur) {
 					incrementEvent(otype, "update")
 					q.Push(func() error {
-						return handler(cur, model.EventUpdate)
+						return wrappedHandler(cur, model.EventUpdate)
 					})
 				} else {
 					incrementEvent(otype, "updatesame")
@@ -427,6 +439,24 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 		})
 }
 
+// tryGetLatestObject attempts to fetch the latest version of the object from the cache.
+// Changes may have occurred between queuing and processing.
+func tryGetLatestObject(informer cache.SharedIndexInformer, obj interface{}) interface{} {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		log.Warnf("failed creating key for informer object: %v", err)
+		return obj
+	}
+
+	latest, exists, err := informer.GetIndexer().GetByKey(key)
+	if !exists || err != nil {
+		log.Warnf("couldn't find %q in informer index", key)
+		return obj
+	}
+
+	return latest
+}
+
 // HasSynced returns true after the initial state synchronization
 func (c *Controller) HasSynced() bool {
 	if !c.serviceInformer.HasSynced() ||
@@ -435,7 +465,48 @@ func (c *Controller) HasSynced() bool {
 		!c.nodeInformer.HasSynced() {
 		return false
 	}
+
+	// after informer caches sync the first time, process resources in order
+	c.syncMu.Lock()
+	defer c.syncMu.Unlock()
+	if !c.initialSync {
+		if err := c.SyncAll(); err != nil {
+			log.Errorf("one or more errors force-syncing resources: %v", err)
+		}
+		c.initialSync = true
+	}
+
 	return true
+}
+
+func (c *Controller) SyncAll() error {
+	var err *multierror.Error
+
+	nodes := c.nodeInformer.GetStore().List()
+	log.Debugf("initialzing %d nodes", len(nodes))
+	for _, s := range nodes {
+		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
+	}
+
+	services := c.serviceInformer.GetStore().List()
+	log.Debugf("initialzing %d services", len(services))
+	for _, s := range services {
+		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
+	}
+
+	pods := c.pods.informer.GetStore().List()
+	log.Debugf("initialzing %d pods", len(pods))
+	for _, s := range pods {
+		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
+	}
+
+	endpoints := c.endpoints.getInformer().GetStore().List()
+	log.Debugf("initialzing%d endpoints", len(endpoints))
+	for _, s := range endpoints {
+		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
+	}
+
+	return err.ErrorOrNil()
 }
 
 // Run all controllers until a signal is received

@@ -33,6 +33,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
@@ -180,21 +181,15 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
 	}
-	if err := s.UpdateServiceShards(env.PushContext); err != nil {
-		t.Fatal(err)
-	}
+	cache.WaitForCacheSync(stop, serviceDiscovery.HasSynced)
+	s.CachesSynced()
+
 	se.ResyncEDS()
-	if err := k8s.ForceResync(); err != nil {
-		t.Fatal(err)
-	}
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 	ctx := model.NewPushContext()
 	if err := ctx.InitContext(env, env.PushContext, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := env.PushContext.InitContext(env, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.UpdateServiceShards(ctx); err != nil {
