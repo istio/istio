@@ -1,13 +1,10 @@
-# Create a Kiali CR in the istio-system namespace, which is where Kiali will be installed.
 # We set up anonymous authentication as this is for demos.
-cr:
-  create: true
-  namespace: istio-system
-  spec:
-    auth:
-      strategy: anonymous
-    deployment:
-      accessible_namespaces:
-      - '**'
-      image_version: v1.22
-      ingress_enabled: false
+auth:
+  strategy: anonymous
+deployment:
+  accessible_namespaces:
+  - '**'
+  image_version: v1.22
+  ingress_enabled: false
+login_token:
+  signing_key: CHANGEME
