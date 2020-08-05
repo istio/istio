@@ -293,7 +293,6 @@ spec:
         name: istio-ingressgateway
         zvpn: {}
         env: {}
-        meshExpansionPorts:
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs
