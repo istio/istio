@@ -31,7 +31,6 @@ endif
 
 # istioctl-install builds then installs istioctl into $GOPATH/BIN
 # Used for debugging istioctl during dev work
-# cp out/$(TARGET_OS)_$(TARGET_ARCH)/istioctl ${GOPATH}/bin
 .PHONY: istioctl-install
 istioctl-install: istioctl-install-container
-	cp out/linux_amd64/istioctl /usr/local/google/home/hanxiaop/go/bin
+	cp out/$(TARGET_OS)_$(TARGET_ARCH)/istioctl ${GOPATH}/bin
