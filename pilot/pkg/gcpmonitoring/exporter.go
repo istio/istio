@@ -70,7 +70,7 @@ func (c *cloudRunRevision) MonitoredResource() (resType string, labels map[strin
 				"revision_name":      c.revision,
 				"configuration_name": c.configuration,
 			}
-		return "k8s_pod", labels
+		return "cloud_run_revision", labels
 	}
 
 
@@ -103,7 +103,7 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 
 
 				var mr monitoredresource.Interface
-		if svc := cloudRunServiceVar.Get(); svc != "" {
+		if svc := cloudRunServiceVar.Get(); svc != "" && false {
 				mr = &cloudRunRevision{
 						service:       svc,
 						location:      gcpMetadata[platform.GCPLocation],
