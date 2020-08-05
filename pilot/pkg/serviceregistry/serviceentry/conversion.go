@@ -259,7 +259,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 		// N.B(incfly): here we use the local trust domain for service entry conversion since
 		// This is the current behavior; the trsut domain of the cluster where the service entry resource
 		// resides in should be used.
-		sa = spiffe.MustGenSpiffeURI(spiffe.GetLocalTrustDomain(), service.Attributes.Namespace, endpoint.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), service.Attributes.Namespace, endpoint.ServiceAccount)
 	}
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
@@ -384,7 +384,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string,
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(spiffe.GetLocalTrustDomain(), namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), namespace, we.ServiceAccount)
 	}
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{

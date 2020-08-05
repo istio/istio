@@ -191,7 +191,7 @@ func (e *Env) cacheOptions(t *testing.T) *security.Options {
 	// Default options does not rotate cert until cert expires after 1 hour.
 	opt := &security.Options{
 		SecretTTL:                      1 * time.Hour,
-		TrustDomain:                    spiffe.GetLocalTrustDomain(),
+		TrustDomain:                    spiffe.GetTrustDomain(),
 		RotationInterval:               5 * time.Minute,
 		SecretRotationGracePeriodRatio: 0,
 	}

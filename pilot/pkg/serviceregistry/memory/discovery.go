@@ -330,8 +330,8 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 	defer sd.mutex.Unlock()
 	if svc.Hostname == "world.default.svc.cluster.local" {
 		return []string{
-			spiffe.MustGenSpiffeURI(spiffe.GetLocalTrustDomain(), "default", "serviceaccount1"),
-			spiffe.MustGenSpiffeURI(spiffe.GetLocalTrustDomain(), "default", "serviceaccount2"),
+			spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), "default", "serviceaccount1"),
+			spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), "default", "serviceaccount2"),
 		}
 	}
 	return make([]string, 0)

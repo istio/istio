@@ -46,7 +46,7 @@ const (
 
 // getRandomCsrName returns a random name for CSR.
 func getRandomCsrName(secretName, namespace string) string {
-	domain := spiffe.GetLocalTrustDomain()
+	domain := spiffe.GetTrustDomain()
 	if len(domain) > maxDomainNameLength {
 		domain = domain[:maxDomainNameLength]
 	}

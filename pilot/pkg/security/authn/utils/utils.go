@@ -110,7 +110,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 func GetSAN(ns string, identity string) string {
 
 	if ns != "" {
-		return spiffe.MustGenSpiffeURI(spiffe.GetLocalTrustDomain(), ns, identity)
+		return spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), ns, identity)
 	}
-	return spiffe.GenCustomSpiffe(spiffe.GetLocalTrustDomain(), identity)
+	return spiffe.GenCustomSpiffe(spiffe.GetTrustDomain(), identity)
 }

@@ -74,7 +74,8 @@ func SetTrustDomain(value string) {
 	trustDomainMutex.Unlock()
 }
 
-func GetLocalTrustDomain() string {
+// TODO(incfly): rename this and SetTrustDomain as GetLocalTrustDomain for clarity.
+func GetTrustDomain() string {
 	trustDomainMutex.RLock()
 	defer trustDomainMutex.RUnlock()
 	return trustDomain
@@ -85,7 +86,7 @@ func GetTrustDomainByCluster(clusterID string) string {
 	if ok {
 		return i.(ClusterTrustDomainInfo).TrustDomain
 	}
-	return GetLocalTrustDomain()
+	return GetTrustDomain()
 }
 
 func SetTrustDomainByCluster(clusterID string, trustDomain string, aliases []string) {
@@ -105,7 +106,7 @@ func SetTrustDomainByCluster(clusterID string, trustDomain string, aliases []str
 // TODO(incfly): change to json format before merge.
 func DumpDebugInfo() string {
 	var b bytes.Buffer
-	b.WriteString(fmt.Sprintf("Local trust domain: %v\n", GetLocalTrustDomain()))
+	b.WriteString(fmt.Sprintf("Local trust domain: %v\n", GetTrustDomain()))
 	b.WriteString("Trust Domain by cluster\n")
 	trustDomainInfoMap.Range(func(clusterID, val interface{}) bool {
 		ti, ok := val.(ClusterTrustDomainInfo)
@@ -135,7 +136,7 @@ func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 		err = fmt.Errorf(
 			"namespace or service account empty for SPIFFE uri ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return URIPrefix + GetLocalTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
+	return URIPrefix + GetTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
 }
 
 // MustGenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate and logs if there was an error.
@@ -154,7 +155,7 @@ func GenCustomSpiffe(trustDomain string, identity string) string {
 		return ""
 	}
 
-	return URIPrefix + GetLocalTrustDomain() + "/" + identity
+	return URIPrefix + GetTrustDomain() + "/" + identity
 }
 
 // GetTrustDomainFromURISAN extracts the trust domain part from the URI SAN in the X.509 certificate.
