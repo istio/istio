@@ -100,6 +100,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 		out["x-goog-request-params"] = []string{fmt.Sprintf("location=locations/%s", zone)}
 	}
 
+	log.Warna("XXX MeshCA CSRSign ", zone, token)
 	ctx = metadata.NewOutgoingContext(ctx, out)
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
@@ -111,6 +112,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 		googleCAClientLog.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
 		return nil, errors.New("invalid response cert chain")
 	}
+	googleCAClientLog.Infof("CertChain created with GoogleCA", len(resp.CertChain))
 
 	return resp.CertChain, nil
 }

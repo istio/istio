@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 
 	"istio.io/istio/pkg/adsc"
 
@@ -332,13 +334,21 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 	}
 
 	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-	log.Infof("sa.serverOptions.CAEndpoint == %v", sa.secOpts.CAEndpoint)
+	log.Infof("sa.serverOptions.CAEndpoint == %v %s", sa.secOpts.CAEndpoint, sa.secOpts.CAProviderName)
 	if sa.secOpts.CAProviderName == "GoogleCA" || strings.Contains(sa.secOpts.CAEndpoint, "googleapis.com") {
 		// Use a plugin to an external CA - this has direct support for the K8S JWT token
 		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
 		// used.
 		caClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
 		sa.secOpts.PluginNames = []string{"GoogleTokenExchange"}
+		gcpInfo := tokenmanager.GetGCPProjectInfo()
+		if gcpInfo.Number != "" {
+			stsclient.GKEClusterURL = gcpInfo.GKEClusterURL()
+		}
+		if stsclient.GKEClusterURL == "" {
+			log.Fatalf("Failed to start, GoogleCA requires GKE_CLUSTER_URL to be set")
+		}
+		sa.secOpts.TokenExchangers = []security.TokenExchanger{stsclient.NewPlugin()}
 	} else {
 		var rootCert []byte
 		// Special case: if Istiod runs on a secure network, on the default port, don't use TLS
