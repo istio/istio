@@ -400,6 +400,10 @@ type BootstrapNodeMetadata struct {
 	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
 	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
 	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
+	StsPort string `json:"STS_PORT,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
@@ -454,11 +458,6 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	PolicyCheck                  string `json:"policy.istio.io/check,omitempty"`
-	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
-	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
-	PolicyCheckMaxRetryWaitTime  string `json:"policy.istio.io/checkMaxRetryWaitTime,omitempty"`
-
 	// TLSServerCertChain is the absolute path to server cert-chain file
 	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
 	// TLSServerKey is the absolute path to server private key file
@@ -475,10 +474,6 @@ type NodeMetadata struct {
 	CertBaseDir string `json:"BASE,omitempty"`
 	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
 	SdsEnabled StringBool `json:"SDS,omitempty"`
-
-	// StsPort specifies the port of security token exchange server (STS).
-	// Used by envoy filters
-	StsPort string `json:"STS_PORT,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.
