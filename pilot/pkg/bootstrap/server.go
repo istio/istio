@@ -711,6 +711,9 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
+	if !s.multicluster.HasSynced() {
+		return false
+	}
 	if !s.ServiceController().HasSynced() {
 		return false
 	}
