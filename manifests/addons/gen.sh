@@ -28,13 +28,14 @@ mkdir -p "${ADDONS}"
 
 # Set up kiali
 {
-kubectl create namespace kiali-operator --dry-run -oyaml
-helm3 template kiali-operator \
-  --namespace kiali-operator \
-  --version v1.22.0 \
+helm3 template kiali-server \
+  --namespace istio-system \
+  --version 1.22.0 \
   --include-crds \
-  kiali-operator \
-  --repo https://kiali.org/kiali-operator/charts \
+  --set nameOverride=kiali \
+  --set fullnameOverride=kiali \
+  kiali-server \
+  --repo https://kiali.org/helm-charts \
   -f "${WD}/values-kiali.yaml"
 } > "${ADDONS}/kiali.yaml"
 
