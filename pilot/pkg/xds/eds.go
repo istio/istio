@@ -168,18 +168,11 @@ func (s *DiscoveryServer) edsIncremental(version string, req *model.PushRequest)
 // the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace string,
-	istioEndpoints []*model.IstioEndpoint) error {
+	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
-	// Update the eds data structures and trigger a push.
+	// Update the eds data structures
 	fp := s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints)
-	if !fp {
-		svc, _ := s.Env.GetService(host.Name(serviceName))
-		// should trigger cds push when svc resolution is DNS
-		// TODO: maybe only cds?
-		if svc != nil && svc.Resolution == model.DNSLB {
-			fp = true
-		}
-	}
+	// Trigger a push
 	s.ConfigUpdate(&model.PushRequest{
 		Full: fp,
 		ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -189,7 +182,20 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 		}: {}},
 		Reason: []model.TriggerReason{model.EndpointUpdate},
 	})
-	return nil
+}
+
+// EDSUpdate computes destination address membership across all clusters and networks.
+// This is the main method implementing EDS.
+// It replaces InstancesByPort in model - instead of iterating over all endpoints it uses
+// the hostname-keyed map. And it avoids the conversion from Endpoint to ServiceEntry to envoy
+// on each step: instead the conversion happens once, when an endpoint is first discovered.
+//
+// Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
+func (s *DiscoveryServer) EDSUpdateCacheOnly(clusterID, serviceName string, namespace string,
+	istioEndpoints []*model.IstioEndpoint) {
+	inboundEDSUpdates.Increment()
+	// Update the eds data structures
+	s.edsUpdate(clusterID, serviceName, namespace, istioEndpoints)
 }
 
 // edsUpdate updates EndpointShards data by clusterID, serviceName, IstioEndpoints.

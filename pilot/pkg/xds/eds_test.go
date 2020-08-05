@@ -257,46 +257,6 @@ func TestEndpointFlipFlops(t *testing.T) {
 	testEndpoints("10.10.1.1", "outbound|8080||flipflop.com", adscConn, t)
 }
 
-// Validates the behavior when Service resolution type is DNS
-// endpoints of the service flipflop between 1 and 0 triggers a full push..
-func TestDNSServiceEndpointFlipFlops(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
-
-	adscConn := s.Connect(nil, nil, watchAll)
-
-	// Validate that endpoints are pushed correctly.
-	testEndpoints("10.0.0.53", "outbound|8080||edsdns.svc.cluster.local", adscConn, t)
-
-	// Now update the service resolution to DNSLB with a DNS endpoint.
-	updateServiceResolution(s)
-
-	if _, err := adscConn.Wait(5*time.Second, "rds"); err != nil {
-		t.Fatal(err)
-	}
-	// clear all events
-	adscConn.WaitClear()
-
-	// Validate that endpoints are skipped.
-	lbe := adscConn.GetEndpoints()["outbound|8080||edsdns.svc.cluster.local"]
-	if lbe == nil || len(lbe.Endpoints) == 0 {
-		t.Fatalf("expect endpoints %s,  but got none", "edsdns.svc.cluster.local")
-	}
-
-	// Create a new endpoint and validate it does trigger a full push.
-	// Set the endpoints again and validate it does not trigger full push.
-	s.Discovery.MemRegistry.SetEndpoints("edsdns.svc.cluster.local", "",
-		[]*model.IstioEndpoint{
-			{
-				Address:         "10.10.1.1",
-				ServicePortName: "http",
-				EndpointPort:    8080,
-			}})
-	if _, err := adscConn.Wait(5*time.Second, "cds"); err != nil {
-		t.Fatalf("Expecting CDS update as it is DNS resolution type service")
-	}
-}
-
 // Validate that deleting a service clears entries from EndpointShardsByService.
 func TestDeleteService(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})

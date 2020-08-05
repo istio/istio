@@ -36,6 +36,8 @@ type FakeXdsUpdater struct {
 	Events chan FakeXdsEvent
 }
 
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
 func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	select {
 	case fx.Events <- FakeXdsEvent{Type: "xds"}:
@@ -69,15 +71,16 @@ func NewFakeXDS() *FakeXdsUpdater {
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) error {
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) {
 	if len(entry) > 0 {
 		select {
 		case fx.Events <- FakeXdsEvent{Type: "eds", ID: hostname, Endpoints: entry}:
 		default:
 		}
-
 	}
-	return nil
+}
+
+func (fx *FakeXdsUpdater) EDSUpdateCacheOnly(_, _, _ string, entry []*model.IstioEndpoint) {
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.

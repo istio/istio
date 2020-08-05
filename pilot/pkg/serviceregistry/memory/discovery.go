@@ -241,7 +241,7 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 	}
 	sd.mutex.Unlock()
 
-	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
+	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
 // Services implements discovery interface
