@@ -63,7 +63,7 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
-	// TODO: remove regexEngine once all envoys have unlimited default.
+	// TODO: remove deprecated maxRegExProgramSize and move to runtime value or decide a better option.
 	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
