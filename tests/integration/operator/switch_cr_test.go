@@ -119,7 +119,58 @@ func TestController(t *testing.T) {
 			istioCtl.InvokeOrFail(t, initCmd)
 
 			verifyInstallation(t, ctx, istioCtl, "default", CanaryRevisionName, cs)
-			postTestCleanup(t, cs)
+
+			t.Cleanup(func() {
+				scopes.Framework.Infof("cleaning up resources")
+				if err := cs.DeleteYAMLFiles(IstioNamespace, iopCRFile); err != nil {
+					t.Errorf("faild to delete test IstioOperator CR: %v", err)
+				}
+			})
+		})
+}
+
+func TestOperatorRemove(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			s, err := image.SettingsFromCommandLine()
+			if err != nil {
+				t.Fatal(err)
+			}
+			initCmd := []string{
+				"operator", "init",
+				"--hub=" + s.Hub,
+				"--tag=" + s.Tag,
+				"--manifests=" + ManifestPath,
+			}
+			istioCtl.InvokeOrFail(t, initCmd)
+
+			removeCmd := []string{
+				"operator", "remove",
+			}
+			// install second operator deployment with different revision
+			istioCtl.InvokeOrFail(t, removeCmd)
+			retry.UntilSuccessOrFail(t, func() error {
+				if svc, _ := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator", kubeApiMeta.GetOptions{}); svc.Name != "" {
+					return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
+				}
+
+				if dp, _ := cs.AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), "istio-operator", kubeApiMeta.GetOptions{}); dp.Name != "" {
+					return fmt.Errorf("got operator deploymentL %s from cluster, expected to be removed", dp.Name)
+				}
+				return nil
+			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+
+			// cleanup created resources
+			t.Cleanup(func() {
+				scopes.Framework.Infof("cleaning up resources")
+				if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
+					kube2.DeleteOptionsForeground()); err != nil {
+					t.Errorf("failed to delete operator namespace: %v", err)
+				}
+			})
 		})
 }
 
@@ -192,20 +243,6 @@ func cleanupInClusterCRs(t *testing.T, cs kube.Cluster) {
 		"installed-state", kubeApiMeta.DeleteOptions{}); err != nil {
 		t.Logf(err.Error())
 	}
-}
-
-func postTestCleanup(t *testing.T, cs kube.Cluster) {
-	// cleanup created resources
-	t.Cleanup(func() {
-		scopes.Framework.Infof("cleaning up resources")
-		if err := cs.DeleteYAMLFiles(IstioNamespace, iopCRFile); err != nil {
-			t.Errorf("faild to delete test IstioOperator CR: %v", err)
-		}
-		if err := cs.CoreV1().Namespaces().Delete(context.TODO(), OperatorNamespace,
-			kube2.DeleteOptionsForeground()); err != nil {
-			t.Errorf("failed to delete operator namespace: %v", err)
-		}
-	})
 }
 
 func installWithCRFile(t *testing.T, ctx resource.Context, cs resource.Cluster, s *image.Settings,
