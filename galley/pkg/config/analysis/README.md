@@ -12,11 +12,6 @@ An annotated example:
 
 ```go
 package virtualservice
-import (
-
-"fmt"
-"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
-)
 
 // <imports here>
 
