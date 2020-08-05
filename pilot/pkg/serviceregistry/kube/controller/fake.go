@@ -167,7 +167,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	go c.Run(c.stop)
 	clients.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-	cache.WaitForCacheSync(c.stop, c.pods.informer.HasSynced, c.serviceInformer.HasSynced, c.endpoints.HasSynced)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {
