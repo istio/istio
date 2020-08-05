@@ -157,8 +157,9 @@ func (h *HelmReconciler) DeleteObjectsList(objectsList []*unstructured.Unstructu
 func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResources bool, componentName string) (
 	[]*unstructured.UnstructuredList, error) {
 	var usList []*unstructured.UnstructuredList
-	labels := map[string]string{
-		label.IstioRev: revision,
+	labels := make(map[string]string)
+	if revision != "" {
+		labels[label.IstioRev] = revision
 	}
 	if componentName != "" {
 		labels[IstioComponentLabelStr] = componentName
