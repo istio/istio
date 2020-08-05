@@ -437,7 +437,7 @@ func TestSecureNamingSAN(t *testing.T) {
 	pod.Namespace = ns
 	pod.Spec.ServiceAccountName = sa
 
-	san := SecureNamingSAN(pod)
+	san := SecureNamingSAN(spiffe.GetTrustDomain(), pod)
 
 	expectedSAN := fmt.Sprintf("spiffe://%v/ns/%v/sa/%v", spiffe.GetTrustDomain(), ns, sa)
 
