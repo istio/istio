@@ -43,6 +43,7 @@ const (
 	enableCoreDumpContainerName = "enable-core-dump"
 	envoyVolumeName             = "istio-envoy"
 	initContainerName           = "istio-init"
+	initValidationContainerName = "istio-validation"
 	jwtTokenVolumeName          = "istio-token"
 	proxyContainerName          = "istio-proxy"
 	sidecarAnnotationPrefix     = "sidecar.istio.io"
@@ -247,6 +248,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	}
 
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
+	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initValidationContainerName)
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
 	podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
