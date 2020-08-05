@@ -44,7 +44,6 @@ func newTCP(config Config) Instance {
 }
 
 func (s *tcpInstance) Start(onReady OnReadyFunc) error {
-
 	var listener net.Listener
 	var port int
 	var err error
@@ -100,6 +99,11 @@ func (s *tcpInstance) echo(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 	}()
+
+	// If this is server first, client expects a message from server. Send the magic string.
+	if s.Port.ServerFirst {
+		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
+	}
 
 	initialReply := true
 	for {

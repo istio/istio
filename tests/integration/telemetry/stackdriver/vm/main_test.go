@@ -59,11 +59,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  global:
-    meshExpansion:
-      enabled: true`
+			cfg.ExposeIstiod = true
 			cfg.Values["telemetry.enabled"] = "true"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"

@@ -118,7 +118,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 
 	switch svc.Spec.Type {
 	case coreV1.ServiceTypeNodePort:
-		if _, ok := svc.Annotations[NodeSelectorAnnotation]; ok {
+		if _, ok := svc.Annotations[NodeSelectorAnnotation]; !ok {
 			// only do this for istio ingress-gateway services
 			break
 		}

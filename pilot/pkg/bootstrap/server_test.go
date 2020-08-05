@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pilot/pkg/features"
+
 	. "github.com/onsi/gomega"
 
 	"istio.io/pkg/filewatcher"
@@ -30,6 +32,79 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/testcerts"
 )
+
+func TestNewServerWithExternalCertificates(t *testing.T) {
+	configDir, err := ioutil.TempDir("", "test_istiod_config")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.RemoveAll(configDir)
+	}()
+
+	certsDir, err := ioutil.TempDir("", "test_istiod_certs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.RemoveAll(certsDir)
+	}()
+
+	certFile := filepath.Join(certsDir, "cert-file.pem")
+	keyFile := filepath.Join(certsDir, "key-file.pem")
+	caCertFile := filepath.Join(certsDir, "ca-cert.pem")
+
+	// load key and cert files.
+	if err := ioutil.WriteFile(certFile, testcerts.ServerCert, 0644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
+	}
+	if err := ioutil.WriteFile(keyFile, testcerts.ServerKey, 0644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
+	}
+	if err := ioutil.WriteFile(caCertFile, testcerts.CACert, 0644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", caCertFile, err)
+	}
+
+	tlsOptions := TLSOptions{
+		CertFile:   certFile,
+		KeyFile:    keyFile,
+		CaCertFile: caCertFile,
+	}
+
+	args := NewPilotArgs(func(p *PilotArgs) {
+		p.Namespace = "istio-system"
+		p.ServerOptions = DiscoveryServerOptions{
+			// Dynamically assign all ports.
+			HTTPAddr:       ":0",
+			MonitoringAddr: ":0",
+			GRPCAddr:       ":0",
+			SecureGRPCAddr: ":0",
+			TLSOptions:     tlsOptions,
+		}
+		p.RegistryOptions = RegistryOptions{
+			FileDir: configDir,
+		}
+
+		// Include all of the default plugins
+		p.Plugins = DefaultPlugins
+		p.ShutdownDuration = 1 * time.Millisecond
+	})
+
+	g := NewWithT(t)
+	s, err := NewServer(args)
+	g.Expect(err).To(Succeed())
+
+	stop := make(chan struct{})
+	features.EnableCAServer = false
+	g.Expect(s.Start(stop)).To(Succeed())
+	defer func() {
+		close(stop)
+		s.WaitUntilCompletion()
+	}()
+
+	// Validate server started with the provided cert
+	checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey)
+}
 
 func TestReloadIstiodCert(t *testing.T) {
 	dir, err := ioutil.TempDir("", "istiod_certs")

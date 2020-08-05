@@ -209,16 +209,16 @@ func vmTestCases(vm echo.Instance) []TrafficTestCase {
 			to:   vm,
 		},
 		{
-			name: "dns: VM to k8s cluster IP service fqdn host",
-			from: vm,
-			to:   apps.podA,
-			host: apps.podA.Config().FQDN(),
-		},
-		{
 			name: "dns: VM to k8s cluster IP service name.namespace host",
 			from: vm,
 			to:   apps.podA,
 			host: apps.podA.Config().Service + "." + apps.namespace.Name(),
+		},
+		{
+			name: "dns: VM to k8s cluster IP service fqdn host",
+			from: vm,
+			to:   apps.podA,
+			host: apps.podA.Config().FQDN(),
 		},
 		{
 			name: "dns: VM to k8s cluster IP service short name host",
@@ -230,6 +230,7 @@ func vmTestCases(vm echo.Instance) []TrafficTestCase {
 			name: "dns: VM to k8s headless service",
 			from: vm,
 			to:   apps.headless,
+			host: apps.headless.Config().FQDN(),
 		},
 	}
 	cases := []TrafficTestCase{}

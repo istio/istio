@@ -23,6 +23,11 @@
         "source_version": "v1",
         "source_workload": "client-v1",
         "protocol": "http",
-        "log_sampled": "false"
+        "log_sampled": "false",
+        "upstream_cluster": "inbound|8090|http|server.{{ .EchoNamespace }}.svc.cluster.local",
+        "route_name": "default",
+        "requested_server_name": "outbound_.8090_._.server.{{ .EchoNamespace }}.svc.cluster.local",
+        "x-envoy-original-dst-host": "",
+        "x-envoy-original-path": ""
     }
 }

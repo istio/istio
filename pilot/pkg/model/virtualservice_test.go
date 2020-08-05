@@ -1463,6 +1463,24 @@ func TestHasConflict(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "withoutHeaders mismatch",
+			root: &networking.HTTPMatchRequest{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Prefix{Prefix: "h1"},
+					},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Exact{Exact: "h2"},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "port",
 			root: &networking.HTTPMatchRequest{
 				Port: 0,

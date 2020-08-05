@@ -19,13 +19,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
+
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
@@ -63,6 +65,7 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string]string
+	ingress         map[resource.ClusterIndex]ingress.Instance
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -102,6 +105,18 @@ var leaderElectionConfigMaps = []string{
 	leaderelection.ValidationController,
 }
 
+func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if _, ok := i.ingress[cluster.Index()]; !ok {
+		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
+			Namespace: i.settings.IngressNamespace,
+			Cluster:   cluster,
+		})
+	}
+	return i.ingress[cluster.Index()]
+}
+
 func (i *operatorComponent) Close() (err error) {
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
@@ -126,6 +141,13 @@ func (i *operatorComponent) Close() (err error) {
 					err = multierror.Append(err, e)
 				}
 			}
+		}
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.ingress != nil {
+		for _, ing := range i.ingress {
+			ing.CloseClients()
 		}
 	}
 	return
@@ -160,6 +182,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		settings:        cfg,
 		ctx:             ctx,
 		installManifest: map[string]string{},
+		ingress:         map[resource.ClusterIndex]ingress.Instance{},
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -204,11 +227,20 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
+
+				if cfg.ExposeIstiod {
+					if err := patchIngressPorts(cfg, cluster); err != nil {
+						return fmt.Errorf("failed patching ingress ports for cluster %s: %v", cluster.Name(), err)
+					}
+					if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
+						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
+					}
+				}
 				return nil
 			})
 			if isCentralIstio(env, cfg) && env.IsControlPlaneCluster(cluster) {
 				errG.Go(func() error {
-					return patchIstiodCustomHost(cfg, cluster)
+					return patchIstiodCustomHost(i, cfg, cluster)
 				})
 			}
 		}
@@ -275,14 +307,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func patchIstiodCustomHost(cfg Config, cluster resource.Cluster) error {
-	var remoteIstiodAddress net.TCPAddr
-	if err := retry.UntilSuccess(func() error {
-		var err error
-		remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, cluster, false)
+func patchIstiodCustomHost(i *operatorComponent, cfg Config, cluster resource.Cluster) error {
+	remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
+	if err != nil {
 		return err
-	}, retry.Timeout(90*time.Second)); err != nil {
-		return fmt.Errorf("failed getting the istiod address for cluster %s: %v", cluster.Name(), err)
 	}
 
 	patchOptions := kubeApiMeta.PatchOptions{
@@ -461,22 +489,11 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				"--set", "values.global.network="+networkName)
 		}
 
-		if c.environment.IsControlPlaneCluster(cluster) {
-			// Expose Istiod through ingress to allow remote clusters to connect
-			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
-		} else {
+		if !c.environment.IsControlPlaneCluster(cluster) {
 			installSettings = append(installSettings, "--set", "profile=remote")
-			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
+			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {
-				return fmt.Errorf("failed getting control plane cluster for cluster %s: %v", cluster.Name(), err)
-			}
-			var remoteIstiodAddress net.TCPAddr
-			if err := retry.UntilSuccess(func() error {
-				var err error
-				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster, false)
 				return err
-			}, retry.Timeout(1*time.Minute)); err != nil {
-				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
 			}
 			installSettings = append(installSettings,
 				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
@@ -504,6 +521,42 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 	}
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
+}
+
+func patchIngressPorts(cfg Config, cluster resource.Cluster) error {
+	patchOptions := kubeApiMeta.PatchOptions{
+		FieldManager: "istio-ci",
+		TypeMeta: kubeApiMeta.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+	}
+	contents := `
+apiVersion: v1
+kind: Service
+spec:
+  ports:
+  - name: tcp-istiod
+    port: 15012
+    protocol: TCP
+    targetPort: 15012
+  - name: tcp-webhook
+    port: 15017
+    protocol: TCP
+    targetPort: 15017`
+	_, err := cluster.CoreV1().Services(cfg.SystemNamespace).Patch(
+		context.TODO(), "istio-ingressgateway", types.ApplyPatchType, []byte(contents), patchOptions)
+	return err
+}
+
+func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
+	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/istiod-gateway/istiod-gateway.yaml"))
+	if err != nil {
+		return err
+	}
+	yaml := string(yamlBytes)
+	yaml = strings.ReplaceAll(yaml, "istio-system", cfg.SystemNamespace)
+	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, yaml)
 }
 
 func isCentralIstio(env *kube.Environment, cfg Config) bool {

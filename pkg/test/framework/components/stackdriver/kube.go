@@ -178,6 +178,7 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 		delete(l.Labels, "source_name")
 		delete(l.Labels, "destination_name")
 		delete(l.Labels, "connection_id")
+		delete(l.Labels, "upstream_host")
 		ret = append(ret, l)
 	}
 	return ret, nil

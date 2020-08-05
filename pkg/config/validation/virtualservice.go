@@ -27,7 +27,7 @@ func validateRootHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	}
 	// only delegate can be specified
 	if http.Redirect != nil {
-		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify rewrite", http.Name))
+		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify redirect", http.Name))
 	}
 	if http.Route != nil {
 		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify route", http.Name))

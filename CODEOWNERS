@@ -27,11 +27,12 @@ Makefile*                                                        @istio/wg-test-
 /pkg/bootstrap/                                                  @istio/wg-networking-maintainers
 /pkg/config/                                                     @istio/wg-networking-maintainers
 /pkg/envoy/                                                      @istio/wg-networking-maintainers
-/pkg/istio-agent/                                                @istio/wg-networking-maintainers
+/pkg/istio-agent/                                                @istio/wg-networking-maintainers @istio/wg-security-maintainers
 /pkg/keepalive/                                                  @istio/wg-networking-maintainers
 /pkg/kube/                                                       @istio/wg-networking-maintainers
 /pkg/mcp/                                                        @istio/wg-networking-maintainers
 /pkg/queue/                                                      @istio/wg-networking-maintainers
+/pkg/security/                                                   @istio/wg-security-maintainers @istio/wg-environments-maintainers
 /pkg/spiffe/                                                     @istio/wg-security-maintainers
 /pkg/test/                                                       @istio/wg-test-and-release-maintainers
 /pkg/tracing/                                                    @istio/wg-policies-and-telemetry-maintainers

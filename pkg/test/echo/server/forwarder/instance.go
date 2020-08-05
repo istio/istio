@@ -45,13 +45,14 @@ func (c Config) fillInDefaults() Config {
 
 // Instance processes a single proto.ForwardEchoRequest, sending individual echo requests to the destination URL.
 type Instance struct {
-	p       protocol
-	url     string
-	timeout time.Duration
-	count   int
-	qps     int
-	header  http.Header
-	message string
+	p           protocol
+	url         string
+	serverFirst bool
+	timeout     time.Duration
+	count       int
+	qps         int
+	header      http.Header
+	message     string
 }
 
 // New creates a new forwarder Instance.
@@ -64,13 +65,14 @@ func New(cfg Config) (*Instance, error) {
 	}
 
 	return &Instance{
-		p:       p,
-		url:     cfg.Request.Url,
-		timeout: common.GetTimeout(cfg.Request),
-		count:   common.GetCount(cfg.Request),
-		qps:     int(cfg.Request.Qps),
-		header:  common.GetHeaders(cfg.Request),
-		message: cfg.Request.Message,
+		p:           p,
+		url:         cfg.Request.Url,
+		serverFirst: cfg.Request.ServerFirst,
+		timeout:     common.GetTimeout(cfg.Request),
+		count:       common.GetCount(cfg.Request),
+		qps:         int(cfg.Request.Qps),
+		header:      common.GetHeaders(cfg.Request),
+		message:     cfg.Request.Message,
 	}, nil
 }
 
@@ -89,11 +91,12 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 
 	for reqIndex := 0; reqIndex < i.count; reqIndex++ {
 		r := request{
-			RequestID: reqIndex,
-			URL:       i.url,
-			Message:   i.message,
-			Header:    i.header,
-			Timeout:   i.timeout,
+			RequestID:   reqIndex,
+			URL:         i.url,
+			Message:     i.message,
+			Header:      i.header,
+			Timeout:     i.timeout,
+			ServerFirst: i.serverFirst,
 		}
 
 		if throttle != nil {

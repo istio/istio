@@ -235,8 +235,8 @@ CRs at this layer, so no merge is performed in this step.
 The CLI `mesh` command is implemented in the [cmd/mesh](cmd/mesh/)
 subdirectory as a Cobra command with the following subcommands:
 
-- [manifest](cmd/mesh/manifest.go): the manifest subcommand is used to generate, apply, diff or migrate Istio manifests, it has the following subcommands:
-    - [apply](cmd/mesh/manifest-apply.go): the apply subcommand is used to generate an Istio install manifest and apply it to a cluster.
+- [manifest](cmd/mesh/manifest.go): the manifest subcommand is used to generate, install, diff or migrate Istio manifests, it has the following subcommands:
+    - [install](cmd/mesh/install.go): the install subcommand is used to generate an Istio install manifest and apply it to a cluster.
     - [diff](cmd/mesh/manifest-diff.go): the diff subcommand is used to compare manifest from two files or directories.
     - [generate](cmd/mesh/manifest-generate.go): the generate subcommand is used to generate an Istio install manifest.
     - [migrate](cmd/mesh/manifest-migrate.go): the migrate subcommand is used to migrate a configuration in Helm values format to IstioOperator format.

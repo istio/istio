@@ -325,6 +325,9 @@ global:
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"
 
+    # Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
+    holdApplicationUntilProxyStarts: false
+
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxyv2

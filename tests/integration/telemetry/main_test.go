@@ -17,8 +17,9 @@ package telemetry
 import (
 	"testing"
 
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -58,11 +59,7 @@ components:
             name: tcp`
 		})).
 		Setup(func(ctx resource.Context) (err error) {
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: i,
-			}); err != nil {
-				return err
-			}
+			ingr = i.IngressFor(ctx.Clusters().Default())
 			return nil
 		}).
 		Run()
