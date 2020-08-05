@@ -471,7 +471,6 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	// after informer caches sync the first time, process resources in order
-	// TODO(landow) is it possible to start the informers one-by-one in order?
 	c.syncMu.Lock()
 	defer c.syncMu.Unlock()
 	if !c.initialSync {
