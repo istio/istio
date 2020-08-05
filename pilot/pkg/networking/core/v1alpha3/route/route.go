@@ -63,7 +63,10 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
-	// TODO: remove deprecated maxRegExProgramSize and move to runtime value or decide a better option.
+	// TODO: In the current version of Envoy, MaxProgramSize has been deprecated. However even if we do not send
+	// MaxProgramSize, Envoy is enforcing max size of 100 via runtime. We will have to remove this and find a
+	// way to specify via runtime or find a better option.
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/regex.proto.html#type-matcher-v3-regexmatcher-googlere2.
 	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
