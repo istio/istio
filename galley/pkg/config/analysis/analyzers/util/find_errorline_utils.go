@@ -91,12 +91,8 @@ const (
 
 // ErrorLine returns the line number of the input path key in the resource
 func ErrorLine(r *resource.Instance, path string) (line int, found bool) {
-	return findErrorLine(path, r.Origin.FieldMap())
-}
-
-// FindErrorLine returns the line number of the input key from the input map
-func findErrorLine(key string, m map[string]int) (line int, found bool) {
-	line, ok := m[key]
+	fieldMap := r.Origin.FieldMap()
+	line, ok := fieldMap[path]
 	if !ok {
 		return 0, false
 	}

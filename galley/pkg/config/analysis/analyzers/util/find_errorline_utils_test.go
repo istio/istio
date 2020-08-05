@@ -83,13 +83,6 @@ func TestConstants(t *testing.T) {
 	}
 
 	for _, v := range constantsPath {
-		g.Expect(findValueInMap(v, fieldMap)).To(Equal(1))
+		g.Expect(fieldMap[v]).To(Equal(1))
 	}
-}
-
-func findValueInMap(path string, m map[string]int) int {
-	if v, ok := m[path]; ok {
-		return v
-	}
-	return 0
 }
