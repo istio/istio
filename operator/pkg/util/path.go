@@ -51,6 +51,7 @@ func PathFromString(path string) Path {
 	path = filepath.Clean(path)
 	path = strings.TrimPrefix(path, PathSeparator)
 	path = strings.TrimSuffix(path, PathSeparator)
+	path = escapePathSeparatorInPathKV(path)
 	pv := splitEscaped(path, pathSeparatorRune)
 	var r []string
 	for _, str := range pv {
@@ -67,6 +68,41 @@ func PathFromString(path string) Path {
 		}
 	}
 	return r
+}
+
+// escapePVPathSeparator escapes the path separator('.') in KV path(eg. [Deployment:istiod-1.6.7])
+// to escaped path separator('\\.')
+func escapePathSeparatorInPathKV(s string) string {
+	var kvstart, kvend int
+	var paths []string
+	var kvpath string
+	for i, c := range s {
+		if c == '[' {
+			kvstart = i
+			if kvstart != 0 {
+				if kvend != 0 {
+					paths = append(paths, s[kvend+1:kvstart])
+				} else {
+					paths = append(paths, s[:kvstart])
+				}
+			}
+		}
+		if c == ']' {
+			kvend = i
+			kvpath = s[kvstart : kvend+1]
+			kvpath = strings.ReplaceAll(kvpath, EscapedPathSeparator, PathSeparator)
+			kvpath = strings.ReplaceAll(kvpath, PathSeparator, EscapedPathSeparator)
+			paths = append(paths, kvpath)
+		}
+		if i == len(s)-1 {
+			if kvend == 0 {
+				paths = append(paths, s)
+			} else {
+				paths = append(paths, s[kvend+1:])
+			}
+		}
+	}
+	return strings.Join(paths, "")
 }
 
 // String converts a string slice path representation of form ["a", "b", "c"] to a string representation like "a.b.c".

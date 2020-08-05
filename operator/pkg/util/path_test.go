@@ -135,6 +135,16 @@ func TestPathFromString(t *testing.T) {
 			in:     ".a.",
 			expect: Path{"a"},
 		},
+		{
+			desc:   "simple-kv-path",
+			in:     "a.[k:v].b",
+			expect: Path{"a", "[k:v]", "b"},
+		},
+		{
+			desc:   "complicated-kv-path",
+			in:     "a.[k:v-1.2.3].b.c[4]",
+			expect: Path{"a", "[k:v-1.2.3]", "b", "c", "[4]"},
+		},
 	}
 
 	for _, tt := range tests {
