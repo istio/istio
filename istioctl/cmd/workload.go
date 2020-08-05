@@ -353,7 +353,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	md["TRUST_DOMAIN"] = meshConfig.TrustDomain
 
 	md["ISTIO_META_CLUSTER_ID"] = clusterID
-	md["ISTIO_META_MESH_ID"] = string(meshConfig.DefaultConfig.MeshId)
+	md["ISTIO_META_MESH_ID"] = meshConfig.DefaultConfig.MeshId
 	md["ISTIO_META_NETWORK"] = we.Network
 	if portsJSON, err := json.Marshal(we.Ports); err == nil {
 		md["ISTIO_META_POD_PORTS"] = string(portsJSON)
