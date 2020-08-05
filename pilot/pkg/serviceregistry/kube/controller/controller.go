@@ -410,20 +410,25 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 		}
 	}
 
+	wrappedHandler := func(obj interface{}, event model.Event) error {
+		obj = tryGetLatestObject(informer, obj)
+		return handler(obj, event)
+	}
+
 	informer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			// TODO: filtering functions to skip over un-referenced resources (perf)
 			AddFunc: func(obj interface{}) {
 				incrementEvent(otype, "add")
 				q.Push(func() error {
-					return handler(obj, model.EventAdd)
+					return wrappedHandler(obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur interface{}) {
 				if !filter(old, cur) {
 					incrementEvent(otype, "update")
 					q.Push(func() error {
-						return handler(cur, model.EventUpdate)
+						return wrappedHandler(cur, model.EventUpdate)
 					})
 				} else {
 					incrementEvent(otype, "updatesame")
@@ -436,6 +441,24 @@ func registerHandlers(informer cache.SharedIndexInformer, q queue.Instance, otyp
 				})
 			},
 		})
+}
+
+// tryGetLatestObject attempts to fetch the latest version of the object from the cache.
+// Changes may have occurred between queuing and processing.
+func tryGetLatestObject(informer cache.SharedIndexInformer, obj interface{}) interface{} {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		log.Warnf("failed creating key for informer object: %v", err)
+		return obj
+	}
+
+	latest, exists, err := informer.GetIndexer().GetByKey(key)
+	if !exists || err != nil {
+		log.Warnf("couldn't find %q in informer index", key)
+		return obj
+	}
+
+	return latest
 }
 
 // HasSynced returns true after the initial state synchronization
