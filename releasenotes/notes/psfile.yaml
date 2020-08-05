@@ -2,5 +2,4 @@ apiVersion: release-notes/v2
 kind: feature
 area: istioctl
 releaseNotes: |
-  *Added*
-  - Allow proxy-status for non-K8s workloads with --file
+  **Added** Allow proxy-status for non-K8s workloads with --file
