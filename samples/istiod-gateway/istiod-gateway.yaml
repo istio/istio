@@ -1,0 +1,65 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: meshexpansion-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        name: tcp-istiod
+        number: 15012
+        protocol: TCP
+      hosts:
+        - "*"
+    - port:
+        name: tcp-istiodwebhook
+        number: 15017
+        protocol: TCP
+      hosts:
+        - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: meshexpansion-vs-istiod
+  namespace: istio-system
+spec:
+  hosts:
+  - istiod.istio-system.svc.cluster.local
+  gateways:
+  - meshexpansion-gateway
+  tcp:
+  - match:
+    - port: 15012
+    route:
+    - destination:
+        host: istiod.istio-system.svc.cluster.local
+        port:
+          number: 15012
+  - match:
+    - port: 15017
+    route:
+    - destination:
+        host: istiod.istio-system.svc.cluster.local
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: meshexpansion-dr-istiod
+  namespace: istio-system
+spec:
+  host: istiod.istio-system.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+    - port:
+        number: 15012
+      tls:
+        mode: DISABLE
+    - port:
+        number: 15017
+      tls:
+        mode: DISABLE

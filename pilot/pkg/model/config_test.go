@@ -23,6 +23,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"

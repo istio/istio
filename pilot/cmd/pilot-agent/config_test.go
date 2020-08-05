@@ -30,18 +30,21 @@ func TestGetMeshConfig(t *testing.T) {
 	meshOverride := `
 defaultConfig:
   discoveryAddress: foo:123
+  controlPlaneAuthPolicy: NONE
   proxyMetadata:
     SOME: setting
   drainDuration: 1s`
 	proxyOverride := `discoveryAddress: foo:123
 proxyMetadata:
   SOME: setting
-drainDuration: 1s`
+drainDuration: 1s
+controlPlaneAuthPolicy: NONE`
 	overridesExpected := func() meshconfig.ProxyConfig {
 		m := mesh.DefaultProxyConfig()
 		m.DiscoveryAddress = "foo:123"
 		m.ProxyMetadata = map[string]string{"SOME": "setting"}
 		m.DrainDuration = types.DurationProto(time.Second)
+		m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 		return m
 	}()
 	cases := []struct {
@@ -81,7 +84,8 @@ defaultConfig:
   proxyMetadata:
     SOME: setting
   drainDuration: 1s
-  extraStatTags: ["a"]`,
+  extraStatTags: ["a"]
+  controlPlaneAuthPolicy: NONE`,
 			environment: `
 discoveryAddress: environment:123
 proxyMetadata:
@@ -99,6 +103,7 @@ extraStatTags: ["b"]
 				m.ProxyMetadata = map[string]string{"ANNOTATION": "something"}
 				m.DrainDuration = types.DurationProto(5 * time.Second)
 				m.ExtraStatTags = []string{"b"}
+				m.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
 				return m
 			}(),
 		},

@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -39,7 +40,8 @@ type Instance struct {
 // New creates a new echo client.Instance that is connected to the given server address.
 func New(address string, tlsSettings *common.TLSSettings) (*Instance, error) {
 	// Connect to the GRPC (command) endpoint of 'this' app.
-	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+	// TODO: make use of common.ConnectionTimeout once it increases
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	dialOptions := []grpc.DialOption{grpc.WithBlock()}
 	if tlsSettings == nil {

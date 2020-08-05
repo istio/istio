@@ -15,21 +15,17 @@
 package controller
 
 import (
-	"errors"
-	"fmt"
 	"time"
-
-	klabels "k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
 	kubelib "istio.io/istio/pkg/kube"
 
+	"github.com/hashicorp/go-multierror"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -139,38 +135,23 @@ type FakeController struct {
 	*Controller
 }
 
-func (f *FakeController) ResyncEndpoints() error {
+func (f *FakeController) ForceResync() error {
 	// TODO this workaround fixes a flake that indicates a real issue.
 	// TODO(cont) See https://github.com/istio/istio/issues/24117 and https://github.com/istio/istio/pull/24339
-
-	e, ok := f.endpoints.(*endpointsController)
-	if !ok {
-		return errors.New("cannot run ResyncEndpoints; EndpointsMode must be EndpointsOnly")
+	var err *multierror.Error
+	for _, s := range f.nodeInformer.GetStore().List() {
+		err = multierror.Append(err, f.onNodeEvent(s, model.EventAdd))
 	}
-	eps, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).List(klabels.Everything())
-	if err != nil {
-		return err
+	for _, s := range f.serviceInformer.GetStore().List() {
+		err = multierror.Append(err, f.onServiceEvent(s, model.EventAdd))
 	}
-	// endpoint processing may beat services
-	for _, ep := range eps {
-		// endpoint updates are skipped when the service is not there yet
-		if host, svc, ns := e.getServiceInfo(ep); host != "" {
-			_ = retry.UntilSuccess(func() error {
-				f.RLock()
-				defer f.RUnlock()
-				if f.servicesMap[host] == nil {
-					return fmt.Errorf("waiting for service %s in %s to be populated", svc, ns)
-				}
-				return nil
-			}, retry.Delay(time.Second), retry.Timeout(10*time.Second))
-		}
-
-		err = f.endpoints.onEvent(ep, model.EventAdd)
-		if err != nil {
-			return err
-		}
+	for _, s := range f.pods.informer.GetStore().List() {
+		err = multierror.Append(err, f.pods.onEvent(s, model.EventAdd))
 	}
-	return nil
+	for _, s := range f.endpoints.getInformer().GetStore().List() {
+		err = multierror.Append(err, f.endpoints.onEvent(s, model.EventAdd))
+	}
+	return err.ErrorOrNil()
 }
 
 func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
