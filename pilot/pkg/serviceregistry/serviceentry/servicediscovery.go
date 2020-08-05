@@ -426,20 +426,17 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	s.maybeRefreshIndexes()
 
+	out := make([]*model.ServiceInstance, 0)
 	s.storeMutex.RLock()
 	defer s.storeMutex.RUnlock()
 
-	out := make([]*model.ServiceInstance, 0)
-
-	instanceLists, found := s.instances[instancesKey{svc.Hostname, svc.Attributes.Namespace}]
-	if found {
-		for _, instances := range instanceLists {
-			for _, instance := range instances {
-				if instance.Service.Hostname == svc.Hostname &&
-					labels.HasSubsetOf(instance.Endpoint.Labels) &&
-					portMatchSingle(instance, port) {
-					out = append(out, instance)
-				}
+	instanceLists := s.instances[instancesKey{svc.Hostname, svc.Attributes.Namespace}]
+	for _, instances := range instanceLists {
+		for _, instance := range instances {
+			if instance.Service.Hostname == svc.Hostname &&
+				labels.HasSubsetOf(instance.Endpoint.Labels) &&
+				portMatchSingle(instance, port) {
+				out = append(out, instance)
 			}
 		}
 	}
