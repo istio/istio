@@ -46,4 +46,5 @@ mkdir -p "${OUTPUT_DIR}"
 
 cp -R "${INSTALLER_DIR}/charts" "${OUTPUT_DIR}"
 cp -R "${INSTALLER_DIR}/profiles" "${OUTPUT_DIR}"
+cp -R "${INSTALLER_DIR}/examples" "${OUTPUT_DIR}"
 
