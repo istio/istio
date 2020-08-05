@@ -205,6 +205,9 @@ spec:
       annotations:
         # Sidecar is inside the pod to simulate VMs - do not inject
         sidecar.istio.io/inject: "false"
+        prometheus.io/path: "/stats/prometheus"
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
       labels:
         # Label should not be selected. We will create a workload entry instead
         istio.io/test-vm: {{ $.Service }}
@@ -219,8 +222,6 @@ spec:
       dnsConfig:
         nameservers:
         - "8.8.8.8"
-        searches:
-        - "com"
         options:
         - name: "ndots"
           value: "1"
