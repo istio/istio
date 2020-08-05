@@ -653,7 +653,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -663,7 +663,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "3.3.3.3",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
+			ServiceAccount: spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}

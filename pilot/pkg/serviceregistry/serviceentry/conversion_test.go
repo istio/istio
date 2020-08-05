@@ -429,7 +429,7 @@ const (
 func makeInstanceWithServiceAccount(cfg *model.Config, address string, port int,
 	svcPort *networking.Port, svcLabels map[string]string, serviceAccount string) *model.ServiceInstance {
 	i := makeInstance(cfg, address, port, svcPort, svcLabels, MTLSUnlabelled)
-	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(i.Service.Attributes.Namespace, serviceAccount)
+	i.Endpoint.ServiceAccount = spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), i.Service.Attributes.Namespace, serviceAccount)
 	return i
 }
 
