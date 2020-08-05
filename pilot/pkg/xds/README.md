@@ -15,6 +15,9 @@ curl $PILOT/debug/edsz
 
 # Clusters
 curl $PILOT/debug/cdsz
+
+# SPIFFE
+curl $PILOT/debug/spiffez
 ```
 
 Each handler takes an extra parameter, "debug=0|1" which flips the verbosity of the

@@ -950,7 +950,7 @@ func (s *Server) setPeerCertVerifier(tlsOptions TLSOptions) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse certificate: %v", err)
 		}
-		s.peerCertVerifier.AddMapping(spiffe.GetTrustDomain(), []*x509.Certificate{rootCert})
+		s.peerCertVerifier.AddMapping(spiffe.GetLocalTrustDomain(), []*x509.Certificate{rootCert})
 	}
 
 	if features.SpiffeBundleEndpoints != "" {

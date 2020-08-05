@@ -56,7 +56,7 @@ func NewCAServer(port int) (*CAServer, error) {
 	// Create root cert and private key.
 	options := util.CertOptions{
 		TTL:          3650 * 24 * time.Hour,
-		Org:          spiffe.GetTrustDomain(),
+		Org:          spiffe.GetLocalTrustDomain(),
 		IsCA:         true,
 		IsSelfSigned: true,
 		RSAKeySize:   2048,

@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
@@ -33,12 +34,14 @@ var discovery2 *mock.ServiceDiscovery
 func buildMockController() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname:   mock.HelloService,
-			mock.ExtHTTPService.Hostname: mock.ExtHTTPService,
+			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV1,
+			mock.HelloService.Hostname:    mock.HelloService,
+			mock.ExtHTTPService.Hostname:  mock.ExtHTTPService,
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
+			mock.ReplicatedFooServiceName: mock.ReplicatedFooServiceV2,
 			mock.WorldService.Hostname:    mock.WorldService,
 			mock.ExtHTTPSService.Hostname: mock.ExtHTTPSService,
 		}, 2)
@@ -65,12 +68,12 @@ func buildMockController() *Controller {
 func buildMockControllerForMultiCluster() *Controller {
 	discovery1 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0"),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.1.0", []string{}),
 		}, 2)
 
 	discovery2 = mock.NewDiscovery(
 		map[host.Name]*model.Service{
-			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0"),
+			mock.HelloService.Hostname: mock.MakeService("hello.default.svc.cluster.local", "10.1.2.0", []string{}),
 			mock.WorldService.Hostname: mock.WorldService,
 		}, 2)
 
@@ -396,36 +399,41 @@ func TestInstancesError(t *testing.T) {
 
 func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
-
-	// Get accounts from mockAdapter1
-	accounts := aggregateCtl.GetIstioServiceAccounts(mock.HelloService, []int{})
-	expected := make([]string, 0)
-
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
+	serviceAccountsFn := func(svc *model.Service) map[string]struct{} {
+		accounts := aggregateCtl.GetIstioServiceAccounts(svc, []int{})
+		accountsMap := map[string]struct{}{}
+		for _, k := range accounts {
+			accountsMap[k] = struct{}{}
+		}
+		return accountsMap
 	}
 
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one")
-		}
+	// Get accounts from mockAdapter1
+	accounts := serviceAccountsFn(mock.HelloService)
+	expected := map[string]struct{}{}
+	if diff := cmp.Diff(accounts, expected); diff != "" {
+		t.Errorf("unexpected service account, diff %v", diff)
 	}
 
 	// Get accounts from mockAdapter2
-	accounts = aggregateCtl.GetIstioServiceAccounts(mock.WorldService, []int{})
-	expected = []string{
-		"spiffe://cluster.local/ns/default/sa/serviceaccount1",
-		"spiffe://cluster.local/ns/default/sa/serviceaccount2",
+	accounts = serviceAccountsFn(mock.WorldService)
+	expected = map[string]struct{}{
+		"spiffe://cluster.local/ns/default/sa/world1": struct{}{},
+		"spiffe://cluster.local/ns/default/sa/world2": struct{}{},
+	}
+	if diff := cmp.Diff(accounts, expected); diff != "" {
+		t.Errorf("unexpected service account, diff %v", diff)
 	}
 
-	if len(accounts) != len(expected) {
-		t.Fatal("Incorrect account result returned")
+	// Get accounts for service replicated in both service.
+	accounts = serviceAccountsFn(mock.ReplicatedFooServiceV1)
+	expected = map[string]struct{}{
+		"spiffe://cluster.local/ns/default/sa/foo1":      struct{}{},
+		"spiffe://cluster.local/ns/default/sa/foo2":      struct{}{},
+		"spiffe://cluster.local/ns/default/sa/foo-share": struct{}{},
 	}
-
-	for i := 0; i < len(accounts); i++ {
-		if accounts[i] != expected[i] {
-			t.Fatal("Returned account result does not match expected one", accounts[i], expected[i])
-		}
+	if diff := cmp.Diff(accounts, expected); diff != "" {
+		t.Errorf("unexpected service account, diff %v", diff)
 	}
 }
 

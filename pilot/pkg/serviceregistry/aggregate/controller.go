@@ -362,10 +362,16 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
+	out := map[string]struct{}{}
 	for _, r := range c.GetRegistries() {
-		if svcAccounts := r.GetIstioServiceAccounts(svc, ports); svcAccounts != nil {
-			return svcAccounts
+		svcAccounts := r.GetIstioServiceAccounts(svc, ports)
+		for _, sa := range svcAccounts {
+			out[sa] = struct{}{}
 		}
 	}
-	return nil
+	result := []string{}
+	for k := range out {
+		result = append(result, k)
+	}
+	return result
 }

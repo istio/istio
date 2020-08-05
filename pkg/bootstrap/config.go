@@ -262,7 +262,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 
 func defaultPilotSAN() []string {
 	return []string{
-		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
+		spiffe.MustGenSpiffeURI(spiffe.GetLocalTrustDomain(), "istio-system", "istio-pilot-service-account")}
 }
 
 func lightstepAccessTokenFile(config string) string {

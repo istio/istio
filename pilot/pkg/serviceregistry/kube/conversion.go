@@ -87,7 +87,7 @@ func ConvertService(svc coreV1.Service, domainSuffix string, clusterID string) *
 	}
 	if svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name] != "" {
 		for _, ksa := range strings.Split(svc.Annotations[annotation.AlphaKubernetesServiceAccounts.Name], ",") {
-			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(ksa, svc.Namespace))
+			serviceaccounts = append(serviceaccounts, kubeToIstioServiceAccount(spiffe.GetTrustDomainByCluster(clusterID), ksa, svc.Namespace))
 		}
 	}
 	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
@@ -179,19 +179,19 @@ func ServiceHostname(name, namespace, domainSuffix string) host.Name {
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
-func kubeToIstioServiceAccount(saname string, ns string) string {
-	return spiffe.MustGenSpiffeURI(ns, saname)
+func kubeToIstioServiceAccount(trustDomain, saname, ns string) string {
+	return spiffe.MustGenSpiffeURI(trustDomain, ns, saname)
 }
 
 // SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
-func SecureNamingSAN(pod *coreV1.Pod) string {
+func SecureNamingSAN(trustDomain string, pod *coreV1.Pod) string {
 
-	//use the identity annotation
+	// Use the identity annotation
 	if identity, exist := pod.Annotations[annotation.AlphaIdentity.Name]; exist {
-		return spiffe.GenCustomSpiffe(identity)
+		return spiffe.GenCustomSpiffe(trustDomain, identity)
 	}
 
-	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
+	return spiffe.MustGenSpiffeURI(trustDomain, pod.Namespace, pod.Spec.ServiceAccountName)
 }
 
 // PodTLSMode returns the tls mode associated with the pod if pod has been injected with sidecar
