@@ -123,6 +123,43 @@ func TestController(t *testing.T) {
 		})
 }
 
+func TestOperatorRemove(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+			cs := ctx.Environment().(*kube.Environment).KubeClusters[0]
+			s, err := image.SettingsFromCommandLine()
+			if err != nil {
+				t.Fatal(err)
+			}
+			initCmd := []string{
+				"operator", "init",
+				"--hub=" + s.Hub,
+				"--tag=" + s.Tag,
+				"--manifests=" + ManifestPath,
+			}
+			istioCtl.InvokeOrFail(t, initCmd)
+
+			removeCmd := []string{
+				"operator", "remove",
+			}
+			// install second operator deployment with different revision
+			istioCtl.InvokeOrFail(t, removeCmd)
+			retry.UntilSuccessOrFail(t, func() error {
+				if svc, _ := cs.CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator", kubeApiMeta.GetOptions{}); svc != nil {
+					return fmt.Errorf("got operator service from cluster, expected to be removed")
+				}
+
+				if _, err := cs.AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), "istio-operator", kubeApiMeta.GetOptions{}); err != nil {
+					return fmt.Errorf("got operator deployment from cluster, expected to be removed")
+				}
+				return nil
+			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+			postTestCleanup(t, cs)
+		})
+}
+
 // checkInstallStatus check the status of IstioOperator CR from the cluster
 func checkInstallStatus(cs istioKube.ExtendedClient) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
