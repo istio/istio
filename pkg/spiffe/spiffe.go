@@ -102,6 +102,7 @@ func SetTrustDomainByCluster(clusterID string, trustDomain string, aliases []str
 }
 
 // DumpDebugInfo returns the current information related to spiffe.
+// TODO(incfly): change to json format before merge.
 func DumpDebugInfo() string {
 	var b bytes.Buffer
 	b.WriteString(fmt.Sprintf("Local trust domain: %v\n", GetLocalTrustDomain()))

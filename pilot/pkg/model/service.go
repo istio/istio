@@ -622,9 +622,9 @@ func GetServiceAccounts(svc *Service, ports []int, discovery ServiceDiscovery) [
 		if si.Endpoint.ServiceAccount != "" {
 			sa.Insert(si.Endpoint.ServiceAccount)
 		}
-
 	}
 	sa.Insert(svc.ServiceAccounts...)
+
 	return sa.UnsortedList()
 }
 

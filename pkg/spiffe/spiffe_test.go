@@ -726,18 +726,20 @@ Cluster ID: bar, trust domain td-bar, aliases []
 		},
 	}
 	for _, c := range tests {
-		if c.operation == getOperation {
-			if got := GetTrustDomainByCluster(c.clusterID); got != c.wantTrustDomain {
-				t.Errorf("[%v] want %v, got %v", c.name, got, c.wantTrustDomain)
+		t.Run(c.name, func(t *testing.T) {
+			if c.operation == getOperation {
+				if got := GetTrustDomainByCluster(c.clusterID); got != c.wantTrustDomain {
+					t.Errorf("[%v] want %v, got %v", c.name, got, c.wantTrustDomain)
+				}
 			}
-		}
-		if c.operation == setOperation {
-			SetTrustDomainByCluster(c.clusterID, c.trustDomain, c.trustDomainAliases)
-		}
-		if c.operation == dumpOperation {
-			if got := DumpDebugInfo(); got != c.wantDumpSubstr {
-				t.Errorf("dump info\n%vwant\n%v", got, c.wantDumpSubstr)
+			if c.operation == setOperation {
+				SetTrustDomainByCluster(c.clusterID, c.trustDomain, c.trustDomainAliases)
 			}
-		}
+			if c.operation == dumpOperation {
+				if got := DumpDebugInfo(); got != c.wantDumpSubstr {
+					t.Errorf("dump info\n%vwant\n%v", got, c.wantDumpSubstr)
+				}
+			}
+		})
 	}
 }

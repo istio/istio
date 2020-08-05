@@ -72,6 +72,9 @@ const (
 	// IstioSystemNamespace is the namespace where Istio's components are deployed
 	IstioSystemNamespace = "istio-system"
 
+	// IstioConfigMapName is the name of the configmap where the MeshConfig is stored.
+	IstioConfigMapName = "istio"
+
 	// DefaultAuthenticationPolicyName is the name of the cluster-scoped authentication policy. Only
 	// policy with this name in the cluster-scoped will be considered.
 	DefaultAuthenticationPolicyName = "default"

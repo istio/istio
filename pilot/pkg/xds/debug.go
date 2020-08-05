@@ -674,8 +674,8 @@ func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 // spiffez implements a status and debug interface for SPIFFE management.
 // It is mapped to /debug/cdsz
 func (s *DiscoveryServer) spiffez(w http.ResponseWriter, req *http.Request) {
-	s.adsClientsMutex.RLock()
-	defer s.adsClientsMutex.RUnlock()
+	_ = req.ParseForm()
+	w.Header().Add("Content-Type", "application/json")
 	fmt.Fprint(w, spiffe.DumpDebugInfo())
 }
 

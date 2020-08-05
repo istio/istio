@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -273,7 +274,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent, nil)
 
 	// Read the mesh config and update the cluster ID to trust domain mapping.
-	cm, err := kubeClient.CoreV1().ConfigMaps("istio-system").Get(context.TODO(), "istio", metav1.GetOptions{})
+	cm, err := kubeClient.CoreV1().ConfigMaps(IstioNamespace).Get(context.TODO(), constants.IstioConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("Failed to read config map, trust domain mapping not updated for %v: %v", c.clusterID, err)
 	}
