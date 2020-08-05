@@ -12,6 +12,11 @@ An annotated example:
 
 ```go
 package virtualservice
+import (
+
+"fmt"
+"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
+)
 
 // <imports here>
 
@@ -60,12 +65,24 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 
     // The resource name includes the namespace, if one exists. It should generally be safe to
     // assume that the namespace is not blank, except for cluster-scoped resources.
-    for _, gwName := range vs.Gateways {
+    for i, gwName := range vs.Gateways {
         if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways, resource.NewName(r.Metadata.FullName.Namespace, gwName)) {
             // Messages are defined in galley/pkg/config/analysis/msg/messages.yaml
             // From there, code is generated for each message type, including a constructor function
             // that you can use to create a new validation message of each type.
             msg := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
+            
+            // Field map contains the path of the field as the key, and its line number as the value was stored in the resource.
+            // 
+            // From the util package, find the correct path template of the field that needs to be analyzed, and 
+            // by giving the required parameters, the exact error line number can be found for the message for final displaying.
+            //         
+            // If the path template does not exist, you can add the template in util/find_errorline_utils.go for future use.
+            // If this exact line feature is not applied, or the message does not have a specific field like SchemaValidationError,
+            // then the starting line number of the resource will be displayed instead.
+            if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
+                msg.Line = line
+            }
 
             // Messages are reported via the passed-in context object.
             c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg)
