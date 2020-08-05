@@ -4,4 +4,4 @@ area: security
 issue:
 - 23226
 releaseNotes: |
-  *Added* support for creation of CSRs using ECC based certificates.
+  **Added** support for creation of CSRs using ECC based certificates.

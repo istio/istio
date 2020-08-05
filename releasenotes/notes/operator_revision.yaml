@@ -4,4 +4,4 @@ area: istioctl
 issue:
   - 23479
 releaseNotes: |
-  *Added* --revision flag to `istioctl operator init` and `istioctl operator remove` commands to support multiple control plane upgrade.
+  **Added** `--revision` flag to `istioctl operator init` and `istioctl operator remove` commands to support multiple control plane upgrade.
