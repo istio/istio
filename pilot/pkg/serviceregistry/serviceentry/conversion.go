@@ -298,8 +298,9 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 	}
 	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			if len(serviceEntry.Endpoints) == 0 &&
+			if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
+				// Note: only convert the hostname to service instance if WorkloadSelector is not set
 				// when service entry has discovery type DNS and no endpoints
 				// we create endpoints from service's host
 				// Do not use serviceentry.hosts as a service entry is converted into
