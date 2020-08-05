@@ -476,7 +476,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: "default",
 		})
-
 	dnsWle := createWorkloadEntry("dnswl", dnsSelector.Namespace,
 		&networking.WorkloadEntry{
 			Address:        "4.4.4.4",
@@ -490,15 +489,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		instances := []*model.ServiceInstance{}
 		expectProxyInstances(t, sd, instances, "2.2.2.2")
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{kind: "xds"})
-	})
-
-	t.Run("add dns service entry", func(t *testing.T) {
-		// Add just the ServiceEntry with selector. We should see no instances
-		createConfigs([]*model.Config{dnsSelector}, store, t)
-		instances := []*model.ServiceInstance{}
-		expectProxyInstances(t, sd, instances, "4.4.4.4")
-		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events, Event{kind: "xds"})
 	})
 
@@ -519,6 +509,15 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			namespace: selector.Namespace, endpoints: 2})
 	})
 
+	t.Run("add dns service entry", func(t *testing.T) {
+		// Add just the ServiceEntry with selector. We should see no instances
+		createConfigs([]*model.Config{dnsSelector}, store, t)
+		instances := []*model.ServiceInstance{}
+		expectProxyInstances(t, sd, instances, "4.4.4.4")
+		expectServiceInstances(t, sd, dnsSelector, 0, instances)
+		expectEvents(t, events, Event{kind: "xds"})
+	})
+
 	t.Run("add dns workload", func(t *testing.T) {
 		// Add a WLE, we expect this to update
 		createConfigs([]*model.Config{dnsWle}, store, t)
@@ -526,14 +525,13 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			makeInstanceWithServiceAccount(dnsSelector, "4.4.4.4", 444,
 				selector.Spec.(*networking.ServiceEntry).Ports[0],
 				map[string]string{"app": "dns-wle"}, "default"),
-			makeInstanceWithServiceAccount(dnsSelector, "2.2.2.2", 445,
+			makeInstanceWithServiceAccount(dnsSelector, "4.4.4.4", 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1],
 				map[string]string{"app": "dns-wle"}, "default"),
 		}
 		expectProxyInstances(t, sd, instances, "4.4.4.4")
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
-		expectEvents(t, events, Event{kind: "eds", host: "selector.com",
-			namespace: selector.Namespace, endpoints: 2})
+		expectEvents(t, events, Event{kind: "xds"})
 	})
 
 	t.Run("another workload", func(t *testing.T) {
