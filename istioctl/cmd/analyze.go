@@ -227,7 +227,7 @@ istioctl analyze -L
 				fmt.Fprintln(cmd.ErrOrStderr())
 			}
 
-			// Append a ref arg to the doc URL, and filter outputMessages by specified level
+			// Get messages for output
 			outputMessages := result.Messages.SetDocRef("istioctl-analyze").FilterOutLowerThan(outputThreshold.Level)
 
 			// Print all the messages to stdout in the specified format
