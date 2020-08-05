@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util/formatting"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
@@ -51,9 +52,9 @@ const (
 
 var (
 	clientFactory   = createKubeClient
-	colorize        = true
-	outputLevel     = diag.Info
-	msgOutputFormat = "log"
+	outputThreshold = formatting.MessageThreshold{diag.Info}
+	colorize        bool
+	msgOutputFormat string
 )
 
 type istioInstall struct {
@@ -384,10 +385,10 @@ func NewPrecheckCommand() *cobra.Command {
 	fileNameFlags.AddFlags(flags)
 	opts.AttachControlPlaneFlags(precheckCmd)
 	precheckCmd.PersistentFlags().BoolVar(&colorize, "color", true, "Default true. Disable with '=false'")
-	precheckCmd.PersistentFlags().Var(&outputLevel, "output-threshold",
+	precheckCmd.PersistentFlags().Var(&outputThreshold, "output-threshold",
 		fmt.Sprintf("The severity level of analysis at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
-	precheckCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", diag.LogFormat,
-		fmt.Sprintf("Output format: one of %v", diag.MsgOutputFormatKeys))
+	precheckCmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
+		fmt.Sprintf("Output format: one of %v", formatting.MsgOutputFormatKeys))
 	return precheckCmd
 }
 
@@ -396,11 +397,11 @@ func printOutput(c *cobra.Command, msgs diag.Messages, err error) error {
 		return err
 	}
 
-	outputMsgs := msgs.Filter(outputLevel)
+	outputMsgs := msgs.FilterOutLowerThan(outputThreshold.Level)
 	if len(outputMsgs) == 0 {
 		fmt.Fprintf(c.ErrOrStderr(), "✔ Install pre-check passed! The cluster is ready for Istio installation.\n")
 	} else {
-		output, err := diag.Print(outputMsgs, msgOutputFormat, colorize)
+		output, err := formatting.Print(outputMsgs, msgOutputFormat, colorize)
 		if err != nil {
 			return err
 		}
