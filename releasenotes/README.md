@@ -21,7 +21,7 @@ issue:
   - https://github.com/istio/istio/issues/23622
   - 23624
 releaseNotes: |
-*Fixed* an issue preventing the operator from recreating watched resources if they are deleted
+**Fixed** an issue preventing the operator from recreating watched resources if they are deleted
 
 upgradeNotes:
   - title: Change the readiness port of gateways
@@ -52,7 +52,7 @@ While many pull requests will only fix a single GitHub issue, some pull requests
 
 ### Release Notes
 
-These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `*Action*`.
+These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `**Action**`.
 
 ### Upgrade Notes
 
