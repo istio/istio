@@ -60,10 +60,10 @@ type uninstallArgs struct {
 }
 
 func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use.")
+	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", istioDefaultNamespace,
@@ -74,6 +74,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 }
 
+// UninstallCmd command uninstalls Istio from a cluster
 func UninstallCmd(logOpts *log.Options) *cobra.Command {
 	rootArgs := &rootArgs{}
 	uiArgs := &uninstallArgs{}

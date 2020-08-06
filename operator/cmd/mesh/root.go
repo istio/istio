@@ -43,6 +43,11 @@ If set to true, the user is not prompted and a Yes response is assumed in all ca
 	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
 	installationCompleteStr = `Installation complete`
+	ForceFlagHelpStr        = `Proceed even with validation errors.`
+	KubeConfigFlagHelpStr   = `Path to kube config.`
+	ContextFlagHelpStr      = `The name of the kubeconfig context to use.`
+	HubFlagHelpStr          = `The hub for the operator controller image.`
+	TagFlagHelpStr          = `The tag for the operator controller image.`
 )
 
 type rootArgs struct {

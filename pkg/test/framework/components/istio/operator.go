@@ -229,9 +229,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				}
 
 				if cfg.ExposeIstiod {
-					if err := patchIngressPorts(cfg, cluster); err != nil {
-						return fmt.Errorf("failed patching ingress ports for cluster %s: %v", cluster.Name(), err)
-					}
 					if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
 						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 					}
@@ -521,32 +518,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 	}
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
-}
-
-func patchIngressPorts(cfg Config, cluster resource.Cluster) error {
-	patchOptions := kubeApiMeta.PatchOptions{
-		FieldManager: "istio-ci",
-		TypeMeta: kubeApiMeta.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-	}
-	contents := `
-apiVersion: v1
-kind: Service
-spec:
-  ports:
-  - name: tcp-istiod
-    port: 15012
-    protocol: TCP
-    targetPort: 15012
-  - name: tcp-webhook
-    port: 15017
-    protocol: TCP
-    targetPort: 15017`
-	_, err := cluster.CoreV1().Services(cfg.SystemNamespace).Patch(
-		context.TODO(), "istio-ingressgateway", types.ApplyPatchType, []byte(contents), patchOptions)
-	return err
 }
 
 func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {

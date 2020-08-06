@@ -8,13 +8,13 @@ releaseNotes: |
   *Removed* all Mixer-related features and functionality. This is a scheduled
   removal of a deprecated Istio services and deployments, as well as
   Mixer-focused CRDs and component and related functionality.
- 
-upgradeNotes: |
-  Mixer is no longer supported in Istio.
-  
-  If you are using the `istio-policy` or `istio-telemetry` services, or any
-  related Mixer configuration, you will not be able to upgrade without taking
-  action to either (a) convert your existing configuration and code to the new
-  extension model for Istio or (b) using the gRPC shim developed to bridge
-  transition to the new model. For more details, please refer the docs on
-  istio.io.
+
+upgradeNotes:
+  title: Mixer is no longer supported in Istio.
+  content: |
+    If you are using the `istio-policy` or `istio-telemetry` services, or any
+    related Mixer configuration, you will not be able to upgrade without taking
+    action to either (a) convert your existing configuration and code to the new
+    extension model for Istio or (b) using the gRPC shim developed to bridge
+    transition to the new model. For more details, please refer the docs on
+    istio.io.
