@@ -4,7 +4,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type makeConfigMapArgs struct {
@@ -19,21 +19,15 @@ const (
 	ValidationContainerName = "istio-validation"
 )
 
-func makeConfigMap(args makeConfigMapArgs) *v1.ConfigMap {
-	configmap := &v1.ConfigMap{
-		TypeMeta: v12.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: v12.ObjectMeta{
+func makeConfigMap(args makeConfigMapArgs) v1.ConfigMap {
+	configmap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        args.ConfigName,
 			Namespace:   args.Namespace,
 			Labels:      args.Labels,
 			Annotations: args.Annotations,
 		},
-		Immutable:  nil,
-		Data:       args.Data,
-		BinaryData: nil,
+		Data: args.Data,
 	}
 	return configmap
 }
@@ -52,11 +46,7 @@ type makePodArgs struct {
 
 func makePodWithTolerance(args makePodArgs) *v1.Pod {
 	pod := &v1.Pod{
-		TypeMeta: v12.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: v12.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        args.PodName,
 			Namespace:   args.Namespace,
 			Labels:      args.Labels,
@@ -64,7 +54,6 @@ func makePodWithTolerance(args makePodArgs) *v1.Pod {
 		},
 		Spec: v1.PodSpec{
 			NodeName: args.NodeName,
-			Volumes:  nil,
 			InitContainers: []v1.Container{
 				{
 					Name: args.InitContainerName,
@@ -99,22 +88,18 @@ func makePodWithTolerance(args makePodArgs) *v1.Pod {
 
 type makeNodeArgs struct {
 	NodeName      string
-	Labels        map[string]string
-	Annotations   map[string]string
 	Taints        []v1.Taint
 	NodeCondition []v1.NodeCondition
 }
 
 func makeNodeWithTaint(args makeNodeArgs) *v1.Node {
 	node := &v1.Node{
-		TypeMeta: v12.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Node",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v12.ObjectMeta{
-			Name:        args.NodeName,
-			Labels:      args.Labels,
-			Annotations: args.Annotations,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: args.NodeName,
 		},
 		Spec: v1.NodeSpec{
 			Taints: args.Taints,
@@ -128,62 +113,26 @@ func makeNodeWithTaint(args makeNodeArgs) *v1.Node {
 
 var (
 	//Data for configMaps
-	istiocniConfig = *makeConfigMap(makeConfigMapArgs{
+	istiocniConfig = makeConfigMap(makeConfigMapArgs{
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni.properties": `
-									name=istio-cni
-									selector=app=istio
-									namespace=kube-system
-									`,
+			"istio-cni.properties": `name: istio-cni
+selector: app=istio 
+namespace: kube-system`,
 		},
 	})
-	combinedConfig = *makeConfigMap(makeConfigMapArgs{
+	combinedConfig = makeConfigMap(makeConfigMapArgs{
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni.properties": `
-									name=istio-cni
-									selector=app=istio
-									namespace=kube-system
-									`,
-			"others.properties": `
-									name=others
-									selector=app=others
-									namespace=blah
-									`,
+			"istio-cni.properties": `name: istio-cni
+selector: app=istio
+namespace: kube-system`,
+			"others.properties": `name: others
+selector: app=others	
+namespace: blah`,
 		},
-	})
-	multiLabelInOneConfig = *makeConfigMap(makeConfigMapArgs{
-		ConfigName: "node.readiness",
-		Namespace:  "kube-system",
-		Data: map[string]string{
-			"istio-cni.properties": `
-									name=istio-cni
-									selector=app=istio, critical=others
-									namespace=kube-system
-									`,
-		},
-	})
-	multiLabelsConfig = *makeConfigMap(makeConfigMapArgs{
-		ConfigName: "node.readiness",
-		Namespace:  "kube-system",
-		Data: map[string]string{
-			"istio-cni.properties": `
-									name=istio-cni
-									selector=app=istio
-									namespace=kube-system
-									`,
-			"critical.properties": `name=critical-test1
-									selector=critical=others
-									namespace=kube-system`,
-		},
-	})
-	emptyConfig = *makeConfigMap(makeConfigMapArgs{
-		ConfigName: "node.readiness",
-		Namespace:  "kube-system",
-		Data:       map[string]string{},
 	})
 )
 
@@ -213,165 +162,7 @@ var (
 		},
 		InitContainerStatus: &workingInitContainer,
 		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		NodeName: "foo",
-		Conditions: []v1.PodCondition{
-			{
-				Type:   v1.PodReady,
-				Status: v1.ConditionTrue,
-			},
-		},
-	})
-	notolerantPod = *makePodWithTolerance(makePodArgs{
-		PodName:   "notolerantPod",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app": "istio",
-		},
-		InitContainerStatus: &workingInitContainer,
-		NodeName:            "foo",
-	})
-	irelevantPod = *makePodWithTolerance(makePodArgs{
-		PodName:   "irrelevantPod",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app": "irrelevant",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		NodeName: "foo",
-	})
-	othersPodInKube = *makePodWithTolerance(makePodArgs{
-		PodName:   "othersPodInKube",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app":      "others",
-			"critical": "others",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		Conditions: []v1.PodCondition{
-			{
-				Type:   v1.PodReady,
-				Status: v1.ConditionTrue,
-			},
-		},
-		NodeName: "foo",
-	})
-	othersPod = *makePodWithTolerance(makePodArgs{
-		PodName:   "othersPod",
-		Namespace: "blah",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app":      "others",
-			"critical": "others",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		Conditions: []v1.PodCondition{
-			{
-				Type:   v1.PodReady,
-				Status: v1.ConditionTrue,
-			},
-		},
-		NodeName: "foo",
-	})
-	workingPodWithNoTaintNode = *makePodWithTolerance(makePodArgs{
-		PodName:   "WorkingPodWithNoTaintNode",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app": "istio",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		NodeName: "bar",
-	})
-	notReadyPod = *makePodWithTolerance(makePodArgs{
-		PodName:   "NotReadyPod",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app": "istio",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		NodeName: "foo",
-		Conditions: []v1.PodCondition{
-			{
-				Type:   v1.PodReasonUnschedulable,
-				Status: v1.ConditionTrue,
-			},
-		},
-	})
-	notReadyPodWithNoTaint = *makePodWithTolerance(makePodArgs{
-		PodName:   "NotReadyPodWithNoTaint",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app": "istio",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-		},
-		NodeName: "bar",
-		Conditions: []v1.PodCondition{
-			{
-				Type:   v1.PodReasonUnschedulable,
-				Status: v1.ConditionTrue,
-			},
-		},
-	})
-	workingPodWithMultipleLabels = *makePodWithTolerance(makePodArgs{
-		PodName:   "WorkingPodithMultipleLabels",
-		Namespace: "kube-system",
-		Annotations: map[string]string{
-			"sidecar.istio.io/status": "something",
-		},
-		Labels: map[string]string{
-			//specified by config map
-			"app":      "istio",
-			"critical": "others",
-		},
-		InitContainerStatus: &workingInitContainer,
-		Tolerations: []v1.Toleration{
-			{Key: "NodeReadiness", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+			{Key: TaintName, Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
 		},
 		NodeName: "foo",
 		Conditions: []v1.PodCondition{
@@ -384,42 +175,36 @@ var (
 )
 var (
 	testingNode = *makeNodeWithTaint(makeNodeArgs{
-		NodeName:    "foo",
-		Labels:      nil,
-		Annotations: nil,
-		Taints:      []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
+		NodeName: "foo",
+		Taints:   []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
 		NodeCondition: []v1.NodeCondition{
 			{
 				Type:              v1.NodeReady,
 				Status:            v1.ConditionTrue,
-				LastHeartbeatTime: v12.Time{Time: time.Unix(1, 1)},
+				LastHeartbeatTime: metav1.Time{Time: time.Unix(1, 1)},
 			},
 		},
 	})
 	plainNode = *makeNodeWithTaint(makeNodeArgs{
 		NodeName:      "bar",
-		Labels:        nil,
-		Annotations:   nil,
 		Taints:        []v1.Taint{},
 		NodeCondition: []v1.NodeCondition{},
 	})
 	unreadyNode = *makeNodeWithTaint(makeNodeArgs{
-		NodeName:    "unready",
-		Labels:      nil,
-		Annotations: nil,
-		Taints:      []v1.Taint{},
+		NodeName: "unready",
+		Taints:   []v1.Taint{},
 		NodeCondition: []v1.NodeCondition{
 			{
 				Type:               v1.NodeReady,
 				Status:             v1.ConditionTrue,
-				LastHeartbeatTime:  v12.Time{Time: time.Unix(1, 1)},
-				LastTransitionTime: v12.Time{Time: time.Unix(1, 0)},
+				LastHeartbeatTime:  metav1.Time{Time: time.Unix(1, 1)},
+				LastTransitionTime: metav1.Time{Time: time.Unix(1, 0)},
 			},
 			{
 				Type:               v1.NodeReady,
 				Status:             v1.ConditionFalse,
-				LastHeartbeatTime:  v12.Time{Time: time.Unix(2, 1)},
-				LastTransitionTime: v12.Time{Time: time.Unix(2, 0)},
+				LastHeartbeatTime:  metav1.Time{Time: time.Unix(2, 1)},
+				LastTransitionTime: metav1.Time{Time: time.Unix(2, 0)},
 			},
 		},
 	})

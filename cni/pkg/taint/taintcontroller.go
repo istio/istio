@@ -17,61 +17,56 @@ import (
 )
 
 type Controller struct {
-	clientset      client.Interface
-	podWorkQueue   workqueue.RateLimitingInterface
-	nodeWorkQueue  workqueue.RateLimitingInterface
-	podController  []cache.Controller
-	nodeController cache.Controller
-	taintsetter    *TaintSetter
+	clientset       client.Interface
+	podWorkQueue    workqueue.RateLimitingInterface
+	nodeWorkQueue   workqueue.RateLimitingInterface
+	podController   []cache.Controller
+	cachedPodsStore map[string]map[string]cache.Store // store sync with list watch given namespace and labelselector
+	nodeController  cache.Controller
+	nodeStore       cache.Store
+	taintsetter     *TaintSetter
 }
 
 func NewTaintSetterController(ts *TaintSetter) (*Controller, error) {
 	c := &Controller{
-		clientset:     ts.Client,
-		podWorkQueue:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		nodeWorkQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		taintsetter:   ts,
+		clientset:       ts.Client,
+		podWorkQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		nodeWorkQueue:   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		taintsetter:     ts,
+		cachedPodsStore: make(map[string]map[string]cache.Store),
 	}
 	//construct a series of pod controller according to the configmaps' namespace and labelselector
-	watchlists := make([]*cache.ListWatch, 0)
-	for _, config := range ts.configs {
-		temp := buildPodListWatch(*c, config)
-		watchlists = append(watchlists, temp)
-	}
 	c.podController = []cache.Controller{}
-	for _, listwatch := range watchlists {
-		tempcontroller := buildPodController(c, listwatch)
+	for _, config := range ts.configs {
+		tempcontroller := buildPodController(c, config)
 		c.podController = append(c.podController, tempcontroller)
 	}
-	//construct a node controller watch on all nodes
 	nodeListWatch := cache.NewFilteredListWatchFromClient(c.clientset.CoreV1().RESTClient(), "nodes", metav1.NamespaceAll, func(options *metav1.ListOptions) {
 		return
 	})
-	c.nodeController = buildNodeControler(c, nodeListWatch)
+	c.nodeStore, c.nodeController = buildNodeControler(c, nodeListWatch)
 	return c, nil
 }
 
 //build a listwatch based on the config
 //monitoring on pod with namespace and labelselectors defined in configmap
-func buildPodListWatch(c Controller, config ConfigSettings) *cache.ListWatch {
+//and add store to cache given namespace and labelsalector,
+//return a controller built by listwatch function
+//add : add it to workqueue
+//update: add it to workquueue
+//remove: retaint the node
+func buildPodController(c *Controller, config ConfigSettings) cache.Controller {
 	podListWatch := cache.NewFilteredListWatchFromClient(
 		c.clientset.CoreV1().RESTClient(),
 		"pods",
-		config.namespace,
+		config.Namespace,
 		func(options *metav1.ListOptions) {
-			options.LabelSelector = config.LabelSelectors
+			options.LabelSelector = config.LabelSelector
 		},
 	)
-	return podListWatch
-}
-
-//build a pod controller by listwatch function
-//add : add readiness taint if not added yet, add it to workqueue
-//update: add it to workquueue
-//remove: retaint the node
-func buildPodController(c *Controller, listwatch *cache.ListWatch) cache.Controller {
-	_, tempcontroller := cache.NewInformer(listwatch, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
+	tempstore, tempcontroller := cache.NewInformer(podListWatch, &v1.Pod{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
+			//remove filter condition will introduce a lot of error handling in workqueue
 			err := validTaintByPod(newObj, c)
 			if err != nil {
 				log.Errorf("Error in pod registration and validation.")
@@ -90,10 +85,15 @@ func buildPodController(c *Controller, listwatch *cache.ListWatch) cache.Control
 			}
 		},
 	})
+	if _, ok := c.cachedPodsStore[config.Namespace]; !ok {
+		c.cachedPodsStore[config.Namespace] = make(map[string]cache.Store)
+	}
+	c.cachedPodsStore[config.Namespace][config.LabelSelector] = tempstore
 	return tempcontroller
 }
-func buildNodeControler(c *Controller, nodeListWatch *cache.ListWatch) cache.Controller {
-	_, controller := cache.NewInformer(nodeListWatch, &v1.Node{}, 0, cache.ResourceEventHandlerFuncs{
+
+func buildNodeControler(c *Controller, nodeListWatch cache.ListerWatcher) (cache.Store, cache.Controller) {
+	store, controller := cache.NewInformer(nodeListWatch, &v1.Node{}, 0, cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
 			node, ok := newObj.(*v1.Node)
 			if !ok {
@@ -111,7 +111,7 @@ func buildNodeControler(c *Controller, nodeListWatch *cache.ListWatch) cache.Con
 			c.nodeWorkQueue.AddRateLimited(newObj)
 		},
 	})
-	return controller
+	return store, controller
 }
 func validTaintByPod(obj interface{}, c *Controller) error {
 	pod, ok := obj.(*v1.Pod)
@@ -119,7 +119,7 @@ func validTaintByPod(obj interface{}, c *Controller) error {
 		log.Errorf("Error decoding object, invalid type.")
 		return fmt.Errorf("Error decoding object, invalid type.")
 	}
-	node, err := c.taintsetter.GetNodeByPod(pod)
+	node, err := c.getNodeByPod(pod)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func reTaintNodeByPod(obj interface{}, c *Controller) error {
 		log.Errorf("Error decoding object, invalid type.")
 		return fmt.Errorf("Error decoding object, invalid type.")
 	}
-	node, err := c.taintsetter.GetNodeByPod(pod)
+	node, err := c.getNodeByPod(pod)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,6 @@ func (tc *Controller) Run(stopCh <-chan struct{}) {
 	<-stopCh
 	log.Infof("stop taint readiness controller")
 }
-
 func (tc *Controller) processNextPod() bool {
 	errorHandler := func(obj interface{}, pod *v1.Pod, err error) {
 		if err == nil {
@@ -217,14 +216,170 @@ func (tc *Controller) processNextPod() bool {
 	//if pod is ready, check all of critical labels in the corresponding node, if all of them are ready, untaint the node
 	//if pod is not ready or some critical pods are not ready, taint the node
 	if podutils.IsPodReady(pod) {
-		err := tc.taintsetter.ProcessReadyPod(pod)
+		err := tc.processReadyPod(pod)
 		errorHandler(obj, pod, err)
 	} else {
-		err := tc.taintsetter.ProcessUnReadyPod(pod)
+		err := tc.processUnReadyPod(pod)
 		errorHandler(obj, pod, err)
 	}
 	// Return true to let the loop process the next item
 	return true
+}
+
+//list all candidate pods given node name, namespace and selector using cached storage
+func (tc Controller) listCandidatePods(nodeName string, namespace string, selector string) []*v1.Pod {
+	if _, ok := tc.cachedPodsStore[namespace]; !ok {
+		return []*v1.Pod{}
+	}
+	if _, ok := tc.cachedPodsStore[namespace][selector]; !ok {
+		return []*v1.Pod{}
+	}
+	podList := make([]*v1.Pod, 0)
+	for _, item := range tc.cachedPodsStore[namespace][selector].List() {
+		pod, ok := item.(*v1.Pod)
+		if !ok {
+			continue
+		}
+		if pod.Spec.NodeName == nodeName && podutils.IsPodReady(pod) {
+			podList = append(podList, pod)
+		}
+	}
+	return podList
+}
+
+func (tc Controller) CheckNodeReadiness(node v1.Node) bool {
+	if tc.taintsetter.configs == nil || len(tc.taintsetter.configs) == 0 {
+		return true
+	}
+	for namespace, labelMap := range tc.cachedPodsStore {
+		for label := range labelMap {
+			if len(tc.listCandidatePods(node.GetName(), namespace, label)) == 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+//if pod is ready, check all related pod in the corresponding node, if any critical pod is unready, it should be tainted
+func (tc Controller) processReadyPod(pod *v1.Pod) error {
+	node, err := tc.getNodeByPod(pod)
+	if err != nil {
+		return fmt.Errorf("Fatal error Cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)
+	}
+	if GetNodeLatestReadiness(*node) && tc.CheckNodeReadiness(*node) {
+		err = tc.taintsetter.RemoveReadinessTaint(node)
+		if err != nil {
+			return fmt.Errorf("Fatal error Cannot remove node readiness taint: %s ", err.Error())
+		}
+		log.Infof("Readiness Taint removed to the node %v because all pods inside is ready", node.Name)
+		return nil
+	} else {
+		if tc.taintsetter.HasReadinessTaint(node) {
+			log.Infof("node %v has readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
+			return nil
+		} else {
+			err = tc.taintsetter.AddReadinessTaint(node)
+			if err != nil {
+				return fmt.Errorf("Fatal error Cannot add taint to node: %s", err.Error())
+			}
+			log.Infof("node %v add readiness taint because some other pods is not ready", node.Name)
+			return nil
+		}
+	}
+}
+
+//if pod is unready, it should be tainted
+func (tc Controller) processUnReadyPod(pod *v1.Pod) error {
+	node, err := tc.getNodeByPod(pod)
+	if err != nil {
+		return fmt.Errorf("Fatal error Cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)
+	}
+	if tc.taintsetter.HasReadinessTaint(node) {
+		log.Infof("node %v has readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
+		return nil
+	} else {
+		err = tc.taintsetter.AddReadinessTaint(node)
+		if err != nil {
+			return fmt.Errorf("Fatal error Cannot add taint to node: %s", err.Error())
+		}
+		log.Infof("node %+v add readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
+		return nil
+	}
+}
+func (tc Controller) ListAllNode() []*v1.Node {
+	items := tc.nodeStore.List()
+	nodes := make([]*v1.Node, 0)
+	for _, item := range items {
+		node, ok := item.(*v1.Node)
+		if !ok {
+			continue
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes
+}
+func (tc Controller) RegistTaints() {
+	nodes := tc.ListAllNode()
+	for _, node := range nodes {
+		err := tc.taintsetter.AddReadinessTaint(node)
+		if err != nil {
+			log.Fatalf("Fatal error cannot taint node: %+v", err)
+		}
+	}
+}
+
+// if node is ready, check all of its critical labels and if all of them are ready , remove readiness taint
+//else taint it
+func (tc Controller) ProcessNode(node *v1.Node) error {
+	if GetNodeLatestReadiness(*node) {
+		if tc.CheckNodeReadiness(*node) {
+			err := tc.taintsetter.RemoveReadinessTaint(node)
+			if err != nil {
+				return fmt.Errorf("Fatal error Cannot remove readiness taint in node: %s", node.Name)
+			}
+			log.Infof("node %+v remove readiness taint because it is ready", node.Name)
+		} else {
+			if tc.taintsetter.HasReadinessTaint(node) {
+				log.Infof("node %v has readiness taint because it is not ready", node.Name)
+			} else {
+				err := tc.taintsetter.AddReadinessTaint(node)
+				if err != nil {
+					return fmt.Errorf("Fatal error Cannot add readiness taint in node: %s", node.Name)
+				}
+				log.Infof("node %v add readiness taint because it is not ready", node.Name)
+			}
+		}
+	} else {
+		if tc.taintsetter.HasReadinessTaint(node) {
+			log.Infof("node %v has readiness taint because it is not ready", node.Name)
+		} else {
+			err := tc.taintsetter.AddReadinessTaint(node)
+			if err != nil {
+				return fmt.Errorf("Fatal error Cannot add readiness taint in node: %s", node.Name)
+			}
+			log.Infof("node %v add readiness taint because it is not ready", node.Name)
+		}
+	}
+	return nil
+}
+
+func (tc Controller) getNodeByPod(pod *v1.Pod) (*v1.Node, error) {
+	if pod == nil {
+		return nil, fmt.Errorf("cannot handle a nil pod")
+	}
+	obj, exists, err := tc.nodeStore.GetByKey(pod.Spec.NodeName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("cannot find node given pod %s in namespace %s", pod.Name, pod.Namespace)
+	}
+	node, ok := obj.(*v1.Node)
+	if !ok {
+		return nil, fmt.Errorf("cannot convert given pod %s in namespace %s's  node", pod.Name, pod.Namespace)
+	}
+	return node, nil
 }
 
 //check node readiess if node is ready, remove taint and forget obj, retry 50 times when taint have error
@@ -244,7 +399,7 @@ func (tc *Controller) processNextNode() bool {
 		// processing.
 		return true
 	}
-	err := tc.taintsetter.ProcessNode(node)
+	err := tc.ProcessNode(node)
 	if err == nil {
 		log.Debugf("Removing %s from work queue", node.Name)
 		tc.nodeWorkQueue.Forget(obj)

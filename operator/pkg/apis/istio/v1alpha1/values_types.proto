@@ -70,6 +70,14 @@ message CNIConfig {
   CNIRepairConfig repair = 13;
 
   google.protobuf.BoolValue chained = 14;
+
+  CNITaintConfig taint  = 15;
+}
+
+
+message CNITaintConfig {
+  // Controls whether taint behavior is enabled.
+  google.protobuf.BoolValue enabled = 1;
 }
 
 message CNIRepairConfig {

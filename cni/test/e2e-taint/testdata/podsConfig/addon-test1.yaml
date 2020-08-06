@@ -21,6 +21,5 @@ spec:
         ports:
         - containerPort: 80
       tolerations:
-      - key: "NodeReadiness"
-        operator: "Exists"
+      - operator: "Exists"
         effect: "NoSchedule"
