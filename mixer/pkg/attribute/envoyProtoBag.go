@@ -168,6 +168,13 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 
 	reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(commonproperties.GetResponseFlags())
 
+	// This is for identifying the log type as Service Access Logs instead of Mixer Report
+	// This is more specifically for making migration easier.
+	// In migration users will enable access log service and then after will
+	// disable Mixer Report. In the time period when both are reporting logs,
+	// this field allows users to distinguish between the two types of logs.
+	reqMap["context.reporter.type"] = "envoy_accesslog_service"
+
 	pb.upstreamCluster = commonproperties.GetUpstreamCluster()
 	pb.reqMap = reqMap
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
