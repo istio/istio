@@ -149,7 +149,7 @@ func MustGenSpiffeURI(trustDomain, ns, serviceAccount string) string {
 }
 
 // GenCustomSpiffe returns the  spiffe string that can have a custom structure
-func GenCustomSpiffe(trustDomain string, identity string) string {
+func GenCustomSpiffe(trustDomain, identity string) string {
 	if identity == "" {
 		spiffeLog.Error("spiffe identity can't be empty")
 		return ""
