@@ -166,7 +166,7 @@ spec:
 // Todo merge with security TestReachability code
 func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
+	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.headless} {
 		for _, destination := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
 			client := client
 			destination := destination
