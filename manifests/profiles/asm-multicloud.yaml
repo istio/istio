@@ -41,8 +41,6 @@ spec:
     # Enable telemetry v2 backend by Prometheus.
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
         enabled: true
         prometheus:
