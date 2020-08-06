@@ -318,6 +318,28 @@ var udsLocal = &model.Config{
 	},
 }
 
+// ServiceEntry DNS with a selector
+var selectorDNS = &model.Config{
+	ConfigMeta: model.ConfigMeta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "selector",
+		Namespace:         "selector",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"selector.com"},
+		Ports: []*networking.Port{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "wle"},
+		},
+		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
 // ServiceEntry with a selector
 var selector = &model.Config{
 	ConfigMeta: model.ConfigMeta{
@@ -594,6 +616,11 @@ func TestConvertInstances(t *testing.T) {
 				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 80, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 				makeInstance(httpDNSnoEndpoints, "www.wikipedia.org", 8080, httpDNSnoEndpoints.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 			},
+		},
+		{
+			// service entry DNS with workload selector and no endpoints
+			externalSvc: selectorDNS,
+			out:         []*model.ServiceInstance{},
 		},
 		{
 			// service entry dns

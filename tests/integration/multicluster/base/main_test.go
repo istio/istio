@@ -38,11 +38,10 @@ func TestMain(m *testing.M) {
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ExposeIstiod = true
+
 			// Set the control plane values on the config.
-			cfg.ControlPlaneValues = controlPlaneValues + `
-  global:
-    meshExpansion:
-      enabled: true`
+			cfg.ControlPlaneValues = controlPlaneValues
 		})).
 		Run()
 }

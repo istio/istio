@@ -297,3 +297,35 @@ messages:
     args:
       - name: labels
         type: string
+
+  - name: "NoServerCertificateVerificationDestinationLevel"
+    code: IST0128
+    level: Error
+    description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate."
+    template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s"
+    args:
+      - name: destinationrule
+        type: string
+      - name: namespace
+        type: string
+      - name: mode
+        type: string
+      - name: host
+        type: string
+
+  - name: "NoServerCertificateVerificationPortLevel"
+    code: IST0129
+    level: Error
+    description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port."
+    template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s"
+    args:
+      - name: destinationrule
+        type: string
+      - name: namespace
+        type: string
+      - name: mode
+        type: string
+      - name: host
+        type: string
+      - name: port
+        type: string

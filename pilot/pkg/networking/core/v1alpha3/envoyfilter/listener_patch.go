@@ -39,6 +39,42 @@ const (
 	VirtualInboundListenerName = "virtualInbound"
 )
 
+var (
+	// DeprecatedFilterNames is to support both canonical filter names
+	// and deprecated filter names for backward compatibility. Istiod
+	// generates canonical filter names.
+	DeprecatedFilterNames = map[string]string{
+		wellknown.Buffer:                      "envoy.buffer",
+		wellknown.CORS:                        "envoy.cors",
+		"envoy.filters.http.csrf":             "envoy.csrf",
+		wellknown.Dynamo:                      "envoy.http_dynamo_filter",
+		wellknown.HTTPExternalAuthorization:   "envoy.ext_authz",
+		wellknown.Fault:                       "envoy.fault",
+		wellknown.GRPCHTTP1Bridge:             "envoy.grpc_http1_bridge",
+		wellknown.GRPCJSONTranscoder:          "envoy.grpc_json_transcoder",
+		wellknown.GRPCWeb:                     "envoy.grpc_web",
+		wellknown.Gzip:                        "envoy.gzip",
+		wellknown.HealthCheck:                 "envoy.health_check",
+		wellknown.IPTagging:                   "envoy.ip_tagging",
+		wellknown.Lua:                         "envoy.lua",
+		wellknown.HTTPRateLimit:               "envoy.rate_limit",
+		wellknown.Router:                      "envoy.router",
+		wellknown.Squash:                      "envoy.squash",
+		wellknown.HttpInspector:               "envoy.listener.http_inspector",
+		wellknown.OriginalDestination:         "envoy.listener.original_dst",
+		"envoy.filters.listener.original_src": "envoy.listener.original_src",
+		wellknown.ProxyProtocol:               "envoy.listener.proxy_protocol",
+		wellknown.TlsInspector:                "envoy.listener.tls_inspector",
+		wellknown.ClientSSLAuth:               "envoy.client_ssl_auth",
+		wellknown.ExternalAuthorization:       "envoy.ext_authz",
+		wellknown.HTTPConnectionManager:       "envoy.http_connection_manager",
+		wellknown.MongoProxy:                  "envoy.mongo_proxy",
+		wellknown.RateLimit:                   "envoy.ratelimit",
+		wellknown.RedisProxy:                  "envoy.redis_proxy",
+		wellknown.TCPProxy:                    "envoy.tcp_proxy",
+	}
+)
+
 // ApplyListenerPatches applies patches to LDS output
 func ApplyListenerPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
@@ -46,7 +82,7 @@ func ApplyListenerPatches(
 	push *model.PushContext,
 	listeners []*xdslistener.Listener,
 	skipAdds bool) (out []*xdslistener.Listener) {
-	defer runtime.HandleCrash(func() {
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
@@ -570,7 +606,8 @@ func networkFilterMatch(filter *xdslistener.Filter, cp *model.EnvoyFilterConfigP
 		return true
 	}
 
-	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name
+	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name ||
+		cp.Match.GetListener().FilterChain.Filter.Name == DeprecatedFilterNames[filter.Name]
 }
 
 func hasHTTPFilterMatch(cp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -590,7 +627,7 @@ func httpFilterMatch(filter *http_conn.HttpFilter, cp *model.EnvoyFilterConfigPa
 
 	match := cp.Match.GetListener().FilterChain.Filter.SubFilter
 
-	return match.Name == filter.Name
+	return match.Name == filter.Name || match.Name == DeprecatedFilterNames[filter.Name]
 }
 
 func patchContextMatch(patchContext networking.EnvoyFilter_PatchContext,

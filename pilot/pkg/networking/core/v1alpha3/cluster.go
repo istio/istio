@@ -51,9 +51,6 @@ import (
 const (
 	// DefaultLbType set to round robin
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
-
-	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
-	ManagementClusterHostname = "mgmtCluster"
 )
 
 var (

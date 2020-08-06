@@ -355,10 +355,10 @@ sync-configs-from-istiod:
 
 # Generate kustomize templates.
 gen-kustomize:
-	helm3 template istio --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
 	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
-	helm3 template istiod-remote manifests/charts/istiod-remote \
+	helm3 template istiod-remote --namespace istio-system manifests/charts/istiod-remote \
 		-f manifests/charts/global.yaml > manifests/charts/istiod-remote/files/gen-istiod-remote.yaml
 
 #-----------------------------------------------------------------------------

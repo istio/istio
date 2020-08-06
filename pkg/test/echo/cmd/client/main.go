@@ -33,16 +33,17 @@ import (
 )
 
 var (
-	count     int
-	timeout   time.Duration
-	qps       int
-	url       string
-	uds       string
-	headerKey string
-	headerVal string
-	headers   string
-	msg       string
-	http2     bool
+	count       int
+	timeout     time.Duration
+	qps         int
+	url         string
+	uds         string
+	headerKey   string
+	headerVal   string
+	headers     string
+	msg         string
+	http2       bool
+	serverFirst bool
 
 	caFile string
 
@@ -121,6 +122,8 @@ func init() {
 		"message to send (for websockets)")
 	rootCmd.PersistentFlags().BoolVar(&http2, "http2", false,
 		"send http requests as HTTP with prior knowledge")
+	rootCmd.PersistentFlags().BoolVar(&serverFirst, "server-first", false,
+		"Treat as a server first protocol; do not send request until magic string is received")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -135,6 +138,7 @@ func getRequest() (*proto.ForwardEchoRequest, error) {
 		Qps:           int32(qps),
 		Message:       msg,
 		Http2:         http2,
+		ServerFirst:   serverFirst,
 	}
 
 	// Old http add header - deprecated

@@ -429,9 +429,8 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-      
         "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/istio/ms/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"file-cert:/etc/istio/ms/client.pem~/etc/istio/ms/key.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}]},"sni":"envoy_metrics_service"}},
-      
+
       
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
