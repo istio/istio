@@ -20,15 +20,15 @@ import (
 )
 
 func TestAddSpecRoot(t *testing.T) {
-	tests := []struct{
-		desc string
-		in string
+	tests := []struct {
+		desc   string
+		in     string
 		expect string
-		err error
+		err    error
 	}{
 		{
 			desc: "empty",
-			in: ``,
+			in:   ``,
 			expect: `spec: {}
 `,
 			err: nil,
@@ -45,10 +45,10 @@ b: foo`,
 			err: nil,
 		},
 		{
-			desc: "err",
-			in: `i can't be yaml, can I?`,
+			desc:   "err",
+			in:     `i can't be yaml, can I?`,
 			expect: ``,
-			err: errors.New(""),
+			err:    errors.New(""),
 		},
 	}
 
@@ -63,17 +63,17 @@ b: foo`,
 }
 
 func TestGetConfigSubtree(t *testing.T) {
-	tests := []struct{
-		desc string
+	tests := []struct {
+		desc     string
 		manifest string
-		path string
-		expect string
-		err bool
+		path     string
+		expect   string
+		err      bool
 	}{
 		{
-			desc: "empty",
+			desc:     "empty",
 			manifest: ``,
-			path: ``,
+			path:     ``,
 			expect: `null
 `,
 			err: false,
@@ -104,11 +104,11 @@ a:
 			err: false,
 		},
 		{
-			desc: "err",
+			desc:     "err",
 			manifest: "not-yaml",
-			path: "not-subnode",
-			expect: ``,
-			err: true,
+			path:     "not-subnode",
+			expect:   ``,
+			err:      true,
 		},
 	}
 
