@@ -40,6 +40,7 @@ func TestStatusExistsByDefault(t *testing.T) {
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
+	t.Skip("Re-enable once https://github.com/istio/istio/issues/26229 is resolved")
 	framework.NewTest(t).
 		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
