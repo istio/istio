@@ -52,9 +52,6 @@ const (
 
 var (
 	clientFactory   = createKubeClient
-	outputThreshold = formatting.MessageThreshold{diag.Info}
-	colorize        bool
-	msgOutputFormat string
 )
 
 type istioInstall struct {
@@ -294,8 +291,11 @@ func NewPrecheckCommand() *cobra.Command {
 			Recursive: boolPtr(false),
 			Usage:     "Istio YAML installation file.",
 		}
-		istioNamespace string
-		opts           clioptions.ControlPlaneOptions
+		istioNamespace  string
+		opts            clioptions.ControlPlaneOptions
+		colorize        bool
+		msgOutputFormat string
+		outputThreshold = formatting.MessageThreshold{diag.Info}
 	)
 	precheckCmd := &cobra.Command{
 		Use:   "precheck [-f <deployment or istio operator file>]",
