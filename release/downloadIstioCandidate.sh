@@ -36,7 +36,7 @@ else
   OSEXT="linux"
 fi
 
-# Determines the istioctl version.
+# Determine the latest Istio version by version number ignoring alpha, beta, and rc versions.
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   ISTIO_VERSION="$(curl -sL https://github.com/istio/istio/releases | \
                   grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort --version-sort | \
