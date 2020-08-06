@@ -69,10 +69,10 @@ func (s *Server) webhookReadyHandler() (bool, error) {
 	}
 
 	response, err := s.httpsReadyClient.Do(req)
+	defer response.Body.Close()
 	if err != nil {
 		return false, err
 	}
-	defer response.Body.Close()
 
 	return response.StatusCode == http.StatusOK, nil
 }

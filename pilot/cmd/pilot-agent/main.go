@@ -354,11 +354,11 @@ var (
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,
 				}, tokenManager)
+				defer stsServer.Stop()
 				if err != nil {
 					cancel()
 					return err
 				}
-				defer stsServer.Stop()
 			}
 
 			// Start a local DNS server on 15053, forwarding to DNS-over-TLS server

@@ -30,10 +30,10 @@ func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
 	}
 
 	response, err := httpClient.Get(requestURL)
+	defer response.Body.Close()
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", response.StatusCode)

@@ -1263,9 +1263,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if c.skipTrustDomainValidate {
 				setSkipValidateTrustDomain("true", t)
-				defer func() {
-					setSkipValidateTrustDomain("false", t)
-				}()
+				defer setSkipValidateTrustDomain("false", t)
 			}
 			proxyType := model.SidecarProxy
 			if c.isGateway {
