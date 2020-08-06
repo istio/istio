@@ -5,7 +5,7 @@ issue:
 - 25933
 
 releaseNotes: |
-  *Added* ports 15012 and 15017 to the default list of ports for the `istio-ingressgateway` Service.
+  *Added* port 15012 to the default list of ports for the `istio-ingressgateway` Service.
 
   *Deprecated* installation flags
   - `values.global.meshExpansion.enabled` in favor of user-managed config
@@ -14,7 +14,7 @@ releaseNotes: |
 upgradeNotes:
 - title: Avoid use of mesh expansion installation flags
   content: |
-    To ease setup for multicluster and virtual machines while giving more control to users, the `meshExpansion` and `meshExpansionPorts` installation flags have been deprecated, and ports 15012 and 15017 have been added to the default list of ports for the `istio-ingressgateway` Service.
+    To ease setup for multicluster and virtual machines while giving more control to users, the `meshExpansion` and `meshExpansionPorts` installation flags have been deprecated, and port 15012 has been added to the default list of ports for the `istio-ingressgateway` Service.
 
     For users with `values.global.meshExpansion.enabled=true`, perform the following steps before upgrading Istio:
 
