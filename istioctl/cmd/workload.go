@@ -15,11 +15,9 @@
 package cmd
 
 import (
-	"archive/tar"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -47,13 +45,13 @@ var (
 	name           string
 	serviceAccount string
 	filename       string
-	outputName     string
+	outputDir      string
 	clusterID      string
 	ports          []string
 )
 
 const (
-	tempPerms = os.FileMode(0644)
+	filePerms = os.FileMode(0744)
 )
 
 func workloadCommands() *cobra.Command {
@@ -170,8 +168,8 @@ configure --name foo --namespace bar -o config`,
 			if filename == "" && (name == "" || namespace == "") {
 				return fmt.Errorf("expecting a WorkloadGroup artifact file or the name and namespace of an existing WorkloadGroup")
 			}
-			if outputName == "" {
-				return fmt.Errorf("expecting an output filename")
+			if outputDir == "" {
+				return fmt.Errorf("expecting an output directory")
 			}
 			if clusterID == "" {
 				return fmt.Errorf("expecting a cluster id")
@@ -196,7 +194,7 @@ configure --name foo --namespace bar -o config`,
 				}
 			}
 
-			if err = createConfig(kubeClient, wg, clusterID, revision, outputName); err != nil {
+			if err = createConfig(kubeClient, wg, clusterID, revision, outputDir); err != nil {
 				return err
 			}
 			return nil
@@ -205,7 +203,7 @@ configure --name foo --namespace bar -o config`,
 	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact")
 	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
-	configureCmd.PersistentFlags().StringVarP(&outputName, "output", "o", "", "Name of the tarball to be created")
+	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&revision, "revision", "", "control plane revision (experimental)")
@@ -224,25 +222,18 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, outputName string) error {
+func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, outputDir string) error {
 	fillWorkloadGroup(wg)
-	// use default temp directory
-	temp, err := ioutil.TempDir("", "istioctl-workloadgroup")
-	if err != nil {
+	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
-	defer os.RemoveAll(temp)
-
-	if err = createClusterEnv(wg, temp); err != nil {
+	if err := createClusterEnv(wg, outputDir); err != nil {
 		return err
 	}
-	if err = createCertsTokens(kubeClient, wg, temp); err != nil {
+	if err := createCertsTokens(kubeClient, wg, outputDir); err != nil {
 		return err
 	}
-	if err = createMeshConfig(kubeClient, wg, clusterID, revision, temp); err != nil {
-		return err
-	}
-	if err = Tar(temp, outputName); err != nil {
+	if err := createMeshConfig(kubeClient, wg, clusterID, revision, outputDir); err != nil {
 		return err
 	}
 	return nil
@@ -284,7 +275,7 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 		"ISTIO_SERVICE_CIDR":  "*",
 		"SERVICE_ACCOUNT":     we.ServiceAccount,
 	}
-	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), tempPerms)
+	return ioutil.WriteFile(filepath.Join(dir, "cluster.env"), []byte(mapToString(clusterEnv)), filePerms)
 }
 
 // Get and store the needed certificate and token. The certificate comes from the CA root cert, and
@@ -296,7 +287,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return err
 	}
-	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), tempPerms); err != nil {
+	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
 		return err
 	}
 
@@ -313,7 +304,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(dir, "istio-token"), []byte(tokenReq.Status.Token), tempPerms); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(dir, "istio-token"), []byte(tokenReq.Status.Token), filePerms); err != nil {
 		return err
 	}
 	return nil
@@ -331,7 +322,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if err != nil {
 		return err
 	}
-	meshConfig, err := mesh.ApplyMeshConfigDefaults(istio.Data["mesh"])
+	meshConfig, err := mesh.ApplyMeshConfigDefaults(istio.Data[configMapKey])
 	if err != nil {
 		return err
 	}
@@ -369,60 +360,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filepath.Join(dir, "mesh"), []byte(meshYAML), tempPerms)
-}
-
-// Packs files inside a source folder into target.tar
-func Tar(source, target string) error {
-	target = fmt.Sprintf("%s.tar", target)
-	tarfile, err := os.Create(target)
-	if err != nil {
-		return err
-	}
-	defer tarfile.Close()
-	tw := tar.NewWriter(tarfile)
-	defer tw.Close()
-
-	// return an error if source folder doesn't exist
-	info, err := os.Stat(source)
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a folder", source)
-	}
-
-	// match filepath walk format for trimming the path prefix later
-	source = strings.TrimPrefix(source, "./")
-	return filepath.Walk(source,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			header, err := tar.FileInfoHeader(info, info.Name())
-			if err != nil {
-				return err
-			}
-			header.Name = strings.TrimPrefix(path, source)
-
-			// write the header, and write the content if a file
-			if err := tw.WriteHeader(header); err != nil {
-				return err
-			}
-			if !info.IsDir() {
-				file, err := os.Open(path)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-
-				_, err = io.Copy(tw, file)
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+	return ioutil.WriteFile(filepath.Join(dir, "mesh"), []byte(meshYAML), filePerms)
 }
 
 func mapToString(m map[string]string) string {

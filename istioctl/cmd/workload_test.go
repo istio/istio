@@ -121,13 +121,13 @@ func TestGenerateConfig(t *testing.T) {
 			description:       "Invalid command args - valid filename input but missing output filename",
 			args:              strings.Split("experimental workload entry configure -f file --clusterID cid", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting an output filename\n",
+			expectedOutput:    "Error: expecting an output directory\n",
 		},
 		{
 			description:       "Invalid command args - valid kubectl input but missing output filename",
 			args:              strings.Split("experimental workload entry configure --name foo -n bar --clusterID cid", " "),
 			expectedException: true,
-			expectedOutput:    "Error: expecting an output filename\n",
+			expectedOutput:    "Error: expecting an output directory\n",
 		},
 		{
 			description:       "Invalid command args - missing cluster id",
