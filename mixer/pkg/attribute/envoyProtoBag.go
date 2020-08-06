@@ -168,6 +168,9 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 
 	reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(commonproperties.GetResponseFlags())
 
+	//for identifying the log type as Service Access Logs instead of Mixer Report
+	reqMap["context.reporter.type"] = "envoy_accesslog"
+
 	pb.upstreamCluster = commonproperties.GetUpstreamCluster()
 	pb.reqMap = reqMap
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
