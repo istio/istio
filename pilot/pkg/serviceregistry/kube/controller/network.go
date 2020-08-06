@@ -63,6 +63,11 @@ func (c *Controller) reloadNetworkLookup() {
 		}
 	}
 	c.ranger = ranger
+	// the network for endpoints are computed when we process the events; this will fix the cache
+	// TODO(landow) there may be a race between this and the full push we trigger on the networks watcher.
+	if err := c.SyncAll(); err != nil {
+		log.Errorf("one or more errors force-syncing resources: %v", err)
+	}
 }
 
 // return the mesh network for the endpoint IP. Empty string if not found.
