@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/test/scopes"
 	"net/http"
 	"strings"
 	"testing"
@@ -288,12 +289,13 @@ func validateLogs(t *testing.T, srvLogEntry string) error {
 	for _, l := range entries {
 		if proto.Equal(l, &wantLog) {
 			return nil
+		} else {
+			scopes.Framework.Infof("l %v", l)
+			scopes.Framework.Infof("wantLog %v", wantLog)
 		}
 	}
-	if len(entries) > 0 {
-		return errors.New(fmt.Sprintf("logs: did not get expected log entry. Example entry Got %v, Want %v", entries[0], wantLog))
-	}
-	return errors.New("logs: did not get log entries")
+
+	return errors.New("logs: did not expected get log entries")
 }
 
 func validateEdges(t *testing.T) error {
