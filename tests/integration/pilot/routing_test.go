@@ -27,10 +27,13 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+type EchoCall func() (echoclient.ParsedResponses, error)
+
 type TrafficTestCase struct {
 	name      string
 	config    string
-	call      func() (echoclient.ParsedResponses, error)
+	call      EchoCall
+	calls     []EchoCall
 	validator func(echoclient.ParsedResponses) error
 }
 
@@ -77,7 +80,7 @@ spec:
   http:
   - match:
     - uri:
-        exact: /
+        exact: /foo
     redirect:
       uri: /new/path
   - match:
@@ -87,11 +90,108 @@ spec:
     - destination:
         host: b`,
 			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].URL != "/new/path" {
+				if response[0].URL != "/new/path?key=value" {
+					return fmt.Errorf("incorrect URL, have %+v", response[0].URL)
+				}
+				return nil
+			},
+		},
+		{
+			name: "rewrite uri",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    rewrite:
+      uri: /new/path
+    route:
+    - destination:
+        host: b`,
+			call: func() (echoclient.ParsedResponses, error) {
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value#hash"})
+			},
+			validator: func(response echoclient.ParsedResponses) error {
+				if response[0].URL != "/new/path?key=value" {
 					return fmt.Errorf("incorrect URL, have %+v %+v", response[0].RawResponse["URL"], response[0].URL)
+				}
+				return nil
+			},
+		},
+		{
+			name: "rewrite authority",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    rewrite:
+      authority: new-authority
+    route:
+    - destination:
+        host: b`,
+			call: func() (echoclient.ParsedResponses, error) {
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo"})
+			},
+			validator: func(response echoclient.ParsedResponses) error {
+				if response[0].Host != "new-authority" {
+					return fmt.Errorf("incorrect authority, got %v want new-authority", response[0].Host)
+				}
+				return nil
+			},
+		},
+		{
+			name: "cors",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - corsPolicy:
+      allowOrigins:
+      - exact: cors.com
+      allowMethods:
+      - POST
+      - GET
+      allowCredentials: false
+      allowHeaders:
+      - X-Foo-Bar
+      maxAge: "24h
+    route:
+    - destination:
+        host: b`,
+			calls: []EchoCall{
+				func() (echoclient.ParsedResponses, error) {
+					return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+				},
+				func() (echoclient.ParsedResponses, error) {
+					return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+				},
+			},
+			validator: func(response echoclient.ParsedResponses) error {
+				if response[0].Host != "new-authority" {
+					return fmt.Errorf("incorrect authority, got %v want new-authority", response[0].Host)
 				}
 				return nil
 			},
@@ -287,10 +387,17 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
 			defer ctx.Config().DeleteYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
 		}
 		retry.UntilSuccessOrFail(ctx, func() error {
-			resp, err := tt.call()
-			if err != nil {
-				ctx.Logf("call for %v failed, retrying: %v", tt.name, err)
-				return err
+			if tt.call != nil {
+				tt.calls = append(tt.calls, tt.call)
+			}
+			resp := []*echoclient.ParsedResponse{}
+			for _, c := range tt.calls {
+				r, err := c()
+				if err != nil {
+					ctx.Logf("call for %v failed, retrying: %v", tt.name, err)
+					return err
+				}
+				resp = append(resp, r...)
 			}
 			return tt.validator(resp)
 		}, retry.Delay(time.Millisecond*100))
