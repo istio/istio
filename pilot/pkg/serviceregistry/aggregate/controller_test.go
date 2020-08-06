@@ -419,8 +419,8 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	// Get accounts from mockAdapter2
 	accounts = serviceAccountsFn(mock.WorldService)
 	expected = map[string]struct{}{
-		"spiffe://cluster.local/ns/default/sa/world1": struct{}{},
-		"spiffe://cluster.local/ns/default/sa/world2": struct{}{},
+		"spiffe://cluster.local/ns/default/sa/world1": {},
+		"spiffe://cluster.local/ns/default/sa/world2": {},
 	}
 	if diff := cmp.Diff(accounts, expected); diff != "" {
 		t.Errorf("unexpected service account, diff %v", diff)
@@ -429,9 +429,9 @@ func TestGetIstioServiceAccounts(t *testing.T) {
 	// Get accounts for service replicated in both service.
 	accounts = serviceAccountsFn(mock.ReplicatedFooServiceV1)
 	expected = map[string]struct{}{
-		"spiffe://cluster.local/ns/default/sa/foo1":      struct{}{},
-		"spiffe://cluster.local/ns/default/sa/foo2":      struct{}{},
-		"spiffe://cluster.local/ns/default/sa/foo-share": struct{}{},
+		"spiffe://cluster.local/ns/default/sa/foo1":      {},
+		"spiffe://cluster.local/ns/default/sa/foo2":      {},
+		"spiffe://cluster.local/ns/default/sa/foo-share": {},
 	}
 	if diff := cmp.Diff(accounts, expected); diff != "" {
 		t.Errorf("unexpected service account, diff %v", diff)
