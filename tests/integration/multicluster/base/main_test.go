@@ -36,7 +36,6 @@ func TestMain(m *testing.M) {
 		Setup(multicluster.Setup(&appCtx)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = appCtx.ControlPlaneValues
-			cfg.ExposeIstiod = true
 		})).
 		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
