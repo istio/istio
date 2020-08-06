@@ -231,7 +231,7 @@ func checkCanCreateResources(c preCheckExecClient, namespace, group, version, na
 	if !response.Status.Allowed {
 		msg := fmt.Sprintf("create permission lacking for %s", name)
 		if len(response.Status.Reason) > 0 {
-			msg = msg + fmt.Sprintf(": %v", response.Status.Reason)
+			msg += fmt.Sprintf(": %v", response.Status.Reason)
 		}
 		return errors.New(msg)
 	}
@@ -359,10 +359,7 @@ func NewPrecheckCommand() *cobra.Command {
 			}
 
 			// No IstioOperator was found.  In 1.6.0 we fall back to checking for Istio namespace
-			nsExists, err := namespaceExists(targetNamespace, cli)
-			if err != nil {
-				return err
-			}
+			nsExists := namespaceExists(targetNamespace, cli)
 			if !nsExists || specific {
 				precheckError, didPrecheck = installPreCheck(targetNamespace, cli, &msgs), true
 			} else {
@@ -454,7 +451,7 @@ func getIOPFromFile(filename string) (*operator_v1alpha1.IstioOperator, error) {
 	return iop, nil
 }
 
-func namespaceExists(ns string, c preCheckExecClient) (bool, error) {
+func namespaceExists(ns string, c preCheckExecClient) bool {
 	_, err := c.getNameSpace(ns)
-	return err == nil, nil
+	return err == nil
 }
