@@ -439,11 +439,20 @@ func NewUnknownMeshNetworksServiceRegistry(r *resource.Instance, serviceregistry
 }
 
 // NewNoMatchingWorkloadsFound returns a new diag.Message based on NoMatchingWorkloadsFound.
-func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string, namespace string, mode string, host string) diag.Message {
+func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Message {
 	return diag.NewMessage(
 		NoMatchingWorkloadsFound,
 		r,
 		labels,
+	)
+}
+
+// NewNoServerCertificateVerificationDestinationLevel returns a new diag.Message based on NoServerCertificateVerificationDestinationLevel.
+func NewNoServerCertificateVerificationDestinationLevel(r *resource.Instance, destinationrule string, namespace string, mode string, host string) diag.Message {
+	return diag.NewMessage(
+		NoServerCertificateVerificationDestinationLevel,
+		r,
+		destinationrule,
 		namespace,
 		mode,
 		host,

@@ -300,12 +300,12 @@ messages:
       - name: labels
         type: string
 
-  - name: "NoServerCertificateVerificationDestinationLevel"	
-    code: IST0128	
-    level: Error	
-    description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate."	
-    template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s"	
-    args:	
+  - name: "NoServerCertificateVerificationDestinationLevel"
+    code: IST0128
+    level: Error
+    description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate."
+    template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s"
+    args:
       - name: destinationrule
         type: string
       - name: namespace
