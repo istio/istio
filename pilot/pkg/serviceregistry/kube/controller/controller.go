@@ -448,18 +448,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		c.networksWatcher.AddNetworksHandler(c.reloadNetworkLookup)
 		c.reloadNetworkLookup()
 	}
-
-	go func() {
-		cache.WaitForCacheSync(stop, c.HasSynced)
-		c.queue.Run(stop)
-	}()
-
-	// To avoid endpoints without labels or ports, wait for sync.
-	cache.WaitForCacheSync(stop, c.nodeInformer.HasSynced,
-		c.pods.informer.HasSynced,
-		c.serviceInformer.HasSynced)
-
-	<-stop
+	cache.WaitForCacheSync(stop, c.HasSynced)
+	c.queue.Run(stop)
 	log.Infof("Controller terminated")
 }
 
