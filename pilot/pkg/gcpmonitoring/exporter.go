@@ -40,15 +40,13 @@ const (
 )
 
 var (
-	trustDomain = ""
+	trustDomain  = ""
+	podName      = ""
+	podNamespace = ""
 
 	// env vars that are used to set labels/monitored resource of control plane metrics, which are added by ASM profile.
 	// `ASM_CONTROL_PLANE` prefix is added to avoid collision with env var from OSS code base.
-	// TODO(bianpengyuan): POD_NAME and POD_NAMESPACE are also defined in pilot bootstrap package. Remove these after refactoring pilot code
-	// to make env vars accessible any where in the code base.
-	podNameVar      = env.RegisterStringVar("ASM_CONTROL_PLANE_POD_NAME", "unknown", "istiod pod name, specified by GCP installation profile.")
-	podNamespaceVar = env.RegisterStringVar("ASM_CONTROL_PLANE_POD_NAMESPACE", "istio-system", "istiod pod namespace, specified by GCP installation profile.")
-	meshIDVar       = env.RegisterStringVar("ASM_CONTROL_PLANE_MESH_ID", "", "mesh id, specified by GCP installation profile.")
+	meshIDVar = env.RegisterStringVar("ASM_CONTROL_PLANE_MESH_ID", "", "mesh id, specified by GCP installation profile.")
 )
 
 // ASMExporter is a stats exporter used for ASM control plane metrics.
@@ -62,6 +60,16 @@ type ASMExporter struct {
 // Use this function instead of passing trust domain string around to avoid conflicting with OSS changes.
 func SetTrustDomain(td string) {
 	trustDomain = td
+}
+
+// SetPodName sets k8s pod name, which is used in metrics monitored resource.
+func SetPodName(pn string) {
+	podName = pn
+}
+
+// SetPodNamespace sets k8s pod namesapce, which is used in metrics monitored resource.
+func SetPodNamespace(pn string) {
+	podNamespace = pn
 }
 
 // NewASMExporter creates an ASM opencensus exporter.
@@ -106,8 +114,8 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 			ProjectID:                  gcpMetadata[platform.GCPProject],
 			ClusterName:                gcpMetadata[platform.GCPCluster],
 			Zone:                       gcpMetadata[platform.GCPLocation],
-			NamespaceID:                podNamespaceVar.Get(),
-			PodID:                      podNameVar.Get(),
+			NamespaceID:                podNamespace,
+			PodID:                      podName,
 			ContainerName:              "discovery",
 			LoggingMonitoringV2Enabled: true,
 		},
