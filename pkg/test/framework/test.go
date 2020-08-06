@@ -157,7 +157,7 @@ func (t *testImpl) Features(feats ...features.Feature) Test {
 	for _, f := range feats {
 		check, scenario := c.Check(f)
 		if !check {
-			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
+			log.Errorf("feature %s is not a leaf in /pkg/test/framework/features/features.yaml", f)
 			t.goTest.FailNow()
 			return nil
 		}

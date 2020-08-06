@@ -127,6 +127,7 @@ func TestMirroringExternalService(t *testing.T) {
 func runMirrorTest(options mirrorTestOptions) {
 	framework.
 		NewTest(options.t).
+		Features("traffic.mirroring").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			for _, c := range options.cases {
