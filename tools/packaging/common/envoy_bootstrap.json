@@ -162,7 +162,21 @@
                 "subject_token_path": "./var/run/secrets/tokens/istio-token",
                 "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
               }
-           }
+           },
+           "channel_args": {
+              "args": {
+                "grpc.http2.max_pings_without_data": {
+                  "int_value": 0
+                },
+                "grpc.keepalive_time_ms": {
+                  "int_value": 10000
+                },
+                "grpc.keepalive_timeout_ms": {
+                  "int_value": 20000
+                }
+              }
+            }
+
        }
          {{ else }}
           "envoy_grpc": {
