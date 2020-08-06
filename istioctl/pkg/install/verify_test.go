@@ -116,7 +116,7 @@ func TestGetDeploymentStatus(t *testing.T) {
 	}
 	for i, c := range okCases {
 		t.Run(fmt.Sprintf("[ok-%v] ", i), func(tt *testing.T) {
-			if errString := getDeploymentStatus(c, "fooDeploy", ""); errString != "" {
+			if errString := getDeploymentStatus(c, "fooDeploy"); errString != "" {
 				tt.Fatalf("unexpected error: %v", errString)
 			}
 		})
