@@ -65,3 +65,33 @@ These notes detail fixes to security issues in Istio. These may be upgrades to v
 ## Adding a release note to multiple Istio Releases
 
 Just as code fixes should be added to master first, notes should as well. To add a note to multiple releases, just cherrypick them over to the appropriate release and the release notes tooling will include them in its generation.
+
+
+# Release Notes Tooling
+
+Release notes tooling in Istio are generated via the release notes generator. To
+use it, run the following from this directory:
+
+```
+go run generator/main.go
+```
+
+This utility will search the `notes` directory for release notes. It will then
+take these release notes, parse them, and combine them with the templates in the
+`templates` directory. 
+
+## Release notes templates
+
+The `templates` directory contains a variety of markdown templates used to
+generate different types of release notes. When generating release notes, the
+generator searches for HTML comments and ignores any other contents to the file. 
+The generator expects comments that it should substitute for to be written in
+a specific format:
+
+```
+<!-- type filters... -->
+```
+
+The type should match either `upgradeNotes`, `releaseNotes`, or `securityNotes`.
+The filters can match a range of values and will be used to filter the release
+notes displayed.

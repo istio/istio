@@ -32,4 +32,4 @@ releaseNotes: |
 securityNotes: |
   __Source principal validation at Gateway does not work even with ISTIO_MUTUAL TLS mode__:
     When the Gateway server's TLS mode is ISTIO_MUTUAL, Istio's authN filter is not installed on the appropriate filter chain. Consequently, any Istio Authorization policy with source principal based rules will not work when applied to a Gateway workload.
-  __CVSS Score__: 5.9 [AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N&version=3.1)
+    - __CVSS Score__: 5.9 [AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N&version=3.1)
