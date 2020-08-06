@@ -68,6 +68,7 @@ test.integration.analyze: test.integration...analyze
 
 test.integration.%.analyze: | $(JUNIT_REPORT)
 	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	${_INTEGRATION_TEST_FLAGS} \
 	--istio.test.analyze \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
