@@ -77,7 +77,7 @@ func NewController(restConfig rest.Config, namespace string) *DistributionContro
 		clock:           clock.RealClock{},
 	}
 
-	// dynamicClient-go defaults to 5 QPS, with 10 Boost, which is insufficient for updating status on all the config
+	// client-go defaults to 5 QPS, with 10 Boost, which is insufficient for updating status on all the config
 	// in the mesh.  These values can be configured using environment variables for tuning (see pilot/pkg/features)
 	restConfig.QPS = float32(features.StatusQPS)
 	restConfig.Burst = features.StatusBurst

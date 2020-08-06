@@ -55,11 +55,18 @@ type federatedTokenResponse struct {
 	ExpiresIn       int32  `json:"expires_in"` // Expiration time in seconds
 }
 
+type Duration struct {
+	// Signed seconds of the span of time. Must be from -315,576,000,000
+	// to +315,576,000,000 inclusive. Note: these bounds are computed from:
+	// 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years
+	Seconds int64 `json:"seconds"`
+}
+
 type accessTokenRequest struct {
-	Name      string        `json:"name"`
-	Delegates []string      `json:"delegates"` // nolint: structcheck, unused
-	Scope     []string      `json:"scope"`
-	LifeTime  time.Duration `json:"lifetime"` // nolint: structcheck, unused
+	Name      string   `json:"name"`
+	Delegates []string `json:"delegates"` // nolint: structcheck, unused
+	Scope     []string `json:"scope"`
+	LifeTime  Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {

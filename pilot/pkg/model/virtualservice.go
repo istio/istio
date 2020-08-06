@@ -346,7 +346,7 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 
 	// without headers
 	for key, leafValue := range leaf.WithoutHeaders {
-		if stringMatchConflict(root.Headers[key], leafValue) {
+		if stringMatchConflict(root.WithoutHeaders[key], leafValue) {
 			return true
 		}
 	}

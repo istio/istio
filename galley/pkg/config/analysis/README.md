@@ -108,7 +108,7 @@ If your analyzer requires any new message types (meaning a unique template and e
 Also note:
 
 * Messages can have different levels (Error, Warning, Info).
-* The code range 0000-0100 is reserved for internal and/or future use.
+* The code range 0000-0100 is reserved for internal and/or future use, 0101-0200 is for config analysis, and 0201-0300 is for control plane resource analysis.
 * Please keep entries in `messages.yaml` ordered by code.
 
 ### 4. Adding unit tests

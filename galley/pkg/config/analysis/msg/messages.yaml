@@ -300,20 +300,36 @@ messages:
       - name: labels
         type: string
 
+        type: string
+      - name: namespace
+        type: string
+      - name: mode
+        type: string
+      - name: host
+        type: string
+
+  - name: "NoServerCertificateVerificationPortLevel"
+    code: IST0129
+    level: Error
+    description: "No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port."
+    template: "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s"
+    args:
+      - name: destinationrule
+        type: string
+      - name: namespace
+        type: string
+      - name: mode
+        type: string
+      - name: host
+        type: string
+      - name: port
+        type: string
+
   - name: "PrecheckFailed"
     code: IST0201
     level: Error
-    description: "An error occurred during istio installation precheck for the cluster"
+    description: "An error occurred during precheck for istio installation"
     template: "Precheck error: %s"
-    args:
-      - name: detail
-        type: string
-  
-  - name: "VerificationFailed"
-    code: IST0202
-    level: Error
-    description: "An error occurred when verifying istio installation"
-    template: "Verify install error: %s"
     args:
       - name: detail
         type: string

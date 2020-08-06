@@ -88,7 +88,7 @@ func newInstance(ctx resource.Context, cfg echo.Config) (out *instance, err erro
 	}
 
 	// Generate the service and deployment YAML.
-	serviceYAML, deploymentYAML, err := generateYAML(cfg, c.cluster)
+	serviceYAML, deploymentYAML, err := generateYAML(ctx, cfg, c.cluster)
 	if err != nil {
 		return nil, fmt.Errorf("generate yaml: %v", err)
 	}
@@ -363,7 +363,7 @@ func (c *instance) Call(opts echo.CallOptions) (appEcho.ParsedResponses, error) 
 			err = fmt.Errorf("failed calling %s->'%s://%s:%d/%s': %v",
 				c.Config().Service,
 				strings.ToLower(string(opts.Port.Protocol)),
-				opts.Target.Config().Service,
+				opts.Host,
 				opts.Port.ServicePort,
 				opts.Path,
 				err)

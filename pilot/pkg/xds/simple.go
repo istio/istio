@@ -151,6 +151,7 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 	}
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
+	s.DiscoveryServer.RegisterLegacyv2(gs)
 	reflection.Register(gs)
 	s.GRPCListener = lis
 	go func() {
@@ -187,6 +188,12 @@ func (p *ProxyGen) AddClient(adsc *adsc.ADSC) {
 	p.server.m.Lock()
 	p.adsc = adsc // TODO: list
 	p.server.m.Unlock()
+}
+
+func (p *ProxyGen) Close() {
+	if p.adsc != nil {
+		p.adsc.Close()
+	}
 }
 
 // TODO: remove clients, multiple clients (agent has only one)

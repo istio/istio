@@ -121,13 +121,13 @@ var (
 	// Description: There aren't workloads matching the resource labels
 	NoMatchingWorkloadsFound = diag.NewMessageType(diag.Warning, "IST0127", "No matching workloads for this resource with the following labels: %s")
 
-	// PrecheckFailed defines a diag.MessageType for message "PrecheckFailed".
-	// Description: An error occurred during istio installation precheck for the cluster
-	PrecheckFailed = diag.NewMessageType(diag.Error, "IST0201", "Precheck error: %s")
+	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
+	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.
+	NoServerCertificateVerificationPortLevel = diag.NewMessageType(diag.Error, "IST0129", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s")
 
-	// VerificationFailed defines a diag.MessageType for message "VerificationFailed".
-	// Description: An error occurred when verifying istio installation
-	VerificationFailed = diag.NewMessageType(diag.Error, "IST0202", "Verify install error: %s")
+	// PrecheckFailed defines a diag.MessageType for message "PrecheckFailed".
+	// Description: An error occurred during precheck for istio installation
+	PrecheckFailed = diag.NewMessageType(diag.Error, "IST0201", "Precheck error: %s")
 )
 
 // All returns a list of all known message types.
@@ -161,8 +161,8 @@ func All() []*diag.MessageType {
 		InvalidAnnotation,
 		UnknownMeshNetworksServiceRegistry,
 		NoMatchingWorkloadsFound,
+		NoServerCertificateVerificationPortLevel,
 		PrecheckFailed,
-		VerificationFailed,
 	}
 }
 
@@ -434,11 +434,27 @@ func NewUnknownMeshNetworksServiceRegistry(r *resource.Instance, serviceregistry
 }
 
 // NewNoMatchingWorkloadsFound returns a new diag.Message based on NoMatchingWorkloadsFound.
-func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Message {
+func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string, namespace string, mode string, host string) diag.Message {
 	return diag.NewMessage(
 		NoMatchingWorkloadsFound,
 		r,
 		labels,
+		namespace,
+		mode,
+		host,
+	)
+}
+
+// NewNoServerCertificateVerificationPortLevel returns a new diag.Message based on NoServerCertificateVerificationPortLevel.
+func NewNoServerCertificateVerificationPortLevel(r *resource.Instance, destinationrule string, namespace string, mode string, host string, port string) diag.Message {
+	return diag.NewMessage(
+		NoServerCertificateVerificationPortLevel,
+		r,
+		destinationrule,
+		namespace,
+		mode,
+		host,
+		port,
 	)
 }
 
@@ -446,15 +462,6 @@ func NewNoMatchingWorkloadsFound(r *resource.Instance, labels string) diag.Messa
 func NewPrecheckFailed(r *resource.Instance, detail string) diag.Message {
 	return diag.NewMessage(
 		PrecheckFailed,
-		r,
-		detail,
-	)
-}
-
-// NewVerificationFailed returns a new diag.Message based on VerificationFailed.
-func NewVerificationFailed(r *resource.Instance, detail string) diag.Message {
-	return diag.NewMessage(
-		VerificationFailed,
 		r,
 		detail,
 	)

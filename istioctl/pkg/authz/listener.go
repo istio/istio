@@ -28,6 +28,7 @@ import (
 	hcm_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	rbac_tcp_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
@@ -107,7 +108,7 @@ func ParseListener(listener *listener.Listener) *ParsedListener {
 		parsedFC := &filterChain{tlsContext: tlsContext}
 		for _, filter := range fc.Filters {
 			switch filter.Name {
-			case "envoy.http_connection_manager":
+			case wellknown.HTTPConnectionManager:
 				if cm := getHTTPConnectionManager(filter); cm != nil {
 					for _, httpFilter := range cm.GetHttpFilters() {
 						switch httpFilter.GetName() {
@@ -125,7 +126,7 @@ func ParseListener(listener *listener.Listener) *ParsedListener {
 							} else {
 								parsedFC.envoyJWT = jwt
 							}
-						case "envoy.filters.http.rbac":
+						case wellknown.HTTPRoleBasedAccessControl:
 							rbacHTTP := &rbac_http_filter.RBAC{}
 							if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
 								log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
@@ -141,7 +142,7 @@ func ParseListener(listener *listener.Listener) *ParsedListener {
 						parsedFC.routeHTTP = r.Rds.RouteConfigName
 					}
 				}
-			case "envoy.filters.network.rbac":
+			case wellknown.RoleBasedAccessControl:
 				rbacTCP := &rbac_tcp_filter.RBAC{}
 				if err := getFilterConfig(filter, rbacTCP); err != nil {
 					log.Errorf("found RBAC network filter but failed to parse: %s", err)

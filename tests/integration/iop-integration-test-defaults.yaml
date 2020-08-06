@@ -4,6 +4,9 @@ kind: IstioOperator
 spec:
   meshConfig:
     accessLogFile: "/dev/stdout"
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "ALL"
   values:
     global:
       proxy:

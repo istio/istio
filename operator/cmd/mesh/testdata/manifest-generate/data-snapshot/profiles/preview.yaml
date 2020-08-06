@@ -8,6 +8,6 @@ spec:
     telemetry:
       v2:
         metadataExchange:
-          wasmEnabled: true
+          wasmEnabled: false
         prometheus:
-          wasmEnabled: true
+          wasmEnabled: false

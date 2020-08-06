@@ -100,6 +100,10 @@ func NewServiceDiscovery(configController model.ConfigStoreCache, store model.Is
 // When invoked via the kube registry controller, the old object is nil as the registry
 // controller does its own deduping and has no notion of object versions
 func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event model.Event) {
+	var oldWle *networking.WorkloadEntry
+	if old.Spec != nil {
+		oldWle = old.Spec.(*networking.WorkloadEntry)
+	}
 	wle := curr.Spec.(*networking.WorkloadEntry)
 	key := configKey{
 		kind:      workloadEntryConfigType,
@@ -128,14 +132,26 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event m
 	}
 	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
 	instances := []*model.ServiceInstance{}
+	instancesDelete := []*model.ServiceInstance{}
+
 	for _, se := range entries {
 		workloadLabels := labels.Collection{wle.Labels}
 		if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
-			// Not a match, skip this one
-			continue
+			if oldWle != nil {
+				oldWorkloadLabels := labels.Collection{oldWle.Labels}
+				if oldWorkloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
+					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry)
+					instancesDelete = append(instancesDelete, instance...)
+				}
+			}
+		} else {
+			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry)
+			instances = append(instances, instance...)
 		}
-		instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry)
-		instances = append(instances, instance...)
+	}
+
+	if len(instancesDelete) > 0 {
+		s.deleteExistingInstances(key, instancesDelete)
 	}
 
 	if event != model.EventDelete {
@@ -144,7 +160,7 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event m
 		s.deleteExistingInstances(key, instances)
 	}
 
-	s.edsUpdate(instances)
+	s.edsUpdate(append(instances, instancesDelete...))
 }
 
 // serviceEntryHandler defines the handler for service entries
@@ -410,20 +426,17 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 	labels labels.Collection) ([]*model.ServiceInstance, error) {
 	s.maybeRefreshIndexes()
 
+	out := make([]*model.ServiceInstance, 0)
 	s.storeMutex.RLock()
 	defer s.storeMutex.RUnlock()
 
-	out := make([]*model.ServiceInstance, 0)
-
-	instanceLists, found := s.instances[instancesKey{svc.Hostname, svc.Attributes.Namespace}]
-	if found {
-		for _, instances := range instanceLists {
-			for _, instance := range instances {
-				if instance.Service.Hostname == svc.Hostname &&
-					labels.HasSubsetOf(instance.Endpoint.Labels) &&
-					portMatchSingle(instance, port) {
-					out = append(out, instance)
-				}
+	instanceLists := s.instances[instancesKey{svc.Hostname, svc.Attributes.Namespace}]
+	for _, instances := range instanceLists {
+		for _, instance := range instances {
+			if instance.Service.Hostname == svc.Hostname &&
+				labels.HasSubsetOf(instance.Endpoint.Labels) &&
+				portMatchSingle(instance, port) {
+				out = append(out, instance)
 			}
 		}
 	}
