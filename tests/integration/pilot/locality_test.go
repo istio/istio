@@ -96,7 +96,11 @@ distribute:
     region: 20`
 
 func TestLocality(t *testing.T) {
-	framework.NewTest(t).RequiresSingleCluster().Run(func(ctx framework.TestContext) {
+	framework.
+		NewTest(t).
+		Features("traffic.locality").
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
 		cases := []struct {
 			name     string
 			input    LocalityInput

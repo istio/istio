@@ -490,17 +490,10 @@ outbound_traffic_policy,TestOutboundTrafficPolicy_RegistryOnly
 outbound_traffic_policy_egressproxy_test,TestSidecarConfig
 outbound_traffic_policy_telemetry_v2,TestOutboundTrafficPolicy_AllowAny_TelemetryV2
 outbound_traffic_policy_telemetry_v2,TestOutboundTrafficPolicy_RegistryOnly_TelemetryV2
-pilot,TestAddToAndRemoveFromMesh
-pilot,TestAuthZCheck
-pilot,TestDescribe
 pilot,TestDestinationRuleTLS
 pilot,TestDestinationRuleTLS/grpc
 pilot,TestDestinationRuleTLS/http
 pilot,TestDestinationRuleTLS/tcp
-pilot,TestMirroring
-pilot,TestMirroringExternalService
-pilot,TestProxyConfig
-pilot,TestProxyStatus
 pilot,TestReachability
 pilot,TestServiceEntryDNS
 pilot,TestServiceEntryDNSNoSelfImport
@@ -508,9 +501,7 @@ pilot,TestServiceEntryStatic
 pilot,TestSidecarListeners
 pilot,TestSidecarScopeIngressListener
 pilot,TestSniffing
-pilot,TestTraffic
 pilot,TestVersion
-pilot,TestWait
 pilot_analysis,TestAnalysisWritesStatus
 pilot_analysis,TestStatusExistsByDefault
 pilot_analysis_test,TestAnalysisWritesStatus
@@ -596,7 +587,6 @@ pilot_cni,TestCNIReachability/global-mtls-on/naked->ws://naked:http
 pilot_envoyfilter,TestEnvoyFilterHTTPFilterInsertBefore
 pilot,TestGateway
 pilot,TestIngress
-pilot,TestLocality
 pilot_meshnetwork,TestAsymmetricMeshNetworkWithGatewayIP
 pilot_revisions,TestMultiRevision
 pilot_sidecarscope,TestServiceEntryDNS
