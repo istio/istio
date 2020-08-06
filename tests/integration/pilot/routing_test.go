@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -61,10 +62,7 @@ spec:
 				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].RawResponse["Istio-Custom-Header"] != "user-defined-value" {
-					return fmt.Errorf("missing request header, have %+v", response[0].RawResponse)
-				}
-				return nil
+				return expectString(response[0].RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
 			},
 		},
 		{
@@ -93,10 +91,7 @@ spec:
 				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].URL != "/new/path?key=value" {
-					return fmt.Errorf("incorrect URL, have %+v", response[0].URL)
-				}
-				return nil
+				return expectString(response[0].URL, "/new/path?key=value", "URL")
 			},
 		},
 		{
@@ -122,10 +117,7 @@ spec:
 				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value#hash"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].URL != "/new/path?key=value" {
-					return fmt.Errorf("incorrect URL, have %+v %+v", response[0].RawResponse["URL"], response[0].URL)
-				}
-				return nil
+				return expectString(response[0].URL, "/new/path?key=value", "URL")
 			},
 		},
 		{
@@ -151,10 +143,7 @@ spec:
 				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].Host != "new-authority" {
-					return fmt.Errorf("incorrect authority, got %v want new-authority", response[0].Host)
-				}
-				return nil
+				return expectString(response[0].Host, "new-authority", "authority")
 			},
 		},
 		{
@@ -177,21 +166,59 @@ spec:
       allowCredentials: false
       allowHeaders:
       - X-Foo-Bar
-      maxAge: "24h
+      - X-Foo-Baz
+      maxAge: "24h"
     route:
     - destination:
-        host: b`,
+        host: b
+`,
 			calls: []EchoCall{
+				// Preflight request
 				func() (echoclient.ParsedResponses, error) {
-					return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+					header := http.Header{}
+					header.Add("Origin", "cors.com")
+					header.Add("Access-Control-Request-Method", "DELETE")
+					return apps.podA.Call(echo.CallOptions{
+						Target:   apps.podB,
+						PortName: "http",
+						Method:   "OPTIONS",
+						Headers:  header,
+					})
 				},
+				// Real GET
+				func() (echoclient.ParsedResponses, error) {
+					header := http.Header{}
+					header.Add("Origin", "cors.com")
+					return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Headers: header})
+				},
+				// Real GET, no matching origin
 				func() (echoclient.ParsedResponses, error) {
 					return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
 				},
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].Host != "new-authority" {
-					return fmt.Errorf("incorrect authority, got %v want new-authority", response[0].Host)
+				// Preflight
+				if err := expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
+					return err
+				}
+				if err := expectString(response[0].RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
+					return err
+				}
+				if err := expectString(response[0].RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+					return err
+				}
+				if err := expectString(response[0].RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
+					return err
+				}
+
+				// GET
+				if err := expectString(response[1].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin"); err != nil {
+					return err
+				}
+
+				// No match GET
+				if err := expectString(response[2].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin"); err != nil {
+					return err
 				}
 				return nil
 			},
@@ -261,6 +288,13 @@ spec:
 		})
 	}
 	return cases
+}
+
+func expectString(got, expected, help string) error {
+	if got != expected {
+		return fmt.Errorf("got unexpected %v: got %q, wanted %q", help, got, expected)
+	}
+	return nil
 }
 
 // Todo merge with security TestReachability code
