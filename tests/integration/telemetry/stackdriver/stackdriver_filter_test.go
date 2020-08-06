@@ -291,9 +291,9 @@ func validateLogs(t *testing.T, srvLogEntry string) error {
 		}
 	}
 	if len(entries) > 0 {
-		return errors.New(fmt.Sprint("logs: did not get expected log entry. Example entry Got %v, Want %v", entries[0], wantLog))
+		return errors.New(fmt.Sprintf("logs: did not get expected log entry. Example entry Got %v, Want %v", entries[0], wantLog))
 	}
-	return errors.New("logs: did not get log entries.")
+	return errors.New("logs: did not get log entries")
 }
 
 func validateEdges(t *testing.T) error {
