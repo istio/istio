@@ -139,7 +139,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string, visitor re
 			if err != nil {
 				return err
 			}
-			errorString := getDeploymentStatus(deployment, name, filename)
+			errorString := getDeploymentStatus(deployment, name)
 			if errorString != "" {
 				msgs.Add(msg.NewVerifyInstallError(nil, failureMsg+errorString))
 			}
