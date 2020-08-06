@@ -77,13 +77,11 @@ type preCheckExecClient interface {
 // Tell the user if Istio can be installed, and if not give the reason.
 // Note: this doesn't check the IstioOperator options.  It only checks a few things every
 // Istio install needs.  It does not check the Revision.
-func installPreCheck(istioNamespaceFlag string, c preCheckExecClient) (diag.Messages, error) {
-	msgs := diag.Messages{}
-
+func installPreCheck(istioNamespaceFlag string, c preCheckExecClient, msgs *diag.Messages) error {
 	// Check Kubernetes API
 	v, err := c.serverVersion()
 	if err != nil {
-		return msgs, fmt.Errorf("failed to query the Kubernetes API Server: %v", err)
+		return fmt.Errorf("failed to query the Kubernetes API Server: %v", err)
 	}
 
 	// Check Kubernetes version
@@ -160,7 +158,7 @@ func installPreCheck(istioNamespaceFlag string, c preCheckExecClient) (diag.Mess
 		},
 	}
 	for _, r := range Resources {
-		err = checkCanCreateResources(c, r.namespace, r.group, r.version, r.name)
+		err := checkCanCreateResources(c, r.namespace, r.group, r.version, r.name)
 		if err != nil {
 			detail := fmt.Sprintf("Can not create necessary Kubernetes configuration %v: %v", r.name, err)
 			msgs.Add(msg.NewPrecheckFailed(nil, detail))
@@ -173,7 +171,7 @@ func installPreCheck(istioNamespaceFlag string, c preCheckExecClient) (diag.Mess
 		msgs.Add(msg.NewPrecheckFailed(nil, "This Kubernetes cluster deployed without MutatingAdmissionWebhook support."+
 			"See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection"))
 	}
-	return msgs, nil
+	return nil
 }
 
 func checkKubernetesVersion(versionInfo *version.Info) (bool, error) {
@@ -340,6 +338,8 @@ func NewPrecheckCommand() *cobra.Command {
 				return fmt.Errorf("failed to initialize Kubernetes client: %v", err)
 			}
 
+			msgs, didPrecheck, precheckError := diag.Messages{}, false, error(nil)
+
 			installs, err := cli.getIstioInstalls()
 			if err == nil && len(installs) > 0 {
 				matched := false
@@ -353,10 +353,9 @@ func NewPrecheckCommand() *cobra.Command {
 				}
 				// The user has Istio, but wants to install a new revision
 				if !matched {
-					msgs, err := installPreCheck(targetNamespace, cli)
-					return printOutput(c, msgs, err)
+					precheckError, didPrecheck = installPreCheck(targetNamespace, cli, &msgs), true
 				}
-				return nil
+				return printOutput(c, msgs, precheckError, didPrecheck)
 			}
 
 			// No IstioOperator was found.  In 1.6.0 we fall back to checking for Istio namespace
@@ -365,15 +364,14 @@ func NewPrecheckCommand() *cobra.Command {
 				return err
 			}
 			if !nsExists || specific {
-				msgs, err := installPreCheck(targetNamespace, cli)
-				return printOutput(c, msgs, err)
+				precheckError, didPrecheck = installPreCheck(targetNamespace, cli, &msgs), true
+			} else {
+				// The Istio namespace does exist, but it wasn't installed by 1.6.0+ because no
+				// IstioOperator is there.
+				c.Printf("Istio already installed in namespace %q. Skipping pre-check. Confirm with 'istioctl verify-install'.\n", targetNamespace)
+				c.Printf("Use 'istioctl upgrade' to upgrade or 'istioctl install --set revision=<revision>' to install another control plane.\n")
 			}
-
-			// The Istio namespace does exist, but it wasn't installed by 1.6.0+ because no
-			// IstioOperator is there.
-			c.Printf("Istio already installed in namespace %q. Skipping pre-check. Confirm with 'istioctl verify-install'.\n", targetNamespace)
-			c.Printf("Use 'istioctl upgrade' to upgrade or 'istioctl install --set revision=<revision>' to install another control plane.\n")
-			return nil
+			return printOutput(c, msgs, precheckError, didPrecheck)
 		},
 	}
 
@@ -391,20 +389,20 @@ func NewPrecheckCommand() *cobra.Command {
 	return precheckCmd
 }
 
-func printOutput(c *cobra.Command, msgs diag.Messages, err error) error {
+func printOutput(c *cobra.Command, msgs diag.Messages, err error, didPrecheck bool) error {
 	if err != nil {
 		return err
 	}
 
 	outputMsgs := msgs.FilterOutLowerThan(outputThreshold.Level)
-	if len(outputMsgs) == 0 {
-		fmt.Fprintf(c.ErrOrStderr(), "✔ Install pre-check passed! The cluster is ready for Istio installation.\n")
-	} else {
-		output, err := formatting.Print(outputMsgs, msgOutputFormat, colorize)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(c.OutOrStdout(), output)
+	output, err := formatting.Print(outputMsgs, msgOutputFormat, colorize)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(c.OutOrStdout(), output)
+
+	if len(outputMsgs) == 0 && didPrecheck {
+		fmt.Fprintf(c.ErrOrStderr(), "✔ Install precheck passed! The cluster is ready for Istio installation.\n")
 	}
 	return nil
 }

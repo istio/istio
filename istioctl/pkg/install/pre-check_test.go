@@ -91,7 +91,6 @@ func TestPreCheck(t *testing.T) {
 				version:   version1_17GKE,
 				namespace: "test",
 			},
-			expectedException: false,
 		},
 		{
 			description: "Invalid Kubernetes Version against GKE",
@@ -107,7 +106,7 @@ func TestPreCheck(t *testing.T) {
 				version:   version1_17,
 				namespace: "istio-system",
 			},
-			expectedException: false, // It is fine to precheck an existing namespace; we might be installing canary control plane
+			// It is fine to precheck an existing namespace; we might be installing canary control plane
 		},
 		{
 			description: "Valid Istio System",
@@ -115,7 +114,6 @@ func TestPreCheck(t *testing.T) {
 				version:   version1_17,
 				namespace: "test",
 			},
-			expectedException: false,
 		},
 		{
 			description: "Lacking Permission",
