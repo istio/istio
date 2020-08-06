@@ -51,7 +51,7 @@ const (
 )
 
 var (
-	clientFactory   = createKubeClient
+	clientFactory = createKubeClient
 )
 
 type istioInstall struct {
