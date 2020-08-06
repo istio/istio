@@ -26,13 +26,6 @@ spec:
         hpaSpec:
           minReplicas: 2
         replicaCount: 2
-  addonComponents:
-    grafana:
-      enabled: true
-    prometheus:
-      enabled: true
-    kiali:
-      enabled: true
   values:
     # Protocol sniffing is not supported
     pilot:
