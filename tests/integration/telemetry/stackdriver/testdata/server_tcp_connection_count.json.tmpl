@@ -1,0 +1,34 @@
+{
+    "metric": {
+       "type": "istio.io/service/server/connection_open_count",
+       "labels": {
+          "destination_canonical_revision": "v1",
+          "destination_canonical_service_name": "srv",
+          "destination_canonical_service_namespace": "{{ .EchoNamespace }}",
+          "destination_owner": "kubernetes://apis/apps/v1/namespaces/{{ .EchoNamespace }}/deployments/srv-v1",
+          "destination_port": "9000",
+          "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+          "destination_service_name": "srv",
+          "destination_service_namespace": "{{ .EchoNamespace }}",
+          "destination_workload_name": "srv-v1",
+          "destination_workload_namespace": "{{ .EchoNamespace }}",
+          "mesh_uid": "test-mesh",
+          "request_protocol": "tcp",
+          "source_canonical_revision": "v1",
+          "source_canonical_service_name": "clt",
+          "source_canonical_service_namespace": "{{ .EchoNamespace }}",
+          "service_authentication_policy": "MUTUAL_TLS",
+          "source_owner": "kubernetes://apis/apps/v1/namespaces/{{ .EchoNamespace }}/deployments/clt-v1",
+          "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+          "source_workload_name": "clt-v1",
+          "source_workload_namespace": "{{ .EchoNamespace }}"
+       }
+    },
+    "resource": {
+       "labels": {
+          "container_name": "app",
+          "namespace_name": "{{ .EchoNamespace }}"
+       },
+       "type": "k8s_container"
+    }
+}
