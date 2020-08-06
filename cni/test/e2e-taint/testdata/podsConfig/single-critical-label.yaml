@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: single-critical-label
+  namespace: test1
+  labels:
+    critical: test1
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        critical: test1
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+      tolerations:
+      - key: "NodeReadiness"
+        operator: "Exists"
+        effect: "NoSchedule"
