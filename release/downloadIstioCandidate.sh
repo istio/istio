@@ -39,7 +39,7 @@ fi
 # Determines the istioctl version.
 if [ "x${ISTIO_VERSION}" = "x" ] ; then
   ISTIO_VERSION="$(curl -sL https://github.com/istio/istio/releases | \
-                  grep -o 'releases/[0-9]*.[0-9].[0-9]*/' | sort --version-sort | \
+                  grep -o 'releases/[0-9]*.[0-9]*.[0-9]*/' | sort --version-sort | \
                   tail -1 | awk -F'/' '{ print $2}')"
   ISTIO_VERSION="${ISTIO_VERSION##*/}"
 fi
