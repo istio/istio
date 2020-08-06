@@ -16,6 +16,7 @@ package model
 
 import (
 	"sync"
+	"time"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -134,6 +135,11 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata *model.NodeMetad
 		return nil
 	}
 
+	var fetchTimeout = features.InitialFetchTimeout
+	if name == SDSDefaultResourceName || name == SDSRootResourceName {
+		fetchTimeout = ptypes.DurationProto(time.Second * 0)
+	}
+
 	gRPCConfig := &core.GrpcService_GoogleGrpc{
 		TargetUri:  sdsUdsPath,
 		StatPrefix: SDSStatPrefix,
@@ -172,7 +178,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string, metadata *model.NodeMetad
 					},
 				},
 			},
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: fetchTimeout,
 		},
 	}
 }
