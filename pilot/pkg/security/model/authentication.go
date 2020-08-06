@@ -16,6 +16,7 @@ package model
 
 import (
 	"sync"
+	"time"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -114,7 +115,10 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
 	if name == "" || sdsUdsPath == "" {
 		return nil
 	}
-
+	var fetchTimeout = features.InitialFetchTimeout
+	if name == SDSDefaultResourceName || name == SDSRootResourceName {
+		fetchTimeout = ptypes.DurationProto(time.Second * 0)
+	}
 	return &auth.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -130,7 +134,7 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *auth.SdsSecretConfig {
 					},
 				},
 			},
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: fetchTimeout,
 		},
 	}
 }
