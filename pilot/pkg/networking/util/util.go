@@ -569,6 +569,19 @@ func StringToExactMatch(in []string) []*matcher.StringMatcher {
 	return res
 }
 
+func StringToPrefixMatch(in []string) []*matcher.StringMatcher {
+	if len(in) == 0 {
+		return nil
+	}
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Prefix{Prefix: s},
+		})
+	}
+	return res
+}
+
 func StringSliceEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

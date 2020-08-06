@@ -15,9 +15,9 @@
 package model
 
 import (
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"istio.io/istio/pkg/spiffe"
 	"time"
+
+	"istio.io/istio/pkg/spiffe"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -205,32 +205,18 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 
 	return ret
 }
-// ConstructSANWithTrustDomain constructs MatchSubjectAltNames to be used in DefaultValidationContext by merging
-// Exact SAN matcher user has supplied at Gateway and Prefix SAN matcher for trust domain validation
-func ConstructSANWithTrustDomain(in []string) []*matcher.StringMatcher {
-	//  initially contains only usersupplied SAN
-	userSupplied := util.StringToExactMatch(in)
-	// Early exit if Trust Domain not to be verified
-	if features.SkipValidateTrustDomain.Get() {
-		return userSupplied
+
+func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
+	var res []string
+	for _, td := range trustDomainAliases {
+		res = append(res, spiffe.URIPrefix+td+"/")
 	}
-	// Add Trust Domain SAN Prefix matching if feature's enabled
-	trustDomain := spiffe.URIPrefix + spiffe.GetTrustDomain()
-	// TODO: add TrustDomainAliases from meshConfig to trustDomain
-
-	tdMatcher := make([]*matcher.StringMatcher, 0, 1)
-	tdMatcher = append(tdMatcher, &matcher.StringMatcher{
-		MatchPattern: &matcher.StringMatcher_Prefix{Prefix: trustDomain},
-	})
-
-	// merge the two
-	res := append(userSupplied,tdMatcher...)
-
 	return res
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
+	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
@@ -242,7 +228,10 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
-		matchSAN := ConstructSANWithTrustDomain(subjectAltNames)
+		matchSAN := util.StringToExactMatch(subjectAltNames)
+		if len(trustDomainAliases) > 0 {
+			matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
+		}
 
 		// configure server listeners with SDS.
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{

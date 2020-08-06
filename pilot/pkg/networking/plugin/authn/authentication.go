@@ -17,6 +17,8 @@ package authn
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/config/constants"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
@@ -24,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/security/authn/factory"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 )
 
@@ -40,7 +41,7 @@ func NewPlugin() plugin.Plugin {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
 		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol)
+		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, appendLocalTrustDomain(in.Push.Mesh.TrustDomainAliases))
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -127,5 +128,5 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	// Pass 0 for endpointPort so that it never matches any port-level policy.
-	return applier.InboundFilterChain(0, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol)
+	return applier.InboundFilterChain(0, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, appendLocalTrustDomain(in.Push.Mesh.TrustDomainAliases))
 }

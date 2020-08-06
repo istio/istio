@@ -1519,6 +1519,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 				tc.sdsUdsPath,
 				testNode,
 				networking.ListenerProtocolAuto,
+				[]string{},
 			)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)
