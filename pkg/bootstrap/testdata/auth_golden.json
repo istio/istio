@@ -348,6 +348,7 @@
                   "name": "default",
                   "sds_config": {
                     "resource_api_version": "V3",
+                    "initial_fetch_timeout": "0s",
                     "api_config_source": {
                       "api_type": "GRPC",
                       "transport_api_version": "V3",
@@ -405,7 +406,6 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
-      
       
       
     ],
@@ -510,7 +510,6 @@
       }
     ]
   }
-  
   
   
   ,
