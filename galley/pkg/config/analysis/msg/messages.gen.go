@@ -128,6 +128,10 @@ var (
 	// NoServerCertificateVerificationPortLevel defines a diag.MessageType for message "NoServerCertificateVerificationPortLevel".
 	// Description: No caCertificates are set in DestinationRule, this results in no verification of presented server certificate for traffic to a given port.
 	NoServerCertificateVerificationPortLevel = diag.NewMessageType(diag.Error, "IST0129", "DestinationRule %s in namespace %s has TLS mode set to %s but no caCertificates are set to validate server identity for host: %s at port %s")
+
+	// VerifyInstallError defines a diag.MessageType for message "VerifyInstallError".
+	// Description: An error occurred when verifying istio installation
+	VerifyInstallError = diag.NewMessageType(diag.Error, "IST0202", "Verify install error: %s")
 )
 
 // All returns a list of all known message types.
@@ -163,6 +167,7 @@ func All() []*diag.MessageType {
 		NoMatchingWorkloadsFound,
 		NoServerCertificateVerificationDestinationLevel,
 		NoServerCertificateVerificationPortLevel,
+		VerifyInstallError,
 	}
 }
 
@@ -464,5 +469,14 @@ func NewNoServerCertificateVerificationPortLevel(r *resource.Instance, destinati
 		mode,
 		host,
 		port,
+	)
+}
+
+// NewVerifyInstallError returns a new diag.Message based on VerifyInstallError.
+func NewVerifyInstallError(r *resource.Instance, detail string) diag.Message {
+	return diag.NewMessage(
+		VerifyInstallError,
+		r,
+		detail,
 	)
 }

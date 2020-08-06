@@ -329,3 +329,12 @@ messages:
         type: string
       - name: port
         type: string
+
+  - name: "VerifyInstallError"
+    code: IST0202
+    level: Error
+    description: "An error occurred when verifying istio installation"
+    template: "Verify install error: %s"
+    args:
+      - name: detail
+        type: string
