@@ -62,8 +62,6 @@ spec:
     # Prometheus is also supported with --set values.telemetry.v2.prometheus.enabled=true --set prometheus.enabled=true
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
         enabled: true
         prometheus:
