@@ -96,94 +96,98 @@ distribute:
     region: 20`
 
 func TestLocality(t *testing.T) {
-	cases := []struct {
-		name     string
-		input    LocalityInput
-		expected map[string]int
-	}{
-		{
-			"Prioritized/CDS",
-			LocalityInput{
-				LocalitySetting: localityFailover,
-				Resolution:      "DNS",
-				Local:           apps.podB.Config().Service,
-				Remote:          apps.podC.Config().Service,
-			},
-			expectAllTrafficTo(apps.podB.Config().Service),
-		},
-		{
-			"Prioritized/EDS",
-			LocalityInput{
-				LocalitySetting: localityFailover,
-				Resolution:      "STATIC",
-				Local:           apps.podC.Address(),
-				Remote:          apps.podB.Address(),
-			},
-			expectAllTrafficTo(apps.podC.Config().Service),
-		},
-		{
-			"Failover/CDS",
-			LocalityInput{
-				LocalitySetting: localityFailover,
-				Resolution:      "DNS",
-				Local:           "fake-should-fail.example.com",
-				NearLocal:       apps.podB.Config().Service,
-				Remote:          apps.podC.Config().Service,
-			},
-			expectAllTrafficTo(apps.podB.Config().Service),
-		},
-		{
-			"Failover/EDS",
-			LocalityInput{
-				LocalitySetting: localityFailover,
-				Resolution:      "STATIC",
-				Local:           "10.10.10.10",
-				NearLocal:       apps.podC.Address(),
-				Remote:          apps.podB.Address(),
-			},
-			expectAllTrafficTo(apps.podC.Config().Service),
-		},
-		{
-			"Distribute/CDS",
-			LocalityInput{
-				LocalitySetting: localityDistribute,
-				Resolution:      "DNS",
-				Local:           apps.podC.Config().Service,
-				NearLocal:       apps.podB.Config().Service,
-				Remote:          "fake-should-fail.example.com",
-			},
-			map[string]int{
-				apps.podB.Config().Service: sendCount * .8,
-				apps.podC.Config().Service: sendCount * .2,
-			},
-		},
-		{
-			"Distribute/EDS",
-			LocalityInput{
-				LocalitySetting: localityDistribute,
-				Resolution:      "STATIC",
-				Local:           apps.podB.Address(),
-				NearLocal:       apps.podC.Address(),
-				Remote:          "10.10.10.10",
-			},
-			map[string]int{
-				apps.podC.Config().Service: sendCount * .8,
-				apps.podB.Config().Service: sendCount * .2,
-			},
-		},
-	}
-	framework.NewTest(t).RequiresSingleCluster().Run(func(ctx framework.TestContext) {
-		for _, tt := range cases {
-			ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
-				hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
-				tt.input.Host = hostname
-				applyAndCleanup(ctx, apps.namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
-				retry.UntilSuccessOrFail(ctx, func() error {
-					return sendTraffic(apps.podA, hostname, tt.expected)
-				}, retry.Delay(250*time.Millisecond))
-			})
-		}
-	})
+	framework.
+		NewTest(t).
+		Features("traffic.locality").
+		RequiresSingleCluster().
+		Run(func(ctx framework.TestContext) {
+			cases := []struct {
+				name     string
+				input    LocalityInput
+				expected map[string]int
+			}{
+				{
+					"Prioritized/CDS",
+					LocalityInput{
+						LocalitySetting: localityFailover,
+						Resolution:      "DNS",
+						Local:           apps.podB.Config().Service,
+						Remote:          apps.podC.Config().Service,
+					},
+					expectAllTrafficTo(apps.podB.Config().Service),
+				},
+				{
+					"Prioritized/EDS",
+					LocalityInput{
+						LocalitySetting: localityFailover,
+						Resolution:      "STATIC",
+						Local:           apps.podC.Address(),
+						Remote:          apps.podB.Address(),
+					},
+					expectAllTrafficTo(apps.podC.Config().Service),
+				},
+				{
+					"Failover/CDS",
+					LocalityInput{
+						LocalitySetting: localityFailover,
+						Resolution:      "DNS",
+						Local:           "fake-should-fail.example.com",
+						NearLocal:       apps.podB.Config().Service,
+						Remote:          apps.podC.Config().Service,
+					},
+					expectAllTrafficTo(apps.podB.Config().Service),
+				},
+				{
+					"Failover/EDS",
+					LocalityInput{
+						LocalitySetting: localityFailover,
+						Resolution:      "STATIC",
+						Local:           "10.10.10.10",
+						NearLocal:       apps.podC.Address(),
+						Remote:          apps.podB.Address(),
+					},
+					expectAllTrafficTo(apps.podC.Config().Service),
+				},
+				{
+					"Distribute/CDS",
+					LocalityInput{
+						LocalitySetting: localityDistribute,
+						Resolution:      "DNS",
+						Local:           apps.podC.Config().Service,
+						NearLocal:       apps.podB.Config().Service,
+						Remote:          "fake-should-fail.example.com",
+					},
+					map[string]int{
+						apps.podB.Config().Service: sendCount * .8,
+						apps.podC.Config().Service: sendCount * .2,
+					},
+				},
+				{
+					"Distribute/EDS",
+					LocalityInput{
+						LocalitySetting: localityDistribute,
+						Resolution:      "STATIC",
+						Local:           apps.podB.Address(),
+						NearLocal:       apps.podC.Address(),
+						Remote:          "10.10.10.10",
+					},
+					map[string]int{
+						apps.podC.Config().Service: sendCount * .8,
+						apps.podB.Config().Service: sendCount * .2,
+					},
+				},
+			}
+			for _, tt := range cases {
+				ctx.NewSubTest(tt.name).Run(func(ctx framework.TestContext) {
+					hostname := fmt.Sprintf("%s-fake-locality.example.com", strings.ToLower(strings.ReplaceAll(tt.name, "/", "-")))
+					tt.input.Host = hostname
+					applyAndCleanup(ctx, apps.namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
+					retry.UntilSuccessOrFail(ctx, func() error {
+						return sendTraffic(apps.podA, hostname, tt.expected)
+					}, retry.Delay(250*time.Millisecond))
+				})
+			}
+		})
 }
 
 const sendCount = 50
