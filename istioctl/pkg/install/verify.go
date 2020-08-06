@@ -340,7 +340,7 @@ func boolPtr(val bool) *bool {
 	return &val
 }
 
-func getDeploymentStatus(deployment *appsv1.Deployment, name, fileName string) string {
+func getDeploymentStatus(deployment *appsv1.Deployment, name string) string {
 	cond := getDeploymentCondition(deployment.Status, appsv1.DeploymentProgressing)
 	if cond != nil && cond.Reason == "ProgressDeadlineExceeded" {
 		return fmt.Sprintf("deployment %q exceeded its progress deadline", name)
