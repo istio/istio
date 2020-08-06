@@ -84,11 +84,11 @@ type upgradeArgs struct {
 // addUpgradeFlags adds upgrade related flags into cobra command
 func addUpgradeFlags(cmd *cobra.Command, args *upgradeArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilenames, "filename",
-		"f", nil, "Path to file containing IstioOperator custom resource")
+		"f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig",
-		"c", "", "Path to kube config")
+		"c", "", KubeConfigFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.context, "context", "",
-		"The name of the kubeconfig context to use")
+		ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false,
 		"If skip-confirmation is set, skips the prompting confirmation for value changes in this upgrade")
 	cmd.PersistentFlags().DurationVar(&args.readinessTimeout, "readiness-timeout", 300*time.Second,
