@@ -15,6 +15,8 @@
 package model
 
 import (
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"istio.io/istio/pkg/spiffe"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -203,6 +205,29 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 
 	return ret
 }
+// ConstructSANWithTrustDomain constructs MatchSubjectAltNames to be used in DefaultValidationContext by merging
+// Exact SAN matcher user has supplied at Gateway and Prefix SAN matcher for trust domain validation
+func ConstructSANWithTrustDomain(in []string) []*matcher.StringMatcher {
+	//  initially contains only usersupplied SAN
+	userSupplied := util.StringToExactMatch(in)
+	// Early exit if Trust Domain not to be verified
+	if features.SkipValidateTrustDomain.Get() {
+		return userSupplied
+	}
+	// Add Trust Domain SAN Prefix matching if feature's enabled
+	trustDomain := spiffe.URIPrefix + spiffe.GetTrustDomain()
+	// TODO: add TrustDomainAliases from meshConfig to trustDomain
+
+	tdMatcher := make([]*matcher.StringMatcher, 0, 1)
+	tdMatcher = append(tdMatcher, &matcher.StringMatcher{
+		MatchPattern: &matcher.StringMatcher_Prefix{Prefix: trustDomain},
+	})
+
+	// merge the two
+	res := append(userSupplied,tdMatcher...)
+
+	return res
+}
 
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
@@ -217,10 +242,12 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
+		matchSAN := ConstructSANWithTrustDomain(subjectAltNames)
+
 		// configure server listeners with SDS.
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
 			},
 		}

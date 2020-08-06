@@ -151,7 +151,7 @@ var (
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(
 		"PILOT_SKIP_VALIDATE_TRUST_DOMAIN",
-		false,
+		true,
 		"Skip validating the peer is from the same trust domain when mTLS is enabled in authentication policy")
 
 	EnableProtocolSniffingForOutbound = env.RegisterBoolVar(
