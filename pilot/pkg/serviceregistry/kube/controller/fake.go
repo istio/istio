@@ -80,7 +80,7 @@ func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdateCacheOnly(_, _, _ string, entry []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.

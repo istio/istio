@@ -535,7 +535,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 			}
 		} else {
 			for k := range keys {
-				s.XdsUpdater.EDSUpdateCacheOnly(s.Cluster(), string(k.hostname), k.namespace, nil)
+				s.XdsUpdater.EDSCacheUpdate(s.Cluster(), string(k.hostname), k.namespace, nil)
 			}
 		}
 		return
@@ -566,7 +566,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 		}
 	} else {
 		for k, eps := range endpoints {
-			s.XdsUpdater.EDSUpdateCacheOnly(s.Cluster(), string(k.hostname), k.namespace, eps)
+			s.XdsUpdater.EDSCacheUpdate(s.Cluster(), string(k.hostname), k.namespace, eps)
 		}
 	}
 }

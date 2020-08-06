@@ -728,7 +728,7 @@ func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint)
 	f.Endpoints <- entry
 }
 
-func (f *FakeXdsUpdater) EDSUpdateCacheOnly(_, _, _ string, _ []*model.IstioEndpoint) {
+func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {

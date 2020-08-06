@@ -61,7 +61,7 @@ func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry 
 	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdateCacheOnly(_, _, _ string, _ []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {

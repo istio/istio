@@ -191,7 +191,7 @@ func (s *DiscoveryServer) EDSUpdate(clusterID, serviceName string, namespace str
 // on each step: instead the conversion happens once, when an endpoint is first discovered.
 //
 // Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
-func (s *DiscoveryServer) EDSUpdateCacheOnly(clusterID, serviceName string, namespace string,
+func (s *DiscoveryServer) EDSCacheUpdate(clusterID, serviceName string, namespace string,
 	istioEndpoints []*model.IstioEndpoint) {
 	inboundEDSUpdates.Increment()
 	// Update the eds data structures
