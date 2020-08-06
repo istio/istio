@@ -105,7 +105,7 @@ func TestGetDeploymentStatus(t *testing.T) {
 	}
 	for i, c := range errCases {
 		t.Run(fmt.Sprintf("[err-%v] ", i), func(tt *testing.T) {
-			if errString := getDeploymentStatus(c, "fooDeploy", ""); errString == "" {
+			if errString := getDeploymentStatus(c, "fooDeploy"); errString == "" {
 				tt.Fatalf("unexpected nil error")
 			}
 		})
