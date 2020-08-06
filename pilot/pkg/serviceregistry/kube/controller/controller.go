@@ -290,7 +290,7 @@ func updateSPIFFERegistry(kubeClient kubelib.Client, clusterID string) error {
 	if err != nil {
 		return fmt.Errorf("unable to deserialize mesh config from YAML %v, error: %v", yml, err)
 	}
-	spiffe.SetTrustDomainByCluster(clusterID, cfg.TrustDomain, cfg.TrustDomainAliases)
+	spiffe.SetTrustDomainByCluster(clusterID, cfg.TrustDomain)
 	return nil
 }
 

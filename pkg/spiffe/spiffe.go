@@ -61,9 +61,8 @@ type bundleDoc struct {
 }
 
 type ClusterTrustDomainInfo struct {
-	ClusterID          string
-	TrustDomain        string
-	TrustDomainAliases []string
+	ClusterID   string
+	TrustDomain string
 }
 
 func SetTrustDomain(value string) {
@@ -89,16 +88,15 @@ func GetTrustDomainByCluster(clusterID string) string {
 	return GetTrustDomain()
 }
 
-func SetTrustDomainByCluster(clusterID string, trustDomain string, aliases []string) {
+func SetTrustDomainByCluster(clusterID string, trustDomain string) {
 	if trustDomain == "" || clusterID == "" {
 		spiffeLog.Errorf("Trust Domain and cluster ID can't be empty, cluster %v, trust domain %v",
 			clusterID, trustDomain)
 		return
 	}
 	trustDomainInfoMap.Store(clusterID, ClusterTrustDomainInfo{
-		ClusterID:          clusterID,
-		TrustDomain:        trustDomain,
-		TrustDomainAliases: aliases,
+		ClusterID:   clusterID,
+		TrustDomain: trustDomain,
 	})
 }
 
@@ -111,8 +109,7 @@ func DumpDebugInfo() string {
 	trustDomainInfoMap.Range(func(clusterID, val interface{}) bool {
 		ti, ok := val.(ClusterTrustDomainInfo)
 		if ok {
-			b.WriteString(fmt.Sprintf("Cluster ID: %v, trust domain %v, aliases %v\n",
-				clusterID, ti.TrustDomain, ti.TrustDomainAliases))
+			b.WriteString(fmt.Sprintf("Cluster ID: %v, trust domain %v\n", clusterID, ti.TrustDomain))
 		}
 		return true
 	})

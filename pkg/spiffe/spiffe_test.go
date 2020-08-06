@@ -720,8 +720,8 @@ Trust Domain by cluster
 			operation: dumpOperation,
 			wantDumpSubstr: `Local trust domain: cluster.local
 Trust Domain by cluster
-Cluster ID: foo, trust domain td-foo, aliases []
-Cluster ID: bar, trust domain td-bar, aliases []
+Cluster ID: foo, trust domain td-foo
+Cluster ID: bar, trust domain td-bar
 `,
 		},
 	}
@@ -733,7 +733,7 @@ Cluster ID: bar, trust domain td-bar, aliases []
 				}
 			}
 			if c.operation == setOperation {
-				SetTrustDomainByCluster(c.clusterID, c.trustDomain, c.trustDomainAliases)
+				SetTrustDomainByCluster(c.clusterID, c.trustDomain)
 			}
 			if c.operation == dumpOperation {
 				if got := DumpDebugInfo(); got != c.wantDumpSubstr {
