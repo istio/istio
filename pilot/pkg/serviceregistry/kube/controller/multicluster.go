@@ -127,7 +127,6 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 
 	remoteKubeController.Controller = kubectl
 	m.serviceController.AddRegistry(kubectl)
-	log.Infof("AddMemberCluster clusterID %v", clusterID)
 
 	m.remoteKubeControllers[clusterID] = &remoteKubeController
 	m.m.Unlock()

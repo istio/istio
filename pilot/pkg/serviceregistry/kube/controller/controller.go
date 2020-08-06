@@ -32,7 +32,6 @@ import (
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -45,7 +44,6 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 const (
@@ -287,12 +285,12 @@ func updateSPIFFERegistry(kubeClient kubelib.Client, clusterID string) error {
 		log.Debugf("MeshConfig empty, skip trust domain updates")
 		return nil
 	}
-	v := cm.Data[constants.IstioMeshConfigEntryName]
-	mesh := meshconfig.MeshConfig{}
-	if err := gogoprotomarshal.ApplyYAML(v, &mesh); err != nil {
-		return fmt.Errorf("unable to deserialize mesh config from YAML %v, error: %v", v, err)
+	yml := cm.Data[constants.IstioMeshConfigEntryName]
+	cfg, err := mesh.ApplyMeshConfigDefaults(yml)
+	if err != nil {
+		return fmt.Errorf("unable to deserialize mesh config from YAML %v, error: %v", yml, err)
 	}
-	spiffe.SetTrustDomainByCluster(clusterID, mesh.TrustDomain, mesh.TrustDomainAliases)
+	spiffe.SetTrustDomainByCluster(clusterID, cfg.TrustDomain, cfg.TrustDomainAliases)
 	return nil
 }
 
@@ -926,7 +924,6 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 
 	out := make([]*model.ServiceInstance, 0)
 	for _, svc := range services {
-		// TODO: i don't know what's going on here...
 		svcAccount := proxy.Metadata.ServiceAccount
 		hostname := kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)
 		c.RLock()
