@@ -38,9 +38,11 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/operator/cmd/mesh"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
 )
@@ -172,7 +174,9 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string, visitor re
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 
-			iop, err := convertToIstioOperator(un.Object)
+			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+			by := util.ToYAML(un)
+			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
 				return err
 			}
