@@ -61,6 +61,8 @@ func wgDoneOrTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 
 func TestSendPushesManyPushes(t *testing.T) {
 	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
 
@@ -74,11 +76,15 @@ func TestSendPushesManyPushes(t *testing.T) {
 		// Start receive thread
 		go func() {
 			for {
-				p := <-proxy.pushChannel
-				p.done()
-				pushesMu.Lock()
-				pushes[proxy.ConID]++
-				pushesMu.Unlock()
+				select {
+				case p := <-proxy.pushChannel:
+					p.done()
+					pushesMu.Lock()
+					pushes[proxy.ConID]++
+					pushesMu.Unlock()
+				case <-stopCh:
+					return
+				}
 			}
 		}()
 	}
@@ -104,6 +110,8 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 func TestSendPushesSinglePush(t *testing.T) {
 	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
 
@@ -120,12 +128,16 @@ func TestSendPushesSinglePush(t *testing.T) {
 		// Start receive thread
 		go func() {
 			for {
-				p := <-proxy.pushChannel
-				p.done()
-				pushesMu.Lock()
-				pushes[proxy.ConID]++
-				pushesMu.Unlock()
-				wg.Done()
+				select {
+				case p := <-proxy.pushChannel:
+					p.done()
+					pushesMu.Lock()
+					pushes[proxy.ConID]++
+					pushesMu.Unlock()
+					wg.Done()
+				case <-stopCh:
+					return
+				}
 			}
 		}()
 	}
