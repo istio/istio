@@ -44,13 +44,13 @@ var fieldMap = map[string]int{
 }
 
 func TestExtractLabelFromSelectorString(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	s := "label=test"
 	g.Expect(ExtractLabelFromSelectorString(s)).To(Equal("label"))
 }
 
 func TestErrorLine(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	r := &resource.Instance{Origin: &rt.Origin{FieldsMap: fieldMap}}
 	test1, err1 := ErrorLine(r, "{.metadata.name}")
 	test2, err2 := ErrorLine(r, "{.metadata.fake}")
@@ -61,7 +61,7 @@ func TestErrorLine(t *testing.T) {
 }
 
 func TestConstants(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	constantsPath := []string{
 		fmt.Sprintf(DestinationHost, "test", 0, 0),

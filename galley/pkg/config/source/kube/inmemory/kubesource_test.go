@@ -395,7 +395,7 @@ func TestBuildFieldPathMap(t *testing.T) {
 		},
 	}
 
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	yamlMarshal, err := yamlv3.Marshal(&yamlResource)
 	g.Expect(err).To(BeNil())

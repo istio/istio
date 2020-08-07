@@ -344,6 +344,7 @@ func TestErrorLine(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
+		Features("usability.observability.analysis.line-numbers").
 		Run(func(ctx framework.TestContext) {
 			g := NewWithT(t)
 
