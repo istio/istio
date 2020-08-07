@@ -105,7 +105,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
 	fep := c.collectWorkloadInstanceEndpoints(svc)
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
+	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
 	// fire instance handles for k8s endpoints only
 	for _, handler := range c.instanceHandlers {
 		for _, ep := range endpoints {
