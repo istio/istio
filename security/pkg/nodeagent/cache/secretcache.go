@@ -942,8 +942,8 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
 	// Skip check if the token should not be parsed in proxy.
 	// Parsing token may not always be possible because token may not be a JWT.
-	// If ParseToken is false, we should assume token is valid and leave token validation to CA.
-	if !sc.configOptions.ParseToken {
+	// If SkipParseToken is true, we should assume token is valid and leave token validation to CA.
+	if sc.configOptions.SkipParseToken {
 		return false
 	}
 

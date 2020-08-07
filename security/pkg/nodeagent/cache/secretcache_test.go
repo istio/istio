@@ -218,7 +218,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		sc.Close()
 	}()
 
-	checkBool(t, "opt.ParseToken default", opt.ParseToken, false)
+	checkBool(t, "opt.SkipParseToken default", opt.SkipParseToken, false)
 
 	conID := "proxy1-id"
 	ctx := context.Background()
@@ -806,7 +806,7 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 func TestParseTokenFlag(t *testing.T) {
 	sc := createSecretCache()
 	defer sc.Close()
-	sc.configOptions.ParseToken = false
+	sc.configOptions.SkipParseToken = true
 	secret := security.SecretItem{}
 	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), false)
 }
@@ -884,7 +884,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 		UseTokenForCSR:   true,
-		ParseToken:       true,
+		SkipParseToken:       false,
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{
