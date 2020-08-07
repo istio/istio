@@ -33,10 +33,12 @@ import (
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 
+	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
@@ -532,8 +534,16 @@ func verifyControlPlane(c *operatorComponent, cluster resource.Cluster) error {
 	if err != nil {
 		return err
 	}
-	_, _, err = istioCtl.Invoke([]string{"verify-install"})
+	outStdout, outStderr, err := istioCtl.Invoke([]string{"verify-install"})
 	if err != nil {
+		fmt.Printf("Verify failed: %s\n%s\n%v\n", outStdout, outStderr, err)
+		istioOperatorGVR := apimachinery_schema.GroupVersionResource{
+			Group:    operator_v1alpha1.SchemeGroupVersion.Group,
+			Version:  operator_v1alpha1.SchemeGroupVersion.Version,
+			Resource: "istiooperators",
+		}
+		ul, err2 := cluster.Dynamic().Resource(istioOperatorGVR).Namespace(c.settings.IstioNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
+		fmt.Printf("@@@ ecs list returned %#v, %v\n", ul, err2)
 		return err
 	}
 	return nil
