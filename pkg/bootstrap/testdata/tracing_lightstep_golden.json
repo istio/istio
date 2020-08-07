@@ -369,7 +369,6 @@
       ,
       {
         "name": "lightstep",
-        
         "http2_protocol_options": {},
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -389,7 +388,6 @@
           }]
         }
       }
-      
       
       
     ],
@@ -494,7 +492,6 @@
       }
     ]
   }
-  
   ,
   "tracing": {
     "http": {
@@ -506,7 +503,6 @@
       }
     }
   }
-  
   
   
   ,
