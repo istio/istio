@@ -326,6 +326,8 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 		if first {
 			first = false
 			value = []corev1.Container{add}
+		} else if add.Name == ProxyContainerName {
+			path = path + "/0"
 		} else {
 			path = path + "/-"
 		}
