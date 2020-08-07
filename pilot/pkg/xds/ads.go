@@ -56,9 +56,6 @@ type DiscoveryStream interface {
 
 // Connection holds information about connected client.
 type Connection struct {
-	// Mutex to protect changes to this connection.
-	mu sync.RWMutex
-
 	// PeerAddr is the address of the client envoy, from network layer.
 	PeerAddr string
 
@@ -69,6 +66,9 @@ type Connection struct {
 	// Currently based on the node name and a counter.
 	ConID string
 
+	// mutex to protect changes to the node.
+	// TODO: move into model.Proxy
+	mu   sync.RWMutex
 	node *model.Proxy
 
 	// Sending on this channel results in a push.
@@ -77,7 +77,7 @@ type Connection struct {
 	// Both ADS and SDS streams implement this interface
 	stream DiscoveryStream
 
-	// Original node metadata, to avoid unmarshall/marshall.
+	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	xdsNode *core.Node
 
@@ -482,12 +482,11 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	}
 
 	// First request so initialize connection id and start tracking it.
-	con.mu.Lock()
 	con.node = proxy
 	con.ConID = connectionID(node.Id)
 	con.xdsNode = node
+
 	s.addCon(con.ConID, con)
-	con.mu.Unlock()
 
 	if s.InternalGen != nil {
 		s.InternalGen.OnConnect(con)
