@@ -145,7 +145,8 @@ var (
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
-		"Skip Parse token to inspect information like expiration time in proxy. This may not always be possible because token may not be a JWT.").Get()
+		"Skip Parse token to inspect information like expiration time in proxy. This may be possible " +
+		"for example in vm we don't use token to rotate cert.").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
