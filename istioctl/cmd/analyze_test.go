@@ -17,9 +17,9 @@ package cmd
 import (
 	"testing"
 
-	"istio.io/istio/galley/pkg/config/analysis/diag"
-
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/galley/pkg/config/analysis/diag"
 )
 
 func TestErrorOnIssuesFound(t *testing.T) {

@@ -22,10 +22,9 @@ import (
 	"sync/atomic"
 
 	ocprom "contrib.go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opencensus.io/stats/view"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"

@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/pkg/config/event"

@@ -27,15 +27,13 @@ import (
 
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
 	"sigs.k8s.io/yaml"
 
-	"helm.sh/helm/v3/pkg/chartutil"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/vfs"
+	"istio.io/pkg/log"
 )
 
 const (

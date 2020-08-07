@@ -29,11 +29,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/log"
 )
 
 func removeFromMeshCmd() *cobra.Command {

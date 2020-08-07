@@ -17,19 +17,18 @@ package builder
 import (
 	"fmt"
 
-	"istio.io/pkg/log"
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/config/labels"
-
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
-	rbachttppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	rbactcppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	"istio.io/pkg/log"
 )
 
 var (

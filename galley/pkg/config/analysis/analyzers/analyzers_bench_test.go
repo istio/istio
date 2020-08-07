@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	coll "istio.io/istio/galley/pkg/config/collection"
@@ -28,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/snapshots"
+	"istio.io/pkg/log"
 )
 
 type context struct {

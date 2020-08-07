@@ -20,8 +20,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"istio.io/istio/pilot/pkg/networking/util"
-
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
@@ -32,9 +30,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pilot/pkg/networking/util"
 	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
+	"istio.io/pkg/log"
 )
 
 type filterChainMatch struct {

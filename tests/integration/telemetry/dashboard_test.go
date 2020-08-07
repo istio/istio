@@ -24,15 +24,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"istio.io/pkg/log"
-
 	"github.com/prometheus/common/model"
 	"golang.org/x/sync/errgroup"
+	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -40,11 +35,13 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/pkg/log"
 )
 
 var (

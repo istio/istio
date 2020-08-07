@@ -16,7 +16,6 @@ package destinationrule
 
 import (
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"

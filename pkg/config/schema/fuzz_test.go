@@ -24,6 +24,10 @@ import (
 	"github.com/gogo/protobuf/types"
 	fuzz "github.com/google/gofuzz"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
+	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	authentication "istio.io/api/authentication/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -31,12 +35,6 @@ import (
 	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
-
-	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"

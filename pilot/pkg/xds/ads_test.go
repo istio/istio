@@ -19,26 +19,22 @@ import (
 	"testing"
 	"time"
 
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/proto"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	istioagent "istio.io/istio/pkg/istio-agent"
-	"istio.io/istio/pkg/security"
-
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-
+	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/tests/util"
-
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 )
 
 const (

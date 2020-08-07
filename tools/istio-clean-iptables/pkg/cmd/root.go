@@ -18,11 +18,11 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/pkg/log"
 )
 
 var rootCmd = &cobra.Command{

@@ -31,13 +31,12 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 // test.Run uses 0, 1, 2 exit codes. Use different exit codes for our framework.

@@ -28,15 +28,15 @@ import (
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
 
-	networking "istio.io/api/networking/v1alpha3"
+	//  To install the xds resolvers and balancers.
+	_ "google.golang.org/grpc/xds"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/xds"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/schema/collections"
-
-	_ "google.golang.org/grpc/xds" // To install the xds resolvers and balancers.
 )
 
 var (

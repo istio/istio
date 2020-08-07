@@ -19,10 +19,10 @@ import (
 	"io"
 	"net"
 
-	"istio.io/istio/pkg/test/scopes"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ io.Closer = &Network{}

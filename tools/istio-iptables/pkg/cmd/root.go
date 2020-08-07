@@ -22,16 +22,14 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/tools/istio-iptables/pkg/validation"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/istio/tools/istio-iptables/pkg/validation"
 	"istio.io/pkg/env"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"istio.io/pkg/log"
 )
 

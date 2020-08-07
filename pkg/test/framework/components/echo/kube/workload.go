@@ -18,18 +18,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
+	kubeCore "k8s.io/api/core/v1"
+
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/resource"
-
-	"github.com/hashicorp/go-multierror"
-
-	"istio.io/istio/pkg/test/echo/client"
-	"istio.io/istio/pkg/test/framework/components/echo"
-
-	kubeCore "k8s.io/api/core/v1"
 )
 
 const (

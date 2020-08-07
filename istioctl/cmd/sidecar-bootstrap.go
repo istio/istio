@@ -37,13 +37,11 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/crypto/ssh/terminal"
-
-	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/secret"
 	"istio.io/istio/security/pkg/pki/util"

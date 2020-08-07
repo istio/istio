@@ -23,13 +23,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	galley_mesh "istio.io/istio/galley/pkg/config/mesh"

@@ -19,21 +19,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/xds"
-
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-
-	"istio.io/istio/pkg/config/labels"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )

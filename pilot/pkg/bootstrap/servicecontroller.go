@@ -17,8 +17,6 @@ package bootstrap
 import (
 	"fmt"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -27,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
 func (s *Server) ServiceController() *aggregate.Controller {
