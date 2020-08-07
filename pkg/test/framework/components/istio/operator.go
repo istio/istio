@@ -487,7 +487,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 
 		if !c.environment.IsControlPlaneCluster(cluster) {
-			installSettings = append(installSettings, "--set", "profile=remote")
 			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {
 				return err
