@@ -20,8 +20,6 @@ import (
 
 	"istio.io/istio/pkg/spiffe"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
