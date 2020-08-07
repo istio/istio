@@ -65,8 +65,8 @@ type FakeOptions struct {
 	// If provided, the ConfigString will be treated as a go template, with this as input params
 	ConfigTemplateInput interface{}
 	// If provided, this mesh config will be used
-	MeshConfig   *meshconfig.MeshConfig
-	MeshNetworks *meshconfig.MeshNetworks
+	MeshConfig      *meshconfig.MeshConfig
+	NetworksWatcher mesh.NetworksWatcher
 }
 
 type FakeDiscoveryServer struct {
@@ -164,7 +164,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configStore)
 	env.Watcher = mesh.NewFixedWatcher(m)
-	env.NetworksWatcher = mesh.NewFixedNetworksWatcher(opts.MeshNetworks)
+	if opts.NetworksWatcher == nil {
+		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
+	}
+	env.NetworksWatcher = opts.NetworksWatcher
 
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	serviceDiscovery.AddRegistry(se)
@@ -186,17 +189,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	se.ResyncEDS()
 
-	s.updateMutex.Lock()
-	defer s.updateMutex.Unlock()
-	ctx := model.NewPushContext()
-	if err := ctx.InitContext(env, env.PushContext, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.UpdateServiceShards(ctx); err != nil {
-		t.Fatal(err)
-	}
-	env.PushContext = ctx
-
 	fake := &FakeDiscoveryServer{
 		t:           t,
 		Store:       configController,
@@ -204,7 +196,26 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		PushContext: env.PushContext,
 		Env:         env,
 	}
+
+	// currently meshNetworks gateways are stored on the push context
+	fake.refreshPushContext()
+	env.AddNetworksHandler(fake.refreshPushContext)
+
 	return fake
+}
+
+func (f *FakeDiscoveryServer) refreshPushContext() {
+	f.Discovery.updateMutex.Lock()
+	defer f.Discovery.updateMutex.Unlock()
+	ctx := model.NewPushContext()
+	if err := ctx.InitContext(f.Env, f.Env.PushContext, nil); err != nil {
+		f.t.Fatal(err)
+	}
+	if err := f.Discovery.UpdateServiceShards(ctx); err != nil {
+		f.t.Fatal(err)
+	}
+	f.Env.PushContext = ctx
+	f.PushContext = ctx
 }
 
 // SetupProxy initializes a proxy for the current environment. This should generally be used when creating
