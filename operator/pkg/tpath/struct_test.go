@@ -15,9 +15,9 @@
 package tpath
 
 import (
-	"github.com/ghodss/yaml"
-
 	"testing"
+
+	"github.com/ghodss/yaml"
 
 	"istio.io/istio/operator/pkg/util"
 )
