@@ -23,7 +23,7 @@ import (
 	"net/http"
 
 	"github.com/hashicorp/go-multierror"
-	kubeApiAdmission "k8s.io/api/admission/v1"
+	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 	kubeApiApps "k8s.io/api/apps/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -162,24 +162,14 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 	}
 
 	var reviewResponse *kubeApiAdmission.AdmissionResponse
-	ar := kubeApiAdmission.AdmissionReview{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
-			Kind:       "AdmissionReview",
-		},
-	}
+	ar := kubeApiAdmission.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
 		reviewResponse = toAdmissionResponse(fmt.Errorf("could not decode body: %v", err))
 	} else {
 		reviewResponse = admit(ar.Request)
 	}
 
-	response := kubeApiAdmission.AdmissionReview{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
-			Kind:       "AdmissionReview",
-		},
-	}
+	response := kubeApiAdmission.AdmissionReview{}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		if ar.Request != nil {

@@ -599,6 +599,6 @@ spec:
                   code:
                     local: { inline_string: "envoy.wasm.access_log_policy" }
 ---
-{{- end }}
-{{- end }}
-{{- end }}
+{{- end}}
+{{- end}}
+{{- end}}
