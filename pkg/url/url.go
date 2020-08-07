@@ -32,8 +32,12 @@ var (
 	// BaseURL for istio.io
 	BaseURL = "https://istio.io/"
 
+	// DocsVersion is a documentation version for istio.io
+	// This will build version as v1.6, v1.7, v1.8
+	DocsVersion = fmt.Sprintf("%s%s", "v", baseVersion[:3])
+
 	// DocsURL is a base docs URL for istio.io
-	DocsURL = fmt.Sprintf("%s%s", BaseURL, "latest/docs/")
+	DocsURL = fmt.Sprintf("%s%s%s", BaseURL, DocsVersion, "/docs/")
 
 	// #####################################
 	// Setup related URLs for istio.io
