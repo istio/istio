@@ -710,12 +710,10 @@ var _ model.XDSUpdater = &FakeXdsUpdater{}
 type FakeXdsUpdater struct {
 	Events    chan string
 	Endpoints chan []*model.IstioEndpoint
-	EDSErr    chan error
 }
 
 func NewFakeXDS() *FakeXdsUpdater {
 	return &FakeXdsUpdater{
-		EDSErr:    make(chan error, 100),
 		Events:    make(chan string, 100),
 		Endpoints: make(chan []*model.IstioEndpoint, 100),
 	}
@@ -725,10 +723,12 @@ func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	f.Events <- "ConfigUpdate"
 }
 
-func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) error {
+func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 	f.Events <- "EDSUpdate"
 	f.Endpoints <- entry
-	return <-f.EDSErr
+}
+
+func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {

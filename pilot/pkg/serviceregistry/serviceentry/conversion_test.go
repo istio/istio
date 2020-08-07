@@ -362,6 +362,28 @@ var selector = &model.Config{
 	},
 }
 
+// DNS ServiceEntry with a selector
+var dnsSelector = &model.Config{
+	ConfigMeta: model.ConfigMeta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dns-selector",
+		Namespace:         "dns-selector",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"dns.selector.com"},
+		Ports: []*networking.Port{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "dns-wle"},
+		},
+		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
 func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *model.Config {
 	return &model.Config{
 		ConfigMeta: model.ConfigMeta{
