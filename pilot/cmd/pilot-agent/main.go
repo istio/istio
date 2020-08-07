@@ -144,7 +144,7 @@ var (
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
 	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
-	parseTokenEnv = env.RegisterBoolVar("PARSE_TOKEN", false,
+	parseTokenEnv = env.RegisterBoolVar("PARSE_TOKEN", true,
 		"Parse token to inspect information like expiration time in proxy. This may not always be possible because token may not be a JWT.").Get()
 
 	rootCmd = &cobra.Command{
