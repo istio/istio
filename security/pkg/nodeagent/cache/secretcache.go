@@ -585,7 +585,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			if err != nil {
 				cacheLog.Errorf("failed to get credential token: %v", err)
 			} else {
-			    secret.Token = t
+				secret.Token = t
 			}
 		}
 
