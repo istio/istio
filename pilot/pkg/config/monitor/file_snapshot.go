@@ -20,13 +20,12 @@ import (
 	"path/filepath"
 	"sort"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/log"
 )
 
 var (

@@ -15,11 +15,10 @@
 package pilot
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
-
-	"encoding/json"
 
 	. "github.com/onsi/gomega"
 

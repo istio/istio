@@ -22,8 +22,6 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/istio/pkg/test/scopes"
-
 	"github.com/docker/docker/api/types"
 	dockerContainer "github.com/docker/docker/api/types/container"
 	dockerNetwork "github.com/docker/docker/api/types/network"
@@ -31,6 +29,8 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pkg/test/scopes"
 )
 
 type ContainerPort int

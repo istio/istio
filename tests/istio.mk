@@ -22,7 +22,7 @@ helm3/canary:
 		--set global.tag=${TAG} --set global.hub=${HUB} \
         --set revision=canary \
 		--set meshConfig.enablePrometheusMerge=true \
-        --set meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE=ALL
+        --set meshConfig.defaultConfig.proxyMetadata.DNS_AGENT="DNS-TLS"
 
 # For 1.15:  HELM3_INGRESS_OPTS="--set gateways.istio-ingressgateway.runAsRoot=true"
 HELM3_INGRESS_OPTS=""

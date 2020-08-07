@@ -21,7 +21,6 @@ import (
 	"unicode"
 
 	"istio.io/api/operator/v1alpha1"
-
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -107,6 +106,8 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0},
 		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
 		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
+		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/istiod-gateway/", false},
+		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil},
 		{"AddonComponents.grafana.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},

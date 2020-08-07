@@ -36,10 +36,9 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/filewatcher"
-
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
+	"istio.io/pkg/filewatcher"
 )
 
 var (

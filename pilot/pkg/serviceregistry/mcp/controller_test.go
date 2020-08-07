@@ -24,15 +24,13 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
-
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -710,12 +708,10 @@ var _ model.XDSUpdater = &FakeXdsUpdater{}
 type FakeXdsUpdater struct {
 	Events    chan string
 	Endpoints chan []*model.IstioEndpoint
-	EDSErr    chan error
 }
 
 func NewFakeXDS() *FakeXdsUpdater {
 	return &FakeXdsUpdater{
-		EDSErr:    make(chan error, 100),
 		Events:    make(chan string, 100),
 		Endpoints: make(chan []*model.IstioEndpoint, 100),
 	}
@@ -725,10 +721,12 @@ func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	f.Events <- "ConfigUpdate"
 }
 
-func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) error {
+func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 	f.Events <- "EDSUpdate"
 	f.Endpoints <- entry
-	return <-f.EDSErr
+}
+
+func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {

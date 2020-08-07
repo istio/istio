@@ -20,8 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 
-	"istio.io/pkg/log"
-
 	envoy_corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
@@ -33,6 +31,7 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 func statusCommand() *cobra.Command {

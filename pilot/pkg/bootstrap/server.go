@@ -27,25 +27,16 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/reflection"
-
-	"istio.io/istio/pilot/pkg/status"
-
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"google.golang.org/grpc/reflection"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
@@ -56,6 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -68,6 +60,10 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (
@@ -710,6 +706,9 @@ func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
 
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
+	if s.multicluster != nil && !s.multicluster.HasSynced() {
+		return false
+	}
 	if !s.ServiceController().HasSynced() {
 		return false
 	}

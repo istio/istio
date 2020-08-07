@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,15 +35,14 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 const (
+	initialSyncSignal       = "INIT"
 	MultiClusterSecretLabel = "istio/multiCluster"
-
-	maxRetries = 5
+	maxRetries              = 5
 )
 
 // addSecretCallback prototype for the add secret callback function.
@@ -64,6 +64,9 @@ type Controller struct {
 	addCallback    addSecretCallback
 	updateCallback updateSecretCallback
 	removeCallback removeSecretCallback
+
+	mu          sync.RWMutex
+	initialSync bool
 }
 
 // RemoteCluster defines cluster struct
@@ -169,7 +172,15 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 		utilruntime.HandleError(fmt.Errorf("timed out waiting for caches to sync"))
 		return
 	}
+	// all secret events before this signal must be processed before we're marked "ready"
+	c.queue.Add(initialSyncSignal)
 	wait.Until(c.runWorker, 5*time.Second, stopCh)
+}
+
+func (c *Controller) HasSynced() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.initialSync
 }
 
 // StartSecretController creates the secret controller.
@@ -191,7 +202,6 @@ func (c *Controller) runWorker() {
 
 func (c *Controller) processNextItem() bool {
 	secretName, quit := c.queue.Get()
-
 	if quit {
 		return false
 	}
@@ -214,6 +224,13 @@ func (c *Controller) processNextItem() bool {
 }
 
 func (c *Controller) processItem(secretName string) error {
+	if secretName == initialSyncSignal {
+		c.mu.Lock()
+		c.initialSync = true
+		c.mu.Unlock()
+		return nil
+	}
+
 	obj, exists, err := c.informer.GetIndexer().GetByKey(secretName)
 	if err != nil {
 		return fmt.Errorf("error fetching object %s error: %v", secretName, err)

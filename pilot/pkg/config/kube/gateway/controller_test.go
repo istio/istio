@@ -22,7 +22,6 @@ import (
 	svc "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"

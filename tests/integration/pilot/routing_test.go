@@ -166,8 +166,14 @@ spec:
 // Todo merge with security TestReachability code
 func protocolSniffingCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
-	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
+	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.headless} {
 		for _, destination := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
+			client := client
+			destination := destination
+			if client == apps.naked && destination == apps.vmA {
+				// Need a sidecar to connect to VMs
+				continue
+			}
 			for _, call := range []struct {
 				// The port we call
 				port string
@@ -208,30 +214,31 @@ func vmTestCases(vm echo.Instance) []TrafficTestCase {
 			from: apps.podA,
 			to:   vm,
 		},
-		{
-			name: "dns: VM to k8s cluster IP service name.namespace host",
-			from: vm,
-			to:   apps.podA,
-			host: apps.podA.Config().Service + "." + apps.namespace.Name(),
-		},
-		{
-			name: "dns: VM to k8s cluster IP service fqdn host",
-			from: vm,
-			to:   apps.podA,
-			host: apps.podA.Config().FQDN(),
-		},
-		{
-			name: "dns: VM to k8s cluster IP service short name host",
-			from: vm,
-			to:   apps.podA,
-			host: apps.podA.Config().Service,
-		},
-		{
-			name: "dns: VM to k8s headless service",
-			from: vm,
-			to:   apps.headless,
-			host: apps.headless.Config().FQDN(),
-		},
+		// Keeping this around until we have a DNS implementation for VMs.
+		// {
+		// 	name: "dns: VM to k8s cluster IP service name.namespace host",
+		// 	from: vm,
+		// 	to:   apps.podA,
+		// 	host: apps.podA.Config().Service + "." + apps.namespace.Name(),
+		// },
+		// {
+		// 	name: "dns: VM to k8s cluster IP service fqdn host",
+		// 	from: vm,
+		// 	to:   apps.podA,
+		// 	host: apps.podA.Config().FQDN(),
+		// },
+		// {
+		// 	name: "dns: VM to k8s cluster IP service short name host",
+		// 	from: vm,
+		// 	to:   apps.podA,
+		// 	host: apps.podA.Config().Service,
+		// },
+		// {
+		// 	name: "dns: VM to k8s headless service",
+		// 	from: vm,
+		// 	to:   apps.headless,
+		// 	host: apps.headless.Config().FQDN(),
+		// },
 	}
 	cases := []TrafficTestCase{}
 	for _, c := range testCases {
@@ -256,6 +263,7 @@ func vmTestCases(vm echo.Instance) []TrafficTestCase {
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}

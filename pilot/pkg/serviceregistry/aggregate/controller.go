@@ -17,16 +17,14 @@ package aggregate
 import (
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 var (

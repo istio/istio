@@ -21,15 +21,13 @@ import (
 	"testing"
 	"time"
 
-	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 	sdstlsutil "istio.io/istio/tests/integration/security/sds_tls_origination/util"
 )
 

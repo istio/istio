@@ -30,22 +30,19 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-
-	"istio.io/api/label"
-
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/log"
-
 	kubeApiAdmission "k8s.io/api/admission/v1"
+	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -57,6 +54,7 @@ var (
 func init() {
 	_ = corev1.AddToScheme(runtimeScheme)
 	_ = kubeApiAdmission.AddToScheme(runtimeScheme)
+	_ = kubeApiAdmissionv1beta1.AddToScheme(runtimeScheme)
 }
 
 const (

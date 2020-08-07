@@ -20,12 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	kubelib "istio.io/istio/pkg/kube"
-
-	"github.com/hashicorp/go-multierror"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 const (
@@ -37,6 +34,8 @@ type FakeXdsUpdater struct {
 	// Events tracks notifications received by the updater
 	Events chan FakeXdsEvent
 }
+
+var _ model.XDSUpdater = &FakeXdsUpdater{}
 
 func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	select {
@@ -71,15 +70,16 @@ func NewFakeXDS() *FakeXdsUpdater {
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) error {
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) {
 	if len(entry) > 0 {
 		select {
 		case fx.Events <- FakeXdsEvent{Type: "eds", ID: hostname, Endpoints: entry}:
 		default:
 		}
-
 	}
-	return nil
+}
+
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.
@@ -135,25 +135,6 @@ type FakeController struct {
 	*Controller
 }
 
-func (f *FakeController) ForceResync() error {
-	// TODO this workaround fixes a flake that indicates a real issue.
-	// TODO(cont) See https://github.com/istio/istio/issues/24117 and https://github.com/istio/istio/pull/24339
-	var err *multierror.Error
-	for _, s := range f.nodeInformer.GetStore().List() {
-		err = multierror.Append(err, f.onNodeEvent(s, model.EventAdd))
-	}
-	for _, s := range f.serviceInformer.GetStore().List() {
-		err = multierror.Append(err, f.onServiceEvent(s, model.EventAdd))
-	}
-	for _, s := range f.pods.informer.GetStore().List() {
-		err = multierror.Append(err, f.pods.onEvent(s, model.EventAdd))
-	}
-	for _, s := range f.endpoints.getInformer().GetStore().List() {
-		err = multierror.Append(err, f.endpoints.onEvent(s, model.EventAdd))
-	}
-	return err.ErrorOrNil()
-}
-
 func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, *FakeXdsUpdater) {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
@@ -188,7 +169,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	go c.Run(c.stop)
 	clients.RunAndWait(c.stop)
 	// Wait for the caches to sync, otherwise we may hit race conditions where events are dropped
-	cache.WaitForCacheSync(c.stop, c.pods.informer.HasSynced, c.serviceInformer.HasSynced, c.endpoints.HasSynced)
+	cache.WaitForCacheSync(c.stop, c.HasSynced)
 
 	var fx *FakeXdsUpdater
 	if x, ok := xdsUpdater.(*FakeXdsUpdater); ok {

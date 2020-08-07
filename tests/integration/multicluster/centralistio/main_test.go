@@ -17,14 +17,13 @@ package centralistio
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/multicluster"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
@@ -53,10 +52,36 @@ func TestMain(m *testing.M) {
 			cfg.ExposeIstiod = true
 
 			// Set the control plane values on the config.
+			// For ingress, add port 15017 to the default list of ports.
 			cfg.ControlPlaneValues = controlPlaneValues + `
   global:
     centralIstiod: true
-    caAddress: istiod.istio-system.svc:15012`
+    caAddress: istiod.istio-system.svc:15012
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+    k8s:
+      service:
+        ports:
+        - port: 15021
+          targetPort: 15021
+          name: status-port
+        - port: 80
+          targetPort: 8080
+          name: http2
+        - port: 443
+          targetPort: 8443
+          name: https
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 15443
+          targetPort: 15443
+          name: tls
+        - port: 15017
+          targetPort: 15017
+          name: tcp-webhook`
 			cfg.RemoteClusterValues = `
 components:
   base:

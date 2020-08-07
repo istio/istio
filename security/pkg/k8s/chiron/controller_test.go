@@ -21,17 +21,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/security/pkg/pki/ca"
-
-	v1 "k8s.io/api/core/v1"
-
-	"istio.io/istio/security/pkg/pki/util"
-
 	cert "k8s.io/api/certificates/v1beta1"
-
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/pki/util"
 )
 
 const (
