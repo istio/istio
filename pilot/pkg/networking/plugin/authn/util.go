@@ -19,7 +19,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 )
 
-func appendLocalTrustDomain(trustDomainAliases []string) []string {
+func trustDomainsForValidation(trustDomainAliases []string) []string {
 	var trustDomains []string
 	if !features.SkipValidateTrustDomain.Get() {
 		trustDomains = append(trustDomainAliases, spiffe.GetTrustDomain())

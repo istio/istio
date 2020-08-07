@@ -15,10 +15,11 @@
 package utils
 
 import (
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"strings"
 	"testing"
 	"time"
+
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -228,7 +229,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					},
 				},
 				listenerProtocol: networking.ListenerProtocolHTTP,
-				trustDomains: []string{"cluster.local"},
+				trustDomains:     []string{"cluster.local"},
 			},
 			want: []networking.FilterChain{
 				{
