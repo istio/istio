@@ -182,6 +182,20 @@ FWy1
 		},
 		Type: "test-tls-secret",
 	}
+	fakeExpiredToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6Ik5adXVfam5Zdm5xQ19ZbU54aXRycV" +
+		"gyVWo3cmZkaFplcEF2QUJpUmxmLXMifQ.eyJhdWQiOlsiaXN0aW8tY2EiXSwiZXhwIjoxNTk2Nz" +
+		"Y5MTYyLCJpYXQiOjE1OTY3Njg1NjIsImlzcyI6Imh0dHBzOi8vY29udGFpbmVyLmdvb2dsZWFwa" +
+		"XMuY29tL3YxL3Byb2plY3RzL3dpbGxpYW1saWlzdGlvdGVzdC9sb2NhdGlvbnMvdXMtd2VzdDIt" +
+		"YS9jbHVzdGVycy92bWRlYnVnIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJ2bXRlc3Q" +
+		"iLCJwb2QiOnsibmFtZSI6InNsZWVwLWY4Y2JmNWI3Ni14cHBteiIsInVpZCI6IjFkMDFkMWYwLW" +
+		"VkN2UtNDVhZS1iNTAzLTFhZjAwMDMyODFkZiJ9LCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoic" +
+		"2xlZXAiLCJ1aWQiOiIzYmI3ZjJkYi1mMTEzLTQxYmItOTg3OC0yYTNhODlhYjNlMjYifX0sIm5i" +
+		"ZiI6MTU5Njc2ODU2Miwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OnZtdGVzdDpzbGVlcCJ" +
+		"9.Ekw9liKDDQgK-RSzIfb2fM0ZH6vQeBKBfA9LuH_3UcCQzKSXV_l-qST3GMmBcmrbAF8MZLcNA" +
+		"bzlwZ_lcWDAYGvHG89fA4OKSZsvG0d83_nuP9hx39qqXSdrJ_OJMTGXXHcvapCgFFMPVa59KDCe" +
+		"aHkbTjmn6v3NpJ78_Cq8VxpNBKZkrdxEZOKfyula7tWegneWwJN7r0XWKB4A6hefMV8ouGI9p0N" +
+		"JujQG96_RkbY4dMeii3Z45mI6CtnAcWZ2ph8bO-OJz83KiGwtzfWvLjrPYpo-vcS7TuPNgALFgB" +
+		"SfH9S2mnmv1eJuiAYj4HkWM0K0_GK3wIBMe-YxBEmd4w"
 )
 
 func TestWorkloadAgentGenerateSecretWithoutPluginProvider(t *testing.T) {
@@ -809,6 +823,15 @@ func TestParseTokenFlag(t *testing.T) {
 	sc.configOptions.SkipParseToken = true
 	secret := security.SecretItem{}
 	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), false)
+}
+
+func TestExpiredToken(t *testing.T) {
+	sc := createSecretCache()
+	defer sc.Close()
+	sc.configOptions.SkipParseToken = false
+	secret := security.SecretItem{}
+	secret.Token = fakeExpiredToken
+	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), true)
 }
 
 func TestRootCertificateExists(t *testing.T) {
