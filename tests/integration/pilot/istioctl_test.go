@@ -27,10 +27,6 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
-
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/url"
-
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/framework"
@@ -41,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/url"
 )
 
 var (

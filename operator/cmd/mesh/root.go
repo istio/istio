@@ -29,8 +29,7 @@ var (
 	baseVersion    = binversion.OperatorVersionString
 	setFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
 (--set profile=demo), enable or disable components (--set components.policy.enabled=true), or override Istio
-settings (--set meshConfig.enableTracing=true). See documentation for more info:
-https://istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec`
+settings (--set meshConfig.enableTracing=true). See documentation for more info:` + url.IstioOperatorSpec
 	// ManifestsFlagHelpStr is the command line description for --manifests
 	ManifestsFlagHelpStr = `Specify a path to a directory of charts and profiles
 (e.g. ~/Downloads/istio-` + baseVersion + `/manifests)

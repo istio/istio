@@ -47,11 +47,11 @@ var (
 	SetupURL = fmt.Sprintf("%s%s", DocsURL, "setup/")
 
 	// SidecarInjection should generate
-	// https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection
+	// https://istio.io/v1.7/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection
 	SidecarInjection = fmt.Sprintf("%s%s", SetupURL, "additional-setup/sidecar-injection/#automatic-sidecar-injection")
 
 	// SidecarDeployingApp should generate
-	// https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#deploying-an-app
+	// https://istio.io/v1.7/docs/setup/additional-setup/sidecar-injection/#deploying-an-app
 	SidecarDeployingApp = fmt.Sprintf("%s%s", SetupURL, "additional-setup/sidecar-injection/#deploying-an-app")
 
 	// #####################################
@@ -76,11 +76,11 @@ var (
 	OpsURL = fmt.Sprintf("%s%s", DocsURL, "ops/")
 
 	// DeploymentRequirements should generate
-	// https://istio.io/latest/docs/ops/deployment/requirements/
+	// https://istio.io/v1.7/docs/ops/deployment/requirements/
 	DeploymentRequirements = fmt.Sprintf("%s%s", OpsURL, "deployment/requirements/")
 
 	// ConfigureSAToken should generate
-	// https://istio.io/latest/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
+	// https://istio.io/v1.7/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
 	ConfigureSAToken = fmt.Sprintf("%s%s", OpsURL, "best-practices/security/#configure-third-party-service-account-tokens")
 
 	// #####################################
@@ -91,11 +91,11 @@ var (
 	ReferenceURL = fmt.Sprintf("%s%s", DocsURL, "reference/")
 
 	// IstioOperatorSpec should generate
-	// https://istio.io/latest/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
+	// https://istio.io/v1.7/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
 	IstioOperatorSpec = fmt.Sprintf("%s%s", ReferenceURL, "config/istio.operator.v1alpha1/#IstioOperatorSpec")
 
 	// ConfigAnalysis should generate
-	// https://istio.io/latest/docs/reference/config/analysis
+	// https://istio.io/v1.7/docs/reference/config/analysis
 	ConfigAnalysis = fmt.Sprintf("%s%s", ReferenceURL, "config/analysis")
 )
 

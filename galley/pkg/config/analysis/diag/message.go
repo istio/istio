@@ -99,7 +99,7 @@ func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
 	if m.DocRef != "" {
 		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
 	}
-	docURL := fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
+	docURL := fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, strings.ToLower(m.Type.Code()), docQueryString)
 
 	mb := v1alpha1.AnalysisMessageBase{
 		Type: &v1alpha1.AnalysisMessageBase_Type{

@@ -18,11 +18,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"istio.io/istio/pkg/url"
-
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/url"
 )
 
 func TestMessage_String(t *testing.T) {
@@ -60,7 +59,7 @@ func TestMessageWithDocRef(t *testing.T) {
 	mt := NewMessageType(Error, "IST0042", "Cheese type not found: %q")
 	m := NewMessage(mt, nil, "Feta")
 	m.DocRef = "test-ref"
-	g.Expect(m.Unstructured(false)["documentation_url"]).To(Equal("https://istio.io/latest/docs/reference/config/analysis/ist0042/?ref=test-ref"))
+	g.Expect(m.Unstructured(false)["documentation_url"]).To(Equal(url.ConfigAnalysis + "/ist0042/?ref=test-ref"))
 }
 
 func TestMessage_JSON(t *testing.T) {
