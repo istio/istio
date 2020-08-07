@@ -22,6 +22,7 @@ replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20
 require (
 	cloud.google.com/go v0.73.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
+	contrib.go.opencensus.io/exporter/stackdriver v0.13.4
 	github.com/Masterminds/sprig/v3 v3.2.0
 	github.com/aws/aws-sdk-go v1.36.19
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -91,8 +92,9 @@ require (
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324
 	gomodules.xyz/jsonpatch/v2 v2.1.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506
-	google.golang.org/grpc v1.35.0
+	google.golang.org/api v0.36.0
+	google.golang.org/genproto v0.0.0-20201203001206-6486ece9c497
+	google.golang.org/grpc v1.33.2
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
