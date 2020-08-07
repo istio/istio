@@ -26,17 +26,15 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	kubeCore "k8s.io/api/core/v1"
 
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-
-	kubeCore "k8s.io/api/core/v1"
 )
 
 const (

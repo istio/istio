@@ -24,11 +24,10 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	certutil "istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
 )
 
 const (

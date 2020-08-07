@@ -17,12 +17,12 @@ package status
 import (
 	"strings"
 
+	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-
-	"gopkg.in/yaml.v2"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type DistributionReport struct {

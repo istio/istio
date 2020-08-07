@@ -20,11 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
-	"istio.io/pkg/ledger"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/ledger"
+	"istio.io/pkg/log"
 )
 
 func (cl *Client) Version() string {

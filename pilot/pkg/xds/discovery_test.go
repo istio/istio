@@ -26,11 +26,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/monitoring"
 )
 
 func createProxies(n int) []*Connection {

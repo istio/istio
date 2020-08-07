@@ -31,11 +31,10 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/pkg/log"
 )
 
 //TransportSocket wraps UpstreamTLSContext

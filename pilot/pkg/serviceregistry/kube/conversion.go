@@ -21,7 +21,6 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"

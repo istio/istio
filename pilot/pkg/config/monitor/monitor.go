@@ -22,9 +22,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gogo/protobuf/proto"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 // Monitor will poll a config function in order to update a ConfigStore as

@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework/resource"
-
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )

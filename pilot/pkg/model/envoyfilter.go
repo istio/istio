@@ -20,7 +20,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/xds"
 )

@@ -22,15 +22,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	. "github.com/onsi/gomega"
 
-	"istio.io/pkg/filewatcher"
-
+	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/testcerts"
+	"istio.io/pkg/filewatcher"
 )
 
 func TestNewServerWithExternalCertificates(t *testing.T) {

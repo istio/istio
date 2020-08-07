@@ -19,10 +19,8 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/pkg/monitoring"
 )
 
 var (

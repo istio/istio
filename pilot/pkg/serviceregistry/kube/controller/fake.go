@@ -20,10 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	kubelib "istio.io/istio/pkg/kube"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 const (
