@@ -23,9 +23,7 @@ import (
 	"strconv"
 
 	"istio.io/istio/pkg/test/echo/common"
-
 	"istio.io/istio/pkg/test/echo/common/response"
-
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )

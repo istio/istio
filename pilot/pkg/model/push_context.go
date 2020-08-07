@@ -24,8 +24,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
@@ -35,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/pkg/monitoring"
 )
 
 var (
@@ -182,7 +181,14 @@ type XDSUpdater interface {
 	// For each cluster and hostname, the full list of active endpoints (including empty list)
 	// must be sent. The shard name is used as a key - current implementation is using the
 	// registry name.
-	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint) error
+	EDSUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint)
+
+	// EDSCacheUpdate is called when the list of endpoints or labels in a Service is changed.
+	// For each cluster and hostname, the full list of active endpoints (including empty list)
+	// must be sent. The shard name is used as a key - current implementation is using the
+	// registry name.
+	// Note: the difference with `EDSUpdate` is that it only update the cache rather than requesting a push
+	EDSCacheUpdate(shard, hostname string, namespace string, entry []*IstioEndpoint)
 
 	// SvcUpdate is called when a service definition is updated/deleted.
 	SvcUpdate(shard, hostname string, namespace string, event Event)

@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
@@ -36,12 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
-
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"

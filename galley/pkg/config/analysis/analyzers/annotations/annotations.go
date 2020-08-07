@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"istio.io/api/annotation"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"

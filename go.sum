@@ -190,6 +190,8 @@ github.com/davidraskin/go-control-plane v0.9.6 h1:4iENuo5L22BvlRqelYzzYqGq1Ir7gW
 github.com/davidraskin/go-control-plane v0.9.6/go.mod h1:g9hxJZUm391qdGhqjCQdac0e9AvWU6HDzT7i4BCGF9Q=
 github.com/davidraskin/go-control-plane v0.9.7 h1:LhVnwPWT6+oy0qhGq3M7VJxmbq5jeDcoUYkFJWL3/7o=
 github.com/davidraskin/go-control-plane v0.9.7/go.mod h1:PHtS/2NFYCb6WG6W1EKCB3FX9nOXTJs4CdN6esz/I9Q=
+github.com/davidraskin/go-control-plane v0.9.8 h1:qHSnRumROLlHUXKCR1zguft5NQw8/JpztwDI1L9gG0Q=
+github.com/davidraskin/go-control-plane v0.9.8/go.mod h1:PHtS/2NFYCb6WG6W1EKCB3FX9nOXTJs4CdN6esz/I9Q=
 github.com/dchest/siphash v1.1.0 h1:1Rs9eTUlZLPBEvV+2sTaM8O0NWn0ppbgqS7p11aWawI=
 github.com/dchest/siphash v1.1.0/go.mod h1:q+IRvb2gOSrUnYoPqHiyHXS0FOBBOdl6tONBlVnOnt4=
 github.com/deislabs/oras v0.8.1/go.mod h1:Mx0rMSbBNaNfY9hjpccEnxkOqJL6KGjtxNHPLC4G4As=
@@ -1205,6 +1207,8 @@ istio.io/api v0.0.0-20200723154128-12ba196bf594 h1:hGBXK9IvFOcsYSf6uTpT0MbbcoPnR
 istio.io/api v0.0.0-20200723154128-12ba196bf594/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
 istio.io/api v0.0.0-20200731022235-899a8094976e h1:HUbezuBY3Zr8qw1FMVTNoMZVq4ftNtat72alGGhITFI=
 istio.io/api v0.0.0-20200731022235-899a8094976e/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
+istio.io/api v0.0.0-20200807153343-42453f1c8ffc h1:1biR5ESeewdudLhfFCUP683FsFoNlmQR9NPl4Oyzi+8=
+istio.io/api v0.0.0-20200807153343-42453f1c8ffc/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
 istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26 h1:XLTmjndquXukwZVU9G6c3d/2ew43te4SuMap8UTP1R4=
 istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26/go.mod h1:OQTGBgFbgNzUMafgS5LExTTMQAA+JeC6d0m1Tphi2dk=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=

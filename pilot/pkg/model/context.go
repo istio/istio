@@ -33,12 +33,11 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -196,13 +195,13 @@ type Proxy struct {
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
 
-	// Indicates wheteher proxy supports IPv6 addresses
+	// Indicates whether proxy supports IPv6 addresses
 	ipv6Support bool
 
-	// Indicates wheteher proxy supports IPv4 addresses
+	// Indicates whether proxy supports IPv4 addresses
 	ipv4Support bool
 
-	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
+	// GlobalUnicastIP stores the global unicast IP if available, otherwise nil
 	GlobalUnicastIP string
 
 	// XdsResourceGenerator is used to generate resources for the node, based on the PushContext.

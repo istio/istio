@@ -19,12 +19,10 @@ import (
 	"reflect"
 	"testing"
 
-	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/gogoprotomarshal"
 )
 
 func TestApplyProxyConfig(t *testing.T) {

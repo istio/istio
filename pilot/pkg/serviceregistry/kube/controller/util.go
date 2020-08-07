@@ -24,11 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {

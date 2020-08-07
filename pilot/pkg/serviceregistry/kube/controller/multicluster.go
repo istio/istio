@@ -19,19 +19,17 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/features"
-	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/webhooks"
-
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/webhooks"
+	"istio.io/pkg/log"
 )
 
 const (

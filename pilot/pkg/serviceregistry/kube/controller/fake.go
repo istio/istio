@@ -20,10 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	kubelib "istio.io/istio/pkg/kube"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
+	kubelib "istio.io/istio/pkg/kube"
 )
 
 const (
@@ -35,6 +34,8 @@ type FakeXdsUpdater struct {
 	// Events tracks notifications received by the updater
 	Events chan FakeXdsEvent
 }
+
+var _ model.XDSUpdater = &FakeXdsUpdater{}
 
 func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	select {
@@ -69,15 +70,16 @@ func NewFakeXDS() *FakeXdsUpdater {
 	}
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) error {
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, _ string, entry []*model.IstioEndpoint) {
 	if len(entry) > 0 {
 		select {
 		case fx.Events <- FakeXdsEvent{Type: "eds", ID: hostname, Endpoints: entry}:
 		default:
 		}
-
 	}
-	return nil
+}
+
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 }
 
 // SvcUpdate is called when a service port mapping definition is updated.

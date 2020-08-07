@@ -22,7 +22,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pkg/config/mesh"
 )
 

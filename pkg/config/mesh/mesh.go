@@ -22,20 +22,16 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
-
-	"istio.io/api/networking/v1alpha3"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 // DefaultProxyConfig for individual proxies

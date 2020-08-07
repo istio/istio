@@ -20,14 +20,13 @@ import (
 	"sync"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 var _ serviceregistry.Instance = &ServiceEntryStore{}
@@ -133,20 +132,35 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event m
 	log.Debugf("Handle event %s for workload entry %s in namespace %s", event, curr.Name, curr.Namespace)
 	instances := []*model.ServiceInstance{}
 	instancesDelete := []*model.ServiceInstance{}
-
+	fullPush := false
+	configsUpdated := map[model.ConfigKey]struct{}{}
 	for _, se := range entries {
+		selected := false
 		workloadLabels := labels.Collection{wle.Labels}
 		if !workloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
 			if oldWle != nil {
 				oldWorkloadLabels := labels.Collection{oldWle.Labels}
 				if oldWorkloadLabels.IsSupersetOf(se.entry.WorkloadSelector.Labels) {
+					selected = true
 					instance := convertWorkloadEntryToServiceInstances(oldWle, se.services, se.entry)
 					instancesDelete = append(instancesDelete, instance...)
 				}
 			}
 		} else {
+			selected = true
 			instance := convertWorkloadEntryToServiceInstances(wle, se.services, se.entry)
 			instances = append(instances, instance...)
+		}
+
+		if selected {
+			// If serviceentry's resolution is DNS, make a full push
+			// TODO: maybe cds?
+			if se.entry.Resolution == networking.ServiceEntry_DNS {
+				fullPush = true
+				for key, value := range getUpdatedConfigs(se.services) {
+					configsUpdated[key] = value
+				}
+			}
 		}
 	}
 
@@ -160,7 +174,33 @@ func (s *ServiceEntryStore) workloadEntryHandler(old, curr model.Config, event m
 		s.deleteExistingInstances(key, instances)
 	}
 
-	s.edsUpdate(append(instances, instancesDelete...))
+	if !fullPush {
+		s.edsUpdate(append(instances, instancesDelete...), true)
+		return
+	}
+
+	// update eds cache only
+	s.edsUpdate(append(instances, instancesDelete...), false)
+
+	pushReq := &model.PushRequest{
+		Full:           true,
+		ConfigsUpdated: configsUpdated,
+		Reason:         []model.TriggerReason{model.EndpointUpdate},
+	}
+	// trigger a full push
+	s.XdsUpdater.ConfigUpdate(pushReq)
+}
+
+// getUpdatedConfigs returns related service entries when full push
+func getUpdatedConfigs(services []*model.Service) map[model.ConfigKey]struct{} {
+	configsUpdated := map[model.ConfigKey]struct{}{}
+	for _, svc := range services {
+		configsUpdated[model.ConfigKey{
+			Kind:      gvk.ServiceEntry,
+			Name:      string(svc.Hostname),
+			Namespace: svc.Attributes.Namespace}] = struct{}{}
+	}
+	return configsUpdated
 }
 
 // serviceEntryHandler defines the handler for service entries
@@ -247,7 +287,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 		}
 		// If only instances have changed, just update the indexes for the changed instances.
 		s.updateExistingInstances(key, instances)
-		s.edsUpdate(instances)
+		s.edsUpdate(instances, true)
 		return
 	}
 
@@ -271,7 +311,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 				}
 			}
 		}
-		s.edsUpdate(instances)
+		s.edsUpdate(instances, true)
 
 		// If service entry is deleted, cleanup endpoint shards for services.
 		for _, svc := range deletedSvcs {
@@ -350,7 +390,7 @@ func (s *ServiceEntryStore) WorkloadInstanceHandler(si *model.WorkloadInstance, 
 		s.deleteExistingInstances(key, instances)
 	}
 
-	s.edsUpdate(instances)
+	s.edsUpdate(instances, true)
 }
 
 func (s *ServiceEntryStore) Provider() serviceregistry.ProviderID {
@@ -462,11 +502,12 @@ func (s *ServiceEntryStore) ResyncEDS() {
 			allInstances = append(allInstances, i...)
 		}
 	}
-	s.edsUpdate(allInstances)
+	s.edsUpdate(allInstances, true)
 }
 
-// edsUpdate triggers an EDS update for the given instances
-func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
+// edsUpdate triggers an EDS cache update for the given instances.
+// And triggers a push if `push` is true.
+func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
 	allInstances := []*model.ServiceInstance{}
 
 	// Find all keys we need to lookup
@@ -487,8 +528,14 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
 
 	// This was a delete
 	if len(allInstances) == 0 {
-		for k := range keys {
-			_ = s.XdsUpdater.EDSUpdate(s.Cluster(), string(k.hostname), k.namespace, nil)
+		if push {
+			for k := range keys {
+				s.XdsUpdater.EDSUpdate(s.Cluster(), string(k.hostname), k.namespace, nil)
+			}
+		} else {
+			for k := range keys {
+				s.XdsUpdater.EDSCacheUpdate(s.Cluster(), string(k.hostname), k.namespace, nil)
+			}
 		}
 		return
 	}
@@ -512,8 +559,14 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance) {
 			})
 	}
 
-	for k, eps := range endpoints {
-		_ = s.XdsUpdater.EDSUpdate(s.Cluster(), string(k.hostname), k.namespace, eps)
+	if push {
+		for k, eps := range endpoints {
+			s.XdsUpdater.EDSUpdate(s.Cluster(), string(k.hostname), k.namespace, eps)
+		}
+	} else {
+		for k, eps := range endpoints {
+			s.XdsUpdater.EDSCacheUpdate(s.Cluster(), string(k.hostname), k.namespace, eps)
+		}
 	}
 }
 

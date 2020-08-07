@@ -20,11 +20,10 @@ import (
 	"testing"
 	"time"
 
-	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/util/retry"
+	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 func TestGateway(t *testing.T) {

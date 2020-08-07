@@ -25,13 +25,14 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
@@ -314,6 +315,19 @@ func TestProxyConfig(t *testing.T) {
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
+			dump := &admin.SecretsConfigDump{}
+			if err := jsonpb.UnmarshalString(output, dump); err != nil {
+				t.Fatal(err)
+			}
+			if len(dump.DynamicWarmingSecrets) > 0 {
+				t.Fatalf("found warming secrets: %v", output)
+			}
+			if len(dump.DynamicActiveSecrets) != 2 {
+				// If the config for the SDS does not align in all locations, we may get duplicates.
+				// This check ensures we do not. If this is failing, check to ensure the bootstrap config matches
+				// the XDS response.
+				t.Fatalf("found unexpected secrets, should have only default and ROOTCA: %v", output)
+			}
 		})
 }
 

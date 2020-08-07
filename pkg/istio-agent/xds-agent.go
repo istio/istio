@@ -23,15 +23,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
+	"istio.io/istio/pilot/pkg/xds"
 	envoyv2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/security"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

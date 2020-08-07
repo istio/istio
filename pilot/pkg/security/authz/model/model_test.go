@@ -21,7 +21,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	authzpb "istio.io/api/security/v1beta1"
-
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pkg/util/protomarshal"
 )

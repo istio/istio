@@ -23,7 +23,7 @@ replace github.com/Microsoft/hcsshim => github.com/Microsoft/hcsshim v0.8.8-0.20
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-replace github.com/envoyproxy/go-control-plane => github.com/davidraskin/go-control-plane v0.9.7
+replace github.com/envoyproxy/go-control-plane => github.com/davidraskin/go-control-plane v0.9.8
 
 replace istio.io/api => github.com/davidraskin/api-mirror v0.0.0-20200729235442-a531c591f8d1
 
@@ -134,7 +134,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200723154128-12ba196bf594
+	istio.io/api v0.0.0-20200807153343-42453f1c8ffc
 	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
 	istio.io/gogo-genproto v0.0.0-20200720193312-b523a30fe746
 	istio.io/pkg v0.0.0-20200721143030-6b837ddaf2ab
