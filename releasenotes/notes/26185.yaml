@@ -4,4 +4,6 @@ kind: feature
 area: security
 
 releaseNotes: |
-  Add supports for the multi clusters with different trust domains, so mTLS would work in that case.
+  Fix the multi cluster service discovery client SAN generation: taking endpoints' service accounts as the list.
+  Istiod generates the client SAN verification spiffie identity with cluster's own trust domain into consideration.
+  This makes cluster with different trust domain able to communicate via mTLS.

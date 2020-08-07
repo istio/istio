@@ -256,9 +256,6 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
 	sa := ""
 	if endpoint.ServiceAccount != "" {
-		// N.B(incfly): here we use the local trust domain for service entry conversion since
-		// This is the current behavior; the trust domain of the cluster where the service entry resource
-		// resides in should be used.
 		sa = spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), service.Attributes.Namespace, endpoint.ServiceAccount)
 	}
 	return &model.ServiceInstance{

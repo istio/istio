@@ -647,7 +647,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 }
 
 // cdsz implements a status and debug interface for CDS.
-// It is mapped to /debug/cdsz
+// It is mapped to /debug/spiffez
 func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
