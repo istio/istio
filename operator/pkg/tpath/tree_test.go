@@ -15,11 +15,11 @@
 package tpath
 
 import (
+	"testing"
+
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/operator/pkg/util"
-
-	"testing"
 )
 
 func TestWritePathContext(t *testing.T) {
