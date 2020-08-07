@@ -233,6 +233,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 					}
 				}
+
+				if err := verifyControlPlane(i, cluster); err != nil {
+					return fmt.Errorf("failed verifying control plane on cluster %s: %v", cluster.Name(), err)
+				}
 				return nil
 			})
 			if isCentralIstio(env, cfg) && env.IsControlPlaneCluster(cluster) {
@@ -518,6 +522,21 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 	}
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
+}
+
+func verifyControlPlane(c *operatorComponent, cluster resource.Cluster) error {
+	// Create an istioctl to configure this cluster.
+	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return err
+	}
+	_, _, err = istioCtl.Invoke([]string{"verify-install"})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
