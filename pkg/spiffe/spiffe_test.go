@@ -317,7 +317,7 @@ func TestGenSpiffeURI(t *testing.T) {
 	}
 	for id, tc := range testCases {
 		SetTrustDomain(tc.trustDomain)
-		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
+		got, err := GenSpiffeURI(GetTrustDomain(), tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)
 		}

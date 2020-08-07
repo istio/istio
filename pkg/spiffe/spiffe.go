@@ -127,18 +127,18 @@ func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) stri
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
-func GenSpiffeURI(ns, serviceAccount string) (string, error) {
+func GenSpiffeURI(trustDomain, ns, serviceAccount string) (string, error) {
 	var err error
 	if ns == "" || serviceAccount == "" {
 		err = fmt.Errorf(
 			"namespace or service account empty for SPIFFE uri ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return URIPrefix + GetTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
+	return URIPrefix + trustDomain + "/ns/" + ns + "/sa/" + serviceAccount, err
 }
 
 // MustGenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate and logs if there was an error.
 func MustGenSpiffeURI(trustDomain, ns, serviceAccount string) string {
-	uri, err := GenSpiffeURI(ns, serviceAccount)
+	uri, err := GenSpiffeURI(trustDomain, ns, serviceAccount)
 	if err != nil {
 		spiffeLog.Debug(err.Error())
 	}
