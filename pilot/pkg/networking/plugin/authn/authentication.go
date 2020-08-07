@@ -41,7 +41,8 @@ func NewPlugin() plugin.Plugin {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
 		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node, in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh.TrustDomainAliases))
+		in.ServiceInstance.Endpoint.EndpointPort, constants.DefaultSdsUdsPath, in.Node,
+		in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh.TrustDomainAliases))
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
