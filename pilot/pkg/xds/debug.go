@@ -158,11 +158,11 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	s.adsClientsMutex.RLock()
 	for _, con := range s.adsClients {
-		con.mu.RLock()
-		if con.node != nil {
+		node := con.node
+		if node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:       con.node.ID,
-				IstioVersion:  con.node.Metadata.IstioVersion,
+				ProxyID:       node.ID,
+				IstioVersion:  node.Metadata.IstioVersion,
 				ClusterSent:   con.NonceSent(v3.ClusterShortType),
 				ClusterAcked:  con.NonceAcked(v3.ClusterShortType),
 				ListenerSent:  con.NonceSent(v3.ListenerShortType),
@@ -173,7 +173,6 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 				EndpointAcked: con.NonceAcked(v3.EndpointShortType),
 			})
 		}
-		con.mu.RUnlock()
 	}
 	s.adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
