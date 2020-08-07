@@ -33,12 +33,11 @@ import (
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 
-	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
@@ -236,7 +235,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 					}
 				}
 
-				if err := verifyControlPlane(i, cluster); err != nil {
+				if err := verifyControlPlane(i, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed verifying control plane on cluster %s: %v", cluster.Name(), err)
 				}
 				return nil
@@ -526,7 +525,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
 }
 
-func verifyControlPlane(c *operatorComponent, cluster resource.Cluster) error {
+func verifyControlPlane(c *operatorComponent, cluster resource.Cluster, iopFile string) error {
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
 		Cluster: cluster,
@@ -534,16 +533,19 @@ func verifyControlPlane(c *operatorComponent, cluster resource.Cluster) error {
 	if err != nil {
 		return err
 	}
-	outStdout, outStderr, err := istioCtl.Invoke([]string{"verify-install"})
+	// Get the control plane revision from the operator overrides
+	yamlBytes, err := ioutil.ReadFile(iopFile)
+	if err != nil {
+		return err
+	}
+	iop, err := operator_istio.UnmarshalIstioOperator(string(yamlBytes), true)
+	if err != nil {
+		return err
+	}
+
+	outStdout, outStderr, err := istioCtl.Invoke([]string{"verify-install", "--revision", iop.Spec.Revision})
 	if err != nil {
 		fmt.Printf("Verify failed: %s\n%s\n%v\n", outStdout, outStderr, err)
-		istioOperatorGVR := apimachinery_schema.GroupVersionResource{
-			Group:    operator_v1alpha1.SchemeGroupVersion.Group,
-			Version:  operator_v1alpha1.SchemeGroupVersion.Version,
-			Resource: "istiooperators",
-		}
-		ul, err2 := cluster.Dynamic().Resource(istioOperatorGVR).Namespace(c.settings.IstioNamespace).List(context.TODO(), kubeApiMeta.ListOptions{})
-		fmt.Printf("@@@ ecs list returned %#v, %v\n", ul, err2)
 		return err
 	}
 	return nil
