@@ -41,6 +41,7 @@ import (
 
 	"istio.io/pkg/log"
 
+	"k8s.io/api/admission/v1"
 	"k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +58,7 @@ var (
 func init() {
 	_ = corev1.AddToScheme(runtimeScheme)
 	_ = v1beta1.AddToScheme(runtimeScheme)
+	_ = v1.AddToScheme(runtimeScheme)
 }
 
 const (
