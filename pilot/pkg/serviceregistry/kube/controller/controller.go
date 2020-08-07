@@ -496,18 +496,29 @@ func (c *Controller) SyncAll() error {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
 	}
 
+	err = multierror.Append(err, c.syncPods())
+	err = multierror.Append(err, c.syncEndpoints())
+
+	return multierror.Flatten(err.ErrorOrNil())
+}
+
+func (c *Controller) syncPods() error {
+	var err *multierror.Error
 	pods := c.pods.informer.GetStore().List()
 	log.Debugf("initialzing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
 	}
+	return err.ErrorOrNil()
+}
 
+func (c *Controller) syncEndpoints() error {
+	var err *multierror.Error
 	endpoints := c.endpoints.getInformer().GetStore().List()
 	log.Debugf("initialzing%d endpoints", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
 	}
-
 	return err.ErrorOrNil()
 }
 

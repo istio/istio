@@ -64,9 +64,12 @@ func (c *Controller) reloadNetworkLookup() {
 	}
 	c.ranger = ranger
 	// the network for endpoints are computed when we process the events; this will fix the cache
-	// TODO(landow) there may be a race between this and the full push we trigger on the networks watcher.
-	if err := c.SyncAll(); err != nil {
-		log.Errorf("one or more errors force-syncing resources: %v", err)
+	// NOTE: this must run before the other network watcher handler that creates a force push
+	if err := c.syncPods(); err != nil {
+		log.Errorf("one or more errors force-syncing pods: %v", err)
+	}
+	if err := c.syncEndpoints(); err != nil {
+		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 }
 
