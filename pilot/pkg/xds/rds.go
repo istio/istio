@@ -18,14 +18,12 @@ import (
 	"time"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/util/protomarshal"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, version string) error {

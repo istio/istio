@@ -24,10 +24,9 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	"github.com/hashicorp/go-multierror"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"

@@ -28,18 +28,16 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/cache/mock"
-	"istio.io/pkg/filewatcher"
-
+	"github.com/fsnotify/fsnotify"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/cache/mock"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-
-	"github.com/fsnotify/fsnotify"
+	"istio.io/pkg/filewatcher"
 )
 
 var (

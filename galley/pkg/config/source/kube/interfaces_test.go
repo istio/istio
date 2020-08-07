@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/galley/pkg/config/source/kube"

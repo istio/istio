@@ -23,15 +23,13 @@ import (
 	"testing"
 	"time"
 
+	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	prometheus_model "github.com/prometheus/common/model"
 	v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	promv1 "github.com/prometheus/client_golang/api/prometheus/v1"
-
 	"istio.io/istio/pkg/kube"
 	testKube "istio.io/istio/pkg/test/kube"
-
-	prometheus_model "github.com/prometheus/common/model"
 )
 
 // mockPromAPI lets us mock calls to Prometheus API

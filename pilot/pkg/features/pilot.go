@@ -17,11 +17,10 @@ package features
 import (
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
+	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
 

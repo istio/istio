@@ -34,7 +34,6 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
-
 	"istio.io/pkg/log"
 )
 

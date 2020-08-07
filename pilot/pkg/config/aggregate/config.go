@@ -18,15 +18,13 @@ package aggregate
 import (
 	"errors"
 
-	"istio.io/pkg/ledger"
-
 	"github.com/hashicorp/go-multierror"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/ledger"
+	"istio.io/pkg/log"
 )
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")

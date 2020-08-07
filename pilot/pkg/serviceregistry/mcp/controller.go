@@ -24,10 +24,6 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	"istio.io/api/label"
-
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -35,6 +31,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/ledger"
+	"istio.io/pkg/log"
 )
 
 var (

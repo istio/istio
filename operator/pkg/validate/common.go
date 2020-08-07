@@ -23,14 +23,12 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/pkg/log"
 )
 
 var (

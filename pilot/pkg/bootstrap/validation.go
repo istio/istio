@@ -17,13 +17,12 @@ package bootstrap
 import (
 	"strings"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (

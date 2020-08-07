@@ -21,11 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	"fortio.org/fortio/fhttp"
 	"fortio.org/fortio/periodic"
 
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 )
 

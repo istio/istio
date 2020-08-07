@@ -17,11 +17,10 @@ package memory
 import (
 	"errors"
 
-	"istio.io/pkg/ledger"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/ledger"
 )
 
 type controller struct {

@@ -17,11 +17,10 @@ package mtlscertplugincasecurenaming
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/security/util/cert"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (

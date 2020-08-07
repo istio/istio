@@ -24,10 +24,9 @@ import (
 
 	"istio.io/istio/galley/testdatasets/validation"
 	"istio.io/istio/pkg/config/schema"
-	"istio.io/istio/pkg/test/util/yml"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 type testData string

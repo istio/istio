@@ -20,12 +20,10 @@ import (
 	"strings"
 
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-
 	"istio.io/pkg/log"
 )
 

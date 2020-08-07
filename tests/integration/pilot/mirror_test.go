@@ -21,17 +21,14 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/test/util/retry"
-
-	"istio.io/istio/tests/util"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 //	Virtual service topology
