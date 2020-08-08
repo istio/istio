@@ -23,7 +23,6 @@ import (
 	"go.opencensus.io/stats/view"
 
 	"istio.io/api/security/v1beta1"
-
 	"istio.io/istio/pilot/pkg/model/test"
 )
 

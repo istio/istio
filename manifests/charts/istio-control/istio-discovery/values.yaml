@@ -158,12 +158,6 @@ meshConfig:
       # DNS_AGENT: DNS-TLS
       DNS_AGENT: ""
 
-      # If empty, DNS capture is disabled.
-      # If set, intercept UDP port :53 and redirect to localhost:15013
-      # Currently only 'ALL' capture is supported - we may refine it if we want
-      # finer grained control.
-      # ISTIO_META_DNS_CAPTURE: ALL
-
   # The namespace to treat as the administrative root namespace for Istio configuration.
   # When processing a leaf namespace Istio will search for declarations in that namespace first
   # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
@@ -324,6 +318,9 @@ global:
     # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"
+
+    # Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
+    holdApplicationUntilProxyStarts: false
 
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.

@@ -15,11 +15,13 @@
 package model
 
 import (
+	"time"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -102,6 +104,8 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecr
 
 // Preconfigured SDS configs to avoid excessive memory allocations
 var (
+	// set the fetch timeout to 0 here in defaultSDSConfig and rootSDSConfig
+	// because workload certs are guaranteed exist.
 	defaultSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSDefaultResourceName,
 		SdsConfig: &core.ConfigSource{
@@ -119,7 +123,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 	rootSDSConfig = &tls.SdsSecretConfig{
@@ -139,7 +143,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 )

@@ -21,20 +21,18 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
-	"istio.io/pkg/log"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	authapi "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
+	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	sdscache "istio.io/istio/security/pkg/nodeagent/cache"
 	agent_sds "istio.io/istio/security/pkg/nodeagent/sds"
+	"istio.io/pkg/log"
 )
 
 // Client is a lightweight client for testing secret discovery service server.

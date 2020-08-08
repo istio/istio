@@ -17,16 +17,14 @@ package aggregate
 import (
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
-
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -176,10 +174,10 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 		}
 
 		// This is K8S typically
+		service.Mutex.RLock()
 		if out == nil {
 			out = service.DeepCopy()
 		} else {
-			service.Mutex.RLock()
 			// ClusterExternalAddresses and ClusterExternalPorts are only used for getting gateway address
 			externalAddrs := service.Attributes.ClusterExternalAddresses[r.Cluster()]
 			if len(externalAddrs) > 0 {
@@ -195,8 +193,8 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 				}
 				out.Attributes.ClusterExternalPorts[r.Cluster()] = externalPorts
 			}
-			service.Mutex.RUnlock()
 		}
+		service.Mutex.RUnlock()
 	}
 	return out, errs
 }

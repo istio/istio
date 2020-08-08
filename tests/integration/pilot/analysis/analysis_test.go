@@ -22,20 +22,15 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	status2 "istio.io/istio/pilot/pkg/status"
-
-	"istio.io/istio/pkg/test/framework/features"
-
-	"istio.io/istio/galley/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/test/util/retry"
-
-	"istio.io/istio/pkg/test/framework/resource"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/galley/pkg/config/analysis/msg"
+	status2 "istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/features"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestStatusExistsByDefault(t *testing.T) {

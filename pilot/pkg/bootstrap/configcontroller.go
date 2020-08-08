@@ -24,37 +24,33 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/keepalive"
-
-	"istio.io/istio/galley/pkg/server/components"
-	"istio.io/istio/galley/pkg/server/settings"
-	"istio.io/istio/pilot/pkg/config/kube/crdclient"
-	"istio.io/istio/pilot/pkg/leaderelection"
-	"istio.io/istio/pilot/pkg/status"
-	"istio.io/istio/pkg/adsc"
-
-	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pilot/pkg/features"
-
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingapi "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
+	"istio.io/istio/galley/pkg/server/components"
+	"istio.io/istio/galley/pkg/server/settings"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/crdclient"
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	configz "istio.io/istio/pkg/mcp/configz/client"
 	"istio.io/istio/pkg/mcp/creds"
 	"istio.io/istio/pkg/mcp/monitoring"
 	"istio.io/istio/pkg/mcp/sink"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -174,7 +170,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 	mcpOptions := &mcp.Options{
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		ConfigLedger: buildLedger(args.RegistryOptions),
-		XDSUpdater:   s.EnvoyXdsServer,
+		XDSUpdater:   s.XDSServer,
 		Revision:     args.Revision,
 	}
 	reporter := monitoring.NewStatsContext("pilot")
@@ -385,7 +381,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 		s.statusReporter.Start(s.kubeClient, args.Namespace, s.configController, writeStatus, stop)
 		return nil
 	})
-	s.EnvoyXdsServer.StatusReporter = s.statusReporter
+	s.XDSServer.StatusReporter = s.statusReporter
 	if writeStatus {
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
 			controller := status.NewController(*s.kubeRestConfig, args.Namespace)

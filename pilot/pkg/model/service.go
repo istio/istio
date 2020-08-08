@@ -33,7 +33,6 @@ import (
 	"github.com/mitchellh/copystructure"
 
 	"istio.io/api/label"
-
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"

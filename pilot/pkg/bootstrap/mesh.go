@@ -17,13 +17,11 @@ package bootstrap
 import (
 	"encoding/json"
 
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-
-	"istio.io/istio/pkg/config/mesh"
 )
 
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.

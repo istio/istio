@@ -24,7 +24,6 @@ import (
 
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
-
 	"istio.io/istio/pkg/envoy"
 )
 

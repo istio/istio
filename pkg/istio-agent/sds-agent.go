@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -25,18 +26,16 @@ import (
 	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/security"
-
-	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
-
 	"istio.io/pkg/log"
 )
 
@@ -133,6 +132,9 @@ type AgentConfig struct {
 	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
 	// Set for tests to 127.0.0.1:0.
 	LocalXDSAddr string
+
+	// Grpc dial options. Used for testing
+	GrpcOptions []grpc.DialOption
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -246,7 +248,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	// Start the XDS client and proxy.
 	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("xds proxy: %v", err)
 	}
 
 	return server, nil

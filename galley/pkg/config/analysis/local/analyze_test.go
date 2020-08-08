@@ -22,15 +22,15 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/mesh"
+	"istio.io/istio/galley/pkg/config/source/inmemory"
 	"istio.io/istio/galley/pkg/config/source/kube/apiserver"
-	"istio.io/istio/galley/pkg/config/source/kube/inmemory"
+	kube_inmemory "istio.io/istio/galley/pkg/config/source/kube/inmemory"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
@@ -134,6 +134,19 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	g.Expect(result.Messages).To(ConsistOf(msg1))
 }
 
+func TestAddInMemorySource(t *testing.T) {
+	g := NewWithT(t)
+
+	sa := NewSourceAnalyzer(k8smeta.MustGet(), blankCombinedAnalyzer, "", "", nil, false, timeout)
+
+	src := inmemory.New(sa.kubeResources)
+	sa.AddInMemorySource(src)
+	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
+	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
+	g.Expect(sa.sources).To(HaveLen(1))
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&inmemory.Source{})) // Resources via in-memory server
+}
+
 func TestAddRunningKubeSource(t *testing.T) {
 	g := NewWithT(t)
 
@@ -195,7 +208,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	g.Expect(*sa.meshCfg).To(Equal(*mesh.DefaultMeshConfig())) // Base default meshcfg
 	g.Expect(sa.sources).To(HaveLen(1))
-	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&inmemory.KubeSource{})) // Resources via files
+	g.Expect(sa.sources[0].src).To(BeAssignableToTypeOf(&kube_inmemory.KubeSource{})) // Resources via files
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
 	testRootNamespace := "testNamespace"

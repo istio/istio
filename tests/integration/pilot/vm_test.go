@@ -46,6 +46,7 @@ func TestVmOSPost(t *testing.T) {
 					Namespace:  apps.namespace,
 					Ports:      echoPorts,
 					DeployAsVM: true,
+					VMImage:    image,
 					Subsets:    []echo.SubsetConfig{{}},
 				})
 			}

@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/metadata"
 	k8sauth "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -27,9 +29,6 @@ import (
 
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
-
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {

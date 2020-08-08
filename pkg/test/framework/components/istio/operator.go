@@ -23,10 +23,9 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
-
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
@@ -35,12 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
-
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -225,6 +224,12 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			errG.Go(func() error {
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
+				}
+
+				if cfg.ExposeIstiod {
+					if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
+						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
+					}
 				}
 				return nil
 			})
@@ -511,6 +516,16 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 	}
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
+}
+
+func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
+	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/istiod-gateway/istiod-gateway.yaml"))
+	if err != nil {
+		return err
+	}
+	yaml := string(yamlBytes)
+	yaml = strings.ReplaceAll(yaml, "istio-system", cfg.SystemNamespace)
+	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, yaml)
 }
 
 func isCentralIstio(env *kube.Environment, cfg Config) bool {

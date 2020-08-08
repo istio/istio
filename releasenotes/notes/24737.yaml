@@ -10,4 +10,4 @@ releaseNotes: |
   *Added* config option `values.global.proxy.holdApplicationUntilProxyStarts`,
   which causes the sidecar injector to inject the sidecar at the start of the
   pod's container list and configures it to block the start of all other
-  containers until the proxy is ready
+  containers until the proxy is ready.  This option is disabled by default.

@@ -21,7 +21,6 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	testKube "istio.io/istio/pkg/test/kube"
-
 	"istio.io/pkg/version"
 )
 

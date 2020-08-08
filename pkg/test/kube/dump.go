@@ -22,14 +22,12 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gogo/protobuf/jsonpb"
+	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/scopes"
-
-	"github.com/gogo/protobuf/jsonpb"
-
-	kubeApiCore "k8s.io/api/core/v1"
 )
 
 // podDumper will dump information from all the pods into the given workDir.

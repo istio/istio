@@ -19,10 +19,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/log"
 )
 
@@ -60,6 +59,9 @@ func (c *checkerImpl) Check(feature Feature) (check bool, scenario string) {
 }
 
 func checkPathSegment(m map[string]interface{}, path []string) (check bool, scenario string) {
+	if len(path) < 1 {
+		return false, ""
+	}
 	segment := path[0]
 	if val, ok := m[segment]; ok {
 		if valmap, ok := val.(map[string]interface{}); ok {

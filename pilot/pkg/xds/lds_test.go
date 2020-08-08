@@ -19,21 +19,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/xds"
-
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-
-	"istio.io/istio/pkg/config/labels"
+	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
 )
@@ -125,7 +122,7 @@ func TestLDSIsolated(t *testing.T) {
 // TestLDS using default sidecar in root namespace
 func TestLDSWithDefaultSidecar(t *testing.T) {
 
-	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+	s, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope"
 		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-ns-scope/mesh.yaml"
@@ -137,7 +134,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
@@ -185,7 +182,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 // TestLDS using gateways
 func TestLDSWithIngressGateway(t *testing.T) {
-	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+	s, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/ingress-gateway"
 		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/ingress-gateway/mesh.yaml"
@@ -197,7 +194,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
@@ -283,13 +280,13 @@ func TestLDS(t *testing.T) {
 
 // TestLDS using sidecar scoped on workload without Service
 func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
-	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+	s, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service"
 		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/sidecar-without-service/mesh.yaml"
 		args.RegistryOptions.Registries = []string{}
 	})
-	registry := memServiceDiscovery(server, t)
+	registry := memServiceDiscovery(s, t)
 	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "consumeronly"}) // These labels must match the sidecars workload selector
 
 	testEnv = env.NewTestSetup(env.SidecarConsumerOnlyTest, t)
@@ -298,7 +295,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	adsResponse, err := adsc.Dial(util.MockPilotGrpcAddr, "", &adsc.Config{
@@ -358,13 +355,13 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
-	server, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
+	s, tearDown := util.EnsureTestServer(func(args *bootstrap.PilotArgs) {
 		args.Plugins = bootstrap.DefaultPlugins
 		args.RegistryOptions.FileDir = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service"
 		args.MeshConfigFile = env.IstioSrc + "/tests/testdata/networking/envoyfilter-without-service/mesh.yaml"
 		args.RegistryOptions.Registries = []string{}
 	})
-	registry := memServiceDiscovery(server, t)
+	registry := memServiceDiscovery(s, t)
 	// The labels of 98.1.1.1 must match the envoyfilter workload selector
 	registry.AddWorkload("98.1.1.1", labels.Instance{"app": "envoyfilter-test-app", "some": "otherlabel"})
 	registry.AddWorkload("98.1.1.2", labels.Instance{"app": "no-envoyfilter-test-app"})
@@ -376,7 +373,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
 
-	server.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{Full: true})
+	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
 
 	tests := []struct {

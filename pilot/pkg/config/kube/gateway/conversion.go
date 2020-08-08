@@ -23,15 +23,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/collections"
-
 	istio "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/log"
 )
 
 const (

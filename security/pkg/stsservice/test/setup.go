@@ -30,12 +30,11 @@ import (
 
 	"google.golang.org/grpc"
 
-	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
-
 	istioEnv "istio.io/istio/pkg/test/env"
 	xdsService "istio.io/istio/security/pkg/stsservice/mock"
 	stsServer "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
 	tokenBackend "istio.io/istio/security/pkg/stsservice/tokenmanager/google/mock"
 )
 

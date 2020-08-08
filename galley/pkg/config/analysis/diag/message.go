@@ -85,8 +85,8 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	return result
 }
 
-// String implements io.Stringer
-func (m *Message) String() string {
+// Origin returns the origin of the message
+func (m *Message) Origin() string {
 	origin := ""
 	if m.Resource != nil {
 		loc := ""
@@ -95,8 +95,14 @@ func (m *Message) String() string {
 		}
 		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}
-	return fmt.Sprintf(
-		"%v [%v]%s %s", m.Type.Level(), m.Type.Code(), origin, fmt.Sprintf(m.Type.Template(), m.Parameters...))
+	return origin
+}
+
+// String implements io.Stringer
+func (m *Message) String() string {
+	return fmt.Sprintf("%v [%v]%s %s",
+		m.Type.Level(), m.Type.Code(), m.Origin(),
+		fmt.Sprintf(m.Type.Template(), m.Parameters...))
 }
 
 // MarshalJSON satisfies the Marshaler interface

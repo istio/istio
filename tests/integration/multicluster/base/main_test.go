@@ -17,12 +17,11 @@ package base
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/multicluster"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
@@ -38,11 +37,10 @@ func TestMain(m *testing.M) {
 		RequireMinClusters(2).
 		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ExposeIstiod = true
+
 			// Set the control plane values on the config.
-			cfg.ControlPlaneValues = controlPlaneValues + `
-  global:
-    meshExpansion:
-      enabled: true`
+			cfg.ControlPlaneValues = controlPlaneValues
 		})).
 		Run()
 }

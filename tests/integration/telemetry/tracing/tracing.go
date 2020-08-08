@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/zipkin"
 	"istio.io/istio/pkg/test/framework/resource"

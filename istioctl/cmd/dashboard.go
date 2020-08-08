@@ -26,11 +26,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -41,6 +40,8 @@ var (
 
 	// label selector
 	labelSelector = ""
+
+	addonNamespace = ""
 )
 
 // port-forward to Istio System Prometheus; open browser
@@ -57,7 +58,7 @@ func promDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=prometheus")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=prometheus")
 			if err != nil {
 				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 			}
@@ -67,7 +68,7 @@ func promDashCmd() *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, istioNamespace, "Prometheus",
+			return portForward(pl.Items[0].Name, addonNamespace, "Prometheus",
 				"http://%s", bindAddress, 9090, client, cmd.OutOrStdout())
 		},
 	}
@@ -89,7 +90,7 @@ func grafanaDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=grafana")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=grafana")
 			if err != nil {
 				return fmt.Errorf("not able to locate Grafana pod: %v", err)
 			}
@@ -99,7 +100,7 @@ func grafanaDashCmd() *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, istioNamespace, "Grafana",
+			return portForward(pl.Items[0].Name, addonNamespace, "Grafana",
 				"http://%s", bindAddress, 3000, client, cmd.OutOrStdout())
 		},
 	}
@@ -121,7 +122,7 @@ func kialiDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=kiali")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=kiali")
 			if err != nil {
 				return fmt.Errorf("not able to locate Kiali pod: %v", err)
 			}
@@ -131,7 +132,7 @@ func kialiDashCmd() *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, istioNamespace, "Kiali",
+			return portForward(pl.Items[0].Name, addonNamespace, "Kiali",
 				"http://%s/kiali", bindAddress, 20001, client, cmd.OutOrStdout())
 		},
 	}
@@ -153,7 +154,7 @@ func jaegerDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=jaeger")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=jaeger")
 			if err != nil {
 				return fmt.Errorf("not able to locate Jaeger pod: %v", err)
 			}
@@ -163,7 +164,7 @@ func jaegerDashCmd() *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, istioNamespace, "Jaeger",
+			return portForward(pl.Items[0].Name, addonNamespace, "Jaeger",
 				"http://%s", bindAddress, 16686, client, cmd.OutOrStdout())
 		},
 	}
@@ -185,7 +186,7 @@ func zipkinDashCmd() *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), istioNamespace, "app=zipkin")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=zipkin")
 			if err != nil {
 				return fmt.Errorf("not able to locate Zipkin pod: %v", err)
 			}
@@ -195,7 +196,7 @@ func zipkinDashCmd() *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, istioNamespace, "Zipkin",
+			return portForward(pl.Items[0].Name, addonNamespace, "Zipkin",
 				"http://%s", bindAddress, 9411, client, cmd.OutOrStdout())
 		},
 	}
@@ -402,6 +403,8 @@ func dashboard() *cobra.Command {
 		"Address to listen on. Only accepts IP address or localhost as a value. "+
 			"When localhost is supplied, istioctl will try to bind on both 127.0.0.1 and ::1 "+
 			"and will fail if neither of these address are available to bind.")
+	dashboardCmd.PersistentFlags().StringVar(&addonNamespace, "namespace", istioNamespace,
+		"Namespace where the addon is running, if not specified, istio-system would be used")
 
 	dashboardCmd.AddCommand(kialiDashCmd())
 	dashboardCmd.AddCommand(promDashCmd())

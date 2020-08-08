@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"strings"
 
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
 	sm "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
-
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 )
 
 type generator interface {

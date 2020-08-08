@@ -31,8 +31,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -46,14 +44,12 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 const (
 	// DefaultLbType set to round robin
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
-
-	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
-	ManagementClusterHostname = "mgmtCluster"
 )
 
 var (

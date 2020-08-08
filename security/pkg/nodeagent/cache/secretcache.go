@@ -29,18 +29,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pkg/security"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
+	"github.com/google/uuid"
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
-
-	"github.com/google/uuid"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -578,27 +577,27 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			return true
 		}
 
+		if sc.configOptions.CredFetcher != nil {
+			// Refresh token through credential fetcher.
+			cacheLog.Infof("%s getting a new token through credential fetcher", logPrefix)
+			t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
+			if err != nil {
+				cacheLog.Errorf("credential fetcher failed to get token: %v", err)
+			} else {
+				secret.Token = t
+			}
+		}
+
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
 			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
 			if sc.isTokenExpired(&secret) && !sc.useCertToRotate() {
 				cacheLog.Debugf("%s token expired", logPrefix)
-				if sc.configOptions.CredFetcher != nil {
-					cacheLog.Infof("%s getting a new token through credential fetcher", logPrefix)
-					t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
-					if err != nil {
-						cacheLog.Errorf("failed to get credential token: %v", err)
-						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-						return true
-					}
-					secret.Token = t
-				} else {
-					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-					// requiring the client to send another SDS request.
-					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-					return true
-				}
+				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
+				// requiring the client to send another SDS request.
+				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
+				return true
 			}
 
 			wg.Add(1)
@@ -942,8 +941,8 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
 	// Skip check if the token should not be parsed in proxy.
 	// Parsing token may not always be possible because token may not be a JWT.
-	// If ParseToken is false, we should assume token is valid and leave token validation to CA.
-	if !sc.configOptions.ParseToken {
+	// If SkipParseToken is true, we should assume token is valid and leave token validation to CA.
+	if sc.configOptions.SkipParseToken {
 		return false
 	}
 
