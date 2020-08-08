@@ -152,7 +152,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			if err != nil {
 				return err
 			}
-			if namespace == istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
+			if namespace == istioNamespaceFlag && isDeploymentName(name) {
 				istioDeploymentCount++
 			}
 		case "Job":
@@ -466,4 +466,11 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 func cleanupForGogo(un *unstructured.Unstructured) {
 	un.SetCreationTimestamp(meta_v1.Time{})             // operator_istio.UnmarshalIstioOperator chokes on these
 	un.SetManagedFields([]meta_v1.ManagedFieldsEntry{}) // operator_istio.UnmarshalIstioOperator chocks on the time in these
+}
+
+// isDeploymentName tells if this is a Deployment name created by "istioctl install" for the control plane
+func isDeploymentName(name string) bool {
+	return strings.HasPrefix(name, "istio-") ||
+		name == "istiod" || // 1.7.0 beta 1 uses this for master Istiod
+		strings.HasPrefix(name, "istiod-") // 1.7.0 beta 1 uses this for non-master Istiod
 }
