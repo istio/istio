@@ -28,13 +28,13 @@ import (
 
 func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes())
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.proxy, push, con.Routes())
 	if s.DebugConfigs {
 		for _, r := range rawRoutes {
 			con.XdsRoutes[r.Name] = r
 			if adsLog.DebugEnabled() {
 				resp, _ := protomarshal.ToJSONWithIndent(r, " ")
-				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.node.ID)
+				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.proxy.ID)
 			}
 		}
 	}
@@ -48,7 +48,7 @@ func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, ve
 	}
 	rdsPushes.Increment()
 
-	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.node.ID, len(rawRoutes))
+	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.proxy.ID, len(rawRoutes))
 	return nil
 }
 
