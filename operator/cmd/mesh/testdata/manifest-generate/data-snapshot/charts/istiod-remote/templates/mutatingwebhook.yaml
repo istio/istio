@@ -1,6 +1,6 @@
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
 {{- if not .Values.global.operatorManageWebhooks }}
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if eq .Release.Namespace "istio-system"}}

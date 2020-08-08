@@ -19,12 +19,12 @@ import (
 	"context"
 	"testing"
 
-	"istio.io/istio/security/pkg/pki/ca"
-
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/security/pkg/pki/ca"
 )
 
 const (
@@ -517,7 +517,7 @@ func TestCreateValidatingWebhookConfig(t *testing.T) {
 
 	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		var webhookConfig *kubeApiAdmission.ValidatingWebhookConfiguration
+		var webhookConfig *v1beta1.ValidatingWebhookConfiguration
 		var err error
 		if tc.createWebhookConfig {
 			webhookConfig, err = buildValidatingWebhookConfig(
@@ -571,7 +571,7 @@ func TestCreateMutatingWebhookConfig(t *testing.T) {
 
 	for tcName, tc := range testCases {
 		client := fake.NewSimpleClientset()
-		var webhookConfig *kubeApiAdmission.MutatingWebhookConfiguration
+		var webhookConfig *v1beta1.MutatingWebhookConfiguration
 		var err error
 		if tc.createWebhookConfig {
 			webhookConfig, err = buildMutatingWebhookConfig(

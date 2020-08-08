@@ -30,23 +30,19 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-
-	"istio.io/api/label"
-
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/log"
-
-	kubeApiAdmission "k8s.io/api/admission/v1"
+	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -57,7 +53,7 @@ var (
 
 func init() {
 	_ = corev1.AddToScheme(runtimeScheme)
-	_ = kubeApiAdmission.AddToScheme(runtimeScheme)
+	_ = kubeApiAdmissionv1.AddToScheme(runtimeScheme)
 	_ = kubeApiAdmissionv1beta1.AddToScheme(runtimeScheme)
 }
 
@@ -666,11 +662,11 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	}
 }
 
-func toAdmissionResponse(err error) *kubeApiAdmission.AdmissionResponse {
-	return &kubeApiAdmission.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
+func toAdmissionResponse(err error) *kubeApiAdmissionv1beta1.AdmissionResponse {
+	return &kubeApiAdmissionv1beta1.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
-func (wh *Webhook) inject(ar *kubeApiAdmission.AdmissionReview, path string) *kubeApiAdmission.AdmissionResponse {
+func (wh *Webhook) inject(ar *kubeApiAdmissionv1beta1.AdmissionReview, path string) *kubeApiAdmissionv1beta1.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
@@ -693,7 +689,7 @@ func (wh *Webhook) inject(ar *kubeApiAdmission.AdmissionReview, path string) *ku
 	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, &pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
-		return &kubeApiAdmission.AdmissionResponse{
+		return &kubeApiAdmissionv1beta1.AdmissionResponse{
 			Allowed: true,
 		}
 	}
@@ -774,11 +770,11 @@ func (wh *Webhook) inject(ar *kubeApiAdmission.AdmissionReview, path string) *ku
 
 	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
-	reviewResponse := kubeApiAdmission.AdmissionResponse{
+	reviewResponse := kubeApiAdmissionv1beta1.AdmissionResponse{
 		Allowed: true,
 		Patch:   patchBytes,
-		PatchType: func() *kubeApiAdmission.PatchType {
-			pt := kubeApiAdmission.PatchTypeJSONPatch
+		PatchType: func() *kubeApiAdmissionv1beta1.PatchType {
+			pt := kubeApiAdmissionv1beta1.PatchTypeJSONPatch
 			return &pt
 		}(),
 	}
@@ -813,13 +809,8 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
-	var reviewResponse *kubeApiAdmission.AdmissionResponse
-	ar := kubeApiAdmission.AdmissionReview{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
-			Kind:       "AdmissionReview",
-		},
-	}
+	var reviewResponse *kubeApiAdmissionv1beta1.AdmissionResponse
+	ar := kubeApiAdmissionv1beta1.AdmissionReview{}
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
@@ -828,12 +819,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		reviewResponse = wh.inject(&ar, path)
 	}
 
-	response := kubeApiAdmission.AdmissionReview{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
-			Kind:       "AdmissionReview",
-		},
-	}
+	response := kubeApiAdmissionv1beta1.AdmissionReview{}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		if ar.Request != nil {

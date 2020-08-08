@@ -318,7 +318,7 @@ func (c *preCheckClient) checkAuthorization(s *authorizationapi.SelfSubjectAcces
 }
 
 func (c *preCheckClient) checkMutatingWebhook() error {
-	_, err := c.client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.TODO(), meta_v1.ListOptions{})
+	_, err := c.client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().List(context.TODO(), meta_v1.ListOptions{})
 	return err
 }
 
