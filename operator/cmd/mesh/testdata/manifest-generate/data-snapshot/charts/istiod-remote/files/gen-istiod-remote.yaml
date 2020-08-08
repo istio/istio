@@ -637,7 +637,7 @@ data:
 ---
 # Source: istiod-remote/templates/mutatingwebhook.yaml
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector-default
@@ -652,9 +652,7 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/inject"
-      caBundle: 
-    sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
+      caBundle:
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]

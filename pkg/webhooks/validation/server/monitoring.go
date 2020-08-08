@@ -17,7 +17,7 @@ package server
 import (
 	"strconv"
 
-	kubeApiAdmission "k8s.io/api/admission/v1"
+	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 
 	"istio.io/pkg/monitoring"
 )

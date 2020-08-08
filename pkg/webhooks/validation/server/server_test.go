@@ -28,8 +28,8 @@ import (
 	"testing"
 	"time"
 
-	kubeApiAdmission "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeApiAdmission "k8s.io/api/admission/v1beta1"
+	kubeApisMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -159,7 +159,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid create",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -169,7 +169,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "valid update",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Update,
 			},
@@ -179,7 +179,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "unsupported operation",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
 				Operation: kubeApiAdmission.Delete,
 			},
@@ -189,7 +189,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid spec",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -199,7 +199,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "corrupt object",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -209,7 +209,7 @@ func TestAdmitPilot(t *testing.T) {
 			name:  "invalid extra key create",
 			admit: wh.admitPilot,
 			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      metav1.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
+				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
 				Operation: kubeApiAdmission.Create,
 			},
@@ -230,12 +230,8 @@ func TestAdmitPilot(t *testing.T) {
 func makeTestReview(t *testing.T, valid bool) []byte {
 	t.Helper()
 	review := kubeApiAdmission.AdmissionReview{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
-			Kind:       "AdmissionReview",
-		},
 		Request: &kubeApiAdmission.AdmissionRequest{
-			Kind: metav1.GroupVersionKind{},
+			Kind: kubeApisMeta.GroupVersionKind{},
 			Object: runtime.RawExtension{
 				Raw: makePilotConfig(t, 0, valid, false),
 			},
