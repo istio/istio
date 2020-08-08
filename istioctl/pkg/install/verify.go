@@ -152,7 +152,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			if err != nil {
 				return err
 			}
-			if namespace == istioNamespaceFlag && isDeploymentName(name) {
+			if namespace == istioNamespaceFlag {
 				istioDeploymentCount++
 			}
 		case "Job":
@@ -184,7 +184,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 
-			cleanupForGogo(un)
+			gogoWorkaround(un)
 			by := util.ToYAML(un)
 			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
@@ -428,7 +428,7 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		return nil, err
 	}
 	for _, un := range ul.Items {
-		cleanupForGogo(&un)
+		gogoWorkaround(&un)
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
@@ -462,15 +462,9 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	return retval, nil
 }
 
-// cleanupForGogo prepares an unstructed for github.com/gogo/protobuf's Unmarshal()
-func cleanupForGogo(un *unstructured.Unstructured) {
+// gogoWorkaround prepares an unstructed for github.com/gogo/protobuf's Unmarshal().  That method cannot
+// unmarshal Kubernetes time.Time.
+func gogoWorkaround(un *unstructured.Unstructured) {
 	un.SetCreationTimestamp(meta_v1.Time{})             // operator_istio.UnmarshalIstioOperator chokes on these
 	un.SetManagedFields([]meta_v1.ManagedFieldsEntry{}) // operator_istio.UnmarshalIstioOperator chocks on the time in these
-}
-
-// isDeploymentName tells if this is a Deployment name created by "istioctl install" for the control plane
-func isDeploymentName(name string) bool {
-	return strings.HasPrefix(name, "istio-") ||
-		name == "istiod" || // 1.7.0 beta 1 uses this for master Istiod
-		strings.HasPrefix(name, "istiod-") // 1.7.0 beta 1 uses this for non-master Istiod
 }
