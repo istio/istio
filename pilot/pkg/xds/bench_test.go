@@ -110,7 +110,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
-			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext)
+			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
 			routeNames := ExtractRoutesFromListeners(l)
 			if len(routeNames) == 0 {
 				b.Fatal("Got no route names!")
@@ -118,7 +118,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext, routeNames)
+				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext(), routeNames)
 				if len(r) == 0 {
 					b.Fatal("Got no routes!")
 				}
@@ -137,7 +137,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				c := s.Discovery.ConfigGenerator.BuildClusters(proxy, s.PushContext)
+				c := s.Discovery.ConfigGenerator.BuildClusters(proxy, s.PushContext())
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
@@ -156,7 +156,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext)
+				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
 				if len(l) == 0 {
 					b.Fatal("Got no listeners!")
 				}
