@@ -80,7 +80,7 @@ type values struct {
 	Gateways               *gatewaysConfig                  `json:"gateways" patchStrategy:"merge"`
 	Global                 *v1alpha12.GlobalConfig          `json:"global" patchStrategy:"merge"`
 	Pilot                  *v1alpha12.PilotConfig           `json:"pilot" patchStrategy:"merge"`
-	Telemetry              *v1alpha12.TelemetryConfig       `json:"telemetry" patchStrategy:"merge"`
+	Telemetry              *telemetryConfig                 `json:"telemetry" patchStrategy:"merge"`
 	SidecarInjectorWebhook *v1alpha12.SidecarInjectorConfig `json:"sidecarInjectorWebhook" patchStrategy:"merge"`
 	ClusterResources       *protobuf.BoolValue              `json:"clusterResources" patchStrategy:"merge"`
 	IstioCni               *v1alpha12.CNIConfig             `json:"istio_cni" patchStrategy:"merge"`
@@ -90,8 +90,24 @@ type values struct {
 }
 
 type gatewaysConfig struct {
-	IstioEgressgateway  *v1alpha12.EgressGatewayConfig  `json:"istio-egressgateway" patchStrategy:"merge"`
-	IstioIngressgateway *v1alpha12.IngressGatewayConfig `json:"istio_ingressgateway" patchStrategy:"merge"`
+	IstioEgressgateway  *egressGatewayConfig  `json:"istio-egressgateway" patchStrategy:"merge"`
+	IstioIngressgateway *ingressGatewayConfig `json:"istio-ingressgateway" patchStrategy:"merge"`
+}
+
+// Configuration for an ingress gateway.
+type ingressGatewayConfig struct {
+	Cpu                *v1alpha12.CPUTargetUtilizationConfig `json:"cpu" patchStrategy:"merge"`
+	MeshExpansionPorts []*v1alpha12.PortsConfig              `json:"meshExpansionPorts" patchStrategy:"merge"`
+	Ports              []*v1alpha12.PortsConfig              `json:"ports" patchStrategy:"merge"`
+	SecretVolumes      []*v1alpha12.SecretVolume             `json:"secretVolumes" patchStrategy:"merge"`
+	Zvpn               *v1alpha12.IngressGatewayZvpnConfig   `json:"zvpn" patchStrategy:"merge"`
+}
+
+type egressGatewayConfig struct {
+	Ports         []*v1alpha12.PortsConfig  `json:"ports" patchStrategy:"merge"`
+	Resources     *v1alpha12.Resources      `json:"resources" patchStrategy:"merge"`
+	SecretVolumes []*v1alpha12.SecretVolume `json:"secretVolumes" patchStrategy:"merge"`
+	Zvpn          *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"merge"`
 }
 
 type meshConfig struct {
@@ -106,6 +122,17 @@ type meshConfig struct {
 	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge"`
 	ThriftConfig                   *v1alpha13.MeshConfig_ThriftConfig                        `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings                   `json:"serviceSettings" patchStrategy:"merge"`
+}
+
+type telemetryConfig struct {
+	V2 *telemetryV2Config `json:"v2" patchStrategy:"merge"`
+}
+
+type telemetryV2Config struct {
+	MetadataExchange *v1alpha12.TelemetryV2MetadataExchangeConfig      `json:"metadataExchange" patchStrategy:"merge"`
+	Prometheus       *v1alpha12.TelemetryV2PrometheusConfig            `json:"prometheus" patchStrategy:"merge"`
+	Stackdriver      *v1alpha12.TelemetryV2StackDriverConfig           `json:"stackdriver" patchStrategy:"merge"`
+	AccessLogPolicy  *v1alpha12.TelemetryV2AccessLogPolicyFilterConfig `json:"accessLogPolicy" patchStrategy:"merge"`
 }
 
 var (
