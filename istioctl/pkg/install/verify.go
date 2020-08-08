@@ -68,14 +68,14 @@ func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 		iop,
 		fmt.Sprintf("in cluster operator %s", iop.GetName()),
 		restClientGetter,
-		writer)
+		writer,
+		manifestsPath)
 	return show(crdCount, istioDeploymentCount, err, writer)
 }
 
 func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
 	restClientGetter genericclioptions.RESTClientGetter, options resource.FilenameOptions,
-	writer io.Writer) error {
-
+	writer io.Writer, manifestsPath string) error {
 	// This is not a pre-check.  Check that the supplied resources exist in the cluster
 	r := resource.NewBuilder(restClientGetter).
 		Unstructured().
@@ -91,7 +91,8 @@ func verifyInstall(enableVerbose bool, istioNamespaceFlag string,
 		visitor,
 		strings.Join(options.Filenames, ","),
 		restClientGetter,
-		writer)
+		writer,
+		manifestsPath)
 	return show(crdCount, istioDeploymentCount, err, writer)
 }
 
@@ -110,7 +111,8 @@ func show(crdCount, istioDeploymentCount int, err error, writer io.Writer) error
 }
 
 func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
-	visitor resource.Visitor, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) (int, int, error) {
+	visitor resource.Visitor, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer,
+	manifestsPath string) (int, int, error) {
 	crdCount := 0
 	istioDeploymentCount := 0
 	err := visitor.Visit(func(info *resource.Info, err error) error {
@@ -182,13 +184,17 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 
-			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+			cleanupForGogo(un)
 			by := util.ToYAML(un)
 			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
 				return err
 			}
-			generatedCrds, generatedDeployments, err := verifyPostInstallIstioOperator(enableVerbose, istioNamespaceFlag, iop, filename, restClientGetter, writer)
+			if manifestsPath != "" {
+				iop.Spec.InstallPackagePath = manifestsPath
+			}
+			generatedCrds, generatedDeployments, err := verifyPostInstallIstioOperator(enableVerbose, istioNamespaceFlag, iop, filename, restClientGetter, writer,
+				manifestsPath)
 			if err != nil {
 				return err
 			}
@@ -285,7 +291,7 @@ func NewVerifyCommand() *cobra.Command {
 			}
 			// When the user specifies a file, compare against it.
 			return verifyInstall(enableVerbose, istioNamespace, kubeConfigFlags,
-				fileNameFlags.ToOptions(), c.OutOrStderr())
+				fileNameFlags.ToOptions(), c.OutOrStderr(), manifestsPath)
 		},
 	}
 
@@ -356,8 +362,9 @@ func findResourceInSpec(kind string) string {
 	return ""
 }
 
-// nolint: lll
-func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag string, iop *v1alpha1.IstioOperator, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) (int, int, error) {
+func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag string, iop *v1alpha1.IstioOperator,
+	filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer,
+	manifestsPath string) (int, int, error) {
 	// Generate the manifest this IstioOperator will make
 	t := translate.NewTranslator()
 
@@ -393,7 +400,8 @@ func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag strin
 		visitor,
 		fmt.Sprintf("generated from %s", filename),
 		restClientGetter,
-		writer)
+		writer,
+		manifestsPath)
 	if err != nil {
 		return generatedCrds, generatedDeployments, err
 	}
@@ -420,7 +428,7 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		return nil, err
 	}
 	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		cleanupForGogo(&un)
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
@@ -452,4 +460,10 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 		retval = append(retval, iop)
 	}
 	return retval, nil
+}
+
+// cleanupForGogo prepares an unstructed for github.com/gogo/protobuf's Unmarshal()
+func cleanupForGogo(un *unstructured.Unstructured) {
+	un.SetCreationTimestamp(meta_v1.Time{})             // operator_istio.UnmarshalIstioOperator chokes on these
+	un.SetManagedFields([]meta_v1.ManagedFieldsEntry{}) // operator_istio.UnmarshalIstioOperator chocks on the time in these
 }
