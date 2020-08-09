@@ -68,7 +68,8 @@ func verifyInstallIOPrevision(enableVerbose bool, istioNamespaceFlag string,
 		iop,
 		fmt.Sprintf("in cluster operator %s", iop.GetName()),
 		restClientGetter,
-		writer)
+		writer,
+		manifestsPath)
 	return show(crdCount, istioDeploymentCount, err, writer)
 }
 
@@ -151,7 +152,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			if err != nil {
 				return err
 			}
-			if namespace == istioNamespaceFlag && strings.HasPrefix(name, "istio-") {
+			if namespace == istioNamespaceFlag {
 				istioDeploymentCount++
 			}
 		case "Job":
@@ -183,7 +184,7 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 
-			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+			gogoWorkaround(un)
 			by := util.ToYAML(un)
 			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
@@ -192,7 +193,8 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			if manifestsPath != "" {
 				iop.Spec.InstallPackagePath = manifestsPath
 			}
-			generatedCrds, generatedDeployments, err := verifyPostInstallIstioOperator(enableVerbose, istioNamespaceFlag, iop, filename, restClientGetter, writer)
+			generatedCrds, generatedDeployments, err := verifyPostInstallIstioOperator(enableVerbose, istioNamespaceFlag, iop, filename, restClientGetter, writer,
+				manifestsPath)
 			if err != nil {
 				return err
 			}
@@ -361,8 +363,9 @@ func findResourceInSpec(kind string) string {
 	return ""
 }
 
-// nolint: lll
-func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag string, iop *v1alpha1.IstioOperator, filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer) (int, int, error) {
+func verifyPostInstallIstioOperator(enableVerbose bool, istioNamespaceFlag string, iop *v1alpha1.IstioOperator,
+	filename string, restClientGetter genericclioptions.RESTClientGetter, writer io.Writer,
+	manifestsPath string) (int, int, error) {
 	// Generate the manifest this IstioOperator will make
 	t := translate.NewTranslator()
 
@@ -428,7 +431,7 @@ func operatorFromCluster(enableVerbose bool, istioNamespaceFlag string, revision
 		return nil, err
 	}
 	for _, un := range ul.Items {
-		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		gogoWorkaround(&un)
 		by := util.ToYAML(un.Object)
 		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
@@ -463,4 +466,11 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 		retval = append(retval, iop)
 	}
 	return retval, nil
+}
+
+// gogoWorkaround prepares an unstructed for github.com/gogo/protobuf's Unmarshal().  That method cannot
+// unmarshal Kubernetes time.Time.
+func gogoWorkaround(un *unstructured.Unstructured) {
+	un.SetCreationTimestamp(meta_v1.Time{})             // operator_istio.UnmarshalIstioOperator chokes on these
+	un.SetManagedFields([]meta_v1.ManagedFieldsEntry{}) // operator_istio.UnmarshalIstioOperator chocks on the time in these
 }
