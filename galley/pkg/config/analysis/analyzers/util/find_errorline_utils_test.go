@@ -28,6 +28,7 @@ var fieldMap = map[string]int{
 	"{.metadata.name}":                                 1,
 	"{.metadata.namespace}":                            1,
 	"{.metadata.annotations.test}":                     1,
+	"{.networks.test.endpoints[0]}":                    1,
 	"{.spec.test[0].route[0].destination.host}":        1,
 	"{.spec.http[0].mirror.host}":                      1,
 	"{.spec.gateways[0]}":                              1,
@@ -40,7 +41,6 @@ var fieldMap = map[string]int{
 	"{.spec.rules[0].from[0].source.namespaces[0]}":    1,
 	"{.spec.selector.test}":                            1,
 	"{.spec.servers[0].tls.credentialName}":            1,
-	"{.networks.test.endpoints[0]}":                    1,
 }
 
 func TestExtractLabelFromSelectorString(t *testing.T) {
