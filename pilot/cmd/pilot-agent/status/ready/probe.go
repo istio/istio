@@ -16,6 +16,8 @@ package ready
 
 import (
 	"fmt"
+	"net"
+	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 
@@ -40,7 +42,12 @@ func (p *Probe) Check() error {
 
 	// Envoy has received some configuration, make sure that configuration has been received for
 	// all inbound ports.
-	return p.checkInboundConfigured()
+	if err := p.checkInboundConfigured(); err != nil {
+		return err
+	}
+
+	// Make sure Envoy proxy is listening on port 15001
+	return p.checkProxyListening()
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
@@ -86,4 +93,13 @@ func (p *Probe) checkUpdated() error {
 	}
 
 	return fmt.Errorf("config not received from Pilot (is Pilot running?): %s", s.String())
+}
+
+func (p *Probe) checkProxyListening() error {
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:15001", 500 * time.Millisecond)
+	if err != nil {
+		return err
+	}
+	_ = conn.Close()
+	return nil
 }
