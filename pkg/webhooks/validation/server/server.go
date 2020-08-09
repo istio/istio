@@ -169,7 +169,9 @@ func serve(w http.ResponseWriter, r *http.Request, admit admitFunc) {
 		reviewResponse = admit(ar.Request)
 	}
 
-	response := kubeApiAdmission.AdmissionReview{}
+	response := kubeApiAdmission.AdmissionReview{
+		TypeMeta: ar.TypeMeta,
+	}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		if ar.Request != nil {

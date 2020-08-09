@@ -817,7 +817,9 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		reviewResponse = wh.inject(&ar, path)
 	}
 
-	response := kubeApiAdmissionv1beta1.AdmissionReview{}
+	response := kubeApiAdmissionv1beta1.AdmissionReview{
+		TypeMeta: ar.TypeMeta,
+	}
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		if ar.Request != nil {

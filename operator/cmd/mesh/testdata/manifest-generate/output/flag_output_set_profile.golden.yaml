@@ -7663,6 +7663,7 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
