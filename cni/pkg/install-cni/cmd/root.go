@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/install"
 	"istio.io/pkg/log"
@@ -35,7 +34,7 @@ var rootCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		ctx := cmd.Context()
 
-		var cfg *config.Config
+		var cfg *install.Config
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
@@ -116,8 +115,8 @@ func bindViper(name string) {
 	}
 }
 
-func constructConfig() (*config.Config, error) {
-	cfg := &config.Config{
+func constructConfig() (*install.Config, error) {
+	cfg := &install.Config{
 		CNINetDir:        viper.GetString(constants.CNINetDir),
 		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
 		CNIConfName:      viper.GetString(constants.CNIConfName),

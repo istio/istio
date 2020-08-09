@@ -25,14 +25,38 @@ import (
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/pkg/errors"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"istio.io/pkg/log"
 )
 
+// Config struct defines the Istio CNI installation config.
+type Config struct {
+	CNINetDir        string
+	MountedCNINetDir string
+	CNIConfName      string
+	ChainedCNIPlugin bool
+
+	CNINetworkConfigFile string
+	CNINetworkConfig     string
+
+	LogLevel           string
+	KubeconfigFilename string
+	KubeconfigMode     int
+	KubeCAFile         string
+	SkipTLSVerify      bool
+
+	K8sServiceProtocol string
+	K8sServiceHost     string
+	K8sServicePort     string
+	K8sNodeName        string
+
+	UpdateCNIBinaries bool
+	SkipCNIBinaries   []string
+}
+
 type Installer struct {
-	cfg                *config.Config
+	cfg                *Config
 	isReady            *atomic.Value
 	saToken            string
 	kubeconfigFilepath string
@@ -40,7 +64,7 @@ type Installer struct {
 }
 
 // NewInstaller returns an instance of Installer with the given config
-func NewInstaller(cfg *config.Config, isReady *atomic.Value) *Installer {
+func NewInstaller(cfg *Config, isReady *atomic.Value) *Installer {
 	return &Installer{
 		cfg:     cfg,
 		isReady: isReady,
@@ -156,7 +180,7 @@ func readServiceAccountToken() (string, error) {
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepath string, isReady *atomic.Value) error {
+func sleepCheckInstall(ctx context.Context, cfg *Config, cniConfigFilepath string, isReady *atomic.Value) error {
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
 	watcher, fileModified, errChan, err := util.CreateFileWatcher(cfg.MountedCNINetDir)
@@ -194,7 +218,7 @@ func sleepCheckInstall(ctx context.Context, cfg *config.Config, cniConfigFilepat
 }
 
 // checkInstall returns an error if an invalid CNI configuration is detected
-func checkInstall(cfg *config.Config, cniConfigFilepath string) error {
+func checkInstall(cfg *Config, cniConfigFilepath string) error {
 	defaultCNIConfigFilename, err := getDefaultCNINetwork(cfg.MountedCNINetDir)
 	if err != nil {
 		return err

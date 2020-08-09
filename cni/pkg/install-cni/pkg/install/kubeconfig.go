@@ -25,7 +25,6 @@ import (
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/pkg/errors"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 )
 
@@ -57,7 +56,7 @@ type kubeconfigFields struct {
 	TLSConfig                 string
 }
 
-func createKubeconfigFile(cfg *config.Config, saToken string) (kubeconfigFilepath string, err error) {
+func createKubeconfigFile(cfg *Config, saToken string) (kubeconfigFilepath string, err error) {
 	if len(cfg.K8sServiceHost) == 0 {
 		err = errors.New("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 		return

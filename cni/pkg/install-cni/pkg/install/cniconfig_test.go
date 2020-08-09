@@ -25,7 +25,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	testutils "istio.io/istio/pilot/test/util"
 )
@@ -463,10 +462,16 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			expectedConfName:  "specific-name.conf",
 			goldenConfName:    "istio-cni.conf",
 		},
+		{
+			name:              "standalone CNI plugin specified CNI config file undetectable",
+			specifiedConfName: "undetectable.file",
+			expectedConfName:  "undetectable.file",
+			goldenConfName:    "istio-cni.conf",
+		},
 	}
 
 	for i, c := range cases {
-		cfgFile := config.Config{
+		cfgFile := Config{
 			CNIConfName:          c.specifiedConfName,
 			ChainedCNIPlugin:     c.chainedCNIPlugin,
 			CNINetworkConfigFile: cniNetworkConfigFile,
@@ -474,14 +479,14 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			KubeconfigFilename:   kubeconfigFilename,
 		}
 
-		cfg := config.Config{
+		cfg := Config{
 			CNIConfName:        c.specifiedConfName,
 			ChainedCNIPlugin:   c.chainedCNIPlugin,
 			CNINetworkConfig:   cniNetworkConfig,
 			LogLevel:           "debug",
 			KubeconfigFilename: kubeconfigFilename,
 		}
-		test := func(cfg config.Config) func(t *testing.T) {
+		test := func(cfg Config) func(t *testing.T) {
 			return func(t *testing.T) {
 				// Create temp directory for files
 				tempDir, err := ioutil.TempDir("", fmt.Sprintf("test-case-%d-", i))

@@ -28,7 +28,6 @@ import (
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/pkg/errors"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	"istio.io/pkg/log"
 )
@@ -53,7 +52,7 @@ type cniConfigVars struct {
 	k8sNodeName        string
 }
 
-func getPluginConfig(cfg *config.Config) pluginConfig {
+func getPluginConfig(cfg *Config) pluginConfig {
 	return pluginConfig{
 		mountedCNINetDir: cfg.MountedCNINetDir,
 		cniConfName:      cfg.CNIConfName,
@@ -61,14 +60,14 @@ func getPluginConfig(cfg *config.Config) pluginConfig {
 	}
 }
 
-func getCNIConfigTemplate(cfg *config.Config) cniConfigTemplate {
+func getCNIConfigTemplate(cfg *Config) cniConfigTemplate {
 	return cniConfigTemplate{
 		cniNetworkConfigFile: cfg.CNINetworkConfigFile,
 		cniNetworkConfig:     cfg.CNINetworkConfig,
 	}
 }
 
-func getCNIConfigVars(cfg *config.Config) cniConfigVars {
+func getCNIConfigVars(cfg *Config) cniConfigVars {
 	return cniConfigVars{
 		cniNetDir:          cfg.CNINetDir,
 		kubeconfigFilename: cfg.KubeconfigFilename,
@@ -79,7 +78,7 @@ func getCNIConfigVars(cfg *config.Config) cniConfigVars {
 	}
 }
 
-func createCNIConfigFile(ctx context.Context, cfg *config.Config, saToken string) (string, error) {
+func createCNIConfigFile(ctx context.Context, cfg *Config, saToken string) (string, error) {
 	cniConfig, err := readCNIConfigTemplate(getCNIConfigTemplate(cfg))
 	if err != nil {
 		return "", err

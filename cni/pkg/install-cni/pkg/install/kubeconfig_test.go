@@ -24,7 +24,6 @@ import (
 	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/stretchr/testify/assert"
 
-	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	testutils "istio.io/istio/pilot/test/util"
 )
@@ -91,7 +90,7 @@ func TestCreateKubeconfigFile(t *testing.T) {
 				}
 			}()
 
-			cfg := &config.Config{
+			cfg := &Config{
 				MountedCNINetDir:   tempDir,
 				KubeconfigFilename: c.kubeconfigFilename,
 				KubeconfigMode:     c.kubeconfigMode,
