@@ -17,9 +17,9 @@ package server
 import (
 	"strconv"
 
-	"istio.io/pkg/monitoring"
+	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 
-	kubeApiAdmission "k8s.io/api/admission/v1"
+	"istio.io/pkg/monitoring"
 )
 
 const (

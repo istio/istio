@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istio-galley
@@ -63,7 +63,6 @@ webhooks:
           - virtualservices
     failurePolicy: Fail
     sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
   - name: mixer.validation.istio.io
     clientConfig:
       service:
@@ -88,4 +87,3 @@ webhooks:
           - templates
     failurePolicy: Fail
     sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
