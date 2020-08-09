@@ -16,6 +16,7 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -78,11 +79,21 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 			inFilename:      "empty.conf",
 		},
 		{
-			name:            "regular file",
+			name:            "invalid CNI file",
+			dir:             tempDir,
+			expectedFailure: true,
+			inFilename:      "invalid.conf",
+			fileContents: `
+{
+	"cniVersion": "0.3.1"
+}`,
+		},
+		{
+			name:            "first valid CNI file",
 			dir:             tempDir,
 			expectedFailure: false,
-			inFilename:      "regular.conf",
-			outFilename:     "regular.conf",
+			inFilename:      "istio-cni-1.conf",
+			outFilename:     "istio-cni-1.conf",
 			fileContents: `
 {
 	"cniVersion": "0.3.1",
@@ -91,11 +102,11 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 }`,
 		},
 		{
-			name:            "another regular file",
+			name:            "second valid CNI file",
 			dir:             tempDir,
 			expectedFailure: false,
-			inFilename:      "regular2.conf",
-			outFilename:     "regular.conf",
+			inFilename:      "istio-cni-2.conf",
+			outFilename:     "istio-cni-1.conf",
 			fileContents: `
 {
 	"cniVersion": "0.3.1",
@@ -115,8 +126,17 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 			}
 
 			result, err := getDefaultCNINetwork(c.dir)
-			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
-				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
+			if c.expectedFailure {
+				if err == nil {
+					t.Fatalf("expected failure but got no error")
+				}
+				if !errors.Is(err, errNoCNINetwork) {
+					t.Fatalf("expected error: %v, got %v", errNoCNINetwork, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("did not expect failure but got: %v", err)
 			}
 
 			if c.fileContents != "" {

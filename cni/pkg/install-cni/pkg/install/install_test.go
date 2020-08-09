@@ -73,6 +73,13 @@ func TestCheckInstall(t *testing.T) {
 			existingConfFiles: map[string]string{"list.conflist": "list.conflist"},
 		},
 		{
+			name:              "specified undetectable config file",
+			cniConfigFilename: "undetectable.file",
+			cniConfName:       "undetectable.file",
+			chainedCNIPlugin:  true,
+			existingConfFiles: map[string]string{"list.conflist.golden": "undetectable.file"},
+		},
+		{
 			name:              "chained CNI plugin",
 			cniConfigFilename: "list.conflist",
 			chainedCNIPlugin:  true,
@@ -83,6 +90,12 @@ func TestCheckInstall(t *testing.T) {
 			expectedFailure:   true,
 			cniConfigFilename: "bridge.conf",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf"},
+		},
+		{
+			name:              "standalone CNI plugin specified undetectable config file",
+			cniConfigFilename: "undetectable.file",
+			cniConfName:       "undetectable.file",
+			existingConfFiles: map[string]string{"istio-cni.conf": "undetectable.file"},
 		},
 		{
 			name:              "standalone CNI plugin",

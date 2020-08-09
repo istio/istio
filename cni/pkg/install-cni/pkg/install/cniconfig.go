@@ -217,7 +217,11 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 	return cniConfigFilepath, err
 }
 
-// Follows the same semantics as kubelet
+var errNoCNINetwork = errors.New("error getting default CNI network")
+
+// getDefaultCNINetwork searches the confDir and returns the name of the CNI config file if it ends with .conf or .conflist and
+// has a valid CNI configuration. Otherwise, returns a specific error (errNoCNINetwork) if the error was caused by not finding a valid CNI config file.
+// Follows the same semantics as kubelet:
 // https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
 func getDefaultCNINetwork(confDir string) (string, error) {
 	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist"})
@@ -225,7 +229,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 	case err != nil:
 		return "", err
 	case len(files) == 0:
-		return "", fmt.Errorf("no networks found in %s", confDir)
+		return "", fmt.Errorf("%w: no networks found in %s", errNoCNINetwork, confDir)
 	}
 
 	sort.Strings(files)
@@ -264,7 +268,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 		return filepath.Base(confFile), nil
 	}
 
-	return "", fmt.Errorf("no valid networks found in %s", confDir)
+	return "", fmt.Errorf("%w: no valid networks found in %s", errNoCNINetwork, confDir)
 }
 
 // newCNIConfig = istio-cni config, that should be inserted into existingCNIConfig
