@@ -315,16 +315,16 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with source namespace matching", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		fooNode := *node
+		fooNode := node
 		fooNode.Metadata = &model.NodeMetadata{
 			Namespace: "foo",
 		}
-		barNode := *node
+		barNode := node
 		barNode.Metadata = &model.NodeMetadata{
 			Namespace: "bar",
 		}
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(&fooNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		routes, err := route.BuildHTTPRoutesForVirtualService(fooNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
 		for _, r := range routes {
 			if err := r.Validate(); err != nil {
@@ -335,7 +335,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetName()).To(gomega.Equal("foo"))
 
-		routes, err = route.BuildHTTPRoutesForVirtualService(&barNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		routes, err = route.BuildHTTPRoutesForVirtualService(barNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetName()).To(gomega.Equal("bar"))
