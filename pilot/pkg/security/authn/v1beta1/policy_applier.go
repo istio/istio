@@ -27,7 +27,6 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -75,7 +74,7 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	return &authn_filter.FilterConfig{
 		Policy: &authn_alpha.Policy{},
 		// we can always set this field, it's no-op if mTLS is not used.
-		SkipValidateTrustDomain: features.SkipValidateTrustDomain.Get(),
+		SkipValidateTrustDomain: true,
 	}
 }
 
