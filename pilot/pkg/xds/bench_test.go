@@ -31,8 +31,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/test/xdstest"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
