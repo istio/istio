@@ -67,7 +67,7 @@ spec:
 {{- end }}
           args:
           - "discovery"
-          - --monitoringAddr=:15014
+          - --monitoringAddr=127.0.0.1:15014
 {{- if .Values.global.logging.level }}
           - --log_output_level={{ .Values.global.logging.level }}
 {{- end}}

@@ -723,7 +723,7 @@ spec:
           image: "gcr.io/istio-testing/pilot:latest"
           args:
           - "discovery"
-          - --monitoringAddr=:15014
+          - --monitoringAddr=127.0.0.1:15014
           - --log_output_level=default:info
           - --domain
           - cluster.local

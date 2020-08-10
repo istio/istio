@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+
+releaseNotes: |
+  *Updated* the the default monitoring address to "127.0.0.1:15014" so that it is accessible only local host for security reasons.
+  If you need access from any where please configure using "--monitoringAddr" flag on Istiod container.
