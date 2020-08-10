@@ -357,8 +357,8 @@ func TestParseMetadata(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to parse service node: %v", err)
 			}
-			if !reflect.DeepEqual(&tt.out, node) {
-				t.Errorf("Got \n%v, want \n%v", node, &tt.out)
+			if !reflect.DeepEqual(*tt.out.Metadata, *node.Metadata) {
+				t.Errorf("Got \n%v, want \n%v", *node.Metadata, *tt.out.Metadata)
 			}
 		})
 	}

@@ -319,10 +319,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		fooNode.Metadata = &model.NodeMetadata{
 			Namespace: "foo",
 		}
-		barNode := node
-		barNode.Metadata = &model.NodeMetadata{
-			Namespace: "bar",
-		}
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(fooNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
 		// Valiate routes.
@@ -334,6 +330,11 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetName()).To(gomega.Equal("foo"))
+
+		barNode := node
+		barNode.Metadata = &model.NodeMetadata{
+			Namespace: "bar",
+		}
 
 		routes, err = route.BuildHTTPRoutesForVirtualService(barNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
