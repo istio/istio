@@ -228,6 +228,8 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
+		// TODO: if subjectAltName ends with *, create a prefix match as well.
+		// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
 		matchSAN := util.StringToExactMatch(subjectAltNames)
 		if len(trustDomainAliases) > 0 {
 			matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)

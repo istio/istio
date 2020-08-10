@@ -15,14 +15,14 @@
 package authn
 
 import (
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/spiffe"
 )
 
-func trustDomainsForValidation(trustDomainAliases []string) []string {
+func trustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {
 	var trustDomains []string
 	if !features.SkipValidateTrustDomain.Get() {
-		trustDomains = append(trustDomainAliases, spiffe.GetTrustDomain())
+		trustDomains = append(meshConfig.TrustDomainAliases, meshConfig.TrustDomain)
 	}
 	return trustDomains
 }
