@@ -15,6 +15,7 @@
 package injection
 
 import (
+	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -71,16 +72,28 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			// TODO: if Istio is installed with sidecarInjectorWebhook.enableNamespacesByDefault=true
 			// (in the istio-sidecar-injector configmap), we need to reverse this logic and treat this as an injected namespace
 
-			c.Report(collections.K8SCoreV1Namespaces.Name(), msg.NewNamespaceNotInjected(r, r.Metadata.FullName.String(), r.Metadata.FullName.String()))
+			m := msg.NewNamespaceNotInjected(r, r.Metadata.FullName.String(), r.Metadata.FullName.String())
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
+				m.Line = line
+			}
+
+			c.Report(collections.K8SCoreV1Namespaces.Name(), m)
 			return true
 		}
 
 		if okNewInjectionLabel {
 			if injectionLabel != "" {
-				c.Report(collections.K8SCoreV1Namespaces.Name(),
-					msg.NewNamespaceMultipleInjectionLabels(r,
-						r.Metadata.FullName.String(),
-						r.Metadata.FullName.String()))
+
+				m := msg.NewNamespaceMultipleInjectionLabels(r,
+					r.Metadata.FullName.String(),
+					r.Metadata.FullName.String())
+
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
+					m.Line = line
+				}
+
+				c.Report(collections.K8SCoreV1Namespaces.Name(), m)
 				return true
 			}
 		} else if injectionLabel != util.InjectionLabelEnableValue {

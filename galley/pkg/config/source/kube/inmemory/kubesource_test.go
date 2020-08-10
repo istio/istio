@@ -15,9 +15,11 @@
 package inmemory
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
+	yamlv3 "gopkg.in/yaml.v3"
 
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
@@ -380,4 +382,33 @@ func removeEntryOrigins(resources []*resource.Instance) []*resource.Instance {
 		result[i] = r
 	}
 	return result
+}
+
+func TestBuildFieldPathMap(t *testing.T) {
+
+	yamlResource := map[string]interface{}{
+		"key":    "value",
+		"array":  []string{"a", "b", "c", "d", "e"},
+		"number": 1,
+		"sliceMap": []map[string]string{
+			{"a": "1"}, {"b": "2"},
+		},
+	}
+
+	g := NewWithT(t)
+
+	yamlMarshal, err := yamlv3.Marshal(&yamlResource)
+	g.Expect(err).To(BeNil())
+
+	result := make(map[string]int)
+
+	yamlNode := yamlv3.Node{}
+
+	err = yamlv3.Unmarshal(yamlMarshal, &yamlNode)
+	g.Expect(err).To(BeNil())
+
+	BuildFieldPathMap(yamlNode.Content[0], 1, "", result)
+
+	g.Expect(fmt.Sprintf("%v", result)).To(Equal("map[{.array[0]}:2 {.array[1]}:3 {.array[2]}:4 " +
+		"{.array[3]}:5 {.array[4]}:6 {.key}:7 {.number}:8 {.sliceMap[0].a}:10 {.sliceMap[1].b}:11]"))
 }

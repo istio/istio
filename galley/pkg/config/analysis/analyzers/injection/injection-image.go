@@ -107,13 +107,19 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for _, container := range pod.Spec.Containers {
+		for i, container := range pod.Spec.Containers {
 			if container.Name != util.IstioProxyName {
 				continue
 			}
 
 			if container.Image != proxyImage {
-				c.Report(collections.K8SCoreV1Pods.Name(), msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage))
+				m := msg.NewIstioProxyImageMismatch(r, container.Image, proxyImage)
+
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ImageInContainer, i)); ok {
+					m.Line = line
+				}
+
+				c.Report(collections.K8SCoreV1Pods.Name(), m)
 			}
 		}
 

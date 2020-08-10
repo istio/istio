@@ -124,7 +124,7 @@ func (w *watcher) handleEvent(c event.Kind, obj interface{}) {
 		return
 	}
 
-	r := rt.ToResource(object, w.schema, res, nil)
+	r := rt.ToResource(object, w.schema, res, nil, nil)
 
 	if w.statusCtl != nil && !w.adapter.IsBuiltIn() {
 		w.statusCtl.UpdateResourceStatus(

@@ -15,6 +15,8 @@
 package virtualservice
 
 import (
+	"fmt"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
@@ -53,14 +55,20 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	vsNs := r.Metadata.FullName.Namespace
-	for _, gwName := range vs.Gateways {
+	for i, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {
 			continue
 		}
 
 		if !c.Exists(collections.IstioNetworkingV1Alpha3Gateways.Name(), resource.NewShortOrFullName(vsNs, gwName)) {
-			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), msg.NewReferencedResourceNotFound(r, "gateway", gwName))
+			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
+				m.Line = line
+			}
+
+			c.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
 	}
 }

@@ -22,8 +22,9 @@ var _ resource.Origin = &testOrigin{}
 var _ resource.Reference = &testReference{}
 
 type testOrigin struct {
-	name string
-	ref  resource.Reference
+	name     string
+	ref      resource.Reference
+	fieldMap map[string]int
 }
 
 func (o testOrigin) FriendlyName() string {
@@ -36,6 +37,10 @@ func (o testOrigin) Namespace() resource.Namespace {
 
 func (o testOrigin) Reference() resource.Reference {
 	return o.ref
+}
+
+func (o testOrigin) FieldMap() map[string]int {
+	return o.fieldMap
 }
 
 type testReference struct {

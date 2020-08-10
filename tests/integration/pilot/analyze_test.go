@@ -339,6 +339,31 @@ func TestTimeout(t *testing.T) {
 		})
 }
 
+// Verify the error line number in the message is correct
+func TestErrorLine(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Features("usability.observability.analysis.line-numbers").
+		Run(func(ctx framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
+
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
+
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
 func expectMessages(t *testing.T, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
