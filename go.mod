@@ -100,7 +100,6 @@ require (
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.10.0
 	github.com/prometheus/prom2json v1.2.2 // indirect
-	github.com/russross/blackfriday v1.5.2
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.0.0
