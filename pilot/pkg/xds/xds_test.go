@@ -369,10 +369,11 @@ func TestMeshNetworking(t *testing.T) {
 				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
 				ingr)
 			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
-			nw := mesh.NewFixedNetworksWatcher(nil)
-			s := NewFakeDiscoveryServer(t, FakeOptions{
-				KubernetesObjects: k8sObjects,
-				ConfigString: `
+			for name, networkConfig := range meshNetworkConfigs {
+				t.Run(name, func(t *testing.T) {
+					s := NewFakeDiscoveryServer(t, FakeOptions{
+						KubernetesObjects: k8sObjects,
+						ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
@@ -412,13 +413,8 @@ spec:
       app: httpbin
     network: vm
 `,
-				NetworksWatcher: nw,
-			})
-			for name, networkConfig := range meshNetworkConfigs {
-				s, nw := s, nw
-				t.Run(name, func(t *testing.T) {
-					nw.SetNetworks(networkConfig)
-
+						NetworksWatcher: mesh.NewFixedNetworksWatcher(networkConfig),
+					})
 					se := s.SetupProxy(&model.Proxy{
 						ID: "se-pod.pod",
 						Metadata: &model.NodeMetadata{
