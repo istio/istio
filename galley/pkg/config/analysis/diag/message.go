@@ -102,9 +102,13 @@ func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
 		Level:            v1alpha1.AnalysisMessageBase_Level(v1alpha1.AnalysisMessageBase_Level_value[m.Type.Level().String()]),
 		DocumentationUrl: docURL,
 	}
-	j, _ := json.Marshal(mb)
 
 	var r map[string]interface{}
+
+	j, err := json.Marshal(mb)
+	if err != nil {
+		return r
+	}
 	json.Unmarshal(j, &r)
 
 	return r

@@ -114,10 +114,8 @@ func expectStatus(t *testing.T, ctx resource.Context, ns namespace.Instance, has
 		if !found {
 			return fmt.Errorf("expected error %v to exist", msg.ReferencedResourceNotFound.Code())
 		}
-	} else {
-		if status.ValidationMessages != nil {
-			return fmt.Errorf("expected no validation messages, but got %d", len(status.ValidationMessages))
-		}
+	} else if status.ValidationMessages != nil {
+		return fmt.Errorf("expected no validation messages, but got %d", len(status.ValidationMessages))
 	}
 
 	if len(status.Conditions) < 1 {

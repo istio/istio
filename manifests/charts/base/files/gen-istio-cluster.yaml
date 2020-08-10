@@ -5190,6 +5190,7 @@ spec:
                 enum:
                 - ALLOW
                 - DENY
+                - AUDIT
                 type: string
               rules:
                 description: Optional.

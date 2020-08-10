@@ -152,6 +152,9 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		func(t *authentication.StringMatch, c fuzz.Continue) {
 			*t = authentication.StringMatch{}
 		},
+		func(t *types.Timestamp, c fuzz.Continue) {
+			*t = types.Timestamp{}
+		},
 		func(t *types.Value, c fuzz.Continue) {
 			*t = types.Value{Kind: &types.Value_StringValue{StringValue: ""}}
 		},
