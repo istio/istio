@@ -19,4 +19,4 @@ requests==2.20.0
 simplejson==3.13.2
 urllib3==1.24.2
 visitor==0.1.3
-Werkzeug==0.13
+Werkzeug==0.15.3
