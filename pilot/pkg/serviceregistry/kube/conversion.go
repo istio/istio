@@ -183,7 +183,7 @@ func kubeToIstioServiceAccount(trustDomain, saname, ns string) string {
 }
 
 // SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
-func SecureNamingSAN(trustDomain string, pod *coreV1.Pod) string {
+func SecureNamingSAN(trustDomain string, trustDomainAliases []string, pod *coreV1.Pod) string {
 
 	// Use the identity annotation
 	if identity, exist := pod.Annotations[annotation.AlphaIdentity.Name]; exist {

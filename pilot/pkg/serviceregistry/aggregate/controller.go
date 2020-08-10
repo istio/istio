@@ -19,11 +19,13 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -36,16 +38,26 @@ var (
 var _ model.ServiceDiscovery = &Controller{}
 var _ model.Controller = &Controller{}
 
+// MeshConfigFn returns the MeshConfig.
+type MeshConfigFn func() *meshconfig.MeshConfig
+
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
 	registries []serviceregistry.Instance
 	storeLock  sync.RWMutex
+	meshFn     MeshConfigFn
+}
+
+type Options struct {
+	// Mesh is the mesh config.
+	MeshFn MeshConfigFn
 }
 
 // NewController creates a new Aggregate controller
-func NewController() *Controller {
+func NewController(opt *Options) *Controller {
 	return &Controller{
 		registries: make([]serviceregistry.Instance, 0),
+		meshFn:     opt.MeshFn,
 	}
 }
 
@@ -358,6 +370,7 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 	return nil
 }
 
+// TODO(jianfeih): here, swap alias here rather than endpoint builder later.
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	out := map[string]struct{}{}
@@ -371,5 +384,9 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	for k := range out {
 		result = append(result, k)
 	}
-	return result
+	tds := []string{}
+	if c.meshFn != nil {
+		tds = c.meshFn().TrustDomainAliases
+	}
+	return spiffe.ExpandWithTrustDomains(result, tds)
 }

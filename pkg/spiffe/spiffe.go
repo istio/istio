@@ -145,6 +145,32 @@ func MustGenSpiffeURI(trustDomain, ns, serviceAccount string) string {
 	return uri
 }
 
+// ExpandWithTrustDomains expands a given spiffe identities, plus a list of truts domain aliases.
+// We ensure the returned list does not contain duplicates; the original input is always retained.
+// For example,
+// ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/def"}, {"td1", "td2"}) returns
+//   {"spiffe://td1/ns/def/sa/def", "spiffe://td2/ns/def/sa/def"}.
+// ExpandWithTrustDomains({"spiffe://td1/ns/def/sa/a", "spiffe://td1/ns/def/sa/b"}, {"td2"}) returns
+//   {"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
+func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) []string {
+	out := map[string]struct{}{}
+	for _, id := range spiffeIdentities {
+		out[id] = struct{}{}
+		// Expand with aliases set.
+		len := len(fmt.Sprintf("%v://%v/", Scheme, id))
+		suffix := id[len:]
+		for _, td := range trustDomainAliases {
+			nid := fmt.Sprintf("%v://%v/%v", Scheme, td, suffix)
+			out[nid] = struct{}{}
+		}
+	}
+	uris := []string{}
+	for k := range out {
+		uris = append(uris, k)
+	}
+	return uris
+}
+
 // GenCustomSpiffe returns the  spiffe string that can have a custom structure
 func GenCustomSpiffe(trustDomain, identity string) string {
 	if identity == "" {

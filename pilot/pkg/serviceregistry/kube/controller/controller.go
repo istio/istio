@@ -30,6 +30,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -130,6 +131,9 @@ type Options struct {
 
 	// Maximum burst for throttle when communicating with the kubernetes API
 	KubernetesAPIBurst int
+
+	// Mesh configuration for the mesh.
+	Mesh *meshconfig.MeshConfig
 }
 
 // EndpointMode decides what source to use to get endpoint information
@@ -174,7 +178,8 @@ type Controller struct {
 	serviceInformer cache.SharedIndexInformer
 	serviceLister   listerv1.ServiceLister
 
-	endpoints kubeEndpointsController
+	endpoints  kubeEndpointsController
+	meshconfig *meshconfig.MeshConfig
 
 	// Used to watch node accessible from remote cluster.
 	// In multi-cluster(shared control plane multi-networks) scenario, ingress gateway service can be of nodePort type.
@@ -242,6 +247,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		workloadInstancesByIP:      make(map[string]*model.WorkloadInstance),
 		networksWatcher:            options.NetworksWatcher,
 		metrics:                    options.Metrics,
+		meshconfig:                 options.Mesh,
 	}
 
 	c.serviceInformer = kubeClient.KubeInformer().Core().V1().Services().Informer()
