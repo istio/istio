@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue:
+  - 26323
+releaseNotes: |
+  *Fixed* Predictable TXID can lead to response forgeries.
+securityNotes: |
+  The miekg Go DNS package before 1.1.25, as used in CoreDNS before 1.6.6 and other products, improperly generates random numbers because math/rand is used. The TXID becomes predictable, leading to response forgeries.
+  __CVSS Score__: 5.9 [AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N&version=3.1)
