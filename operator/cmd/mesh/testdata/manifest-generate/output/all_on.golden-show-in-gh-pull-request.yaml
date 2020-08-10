@@ -9211,7 +9211,7 @@ spec:
       serviceAccountName: istiocoredns-service-account
       containers:
       - name: coredns
-        image: coredns/coredns:1.6.2
+        image: coredns/coredns:1.6.9
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
         - name: config-volume

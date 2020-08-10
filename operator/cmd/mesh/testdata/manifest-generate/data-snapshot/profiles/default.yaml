@@ -310,7 +310,7 @@ spec:
 
     istiocoredns:
       coreDNSImage: coredns/coredns
-      coreDNSTag: 1.6.2
+      coreDNSTag: 1.6.9
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
     clusterResources: true

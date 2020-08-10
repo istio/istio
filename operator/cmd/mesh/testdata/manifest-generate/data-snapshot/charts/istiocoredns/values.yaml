@@ -10,7 +10,7 @@ istiocoredns:
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
   coreDNSImage: coredns/coredns
-  coreDNSTag: 1.6.2
+  coreDNSTag: 1.6.9
   # Source code for the plugin can be found at
   # https://github.com/istio-ecosystem/istio-coredns-plugin
   # The plugin listens for DNS requests from coredns server at 127.0.0.1:8053

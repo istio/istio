@@ -253,7 +253,7 @@ spec:
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
-      coreDNSTag: 1.6.2
+      coreDNSTag: 1.6.9
     istiodRemote:
       injectionURL: ""
     pilot:
