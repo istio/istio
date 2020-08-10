@@ -31,6 +31,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -111,7 +112,7 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
 			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
-			routeNames := ExtractRoutesFromListeners(l)
+			routeNames := xdstest.ExtractRoutesFromListeners(l)
 			if len(routeNames) == 0 {
 				b.Fatal("Got no route names!")
 			}
