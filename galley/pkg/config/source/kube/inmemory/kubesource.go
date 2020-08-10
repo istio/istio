@@ -24,9 +24,8 @@ import (
 	"strings"
 	"sync"
 
-	yamlv3 "gopkg.in/yaml.v3"
-
 	"github.com/hashicorp/go-multierror"
+	yamlv3 "gopkg.in/yaml.v3"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
