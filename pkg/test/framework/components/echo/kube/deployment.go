@@ -100,7 +100,7 @@ spec:
 {{- end }}
       containers:
       - name: app
-        image: {{ $.Hub }}/app:{{ $.Tag }}
+        image: registry:5000/app:alpn
         imagePullPolicy: {{ $.PullPolicy }}
         args:
           - --metrics=15014

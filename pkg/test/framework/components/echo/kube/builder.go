@@ -61,9 +61,9 @@ func (b *builder) Build() (echo.Instances, error) {
 	}
 	scopes.Framework.Debugf("initialized echo deployments in %v", time.Since(t0))
 
-	if err := b.waitUntilAllCallable(instances); err != nil {
-		return nil, fmt.Errorf("wait until callable: %v", err)
-	}
+	//if err := b.waitUntilAllCallable(instances); err != nil {
+	//	return nil, fmt.Errorf("wait until callable: %v", err)
+	//}
 	scopes.Framework.Debugf("echo deployments ready in %v", time.Since(t0))
 
 	// Success... update the caller's references.

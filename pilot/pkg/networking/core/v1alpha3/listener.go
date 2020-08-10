@@ -1505,6 +1505,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 						opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+						opt.match.TransportProtocol = "raw_buffer"
 					}
 
 					listenerOpts.needHTTPInspector = true
@@ -1563,6 +1564,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				&listenerOpts, pluginParams, listenerMap, virtualServices, actualWildcard); !ret {
 				return
 			}
+			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
+			for _, opt := range opts {
+				if opt.match == nil {
+					opt.match = &listener.FilterChainMatch{}
+				}
+				opt.match.TransportProtocol = "raw_buffer"
+			}
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
 
 			// Add http filter chain and tcp filter chain to the listener opts
@@ -1579,6 +1587,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 				opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+				opt.match.TransportProtocol = "raw_buffer"
 			}
 
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -2210,7 +2219,18 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 	}
 
 	outboundPassThroughFilterChain := &listener.FilterChain{
-		FilterChainMatch: &listener.FilterChainMatch{},
+		FilterChainMatch: &listener.FilterChainMatch{
+			TransportProtocol: "tls",
+		},
+		Name:             util.PassthroughFilterChain,
+		Filters:          mutable.FilterChains[0].TCP,
+	}
+	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+
+	outboundPassThroughFilterChain = &listener.FilterChain{
+		FilterChainMatch: &listener.FilterChainMatch{
+			TransportProtocol: "raw_buffer",
+		},
 		Name:             util.PassthroughFilterChain,
 		Filters:          mutable.FilterChains[0].TCP,
 	}

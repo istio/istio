@@ -82,6 +82,7 @@ func newProtocol(cfg Config) (protocol, error) {
 					IdleConnTimeout: time.Second,
 					TLSClientConfig: &tls.Config{
 						InsecureSkipVerify: true,
+						NextProtos:         []string{"http/1.1"},
 					},
 					DialContext: httpDialContext,
 				},
@@ -93,6 +94,7 @@ func newProtocol(cfg Config) (protocol, error) {
 			proto.client.Transport = &http2.Transport{
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
+					NextProtos:         []string{"h2"},
 				},
 				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
 					return tls.Dial(network, addr, cfg)
