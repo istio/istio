@@ -304,6 +304,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 
 		case pushEv := <-con.pushChannel:
+			// TODO: possible race condition: if a config change happens while the envoy
+			// was getting the initial config, between LDS and RDS, the push will miss the
+			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
+			// due to the protocol - but the periodic push recovers from it.
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
 			if err != nil {
