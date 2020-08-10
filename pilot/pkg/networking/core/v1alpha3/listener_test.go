@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -2055,11 +2056,7 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 	proxy.ServiceInstances = proxyInstances
 
 	listeners := configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
-	for _, l := range listeners {
-		if err := l.Validate(); err != nil {
-			t.Fatalf("Listener %s failed validation with error  %v", l.Name, err)
-		}
-	}
+	xdstest.ValidateListeners(t, listeners)
 	return listeners
 }
 
@@ -2081,11 +2078,7 @@ func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, si
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	listeners := configgen.buildSidecarInboundListeners(proxy, env.PushContext)
-	for _, l := range listeners {
-		if err := l.Validate(); err != nil {
-			t.Fatalf("Listener %s failed validation with error  %v", l.Name, err)
-		}
-	}
+	xdstest.ValidateListeners(t, listeners)
 	return listeners
 }
 
