@@ -550,7 +550,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.18
+      tag: v1.22
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
