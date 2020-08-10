@@ -42,9 +42,9 @@ import (
 var (
 	adsLog = istiolog.RegisterScope("ads", "ads debugging", 0)
 
-	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
+	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
-	SendTimeout = 5 * time.Second
+	sendTimeout = 5 * time.Second
 
 	// Tracks connections, increment on each new connection.
 	connectionNumber = int64(0)
@@ -59,7 +59,7 @@ type DiscoveryStream interface {
 
 // Connection holds information about connected client.
 type Connection struct {
-	// PeerAddr is the address of the client envoy, from network layer.
+	// PeerAddr is the address of the client, from network layer.
 	PeerAddr string
 
 	// Time of connection, for debugging
@@ -69,7 +69,7 @@ type Connection struct {
 	// Currently based on the node name and a counter.
 	ConID string
 
-	// proxy is the proxy to which this connection is established.
+	// proxy is the client to which this connection is established.
 	proxy *model.Proxy
 
 	// Sending on this channel results in a push.
@@ -93,6 +93,7 @@ type Event struct {
 	// Indicate whether the push is Full Push
 	full bool
 
+	// configsUpdated stores the config updates that triggered this push.
 	configsUpdated map[model.ConfigKey]struct{}
 
 	// Push context to use for the push.
@@ -751,14 +752,13 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	s.adsClientsMutex.RLock()
-	clients := s.adsClients
-	s.adsClientsMutex.RUnlock()
 
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
-	for _, v := range clients {
+	for _, v := range s.adsClients {
 		pending = append(pending, v)
 	}
+	s.adsClientsMutex.RUnlock()
 
 	if adsLog.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
@@ -799,7 +799,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
-	t := time.NewTimer(SendTimeout)
+	t := time.NewTimer(sendTimeout)
 	go func() {
 		err := conn.stream.Send(res)
 		conn.proxy.Lock()
