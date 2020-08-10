@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/api/analysis/v1alpha1"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -91,6 +92,34 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	result["documentation_url"] = fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
 
 	return result
+}
+
+// UnstructuredAnalysisMessageBase returns this message as a JSON-style unstructured map in AnalaysisMessageBase
+// TODO(jasonwzm): Remove once message implements AnalysisMessageBase
+func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
+	docQueryString := ""
+	if m.DocRef != "" {
+		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
+	}
+	docURL := fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
+
+	mb := v1alpha1.AnalysisMessageBase{
+		Type: &v1alpha1.AnalysisMessageBase_Type{
+			Code: m.Type.Code(),
+		},
+		Level:            v1alpha1.AnalysisMessageBase_Level(v1alpha1.AnalysisMessageBase_Level_value[m.Type.Level().String()]),
+		DocumentationUrl: docURL,
+	}
+
+	var r map[string]interface{}
+
+	j, err := json.Marshal(mb)
+	if err != nil {
+		return r
+	}
+	json.Unmarshal(j, &r) // nolint: errcheck
+
+	return r
 }
 
 // Origin returns the origin of the message

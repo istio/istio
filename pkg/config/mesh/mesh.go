@@ -81,8 +81,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		AccessLogEncoding:           meshconfig.MeshConfig_TEXT,
 		AccessLogFormat:             "",
 		EnableEnvoyAccessLogService: false,
-		ReportBatchMaxEntries:       100,
-		ReportBatchMaxTime:          types.DurationProto(1 * time.Second),
 		ProtocolDetectionTimeout:    types.DurationProto(5 * time.Second),
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
