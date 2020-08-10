@@ -15,8 +15,6 @@
 package xds
 
 import (
-	"strconv"
-	"sync/atomic"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -60,13 +58,6 @@ import (
 // TODO: if a service doesn't have split traffic - we can also skip pod and label processing
 // TODO: efficient label processing. In alpha3, the destination policies are set per service, so
 // we may only need to search in a small list.
-
-var (
-	// Tracks connections, increment on each new connection.
-	connectionNumber = int64(0)
-)
-
-// TODO: add prom metrics !
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(e *model.IstioEndpoint, push *model.PushContext) *endpoint.LbEndpoint {
@@ -303,11 +294,6 @@ func (s *DiscoveryServer) deleteService(cluster, serviceName, namespace string) 
 	}
 }
 
-func connectionID(node string) string {
-	id := atomic.AddInt64(&connectionNumber, 1)
-	return node + "-" + strconv.FormatInt(id, 10)
-}
-
 // SubsetToLabels returns the labels associated with a subset of a given service.
 func subsetToLabels(dr *model.Config, subsetName string) labels.Collection {
 	// empty subset
@@ -501,7 +487,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 				continue
 			}
 		}
-		builder := createEndpointBuilder(clusterName, con.node, push)
+		builder := createEndpointBuilder(clusterName, con.proxy, push)
 		l := s.generateEndpoints(builder)
 		if l == nil {
 			continue
@@ -528,10 +514,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 
 	if edsUpdatedServices == nil {
 		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters()), endpoints, empty)
+			con.proxy.ID, len(con.Clusters()), endpoints, empty)
 	} else {
 		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.node.ID, len(con.Clusters()), endpoints, empty)
+			con.proxy.ID, len(con.Clusters()), endpoints, empty)
 	}
 	return nil
 }
