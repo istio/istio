@@ -57,7 +57,6 @@ type ProxyConfig struct {
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
-	PilotCertProvider   string
 	ProvCert            string
 	Sidecar             bool
 }
@@ -168,7 +167,6 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			ControlPlaneAuth:    e.ControlPlaneAuth,
 			DisableReportCalls:  e.DisableReportCalls,
 			OutlierLogPath:      e.OutlierLogPath,
-			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
 			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)

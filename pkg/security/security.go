@@ -38,6 +38,10 @@ const (
 	// Credential fetcher type
 	GCE  = "GoogleComputeEngine"
 	Mock = "Mock" // testing only
+
+	KubernetesCertProvider = "kubernetes"
+	IstiodCertProvider     = "istiod"
+	CustomCertProvider     = "custom"
 )
 
 // Options provides all of the configuration parameters for secret discovery service

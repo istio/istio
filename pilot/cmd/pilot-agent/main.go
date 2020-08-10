@@ -293,8 +293,7 @@ var (
 				secOpts.CredFetcher = credFetcher
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig,
-				&istio_agent.AgentConfig{}, secOpts)
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{}, secOpts)
 
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
@@ -307,7 +306,7 @@ var (
 			// Start in process SDS.
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
 			if err != nil {
-				log.Fatala("Failed to start in-process SDS", err)
+				log.Fatalf("Failed to start in-process SDS: %v", err)
 			}
 
 			// If we are using a custom template file (for control plane proxy, for example), configure this.
@@ -391,7 +390,6 @@ var (
 				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
-				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
 				Sidecar:             role.Type == model.SidecarProxy,
 			})

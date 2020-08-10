@@ -20,6 +20,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -57,7 +58,7 @@ import (
 //
 // Or disable the jwt validation while debugging SDS problems.
 
-var (
+const (
 	// Location of K8S CA root.
 	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 
@@ -144,8 +145,7 @@ type AgentConfig struct {
 // If the JWT token is not present, and cannot be fetched through the credential fetcher - the local SDS agent can't authenticate.
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
-func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
-	sopts *security.Options) *Agent {
+func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.Options) *Agent {
 	sa := &Agent{
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
@@ -178,11 +178,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	}
 	if sa.CertsPath != "" {
 		log.Warna("Using existing certificate ", sa.CertsPath)
-	}
-
-	// If the root-cert is in the old location, use it.
-	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
-		CitadelCACertPath = certDir
 	}
 
 	if sa.secOpts.CAEndpoint == "" {
@@ -220,6 +215,9 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 //
 // 4. TODO: File watching, for backward compat/migration from mounted secrets.
 func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error) {
+	if err := sa.standardizeRootCertificates(); err != nil {
+		return nil, err
+	}
 
 	// TODO: remove the caching, workload has a single cert
 	if sa.WorkloadSecrets == nil {
@@ -296,8 +294,8 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		var rootCert []byte
 
 		tls := true
-		certReadErr := false
 
+		rootCertPath := path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
 		if sa.secOpts.CAEndpoint == "" {
 			// When sa.serverOptions.CAEndpoint is nil, the default CA endpoint
 			// will be a hardcoded default value (e.g., the namespace will be hardcoded
@@ -305,33 +303,12 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 			log.Info("Istio Agent uses default istiod CA")
 			sa.secOpts.CAEndpoint = "istiod.istio-system.svc:15012"
 
-			if sa.secOpts.PilotCertProvider == "istiod" {
-				log.Info("istiod uses self-issued certificate")
-				if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
-					certReadErr = true
-				} else {
-					log.Infof("the CA cert of istiod is: %v", string(rootCert))
-				}
-			} else if sa.secOpts.PilotCertProvider == "kubernetes" {
-				log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-				if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
-					certReadErr = true
-				}
-			} else if sa.secOpts.PilotCertProvider == "custom" {
-				log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-					security.DefaultRootCertFilePath)
-				if rootCert, err = ioutil.ReadFile(security.DefaultRootCertFilePath); err != nil {
-					certReadErr = true
-				}
-			} else {
-				certReadErr = true
-			}
-			if certReadErr {
-				rootCert = nil
-				// for debugging only
+			rootCert, err = ioutil.ReadFile(rootCertPath)
+			if err != nil {
 				log.Warnf("Failed to load root cert, assume IP secure network: %v", err)
 				sa.secOpts.CAEndpoint = "istiod.istio-system.svc:15010"
 				tls = false
+				rootCert = nil
 			}
 		} else {
 			// Explicitly configured CA
@@ -340,34 +317,11 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 				log.Warna("Debug mode or IP-secure network")
 				tls = false
 			} else if sa.secOpts.TLSEnabled {
-				if sa.secOpts.PilotCertProvider == "istiod" {
-					log.Info("istiod uses self-issued certificate")
-					if rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)); err != nil {
-						certReadErr = true
-					} else {
-						log.Infof("the CA cert of istiod is: %v", string(rootCert))
-					}
-				} else if sa.secOpts.PilotCertProvider == "kubernetes" {
-					log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-					if rootCert, err = ioutil.ReadFile(k8sCAPath); err != nil {
-						certReadErr = true
-					}
-				} else if sa.secOpts.PilotCertProvider == "custom" {
-					log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-						security.DefaultRootCertFilePath)
-					if rootCert, err = ioutil.ReadFile(security.DefaultRootCertFilePath); err != nil {
-						certReadErr = true
-					}
-				} else {
-					log.Errorf("unknown cert provider %v", sa.secOpts.PilotCertProvider)
-					certReadErr = true
-				}
-				if certReadErr {
-					rootCert = nil
-					log.Fatal("invalid config - port 15012 missing a root certificate")
+				rootCert, err = ioutil.ReadFile(rootCertPath)
+				if err != nil {
+					log.Fatalf("failed to read root certificate, but enforcing TLS for CA connection: %v", err)
 				}
 			} else {
-				rootCertPath := path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
 				if rootCert, err = ioutil.ReadFile(rootCertPath); err != nil {
 					// We may not provide root cert, and can just use public system certificate pool
 					log.Infof("no certs found at %v, using system certs", rootCertPath)
@@ -427,4 +381,46 @@ func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.Sec
 	gSecretFetcher.Run(gatewaySecretChan)
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
+}
+
+func (sa *Agent) standardizeRootCertificates() error {
+	destPath := CitadelCACertPath
+
+	// If the root-cert is in the old location, use it.
+	if _, err := os.Stat(filepath.Join(CitadelCACertPath, "root-cert.pem")); err == nil {
+		destPath = sa.CertsPath
+	}
+
+	destination := filepath.Join(destPath, constants.CACertNamespaceConfigMapDataName)
+	switch sa.secOpts.PilotCertProvider {
+	case security.KubernetesCertProvider:
+		log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
+		if err := symlink(k8sCAPath, destination); err != nil {
+			return err
+		}
+	case security.IstiodCertProvider:
+		log.Info("istiod uses self-issued certificate")
+		// Do nothing, already in native location
+	case security.CustomCertProvider:
+		log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
+			security.DefaultRootCertFilePath)
+		if err := symlink(security.DefaultRootCertFilePath, destination); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown certificate provider: %v", sa.secOpts.PilotCertProvider)
+	}
+	return nil
+}
+
+func symlink(src, dest string) error {
+	if err := os.RemoveAll(dest); err != nil {
+		// Just log, if its a real error symlink will fail
+		log.Warnf("failed to remove %v: %v", dest, err)
+	}
+	rel, err := filepath.Rel(filepath.Dir(dest), src)
+	if err != nil {
+		return err
+	}
+	return os.Symlink(rel, dest)
 }

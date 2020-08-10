@@ -88,7 +88,6 @@ type Config struct {
 	ControlPlaneAuth    bool
 	DisableReportCalls  bool
 	OutlierLogPath      string
-	PilotCertProvider   string
 	ProvCert            string
 	DiscoveryHost       string
 }
@@ -116,7 +115,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
 		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.DisableReportCalls(cfg.DisableReportCalls),
-		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath),
 		option.ProvCert(cfg.ProvCert),
 		option.DiscoveryHost(cfg.DiscoveryHost))
