@@ -173,7 +173,7 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 	// In migration users will enable access log service and then after will
 	// disable Mixer Report. In the time period when both are reporting logs,
 	// this field allows users to distinguish between the two types of logs.
-	reqMap["context.reporter.type"] = "envoy_accesslog_service"
+	reqMap["context.reporter.uid"] = "envoy_accesslog_service"
 
 	pb.upstreamCluster = commonproperties.GetUpstreamCluster()
 	pb.reqMap = reqMap
