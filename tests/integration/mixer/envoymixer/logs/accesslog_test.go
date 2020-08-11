@@ -36,7 +36,7 @@ var (
 	ingInst           *ingress.Instance
 )
 
-func TestIstioAccessLog(t *testing.T) {
+func TestIstioAccessLogEnvoy(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -122,7 +122,6 @@ func testsetup(ctx resource.Context) error {
 	}
 	return nil
 }
-
 
 func setupComponentsOrFail(t *testing.T) (bookinfoNs namespace.Instance, ing ingress.Instance) {
 	if bookinfoNamespace == nil {
