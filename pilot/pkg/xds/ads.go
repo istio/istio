@@ -795,6 +795,7 @@ func (s *DiscoveryServer) removeCon(conID string) {
 		delete(s.adsClients, conID)
 		recordXDSClients(con.proxy.Metadata.IstioVersion, -1)
 	}
+
 	if s.StatusReporter != nil {
 		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
 	}
