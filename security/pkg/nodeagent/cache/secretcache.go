@@ -580,7 +580,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 		if sc.configOptions.CredFetcher != nil {
 			// Refresh token through credential fetcher.
-			cacheLog.Infof("%s getting a new token through credential fetcher", logPrefix)
+			cacheLog.Debugf("%s getting a new token through credential fetcher", logPrefix)
 			t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
 			if err != nil {
 				cacheLog.Errorf("credential fetcher failed to get token: %v", err)
