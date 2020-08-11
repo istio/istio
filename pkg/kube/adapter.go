@@ -25,8 +25,15 @@ import (
 )
 
 const (
+	// APIVersion constants
 	admissionAPIV1      = "admission.k8s.io/v1"
 	admissionAPIV1beta1 = "admission.k8s.io/v1beta1"
+
+	// Operation constants
+	Create  string = "CREATE"
+	Update  string = "UPDATE"
+	Delete  string = "DELETE"
+	Connect string = "CONNECT"
 )
 
 // AdmissionReview describes an admission review request/response.
