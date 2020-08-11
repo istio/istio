@@ -206,7 +206,7 @@ components:
 }
 
 func testsetup(ctx resource.Context) (err error) {
-	err = ctx.Config().ApplyYAMLDir("istio-system", "testdata")
+	err = ctx.Config().ApplyYAMLDir("istio-system", "../testdata")
 	if err != nil {
 		return err
 	}
