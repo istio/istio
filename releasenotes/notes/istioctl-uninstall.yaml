@@ -3,5 +3,6 @@ kind: feature
 area: istioctl
 issue:
   - 24360
-releaseNotes: |
+releaseNotes:
+- |
   **Added** `istioctl x uninstall` command to uninstall Istio control plane.

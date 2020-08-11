@@ -8,6 +8,7 @@ issue:
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
-releaseNotes: |
-  *Improved* `istioctl analyze` to find the exact line number with configuration errors when analyzing yaml files.
+releaseNotes:
+- |
+  **Improved** `istioctl analyze` to find the exact line number with configuration errors when analyzing yaml files.
   Before, it would return the first line of the resource with the error.
