@@ -5,7 +5,7 @@ issue:
 - 25333
 - 24300
 releaseNotes: |
-  *Removed* all Mixer-related features and functionality. This is a scheduled
+  **Removed** all Mixer-related features and functionality. This is a scheduled
   removal of a deprecated Istio services and deployments, as well as
   Mixer-focused CRDs and component and related functionality.
 
