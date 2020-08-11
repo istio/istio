@@ -23,10 +23,10 @@ import (
 )
 
 type testCase struct {
-		name  string
-		v     string
-prefix string
-	want *matcherpb.StringMatcher
+	name   string
+	v      string
+	prefix string
+	want   *matcherpb.StringMatcher
 }
 
 func TestStringMatcherWithPrefix(t *testing.T) {
