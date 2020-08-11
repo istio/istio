@@ -20,8 +20,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
-	networkingapi "istio.io/api/networking/v1alpha3"
 
+	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -386,7 +386,10 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	return nil
 }
 
-func getOutlierDetectionAndLoadBalancerSettings(destinationRule *networkingapi.DestinationRule, portNumber int, subsetName string) (bool, *networkingapi.LoadBalancerSettings) {
+func getOutlierDetectionAndLoadBalancerSettings(
+	destinationRule *networkingapi.DestinationRule,
+	portNumber int,
+	subsetName string) (bool, *networkingapi.LoadBalancerSettings) {
 	if destinationRule == nil {
 		return false, nil
 	}

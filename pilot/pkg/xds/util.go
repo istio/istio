@@ -16,7 +16,6 @@ package xds
 
 import (
 	networkingapi "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pkg/config/labels"
 )
 
