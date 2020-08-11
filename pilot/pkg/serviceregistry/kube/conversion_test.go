@@ -415,7 +415,7 @@ func TestSecureNamingSANCustomIdentity(t *testing.T) {
 	pod.Annotations = make(map[string]string)
 	pod.Annotations[annotation.AlphaIdentity.Name] = identity
 
-	san := SecureNamingSAN(spiffe.GetTrustDomain(), pod)
+	san := SecureNamingSAN(pod)
 
 	expectedSAN := fmt.Sprintf("spiffe://%v/%v", spiffe.GetTrustDomain(), identity)
 
@@ -436,7 +436,7 @@ func TestSecureNamingSAN(t *testing.T) {
 	pod.Namespace = ns
 	pod.Spec.ServiceAccountName = sa
 
-	san := SecureNamingSAN(spiffe.GetTrustDomain(), pod)
+	san := SecureNamingSAN(pod)
 
 	expectedSAN := fmt.Sprintf("spiffe://%v/ns/%v/sa/%v", spiffe.GetTrustDomain(), ns, sa)
 

@@ -969,9 +969,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		} else {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
-			if strings.Contains(c.Name, "httpbin") {
-				log.Infof("jianfeih debug buildUpstreamClusterTLSContext sa %v, context %v", tls.SubjectAltNames, util.StringToExactMatch(tls.SubjectAltNames))
-			}
+
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},

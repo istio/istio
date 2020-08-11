@@ -371,7 +371,6 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 	return nil
 }
 
-// TODO(jianfeih): here, swap alias here rather than endpoint builder later.
 // GetIstioServiceAccounts implements model.ServiceAccounts operation
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	out := map[string]struct{}{}

@@ -178,7 +178,7 @@ func ServiceHostname(name, namespace, domainSuffix string) host.Name {
 }
 
 // kubeToIstioServiceAccount converts a K8s service account to an Istio service account
-func kubeToIstioServiceAccount(saname, ns string) string {
+func kubeToIstioServiceAccount(saname string, ns string) string {
 	return spiffe.MustGenSpiffeURI(ns, saname)
 }
 
