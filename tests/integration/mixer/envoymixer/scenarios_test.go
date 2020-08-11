@@ -130,7 +130,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 }
 
 // Port of TestTcpMetric
-func TestTcpMetric(t *testing.T) {
+func TestTcpMetricEnvoy(t *testing.T) {
 	framework.
 		NewTest(t).
 		// TODO(https://github.com/istio/istio/issues/18105)
@@ -239,8 +239,6 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-
-
 
 	return nil
 }
