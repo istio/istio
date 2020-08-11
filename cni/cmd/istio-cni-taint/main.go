@@ -127,9 +127,6 @@ func main() {
 		id := uuid.New().String()
 		stopCh := make(chan struct{})
 		//it will be run in leader for controller configuration and running
-		run := func(ctx context.Context) {
-			tc.Run(stopCh)
-		}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		// listen for interrupts or the Linux SIGTERM signal and cancel
@@ -164,12 +161,11 @@ func main() {
 				OnStartedLeading: func(ctx context.Context) {
 					//once leader elected it should taint all nodes at first to prevent race condition
 					tc.RegistTaints()
-					run(ctx)
+					tc.Run(ctx.Done()) //graceful shut down
 				},
 				OnStoppedLeading: func() {
 					// when leader failed, log leader failure and restart leader election
 					log.Infof("leader lost: %s", id)
-					os.Exit(0)
 				},
 				OnNewLeader: func(identity string) {
 					// we're notified when new leader elected
