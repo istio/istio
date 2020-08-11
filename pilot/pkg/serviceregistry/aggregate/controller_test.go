@@ -414,42 +414,6 @@ func TestInstancesError(t *testing.T) {
 
 func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
-	// serviceAccountsFn := func(svc *model.Service) map[string]struct{} {
-	// 	accounts := aggregateCtl.GetIstioServiceAccounts(svc, []int{})
-	// 	accountsMap := map[string]struct{}{}
-	// 	for _, k := range accounts {
-	// 		accountsMap[k] = struct{}{}
-	// 	}
-	// 	return accountsMap
-	// }
-
-	// // Get accounts from mockAdapter1
-	// accounts := serviceAccountsFn(mock.HelloService)
-	// expected := map[string]struct{}{}
-	// if diff := cmp.Diff(accounts, expected); diff != "" {
-	// 	t.Errorf("unexpected service account, diff %v", diff)
-	// }
-
-	// // Get accounts from mockAdapter2
-	// accounts = serviceAccountsFn(mock.WorldService)
-	// expected = map[string]struct{}{
-	// 	"spiffe://cluster.local/ns/default/sa/world1": {},
-	// 	"spiffe://cluster.local/ns/default/sa/world2": {},
-	// }
-	// if diff := cmp.Diff(accounts, expected); diff != "" {
-	// 	t.Errorf("unexpected service account, diff %v", diff)
-	// }
-
-	// // Get accounts for service replicated in both service.
-	// accounts = serviceAccountsFn(mock.ReplicatedFooServiceV1)
-	// expected = map[string]struct{}{
-	// 	"spiffe://cluster.local/ns/default/sa/foo1":      {},
-	// 	"spiffe://cluster.local/ns/default/sa/foo2":      {},
-	// 	"spiffe://cluster.local/ns/default/sa/foo-share": {},
-	// }
-	// if diff := cmp.Diff(accounts, expected); diff != "" {
-	// 	t.Errorf("unexpected service account, diff %v", diff)
-	// }
 	testCases := []struct {
 		name               string
 		svc                *model.Service
