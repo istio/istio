@@ -201,7 +201,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.Discovery.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
+					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, l)
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)

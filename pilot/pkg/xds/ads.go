@@ -734,17 +734,18 @@ func AdsPushAll(s *DiscoveryServer) {
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	if !req.Full {
-		s.edsIncremental(version, req)
-		return
-	}
+		adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
+			version, model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry), s.adsClientCount())
+	} else {
+		totalService := len(req.Push.Services(nil))
+		adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
+			version, totalService, s.adsClientCount())
+		monServices.Record(float64(totalService))
 
-	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
-		version, len(req.Push.Services(nil)), s.adsClientCount())
-	monServices.Record(float64(len(req.Push.Services(nil))))
-
-	// Make sure the ConfigsUpdated map exists
-	if req.ConfigsUpdated == nil {
-		req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+		// Make sure the ConfigsUpdated map exists
+		if req.ConfigsUpdated == nil {
+			req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+		}
 	}
 
 	s.startPush(req)
