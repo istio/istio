@@ -40,7 +40,7 @@ var (
 // This file contains Mixer tests that are ported from Mixer E2E tests
 
 // Port of TestMetric
-func TestIngessToPrometheus_IngressMetric(t *testing.T) {
+func TestIngessToPrometheus_IngressMetricEnvoy(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -147,6 +147,10 @@ components:
 }
 
 func testsetup(ctx resource.Context) (err error) {
+	err = ctx.Config().ApplyYAMLDir("istio-system", "testdata")
+	if err != nil {
+		return err
+	}
 	bookinfoNs, err = namespace.New(ctx, namespace.Config{
 		Prefix: "istio-bookinfo",
 		Inject: true,
@@ -167,6 +171,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
 	yamlText, err := bookinfo.NetworkingBookinfoGateway.LoadGatewayFileWithNamespace(bookinfoNs.Name())
 	if err != nil {
 		return err
@@ -175,10 +180,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	err = ctx.Config().ApplyYAMLDir("istio-system", "testdata")
-	if err != nil {
-		return err
-	}
+
 
 
 	return nil

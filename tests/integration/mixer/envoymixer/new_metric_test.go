@@ -25,7 +25,7 @@ import (
 	util "istio.io/istio/tests/integration/mixer"
 )
 
-func TestNewMetric(t *testing.T) {
+func TestNewMetricEnvoy(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
