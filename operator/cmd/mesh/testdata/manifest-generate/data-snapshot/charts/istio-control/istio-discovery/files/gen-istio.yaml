@@ -1923,8 +1923,6 @@ metadata:
     release: istio
 webhooks:
   - name: sidecar-injector.istio.io
-    sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
     clientConfig:
       service:
         name: istiod
@@ -1932,6 +1930,7 @@ webhooks:
         path: "/inject"
       caBundle: ""
     sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]

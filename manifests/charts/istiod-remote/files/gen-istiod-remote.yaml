@@ -679,6 +679,8 @@ webhooks:
         apiVersions: ["v1"]
         resources: ["pods"]
     failurePolicy: Fail
+    admissionReviewVersions: ["v1beta1", "v1"]
+    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

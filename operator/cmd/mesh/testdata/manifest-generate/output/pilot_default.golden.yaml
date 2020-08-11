@@ -1551,6 +1551,7 @@ webhooks:
         path: "/inject"
       caBundle: ""
     sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
