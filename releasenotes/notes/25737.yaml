@@ -4,4 +4,4 @@ area: istioctl
 issue:
   - 25737
 releaseNotes: |
-  *Removed* `istioctl manifest apply`. The simpler `install` command replaces manifest apply.
+  **Removed** `istioctl manifest apply`. The simpler `install` command replaces manifest apply.

@@ -2,4 +2,4 @@ apiVersion: release-notes/v2
 kind: feature
 area: networking
 releaseNotes: |
-  *Added* Analyzer warning for DestinationRule not using CaCertificates to validate server identity.
+  **Added** Analyzer warning for DestinationRule not using CaCertificates to validate server identity.
