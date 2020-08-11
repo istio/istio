@@ -158,7 +158,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		m = &def
 	}
 
-	serviceDiscovery := aggregate.NewController()
+	serviceDiscovery := aggregate.NewController(aggregate.Options{})
 	env.PushContext = model.NewPushContext()
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configStore)
