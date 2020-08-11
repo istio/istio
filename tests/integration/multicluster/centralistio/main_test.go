@@ -56,7 +56,6 @@ func TestMain(m *testing.M) {
 			cfg.ControlPlaneValues = controlPlaneValues + `
   global:
     centralIstiod: true
-    caAddress: istiod.istio-system.svc:15012
 components:
   ingressGateways:
   - name: istio-ingressgateway
