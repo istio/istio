@@ -4,4 +4,4 @@ area: istioctl
 issue:
 - 24861
 releaseNotes: |
-  **Improve** `istioctl validate` to check for unknown fields in resources.
+  **Improved** `istioctl validate` to check for unknown fields in resources.
