@@ -389,7 +389,7 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	}
 	expanded := spiffe.ExpandWithTrustDomains(result, tds)
 	result = []string{}
-	for k, _ := range expanded {
+	for k := range expanded {
 		result = append(result, k)
 	}
 	return result
