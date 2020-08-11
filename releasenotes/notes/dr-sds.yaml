@@ -3,7 +3,8 @@ kind: feature
 area: networking
 issue:
 - 22019
-releaseNotes: |
+releaseNotes:
+- |
   **Improve** certificates referenced in DestinationRules to reload without a restart.
 
 
