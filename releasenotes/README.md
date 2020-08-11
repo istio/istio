@@ -20,7 +20,7 @@ area: traffic-management
 issue:
   - https://github.com/istio/istio/issues/23622
   - 23624
-releaseNotes: 
+releaseNotes:
 - |
 *Fixed* an issue preventing the operator from recreating watched resources if they are deleted
 
@@ -29,7 +29,7 @@ upgradeNotes:
     content: |
       If you are using the 15020 port to check the health of your Istio ingress gateway with your Kubernetes network load balancer, change the port from 15020 to 15021.
 
-securityNotes: 
+securityNotes:
 - |
 __[CVE-2020-15104](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15104)__:
 When validating TLS certificates, Envoy incorrectly allows a wildcard DNS Subject Alternative Name to apply to multiple subdomains. For example, with a SAN of `*.example.com`, Envoy incorrectly allows `nested.subdomain.example.com`, when it should only allow `subdomain.example.com`.
