@@ -275,7 +275,7 @@ func TestGenSpiffeURI(t *testing.T) {
 	oldTrustDomain := GetTrustDomain()
 	defer SetTrustDomain(oldTrustDomain)
 
-	tests := []struct {
+	testCases := []struct {
 		namespace      string
 		trustDomain    string
 		serviceAccount string
@@ -311,7 +311,7 @@ func TestGenSpiffeURI(t *testing.T) {
 			expectedURI:    "spiffe://kube-federating-id.testproj.iam.gserviceaccount.com/ns/foo/sa/bar",
 		},
 	}
-	for id, tc := range tests {
+	for id, tc := range testCases {
 		SetTrustDomain(tc.trustDomain)
 		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
@@ -368,7 +368,7 @@ func TestGenCustomSpiffe(t *testing.T) {
 	oldTrustDomain := GetTrustDomain()
 	defer SetTrustDomain(oldTrustDomain)
 
-	tests := []struct {
+	testCases := []struct {
 		trustDomain string
 		identity    string
 		expectedURI string
@@ -384,7 +384,7 @@ func TestGenCustomSpiffe(t *testing.T) {
 			expectedURI: "",
 		},
 	}
-	for id, tc := range tests {
+	for id, tc := range testCases {
 		SetTrustDomain(tc.trustDomain)
 		got := GenCustomSpiffe(tc.identity)
 
@@ -394,13 +394,13 @@ func TestGenCustomSpiffe(t *testing.T) {
 	}
 }
 
-// The test starts one or two local servers and tests RetrieveSpiffeBundleRootCerts is able to correctly retrieve the
+// The test starts one or two local servers and testCases RetrieveSpiffeBundleRootCerts is able to correctly retrieve the
 // SPIFFE bundles.
 func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 	inputStringTemplate1 := `foo|URL1`
 	inputStringTemplate2 := `foo|URL1||bar|URL2`
 	totalRetryTimeout = time.Millisecond * 50
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		template    string
 		trustCert   bool
@@ -490,7 +490,7 @@ func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
+	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				w.WriteHeader(testCase.status)
@@ -570,7 +570,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 	server.StartTLS()
 	defer server.Close()
 
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		certMap     map[string][]string
 		errContains string
@@ -610,7 +610,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
+	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			certMap := make(map[string][]*x509.Certificate)
 			for trustDomain, certStrs := range testCase.certMap {
@@ -665,7 +665,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 }
 
 func TestExpandWithTrustDomains(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name         string
 		spiffeURI    []string
 		trustDomains []string
@@ -727,7 +727,7 @@ func TestExpandWithTrustDomains(t *testing.T) {
 			},
 		},
 	}
-	for _, tc := range tests {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ExpandWithTrustDomains(tc.spiffeURI, tc.trustDomains)
 			if diff := cmp.Diff(got, tc.want); diff != "" {

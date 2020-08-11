@@ -19,12 +19,12 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
@@ -38,26 +38,22 @@ var (
 var _ model.ServiceDiscovery = &Controller{}
 var _ model.Controller = &Controller{}
 
-// MeshConfigFn returns the MeshConfig.
-type MeshConfigFn func() *meshconfig.MeshConfig
-
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
 	registries []serviceregistry.Instance
 	storeLock  sync.RWMutex
-	meshFn     MeshConfigFn
+	meshHolder mesh.Holder
 }
 
 type Options struct {
-	// Mesh is the mesh config.
-	MeshFn MeshConfigFn
+	MeshHolder mesh.Holder
 }
 
 // NewController creates a new Aggregate controller
 func NewController(opt *Options) *Controller {
 	return &Controller{
 		registries: make([]serviceregistry.Instance, 0),
-		meshFn:     opt.MeshFn,
+		meshHolder: opt.MeshHolder,
 	}
 }
 
@@ -370,7 +366,12 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 	return nil
 }
 
-// GetIstioServiceAccounts implements model.ServiceAccounts operation
+// GetIstioServiceAccounts implements model.ServiceAccounts operation.
+// The returned list contains all SPIFFE based identities that backs the service. For example,
+// - { "spiffe://cluster.local/bar@iam.gserviceaccount.com"}; when annotation is used on corresponding workloads.
+// - { "spiffe://cluster.local/ns/default/sa/foo" }; normal kubernetes cases
+// - { "spiffe://cluster.local/ns/default/sa/foo", "spiffe://trust-domain-alias/ns/default/sa/foo" };
+//   if the trust domain alias is configured.
 func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
 	out := map[string]struct{}{}
 	for _, r := range c.GetRegistries() {
@@ -384,8 +385,11 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 		result = append(result, k)
 	}
 	tds := []string{}
-	if c.meshFn != nil {
-		tds = c.meshFn().TrustDomainAliases
+	if c.meshHolder != nil {
+		mesh := c.meshHolder.Mesh()
+		if mesh != nil {
+			tds = mesh.TrustDomainAliases
+		}
 	}
 	expanded := spiffe.ExpandWithTrustDomains(result, tds)
 	result = []string{}
