@@ -126,20 +126,6 @@ func main() {
 	if options.RunAsDaemon {
 		id := uuid.New().String()
 		stopCh := make(chan struct{})
-		//it will be run in leader for controller configuration and running
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		// listen for interrupts or the Linux SIGTERM signal and cancel
-		// our context, which the leader election code will observe and
-		// step down
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-ch
-			close(stopCh)
-			log.Info("Received termination, signaling shutdown")
-			cancel()
-		}()
 		lock := &resourcelock.LeaseLock{
 			LeaseMeta: metav1.ObjectMeta{
 				Name:      LeassLockName,
@@ -150,33 +136,52 @@ func main() {
 				Identity: id,
 			},
 		}
-		//time settings are adopting default settings in client-go
-		leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
-			Lock:            lock,
-			ReleaseOnCancel: true,
-			LeaseDuration:   60 * time.Second,
-			RenewDeadline:   15 * time.Second,
-			RetryPeriod:     5 * time.Second,
-			Callbacks: leaderelection.LeaderCallbacks{
-				OnStartedLeading: func(ctx context.Context) {
-					//once leader elected it should taint all nodes at first to prevent race condition
-					tc.RegistTaints()
-					tc.Run(ctx.Done()) //graceful shut down
-				},
-				OnStoppedLeading: func() {
-					// when leader failed, log leader failure and restart leader election
-					log.Infof("leader lost: %s", id)
-				},
-				OnNewLeader: func(identity string) {
-					// we're notified when new leader elected
-					if identity == id {
-						// I just got the lock
-						return
-					}
-					log.Infof("new leader elected: %s", identity)
-				},
+		leadelectionCallback := leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(ctx context.Context) {
+				//once leader elected it should taint all nodes at first to prevent race condition
+				tc.RegistTaints()
+				tc.Run(ctx.Done()) //graceful shut down
 			},
-		})
+			OnStoppedLeading: func() {
+				// when leader failed, log leader failure and restart leader election
+				log.Infof("leader lost: %s", id)
+			},
+			OnNewLeader: func(identity string) {
+				// we're notified when new leader elected
+				if identity == id {
+					// I just got the lock
+					return
+				}
+				log.Infof("new leader elected: %s", identity)
+			},
+		}
+		func(stopCh <-chan struct{}) {
+			for {
+				ctx, cancel := context.WithCancel(context.Background())
+				ch := make(chan os.Signal, 1)
+				signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+				go func() {
+					<-ch
+					log.Info("Received termination, signaling shutdown")
+					cancel()
+				}()
+				leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
+					Lock:            lock,
+					ReleaseOnCancel: true,
+					LeaseDuration:   60 * time.Second,
+					RenewDeadline:   15 * time.Second,
+					RetryPeriod:     5 * time.Second,
+					Callbacks:       leadelectionCallback,
+				})
+				select {
+				case <-stopCh:
+					return
+				default:
+					cancel()
+					log.Errorf("leader election lost due to exception happened")
+				}
+			}
+		}(stopCh)
 	} else {
 		//check for node readiness in every node
 		nodeReadinessCheck(tc)
