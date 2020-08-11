@@ -22,7 +22,7 @@
 # limitations under the License.
 
 # This script builds and version stamps the output
-
+export PATH=/tmp/go:$PATH
 VERBOSE=${VERBOSE:-"0"}
 V=""
 if [[ "${VERBOSE}" == "1" ]];then
