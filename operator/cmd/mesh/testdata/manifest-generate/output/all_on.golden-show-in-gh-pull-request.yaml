@@ -7864,6 +7864,7 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
 ---
 apiVersion: "config.istio.io/v1alpha2"
 kind: attributemanifest
@@ -10780,6 +10781,7 @@ webhooks:
         path: "/inject"
       caBundle: ""
     sideEffects: None
+    admissionReviewVersions: ["v1beta1", "v1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
