@@ -20,8 +20,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 
+	"github.com/google/go-cmp/cmp"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
@@ -29,8 +30,21 @@ import (
 	"istio.io/istio/pkg/config/labels"
 )
 
-var discovery1 *mock.ServiceDiscovery
-var discovery2 *mock.ServiceDiscovery
+type mockMeshConfigHolder struct {
+	trustDomainAliases []string
+}
+
+func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{
+		TrustDomainAliases: mh.trustDomainAliases,
+	}
+}
+
+var (
+	meshHolder mockMeshConfigHolder
+	discovery1 *mock.ServiceDiscovery
+	discovery2 *mock.ServiceDiscovery
+)
 
 func buildMockController() *Controller {
 	discovery1 = mock.NewDiscovery(
@@ -59,7 +73,7 @@ func buildMockController() *Controller {
 		Controller:       &mock.Controller{},
 	}
 
-	ctls := NewController(&Options{})
+	ctls := NewController(Options{&meshHolder})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -92,7 +106,7 @@ func buildMockControllerForMultiCluster() *Controller {
 		Controller:       &mock.Controller{},
 	}
 
-	ctls := NewController(&Options{})
+	ctls := NewController(Options{})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -400,41 +414,90 @@ func TestInstancesError(t *testing.T) {
 
 func TestGetIstioServiceAccounts(t *testing.T) {
 	aggregateCtl := buildMockController()
-	serviceAccountsFn := func(svc *model.Service) map[string]struct{} {
-		accounts := aggregateCtl.GetIstioServiceAccounts(svc, []int{})
-		accountsMap := map[string]struct{}{}
-		for _, k := range accounts {
-			accountsMap[k] = struct{}{}
-		}
-		return accountsMap
-	}
+	// serviceAccountsFn := func(svc *model.Service) map[string]struct{} {
+	// 	accounts := aggregateCtl.GetIstioServiceAccounts(svc, []int{})
+	// 	accountsMap := map[string]struct{}{}
+	// 	for _, k := range accounts {
+	// 		accountsMap[k] = struct{}{}
+	// 	}
+	// 	return accountsMap
+	// }
 
-	// Get accounts from mockAdapter1
-	accounts := serviceAccountsFn(mock.HelloService)
-	expected := map[string]struct{}{}
-	if diff := cmp.Diff(accounts, expected); diff != "" {
-		t.Errorf("unexpected service account, diff %v", diff)
-	}
+	// // Get accounts from mockAdapter1
+	// accounts := serviceAccountsFn(mock.HelloService)
+	// expected := map[string]struct{}{}
+	// if diff := cmp.Diff(accounts, expected); diff != "" {
+	// 	t.Errorf("unexpected service account, diff %v", diff)
+	// }
 
-	// Get accounts from mockAdapter2
-	accounts = serviceAccountsFn(mock.WorldService)
-	expected = map[string]struct{}{
-		"spiffe://cluster.local/ns/default/sa/world1": {},
-		"spiffe://cluster.local/ns/default/sa/world2": {},
-	}
-	if diff := cmp.Diff(accounts, expected); diff != "" {
-		t.Errorf("unexpected service account, diff %v", diff)
-	}
+	// // Get accounts from mockAdapter2
+	// accounts = serviceAccountsFn(mock.WorldService)
+	// expected = map[string]struct{}{
+	// 	"spiffe://cluster.local/ns/default/sa/world1": {},
+	// 	"spiffe://cluster.local/ns/default/sa/world2": {},
+	// }
+	// if diff := cmp.Diff(accounts, expected); diff != "" {
+	// 	t.Errorf("unexpected service account, diff %v", diff)
+	// }
 
-	// Get accounts for service replicated in both service.
-	accounts = serviceAccountsFn(mock.ReplicatedFooServiceV1)
-	expected = map[string]struct{}{
-		"spiffe://cluster.local/ns/default/sa/foo1":      {},
-		"spiffe://cluster.local/ns/default/sa/foo2":      {},
-		"spiffe://cluster.local/ns/default/sa/foo-share": {},
+	// // Get accounts for service replicated in both service.
+	// accounts = serviceAccountsFn(mock.ReplicatedFooServiceV1)
+	// expected = map[string]struct{}{
+	// 	"spiffe://cluster.local/ns/default/sa/foo1":      {},
+	// 	"spiffe://cluster.local/ns/default/sa/foo2":      {},
+	// 	"spiffe://cluster.local/ns/default/sa/foo-share": {},
+	// }
+	// if diff := cmp.Diff(accounts, expected); diff != "" {
+	// 	t.Errorf("unexpected service account, diff %v", diff)
+	// }
+	testCases := []struct {
+		name               string
+		svc                *model.Service
+		trustDomainAliases []string
+		want               []string
+	}{
+		{
+			name: "HelloEmpty",
+			svc:  mock.HelloService,
+			want: []string{},
+		},
+		{
+			name: "World",
+			svc:  mock.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+			},
+		},
+		{
+			name: "ReplicatedFoo",
+			svc:  mock.ReplicatedFooServiceV1,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/foo-share",
+				"spiffe://cluster.local/ns/default/sa/foo1",
+				"spiffe://cluster.local/ns/default/sa/foo2",
+			},
+		},
+		{
+			name:               "ExpansionByTrustDomainAliases",
+			trustDomainAliases: []string{"cluster.local", "example.com"},
+			svc:                mock.WorldService,
+			want: []string{
+				"spiffe://cluster.local/ns/default/sa/world1",
+				"spiffe://cluster.local/ns/default/sa/world2",
+				"spiffe://example.com/ns/default/sa/world1",
+				"spiffe://example.com/ns/default/sa/world2",
+			},
+		},
 	}
-	if diff := cmp.Diff(accounts, expected); diff != "" {
-		t.Errorf("unexpected service account, diff %v", diff)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			meshHolder.trustDomainAliases = tc.trustDomainAliases
+			accounts := aggregateCtl.GetIstioServiceAccounts(tc.svc, []int{})
+			if diff := cmp.Diff(accounts, tc.want); diff != "" {
+				t.Errorf("unexpected service account, diff %v", diff)
+			}
+		})
 	}
 }
 
@@ -450,7 +513,7 @@ func TestAddRegistry(t *testing.T) {
 			ClusterID:  "cluster2",
 		},
 	}
-	ctrl := NewController(&Options{})
+	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
@@ -470,7 +533,7 @@ func TestDeleteRegistry(t *testing.T) {
 			ClusterID:  "cluster2",
 		},
 	}
-	ctrl := NewController(&Options{})
+	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
@@ -491,7 +554,7 @@ func TestGetRegistries(t *testing.T) {
 			ClusterID:  "cluster2",
 		},
 	}
-	ctrl := NewController(&Options{})
+	ctrl := NewController(Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}

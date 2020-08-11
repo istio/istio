@@ -683,6 +683,18 @@ func TestExpandWithTrustDomains(t *testing.T) {
 			},
 		},
 		{
+			name:      "InvalidInput",
+			spiffeURI: []string{"spiffe:///abcdef", "spffff://a/b/c", "abcdef"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"spiffe:///abcdef": {},
+				"spffff://a/b/c":   {},
+				"abcdef":           {},
+			},
+		},
+		{
 			name:         "EmptyTrustDomains",
 			spiffeURI:    []string{"spiffe://cluster.local/ns/def/na/def"},
 			trustDomains: []string{},

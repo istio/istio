@@ -122,7 +122,7 @@ func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) map[s
 		}
 		suffix := id[m[3]:]
 		for _, td := range trustDomainAliases {
-			nid := fmt.Sprintf("%v://%v%v", Scheme, td, suffix)
+			nid := URIPrefix + td + suffix
 			out[nid] = struct{}{}
 		}
 	}

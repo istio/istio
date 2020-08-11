@@ -168,7 +168,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		PushContext:  model.NewPushContext(),
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
-	ac := aggregate.NewController(&aggregate.Options{
+	ac := aggregate.NewController(aggregate.Options{
 		MeshHolder: e,
 	})
 	e.ServiceDiscovery = ac

@@ -105,7 +105,7 @@ func NewXDS() *SimpleServer {
 	s.MemoryConfigStore = model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
-	serviceControllers := aggregate.NewController(&aggregate.Options{})
+	serviceControllers := aggregate.NewController(aggregate.Options{})
 
 	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
 	serviceEntryRegistry := serviceregistry.Simple{
