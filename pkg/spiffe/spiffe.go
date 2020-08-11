@@ -46,9 +46,6 @@ var (
 	trustDomain      = defaultTrustDomain
 	trustDomainMutex sync.RWMutex
 
-	// TODO(incfly/myipdt): deprecate trustDomain using this map only.
-	trustDomainInfoMap sync.Map
-
 	firstRetryBackOffTime = time.Millisecond * 50
 	totalRetryTimeout     = time.Second * 10
 
