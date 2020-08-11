@@ -632,7 +632,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 		} else {
 			comma = true
 		}
-		cla := s.generateEndpoints(createEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))
+		cla := s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		dbgString, _ := jsonm.MarshalToString(cla)
 		if _, err := w.Write([]byte(dbgString)); err != nil {
