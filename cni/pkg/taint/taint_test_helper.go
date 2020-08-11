@@ -1,3 +1,17 @@
+// Copyright 2020 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package taint
 
 import (
@@ -92,8 +106,8 @@ type makeNodeArgs struct {
 	NodeCondition []v1.NodeCondition
 }
 
-func makeNodeWithTaint(args makeNodeArgs) *v1.Node {
-	node := &v1.Node{
+func makeNodeWithTaint(args makeNodeArgs) v1.Node {
+	node := v1.Node{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Node",
 			APIVersion: "v1",
@@ -117,22 +131,47 @@ var (
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni.properties": `name: istio-cni
-selector: app=istio 
-namespace: kube-system`,
+			"istio-cni": `- name: istio-cni
+  selector: app=istio 
+  namespace: kube-system`,
 		},
 	})
 	combinedConfig = makeConfigMap(makeConfigMapArgs{
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni.properties": `name: istio-cni
-selector: app=istio
-namespace: kube-system`,
-			"others.properties": `name: others
-selector: app=others	
-namespace: blah`,
+			"istio-cni": `- name: istio-cni
+  selector: app=istio
+  namespace: kube-system`,
+			"others": `- name: others
+  selector: app=others	
+  namespace: blah`,
 		},
+	})
+	listConfig = makeConfigMap(makeConfigMapArgs{
+		ConfigName: "node.readiness",
+		Namespace:  "kube-system",
+		Data: map[string]string{
+			"istio-cni": `- name: critical-test1
+  selector: critical=test1
+  namespace: test1
+- name: addon=test2
+  selector: addon=test2
+  namespace: test2
+`,
+		},
+	})
+	multiLabelConfig = makeConfigMap(makeConfigMapArgs{
+		ConfigName: "node.readiness",
+		Namespace:  "kube-system",
+		Data: map[string]string{
+			"istio-cni": `- name: critical-test1
+  selector: critical=test1, app=istio
+  namespace: test1
+- name: addon=test2
+  selector: addon=test2
+  namespace: test2
+`},
 	})
 )
 
@@ -174,7 +213,7 @@ var (
 	})
 )
 var (
-	testingNode = *makeNodeWithTaint(makeNodeArgs{
+	testingNode = makeNodeWithTaint(makeNodeArgs{
 		NodeName: "foo",
 		Taints:   []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
 		NodeCondition: []v1.NodeCondition{
@@ -185,12 +224,12 @@ var (
 			},
 		},
 	})
-	plainNode = *makeNodeWithTaint(makeNodeArgs{
+	plainNode = makeNodeWithTaint(makeNodeArgs{
 		NodeName:      "bar",
 		Taints:        []v1.Taint{},
 		NodeCondition: []v1.NodeCondition{},
 	})
-	unreadyNode = *makeNodeWithTaint(makeNodeArgs{
+	unreadyNode = makeNodeWithTaint(makeNodeArgs{
 		NodeName: "unready",
 		Taints:   []v1.Taint{},
 		NodeCondition: []v1.NodeCondition{

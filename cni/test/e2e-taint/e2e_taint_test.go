@@ -1,4 +1,18 @@
-package e2e_taint
+// Copyright 2020 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package e2etaint
 
 import (
 	"context"
@@ -84,7 +98,9 @@ func buildConfigIfNotExists(clientSet client.Interface, options taint.Options, f
 	err = clientSet.CoreV1().ConfigMaps(options.ConfigmapNamespace).Delete(context.TODO(), options.ConfigmapName, metav1.DeleteOptions{})
 	fmt.Println(filepath.Abs("./"))
 	currpath, err := filepath.Abs("./")
-	cmd := exec.Command("kubectl", "create", "configmap", options.ConfigmapName, "-n", options.ConfigmapNamespace, "--from-file="+fmt.Sprintf("%s/%s/", currpath, fileLocation))
+	cmd := exec.Command("kubectl", "create", "configmap",
+		options.ConfigmapName, "-n", options.ConfigmapNamespace,
+		"--from-file="+fmt.Sprintf("%s/%s/", currpath, fileLocation))
 	fmt.Println(cmd.String())
 	err = cmd.Run()
 	err = retry.UntilSuccess(func() error {
@@ -94,32 +110,31 @@ func buildConfigIfNotExists(clientSet client.Interface, options taint.Options, f
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
-	configmap, err = clientSet.CoreV1().ConfigMaps(options.ConfigmapNamespace).Get(context.TODO(), options.ConfigmapName, metav1.GetOptions{})
 	return configmap, err
 }
 func waitForConfigMapDeletion(client client.Interface, name, namespace string) error {
 	err := retry.UntilSuccess(func() error {
-		_, err2 := client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-		if err2 == nil {
+		_, err := client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err == nil {
 			return fmt.Errorf("configmap %s should be deleted", name)
 		}
-		if errors.IsNotFound(err2) {
+		if errors.IsNotFound(err) {
 			return nil
 		}
-		return err2
+		return err
 	}, retry.Converge(1), retry.Timeout(TimeDuration), retry.Delay(TimeDelay))
 	return err
 }
 func waitForDaemonSetDeletion(client client.Interface, name, namespace string) error {
 	err := retry.UntilSuccess(func() error {
-		_, err2 := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-		if err2 == nil {
+		_, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err == nil {
 			return fmt.Errorf("configmap %s should be deleted", name)
 		}
-		if errors.IsNotFound(err2) {
+		if errors.IsNotFound(err) {
 			return nil
 		}
-		return err2
+		return err
 	}, retry.Converge(1), retry.Timeout(TimeDuration), retry.Delay(TimeDelay))
 	return err
 }
@@ -170,12 +185,14 @@ func TestTaintController(t *testing.T) {
 			}
 			for _, ns := range tt.args.namespaces {
 				_, err = clientSet.CoreV1().Namespaces().Create(context.TODO(), &ns, metav1.CreateOptions{})
+				if err != nil {
+					t.Fatalf(err.Error())
+				}
 				err = retry.UntilSuccess(func() error {
 					if kube.NamespaceExists(clientSet, ns.Name) {
 						return nil
-					} else {
-						return fmt.Errorf("cannot create ns %s", ns.Name)
 					}
+					return fmt.Errorf("cannot create ns %s", ns.Name)
 				}, retry.Timeout(TimeDuration), retry.Delay(TimeDelay))
 				if err != nil {
 					t.Fatalf(err.Error())
@@ -193,7 +210,7 @@ func TestTaintController(t *testing.T) {
 			if err != nil {
 				log.Fatalf("Could not construct taint setter: %s", err)
 			}
-			tc, err := taint.NewTaintSetterController(&taintSetter)
+			tc, err := taint.NewTaintSetterController(taintSetter)
 			if err != nil {
 				log.Fatalf("Could not build controller %s", err)
 			}

@@ -1,12 +1,30 @@
+// Copyright 2020 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// A simple daemonset binary to repair pods that are crashlooping
+// after winning a race condition against istio-cni
+
 package main
 
 import (
 	"context"
-	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
@@ -56,8 +74,8 @@ kubernetes controller and checking on the readiness of critical label
 			if err != nil {
 				log.Fatalf("Could not construct taint setter: %s", err)
 			}
-			logCurrentOptions(&taintSetter, options)
-			tc, err := taint.NewTaintSetterController(&taintSetter)
+			logCurrentOptions(taintSetter, options)
+			tc, err := taint.NewTaintSetterController(taintSetter)
 			if err != nil {
 				log.Fatalf("Fatal error constructing taint controller: %+v", err)
 			}
@@ -175,12 +193,12 @@ func clientSetup() (clientset *client.Clientset, err error) {
 }
 
 // Log human-readable output describing the current filter and option selection
-func logCurrentOptions(ts *taint.TaintSetter, options *ControllerOptions) {
+func logCurrentOptions(ts *taint.Setter, options *ControllerOptions) {
 	if options.RunAsDaemon {
 		log.Infof("Controller Option: Running as a Daemon.")
 	}
-	for _, cs := range ts.GetAllConfigs() {
-		log.Infof("ConfigSetting %s", cs.ToString())
+	for _, cs := range ts.Configs() {
+		log.Infof("ConfigSetting %s", cs)
 	}
 }
 
