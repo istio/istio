@@ -6,11 +6,9 @@ issue:
 
 releaseNotes:
 - |
-  *Added* port 15012 to the default list of ports for the `istio-ingressgateway` Service.
+  **Added** port 15012 to the default list of ports for the `istio-ingressgateway` Service.
 - |
-  *Deprecated* installation flags
-  - `values.global.meshExpansion.enabled` in favor of user-managed config
-  - `values.gateways.istio-ingressgateway.meshExpansionPorts` in favor of `components.ingressGateways[name=istio-ingressgateway].k8s.service.ports`
+  **Deprecated** installation flags `values.global.meshExpansion.enabled` in favor of user-managed config and `values.gateways.istio-ingressgateway.meshExpansionPorts` in favor of `components.ingressGateways[name=istio-ingressgateway].k8s.service.ports`
 
 upgradeNotes:
 - title: Avoid use of mesh expansion installation flags
