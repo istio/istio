@@ -15,6 +15,7 @@
 package aggregate
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -388,5 +389,16 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 	if c.meshFn != nil {
 		tds = c.meshFn().TrustDomainAliases
 	}
-	return spiffe.ExpandWithTrustDomains(result, tds)
+	if strings.Contains(string(svc.Hostname), "httpbin") {
+		log.Infof("jianfeih before expansion %v, %v", result, tds)
+	}
+	expanded := spiffe.ExpandWithTrustDomains(result, tds)
+	result = []string{}
+	for k, _ := range expanded {
+		result = append(result, k)
+	}
+	if strings.Contains(string(svc.Hostname), "httpbin") {
+		log.Infof("jianfeih after expansion %v", result)
+	}
+	return result
 }

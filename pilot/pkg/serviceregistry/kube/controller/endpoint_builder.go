@@ -40,7 +40,7 @@ func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		td := spiffe.GetTrustDomainByCluster(c.clusterID)
-		sa = kube.SecureNamingSAN(td, c.meshconfig.TrustDomainAliases, pod)
+		sa = kube.SecureNamingSAN(td, pod)
 		uid = createUID(pod.Name, pod.Namespace)
 		podLabels = pod.Labels
 	}

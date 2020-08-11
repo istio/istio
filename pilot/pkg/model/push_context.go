@@ -1046,7 +1046,11 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			ps.ServiceAccounts[svc.Hostname][port.Port] = env.GetIstioServiceAccounts(svc, []int{port.Port})
+			sas := env.GetIstioServiceAccounts(svc, []int{port.Port})
+			ps.ServiceAccounts[svc.Hostname][port.Port] = sas
+			if strings.Contains(string(svc.Hostname), "httpbin") {
+				log.Infof("jianfeih initServiceAccounts %v", sas)
+			}
 		}
 	}
 }
