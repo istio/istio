@@ -46,8 +46,12 @@ func (p *Probe) Check() error {
 		return err
 	}
 
-	// Make sure Envoy proxy is listening on port 15001
-	return p.checkProxyListening()
+	// Make sure the sidecar is listening on port 15001
+	if p.NodeType == model.SidecarProxy {
+		return p.checkProxyListening()
+	}
+
+	return nil
 }
 
 // checkApplicationPorts verifies that Envoy has received configuration for all ports exposed by the application container.
