@@ -26,9 +26,9 @@ import (
 
 	md "cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	meshAPI "istio.io/api/mesh/v1alpha1"
-
 	"github.com/gogo/protobuf/types"
+
+	meshAPI "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/option"

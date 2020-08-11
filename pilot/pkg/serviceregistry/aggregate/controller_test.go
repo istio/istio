@@ -59,7 +59,7 @@ func buildMockController() *Controller {
 		Controller:       &mock.Controller{},
 	}
 
-	ctls := NewController()
+	ctls := NewController(&Options{})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -92,7 +92,7 @@ func buildMockControllerForMultiCluster() *Controller {
 		Controller:       &mock.Controller{},
 	}
 
-	ctls := NewController()
+	ctls := NewController(&Options{})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
@@ -450,7 +450,7 @@ func TestAddRegistry(t *testing.T) {
 			ClusterID:  "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := NewController(&Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
@@ -470,7 +470,7 @@ func TestDeleteRegistry(t *testing.T) {
 			ClusterID:  "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := NewController(&Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
@@ -491,7 +491,7 @@ func TestGetRegistries(t *testing.T) {
 			ClusterID:  "cluster2",
 		},
 	}
-	ctrl := NewController()
+	ctrl := NewController(&Options{})
 	for _, r := range registries {
 		ctrl.AddRegistry(r)
 	}
