@@ -52,11 +52,14 @@ func StringMatcherWithPrefix(v, prefix string, treatWildcardAsRequired bool) *en
 		}
 		return StringMatcherRegex(".*")
 	case strings.HasPrefix(v, "*"):
-		return &envoy_matcher.StringMatcher{
-			MatchPattern: &envoy_matcher.StringMatcher_Suffix{
-				Suffix: prefix + strings.TrimPrefix(v, "*"),
-			},
+		if prefix == "" {
+			return &envoy_matcher.StringMatcher{
+				MatchPattern: &envoy_matcher.StringMatcher_Suffix{
+					Suffix: strings.TrimPrefix(v, "*"),
+				},
+			}
 		}
+		return StringMatcherRegex(prefix + ".*" + strings.TrimPrefix(v, "*"))
 	case strings.HasSuffix(v, "*"):
 		return &envoy_matcher.StringMatcher{
 			MatchPattern: &envoy_matcher.StringMatcher_Prefix{

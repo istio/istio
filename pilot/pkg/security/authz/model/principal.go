@@ -253,15 +253,13 @@ func (principal *Principal) forKeyValue(key, value string, forTCPFilter bool) *e
 		}
 		return principalSourceIP(cidr)
 	case attrSrcNamespace == key:
+		value = strings.Replace(value, "*", ".*", -1)
+		m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", value))
 		if forTCPFilter {
-			regex := fmt.Sprintf(".*/ns/%s/.*", value)
-			m := matcher.StringMatcherRegex(regex)
 			return principalAuthenticated(m)
 		}
 		// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 		// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
-		value = strings.Replace(value, "*", ".*", -1)
-		m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", value))
 		metadata := matcher.MetadataStringMatcher(authn_model.AuthnFilterName, attrSrcPrincipal, m)
 		return principalMetadata(metadata)
 	case attrSrcPrincipal == key:
