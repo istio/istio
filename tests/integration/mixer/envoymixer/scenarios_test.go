@@ -40,19 +40,6 @@ var (
 // This file contains Mixer tests that are ported from Mixer E2E tests
 
 // Port of TestMetric
-func TestIngessToPrometheus_ServiceMetric(t *testing.T) {
-	framework.
-		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/14819)
-		Label(label.Flaky).
-		Run(func(ctx framework.TestContext) {
-			label := "source_workload"
-			labelValue := "istio-ingressgateway"
-			testMetric(t, ctx, label, labelValue)
-		})
-}
-
-// Port of TestMetric
 func TestIngessToPrometheus_IngressMetric(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -129,53 +116,7 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	}
 }
 
-// Port of TestTcpMetric
-func TestTcpMetric(t *testing.T) {
-	framework.
-		NewTest(t).
-		// TODO(https://github.com/istio/istio/issues/18105)
-		Label(label.Flaky).
-		Run(func(ctx framework.TestContext) {
-			undeploy1 := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoRatingsv2})
-			undeploy2 := bookinfo.DeployOrFail(t, ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB})
-			defer undeploy1()
-			defer undeploy2()
 
-			ctx.Config().ApplyYAMLOrFail(
-				t,
-				bookinfoNs.Name(),
-				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			)
-			defer ctx.Config().DeleteYAMLOrFail(
-				t,
-				bookinfoNs.Name(),
-				bookinfo.GetDestinationRuleConfigFileOrFail(t, ctx).LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-				bookinfo.NetworkingTCPDbRule.LoadWithNamespaceOrFail(t, bookinfoNs.Name()),
-			)
-
-			util.AllowRuleSync(t)
-
-			addr := ing.HTTPAddress()
-			url := fmt.Sprintf("http://%s/productpage", addr.String())
-			res := util.SendTraffic(ing, t, "Sending traffic", url, "", 10)
-			if res.RetCodes[200] < 1 {
-				t.Fatalf("unable to retrieve 200 from product page: %v", res.RetCodes)
-			}
-
-			query := fmt.Sprintf("sum(istio_tcp_sent_bytes_total{destination_app=\"%s\"})", "mongodb")
-			util.ValidateMetric(t, prom, query, "istio_tcp_sent_bytes_total", 1)
-
-			query = fmt.Sprintf("sum(istio_tcp_received_bytes_total{destination_app=\"%s\"})", "mongodb")
-			util.ValidateMetric(t, prom, query, "istio_tcp_received_bytes_total", 1)
-
-			query = fmt.Sprintf("sum(istio_tcp_connections_opened_total{destination_app=\"%s\"})", "mongodb")
-			util.ValidateMetric(t, prom, query, "istio_tcp_connections_opened_total", 1)
-
-			query = fmt.Sprintf("sum(istio_tcp_connections_closed_total{destination_app=\"%s\"})", "mongodb")
-			util.ValidateMetric(t, prom, query, "istio_tcp_connections_closed_total", 1)
-		})
-}
 
 func TestMain(m *testing.M) {
 	framework.
