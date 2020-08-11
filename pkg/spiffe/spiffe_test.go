@@ -394,7 +394,7 @@ func TestGenCustomSpiffe(t *testing.T) {
 	}
 }
 
-// The test starts one or two local servers and testCases RetrieveSpiffeBundleRootCerts is able to correctly retrieve the
+// The test starts one or two local servers and tests RetrieveSpiffeBundleRootCerts is able to correctly retrieve the
 // SPIFFE bundles.
 func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
 	inputStringTemplate1 := `foo|URL1`
