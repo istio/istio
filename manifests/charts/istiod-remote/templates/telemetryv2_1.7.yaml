@@ -146,6 +146,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -159,6 +160,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -196,6 +200,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -209,6 +214,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -246,6 +254,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
@@ -260,6 +269,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -309,6 +321,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -322,6 +335,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: tcp_stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -357,6 +373,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -370,6 +387,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -405,6 +425,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -418,6 +439,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
