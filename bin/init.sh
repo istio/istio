@@ -232,7 +232,8 @@ set -x
 
 (cd /tmp; go get golang.org/dl/go1.15)
 go1.15 download
-cp `which go1.15` /tmp/go
+mkdir -p /tmp/go
+cp `which go1.15` /tmp/go/go
 go version
 export PATH=/tmp/go:$PATH
 go version
