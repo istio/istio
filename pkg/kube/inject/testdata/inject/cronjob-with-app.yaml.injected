@@ -51,6 +51,8 @@ spec:
             - --concurrency
             - "1"
             env:
+            - name: CA_ADDR
+              value: istiod.istio-system.svc:15012
             - name: POD_NAME
               valueFrom:
                 fieldRef:
