@@ -7,7 +7,7 @@ spec:
   selector:
     matchLabels:
       "app": "b"
-  action: LOG
+  action: AUDIT
   rules:
   - to:
     - operation:
@@ -24,7 +24,7 @@ spec:
   selector:
     matchLabels:
       "app": "c"
-  action: LOG
+  action: AUDIT
   rules:
   - to:
     - operation:

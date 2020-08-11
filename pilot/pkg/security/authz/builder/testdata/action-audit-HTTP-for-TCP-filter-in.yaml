@@ -31,3 +31,36 @@ spec:
       - key: "request.headers[X-header]"
         values: ["header"]
         notValues: ["not-header"]
+      - key: "source.ip"
+        values: ["10.10.10.10"]
+        notValues: ["90.10.10.10"]
+      - key: "source.namespace"
+        values: ["ns"]
+        notValues: ["not-ns"]
+      - key: "source.principal"
+        values: ["principal"]
+        notValues: ["not-principal"]
+      - key: "request.auth.principal"
+        values: ["requestPrincipals"]
+        notValues: ["not-requestPrincipals"]
+      - key: "request.auth.audiences"
+        values: ["audiences"]
+        notValues: ["not-audiences"]
+      - key: "request.auth.presenter"
+        values: ["presenter"]
+        notValues: ["not-presenter"]
+      - key: "request.auth.claims[iss]"
+        values: ["iss"]
+        notValues: ["not-iss"]
+      - key: "destination.ip"
+        values: ["10.10.10.10"]
+        notValues: ["90.10.10.10"]
+      - key: "destination.port"
+        values: ["91"]
+        notValues: ["9001"]
+      - key: "connection.sni"
+        values: ["exact.com"]
+        notValues: ["not-exact.com"]
+      - key: "experimental.envoy.filters.a.b[c]"
+        values: ["exact"]
+        notValues: ["not-exact"]
