@@ -3,5 +3,6 @@ kind: feature
 area: istioctl
 issue:
   - 25737
-releaseNotes: |
+releaseNotes:
+- |
   **Removed** `istioctl manifest apply`. The simpler `install` command replaces manifest apply.
