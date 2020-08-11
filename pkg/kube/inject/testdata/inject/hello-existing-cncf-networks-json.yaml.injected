@@ -14,12 +14,12 @@ spec:
   template:
     metadata:
       annotations:
+        k8s.v1.cni.cncf.io/networks: '[{"name": "alt_cni"}, {"name": "istio-cni"}]'
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
+        sidecar.istio.io/status: '{"version":"","initContainers":["istio-validation"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: "80"
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
-        traffic.sidecar.istio.io/kubevirtInterfaces: net1,net2
       creationTimestamp: null
       labels:
         app: hello
@@ -91,17 +91,14 @@ spec:
                 {"name":"http","containerPort":80}
             ]
         - name: ISTIO_META_APP_CONTAINERS
-          value: |-
-            [
-                hello
-            ]
+          value: hello
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_METAJSON_ANNOTATIONS
           value: |
-            {"traffic.sidecar.istio.io/kubevirtInterfaces":"net1,net2"}
+            {"k8s.v1.cni.cncf.io/networks":"[{\"name\": \"alt_cni\"}]"}
         - name: ISTIO_META_WORKLOAD_NAME
           value: hello
         - name: ISTIO_META_OWNER
@@ -172,13 +169,13 @@ spec:
         - '*'
         - -d
         - 15090,15021,15020
-        - -k
-        - net1,net2
+        - --run-validation
+        - --skip-rule-apply
         env:
         - name: DNS_AGENT
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
-        name: istio-init
+        name: istio-validation
         resources:
           limits:
             cpu: "2"
@@ -189,16 +186,13 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
             drop:
             - ALL
           privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
       securityContext:
         fsGroup: 1337
       volumes:
