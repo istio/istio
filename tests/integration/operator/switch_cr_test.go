@@ -378,12 +378,12 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 					return fmt.Errorf("failed to get expected configMap: %s from cluster", name)
 				}
 			case "ValidatingWebhookConfiguration":
-				if _, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
+				if _, err := cs.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(),
 					name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected ValidatingWebhookConfiguration: %s from cluster", name)
 				}
 			case "MutatingWebhookConfiguration":
-				if _, err := cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(),
+				if _, err := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.TODO(),
 					name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected MutatingWebhookConfiguration: %s from cluster", name)
 				}

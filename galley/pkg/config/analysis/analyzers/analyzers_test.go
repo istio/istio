@@ -74,7 +74,6 @@ var testGrid = []testCase{
 		analyzer: &annotations.K8sAnalyzer{},
 		expected: []message{
 			{msg.UnknownAnnotation, "Service httpbin"},
-			{msg.MisplacedAnnotation, "Service details"},
 			{msg.InvalidAnnotation, "Pod invalid-annotations"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},

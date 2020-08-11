@@ -156,7 +156,7 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	s.adsClientsMutex.RLock()
 	for _, con := range s.adsClients {
-		node := con.node
+		node := con.proxy
 		if node != nil {
 			syncz = append(syncz, SyncStatus{
 				ProxyID:       node.ID,
@@ -285,12 +285,12 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		s.adsClientsMutex.RLock()
 		for _, con := range s.adsClients {
 			// wrap this in independent scope so that panic's don't bypass Unlock...
-			con.mu.RLock()
+			con.proxy.RLock()
 
-			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
+			if con.proxy != nil && (proxyNamespace == "" || proxyNamespace == con.proxy.ConfigNamespace) {
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
-					ProxyID: con.node.ID,
+					ProxyID: con.proxy.ID,
 					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ClusterType),
 						resourceID, knownVersions),
 					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ListenerType),
@@ -299,7 +299,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 						resourceID, knownVersions),
 				})
 			}
-			con.mu.RUnlock()
+			con.proxy.RUnlock()
 		}
 		s.adsClientsMutex.RUnlock()
 
@@ -479,7 +479,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.ConfigGenerator.BuildClusters(conn.node, s.globalPushContext())
+	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
 
 	for _, cs := range clusters {
 		cluster, err := ptypes.MarshalAny(cs)
@@ -497,7 +497,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	}
 
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
-	listeners := s.ConfigGenerator.BuildListeners(conn.node, s.globalPushContext())
+	listeners := s.ConfigGenerator.BuildListeners(conn.proxy, s.globalPushContext())
 	for _, cs := range listeners {
 		listener, err := ptypes.MarshalAny(cs)
 		if err != nil {
@@ -515,7 +515,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		return nil, err
 	}
 
-	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.node, s.globalPushContext(), conn.Routes())
+	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.proxy, s.globalPushContext(), conn.Routes())
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
@@ -632,7 +632,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 		} else {
 			comma = true
 		}
-		cla := s.generateEndpoints(createEndpointBuilder(clusterName, con.node, s.globalPushContext()))
+		cla := s.generateEndpoints(createEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		dbgString, _ := jsonm.MarshalToString(cla)
 		if _, err := w.Write([]byte(dbgString)); err != nil {
@@ -747,11 +747,11 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	instances := map[string][]*model.ServiceInstance{}
 	s.adsClientsMutex.RLock()
 	for _, con := range s.adsClients {
-		con.mu.RLock()
-		if con.node != nil {
-			instances[con.node.ID] = con.node.ServiceInstances
+		con.proxy.RLock()
+		if con.proxy != nil {
+			instances[con.proxy.ID] = con.proxy.ServiceInstances
 		}
-		con.mu.RUnlock()
+		con.proxy.RUnlock()
 	}
 	s.adsClientsMutex.RUnlock()
 	by, _ := json.MarshalIndent(instances, "", "  ")

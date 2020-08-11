@@ -25,7 +25,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 replace github.com/envoyproxy/go-control-plane => github.com/davidraskin/go-control-plane v0.9.8
 
-replace istio.io/api => github.com/davidraskin/api-mirror v0.0.0-20200729235442-a531c591f8d1
+// replace istio.io/api => github.com/davidraskin/api-mirror v0.0.0-20200729235442-a531c591f8d1
 
 // See https://github.com/kubernetes/kubernetes/issues/92867, there is a bug in the library
 replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8
@@ -133,9 +133,10 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.5.1
 	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200807153343-42453f1c8ffc
-	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
+	istio.io/api v0.0.0-20200808213952-0bb7e74acfe8
+	istio.io/client-go v0.0.0-20200807223845-61c70ad04ec9
 	istio.io/gogo-genproto v0.0.0-20200720193312-b523a30fe746
 	istio.io/pkg v0.0.0-20200721143030-6b837ddaf2ab
 	k8s.io/api v0.18.6

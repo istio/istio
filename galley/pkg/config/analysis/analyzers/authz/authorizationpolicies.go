@@ -15,6 +15,7 @@
 package authz
 
 import (
+	"fmt"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -140,11 +141,22 @@ func hasMatchingPodsRunningIn(selector k8s_labels.Selector, setList []k8s_labels
 func (a *AuthorizationPoliciesAnalyzer) analyzeNamespaceNotFound(r *resource.Instance, c analysis.Context) {
 	ap := r.Message.(*v1beta1.AuthorizationPolicy)
 
-	for _, rule := range ap.Rules {
-		for _, from := range rule.From {
-			for _, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
+	for i, rule := range ap.Rules {
+		for j, from := range rule.From {
+			for k, ns := range append(from.Source.Namespaces, from.Source.NotNamespaces...) {
 				if !matchNamespace(ns, c) {
-					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), msg.NewReferencedResourceNotFound(r, "namespace", ns))
+					m := msg.NewReferencedResourceNotFound(r, "namespace", ns)
+
+					nsIndex := k
+					if nsIndex >= len(from.Source.Namespaces) {
+						nsIndex -= len(from.Source.Namespaces)
+					}
+
+					if line, ok := util.ErrorLine(r, fmt.Sprintf(util.AuthorizationPolicyNameSpace, i, j, nsIndex)); ok {
+						m.Line = line
+					}
+
+					c.Report(collections.IstioSecurityV1Beta1Authorizationpolicies.Name(), m)
 				}
 			}
 		}
