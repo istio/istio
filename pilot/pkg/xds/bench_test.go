@@ -31,6 +31,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -110,15 +111,15 @@ func BenchmarkRouteGeneration(b *testing.B) {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
-			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext)
-			routeNames := ExtractRoutesFromListeners(l)
+			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
+			routeNames := xdstest.ExtractRoutesFromListeners(l)
 			if len(routeNames) == 0 {
 				b.Fatal("Got no route names!")
 			}
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext, routeNames)
+				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext(), routeNames)
 				if len(r) == 0 {
 					b.Fatal("Got no routes!")
 				}
@@ -137,7 +138,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				c := s.Discovery.ConfigGenerator.BuildClusters(proxy, s.PushContext)
+				c := s.Discovery.ConfigGenerator.BuildClusters(proxy, s.PushContext())
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
@@ -156,7 +157,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext)
+				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
 				if len(l) == 0 {
 					b.Fatal("Got no listeners!")
 				}
@@ -200,7 +201,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.Discovery.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
+					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
 					loadAssignments = append(loadAssignments, l)
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)

@@ -57,26 +57,26 @@ type InternalGen struct {
 }
 
 func (sg *InternalGen) OnConnect(con *Connection) {
-	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
-		con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
+	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
+		con.node.Metadata.Fields["istiod"] = &structpb.Value{
 			Kind: &structpb.Value_StringValue{
 				StringValue: "TODO", // TODO: fill in the Istiod address - may include network, cluster, IP
 			},
 		}
-		con.xdsNode.Metadata.Fields["con"] = &structpb.Value{
+		con.node.Metadata.Fields["con"] = &structpb.Value{
 			Kind: &structpb.Value_StringValue{
 				StringValue: con.ConID,
 			},
 		}
 	}
-	sg.startPush(TypeURLConnections, []proto.Message{con.xdsNode})
+	sg.startPush(TypeURLConnections, []proto.Message{con.node})
 }
 
 func (sg *InternalGen) OnDisconnect(con *Connection) {
-	sg.startPush(TypeURLDisconnect, []proto.Message{con.xdsNode})
+	sg.startPush(TypeURLDisconnect, []proto.Message{con.node})
 
-	if con.xdsNode.Metadata != nil && con.xdsNode.Metadata.Fields != nil {
-		con.xdsNode.Metadata.Fields["istiod"] = &structpb.Value{
+	if con.node.Metadata != nil && con.node.Metadata.Fields != nil {
+		con.node.Metadata.Fields["istiod"] = &structpb.Value{
 			Kind: &structpb.Value_StringValue{
 				StringValue: "", // TODO: using empty string to indicate this node has no istiod connection. We'll iterate.
 			},
@@ -102,11 +102,11 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
 	for _, v := range s.adsClients {
-		v.mu.RLock()
-		if v.node.ActiveExperimental[res.TypeUrl] != nil {
+		v.proxy.RLock()
+		if v.proxy.ActiveExperimental[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
-		v.mu.RUnlock()
+		v.proxy.RUnlock()
 	}
 	s.adsClientsMutex.RUnlock()
 
@@ -162,7 +162,7 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 		sg.Server.adsClientsMutex.RLock()
 		// Create a temp map to avoid locking the add/remove
 		for _, v := range sg.Server.adsClients {
-			res = append(res, util.MessageToAny(v.xdsNode))
+			res = append(res, util.MessageToAny(v.node))
 		}
 		sg.Server.adsClientsMutex.RUnlock()
 	case TypeDebugSyncronization:
@@ -186,9 +186,9 @@ func (sg *InternalGen) Generate(proxy *model.Proxy, push *model.PushContext, w *
 // isSidecar ad-hoc method to see if connection represents a sidecar
 func isProxy(con *Connection) bool {
 	return con != nil &&
-		con.node != nil &&
-		con.node.Metadata != nil &&
-		con.node.Metadata.ProxyConfig != nil
+		con.proxy != nil &&
+		con.proxy.Metadata != nil &&
+		con.proxy.Metadata.ProxyConfig != nil
 }
 
 func (sg *InternalGen) debugSyncz() []*any.Any {
@@ -203,13 +203,13 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 
 	sg.Server.adsClientsMutex.RLock()
 	for _, con := range sg.Server.adsClients {
-		con.mu.RLock()
+		con.proxy.RLock()
 		// Skip "nodes" without metdata (they are probably istioctl queries!)
 		if isProxy(con) {
 			xdsConfigs := []*status.PerXdsConfig{}
 			for _, stype := range stypes {
 				pxc := &status.PerXdsConfig{}
-				if watchedResource, ok := con.node.Active[stype]; ok {
+				if watchedResource, ok := con.proxy.Active[stype]; ok {
 					pxc.Status = debugSyncStatus(watchedResource)
 				} else {
 					pxc.Status = status.ConfigStatus_NOT_SENT
@@ -228,13 +228,13 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 			}
 			clientConfig := &status.ClientConfig{
 				Node: &core.Node{
-					Id: con.node.ID,
+					Id: con.proxy.ID,
 				},
 				XdsConfig: xdsConfigs,
 			}
 			res = append(res, util.MessageToAny(clientConfig))
 		}
-		con.mu.RUnlock()
+		con.proxy.RUnlock()
 	}
 	sg.Server.adsClientsMutex.RUnlock()
 

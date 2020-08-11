@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -1255,18 +1256,13 @@ func TestBuildGatewayListeners(t *testing.T) {
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
 		builder := configgen.buildGatewayListeners(&ListenerBuilder{node: &proxyGateway, push: env.PushContext})
-		var listeners []string
-		for _, l := range builder.gatewayListeners {
-			if err := l.Validate(); err != nil {
-				t.Fatalf("Validation failed for listener %s with error %v", l.Name, err)
-			}
-			listeners = append(listeners, l.Name)
-		}
+		listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
 		sort.Strings(listeners)
 		sort.Strings(tt.expectedListeners)
 		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
 			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.Servers)
 		}
+		xdstest.ValidateListeners(t, builder.gatewayListeners)
 	}
 }
 

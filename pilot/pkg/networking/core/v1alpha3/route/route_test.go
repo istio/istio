@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -80,13 +81,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		defer os.Unsetenv("ISTIO_DEFAULT_REQUEST_TIMEOUT")
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
+		xdstest.ValidateRoutes(t, routes)
 
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		// Validate that when timeout is not specified, we disable it based on default value of flag.
@@ -102,12 +98,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		defer func() { features.DefaultRequestTimeout = dt }()
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -120,12 +111,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeout, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -138,12 +124,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithTimeoutDisabled, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
@@ -154,12 +135,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with catch all route", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRoute, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
+
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -168,12 +145,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllRouteWeightedDestination, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
+
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -182,12 +155,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithCatchAllMultiPrefixRoute, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
+
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 	})
@@ -196,12 +165,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
@@ -213,12 +177,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node16, nil, virtualServiceWithRegexMatchingOnURI, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetSafeRegex().GetRegex()).To(gomega.Equal("\\/(.?)\\/status"))
@@ -230,12 +189,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("Bearer .+?\\..+?\\..+?"))
@@ -245,12 +199,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRegexMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetSafeRegexMatch().GetRegex()).To(gomega.Equal("BAR .+?\\..+?\\..+?"))
@@ -261,13 +210,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnHeader, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
@@ -278,13 +222,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithPresentMatchingOnWithoutHeader, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
 		g.Expect(err).NotTo(gomega.HaveOccurred())
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
@@ -298,12 +237,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		for _, c := range cset {
 			g := gomega.NewWithT(t)
 			routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, *c, serviceRegistry, 8080, gatewayNames)
-			// Valiate routes.
-			for _, r := range routes {
-				if err := r.Validate(); err != nil {
-					t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-				}
-			}
+			xdstest.ValidateRoutes(t, routes)
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 			g.Expect(len(routes)).To(gomega.Equal(1))
 			g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
@@ -315,27 +249,23 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with source namespace matching", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		fooNode := *node
+		fooNode := node
 		fooNode.Metadata = &model.NodeMetadata{
 			Namespace: "foo",
 		}
-		barNode := *node
-		barNode.Metadata = &model.NodeMetadata{
-			Namespace: "bar",
-		}
 
-		routes, err := route.BuildHTTPRoutesForVirtualService(&fooNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(fooNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetName()).To(gomega.Equal("foo"))
 
-		routes, err = route.BuildHTTPRoutesForVirtualService(&barNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
+		barNode := node
+		barNode.Metadata = &model.NodeMetadata{
+			Namespace: "bar",
+		}
+
+		routes, err = route.BuildHTTPRoutesForVirtualService(barNode, nil, virtualServiceMatchingOnSourceNamespace, serviceRegistry, 8080, gatewayNames)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 		g.Expect(routes[0].GetName()).To(gomega.Equal("bar"))
@@ -376,12 +306,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -427,12 +352,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -475,12 +395,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -521,12 +436,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			}})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -571,12 +481,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			cnfg})
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualService, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -610,12 +515,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		gatewayNames := map[string]bool{"some-gateway": true}
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, push, virtualServicePlain, serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -635,12 +535,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithHeaderOperations,
 			serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -720,12 +615,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirect,
 			serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 
@@ -739,12 +629,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err := route.BuildHTTPRoutesForVirtualService(node, nil, virtualServiceWithRedirectAndSetHeader,
 			serviceRegistry, 8080, gatewayNames)
-		// Valiate routes.
-		for _, r := range routes {
-			if err := r.Validate(); err != nil {
-				t.Fatalf("Route %s validation failed with error %v", r.Name, err)
-			}
-		}
+		xdstest.ValidateRoutes(t, routes)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(len(routes)).To(gomega.Equal(1))
 

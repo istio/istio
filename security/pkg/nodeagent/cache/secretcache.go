@@ -67,9 +67,6 @@ const (
 	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
-	// identityTemplate is the format template of identity in the CSR request.
-	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
-
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
@@ -78,10 +75,6 @@ const (
 	// unblock the secret watch main thread in case those child threads got stuck due to any reason.
 	notifySecretRetrievalTimeout = 30 * time.Second
 )
-
-type k8sJwtPayload struct {
-	Sub string `json:"sub"`
-}
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
@@ -842,22 +835,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		return nil, err
 	}
 
-	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
-	// otherwise just use sdsrequest.resourceName as csr host name.
-	csrHostName := connKey.ResourceName
-	// TODO (liminw): This is probably not needed. CA is using claims in the credential to decide the identity in the certificate,
-	// instead of using host name in CSR. We can clean it up later.
-	if sc.configOptions.CredFetcher == nil {
-		csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
-		if err != nil {
-			cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-				" resource name: %s", logPrefix, err, connKey.ResourceName)
-			csrHostName = connKey.ResourceName
-		}
-	}
-	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
 	options := pkiutil.CertOptions{
-		Host:       csrHostName,
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
@@ -941,8 +919,8 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
 	// Skip check if the token should not be parsed in proxy.
 	// Parsing token may not always be possible because token may not be a JWT.
-	// If ParseToken is false, we should assume token is valid and leave token validation to CA.
-	if !sc.configOptions.ParseToken {
+	// If SkipParseToken is true, we should assume token is valid and leave token validation to CA.
+	if sc.configOptions.SkipParseToken {
 		return false
 	}
 

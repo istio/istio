@@ -26,19 +26,15 @@ import (
 
 	md "cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
-	"istio.io/istio/pkg/config/constants"
+	meshAPI "istio.io/api/mesh/v1alpha1"
 
 	"github.com/gogo/protobuf/types"
-
-	meshAPI "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -101,9 +97,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
 	// Fill in default config values.
-	if cfg.PilotSubjectAltName == nil {
-		cfg.PilotSubjectAltName = defaultPilotSAN()
-	}
 	if cfg.PlatEnv == nil {
 		cfg.PlatEnv = platform.Discover()
 	}
@@ -258,11 +251,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
-}
-
-func defaultPilotSAN() []string {
-	return []string{
-		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
 }
 
 func lightstepAccessTokenFile(config string) string {

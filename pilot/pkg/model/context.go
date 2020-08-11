@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -150,6 +151,7 @@ type XdsResourceGenerator interface {
 // In current Istio implementation nodes use a 4-parts '~' delimited ID.
 // Type~IPAddress~ID~Domain
 type Proxy struct {
+	sync.RWMutex
 
 	// Type specifies the node type. First part of the ID.
 	Type NodeType

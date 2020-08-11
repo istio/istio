@@ -17,8 +17,10 @@ package diag
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
+	"istio.io/api/analysis/v1alpha1"
 	"istio.io/istio/pkg/config/resource"
 )
 
@@ -60,6 +62,9 @@ type Message struct {
 
 	// DocRef is an optional reference tracker for the documentation URL
 	DocRef string
+
+	// Line is the line number of the error place in the message
+	Line int
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
@@ -71,7 +76,11 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	if includeOrigin && m.Resource != nil {
 		result["origin"] = m.Resource.Origin.FriendlyName()
 		if m.Resource.Origin.Reference() != nil {
-			result["reference"] = m.Resource.Origin.Reference().String()
+			loc := m.Resource.Origin.Reference().String()
+			if m.Line != 0 {
+				loc = m.ReplaceLine(loc)
+			}
+			result["reference"] = loc
 		}
 	}
 	result["message"] = fmt.Sprintf(m.Type.Template(), m.Parameters...)
@@ -85,6 +94,34 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	return result
 }
 
+// UnstructuredAnalysisMessageBase returns this message as a JSON-style unstructured map in AnalaysisMessageBase
+// TODO(jasonwzm): Remove once message implements AnalysisMessageBase
+func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
+	docQueryString := ""
+	if m.DocRef != "" {
+		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
+	}
+	docURL := fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
+
+	mb := v1alpha1.AnalysisMessageBase{
+		Type: &v1alpha1.AnalysisMessageBase_Type{
+			Code: m.Type.Code(),
+		},
+		Level:            v1alpha1.AnalysisMessageBase_Level(v1alpha1.AnalysisMessageBase_Level_value[m.Type.Level().String()]),
+		DocumentationUrl: docURL,
+	}
+
+	var r map[string]interface{}
+
+	j, err := json.Marshal(mb)
+	if err != nil {
+		return r
+	}
+	json.Unmarshal(j, &r) // nolint: errcheck
+
+	return r
+}
+
 // Origin returns the origin of the message
 func (m *Message) Origin() string {
 	origin := ""
@@ -92,6 +129,9 @@ func (m *Message) Origin() string {
 		loc := ""
 		if m.Resource.Origin.Reference() != nil {
 			loc = " " + m.Resource.Origin.Reference().String()
+			if m.Line != 0 {
+				loc = m.ReplaceLine(loc)
+			}
 		}
 		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
 	}
@@ -126,4 +166,17 @@ func NewMessage(mt *MessageType, r *resource.Instance, p ...interface{}) Message
 		Resource:   r,
 		Parameters: p,
 	}
+}
+
+// ReplaceLine replaces the line number from the input String method of Reference to the line number from Message
+func (m Message) ReplaceLine(l string) string {
+	colonSep := strings.Split(l, ":")
+	if len(colonSep) < 2 {
+		return l
+	}
+	_, err := strconv.Atoi(strings.TrimSpace(colonSep[len(colonSep)-1]))
+	if err == nil {
+		colonSep[len(colonSep)-1] = fmt.Sprintf("%d", m.Line)
+	}
+	return strings.Join(colonSep, ":")
 }
