@@ -15,7 +15,6 @@
 package v1beta1
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -32,7 +31,6 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking"
@@ -831,13 +829,6 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
-	}
-}
-
-func setSkipValidateTrustDomain(value string, t *testing.T) {
-	err := os.Setenv(features.SkipValidateTrustDomain.Name, value)
-	if err != nil {
-		t.Fatalf("failed to set SkipValidateTrustDomain: %v", err)
 	}
 }
 
