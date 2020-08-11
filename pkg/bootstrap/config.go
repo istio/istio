@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -98,9 +97,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
 	// Fill in default config values.
-	if cfg.PilotSubjectAltName == nil {
-		cfg.PilotSubjectAltName = defaultPilotSAN()
-	}
 	if cfg.PlatEnv == nil {
 		cfg.PlatEnv = platform.Discover()
 	}
@@ -255,11 +251,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
-}
-
-func defaultPilotSAN() []string {
-	return []string{
-		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
 }
 
 func lightstepAccessTokenFile(config string) string {
