@@ -42,6 +42,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -662,11 +663,11 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	}
 }
 
-func toAdmissionResponse(err error) *kubeApiAdmissionv1beta1.AdmissionResponse {
-	return &kubeApiAdmissionv1beta1.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
+func toAdmissionResponse(err error) *kube.AdmissionResponse {
+	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
-func (wh *Webhook) inject(ar *kubeApiAdmissionv1beta1.AdmissionReview, path string) *kubeApiAdmissionv1beta1.AdmissionResponse {
+func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
@@ -689,7 +690,7 @@ func (wh *Webhook) inject(ar *kubeApiAdmissionv1beta1.AdmissionReview, path stri
 	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, &pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
-		return &kubeApiAdmissionv1beta1.AdmissionResponse{
+		return &kube.AdmissionResponse{
 			Allowed: true,
 		}
 	}
@@ -768,11 +769,11 @@ func (wh *Webhook) inject(ar *kubeApiAdmissionv1beta1.AdmissionReview, path stri
 
 	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
-	reviewResponse := kubeApiAdmissionv1beta1.AdmissionResponse{
+	reviewResponse := kube.AdmissionResponse{
 		Allowed: true,
 		Patch:   patchBytes,
-		PatchType: func() *kubeApiAdmissionv1beta1.PatchType {
-			pt := kubeApiAdmissionv1beta1.PatchTypeJSONPatch
+		PatchType: func() *string {
+			pt := "JSONPatch"
 			return &pt
 		}(),
 	}
@@ -807,27 +808,36 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
-	var reviewResponse *kubeApiAdmissionv1beta1.AdmissionResponse
-	ar := kubeApiAdmissionv1beta1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+	var reviewResponse *kube.AdmissionResponse
+	var obj runtime.Object
+	var ar *kube.AdmissionReview
+	if out, _, err := deserializer.Decode(body, nil, obj); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		log.Debugf("AdmissionRequest for path=%s\n", path)
-		reviewResponse = wh.inject(&ar, path)
+		ar, err = kube.AdmissionReviewKubeToAdapter(out)
+		if err != nil {
+			handleError(fmt.Sprintf("Could not decode object: %v", err))
+		}
+		reviewResponse = wh.inject(ar, path)
 	}
 
-	response := kubeApiAdmissionv1beta1.AdmissionReview{
-		TypeMeta: ar.TypeMeta,
-	}
-	if reviewResponse != nil {
-		response.Response = reviewResponse
-		if ar.Request != nil {
-			response.Response.UID = ar.Request.UID
+	response := kube.AdmissionReview{}
+	response.Response = reviewResponse
+	var responseKube runtime.Object
+	var apiVersion string
+	if ar != nil {
+		apiVersion = ar.APIVersion
+		response.TypeMeta = ar.TypeMeta
+		if response.Response != nil {
+			if ar.Request != nil {
+				response.Response.UID = ar.Request.UID
+			}
 		}
 	}
-
-	resp, err := json.Marshal(response)
+	responseKube = kube.AdmissionReviewAdapterToKube(&response, apiVersion)
+	resp, err := json.Marshal(responseKube)
 	if err != nil {
 		log.Errorf("Could not encode response: %v", err)
 		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)
