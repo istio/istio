@@ -4,6 +4,6 @@ area: networking
 issue:
 - 22019
 releaseNotes: |
-  *Improve* certificates referenced in DestinationRules to reload without a restart.
+  **Improve** certificates referenced in DestinationRules to reload without a restart.
 
 

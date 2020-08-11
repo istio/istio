@@ -4,4 +4,4 @@ area: networking
 issue:
 - 23683
 releaseNotes: |
-  *Added* support for Kubernetes Services to select WorkloadEntries.
+  **Added** support for Kubernetes Services to select WorkloadEntries.

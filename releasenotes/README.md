@@ -21,7 +21,7 @@ issue:
   - https://github.com/istio/istio/issues/23622
   - 23624
 releaseNotes: |
-*Fixed* an issue preventing the operator from recreating watched resources if they are deleted
+**Fixed** an issue preventing the operator from recreating watched resources if they are deleted
 
 upgradeNotes:
   - title: Change the readiness port of gateways

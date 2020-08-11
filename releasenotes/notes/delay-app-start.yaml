@@ -4,6 +4,6 @@ area: networking
 issue:
 - 24737
 releaseNotes: |
-  *Added* an experimental option, `.values.global.proxy.holdApplicationUntilProxyStarts`, to ensure that the proxy starts before an application.
+  **Added** an experimental option, `.values.global.proxy.holdApplicationUntilProxyStarts`, to ensure that the proxy starts before an application.
 
 
