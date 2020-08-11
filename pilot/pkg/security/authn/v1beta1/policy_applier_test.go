@@ -861,7 +861,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 		name                         string
 		isGateway                    bool
 		gatewayServerUsesIstioMutual bool
-		skipTrustDomainValidate      bool
 		jwtIn                        []*model.Config
 		peerIn                       []*model.Config
 		expected                     *http_conn.HttpFilter
@@ -918,8 +917,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 		},
 		{
-			name:                    "no-request-authn-rule-skip-trust-domain",
-			skipTrustDomainValidate: true,
+			name: "no-request-authn-rule-skip-trust-domain",
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -1231,8 +1229,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:                    "beta-mtls-skip-trust-domain",
-			skipTrustDomainValidate: true,
+			name: "beta-mtls-skip-trust-domain",
 			peerIn: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
@@ -1265,12 +1262,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if c.skipTrustDomainValidate {
-				setSkipValidateTrustDomain("true", t)
-				defer func() {
-					setSkipValidateTrustDomain("false", t)
-				}()
-			}
 			proxyType := model.SidecarProxy
 			if c.isGateway {
 				proxyType = model.Router
