@@ -97,7 +97,7 @@ func callOrFail(ctx test.Failer, src, dest echo.Instance) client.ParsedResponses
 			Target:   dest,
 			PortName: "http",
 			Scheme:   scheme.HTTP,
-			Count:    5,
+			Count:    15,
 		})
 		if err == nil {
 			err = results.CheckOK()

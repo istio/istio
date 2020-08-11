@@ -56,3 +56,7 @@ func TestClusterLocalService(t *testing.T) {
 func TestTelemetry(t *testing.T) {
 	multicluster.TelemetryTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
+
+func TestCrossClusterLoadbalancing(t *testing.T) {
+	multicluster.LoadbalancingTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
+}
