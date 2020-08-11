@@ -49,7 +49,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	if dr != nil {
 		destRule = dr.Spec.(*networkingapi.DestinationRule)
 	}
-	key := EndpointBuilder{
+	return EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
 		clusterID:       proxy.Metadata.ClusterID,
@@ -62,8 +62,6 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		hostname:   hostname,
 		port:       port,
 	}
-
-	return key
 }
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
