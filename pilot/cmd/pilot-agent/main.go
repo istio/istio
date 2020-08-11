@@ -42,7 +42,6 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
@@ -293,12 +292,10 @@ var (
 				secOpts.CredFetcher = credFetcher
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig,
-				&istio_agent.AgentConfig{}, secOpts)
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{}, secOpts)
 
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
@@ -316,26 +313,13 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				localHostAddr := localHostIPv4
-				if proxyIPv6 {
-					localHostAddr = localHostIPv6
-				}
-				prober := kubeAppProberNameVar.Get()
-				statusServer, err := status.NewServer(status.Config{
-					LocalHostAddr:  localHostAddr,
-					AdminPort:      uint16(proxyConfig.ProxyAdminPort),
-					StatusPort:     uint16(proxyConfig.StatusPort),
-					KubeAppProbers: prober,
-					NodeType:       role.Type,
-				})
-				if err != nil {
-					cancel()
+				if err := initStatusServer(ctx, proxyIPv6, proxyConfig); err != nil {
 					return err
 				}
-				go statusServer.Run(ctx)
 			}
 
 			// If security token service (STS) port is not zero, start STS server and
@@ -353,7 +337,6 @@ var (
 					LocalPort:     stsPort,
 				}, tokenManager)
 				if err != nil {
-					cancel()
 					return err
 				}
 				defer stsServer.Stop()
@@ -416,19 +399,24 @@ var (
 	}
 )
 
-// explicitly set the trustdomain so the pilot SAN will have same trustdomain
-// and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
-func setSpiffeTrustDomain(podNamespace string, domain string) {
-	pilotTrustDomain := trustDomain
-	if len(pilotTrustDomain) == 0 {
-		if registryID == serviceregistry.Kubernetes &&
-			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
-			pilotTrustDomain = constants.DefaultKubernetesDomain
-		} else {
-			pilotTrustDomain = domain
-		}
+func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
+	localHostAddr := localHostIPv4
+	if proxyIPv6 {
+		localHostAddr = localHostIPv6
 	}
-	spiffe.SetTrustDomain(pilotTrustDomain)
+	prober := kubeAppProberNameVar.Get()
+	statusServer, err := status.NewServer(status.Config{
+		LocalHostAddr:  localHostAddr,
+		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
+		StatusPort:     uint16(proxyConfig.StatusPort),
+		KubeAppProbers: prober,
+		NodeType:       role.Type,
+	})
+	if err != nil {
+		return err
+	}
+	go statusServer.Run(ctx)
+	return nil
 }
 
 func getDNSDomain(podNamespace, domain string) string {
