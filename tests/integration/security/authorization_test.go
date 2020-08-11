@@ -634,9 +634,14 @@ func TestAuthorization_TCP(t *testing.T) {
 					InstancePort: 8091,
 				},
 				{
-					Name:         "tcp",
+					Name:         "tcp-8092",
 					Protocol:     protocol.TCP,
 					InstancePort: 8092,
+				},
+				{
+					Name:         "tcp-8093",
+					Protocol:     protocol.TCP,
+					InstancePort: 8093,
 				},
 			}
 			echoboot.NewBuilderOrFail(t, ctx).
@@ -706,18 +711,26 @@ func TestAuthorization_TCP(t *testing.T) {
 				// The policy on workload b denies request with path "/data" to port 8090:
 				// - request to port http-8090 should be denied because both path and port are matched.
 				// - request to port http-8091 should be allowed because the port is not matched.
-				// - request to port tcp should be allowed because the port is not matched.
+				// - request to port tcp-8092 should be allowed because the port is not matched.
 				newTestCase(a, b, "http-8090", false, scheme.HTTP),
 				newTestCase(a, b, "http-8091", true, scheme.HTTP),
-				newTestCase(a, b, "tcp", true, scheme.TCP),
+				newTestCase(a, b, "tcp-8092", true, scheme.TCP),
 
 				// The policy on workload c denies request to port 8090:
 				// - request to port http-8090 should be denied because the port is matched.
 				// - request to http port 8091 should be allowed because the port is not matched.
 				// - request to tcp port 8092 should be allowed because the port is not matched.
+				// - request from b to tcp port 8092 should be allowed by default.
+				// - request from b to tcp port 8093 should be denied because the principal is matched.
+				// - request from x to tcp port 8092 should be denied because the namespace is matched.
+				// - request from x to tcp port 8093 should be allowed by default.
 				newTestCase(a, c, "http-8090", false, scheme.HTTP),
 				newTestCase(a, c, "http-8091", true, scheme.HTTP),
-				newTestCase(a, c, "tcp", true, scheme.TCP),
+				newTestCase(a, c, "tcp-8092", true, scheme.TCP),
+				newTestCase(b, c, "tcp-8092", true, scheme.TCP),
+				newTestCase(b, c, "tcp-8093", false, scheme.TCP),
+				newTestCase(x, c, "tcp-8092", false, scheme.TCP),
+				newTestCase(x, c, "tcp-8093", true, scheme.TCP),
 
 				// The policy on workload d denies request from service account a and workloads in namespace 2:
 				// - request from a to d should be denied because it has service account a.
@@ -725,19 +738,19 @@ func TestAuthorization_TCP(t *testing.T) {
 				// - request from c to d should be allowed.
 				// - request from x to a should be allowed because there is no policy on a.
 				// - request from x to d should be denied because it's in namespace 2.
-				newTestCase(a, d, "tcp", false, scheme.TCP),
-				newTestCase(b, d, "tcp", true, scheme.TCP),
-				newTestCase(c, d, "tcp", true, scheme.TCP),
-				newTestCase(x, a, "tcp", true, scheme.TCP),
-				newTestCase(x, d, "tcp", false, scheme.TCP),
+				newTestCase(a, d, "tcp-8092", false, scheme.TCP),
+				newTestCase(b, d, "tcp-8092", true, scheme.TCP),
+				newTestCase(c, d, "tcp-8092", true, scheme.TCP),
+				newTestCase(x, a, "tcp-8092", true, scheme.TCP),
+				newTestCase(x, d, "tcp-8092", false, scheme.TCP),
 
 				// The policy on workload e denies request with path "/other":
 				// - request to port http-8090 should be allowed because the path is not matched.
 				// - request to port http-8091 should be allowed because the path is not matched.
-				// - request to port tcp should be denied because policy uses HTTP fields.
+				// - request to port tcp-8092 should be denied because policy uses HTTP fields.
 				newTestCase(a, e, "http-8090", true, scheme.HTTP),
 				newTestCase(a, e, "http-8091", true, scheme.HTTP),
-				newTestCase(a, e, "tcp", false, scheme.TCP),
+				newTestCase(a, e, "tcp-8092", false, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)

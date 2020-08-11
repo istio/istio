@@ -116,15 +116,13 @@ func (srcNamespaceGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 }
 
 func (srcNamespaceGenerator) principal(_, value string, forTCP bool) (*rbacpb.Principal, error) {
+	v := strings.Replace(value, "*", ".*", -1)
+	m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", v))
 	if forTCP {
-		regex := fmt.Sprintf(".*/ns/%s/.*", value)
-		m := matcher.StringMatcherRegex(regex)
 		return principalAuthenticated(m), nil
 	}
 	// Proxy doesn't have attrSrcNamespace directly, but the information is encoded in attrSrcPrincipal
 	// with format: cluster.local/ns/{NAMESPACE}/sa/{SERVICE-ACCOUNT}.
-	v := strings.Replace(value, "*", ".*", -1)
-	m := matcher.StringMatcherRegex(fmt.Sprintf(".*/ns/%s/.*", v))
 	metadata := matcher.MetadataStringMatcher(sm.AuthnFilterName, attrSrcPrincipal, m)
 	return principalMetadata(metadata), nil
 }
