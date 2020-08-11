@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+
 	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 )
