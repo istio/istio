@@ -20,10 +20,8 @@ import (
 )
 
 func trustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {
-	var trustDomains []string
-	tdAliases := meshConfig.TrustDomainAliases
-	if !features.SkipValidateTrustDomain.Get() {
-		trustDomains = append(tdAliases, meshConfig.TrustDomain)
+	if features.SkipValidateTrustDomain.Get() {
+		return nil
 	}
-	return trustDomains
+	return append([]string{meshConfig.TrustDomain}, meshConfig.TrustDomainAliases...)
 }
