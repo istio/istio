@@ -20,9 +20,9 @@ import (
 	"reflect"
 	"testing"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"github.com/google/go-cmp/cmp"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
