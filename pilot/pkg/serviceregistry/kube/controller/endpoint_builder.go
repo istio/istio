@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/spiffe"
 )
 
 // A stateful IstioEndpoint builder with metadata used to build IstioEndpoint
@@ -39,8 +38,7 @@ func NewEndpointBuilder(c *Controller, pod *v1.Pod) *EndpointBuilder {
 	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
-		td := spiffe.GetTrustDomainByCluster(c.clusterID)
-		sa = kube.SecureNamingSAN(td, pod)
+		sa = kube.SecureNamingSAN(pod)
 		uid = createUID(pod.Name, pod.Namespace)
 		podLabels = pod.Labels
 	}

@@ -271,12 +271,6 @@ hGPitf1iUqSP+PmgXtcb2OVrCouNCAlpXLRnRY3DuVbAx4GeYs1FvYXi5aiR
 `
 )
 
-const (
-	getOperation = iota
-	setOperation
-	dumpOperation
-)
-
 func TestGenSpiffeURI(t *testing.T) {
 	oldTrustDomain := GetTrustDomain()
 	defer SetTrustDomain(oldTrustDomain)
@@ -319,7 +313,7 @@ func TestGenSpiffeURI(t *testing.T) {
 	}
 	for id, tc := range tests {
 		SetTrustDomain(tc.trustDomain)
-		got, err := GenSpiffeURI(GetTrustDomain(), tc.namespace, tc.serviceAccount)
+		got, err := GenSpiffeURI(tc.namespace, tc.serviceAccount)
 		if tc.expectedError == "" && err != nil {
 			t.Errorf("teste case [%v] failed, error %v", id, tc)
 		}
@@ -365,7 +359,7 @@ func TestGetSetTrustDomain(t *testing.T) {
 }
 
 func TestMustGenSpiffeURI(t *testing.T) {
-	if nonsense := MustGenSpiffeURI("cluster.local", "", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
+	if nonsense := MustGenSpiffeURI("", ""); nonsense != "spiffe://cluster.local/ns//sa/" {
 		t.Errorf("Unexpected spiffe URI for empty namespace and service account: %s", nonsense)
 	}
 }
@@ -392,7 +386,7 @@ func TestGenCustomSpiffe(t *testing.T) {
 	}
 	for id, tc := range tests {
 		SetTrustDomain(tc.trustDomain)
-		got := GenCustomSpiffe(tc.trustDomain, tc.identity)
+		got := GenCustomSpiffe(tc.identity)
 
 		if got != tc.expectedURI {
 			t.Errorf("Test id: %v , unexpected subject name, want %v, got %v", id, tc.expectedURI, got)
@@ -665,82 +659,6 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 			}
 			if err != nil {
 				t.Errorf("unexpected error: %s. Expected no error.", err)
-			}
-		})
-	}
-}
-
-func TestGetAndSetTrustDomainByCluster(t *testing.T) {
-	tests := []struct {
-		name               string
-		clusterID          string
-		operation          int
-		trustDomain        string
-		trustDomainAliases []string
-		wantTrustDomain    string
-		wantDumpSubstr     string
-	}{
-		{
-			name:            "GetEmptyReturnsDefault",
-			clusterID:       "foo",
-			operation:       getOperation,
-			wantTrustDomain: "cluster.local",
-		},
-		{
-			name:      "DumpEmpty",
-			operation: dumpOperation,
-			wantDumpSubstr: `Local trust domain: cluster.local
-Trust Domain by cluster
-`,
-		},
-		{
-			name:        "SetFoo",
-			clusterID:   "foo",
-			operation:   setOperation,
-			trustDomain: "td-foo",
-		},
-		{
-			name:            "GetFoo",
-			clusterID:       "foo",
-			operation:       getOperation,
-			wantTrustDomain: "td-foo",
-		},
-		{
-			name:        "SetBar",
-			clusterID:   "bar",
-			operation:   setOperation,
-			trustDomain: "td-bar",
-		},
-		{
-			name:            "GetBar",
-			clusterID:       "bar",
-			operation:       getOperation,
-			wantTrustDomain: "td-bar",
-		},
-		{
-			name:      "DumpAgain",
-			operation: dumpOperation,
-			wantDumpSubstr: `Local trust domain: cluster.local
-Trust Domain by cluster
-Cluster ID: foo, trust domain td-foo
-Cluster ID: bar, trust domain td-bar
-`,
-		},
-	}
-	for _, c := range tests {
-		t.Run(c.name, func(t *testing.T) {
-			if c.operation == getOperation {
-				if got := GetTrustDomainByCluster(c.clusterID); got != c.wantTrustDomain {
-					t.Errorf("[%v] want %v, got %v", c.name, got, c.wantTrustDomain)
-				}
-			}
-			if c.operation == setOperation {
-				SetTrustDomainByCluster(c.clusterID, c.trustDomain)
-			}
-			if c.operation == dumpOperation {
-				if got := DumpDebugInfo(); got != c.wantDumpSubstr {
-					t.Errorf("dump info\n%vwant\n%v", got, c.wantDumpSubstr)
-				}
 			}
 		})
 	}

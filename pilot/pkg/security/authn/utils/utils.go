@@ -18,6 +18,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -26,7 +28,6 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -109,7 +110,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 func GetSAN(ns string, identity string) string {
 
 	if ns != "" {
-		return spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), ns, identity)
+		return spiffe.MustGenSpiffeURI(ns, identity)
 	}
-	return spiffe.GenCustomSpiffe(spiffe.GetTrustDomain(), identity)
+	return spiffe.GenCustomSpiffe(identity)
 }

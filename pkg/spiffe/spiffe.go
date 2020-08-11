@@ -15,7 +15,6 @@
 package spiffe
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -62,11 +61,6 @@ type bundleDoc struct {
 	RefreshHint int    `json:"spiffe_refresh_hint,omitempty"`
 }
 
-type ClusterTrustDomainInfo struct {
-	ClusterID   string
-	TrustDomain string
-}
-
 func SetTrustDomain(value string) {
 	// Replace special characters in spiffe
 	v := strings.Replace(value, "@", ".", -1)
@@ -75,47 +69,10 @@ func SetTrustDomain(value string) {
 	trustDomainMutex.Unlock()
 }
 
-// TODO(incfly): rename this and SetTrustDomain as GetLocalTrustDomain for clarity.
 func GetTrustDomain() string {
 	trustDomainMutex.RLock()
 	defer trustDomainMutex.RUnlock()
 	return trustDomain
-}
-
-func GetTrustDomainByCluster(clusterID string) string {
-	i, ok := trustDomainInfoMap.Load(clusterID)
-	if ok {
-		return i.(ClusterTrustDomainInfo).TrustDomain
-	}
-	return GetTrustDomain()
-}
-
-func SetTrustDomainByCluster(clusterID string, trustDomain string) {
-	if trustDomain == "" || clusterID == "" {
-		spiffeLog.Errorf("Trust Domain and cluster ID can't be empty, cluster %v, trust domain %v",
-			clusterID, trustDomain)
-		return
-	}
-	trustDomainInfoMap.Store(clusterID, ClusterTrustDomainInfo{
-		ClusterID:   clusterID,
-		TrustDomain: trustDomain,
-	})
-}
-
-// DumpDebugInfo returns the current information related to spiffe.
-// TODO(incfly): change to json format before merge.
-func DumpDebugInfo() string {
-	var b bytes.Buffer
-	b.WriteString(fmt.Sprintf("Local trust domain: %v\n", GetTrustDomain()))
-	b.WriteString("Trust Domain by cluster\n")
-	trustDomainInfoMap.Range(func(clusterID, val interface{}) bool {
-		ti, ok := val.(ClusterTrustDomainInfo)
-		if ok {
-			b.WriteString(fmt.Sprintf("Cluster ID: %v, trust domain %v\n", clusterID, ti.TrustDomain))
-		}
-		return true
-	})
-	return b.String()
 }
 
 func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) string {
@@ -129,18 +86,18 @@ func DetermineTrustDomain(commandLineTrustDomain string, isKubernetes bool) stri
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
-func GenSpiffeURI(trustDomain, ns, serviceAccount string) (string, error) {
+func GenSpiffeURI(ns, serviceAccount string) (string, error) {
 	var err error
 	if ns == "" || serviceAccount == "" {
 		err = fmt.Errorf(
 			"namespace or service account empty for SPIFFE uri ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return URIPrefix + trustDomain + "/ns/" + ns + "/sa/" + serviceAccount, err
+	return URIPrefix + GetTrustDomain() + "/ns/" + ns + "/sa/" + serviceAccount, err
 }
 
 // MustGenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate and logs if there was an error.
-func MustGenSpiffeURI(trustDomain, ns, serviceAccount string) string {
-	uri, err := GenSpiffeURI(trustDomain, ns, serviceAccount)
+func MustGenSpiffeURI(ns, serviceAccount string) string {
+	uri, err := GenSpiffeURI(ns, serviceAccount)
 	if err != nil {
 		spiffeLog.Debug(err.Error())
 	}
@@ -176,7 +133,7 @@ func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) map[s
 }
 
 // GenCustomSpiffe returns the  spiffe string that can have a custom structure
-func GenCustomSpiffe(trustDomain, identity string) string {
+func GenCustomSpiffe(identity string) string {
 	if identity == "" {
 		spiffeLog.Error("spiffe identity can't be empty")
 		return ""

@@ -155,7 +155,7 @@ func getCertificatesForEachAddress(
 			return nil, fmt.Errorf("cannot generate certificate for a workload entry without a service account")
 		}
 
-		spiffeURI, err := spiffe.GenSpiffeURI(spiffe.GetTrustDomain(), namespace, wle.ServiceAccount)
+		spiffeURI, err := spiffe.GenSpiffeURI(namespace, wle.ServiceAccount)
 		if err != nil {
 			return nil, err
 		}

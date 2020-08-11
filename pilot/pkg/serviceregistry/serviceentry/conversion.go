@@ -20,6 +20,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -230,6 +231,7 @@ func convertServices(cfg model.Config) []*model.Service {
 			})
 		}
 	}
+
 	return out
 }
 
@@ -255,7 +257,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
 	sa := ""
 	if endpoint.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), service.Attributes.Namespace, endpoint.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, endpoint.ServiceAccount)
 	}
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
@@ -380,7 +382,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string,
 	tlsMode := getTLSModeFromWorkloadEntry(we)
 	sa := ""
 	if we.ServiceAccount != "" {
-		sa = spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), namespace, we.ServiceAccount)
+		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
 	}
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{

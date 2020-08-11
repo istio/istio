@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -35,14 +34,12 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -281,28 +278,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		})
 	})
 	registerHandlers(c.pods.informer, c.queue, "Pods", c.pods.onEvent, nil)
-	if err := updateSPIFFERegistry(kubeClient, c.clusterID); err != nil {
-		log.Errorf("Failed to update the trust domain for cluster %v: %v", c.clusterID, err)
-	}
 	return c
-}
-
-func updateSPIFFERegistry(kubeClient kubelib.Client, clusterID string) error {
-	cm, err := kubeClient.CoreV1().ConfigMaps(IstioNamespace).Get(context.TODO(), constants.IstioMeshConfigConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to read config map for trust domain: %v", err)
-	}
-	if cm == nil || cm.Data == nil {
-		log.Debugf("MeshConfig empty, skip trust domain updates")
-		return nil
-	}
-	yml := cm.Data[constants.IstioMeshConfigEntryName]
-	cfg, err := mesh.ApplyMeshConfigDefaults(yml)
-	if err != nil {
-		return fmt.Errorf("unable to deserialize mesh config from YAML %v, error: %v", yml, err)
-	}
-	spiffe.SetTrustDomainByCluster(clusterID, cfg.TrustDomain)
-	return nil
 }
 
 func (c *Controller) Provider() serviceregistry.ProviderID {

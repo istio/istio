@@ -26,16 +26,19 @@ import (
 
 	md "cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+
+	"istio.io/istio/pkg/config/constants"
+
 	"github.com/gogo/protobuf/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -259,7 +262,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 
 func defaultPilotSAN() []string {
 	return []string{
-		spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), "istio-system", "istio-pilot-service-account")}
+		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
 }
 
 func lightstepAccessTokenFile(config string) string {

@@ -24,6 +24,8 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
@@ -33,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 func createConfigs(configs []*model.Config, store model.IstioConfigStore, t *testing.T) {
@@ -81,13 +82,9 @@ type FakeXdsUpdater struct {
 	Events chan Event
 }
 
-var _ model.XDSUpdater = &FakeXdsUpdater{}
-
-func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) {
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) error {
 	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
-}
-
-func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
+	return nil
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
@@ -475,12 +472,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: "default",
 		})
-	dnsWle := createWorkloadEntry("dnswl", dnsSelector.Namespace,
-		&networking.WorkloadEntry{
-			Address:        "4.4.4.4",
-			Labels:         map[string]string{"app": "dns-wle"},
-			ServiceAccount: "default",
-		})
 
 	t.Run("service entry", func(t *testing.T) {
 		// Add just the ServiceEntry with selector. We should see no instances
@@ -506,31 +497,6 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{kind: "eds", host: "selector.com",
 			namespace: selector.Namespace, endpoints: 2})
-	})
-
-	t.Run("add dns service entry", func(t *testing.T) {
-		// Add just the ServiceEntry with selector. We should see no instances
-		createConfigs([]*model.Config{dnsSelector}, store, t)
-		instances := []*model.ServiceInstance{}
-		expectProxyInstances(t, sd, instances, "4.4.4.4")
-		expectServiceInstances(t, sd, dnsSelector, 0, instances)
-		expectEvents(t, events, Event{kind: "xds"})
-	})
-
-	t.Run("add dns workload", func(t *testing.T) {
-		// Add a WLE, we expect this to update
-		createConfigs([]*model.Config{dnsWle}, store, t)
-		instances := []*model.ServiceInstance{
-			makeInstanceWithServiceAccount(dnsSelector, "4.4.4.4", 444,
-				selector.Spec.(*networking.ServiceEntry).Ports[0],
-				map[string]string{"app": "dns-wle"}, "default"),
-			makeInstanceWithServiceAccount(dnsSelector, "4.4.4.4", 445,
-				selector.Spec.(*networking.ServiceEntry).Ports[1],
-				map[string]string{"app": "dns-wle"}, "default"),
-		}
-		expectProxyInstances(t, sd, instances, "4.4.4.4")
-		expectServiceInstances(t, sd, dnsSelector, 0, instances)
-		expectEvents(t, events, Event{kind: "xds"})
 	})
 
 	t.Run("another workload", func(t *testing.T) {
@@ -687,7 +653,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "2.2.2.2",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), selector.Name, "default"),
+			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}
@@ -697,7 +663,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Address:        "3.3.3.3",
 			Labels:         map[string]string{"app": "wle"},
-			ServiceAccount: spiffe.MustGenSpiffeURI(spiffe.GetTrustDomain(), selector.Name, "default"),
+			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
 		},
 	}

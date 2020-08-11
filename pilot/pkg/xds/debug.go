@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/spiffe"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -113,7 +112,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", s.cdsz)
-	s.addDebugHandler(mux, "/debug/spiffez", "Status and debug interface for SPIFFE identities management", s.spiffez)
 	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
 	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
@@ -644,7 +642,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 }
 
 // cdsz implements a status and debug interface for CDS.
-// It is mapped to /debug/spiffez
+// It is mapped to /debug/cdsz
 func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 	_ = req.ParseForm()
 	w.Header().Add("Content-Type", "application/json")
@@ -666,14 +664,6 @@ func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprint(w, "]\n")
 
 	s.adsClientsMutex.RUnlock()
-}
-
-// spiffez implements a status and debug interface for SPIFFE management.
-// It is mapped to /debug/cdsz
-func (s *DiscoveryServer) spiffez(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-	fmt.Fprint(w, spiffe.DumpDebugInfo())
 }
 
 func printListeners(w io.Writer, c *Connection) {
