@@ -1652,6 +1652,11 @@ var gatewayNameTests = []struct {
 		"foo",
 		"default/gateway",
 	},
+	{
+		"private.ingress.svc.cluster.local",
+		"foo",
+		"ingress/private",
+	},
 }
 
 func TestResolveGatewayName(t *testing.T) {
