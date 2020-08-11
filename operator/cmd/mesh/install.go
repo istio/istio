@@ -89,8 +89,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		Example: `  # Apply a default Istio installation
   istioctl install
 
-  # Enable grafana dashboard
-  istioctl install --set values.grafana.enabled=true
+  # Enable Envoy's gRPC Access Log Service
+  istioctl install --set meshConfig.enableEnvoyAccessLogService=true
 
   # Generate the demo profile and don't wait for confirmation
   istioctl install --set profile=demo --skip-confirmation
