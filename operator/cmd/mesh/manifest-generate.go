@@ -67,8 +67,8 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 		Example: `  # Generate a default Istio installation
   istioctl manifest generate
 
-  # Enable Envoy's gRPC Access Log Service
-  istioctl install --set meshConfig.enableEnvoyAccessLogService=true
+  # Enable Tracing
+  istioctl install --set meshConfig.enableTracing=true
 
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
