@@ -61,7 +61,7 @@ func (*FieldAnalyzer) Metadata() analysis.Metadata {
 	deprecationInputs := collection.Names{
 		collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
 		collections.IstioNetworkingV1Alpha3Sidecars.Name(),
-		collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+		collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
 	}
 
 	return analysis.Metadata{
@@ -82,7 +82,7 @@ func (fa *FieldAnalyzer) Analyze(ctx analysis.Context) {
 		fa.analyzeSidecar(r, ctx)
 		return true
 	})
-	ctx.ForEach(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(), func(r *resource.Instance) bool {
 		fa.analyzeCRD(r, ctx)
 		return true
 	})
@@ -99,7 +99,7 @@ func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
 	crd := r.Message.(*k8sext_v1.CustomResourceDefinitionSpec)
 	for _, depCRD := range deprecatedCRDs {
 		if crd.Group == depCRD.Group && crd.Names.Kind == depCRD.Names.Kind {
-			ctx.Report(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Name(),
+			ctx.Report(collections.K8SApiextensionsK8SIoV1Beta1Customresourcedefinitions.Name(),
 				msg.NewDeprecated(r, crRemovedMessage(depCRD.Group, depCRD.Names.Kind)))
 		}
 	}
