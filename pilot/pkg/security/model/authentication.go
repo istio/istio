@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/spiffe"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_grpc_credential "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -229,8 +231,17 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 	return ret
 }
 
+func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
+	var res []string
+	for _, td := range trustDomainAliases {
+		res = append(res, spiffe.URIPrefix+td+"/")
+	}
+	return res
+}
+
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string, resourceType string) {
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
+	sdsPath string, subjectAltNames []string, resourceType string, trustDomainAliases []string) {
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
@@ -242,10 +253,17 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
+		// TODO: if subjectAltName ends with *, create a prefix match as well.
+		// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
+		matchSAN := util.StringToExactMatch(subjectAltNames)
+		if len(trustDomainAliases) > 0 {
+			matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
+		}
+
 		// configure server listeners with SDS.
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
 				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), resourceType),
 			},
 		}

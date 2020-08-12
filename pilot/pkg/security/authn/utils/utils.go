@@ -39,7 +39,7 @@ const (
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
 func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy,
-	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
+	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -81,7 +81,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
 	}
-	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/, node.RequestedTypes.LDS)
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/, node.RequestedTypes.LDS, trustDomainAliases)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")
