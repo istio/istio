@@ -479,9 +479,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
 			}
 			installSettings = append(installSettings,
-				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
-				// Use the local Istiod for CA
-				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
+				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
 
 			if isCentralIstio(c.environment, cfg) {
 				installSettings = append(installSettings,
