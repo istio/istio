@@ -227,3 +227,12 @@ if [[ "$GOOS_LOCAL" != "linux" ]]; then
    echo "Copying ${ISTIO_ENVOY_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/${SIDECAR}"
   cp -f "${ISTIO_ENVOY_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/${SIDECAR}"
 fi
+
+set -x
+
+(cd /tmp; go get golang.org/dl/go1.15)
+go1.15 download
+go version
+su-exec 0:0 cp `which go1.15` `which go`
+go version
+go1.15 version
