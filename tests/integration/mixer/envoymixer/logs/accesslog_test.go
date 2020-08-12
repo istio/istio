@@ -142,11 +142,11 @@ func validateLog(content string) error {
 	// TODO: destination in test comes back as unknown.
 	// It seems to be since destination app comes back "" and may be because of a configuration  with parameters
 	// involving destination.
-	// for _, expected := range []string{"details", "reviews", "productpage"} {
-	// 	if !strings.Contains(content, fmt.Sprintf("\"destination\":\"%s\"", expected)) {
-	//		return fmt.Errorf("accesslog doesn't contain %s destination. Log %v", expected, content)
-	//  }
-	// }
+	for _, expected := range []string{"details", "reviews", "productpage"} {
+		if !strings.Contains(content, fmt.Sprintf("\"destination\":\"%s\"", expected)) {
+			return fmt.Errorf("accesslog doesn't contain %s destination. Log %v", expected, content)
+		}
+	}
 	if !strings.Contains(content, "\"level\":\"warn\"") {
 		return fmt.Errorf("accesslog does'nt contain warning level. Log %v", content)
 	}
@@ -157,8 +157,8 @@ func validateLog(content string) error {
 		return fmt.Errorf("accesslog doesn't contain productpage source. Log %v", content)
 	}
 	// TODO: This metric fails and isn't found. newlog is created from the accesslog and must be using a failing metric
-	//if  !strings.Contains(content, "\"source\":\"istio-ingressgateway\"") {
+	// if  !strings.Contains(content, "\"source\":\"istio-ingressgateway\"") {
 	//	return fmt.Errorf("accesslog doesn't contain istio-ingressgateway source. Log %v", content)
-	//}
+	// }
 	return nil
 }
