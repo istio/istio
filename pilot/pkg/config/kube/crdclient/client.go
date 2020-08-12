@@ -28,7 +28,7 @@ import (
 	"fmt"
 	"time"
 
-	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -280,10 +280,10 @@ func (cl *Client) objectInRevision(o *model.Config) bool {
 func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 	delay := time.Second
 	maxDelay := time.Minute
-	var res *apiextensionv1.CustomResourceDefinitionList
+	var res *v1beta1.CustomResourceDefinitionList
 	for {
 		var err error
-		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
+		res, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
 		if err == nil {
 			break
 		}
