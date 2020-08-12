@@ -16,10 +16,12 @@ package multicluster
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"testing"
-
+	
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 )
@@ -35,32 +37,32 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 						src := src
 						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.Name())).
 							Run(func(ctx framework.TestContext) {
-								res := callOrFail(ctx, src, apps.LBEchos[0])
-								// verify we reached all instances by using ParsedResponse
-								clusterHits := map[string]int{}
-								for _, r := range res {
-									clusterHits[r.Cluster]++
-								}
-								expected := len(res) / len(ctx.Clusters())
-								var err *multierror.Error
-								for _, c := range ctx.Clusters() {
-									hits := clusterHits[c.Name()]
-									if !almostEquals(hits, expected, expected/10) {
-										err = multierror.Append(fmt.Errorf(
-											"expected ~%d hits for %s, but got: %d",
-											expected,
-											c.Name(),
-											hits,
-										))
-									}
-								}
-								if err := err.ErrorOrNil(); err != nil {
-									ctx.Fatal(err)
-								}
+								EquallyDistributedOrFail(ctx, callOrFail(ctx, src, apps.LBEchos[0]), apps.LBEchos)
 							})
 					}
 				})
 		})
+}
+
+// EquallyDistributedOrFail fails the test if responses aren't equally distributed across clusters for the given set of echos.
+func EquallyDistributedOrFail(ctx test.Failer, res client.ParsedResponses, echos echo.Instances) {
+	// verify we reached all instances by using ParsedResponse
+	clusterHits := map[string]int{}
+	for _, r := range res {
+		clusterHits[r.Cluster]++
+	}
+	equal := true
+	expected := len(res) / len(echos)
+	for _, inst := range echos {
+		hits := clusterHits[inst.Config().Cluster.Name()]
+		if !almostEquals(hits, expected, expected/5) {
+			equal = false
+			break
+		}
+	}
+	if !equal {
+		ctx.Fatalf("requests were not equally distributed among clusters: %v", clusterHits)
+	}
 }
 
 func almostEquals(a, b, precision int) bool {
