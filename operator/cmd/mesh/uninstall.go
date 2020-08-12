@@ -181,9 +181,14 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 		message += "All Istio resources will be pruned from the cluster\n"
 	} else {
 		if resourcesList != nil {
+			rmListString := constructResourceListOutput(resourcesList)
+			if rmListString == "" {
+				l.LogAndPrint("No resources will be pruned from the cluster. Please double check the input configs")
+				return
+			}
 			needConfirmation = true
 			message += fmt.Sprintf("The following resources will be pruned from the cluster: %s\n",
-				constructResourceListOutput(resourcesList))
+				rmListString)
 		}
 		if len(pids) != 0 {
 			needConfirmation = true
@@ -218,6 +223,9 @@ func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList)
 			}
 			kindNameMap[o.GetKind()] = append(kindNameMap[o.GetKind()], o.GetName())
 		}
+	}
+	if len(kindNameMap) == 0 {
+		return ""
 	}
 	var output string
 	for kind, name := range kindNameMap {
