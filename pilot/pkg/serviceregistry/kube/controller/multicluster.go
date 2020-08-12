@@ -65,9 +65,10 @@ type Multicluster struct {
 	networksWatcher       mesh.NetworksWatcher
 
 	// fetchCaRoot maps the certificate name to the certificate
-	fetchCaRoot     func() map[string]string
-	caBundlePath    string
-	secretNamespace string
+	fetchCaRoot      func() map[string]string
+	caBundlePath     string
+	secretNamespace  string
+	secretController *secretcontroller.Controller
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -94,13 +95,8 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		caBundlePath:          opts.CABundlePath,
 		secretNamespace:       secretNamespace,
 	}
+	mc.initSecretController(kc)
 
-	_ = secretcontroller.StartSecretController(
-		kc,
-		mc.AddMemberCluster,
-		mc.UpdateMemberCluster,
-		mc.DeleteMemberCluster,
-		secretNamespace)
 	return mc, nil
 }
 
@@ -201,4 +197,16 @@ func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interfac
 		return c.client
 	}
 	return nil
+}
+
+func (m *Multicluster) initSecretController(kc kubernetes.Interface) {
+	m.secretController = secretcontroller.StartSecretController(kc,
+		m.AddMemberCluster,
+		m.UpdateMemberCluster,
+		m.DeleteMemberCluster,
+		m.secretNamespace)
+}
+
+func (m *Multicluster) HasSynced() bool {
+	return m.secretController.HasSynced()
 }

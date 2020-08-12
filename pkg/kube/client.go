@@ -175,9 +175,9 @@ var _ ExtendedClient = &client{}
 
 const resyncInterval = 0
 
-func NewFakeClient() Client {
+func NewFakeClient(objects ...runtime.Object) Client {
 	var c client
-	c.Interface = fake.NewSimpleClientset()
+	c.Interface = fake.NewSimpleClientset(objects...)
 	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 
