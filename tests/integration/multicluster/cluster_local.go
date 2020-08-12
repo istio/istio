@@ -15,9 +15,9 @@
 package multicluster
 
 import (
-	"istio.io/istio/pkg/test/echo/client"
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
