@@ -20,16 +20,14 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
-	ist                              istio.Instance
-	clusterLocalNS, mcReachabilityNS namespace.Instance
-	controlPlaneValues               string
+	ist  istio.Instance
+	apps *multicluster.Apps
 )
 
 func TestMain(m *testing.M) {
@@ -37,7 +35,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
-		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(multicluster.SetupApps(apps)).
 		Setup(kube.Setup(func(s *kube.Settings) {
 			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
@@ -53,7 +51,7 @@ func TestMain(m *testing.M) {
 
 			// Set the control plane values on the config.
 			// For ingress, add port 15017 to the default list of ports.
-			cfg.ControlPlaneValues = controlPlaneValues + `
+			cfg.ControlPlaneValues = `
   global:
     centralIstiod: true
     caAddress: istiod.istio-system.svc:15012
@@ -101,9 +99,13 @@ values:
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, "installation.multicluster.central-istiod")
+	multicluster.ReachabilityTest(t, apps, "installation.multicluster.central-istiod")
+}
+
+func TestCrossClusterLoadbalancing(t *testing.T) {
+	multicluster.LoadbalancingTest(t, apps, "installation.multicluster.central-istiod")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, "installation.multicluster.central-istiod")
+	multicluster.ClusterLocalTest(t, apps, "installation.multicluster.central-istiod")
 }

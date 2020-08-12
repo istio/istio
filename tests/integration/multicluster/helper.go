@@ -18,11 +18,14 @@ import (
 	"fmt"
 	"time"
 
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
@@ -33,30 +36,61 @@ var (
 	retryDelay   = time.Millisecond * 100
 )
 
-func Setup(controlPlaneValues *string, clusterLocalNS, mcReachabilityNS *namespace.Instance) func(ctx resource.Context) error {
-	return func(ctx resource.Context) (err error) {
-		// Create a cluster-local namespace.
-		if *clusterLocalNS, err = namespace.New(ctx, namespace.Config{Prefix: "local", Inject: true}); err != nil {
-			return err
-		}
-		// Create a cluster-local namespace.
-		if *mcReachabilityNS, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true}); err != nil {
-			return err
-		}
+type Apps struct {
+	Namespace namespace.Instance
 
-		// Set the cluster-local namespaces in the mesh config.
-		*controlPlaneValues = fmt.Sprintf(`
-values:
-  meshConfig:
-    serviceSettings: 
-      - settings:
-          clusterLocal: true
-        hosts:
-          - "*.%s.svc.cluster.local"
-`, (*clusterLocalNS).Name())
+	// UniqueEchos are have different names in each cluster.
+	UniqueEchos echo.Instances
+	// LBEchos are the same in each cluster
+	LBEchos echo.Instances
+}
+
+func SetupApps(apps *Apps) func(ctx resource.Context) error {
+	return func(ctx resource.Context) (err error) {
+		*apps = Apps{}
+		if apps.Namespace, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true}); err != nil {
+			return err
+		}
+		// set up echos
+		apps.UniqueEchos, err = uniqueEchos(ctx, apps.Namespace)
+		if err != nil {
+			return err
+		}
+		apps.LBEchos, err = lbEchos(ctx, apps.Namespace)
+		if err != nil {
+			return err
+		}
 
 		return
 	}
+}
+
+func uniqueEchos(ctx resource.Context, ns namespace.Instance) (echo.Instances, error) {
+	// Running multiple instances in each cluster teases out cases where proxies inconsistently
+	// use wrong different discovery server. For higher numbers of clusters, we already end up
+	// running plenty of services. (see https://github.com/istio/istio/issues/23591).
+	svcPerCluster := 5 - len(ctx.Clusters())
+	if svcPerCluster < 1 {
+		svcPerCluster = 1
+	}
+
+	builder := echoboot.NewBuilder(ctx)
+	for _, cluster := range ctx.Clusters() {
+		for i := 0; i < svcPerCluster; i++ {
+			svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
+			builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))
+		}
+	}
+	return builder.Build()
+
+}
+
+func lbEchos(ctx resource.Context, ns namespace.Instance) (echo.Instances, error) {
+	builder := echoboot.NewBuilder(ctx)
+	for _, c := range ctx.Clusters() {
+		builder.With(nil, newEchoConfig("echolb", ns, c))
+	}
+	return builder.Build()
 }
 
 func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster) echo.Config {

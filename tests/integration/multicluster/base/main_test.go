@@ -19,15 +19,13 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
-	ist                              istio.Instance
-	clusterLocalNS, mcReachabilityNS namespace.Instance
-	controlPlaneValues               string
+	ist  istio.Instance
+	apps *multicluster.Apps
 )
 
 func TestMain(m *testing.M) {
@@ -35,28 +33,25 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
-		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(multicluster.SetupApps(apps)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ExposeIstiod = true
-
-			// Set the control plane values on the config.
-			cfg.ControlPlaneValues = controlPlaneValues
 		})).
 		Run()
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
-}
-
-func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
-}
-
-func TestTelemetry(t *testing.T) {
-	multicluster.TelemetryTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.ReachabilityTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestCrossClusterLoadbalancing(t *testing.T) {
-	multicluster.LoadbalancingTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.LoadbalancingTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
+}
+
+func TestClusterLocalService(t *testing.T) {
+	multicluster.ClusterLocalTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
+}
+
+func TestTelemetry(t *testing.T) {
+	multicluster.TelemetryTest(t, *apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
