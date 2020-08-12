@@ -54,7 +54,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.7-0.20200811125617-462a218e10ba
+	github.com/envoyproxy/go-control-plane v0.9.7-0.20200811182123-112a4904c4b0
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/color v1.9.0
 	github.com/frankban/quicktest v1.4.1 // indirect
