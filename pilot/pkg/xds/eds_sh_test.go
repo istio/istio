@@ -286,14 +286,14 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 }
 
 func addNetwork(server *xds.FakeDiscoveryServer, id string, network *meshconfig.Network) {
-	meshNetworks := &(*server.Env.Networks())
+	meshNetworks := *server.Env.Networks()
 	c := map[string]*meshconfig.Network{}
 	for k, v := range meshNetworks.Networks {
 		c[k] = v
 	}
 	c[id] = network
 	meshNetworks.Networks = c
-	server.Env.SetNetworks(meshNetworks)
+	server.Env.SetNetworks(&meshNetworks)
 }
 
 func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
