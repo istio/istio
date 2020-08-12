@@ -144,7 +144,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			}
 			if tc.jwtPolicy == jwt.PolicyThirdParty {
-				tokenReview.Spec.Audiences = []string{tokenreview.DefaultAudience}
+				tokenReview.Spec.Audiences = []string{tokenreview.DefaultAudience.Get()}
 			}
 
 			tokenReview.Status.Audiences = []string{}
