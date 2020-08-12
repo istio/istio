@@ -25,10 +25,11 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/spiffe"
 )
 
 func TestConstructSdsSecretConfig(t *testing.T) {
@@ -170,10 +171,11 @@ func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
 
 func TestApplyToCommonTLSContext(t *testing.T) {
 	testCases := []struct {
-		name       string
-		sdsUdsPath string
-		node       *model.Proxy
-		result     *auth.CommonTlsContext
+		name               string
+		sdsUdsPath         string
+		node               *model.Proxy
+		trustDomainAliases []string
+		result             *auth.CommonTlsContext
 	}{
 		{
 			name:       "MTLSStrict using SDS",
@@ -206,7 +208,64 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType: core.ApiConfigSource_GRPC,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "MTLSStrict using SDS and SAN aliases",
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					SdsEnabled: true,
+				},
+			},
+			trustDomainAliases: []string{"alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
+			result: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType: core.ApiConfigSource_GRPC,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: []*matcher.StringMatcher{
+							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-1.domain" + "/"}},
+							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "some-other-alias-1.domain" + "/"}},
+							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-2.domain" + "/"}},
+						}},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "ROOTCA",
 							SdsConfig: &core.ConfigSource{
@@ -263,7 +322,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
+						DefaultValidationContext: &auth.CertificateValidationContext{},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "file-root:servrRootCert",
 							SdsConfig: &core.ConfigSource{
@@ -359,7 +418,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{})
+			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, test.sdsUdsPath, []string{}, test.trustDomainAliases)
 
 			if !reflect.DeepEqual(tlsContext, test.result) {
 				t.Errorf("got() = %v, want %v", spew.Sdump(tlsContext), spew.Sdump(test.result))

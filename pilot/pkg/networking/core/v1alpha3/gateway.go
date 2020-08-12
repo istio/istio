@@ -436,7 +436,7 @@ func buildGatewayListenerTLSContext(
 		// SDS config for gateway to fetch key/cert at gateway agent.
 		authn_model.ApplyCustomSDSToCommonTLSContext(tls.CommonTlsContext, server.Tls, authn_model.IngressGatewaySdsUdsPath)
 	} else if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
-		authn_model.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames)
+		authn_model.ApplyToCommonTLSContext(tls.CommonTlsContext, metadata, sdsPath, server.Tls.SubjectAltNames, []string{})
 	} else {
 		// Fall back to the read-from-file approach when SDS is not enabled or Tls.CredentialName is not specified.
 		tls.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
