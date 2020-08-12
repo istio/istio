@@ -96,7 +96,7 @@ type gatewaysConfig struct {
 
 // Configuration for an ingress gateway.
 type ingressGatewayConfig struct {
-	Cpu                *v1alpha12.CPUTargetUtilizationConfig `json:"cpu" patchStrategy:"merge"`
+	CPU                *v1alpha12.CPUTargetUtilizationConfig `json:"cpu" patchStrategy:"merge"`
 	MeshExpansionPorts []*v1alpha12.PortsConfig              `json:"meshExpansionPorts" patchStrategy:"merge"`
 	Ports              []*v1alpha12.PortsConfig              `json:"ports" patchStrategy:"merge"`
 	SecretVolumes      []*v1alpha12.SecretVolume             `json:"secretVolumes" patchStrategy:"merge"`
@@ -111,7 +111,7 @@ type egressGatewayConfig struct {
 }
 
 type meshConfig struct {
-	TcpKeepalive                   *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `json:"tcpKeepalive" patchStrategy:"merge"`
+	TCPKeepalive                   *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `json:"tcpKeepalive" patchStrategy:"merge"`
 	DefaultConfig                  *v1alpha13.ProxyConfig                                    `json:"defaultConfig" patchStrategy:"merge"`
 	ConfigSources                  []*v1alpha13.ConfigSource                                 `json:"configSources" patchStrategy:"merge"`
 	TrustDomainAliases             []string                                                  `json:"trustDomainAliases" patchStrategy:"merge"`
