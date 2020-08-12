@@ -373,8 +373,14 @@ func resolveGatewayName(gwname string, meta ConfigMeta) string {
 			out = meta.Namespace + "/" + gwname
 		} else {
 			// parse namespace from FQDN. This is very hacky, but meant for backward compatibility only
+			// This is a legacy FQDN format. Transform name.ns.svc.cluster.local -> ns/name
 			i := strings.Index(gwname, ".")
-			out = gwname[i+1:] + "/" + gwname[:i]
+			fqdn := strings.Index(gwname[i+1:], ".")
+			if fqdn == -1 {
+				out = gwname[i+1:] + "/" + gwname[:i]
+			} else {
+				out = gwname[i+1:i+1+fqdn] + "/" + gwname[:i]
+			}
 		}
 	} else {
 		// remove the . from ./gateway and substitute it with the namespace name
