@@ -277,7 +277,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					SdsEnabled: true,
 				},
 			},
-			trustDomainAliases: []string{"cluster.local", "alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
+			trustDomainAliases: []string{"alias-1.domain", "some-other-alias-1.domain", "alias-2.domain"},
 			expected: &auth.CommonTlsContext{
 				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
@@ -304,7 +304,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: []*matcher.StringMatcher{
-							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/"}},
 							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-1.domain" + "/"}},
 							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "some-other-alias-1.domain" + "/"}},
 							{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + "alias-2.domain" + "/"}},
