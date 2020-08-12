@@ -71,7 +71,7 @@ data:
       enabled: true
     outboundTrafficPolicy:
       mode: ALLOW_ANY
-    protocolDetectionTimeout: 100ms
+    protocolDetectionTimeout: 5000ms
     reportBatchMaxEntries: 100
     reportBatchMaxTime: 1s
     sdsUdsPath: unix:/etc/istio/proxy/SDS
@@ -218,7 +218,7 @@ data:
           "includeIPRanges": "*",
           "logLevel": "warning",
           "privileged": false,
-          "protocolDetectionTimeout": "100ms",
+          "protocolDetectionTimeout": "5000ms",
           "readinessFailureThreshold": 30,
           "readinessInitialDelaySeconds": 1,
           "readinessPeriodSeconds": 2,
