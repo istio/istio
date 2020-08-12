@@ -31,8 +31,8 @@ var (
 	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
 	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
-		"A list of comma separated audiences to check in the JWT token before issuing a certificate. " +
-		"The token is accepted if it matches with one of the audiences").Get(), ",")
+		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
+			"The token is accepted if it matches with one of the audiences").Get(), ",")
 )
 
 // ValidateK8sJwt validates a k8s JWT at API server.
