@@ -165,7 +165,6 @@ data:
         "alwaysInjectSelector": [],
         "caBundle": "",
         "enableNamespacesByDefault": false,
-        "injectLabel": "istio-injection",
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "objectSelector": {
@@ -358,9 +357,11 @@ data:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        {{- if .Values.global.caAddress }}
         - name: CA_ADDR
+        {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -659,6 +660,8 @@ webhooks:
         apiVersions: ["v1"]
         resources: ["pods"]
     failurePolicy: Fail
+    admissionReviewVersions: ["v1beta1", "v1"]
+    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

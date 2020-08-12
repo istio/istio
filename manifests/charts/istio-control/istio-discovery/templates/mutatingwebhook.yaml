@@ -27,6 +27,7 @@ webhooks:
         apiVersions: ["v1"]
         resources: ["pods"]
     failurePolicy: Fail
+    admissionReviewVersions: ["v1beta1", "v1"]
     namespaceSelector:
 {{- if .Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
       matchExpressions:

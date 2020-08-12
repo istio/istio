@@ -165,10 +165,13 @@ type Server struct {
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
-		ServiceDiscovery: aggregate.NewController(),
-		PushContext:      model.NewPushContext(),
-		DomainSuffix:     args.RegistryOptions.KubeOptions.DomainSuffix,
+		PushContext:  model.NewPushContext(),
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
+	ac := aggregate.NewController(aggregate.Options{
+		MeshHolder: e,
+	})
+	e.ServiceDiscovery = ac
 
 	s := &Server{
 		clusterID:       getClusterID(args),

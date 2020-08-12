@@ -250,18 +250,21 @@ func NewVerifyCommand() *cobra.Command {
 	)
 	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
-		Short: "Verifies Istio Installation Status or performs pre-check for the cluster before Istio installation",
+		Short: "Verifies Istio Installation Status",
 		Long: `
 		verify-install verifies Istio installation status against the installation file
 		you specified when you installed Istio. It loops through all the installation
 		resources defined in your installation file and reports whether all of them are
 		in ready status. It will report failure when any of them are not ready.
 
-		If you do not specify installation file it will perform pre-check for your cluster
-		and report whether the cluster is ready for Istio installation.
+		If you do not specify an installation it will check for an IstioOperator resource
+		and will verify if pods and services defined in it are present.
+
+		Note: For verifying whether your cluster is ready for Istio installation, see
+		istioctl experimental precheck.
 `,
 		Example: `
-		# Verify that Istio can be freshly installed
+		# Verify that Istio is installed correctly via Istio Operator
 		istioctl verify-install
 
 		# Verify the deployment matches a custom Istio deployment configuration

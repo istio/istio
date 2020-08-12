@@ -25,7 +25,10 @@ metadata:
     release: istio
   name: istio-sidecar-injector-istio-control
 webhooks:
-- clientConfig:
+- admissionReviewVersions:
+  - v1beta1
+  - v1
+  clientConfig:
     caBundle: ""
     service:
       name: foo
