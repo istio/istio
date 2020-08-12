@@ -280,7 +280,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 	scope.Info("Detecting third-party JWT support")
 	var jwtPolicy util.JWTPolicy
 	if jwtPolicy, err = util.DetectSupportedJWTPolicy(r.config); err != nil {
-		// TODO: add to dictionary. {status=New, assignee=}
+		// TODO(howardjohn): add to dictionary. When resolved, replace this sentence with Done or WontFix - if WontFix, add reason.
 		scope.Warnf("Failed to detect third-party JWT support: %v", err)
 	} else {
 		if jwtPolicy == util.FirstPartyJWT {
@@ -384,7 +384,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
-	scope.Info("Controller added.")
+	scope.Info("Controller added")
 	return nil
 }
 
