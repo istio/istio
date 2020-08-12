@@ -34,6 +34,7 @@ var (
 	statusCodeFieldRegex     = regexp.MustCompile(string(response.StatusCodeField) + "=(.*)")
 	hostFieldRegex           = regexp.MustCompile(string(response.HostField) + "=(.*)")
 	hostnameFieldRegex       = regexp.MustCompile(string(response.HostnameField) + "=(.*)")
+	responseHeaderFieldRegex = regexp.MustCompile(string(response.ResponseHeader) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
 )
@@ -256,6 +257,16 @@ func parseResponse(output string) *ParsedResponse {
 	}
 
 	out.RawResponse = map[string]string{}
+
+	matches := responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
+	for _, kv := range matches {
+		sl := strings.Split(kv[1], ":")
+		if len(sl) != 2 {
+			continue
+		}
+		out.RawResponse[sl[0]] = sl[1]
+	}
+
 	for _, l := range strings.Split(output, "\n") {
 		prefixSplit := strings.Split(l, "body] ")
 		if len(prefixSplit) != 2 {

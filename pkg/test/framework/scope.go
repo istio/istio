@@ -87,8 +87,6 @@ func (s *scope) get(ref interface{}) error {
 		targetT = targetT.Elem()
 	}
 
-	target := fmt.Sprintf("%v", targetT)
-	fmt.Printf("target: %s\n", target)
 	for _, res := range s.resources {
 		if res == nil {
 			continue
