@@ -77,12 +77,11 @@ func ClusterLocalTest(t *testing.T, apps *Apps, features ...features.Feature) {
 }
 
 const clusterLocalConfig = `
-defaultConfig:
-  serviceSettings: 
-    - settings:
-        clusterLocal: true
-      hosts:
-      - "*.%s.svc.cluster.local"
+serviceSettings: 
+- settings:
+    clusterLocal: true
+  hosts:
+  - "*.%s.svc.cluster.local"
 `
 
 func clusterLocalMeshConfigOrFail(ctx framework.TestContext, ns namespace.Instance) map[resource.ClusterIndex]string {
