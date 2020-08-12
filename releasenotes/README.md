@@ -54,7 +54,7 @@ While many pull requests will only fix a single GitHub issue, some pull requests
 
 ### Release Notes
 
-These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `*Action*`.
+These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `**Action**`. Acceptable actions are: `**Added**`, `**Deprecated**`, `**Enabled**`, `**Fixed**`, `**Optimized**`, `**Improved**`, `**Removed**`, and `**Upgraded**`.
 
 ### Upgrade Notes
 
