@@ -165,7 +165,6 @@ data:
         "alwaysInjectSelector": [],
         "caBundle": "",
         "enableNamespacesByDefault": false,
-        "injectLabel": "istio-injection",
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "objectSelector": {
