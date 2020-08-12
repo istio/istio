@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
