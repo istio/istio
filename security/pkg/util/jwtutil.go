@@ -56,26 +56,27 @@ func GetAud(token string) ([]string, error) {
 		return nil, err
 	}
 
-	if claims["aud"] == nil {
+	rawAud := claims["aud"]
+	if rawAud == nil {
 		return nil, fmt.Errorf("no aud in the token claims")
 	}
 
-	switch aud := claims["aud"].(type) {
-	case []interface{}:
-		var ret []string
-		for _, v := range aud {
-			if s, ok := v.(string); ok {
-				ret = append(ret, s)
-			} else {
-				return nil, fmt.Errorf("unsupported aud type: %v", v)
-			}
-		}
-		return ret, nil
-	case string:
-		return []string{aud}, nil
+	data, err := json.Marshal(rawAud)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, fmt.Errorf("malformed aud in jwt token")
+	var singleAud string
+	if err = json.Unmarshal(data, &singleAud); err == nil {
+		return []string{singleAud}, nil
+	}
+
+	var listAud []string
+	if err = json.Unmarshal(data, &listAud); err == nil {
+		return listAud, nil
+	}
+
+	return nil, err
 }
 
 func parseJwtClaims(token string) (map[string]interface{}, error) {
