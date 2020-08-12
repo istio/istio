@@ -308,6 +308,12 @@ var (
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
 
+	EnableXDSAuthorization = env.RegisterBoolVar(
+		"PILOT_ENABLE_XDS_AUTHORIZATION",
+		true,
+		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
+	).Get()
+
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
