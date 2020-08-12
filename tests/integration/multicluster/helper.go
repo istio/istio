@@ -63,7 +63,7 @@ func SetupApps(ctx resource.Context) (*Apps, error) {
 
 	builder := echoboot.NewBuilder(ctx)
 	for _, cluster := range ctx.Clusters() {
-		builder.With(nil, newEchoConfig("echolb", apps.Namespace, c))
+		builder.With(nil, newEchoConfig("echolb", apps.Namespace, cluster))
 		for i := 0; i < uniqSvcPerCluster; i++ {
 			svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
 			builder = builder.With(nil, newEchoConfig(svcName, apps.Namespace, cluster))

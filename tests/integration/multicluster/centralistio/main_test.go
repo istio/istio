@@ -35,7 +35,6 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
-		Setup(multicluster.SetupApps(apps)).
 		Setup(kube.Setup(func(s *kube.Settings) {
 			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
@@ -95,6 +94,11 @@ values:
   global:
     centralIstiod: true`
 		})).
+		Setup(func(ctx resource.Context) error {
+			var err error
+			apps, err = multicluster.SetupApps(ctx)
+			return err
+		}).
 		Run()
 }
 

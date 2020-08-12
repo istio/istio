@@ -15,6 +15,7 @@
 package base
 
 import (
+	"istio.io/istio/pkg/test/framework/resource"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -33,10 +34,14 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
-		Setup(multicluster.SetupApps(apps)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ExposeIstiod = true
 		})).
+		Setup(func(ctx resource.Context) error {
+			var err error
+			apps, err = multicluster.SetupApps(ctx)
+			return err
+		}).
 		Run()
 }
 
