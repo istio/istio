@@ -16,6 +16,7 @@ package multicluster
 
 import (
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -40,11 +41,33 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 								for _, r := range res {
 									clusterHits[r.Cluster]++
 								}
-								if len(clusterHits) < len(ctx.Clusters()) {
-									ctx.Fatalf("hit %v; expected %d clusters", clusterHits, len(ctx.Clusters()))
+								expected := len(res) / len(ctx.Clusters())
+								var err *multierror.Error
+								for _, c := range ctx.Clusters() {
+									hits := clusterHits[c.Name()]
+									if !almostEquals(hits, expected, expected/10) {
+										err = multierror.Append(fmt.Errorf(
+											"expected ~%d hits for %s, but got: %d",
+											expected,
+											c.Name(),
+											hits,
+										))
+									}
+								}
+								if err := err.ErrorOrNil(); err != nil {
+									ctx.Fatal(err)
 								}
 							})
 					}
 				})
 		})
+}
+
+func almostEquals(a, b, precision int) bool {
+	upper := a + precision
+	lower := a - precision
+	if b < lower || b > upper {
+		return false
+	}
+	return true
 }
