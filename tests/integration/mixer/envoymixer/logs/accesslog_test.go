@@ -145,6 +145,9 @@ func validateLog(content string) error {
 	if !strings.Contains(content, "\"responseCode\":") {
 		return fmt.Errorf("accesslog doesn't contain response code. Log %v", content)
 	}
+	fmt.Println("CONTENTY!")
+	fmt.Println(content)
+	fmt.Println("CONTENT!!!!")
 	if !strings.Contains(content, "\"source\":\"productpage\"") || !strings.Contains(content,
 		"\"source\":\"istio-ingressgateway\"") {
 		return fmt.Errorf("accesslog doesn't contain either productpage or istio-ingressgateway source. Log %v", content)
