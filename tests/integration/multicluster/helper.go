@@ -38,6 +38,8 @@ type AppContext struct {
 	apps
 	Namespace      namespace.Instance
 	LocalNamespace namespace.Instance
+	// ControlPlaneValues to set during istio deploy
+	ControlPlaneValues string
 }
 
 type apps struct {
@@ -47,8 +49,6 @@ type apps struct {
 	LBEchos echo.Instances
 	// LocalEchos can only be reached from the same cluster
 	LocalEchos echo.Instances
-	// ControlPlaneValues to set during istio deploy
-	ControlPlaneValues string
 }
 
 // Setup initialize app context with control plane values and namespaces
