@@ -47,7 +47,7 @@ func ClusterLocalTest(t *testing.T, apps *Apps, features ...features.Feature) {
 
 				for _, c := range ctx.Clusters() {
 					c := c
-					ctx.NewSubTest(fmt.Sprintf("%s", c.Name())).
+					ctx.NewSubTest(c.Name()).
 						Label(label.Multicluster).
 						RunParallel(func(ctx framework.TestContext) {
 							local := apps.LBEchos.GetOrFail(ctx, echo.InCluster(c))
