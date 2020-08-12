@@ -89,8 +89,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		Example: `  # Apply a default Istio installation
   istioctl install
 
-  # Enable Envoy's gRPC Access Log Service
-  istioctl install --set meshConfig.enableEnvoyAccessLogService=true
+  # Enable Tracing
+  istioctl install --set meshConfig.enableTracing=true
 
   # Generate the demo profile and don't wait for confirmation
   istioctl install --set profile=demo --skip-confirmation
