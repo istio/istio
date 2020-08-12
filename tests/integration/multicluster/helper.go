@@ -16,10 +16,10 @@ package multicluster
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -148,7 +148,7 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 
 type callChecker func(client.ParsedResponses) error
 
-func callOrFail(ctx test.Failer, src, dest echo.Instance, checkers ...callChecker) client.ParsedResponses {
+func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...callChecker) client.ParsedResponses {
 	ctx.Helper()
 	var results client.ParsedResponses
 	retry.UntilSuccessOrFail(ctx, func() (err error) {
@@ -156,7 +156,7 @@ func callOrFail(ctx test.Failer, src, dest echo.Instance, checkers ...callChecke
 			Target:   dest,
 			PortName: "http",
 			Scheme:   scheme.HTTP,
-			Count:    15,
+			Count:    10*len(ctx.Clusters()),
 		})
 
 		checkers = append([]callChecker{func(responses client.ParsedResponses) error {
