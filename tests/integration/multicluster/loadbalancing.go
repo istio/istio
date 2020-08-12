@@ -73,12 +73,3 @@ func EquallyDistributedOrFail(ctx test.Failer, res client.ParsedResponses, echos
 	//	ctx.Fatalf("requests were not equally distributed among clusters: %v", clusterHits)
 	//}
 }
-
-func almostEquals(a, b, precision int) bool {
-	upper := a + precision
-	lower := a - precision
-	if b < lower || b > upper {
-		return false
-	}
-	return true
-}
