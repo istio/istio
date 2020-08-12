@@ -116,7 +116,6 @@ func testMetric(t *testing.T, ctx framework.TestContext, label string, labelValu
 	}
 }
 
-
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
