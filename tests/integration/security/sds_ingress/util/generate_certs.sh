@@ -16,7 +16,7 @@
 
 openssl req -new -newkey rsa:4096 -x509 -sha256 \
         -days 3650 -nodes -out rootA.crt -keyout rootA.key \
-        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=*.example.com/SAN=*.example.com" \
+        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=*.example.com" \
         -addext "subjectAltName = DNS:*.example.com"
 
 openssl req -out clientA.csr -newkey rsa:2048 -nodes -keyout clientA.key -subj "/CN=*.example.com/O= A organization"
@@ -28,7 +28,7 @@ openssl x509 -req -days 3650 -CA rootA.crt -CAkey rootA.key -set_serial 0 -in se
 
 openssl req -new -newkey rsa:4096 -x509 -sha256 \
         -days 3650 -nodes -out rootB.crt -keyout rootB.key \
-        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=*.example.com/SAN=*.example.com" \
+        -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=*.example.com" \
         -addext "subjectAltName = DNS:*.example.com"
 
 openssl req -out clientB.csr -newkey rsa:2048 -nodes -keyout clientB.key -subj "/CN=*.example.com/O= B organization"
