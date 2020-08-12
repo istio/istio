@@ -139,17 +139,20 @@ type AgentConfig struct {
 	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
 	// Set for tests to 127.0.0.1:0.
 	LocalXDSAddr string
+
+	// Grpc dial options. Used for testing
+	GrpcOptions []grpc.DialOption
 }
 
-// NewSDSAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
+// NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
 // present, and set additional config options for the in-process SDS agent.
 //
 // The JWT token is currently using a pre-defined audience (istio-ca) or it must match the trust domain (WIP).
-// If the JWT token is not present - the local SDS agent can't authenticate.
+// If the JWT token is not present, and cannot be fetched through the credential fetcher - the local SDS agent can't authenticate.
 //
 // If node agent and JWT are mounted: it indicates user injected a config using hostPath, and will be used.
-//
-func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.Options) *Agent {
+func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
+	sopts *security.Options) *Agent {
 	sa := &Agent{
 		proxyConfig: proxyConfig,
 		cfg:         cfg,
@@ -170,7 +173,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig, sopts *security.O
 	// - if PROV_CERT is set, it'll be included in the TLS context sent to the server
 	//   This is a 'provisioning certificate' - long lived, managed by a tool, exchanged for
 	//   the short lived certs.
-	// - if a JWTPath token exists, will be included in the request.
+	// - if a JWTPath token exists, or can be fetched by credential fetcher, it will be included in the request.
 
 	if _, err := os.Stat(sa.secOpts.JWTPath); err != nil {
 		log.Warna("Missing JWT token ", sa.secOpts.JWTPath)
@@ -233,7 +236,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	// Start the XDS client and proxy.
 	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("xds proxy: %v", err)
 	}
 
 	return server, nil
@@ -364,8 +367,9 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 				log.Fatalf("invalid config - %s missing a root certificate %s", sa.secOpts.CAEndpoint, caCertFile)
 			} else {
 				log.Infof("Using CA %s cert with certs: %s", sa.secOpts.CAEndpoint, caCertFile)
+
+				sa.RootCert = rootCert
 			}
-			sa.RootCert = rootCert
 		}
 
 		// Will use TLS unless the reserved 15010 port is used ( istiod on an ipsec/secure VPC)
@@ -375,6 +379,8 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		if err == nil {
 			sa.CitadelClient = caClient
 		}
+
+		
 	}
 
 	// This has to be called after sa.secOpts.PluginNames is set. Otherwise,
