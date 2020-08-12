@@ -299,7 +299,7 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	allServices = append(allServices, addedSvcs...)
 	allServices = append(allServices, updatedSvcs...)
 	allServices = append(allServices, unchangedSvcs...)
-	instances := convertServiceEntryToInstances(curr, addedSvcs)
+	instances := convertServiceEntryToInstances(curr, allServices)
 	s.edsUpdate(instances, false)
 
 	// Recomputing the index here is too expensive - lazy build when it is needed.
