@@ -96,6 +96,7 @@ var (
 		"sidecars":               "Sidecars",
 		"virtualservices":        "VirtualServices",
 		"workloadentries":        "WorkloadEntries",
+		"workloadgroups":         "WorkloadGroups",
 		"authorizationpolicies":  "AuthorizationPolicies",
 		"peerauthentications":    "PeerAuthentications",
 		"requestauthentications": "RequestAuthentications",
