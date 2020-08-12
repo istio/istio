@@ -199,10 +199,12 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
-		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
-		c.DnsRefreshRate = dnsRate
-		c.RespectDnsTtl = true
+		if cb.push.Mesh.DnsRefreshRate != nil {
+			dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
+			c.DnsRefreshRate = dnsRate
+		} else {
+			c.RespectDnsTtl = true
+		}
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
