@@ -27,7 +27,7 @@ import (
 
 var (
 	ist    istio.Instance
-	appCtx *multicluster.AppContext
+	appCtx multicluster.AppContext
 )
 
 func TestMain(m *testing.M) {
@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
-		Setup(multicluster.Setup(appCtx)).
+		Setup(multicluster.Setup(&appCtx)).
 		Setup(kube.Setup(func(s *kube.Settings) {
 			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
@@ -95,7 +95,7 @@ values:
   global:
     centralIstiod: true`
 		})).
-		Setup(multicluster.SetupApps(appCtx)).
+		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
 }
 

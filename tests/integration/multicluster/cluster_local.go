@@ -26,7 +26,7 @@ import (
 
 // ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
 // ClusterLocalNS have been configured in meshConfig.serviceSettings to be clusterLocal.
-func ClusterLocalTest(t *testing.T, apps *AppContext, features ...features.Feature) {
+func ClusterLocalTest(t *testing.T, apps AppContext, features ...features.Feature) {
 	framework.NewTest(t).
 		Features(features...).
 		Run(func(ctx framework.TestContext) {

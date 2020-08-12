@@ -25,7 +25,7 @@ import (
 
 var (
 	ist    istio.Instance
-	appCtx *multicluster.AppContext
+	appCtx multicluster.AppContext
 )
 
 func TestMain(m *testing.M) {
@@ -33,12 +33,12 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
-		Setup(multicluster.Setup(appCtx)).
+		Setup(multicluster.Setup(&appCtx)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			cfg.ControlPlaneValues = appCtx.ControlPlaneValues
 			cfg.ExposeIstiod = true
 		})).
-		Setup(multicluster.SetupApps(appCtx)).
+		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
 }
 

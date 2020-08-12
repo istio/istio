@@ -27,7 +27,7 @@ import (
 
 // TelemetryTest validates that source and destination labels are collected
 // for multicluster traffic.
-func TelemetryTest(t *testing.T, apps *AppContext, features ...features.Feature) {
+func TelemetryTest(t *testing.T, apps AppContext, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(features...).

@@ -23,7 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 )
 
-func LoadbalancingTest(t *testing.T, apps *AppContext, features ...features.Feature) {
+func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(features...).

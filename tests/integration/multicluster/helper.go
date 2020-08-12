@@ -77,13 +77,11 @@ values:
 	}
 }
 
-// SetupApps depoys echos. The context will be initialized with namespaces and control plane values if it hasn't already.
+// SetupApps depoys echos
 func SetupApps(appCtx *AppContext) resource.SetupFn {
 	return func(ctx resource.Context) error {
-		if appCtx == nil {
-			if err := Setup(appCtx)(ctx); err != nil {
-				return err
-			}
+		if appCtx.Namespace == nil || appCtx.LocalNamespace == nil {
+			return fmt.Errorf("namespaces not initialized; run Setup first")
 		}
 		// set up echos
 		// Running multiple instances in each cluster teases out cases where proxies inconsistently
