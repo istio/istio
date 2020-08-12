@@ -146,8 +146,8 @@ func orderedManifests(mm name.ManifestMap) ([]string, error) {
 
 // RenderToDir writes manifests to a local filesystem directory tree.
 func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool, l clog.Logger) error {
-	l.LogAndPrint("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
-	l.LogAndPrint("Rendering manifests to output dir %s", outputDir)
+	l.LogAndPrintf("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
+	l.LogAndPrintf("Rendering manifests to output dir %s", outputDir)
 	return renderRecursive(manifests, helmreconciler.InstallTree, outputDir, dryRun, l)
 }
 
@@ -156,7 +156,7 @@ func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.Comp
 		componentName := string(k)
 		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
 		ym := strings.Join(manifests[k], helm.YAMLSeparator)
-		l.LogAndPrint("Rendering: %s", componentName)
+		l.LogAndPrintf("Rendering: %s", componentName)
 		dirName := filepath.Join(outputDir, componentName)
 		if !dryRun {
 			if err := os.MkdirAll(dirName, os.ModePerm); err != nil {
@@ -164,7 +164,7 @@ func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.Comp
 			}
 		}
 		fname := filepath.Join(dirName, componentName) + ".yaml"
-		l.LogAndPrint("Writing manifest to %s", fname)
+		l.LogAndPrintf("Writing manifest to %s", fname)
 		if !dryRun {
 			if err := ioutil.WriteFile(fname, []byte(ym), 0644); err != nil {
 				return fmt.Errorf("could not write manifest config; %s", err)
