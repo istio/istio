@@ -103,6 +103,7 @@ spec:
     ingressGateways:
     - name: istio-ingressgateway
       enabled: true
+      namespace: istio-gateways
 ```
 
 the resulting namespaces will be:
