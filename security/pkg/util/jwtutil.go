@@ -49,6 +49,35 @@ func IsJwtExpired(token string, now time.Time) (bool, error) {
 
 }
 
+// GetAud returns the claim `aud` from the token. Returns nil if not found.
+func GetAud(token string) ([]string, error) {
+	claims, err := parseJwtClaims(token)
+	if err != nil {
+		return nil, err
+	}
+
+	if claims["aud"] == nil {
+		return nil, fmt.Errorf("no aud in the token claims")
+	}
+
+	switch aud := claims["aud"].(type) {
+	case []interface{}:
+		var ret []string
+		for _, v := range aud {
+			if s, ok := v.(string); ok {
+				ret = append(ret, s)
+			} else {
+				return nil, fmt.Errorf("unsupported aud type: %v", v)
+			}
+		}
+		return ret, nil
+	case string:
+		return []string{aud}, nil
+	}
+
+	return nil, fmt.Errorf("malformed aud in jwt token")
+}
+
 func parseJwtClaims(token string) (map[string]interface{}, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
