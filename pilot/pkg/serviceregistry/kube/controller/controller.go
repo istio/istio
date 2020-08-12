@@ -466,11 +466,7 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	// after informer caches sync the first time, process resources in order
-	c.once.Do(func() {
-		if err := c.SyncAll(); err != nil {
-			log.Errorf("one or more errors force-syncing resources: %v", err)
-		}
-	})
+	c.once.Do(c.SyncAll)
 
 	return true
 }
