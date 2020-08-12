@@ -84,26 +84,21 @@ func TestDashboard(t *testing.T) {
 			wantException:  true,
 		},
 		{ // case 11
-			args:           strings.Split("experimental dashboard", " "),
-			expectedOutput: "Error: (dashboard has graduated. Use `istioctl dashboard`)\n",
-			wantException:  true,
-		},
-		{ // case 12
 			args:           strings.Split("dashboard envoy --selector app=example", " "),
 			expectedRegexp: regexp.MustCompile(".*no pods found"),
 			wantException:  true,
 		},
-		{ // case 13
+		{ // case 12
 			args:           strings.Split("dashboard envoy --selector app=example pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
 		},
-		{ // case 14
+		{ // case 13
 			args:           strings.Split("dashboard controlz --selector app=example", " "),
 			expectedRegexp: regexp.MustCompile(".*no pods found"),
 			wantException:  true,
 		},
-		{ // case 15
+		{ // case 14
 			args:           strings.Split("dashboard controlz --selector app=example pod-123456-7890", " "),
 			expectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			wantException:  true,
