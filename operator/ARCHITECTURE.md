@@ -97,7 +97,7 @@ and namespaces are specialized for the gateway feature and its components:
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  namespace: istio-gateways
+  namespace: istio-operator
 spec:
   components:
     ingressGateways:
