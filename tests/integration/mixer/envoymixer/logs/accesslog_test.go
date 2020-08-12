@@ -143,18 +143,17 @@ func validateLog(content string) error {
 		return fmt.Errorf("accesslog does'nt contain warning level. Log %v", content)
 	}
 	for _, expected := range []string{"details", "reviews", "productpage"} {
-		if !strings.Contains(content, fmt.Sprintf("\"destination\":\"%s\"", expected)) {
+		if !strings.Contains(content, fmt.Sprintf("\"destinationServiceHost\":\"%s\"", expected)) {
 			return fmt.Errorf("accesslog doesn't contain %s destination. Log %v", expected, content)
 		}
 	}
 	if !strings.Contains(content, "\"responseCode\":") {
 		return fmt.Errorf("accesslog doesn't contain response code. Log %v", content)
 	}
-	if !strings.Contains(content, "\"source\":\"productpage\"") || !strings.Contains(content,
+	if !strings.Contains(content, "\"sourceApp\":\"productpage\"") || !strings.Contains(content,
 		"\"source\":\"istio-ingressgateway\"") {
 		return fmt.Errorf(
 			"accesslog doesn't contain either productpage or istio-ingressgateway source. Log %v", content)
 	}
-
 	return nil
 }
