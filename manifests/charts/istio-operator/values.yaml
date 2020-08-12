@@ -1,4 +1,5 @@
 hub: gcr.io/istio-testing
 tag: 1.6-dev
 operatorNamespace: istio-operator
-istioNamespace: istio-system
+# Used to replace istioNamespace to support operator watch multiple namespaces.
+watchedNamespaces: istio-system
