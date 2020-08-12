@@ -31,10 +31,19 @@ import (
 type EchoCall func() (echoclient.ParsedResponses, error)
 
 type TrafficTestCase struct {
-	name      string
-	config    string
-	call      EchoCall
-	calls     []EchoCall
+	name   string
+	config string
+
+	// Multiple calls. Cannot be used with call/validator
+	calls []TrafficCall
+
+	// Single call
+	call      func() (echoclient.ParsedResponses, error)
+	validator func(echoclient.ParsedResponses) error
+}
+
+type TrafficCall struct {
+	call      func() (echoclient.ParsedResponses, error)
 	validator func(echoclient.ParsedResponses) error
 }
 
@@ -172,56 +181,56 @@ spec:
     - destination:
         host: b
 `,
-			calls: []EchoCall{
-				// Preflight request
-				func() (echoclient.ParsedResponses, error) {
-					header := http.Header{}
-					header.Add("Origin", "cors.com")
-					header.Add("Access-Control-Request-Method", "DELETE")
-					return apps.podA.Call(echo.CallOptions{
-						Target:   apps.podB,
-						PortName: "http",
-						Method:   "OPTIONS",
-						Headers:  header,
-					})
+			calls: []TrafficCall{
+				{
+					// Preflight request
+					call: func() (echoclient.ParsedResponses, error) {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						header.Add("Access-Control-Request-Method", "DELETE")
+						return apps.podA.Call(echo.CallOptions{
+							Target:   apps.podB,
+							PortName: "http",
+							Method:   "OPTIONS",
+							Headers:  header,
+						})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						if err := expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
+							return err
+						}
+						if err := expectString(response[0].RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
+							return err
+						}
+						if err := expectString(response[0].RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+							return err
+						}
+						if err := expectString(response[0].RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
+							return err
+						}
+						return nil
+					},
 				},
-				// Real GET
-				func() (echoclient.ParsedResponses, error) {
-					header := http.Header{}
-					header.Add("Origin", "cors.com")
-					return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Headers: header})
+				{
+					// GET
+					call: func() (echoclient.ParsedResponses, error) {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Headers: header})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin")
+					},
 				},
-				// Real GET, no matching origin
-				func() (echoclient.ParsedResponses, error) {
-					return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
-				},
-			},
-			validator: func(response echoclient.ParsedResponses) error {
-				// Preflight
-				if err := expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
-					return err
-				}
-				if err := expectString(response[0].RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
-					return err
-				}
-				if err := expectString(response[0].RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
-					return err
-				}
-				if err := expectString(response[0].RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
-					return err
-				}
-
-				// GET
-				if err := expectString(response[1].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin"); err != nil {
-					return err
-				}
-
-				// No match GET
-				if err := expectString(response[2].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin"); err != nil {
-					return err
-				}
-				return nil
-			},
+				{
+					// GET without matching origin
+					call: func() (echoclient.ParsedResponses, error) {
+						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
+					},
+				}},
 		},
 	}
 	splits := []map[string]int{
@@ -420,21 +429,27 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
 		}
-		retry.UntilSuccessOrFail(ctx, func() error {
-			if tt.call != nil {
-				tt.calls = append(tt.calls, tt.call)
+		if tt.call != nil {
+			if tt.calls != nil {
+				ctx.Fatalf("defined calls and calls; may only define on or the other")
 			}
-			resp := []*echoclient.ParsedResponse{}
-			for _, c := range tt.calls {
-				r, err := c()
+			tt.calls = []TrafficCall{{tt.call, tt.validator}}
+		}
+		for i, c := range tt.calls {
+			name := fmt.Sprintf("%s/%d", tt.name, i)
+			retry.UntilSuccessOrFail(ctx, func() error {
+				r, err := c.call()
 				if err != nil {
-					ctx.Logf("call for %v failed, retrying: %v", tt.name, err)
+					ctx.Logf("call for %v failed, retrying: %v", name, err)
 					return err
 				}
-				resp = append(resp, r...)
-			}
-			return tt.validator(resp)
-		}, retry.Delay(time.Millisecond*100))
+				if err := c.validator(r); err != nil {
+					ctx.Logf("validation for call for %v failed, retrying: %v", name, err)
+					return err
+				}
+				return nil
+			}, retry.Delay(time.Millisecond*100))
+		}
 	})
 }
 
