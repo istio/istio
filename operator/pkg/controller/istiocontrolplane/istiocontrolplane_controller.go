@@ -49,7 +49,7 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	errdict "istio.io/istio/pkg/errs-dictionary"
+	errdict "istio.io/istio/pkg/errdict"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -199,7 +199,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		scope.Errorf(errdict.GeneralFailedToGetObjectFromAPIServer, "error getting IstioOperator %s: %s", iopName, err)
+		scope.Errorf(errdict.OperatorFailedToGetObjectFromAPIServer, "error getting IstioOperator %s: %s", iopName, err)
 		return reconcile.Result{}, err
 	}
 	if iop.Spec == nil {
