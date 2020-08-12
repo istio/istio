@@ -210,7 +210,6 @@ ifeq ($(PULL_POLICY),)
 endif
 
 include operator/operator.mk
-export PATH=/tmp/go:$PATH
 
 .PHONY: default
 default: init build test
