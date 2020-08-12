@@ -101,6 +101,7 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		DefaultServiceExportTo:         []string{"*"},
 		DefaultVirtualServiceExportTo:  []string{"*"},
 		DefaultDestinationRuleExportTo: []string{"*"},
+		DnsRefreshRate:                 types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
 		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
 		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 	}
