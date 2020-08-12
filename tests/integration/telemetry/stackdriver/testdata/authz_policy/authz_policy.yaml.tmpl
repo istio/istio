@@ -1,4 +1,4 @@
-# c accepts requests from a but denies requests from b
+# c accepts requests from b but denies requests from a
 apiVersion: "security.istio.io/v1beta1"
 kind: AuthorizationPolicy
 metadata:
@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       "app": "c"
-  action: DENY
+  action: ALLOW
   rules:
   - from:
     - source:

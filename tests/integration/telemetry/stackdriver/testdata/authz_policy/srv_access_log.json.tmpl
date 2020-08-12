@@ -23,6 +23,7 @@
         "source_namespace": "{{ .Namespace }}",
         "source_principal": "spiffe://cluster.local/ns/{{ .Namespace }}/sa/{{ .SourceName }}",
         "source_version": "v1",
-        "source_workload": "{{ .SourceName }}-v1"
+        "source_workload": "{{ .SourceName }}-v1",
+        "protocol": "{{ .Protocol }}"
     }
 }
