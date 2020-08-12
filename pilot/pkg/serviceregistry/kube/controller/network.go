@@ -67,12 +67,8 @@ func (c *Controller) reloadNetworkLookup() {
 	c.Unlock()
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
-	if err := c.syncPods(); err != nil {
-		log.Errorf("one or more errors force-syncing pods: %v", err)
-	}
-	if err := c.syncEndpoints(); err != nil {
-		log.Errorf("one or more errors force-syncing endpoints: %v", err)
-	}
+	syncResources(c.pods.informer.GetStore(), c.pods.onEvent)
+	syncResources(c.endpoints.getInformer().GetStore(), c.endpoints.onEvent)
 }
 
 // return the mesh network for the endpoint IP. Empty string if not found.

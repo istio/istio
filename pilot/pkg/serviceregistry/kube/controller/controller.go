@@ -476,48 +476,23 @@ func (c *Controller) HasSynced() bool {
 }
 
 // SyncAll syncs all the objects node->service->pod->endpoint in order
-// TODO: sync same kind of objects in parallel
-// This can cause great performance cost in multi clusters scenario.
-// Maybe just sync the cache and trigger one push at last.
-func (c *Controller) SyncAll() error {
-	var err *multierror.Error
-
-	nodes := c.nodeInformer.GetStore().List()
-	log.Debugf("initializing %d nodes", len(nodes))
-	for _, s := range nodes {
-		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
-	}
-
-	services := c.serviceInformer.GetStore().List()
-	log.Debugf("initializing %d services", len(services))
-	for _, s := range services {
-		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
-	}
-
-	err = multierror.Append(err, c.syncPods())
-	err = multierror.Append(err, c.syncEndpoints())
-
-	return multierror.Flatten(err.ErrorOrNil())
+func (c *Controller) SyncAll() {
+	syncResources(c.nodeInformer.GetStore(), c.onNodeEvent)
+	syncResources(c.nodeInformer.GetStore(), c.onServiceEvent)
+	syncResources(c.pods.informer.GetStore(), c.pods.onEvent)
+	syncResources(c.endpoints.getInformer().GetStore(), c.endpoints.onEvent)
 }
 
-func (c *Controller) syncPods() error {
-	var err *multierror.Error
-	pods := c.pods.informer.GetStore().List()
-	log.Debugf("initializing %d pods", len(pods))
-	for _, s := range pods {
-		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
+func syncResources(store cache.Store, handler func(obj interface{}, event model.Event) error) {
+	errG := multierror.Group{}
+	for _, item := range store.List() {
+		errG.Go(func() error {
+			return handler(item, model.EventAdd)
+		})
 	}
-	return err.ErrorOrNil()
-}
-
-func (c *Controller) syncEndpoints() error {
-	var err *multierror.Error
-	endpoints := c.endpoints.getInformer().GetStore().List()
-	log.Debugf("initializing%d endpoints", len(endpoints))
-	for _, s := range endpoints {
-		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
+	if err := errG.Wait(); err != nil {
+		log.Errorf("errors occurred while syncing: %v", err)
 	}
-	return err.ErrorOrNil()
 }
 
 // Run all controllers until a signal is received
