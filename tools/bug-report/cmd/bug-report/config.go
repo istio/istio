@@ -21,59 +21,57 @@ import (
 	"strings"
 	"time"
 
-	cluster "istio.io/istio/tools/kube-capture/pkg"
+	cluster "istio.io/istio/tools/bug-report/pkg"
 )
 
-// SelectionSpec is a spec for pods that will be Included in the capture
+// SelectionSpec is a spec for pods that will be Include in the capture
 // archive. The format is:
 //
-//   Namespace1,Namespace2../Deployments/Pods/ContainerName1,ContainerName2.../Label1,Label2.../Annotation1,Annotation2...
+//   Namespace1,Namespace2../Deployments/Pods/Label1,Label2.../Annotation1,Annotation2.../ContainerName1,ContainerName2...
 //
 // Namespace, pod and container names are pattern matching while labels
 // and annotations may have pattern in the values with exact match for keys.
-// All labels and annotations in the list must match, unless the label/annotation
-// is preceded by -, in which case the pod must NOT have the label.
-// Label/annotation values are optional, if they are not specified, all values
-// match.
+// All labels and annotations in the list must match.
+// All fields are optional, if they are not specified, all values match.
 // Pattern matching style is glob.
 // Exclusions have a higher precedence than inclusions.
 // Ordering defines pod priority for cases where the archive exceeds the maximum
-// size and logs must be Excluded.
+// size and some logs must be dropped.
 //
 // Examples:
 //
-// 1. All pods in test-namespace with label "test" but without label "private":
-//      test-namespace/*/*/test,-private/*
+// 1. All pods in test-namespace with label "test=foo" but without label "private" (with any value):
+//      include:
+//        test-namespace/*/*/test=foo
+//      exclude:
+//        test-namespace/*/*/private
 //
 // 2. Pods in all namespaces except "kube-system" with annotation "revision"
 // matching wildcard 1.6*:
-//      -kube-system/*/*/*/revision=1.6*
+//      exclude:
+//        kube-system/*/*/*/revision=1.6*
 //
-// 3. Pods in all namespaces with "prometheus" in the name, except those with
+// 3. Pods with "prometheus" in the name, except those with
 // the annotation "internal=true":
-//      */*prometheus*/*/*/-internal=true
+//      include:
+//        */*/*prometheus*
+//      exclude:
+//        */*/*prometheus*/*/internal=true
 //
 // 4. Container logs for all containers called "istio-proxy":
-//      */*/istio-proxy/*
+//      include:
+//        */*/*/*/*/istio-proxy
 //
 type SelectionSpec struct {
-	Namespaces  map[IncludeType][]string
-	Deployments map[IncludeType][]string
-	Pods        map[IncludeType][]string
-	Containers  map[IncludeType][]string
-	Labels      map[IncludeType]map[string]string
-	Annotations map[IncludeType]map[string]string
+	Namespaces  []string
+	Deployments []string
+	Pods        []string
+	Containers  []string
+	Labels      map[string]string
+	Annotations map[string]string
 }
 
-// IncludeType selects whether an item Included or Excluded.
-type IncludeType int
-
-const (
-	Include IncludeType = iota
-	Exclude
-)
-
-// KubeCaptureConfig controls what is captured and Included in the kube-capture tool
+// KubeCaptureConfig controls what is captured and Include in the kube-capture tool
 // archive.
 type KubeCaptureConfig struct {
 	// KubeConfigPath is the path to kube config file.
@@ -102,10 +100,10 @@ type KubeCaptureConfig struct {
 	// on importance metrics.
 	MaxArchiveSizeMb int32 `json:"maxArchiveSizeMb"`
 
-	// Included is a list of SelectionSpec entries for Included pods.
-	Included []*SelectionSpec `json:"included"`
-	// Excluded is a list of SelectionSpec entries for Excluded pods.
-	Excluded []*SelectionSpec `json:"excluded"`
+	// Include is a list of SelectionSpec entries for resources to include.
+	Include []*SelectionSpec `json:"include"`
+	// Exclude is a list of SelectionSpec entries for resources t0 exclude.
+	Exclude []*SelectionSpec `json:"exclude"`
 
 	// StartTime is the start time the the log capture time range.
 	// If set, Since must be unset.
@@ -120,7 +118,7 @@ type KubeCaptureConfig struct {
 
 	// CriticalErrors is a list of glob pattern matches for errors that,
 	// if found in a log, set the highest priority for the log to ensure
-	// that it is Included in the capture archive.
+	// that it is Include in the capture archive.
 	CriticalErrors []string `json:"criticalErrors"`
 	// WhitelistedErrors are glob error patterns which are ignored when
 	// calculating the error heuristic for a log.
@@ -133,53 +131,27 @@ type KubeCaptureConfig struct {
 	UploadToGCS bool `json:"uploadToGCS"`
 }
 
-var (
-	includeTypeToStr = map[IncludeType]string{
-		Include: "Included",
-		Exclude: "Excluded",
+func parseToIncludeTypeSlice(s string) []string {
+	if strings.TrimSpace(s) == "*" {
+		return nil
 	}
-)
-
-func parseToIncludeTypeSlice(s string) (map[IncludeType][]string, error) {
-	out := make(map[IncludeType][]string)
-	for _, ss := range strings.Split(s, ",") {
-		if len(ss) == 0 {
-			continue
-		}
-		if err := validateK8sName(ss); err != nil {
-			return nil, err
-		}
-		v := ss[0:]
-		t := Include
-		if ss[0] == '-' {
-			v = ss[1:]
-			t = Exclude
-		}
-		out[t] = append(out[t], v)
-	}
-	return out, nil
+	return strings.Split(s, ",")
 }
 
-func parseToIncludeTypeMap(s string) (map[IncludeType]map[string]string, error) {
-	out := map[IncludeType]map[string]string{
-		Include: make(map[string]string),
-		Exclude: make(map[string]string),
+func parseToIncludeTypeMap(s string) (map[string]string, error) {
+	if strings.TrimSpace(s) == "*" {
+		return nil, nil
 	}
+	out := make(map[string]string)
 	for _, ss := range strings.Split(s, ",") {
 		if len(ss) == 0 {
 			continue
 		}
-		v := ss[0:]
-		t := Include
-		if ss[0] == '-' {
-			v = ss[1:]
-			t = Exclude
-		}
-		kv := strings.Split(v, "=")
+		kv := strings.Split(ss, "=")
 		if len(kv) != 2 {
-			return nil, fmt.Errorf("bad label/annotation selection %s, must have format key=value", v)
+			return nil, fmt.Errorf("bad label/annotation selection %s, must have format key=value", ss)
 		}
-		out[t][kv[0]] = kv[1]
+		out[kv[0]] = kv[1]
 	}
 	return out, nil
 }
@@ -191,17 +163,17 @@ func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
 		var err error
 		switch ft[i] {
 		case cluster.Namespace:
-			s.Namespaces, err = parseToIncludeTypeSlice(f)
+			s.Namespaces = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err
 			}
 		case cluster.Deployment:
-			s.Deployments, err = parseToIncludeTypeSlice(f)
+			s.Deployments = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err
 			}
 		case cluster.Pod:
-			s.Pods, err = parseToIncludeTypeSlice(f)
+			s.Pods = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err
 			}
@@ -216,7 +188,7 @@ func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
 				return err
 			}
 		case cluster.Container:
-			s.Containers, err = parseToIncludeTypeSlice(f)
+			s.Containers = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err
 			}

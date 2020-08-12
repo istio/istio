@@ -22,7 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cluster "istio.io/istio/tools/kube-capture/pkg"
+	cluster "istio.io/istio/tools/bug-report/pkg"
 	"istio.io/pkg/version"
 )
 
