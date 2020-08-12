@@ -21,10 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -81,11 +78,6 @@ type Connection struct {
 	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
 	node *core.Node
-
-	// Computed Xds data. Mainly used for debug display.
-	XdsListeners []*listener.Listener                 `json:"-"`
-	XdsRoutes    map[string]*route.RouteConfiguration `json:"-"`
-	XdsClusters  []*cluster.Cluster
 }
 
 // Event represents a config or registry event that results in a push.
@@ -110,12 +102,10 @@ type Event struct {
 
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
-		pushChannel:  make(chan *Event),
-		PeerAddr:     peerAddr,
-		Connect:      time.Now(),
-		stream:       stream,
-		XdsListeners: []*listener.Listener{},
-		XdsRoutes:    map[string]*route.RouteConfiguration{},
+		pushChannel: make(chan *Event),
+		PeerAddr:    peerAddr,
+		Connect:     time.Now(),
+		stream:      stream,
 	}
 }
 

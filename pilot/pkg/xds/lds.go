@@ -30,9 +30,6 @@ func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, vers
 	pushStart := time.Now()
 	rawListeners := s.ConfigGenerator.BuildListeners(con.proxy, push)
 
-	if s.DebugConfigs {
-		con.XdsListeners = rawListeners
-	}
 	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
