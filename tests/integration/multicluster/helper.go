@@ -43,52 +43,40 @@ type Apps struct {
 	LBEchos echo.Instances
 }
 
-func SetupApps(apps *Apps) func(ctx resource.Context) error {
-	return func(ctx resource.Context) (err error) {
-		*apps = Apps{}
-		if apps.Namespace, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true}); err != nil {
-			return err
-		}
-		// set up echos
-		apps.UniqueEchos, err = uniqueEchos(ctx, apps.Namespace)
-		if err != nil {
-			return err
-		}
-		apps.LBEchos, err = lbEchos(ctx, apps.Namespace)
-		if err != nil {
-			return err
-		}
+func SetupApps(ctx resource.Context) (*Apps, error) {
+	apps := &Apps{}
 
-		return
+	var err error
+	apps.Namespace, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true})
+	if err != nil {
+		return nil, err
 	}
-}
 
-func uniqueEchos(ctx resource.Context, ns namespace.Instance) (echo.Instances, error) {
+	// set up echos
 	// Running multiple instances in each cluster teases out cases where proxies inconsistently
 	// use wrong different discovery server. For higher numbers of clusters, we already end up
 	// running plenty of services. (see https://github.com/istio/istio/issues/23591).
-	svcPerCluster := 5 - len(ctx.Clusters())
-	if svcPerCluster < 1 {
-		svcPerCluster = 1
+	uniqSvcPerCluster := 5 - len(ctx.Clusters())
+	if uniqSvcPerCluster < 1 {
+		uniqSvcPerCluster = 1
 	}
 
 	builder := echoboot.NewBuilder(ctx)
 	for _, cluster := range ctx.Clusters() {
-		for i := 0; i < svcPerCluster; i++ {
+		builder.With(nil, newEchoConfig("echolb", apps.Namespace, c))
+		for i := 0; i < uniqSvcPerCluster; i++ {
 			svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-			builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))
+			builder = builder.With(nil, newEchoConfig(svcName, apps.Namespace, cluster))
 		}
 	}
-	return builder.Build()
-
-}
-
-func lbEchos(ctx resource.Context, ns namespace.Instance) (echo.Instances, error) {
-	builder := echoboot.NewBuilder(ctx)
-	for _, c := range ctx.Clusters() {
-		builder.With(nil, newEchoConfig("echolb", ns, c))
+	echos, err := builder.Build()
+	if err != nil {
+		return nil, err
 	}
-	return builder.Build()
+	apps.UniqueEchos = echos.Match(echo.ServicePrefix("echo-"))
+	apps.LBEchos = echos.Match(echo.Service("echolb"))
+
+	return apps, nil
 }
 
 func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster) echo.Config {
