@@ -65,16 +65,21 @@ type FakeOptions struct {
 	// If provided, the ConfigString will be treated as a go template, with this as input params
 	ConfigTemplateInput interface{}
 	// If provided, this mesh config will be used
-	MeshConfig   *meshconfig.MeshConfig
-	MeshNetworks *meshconfig.MeshNetworks
+	MeshConfig      *meshconfig.MeshConfig
+	NetworksWatcher mesh.NetworksWatcher
 }
 
 type FakeDiscoveryServer struct {
-	t           test.Failer
-	Store       model.ConfigStore
-	Discovery   *DiscoveryServer
-	PushContext *model.PushContext
-	Env         *model.Environment
+	t         test.Failer
+	Store     model.ConfigStore
+	Discovery *DiscoveryServer
+	Env       *model.Environment
+}
+
+func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
+	f.Discovery.updateMutex.RLock()
+	defer f.Discovery.updateMutex.RUnlock()
+	return f.Env.PushContext
 }
 
 func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
@@ -164,7 +169,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configStore)
 	env.Watcher = mesh.NewFixedWatcher(m)
-	env.NetworksWatcher = mesh.NewFixedNetworksWatcher(opts.MeshNetworks)
+	if opts.NetworksWatcher == nil {
+		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
+	}
+	env.NetworksWatcher = opts.NetworksWatcher
 
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	serviceDiscovery.AddRegistry(se)
@@ -186,25 +194,28 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	se.ResyncEDS()
 
-	s.updateMutex.Lock()
-	defer s.updateMutex.Unlock()
-	ctx := model.NewPushContext()
-	if err := ctx.InitContext(env, env.PushContext, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.UpdateServiceShards(ctx); err != nil {
-		t.Fatal(err)
-	}
-	env.PushContext = ctx
-
 	fake := &FakeDiscoveryServer{
-		t:           t,
-		Store:       configController,
-		Discovery:   s,
-		PushContext: env.PushContext,
-		Env:         env,
+		t:         t,
+		Store:     configController,
+		Discovery: s,
+		Env:       env,
 	}
+
+	// currently meshNetworks gateways are stored on the push context
+	fake.refreshPushContext()
+	env.AddNetworksHandler(fake.refreshPushContext)
+
 	return fake
+}
+
+func (f *FakeDiscoveryServer) refreshPushContext() {
+	_, err := f.Discovery.initPushContext(&model.PushRequest{
+		Full:   true,
+		Reason: []model.TriggerReason{model.GlobalUpdate},
+	}, nil)
+	if err != nil {
+		f.t.Fatal(err)
+	}
 }
 
 // SetupProxy initializes a proxy for the current environment. This should generally be used when creating
@@ -231,8 +242,9 @@ func (f *FakeDiscoveryServer) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.IPAddresses = []string{"1.1.1.1"}
 	}
 	// Initialize data structures
-	p.SetSidecarScope(f.Discovery.Env.PushContext)
-	p.SetGatewaysForProxy(f.Discovery.Env.PushContext)
+	pc := f.PushContext()
+	p.SetSidecarScope(pc)
+	p.SetGatewaysForProxy(pc)
 	if err := p.SetServiceInstances(f.Discovery.Env.ServiceDiscovery); err != nil {
 		f.t.Fatal(err)
 	}
@@ -241,23 +253,23 @@ func (f *FakeDiscoveryServer) SetupProxy(p *model.Proxy) *model.Proxy {
 }
 
 func (f *FakeDiscoveryServer) Listeners(p *model.Proxy) []*listener.Listener {
-	return f.Discovery.ConfigGenerator.BuildListeners(p, f.PushContext)
+	return f.Discovery.ConfigGenerator.BuildListeners(p, f.PushContext())
 }
 
 func (f *FakeDiscoveryServer) Clusters(p *model.Proxy) []*cluster.Cluster {
-	return f.Discovery.ConfigGenerator.BuildClusters(p, f.PushContext)
+	return f.Discovery.ConfigGenerator.BuildClusters(p, f.PushContext())
 }
 
 func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	for _, c := range ExtractEdsClusterNames(f.Clusters(p)) {
-		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(createEndpointBuilder(c, p, f.PushContext)))
+		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(createEndpointBuilder(c, p, f.PushContext())))
 	}
 	return loadAssignments
 }
 
 func (f *FakeDiscoveryServer) Routes(p *model.Proxy) []*route.RouteConfiguration {
-	return f.Discovery.ConfigGenerator.BuildHTTPRoutes(p, f.PushContext, ExtractRoutesFromListeners(f.Listeners(p)))
+	return f.Discovery.ConfigGenerator.BuildHTTPRoutes(p, f.PushContext(), ExtractRoutesFromListeners(f.Listeners(p)))
 }
 
 func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {

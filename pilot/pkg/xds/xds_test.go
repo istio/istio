@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -362,16 +363,14 @@ func TestMeshNetworking(t *testing.T) {
 
 	for _, ingr := range ingresses {
 		t.Run(string(ingr.Spec.Type), func(t *testing.T) {
+			var k8sObjects []runtime.Object
+			k8sObjects = append(k8sObjects,
+				// NodePort ingress needs this
+				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
+				ingr)
+			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
 			for name, networkConfig := range meshNetworkConfigs {
 				t.Run(name, func(t *testing.T) {
-
-					var k8sObjects []runtime.Object
-					k8sObjects = append(k8sObjects,
-						// NodePort ingress needs this
-						&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
-						ingr)
-					k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
-
 					s := NewFakeDiscoveryServer(t, FakeOptions{
 						KubernetesObjects: k8sObjects,
 						ConfigString: `
@@ -414,7 +413,7 @@ spec:
       app: httpbin
     network: vm
 `,
-						MeshNetworks: networkConfig,
+						NetworksWatcher: mesh.NewFixedNetworksWatcher(networkConfig),
 					})
 					se := s.SetupProxy(&model.Proxy{
 						ID: "se-pod.pod",
