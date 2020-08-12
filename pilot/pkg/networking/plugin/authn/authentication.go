@@ -39,7 +39,7 @@ func NewPlugin() plugin.Plugin {
 func (Plugin) OnInboundFilterChains(in *plugin.InputParams) []networking.FilterChain {
 	return factory.NewPolicyApplier(in.Push,
 		in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels}).InboundFilterChain(
-		in.ServiceInstance.Endpoint.EndpointPort, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
+		in.ServiceInstance.Endpoint.EndpointPort, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh))
 }
 
 // OnOutboundListener is called whenever a new outbound listener is added to the LDS output for a given service
@@ -126,5 +126,5 @@ func (Plugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []network
 	// Pass nil for ServiceInstance so that we never consider any alpha policy for the pass through filter chain.
 	applier := factory.NewPolicyApplier(in.Push, in.Node.Metadata.Namespace, labels.Collection{in.Node.Metadata.Labels})
 	// Pass 0 for endpointPort so that it never matches any port-level policy.
-	return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol)
+	return applier.InboundFilterChain(0, in.Push.Mesh.SdsUdsPath, in.Node, in.ListenerProtocol, trustDomainsForValidation(in.Push.Mesh))
 }
