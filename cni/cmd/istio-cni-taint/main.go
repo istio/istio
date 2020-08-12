@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,13 +26,105 @@ type ControllerOptions struct {
 	TaintOptions *taint.Options `json:"taint_options"`
 }
 
-var (
-	loggingOptions = log.DefaultOptions()
-)
-
 const (
 	LeassLockName      = "istio-taint-lock"
 	LeaseLockNamespace = "kube-system"
+)
+
+var (
+	loggingOptions = log.DefaultOptions()
+
+	rootCmd = &cobra.Command{
+		Use:          "taint controller",
+		Short:        "taint controller command line interface",
+		SilenceUsage: true,
+		Long: `Istio CNI taint controller used for monitoring on the readiness of configmap defined
+Critical labels, this can be run as a standalone command line tool or as a daemon.
+If it run as command line tool, it will check the readiness of critical labels defined in configmap
+if some critical labels are not ready, taint the corresponding node. otherwise, it will run as a
+kubernetes controller and checking on the readiness of critical label
+`,
+		PersistentPreRunE: configureLogging,
+		Run: func(cmd *cobra.Command, args []string) {
+			// Parse args to settings
+			options := parseFlags()
+			clientSet, err := clientSetup()
+			if err != nil {
+				log.Fatalf("Could not construct clientSet: %s", err)
+			}
+			taintSetter, err := taint.NewTaintSetter(clientSet, options.TaintOptions)
+			if err != nil {
+				log.Fatalf("Could not construct taint setter: %s", err)
+			}
+			logCurrentOptions(&taintSetter, options)
+			tc, err := taint.NewTaintSetterController(&taintSetter)
+			if err != nil {
+				log.Fatalf("Fatal error constructing taint controller: %+v", err)
+			}
+			if !options.RunAsDaemon {
+				nodeReadinessCheck(tc)
+				return
+			}
+			id := uuid.New().String()
+			stopCh := make(chan struct{})
+			lock := &resourcelock.LeaseLock{
+				LeaseMeta: metav1.ObjectMeta{
+					Name:      LeassLockName,
+					Namespace: LeaseLockNamespace,
+				},
+				Client: clientSet.CoordinationV1(),
+				LockConfig: resourcelock.ResourceLockConfig{
+					Identity: id,
+				},
+			}
+			leadelectionCallback := leaderelection.LeaderCallbacks{
+				OnStartedLeading: func(ctx context.Context) {
+					//once leader elected it should taint all nodes at first to prevent race condition
+					tc.RegistTaints()
+					tc.Run(ctx.Done()) //graceful shut down
+				},
+				OnStoppedLeading: func() {
+					// when leader failed, log leader failure and restart leader election
+					log.Infof("leader lost: %s", id)
+				},
+				OnNewLeader: func(identity string) {
+					// we're notified when new leader elected
+					if identity == id {
+						// I just got the lock
+						return
+					}
+					log.Infof("new leader elected: %s", identity)
+				},
+			}
+			func(stopCh <-chan struct{}) {
+				for {
+					ctx, cancel := context.WithCancel(context.Background())
+					ch := make(chan os.Signal, 1)
+					signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+					go func() {
+						<-ch
+						log.Info("Received termination, signaling shutdown")
+						cancel()
+					}()
+					leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
+						Lock:            lock,
+						ReleaseOnCancel: true,
+						LeaseDuration:   60 * time.Second,
+						RenewDeadline:   15 * time.Second,
+						RetryPeriod:     5 * time.Second,
+						Callbacks:       leadelectionCallback,
+					})
+					select {
+					case <-stopCh:
+						return
+					default:
+						cancel()
+						log.Errorf("leader election lost due to exception happened")
+					}
+				}
+			}(stopCh)
+		},
+	}
 )
 
 // Parse command line options
@@ -41,7 +134,7 @@ func parseFlags() (options *ControllerOptions) {
 
 	pflag.String("configmap-namespace", "kube-system", "the namespace of critical pod definition configmap")
 	pflag.String("configmap-name", "single", "the name of critical pod definition configmap")
-	pflag.Bool("run-as-daemon", false, "Controller will run in a loop")
+	pflag.Bool("run-as-daemon", true, "Controller will run in a loop")
 	pflag.Bool("help", false, "Print usage information")
 
 	pflag.Parse()
@@ -101,89 +194,14 @@ func nodeReadinessCheck(tc *taint.Controller) {
 		}
 	}
 }
-
-func main() {
-	loggingOptions.OutputPaths = []string{"stderr"}
-	loggingOptions.JSONEncoding = true
+func configureLogging(_ *cobra.Command, _ []string) error {
 	if err := log.Configure(loggingOptions); err != nil {
-		os.Exit(1)
+		return err
 	}
-	options := parseFlags()
-
-	clientSet, err := clientSetup()
-	if err != nil {
-		log.Fatalf("Could not construct clientSet: %s", err)
-	}
-	taintSetter, err := taint.NewTaintSetter(clientSet, options.TaintOptions)
-	if err != nil {
-		log.Fatalf("Could not construct taint setter: %s", err)
-	}
-	logCurrentOptions(&taintSetter, options)
-	tc, err := taint.NewTaintSetterController(&taintSetter)
-	if err != nil {
-		log.Fatalf("Fatal error constructing taint controller: %+v", err)
-	}
-	if options.RunAsDaemon {
-		id := uuid.New().String()
-		stopCh := make(chan struct{})
-		lock := &resourcelock.LeaseLock{
-			LeaseMeta: metav1.ObjectMeta{
-				Name:      LeassLockName,
-				Namespace: LeaseLockNamespace,
-			},
-			Client: clientSet.CoordinationV1(),
-			LockConfig: resourcelock.ResourceLockConfig{
-				Identity: id,
-			},
-		}
-		leadelectionCallback := leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
-				//once leader elected it should taint all nodes at first to prevent race condition
-				tc.RegistTaints()
-				tc.Run(ctx.Done()) //graceful shut down
-			},
-			OnStoppedLeading: func() {
-				// when leader failed, log leader failure and restart leader election
-				log.Infof("leader lost: %s", id)
-			},
-			OnNewLeader: func(identity string) {
-				// we're notified when new leader elected
-				if identity == id {
-					// I just got the lock
-					return
-				}
-				log.Infof("new leader elected: %s", identity)
-			},
-		}
-		func(stopCh <-chan struct{}) {
-			for {
-				ctx, cancel := context.WithCancel(context.Background())
-				ch := make(chan os.Signal, 1)
-				signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-				go func() {
-					<-ch
-					log.Info("Received termination, signaling shutdown")
-					cancel()
-				}()
-				leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
-					Lock:            lock,
-					ReleaseOnCancel: true,
-					LeaseDuration:   60 * time.Second,
-					RenewDeadline:   15 * time.Second,
-					RetryPeriod:     5 * time.Second,
-					Callbacks:       leadelectionCallback,
-				})
-				select {
-				case <-stopCh:
-					return
-				default:
-					cancel()
-					log.Errorf("leader election lost due to exception happened")
-				}
-			}
-		}(stopCh)
-	} else {
-		//check for node readiness in every node
-		nodeReadinessCheck(tc)
+	return nil
+}
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(-1)
 	}
 }
