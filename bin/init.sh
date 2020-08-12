@@ -233,6 +233,6 @@ set -x
 (cd /tmp; go get golang.org/dl/go1.15)
 go1.15 download
 go version
-cp `which go1.15` which go`
+su-exec 0:0 cp `which go1.15` `which go`
 go version
 go1.15 version
