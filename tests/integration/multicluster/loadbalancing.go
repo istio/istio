@@ -28,7 +28,7 @@ func LoadbalancingTest(t *testing.T, apps *Apps, features ...features.Feature) {
 		Label(label.Multicluster).
 		Features(features...).
 		Run(func(ctx framework.TestContext) {
-			ctx.NewSubTest("reachability").
+			ctx.NewSubTest("loadbalancing").
 				Run(func(ctx framework.TestContext) {
 					for _, src := range apps.LBEchos {
 						src := src

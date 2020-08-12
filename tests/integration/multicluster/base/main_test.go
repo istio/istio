@@ -53,5 +53,5 @@ func TestClusterLocalService(t *testing.T) {
 }
 
 func TestTelemetry(t *testing.T) {
-	multicluster.TelemetryTest(t, *apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.TelemetryTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
