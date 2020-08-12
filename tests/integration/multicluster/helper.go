@@ -156,7 +156,7 @@ func callOrFail(ctx framework.TestContext, src, dest echo.Instance, checkers ...
 			Target:   dest,
 			PortName: "http",
 			Scheme:   scheme.HTTP,
-			Count:    10 * len(ctx.Clusters()),
+			Count:    20 * len(ctx.Clusters()),
 		})
 
 		checkers = append([]callChecker{func(responses client.ParsedResponses) error {
