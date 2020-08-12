@@ -406,25 +406,6 @@ func TestLBServiceConversion(t *testing.T) {
 	}
 }
 
-func TestSecureNamingSANCustomIdentity(t *testing.T) {
-
-	pod := &coreV1.Pod{}
-
-	identity := "foo"
-
-	pod.Annotations = make(map[string]string)
-	pod.Annotations[annotation.AlphaIdentity.Name] = identity
-
-	san := SecureNamingSAN(pod)
-
-	expectedSAN := fmt.Sprintf("spiffe://%v/%v", spiffe.GetTrustDomain(), identity)
-
-	if san != expectedSAN {
-		t.Fatalf("SAN match failed, SAN:%v  expectedSAN:%v", san, expectedSAN)
-	}
-
-}
-
 func TestSecureNamingSAN(t *testing.T) {
 
 	pod := &coreV1.Pod{}
