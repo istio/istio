@@ -20,13 +20,12 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
-	ist  istio.Instance
-	apps *multicluster.Apps
+	ist    istio.Instance
+	appCtx *multicluster.AppContext
 )
 
 func TestMain(m *testing.M) {
@@ -34,29 +33,27 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
+		Setup(multicluster.Setup(appCtx)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = appCtx.ControlPlaneValues
 			cfg.ExposeIstiod = true
 		})).
-		Setup(func(ctx resource.Context) error {
-			var err error
-			apps, err = multicluster.SetupApps(ctx)
-			return err
-		}).
+		Setup(multicluster.SetupApps(appCtx)).
 		Run()
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.ReachabilityTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestCrossClusterLoadbalancing(t *testing.T) {
-	multicluster.LoadbalancingTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.LoadbalancingTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.ClusterLocalTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestTelemetry(t *testing.T) {
-	multicluster.TelemetryTest(t, apps, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.TelemetryTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }

@@ -25,7 +25,7 @@ import (
 )
 
 // ReachabilityTest tests that different services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, apps *Apps, features ...features.Feature) {
+func ReachabilityTest(t *testing.T, apps *AppContext, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(features...).

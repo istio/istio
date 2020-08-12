@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	ist  istio.Instance
-	apps *multicluster.Apps
+	ist    istio.Instance
+	appCtx *multicluster.AppContext
 )
 
 func TestMain(m *testing.M) {
@@ -35,6 +35,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
+		Setup(multicluster.Setup(appCtx)).
 		Setup(kube.Setup(func(s *kube.Settings) {
 			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
@@ -50,7 +51,7 @@ func TestMain(m *testing.M) {
 
 			// Set the control plane values on the config.
 			// For ingress, add port 15017 to the default list of ports.
-			cfg.ControlPlaneValues = `
+			cfg.ControlPlaneValues = appCtx.ControlPlaneValues + `
   global:
     centralIstiod: true
     caAddress: istiod.istio-system.svc:15012
@@ -94,22 +95,18 @@ values:
   global:
     centralIstiod: true`
 		})).
-		Setup(func(ctx resource.Context) error {
-			var err error
-			apps, err = multicluster.SetupApps(ctx)
-			return err
-		}).
+		Setup(multicluster.SetupApps(appCtx)).
 		Run()
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, apps, "installation.multicluster.central-istiod")
+	multicluster.ReachabilityTest(t, appCtx, "installation.multicluster.central-istiod")
 }
 
 func TestCrossClusterLoadbalancing(t *testing.T) {
-	multicluster.LoadbalancingTest(t, apps, "installation.multicluster.central-istiod")
+	multicluster.LoadbalancingTest(t, appCtx, "installation.multicluster.central-istiod")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, apps, "installation.multicluster.central-istiod")
+	multicluster.ClusterLocalTest(t, appCtx, "installation.multicluster.central-istiod")
 }

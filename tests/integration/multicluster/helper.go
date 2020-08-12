@@ -34,49 +34,88 @@ var (
 	retryDelay   = time.Millisecond * 100
 )
 
-type Apps struct {
-	Namespace namespace.Instance
+type AppContext struct {
+	apps
+	Namespace      namespace.Instance
+	LocalNamespace namespace.Instance
+}
 
+type apps struct {
 	// UniqueEchos are have different names in each cluster.
 	UniqueEchos echo.Instances
 	// LBEchos are the same in each cluster
 	LBEchos echo.Instances
+	// LocalEchos can only be reached from the same cluster
+	LocalEchos echo.Instances
+	// ControlPlaneValues to set during istio deploy
+	ControlPlaneValues string
 }
 
-func SetupApps(ctx resource.Context) (*Apps, error) {
-	apps := &Apps{}
-
-	var err error
-	apps.Namespace, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true})
-	if err != nil {
-		return nil, err
-	}
-
-	// set up echos
-	// Running multiple instances in each cluster teases out cases where proxies inconsistently
-	// use wrong different discovery server. For higher numbers of clusters, we already end up
-	// running plenty of services. (see https://github.com/istio/istio/issues/23591).
-	uniqSvcPerCluster := 5 - len(ctx.Clusters())
-	if uniqSvcPerCluster < 1 {
-		uniqSvcPerCluster = 1
-	}
-
-	builder := echoboot.NewBuilder(ctx)
-	for _, cluster := range ctx.Clusters() {
-		builder.With(nil, newEchoConfig("echolb", apps.Namespace, cluster))
-		for i := 0; i < uniqSvcPerCluster; i++ {
-			svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-			builder = builder.With(nil, newEchoConfig(svcName, apps.Namespace, cluster))
+// Setup initialize app context with control plane values and namespaces
+func Setup(appCtx *AppContext) resource.SetupFn {
+	return func(ctx resource.Context) error {
+		*appCtx = AppContext{}
+		var err error
+		appCtx.Namespace, err = namespace.New(ctx, namespace.Config{Prefix: "mc-reachability", Inject: true})
+		if err != nil {
+			return err
 		}
+		appCtx.LocalNamespace, err = namespace.New(ctx, namespace.Config{Prefix: "cluster-local", Inject: true})
+		if err != nil {
+			return err
+		}
+		appCtx.ControlPlaneValues = fmt.Sprintf(`
+values:
+  meshConfig:
+    serviceSettings: 
+      - settings:
+          clusterLocal: true
+        hosts:
+          - "*.%s.svc.cluster.local"
+`, appCtx.LocalNamespace.Name())
+		return nil
 	}
-	echos, err := builder.Build()
-	if err != nil {
-		return nil, err
-	}
-	apps.UniqueEchos = echos.Match(echo.ServicePrefix("echo-"))
-	apps.LBEchos = echos.Match(echo.Service("echolb"))
+}
 
-	return apps, nil
+// SetupApps depoys echos. The context will be initialized with namespaces and control plane values if it hasn't already.
+func SetupApps(appCtx *AppContext) resource.SetupFn {
+	return func(ctx resource.Context) error {
+		if appCtx == nil {
+			if err := Setup(appCtx)(ctx); err != nil {
+				return err
+			}
+		}
+		// set up echos
+		// Running multiple instances in each cluster teases out cases where proxies inconsistently
+		// use wrong different discovery server. For higher numbers of clusters, we already end up
+		// running plenty of services. (see https://github.com/istio/istio/issues/23591).
+		uniqSvcPerCluster := 5 - len(ctx.Clusters())
+		if uniqSvcPerCluster < 1 {
+			uniqSvcPerCluster = 1
+		}
+
+		builder := echoboot.NewBuilder(ctx)
+		for _, cluster := range ctx.Clusters() {
+			builder.With(nil, newEchoConfig("echolb", appCtx.Namespace, cluster))
+			builder.With(nil, newEchoConfig("local", appCtx.LocalNamespace, cluster))
+			for i := 0; i < uniqSvcPerCluster; i++ {
+				svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
+				builder = builder.With(nil, newEchoConfig(svcName, appCtx.Namespace, cluster))
+			}
+		}
+		echos, err := builder.Build()
+		if err != nil {
+			return err
+		}
+
+		appCtx.apps = apps{
+			UniqueEchos: echos.Match(echo.ServicePrefix("echo-")),
+			LBEchos:     echos.Match(echo.Service("echolb")),
+			// it's faster to spin up cluster-local echos than to wait for creating/deleting cluster-local config to propagate
+			LocalEchos: echos.Match(echo.Service("local")),
+		}
+		return nil
+	}
 }
 
 func newEchoConfig(service string, ns namespace.Instance, cluster resource.Cluster) echo.Config {
@@ -109,7 +148,9 @@ func newEchoConfig(service string, ns namespace.Instance, cluster resource.Clust
 	}
 }
 
-func callOrFail(ctx test.Failer, src, dest echo.Instance) client.ParsedResponses {
+type callChecker func(client.ParsedResponses) error
+
+func callOrFail(ctx test.Failer, src, dest echo.Instance, checkers ...callChecker) client.ParsedResponses {
 	ctx.Helper()
 	var results client.ParsedResponses
 	retry.UntilSuccessOrFail(ctx, func() (err error) {
@@ -119,8 +160,18 @@ func callOrFail(ctx test.Failer, src, dest echo.Instance) client.ParsedResponses
 			Scheme:   scheme.HTTP,
 			Count:    15,
 		})
+
+		checkers = append([]callChecker{func(responses client.ParsedResponses) error {
+			return responses.CheckOK()
+		}}, checkers...)
+
 		if err == nil {
-			err = results.CheckOK()
+			for _, c := range checkers {
+				err = c(results)
+				if err != nil {
+					break
+				}
+			}
 		}
 		if err != nil {
 			return fmt.Errorf("%s to %s:%s using %s: expected success but failed: %v",
