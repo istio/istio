@@ -300,22 +300,22 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
 	allServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
-	noneDnsServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
+	nonDNSServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
 	allServices = append(allServices, addedSvcs...)
 	allServices = append(allServices, updatedSvcs...)
 	allServices = append(allServices, unchangedSvcs...)
 	for _, svc := range allServices {
 		if svc.Resolution != model.DNSLB {
-			noneDnsServices = append(noneDnsServices, svc)
+			nonDNSServices = append(nonDNSServices, svc)
 		}
 	}
 	// non dns service instances
-	var nonDnsServiceInstances []*model.ServiceInstance
-	if len(noneDnsServices) > 0 {
-		nonDnsServiceInstances = convertServiceEntryToInstances(curr, noneDnsServices)
+	var nonDNSServiceInstances []*model.ServiceInstance
+	if len(nonDNSServices) > 0 {
+		nonDNSServiceInstances = convertServiceEntryToInstances(curr, nonDNSServices)
 	}
 	// update eds endpoint shards
-	s.edsUpdate(nonDnsServiceInstances, false)
+	s.edsUpdate(nonDNSServiceInstances, false)
 
 	pushReq := &model.PushRequest{
 		Full:           true,
