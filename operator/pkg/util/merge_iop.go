@@ -96,32 +96,104 @@ type gatewaysConfig struct {
 
 // Configuration for an ingress gateway.
 type ingressGatewayConfig struct {
-	CPU                *v1alpha12.CPUTargetUtilizationConfig `json:"cpu" patchStrategy:"merge"`
-	MeshExpansionPorts []*v1alpha12.PortsConfig              `json:"meshExpansionPorts" patchStrategy:"merge"`
-	Ports              []*v1alpha12.PortsConfig              `json:"ports" patchStrategy:"merge"`
-	SecretVolumes      []*v1alpha12.SecretVolume             `json:"secretVolumes" patchStrategy:"merge"`
-	Zvpn               *v1alpha12.IngressGatewayZvpnConfig   `json:"zvpn" patchStrategy:"merge"`
+	Env                              map[string]interface{}                `json:"env" patchStrategy:"merge"`
+	Labels                           map[string]string                     `json:"labels" patchStrategy:"merge"`
+	CPU                              *v1alpha12.CPUTargetUtilizationConfig `json:"cpu" patchStrategy:"replace"`
+	LoadBalancerSourceRanges         []string                              `json:"loadBalancerSourceRanges" patchStrategy:"replace"`
+	NodeSelector                     map[string]interface{}                `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]interface{}              `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{}              `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]interface{}                `json:"podAnnotations" patchStrategy:"merge"`
+	MeshExpansionPorts               []*v1alpha12.PortsConfig              `json:"meshExpansionPorts" patchStrategy:"merge" patchMergeKey:"name"`
+	Ports                            []*v1alpha12.PortsConfig              `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
+	Resources                        *resources                            `json:"resources" patchStrategy:"merge"`
+	SecretVolumes                    []*v1alpha12.SecretVolume             `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
+	ServiceAnnotations               map[string]interface{}                `json:"serviceAnnotations" patchStrategy:"merge"`
+	Tolerations                      []map[string]interface{}              `json:"tolerations" patchStrategy:"replace"`
+	IngressPorts                     []map[string]interface{}              `json:"ingressPorts" patchStrategy:"replace"`
+	AdditionalContainers             []map[string]interface{}              `json:"additionalContainers" patchStrategy:"replace"`
+	ConfigVolumes                    []map[string]interface{}              `json:"configVolumes" patchStrategy:"replace"`
+	Zvpn                             *v1alpha12.IngressGatewayZvpnConfig   `json:"zvpn" patchStrategy:"merge"`
+}
+
+type resources struct {
+	Limits   map[string]string `json:"limits" patchStrategy:"merge`
+	Requests map[string]string `json:"requests" patchStrategy:"merge`
 }
 
 type egressGatewayConfig struct {
-	Ports         []*v1alpha12.PortsConfig  `json:"ports" patchStrategy:"merge"`
-	Resources     *v1alpha12.Resources      `json:"resources" patchStrategy:"merge"`
-	SecretVolumes []*v1alpha12.SecretVolume `json:"secretVolumes" patchStrategy:"merge"`
-	Zvpn          *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"merge"`
+	Env                              map[string]interface{}    `json:"env" patchStrategy:"merge"`
+	Labels                           map[string]string         `json:"labels" patchStrategy:"merge"`
+	NodeSelector                     map[string]interface{}    `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]interface{}  `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{}  `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]interface{}    `json:"podAnnotations" patchStrategy:"merge"`
+	Ports                            []*v1alpha12.PortsConfig  `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
+	Resources                        *resources                `json:"resources" patchStrategy:"merge"`
+	SecretVolumes                    []*v1alpha12.SecretVolume `json:"secretVolumes" patchStrategy:"merge" patchMergeKey:"name"`
+	Tolerations                      []map[string]interface{}  `json:"tolerations" patchStrategy:"replace"`
+	ConfigVolumes                    []map[string]interface{}  `json:"configVolumes" patchStrategy:"replace"`
+	AdditionalContainers             []map[string]interface{}  `json:"additionalContainers" patchStrategy:"replace"`
+	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"merge" patchStrategy:"replace"`
 }
 
 type meshConfig struct {
+	ConnectTimeout                 *protobuf.Duration                                        `json:"connectTimeout" patchStrategy:"replace"`
+	ProtocolDetectionTimeout       *protobuf.Duration                                        `json:"protocolDetectionTimeout" patchStrategy:"replace"`
+	RdsRefreshDelay                *protobuf.Duration                                        `json:"rdsRefreshDelay" patchStrategy:"replace"`
+	EnableAutoMtls                 *protobuf.BoolValue                                       `json:"enableAutoMtls" patchStrategy:"replace"`
+	EnablePrometheusMerge          *protobuf.BoolValue                                       `json:"enablePrometheusMerge" patchStrategy:"replace"`
+	OutboundTrafficPolicy          *v1alpha13.MeshConfig_OutboundTrafficPolicy               `json:"outboundTrafficPolicy" patchStrategy:"merge"`
 	TCPKeepalive                   *v1alpha3.ConnectionPoolSettings_TCPSettings_TcpKeepalive `json:"tcpKeepalive" patchStrategy:"merge"`
-	DefaultConfig                  *v1alpha13.ProxyConfig                                    `json:"defaultConfig" patchStrategy:"merge"`
-	ConfigSources                  []*v1alpha13.ConfigSource                                 `json:"configSources" patchStrategy:"merge"`
+	DefaultConfig                  *proxyConfig                                              `json:"defaultConfig" patchStrategy:"merge"`
+	ConfigSources                  []*v1alpha13.ConfigSource                                 `json:"configSources" patchStrategy:"merge" patchMergeKey:"address"`
 	TrustDomainAliases             []string                                                  `json:"trustDomainAliases" patchStrategy:"merge"`
 	DefaultServiceExportTo         []string                                                  `json:"defaultServiceExportTo" patchStrategy:"merge"`
 	DefaultVirtualServiceExportTo  []string                                                  `json:"defaultVirtualServiceExportTo" patchStrategy:"merge"`
 	DefaultDestinationRuleExportTo []string                                                  `json:"defaultDestinationRuleExportTo" patchStrategy:"merge"`
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting                     `json:"localityLbSetting" patchStrategy:"merge"`
-	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge"`
-	ThriftConfig                   *v1alpha13.MeshConfig_ThriftConfig                        `json:"thriftConfig" patchStrategy:"merge"`
-	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings                   `json:"serviceSettings" patchStrategy:"merge"`
+	DnsRefreshRate                 *protobuf.Duration                                        `json:"dnsRefreshRate" patchStrategy:"replace"`
+	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
+	ThriftConfig                   *meshConfig_ThriftConfig                                  `json:"thriftConfig" patchStrategy:"merge"`
+	ServiceSettings                []*meshConfig_ServiceSettings                             `json:"serviceSettings" patchStrategy:"replace"`
+}
+
+type meshConfig_ThriftConfig struct {
+	RateLimitTimeout *protobuf.Duration `json:"rateLimitTimeout" patchStrategy:"replace"`
+}
+
+type proxyConfig struct {
+	DrainDuration                  *protobuf.Duration                      `json:"drainDuration" patchStrategy:"replace"`
+	ParentShutdownDuration         *protobuf.Duration                      `json:"parentShutdownDuration" patchStrategy:"replace"`
+	DiscoveryRefreshDelay          *protobuf.Duration                      `json:"discoveryRefreshDelay" patchStrategy:"replace"`
+	TerminationDrainDuration       *protobuf.Duration                      `json:"terminationDrainDuration" patchStrategy:"replace"`
+	Concurrency                    *protobuf.Int32Value                    `json:"concurrency" patchStrategy:"replace"`
+	ConfigSources                  []*v1alpha13.ConfigSource               `json:"configSources" patchStrategy:"replace"`
+	TrustDomainAliases             []string                                `json:"trustDomainAliases" patchStrategy:"replace"`
+	DefaultServiceExportTo         []string                                `json:"defaultServiceExportTo" patchStrategy:"replace"`
+	DefaultVirtualServiceExportTo  []string                                `json:"defaultVirtualServiceExportTo" patchStrategy:"replace"`
+	DefaultDestinationRuleExportTo []string                                `json:"defaultDestinationRuleExportTo" patchStrategy:"replace"`
+	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting   `json:"localityLbSetting" patchStrategy:"merge"`
+	DnsRefreshRate                 *protobuf.Duration                      `json:"dnsRefreshRate" patchStrategy:"replace"`
+	Certificates                   []*v1alpha13.Certificate                `json:"certificates" patchStrategy:"replace"`
+	ThriftConfig                   *v1alpha13.MeshConfig_ThriftConfig      `json:"thriftConfig" patchStrategy:"merge"`
+	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings `json:"serviceSettings" patchStrategy:"replace"`
+	Tracing                        *tracing                                `json:"tracing" patchStrategy:"replace"`
+	Sds                            *v1alpha13.SDS                          `json:"sds" patchStrategy:"replace"`
+	EnvoyAccessLogService          *v1alpha13.RemoteService                `json:"envoyAccessLogService" patchStrategy:"merge" patchMergeKey:"address"`
+	EnvoyMetricsService            *v1alpha13.RemoteService                `json:"envoyMetricsService" patchStrategy:"merge" patchMergeKey:"address"`
+	ProxyMetadata                  map[string]string                       `json:"proxyMetadata" patchStrategy:"merge"`
+	ExtraStatTags                  []string                                `json:"extraStatTags" patchStrategy:"replace"`
+	GatewayTopology                *v1alpha13.Topology                     `json:"gatewayTopology" patchStrategy:"replace"`
+}
+
+type tracing struct {
+	TlsSettings *v1alpha3.ClientTLSSettings `json:"tlsSettings" patchStrategy:"merge"`
+}
+
+type meshConfig_ServiceSettings struct {
+	Settings *v1alpha13.MeshConfig_ServiceSettings_Settings `json:"settings" patchStrategy:"merge"`
+	Hosts    []string                                       `json:"hosts" patchStrategy:"merge"`
 }
 
 type telemetryConfig struct {
