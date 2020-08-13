@@ -29,6 +29,13 @@ func TestNewMetricEnvoy(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			// enabling ext-authz and grpc access log service
+			errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata"); if errr != nil {
+				t.Fatalf("cannot apply testdata config")
+			}
+			defer ctx.Config().DeleteYAMLDir("istio-system", "../testdata")
+
+
 			ctx.Config().ApplyYAMLOrFail(ctx, "",
 				bookinfo.DoubleMetric.LoadOrFail(ctx))
 			defer ctx.Config().DeleteYAMLOrFail(ctx, "",

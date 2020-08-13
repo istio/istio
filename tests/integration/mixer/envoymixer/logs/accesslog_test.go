@@ -40,6 +40,12 @@ func TestIstioAccessLogEnvoy(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			// enabling ext-authz and grpc access log service
+			errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata"); if errr != nil {
+				t.Fatalf("cannot apply testdata config")
+			}
+			defer ctx.Config().DeleteYAMLDir("istio-system", "../testdata")
+
 			_, ing := setupComponentsOrFail(t)
 
 			ns := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
@@ -61,6 +67,8 @@ func TestIstioAccessLogEnvoy(t *testing.T) {
 
 			util.GetAndValidateAccessLog(ns, t, "istio-mixer-type=telemetry", "mixer",
 				validateLog)
+
+
 		})
 }
 
@@ -84,17 +92,17 @@ components:
   policy:
     enabled: true
   telemetry:
-    enabled: true`
+    enabled: true
+  pilot:
+    hub: "gcr.io/istio-testing"
+    tag: "1.7-alpha.7e53c75502db3f3b4afabb7ff16d43778eed92d3"`
 		})).
 		Setup(testsetup).
 		Run()
 }
+//remove pilot piece
 
 func testsetup(ctx resource.Context) error {
-	err := ctx.Config().ApplyYAMLDir("istio-system", "../testdata")
-	if err != nil {
-		return err
-	}
 	bookinfoNs, err := namespace.New(ctx, namespace.Config{
 		Prefix: "istio-bookinfo",
 		Inject: true,
@@ -120,6 +128,7 @@ func testsetup(ctx resource.Context) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
