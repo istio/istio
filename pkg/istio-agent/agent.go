@@ -404,7 +404,6 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		log.Errorf("failed to create secretFetcher for workload proxy: %v", err)
 		os.Exit(1)
 	}
-	fetcher.UseCaClient = true
 	fetcher.CaClient = caClient
 
 	return
@@ -412,9 +411,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 
 // TODO: use existing 'sidecar/router' config to enable loading Secrets
 func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.SecretCache) {
-	gSecretFetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: false,
-	}
+	gSecretFetcher := &secretfetcher.SecretFetcher{}
 	// TODO: use the common init !
 	// If gateway is using file mounted certs, we do not have to setup secret fetcher.
 	if !sa.secOpts.FileMountedCerts {

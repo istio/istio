@@ -174,8 +174,7 @@ func createRealSDSServer(t *testing.T, socket string) *Server {
 	}
 
 	wSecretFetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    caClient,
+		CaClient: caClient,
 	}
 
 	workloadSdsCacheOptions := &security.Options{}
