@@ -367,4 +367,5 @@ CA_ADDR ?= istiod.istio-system.svc:15012
 	@cp $*/workload-cert.pem $*-istioctl/cert-chain.pem
 	@cat $*/workload-cert-chain.pem >> $*-istioctl/cert-chain.pem
 	@cp $*/key.pem $*-istioctl/key.pem
-	# "done"
+	@echo Use these certificates with istioctl using \"--cert-dir $*-istioctl\"
+	@echo For example, \"istioctl x version --xds-address localhost:15012 --authority istiod.istio-system.svc --cert-dir $*-istioctl\"
