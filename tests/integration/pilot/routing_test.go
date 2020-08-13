@@ -544,7 +544,6 @@ func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
-		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
 			cases["virtualservice"] = virtualServiceCases()
