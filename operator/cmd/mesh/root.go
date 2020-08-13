@@ -29,7 +29,7 @@ const (
 	releaseURL     = `https://github.com/istio/istio/releases/download/` + baseVersion + `/istio-` + baseVersion + `-linux-amd64.tar.gz`
 	setFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
 (--set profile=demo), enable or disable components (--set components.policy.enabled=true), or override Istio
-settings (--set values.grafana.enabled=true). See documentation for more info:
+settings (--set meshConfig.enableTracing=true). See documentation for more info:
 https://istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec`
 	// ManifestsFlagHelpStr is the command line description for --manifests
 	ManifestsFlagHelpStr = `Specify a path to a directory of charts and profiles
