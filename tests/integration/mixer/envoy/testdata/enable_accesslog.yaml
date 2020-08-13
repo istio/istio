@@ -4,6 +4,7 @@ metadata:
   name: istio-policy
   namespace: istio-system
 spec:
+  configPatches:
     - applyTo: NETWORK_FILTER
       match:
         context: SIDECAR_INBOUND
