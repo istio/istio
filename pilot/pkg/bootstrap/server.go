@@ -126,6 +126,8 @@ type Server struct {
 	secureGrpcServer *grpc.Server
 
 	monitoringMux *http.ServeMux // debug, monitoring
+	// readinessMux listens on the httpAddr (8080). If a Gateway is used in front and https is off it is also multiplexing
+	// the rest of the features.
 	readinessMux  *http.ServeMux // readiness.
 	httpsMux      *http.ServeMux // webhooks
 
@@ -336,6 +338,7 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				return
 			}
 			log.Infof("starting secure gRPC discovery service at %s", s.SecureGrpcListener.Addr())
+			reflection.Register(s.secureGrpcServer)
 			if err := s.secureGrpcServer.Serve(s.SecureGrpcListener); err != nil {
 				log.Errorf("error from GRPC server: %v", err)
 			}
@@ -344,6 +347,13 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
+		if s.GRPCListener == nil {
+			return // listener is off - using handler
+		}
+		if !s.waitForCacheSync(stop) {
+			return
+		}
+		reflection.Register(s.grpcServer)
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
@@ -453,12 +463,17 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		return err
 	}
 
+	if args.ServerOptions.MonitoringAddr == "OFF" {
+		s.monitoringMux = s.readinessMux
+	}
 	// Debug Server.
 	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
 	// Monitoring Server.
-	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
-		return fmt.Errorf("error initializing monitor: %v", err)
+	if args.ServerOptions.MonitoringAddr != "OFF" {
+		if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
+			return fmt.Errorf("error initializing monitor: %v", err)
+		}
 	}
 
 	// Readiness Handler.
@@ -479,6 +494,9 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
+	if args.ServerOptions.GRPCAddr == "OFF" {
+		return nil
+	}
 	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
 	if err != nil {
 		return err
@@ -540,7 +558,6 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
-	reflection.Register(s.grpcServer)
 }
 
 // initDNSServer initializes gRPC DNS Server for DNS resolutions.
@@ -593,6 +610,11 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
+	if args.ServerOptions.SecureGRPCAddr == "OFF" {
+		log.Warnf("The secure discovery port is disabled")
+		return nil
+	}
+
 	if s.peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
 		log.Warnf("The secure discovery service is disabled")
@@ -630,7 +652,6 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
-	reflection.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
@@ -1056,7 +1077,11 @@ func (s *Server) startCA(caOpts *CAOptions) {
 	if s.CA != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("staring CA")
-			s.RunCA(s.secureGrpcServer, s.CA, caOpts)
+			grpcServer := s.secureGrpcServer
+			if s.secureGrpcServer == nil {
+				grpcServer = s.grpcServer
+			}
+			s.RunCA(grpcServer, s.CA, caOpts)
 			return nil
 		})
 	}
