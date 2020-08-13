@@ -507,6 +507,9 @@ func (s *ServiceEntryStore) ResyncEDS() {
 func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
 	allInstances := []*model.ServiceInstance{}
 
+	// must call it here to refresh s.instances if necessary
+	// otherwise may get no instances or miss some new addes instances
+	s.maybeRefreshIndexes()
 	// Find all keys we need to lookup
 	keys := map[instancesKey]struct{}{}
 	for _, i := range instances {
