@@ -641,28 +641,10 @@ var (
 		Disabled:     false,
 		Resource: resource.Builder{
 			Group:         "networking.x-k8s.io",
-			Kind:          "TcpRoute",
+			Kind:          "TCPRoute",
 			Plural:        "tcproutes",
 			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec",
-			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
-			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
-		}.MustBuild(),
-	}.MustBuild()
-
-	// K8SServiceApisV1Alpha1Trafficsplits describes the collection
-	// k8s/service_apis/v1alpha1/trafficsplits
-	K8SServiceApisV1Alpha1Trafficsplits = collection.Builder{
-		Name:         "k8s/service_apis/v1alpha1/trafficsplits",
-		VariableName: "K8SServiceApisV1Alpha1Trafficsplits",
-		Disabled:     false,
-		Resource: resource.Builder{
-			Group:         "networking.x-k8s.io",
-			Kind:          "TrafficSplit",
-			Plural:        "trafficsplits",
-			Version:       "v1alpha1",
-			Proto:         "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec",
+			Proto:         "k8s.io.service_apis.api.v1alpha1.TCPRouteSpec",
 			ProtoPackage:  "sigs.k8s.io/service-apis/apis/v1alpha1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -707,7 +689,6 @@ var (
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 
 	// Istio contains only Istio collections.
@@ -752,7 +733,6 @@ var (
 		MustAdd(K8SServiceApisV1Alpha1Gateways).
 		MustAdd(K8SServiceApisV1Alpha1Httproutes).
 		MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-		MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -785,7 +765,6 @@ var (
 			MustAdd(K8SServiceApisV1Alpha1Gateways).
 			MustAdd(K8SServiceApisV1Alpha1Httproutes).
 			MustAdd(K8SServiceApisV1Alpha1Tcproutes).
-			MustAdd(K8SServiceApisV1Alpha1Trafficsplits).
 			Build()
 
 	// Deprecated contains only collections used by that will soon be used by nothing.

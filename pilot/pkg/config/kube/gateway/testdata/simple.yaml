@@ -19,10 +19,22 @@ spec:
     port: 80
     protocol: HTTP
     routes:
-      namespaceSelector: {}
+      routeNamespaces: {}
       routeSelector:
         matchLabels:
           selected: "yes"
+      group: ""
+      resource: httproutes
+  - hostname:
+      match: Any
+    port: 34000
+    protocol: TCP
+    routes:
+      routeNamespaces: {}
+      routeSelector:
+        matchLabels:
+          selected: "yes"
+      resource: tcproutes
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -36,7 +48,7 @@ spec:
   - hostnames: ["first.domain.example", "another.domain.example"]
     rules:
     - match:
-        pathType: Prefix
+        pathMatchType: Prefix
         path: /get
         headers:
           my-header: some-value
@@ -47,21 +59,17 @@ spec:
           remove: [my-removed-header]
       action:
         forwardTo:
-          targetRef:
+        - targetRef:
             name: httpbin
-            group: ""
-            resource: ""
   - hostnames: ["second.domain.example"]
     rules:
     - match:
-        pathType: Prefix
+        pathMatchType: Prefix
         path: /second
       action:
         forwardTo:
-          targetRef:
+        - targetRef:
             name: httpbin-second
-            group: ""
-            resource: ""
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: HTTPRoute
@@ -75,18 +83,23 @@ spec:
   - hostnames: ["should.not.select"]
     rules:
     - match:
-        pathType: Prefix
+        pathMatchType: Prefix
         path: /get
       action:
         forwardTo:
-          targetRef:
+        - targetRef:
             name: httpbin
-            group: ""
-            resource: ""
 ---
 apiVersion: networking.x-k8s.io/v1alpha1
-kind: TcpRoute
+kind: TCPRoute
 metadata:
   name: tcp
   namespace: default
-spec: {}
+  labels:
+    selected: "yes"
+spec:
+  rules:
+  - action:
+      forwardTo:
+        targetRef:
+          name: httpbin

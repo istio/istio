@@ -188,12 +188,8 @@ collections:
     name: "k8s/service_apis/v1alpha1/httproutes"
     group: "networking.x-k8s.io"
 
-  - kind: "TcpRoute"
+  - kind: "TCPRoute"
     name: "k8s/service_apis/v1alpha1/tcproutes"
-    group: "networking.x-k8s.io"
-
-  - kind: "TrafficSplit"
-    name: "k8s/service_apis/v1alpha1/trafficsplits"
     group: "networking.x-k8s.io"
 
   # Istio CRD collections
@@ -369,19 +365,12 @@ resources:
     protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
     proto: "k8s.io.service_apis.api.v1alpha1.HTTPRouteSpec"
 
-  - Kind: "TcpRoute"
+  - Kind: "TCPRoute"
     plural: "tcproutes"
     group: "networking.x-k8s.io"
     version: "v1alpha1"
     protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
-    proto: "k8s.io.service_apis.api.v1alpha1.TcpRouteSpec"
-
-  - Kind: "TrafficSplit"
-    plural: "trafficsplits"
-    group: "networking.x-k8s.io"
-    version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/service-apis/apis/v1alpha1"
-    proto: "k8s.io.service_apis.api.v1alpha1.TrafficSplitSpec"
+    proto: "k8s.io.service_apis.api.v1alpha1.TCPRouteSpec"
 
   ## Istio resources
   - kind: "VirtualService"
