@@ -890,8 +890,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 				newTestCase(a, "/request-headers", nil, false),
 				newTestCase(b, "/request-headers", nil, false),
-				newTestCase(a, "/request-headers-notValues", map[string]string{"x-foo": "foo"}, true),
-				newTestCase(a, "/request-headers-notValues", map[string]string{"x-foo": "bar"}, false),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
 				newTestCase(a, "/source-ip-a", nil, true),
 				newTestCase(b, "/source-ip-a", nil, false),
@@ -918,8 +918,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/destination-ip-good", nil, true),
 				newTestCase(a, "/destination-ip-bad", nil, false),
 				newTestCase(b, "/destination-ip-bad", nil, false),
-				newTestCase(a, "/destination-ip-notValues-a", nil, true),
-				newTestCase(a, "/destination-ip-notValues-c", nil, false),
+				newTestCase(a, "/destination-ip-notValues-a-or-b", nil, true),
+				newTestCase(a, "/destination-ip-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/destination-port-good", nil, true),
 				newTestCase(b, "/destination-port-good", nil, true),
@@ -932,8 +932,8 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/connection-sni-good", nil, true),
 				newTestCase(a, "/connection-sni-bad", nil, false),
 				newTestCase(b, "/connection-sni-bad", nil, false),
-				newTestCase(a, "/connection-sni-notValues-a", nil, true),
-				newTestCase(a, "/connection-sni-notValues-c", nil, false),
+				newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
+				newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/other", nil, false),
 				newTestCase(b, "/other", nil, false),
