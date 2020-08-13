@@ -309,10 +309,10 @@ spec:
 							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hits)
 						}
 						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
-						// TODO(landow) if we can fix cross-network weights, ensure even distribution across clusters
 						if err := responses.CheckReachedClusters(apps.all.Match(echo.Service(host)).Clusters()); err != nil {
 							return err
 						}
+						// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
 					}
 					return nil
 				},
