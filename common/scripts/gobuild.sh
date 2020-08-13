@@ -22,6 +22,7 @@
 # limitations under the License.
 
 # This script builds and version stamps the output
+
 VERBOSE=${VERBOSE:-"0"}
 V=""
 if [[ "${VERBOSE}" == "1" ]];then

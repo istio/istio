@@ -434,7 +434,7 @@ racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
 	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
-benchtest: init $(JUNIT_REPORT) ## Runs all benchmarks
+benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
 	prow/benchtest.sh run $(BENCH_TARGETS)
 	prow/benchtest.sh compare
 
