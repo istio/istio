@@ -278,7 +278,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 }
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
-// same as the ServiceEntry convertServiceEntryToInstances.
+// same as the ServiceEntry convertInstances.
 func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
@@ -289,7 +289,7 @@ func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, servi
 	return out
 }
 
-func convertServiceEntryToInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
+func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if services == nil {
