@@ -53,7 +53,7 @@ type GCPProjectInfo struct {
 	clusterLocation string
 }
 
-func getGCPProjectInfo() GCPProjectInfo {
+func GetGCPProjectInfo() GCPProjectInfo {
 	info := GCPProjectInfo{}
 	if platform.IsGCP() {
 		md := platform.NewGCP().Metadata()
@@ -81,7 +81,7 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 	}
 	switch tokenManagerType {
 	case GoogleTokenExchange:
-		if projectInfo := getGCPProjectInfo(); len(projectInfo.Number) > 0 {
+		if projectInfo := GetGCPProjectInfo(); len(projectInfo.Number) > 0 {
 			gkeClusterURL := fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 				projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)
 			if p, err := google.CreateTokenManagerPlugin(config.CredFetcher, config.TrustDomain, projectInfo.Number, gkeClusterURL, true); err == nil {
@@ -90,6 +90,13 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 		}
 	}
 	return tm
+}
+
+
+func (projectInfo GCPProjectInfo) GKEClusterURL() string {
+	return fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
+		projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)
+
 }
 
 func (tm *TokenManager) GenerateToken(parameters stsservice.StsRequestParameters) ([]byte, error) {

@@ -40,6 +40,7 @@ const (
 var (
 	citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
 
+	// TODO: move to main, stop using directly - security.Options instead !
 	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
 	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
 	// with extra SAN (labels, etc) in data path.
@@ -87,6 +88,7 @@ func (c *citadelClient) CSRSign(ctx context.Context, reqID string, csrPEM []byte
 		token = bearerTokenPrefix + token
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", token, "ClusterID", c.clusterID))
 	} else {
+		// This may use the per call credentials, if enabled.
 		err := c.reconnect()
 		if err != nil {
 			citadelClientLog.Errorf("Failed to Reconnect: %v", err)
@@ -119,12 +121,14 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 		if err != nil {
 			return nil, err
 		}
+		citadelClientLog.Warna("Citadel client using public DNS: ", c.caEndpoint)
 	} else {
 		certPool = x509.NewCertPool()
 		ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
 		if !ok {
 			return nil, fmt.Errorf("failed to append certificates")
 		}
+		citadelClientLog.Infof("Citadel client using custom root: ", c.caEndpoint, " ", string(c.caTLSRootCert))
 	}
 	var certificate tls.Certificate
 	config := tls.Config{

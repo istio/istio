@@ -579,6 +579,13 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			} else {
 				secret.Token = t
 			}
+		} else {
+			tok, err := ioutil.ReadFile(sc.configOptions.JWTPath)
+			if err != nil {
+				cacheLog.Errorf("failed to get credential token: %v", err)
+			} else {
+				secret.Token = string(tok)
+			}
 		}
 
 		// Re-generate secret if it's expired.
