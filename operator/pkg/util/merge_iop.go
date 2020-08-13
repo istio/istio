@@ -117,8 +117,8 @@ type ingressGatewayConfig struct {
 }
 
 type resources struct {
-	Limits   map[string]string `json:"limits" patchStrategy:"merge`
-	Requests map[string]string `json:"requests" patchStrategy:"merge`
+	Limits   map[string]string `json:"limits" patchStrategy:"merge"`
+	Requests map[string]string `json:"requests" patchStrategy:"merge"`
 }
 
 type egressGatewayConfig struct {
@@ -134,7 +134,7 @@ type egressGatewayConfig struct {
 	Tolerations                      []map[string]interface{}  `json:"tolerations" patchStrategy:"replace"`
 	ConfigVolumes                    []map[string]interface{}  `json:"configVolumes" patchStrategy:"replace"`
 	AdditionalContainers             []map[string]interface{}  `json:"additionalContainers" patchStrategy:"replace"`
-	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"merge" patchStrategy:"replace"`
+	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`
 }
 
 type meshConfig struct {
@@ -152,13 +152,13 @@ type meshConfig struct {
 	DefaultVirtualServiceExportTo  []string                                                  `json:"defaultVirtualServiceExportTo" patchStrategy:"merge"`
 	DefaultDestinationRuleExportTo []string                                                  `json:"defaultDestinationRuleExportTo" patchStrategy:"merge"`
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting                     `json:"localityLbSetting" patchStrategy:"merge"`
-	DnsRefreshRate                 *protobuf.Duration                                        `json:"dnsRefreshRate" patchStrategy:"replace"`
+	DNSRefreshRate                 *protobuf.Duration                                        `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                                  `json:"certificates" patchStrategy:"merge" patchMergeKey:"secretName"`
-	ThriftConfig                   *meshConfig_ThriftConfig                                  `json:"thriftConfig" patchStrategy:"merge"`
-	ServiceSettings                []*meshConfig_ServiceSettings                             `json:"serviceSettings" patchStrategy:"replace"`
+	ThriftConfig                   *meshConfigThriftConfig                                   `json:"thriftConfig" patchStrategy:"merge"`
+	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
 }
 
-type meshConfig_ThriftConfig struct {
+type meshConfigThriftConfig struct {
 	RateLimitTimeout *protobuf.Duration `json:"rateLimitTimeout" patchStrategy:"replace"`
 }
 
@@ -174,7 +174,7 @@ type proxyConfig struct {
 	DefaultVirtualServiceExportTo  []string                                `json:"defaultVirtualServiceExportTo" patchStrategy:"replace"`
 	DefaultDestinationRuleExportTo []string                                `json:"defaultDestinationRuleExportTo" patchStrategy:"replace"`
 	LocalityLbSetting              *v1alpha3.LocalityLoadBalancerSetting   `json:"localityLbSetting" patchStrategy:"merge"`
-	DnsRefreshRate                 *protobuf.Duration                      `json:"dnsRefreshRate" patchStrategy:"replace"`
+	DNSRefreshRate                 *protobuf.Duration                      `json:"dnsRefreshRate" patchStrategy:"replace"`
 	Certificates                   []*v1alpha13.Certificate                `json:"certificates" patchStrategy:"replace"`
 	ThriftConfig                   *v1alpha13.MeshConfig_ThriftConfig      `json:"thriftConfig" patchStrategy:"merge"`
 	ServiceSettings                []*v1alpha13.MeshConfig_ServiceSettings `json:"serviceSettings" patchStrategy:"replace"`
@@ -188,10 +188,10 @@ type proxyConfig struct {
 }
 
 type tracing struct {
-	TlsSettings *v1alpha3.ClientTLSSettings `json:"tlsSettings" patchStrategy:"merge"`
+	TlSSettings *v1alpha3.ClientTLSSettings `json:"tlsSettings" patchStrategy:"merge"`
 }
 
-type meshConfig_ServiceSettings struct {
+type meshConfigServiceSettings struct {
 	Settings *v1alpha13.MeshConfig_ServiceSettings_Settings `json:"settings" patchStrategy:"merge"`
 	Hosts    []string                                       `json:"hosts" patchStrategy:"merge"`
 }
