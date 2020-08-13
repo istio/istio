@@ -471,7 +471,12 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		m := cmux.New(listener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTPListener = m.Match(cmux.Any())
-		go m.Serve()
+		go func() {
+			err := m.Serve()
+			if err != nil {
+				log.Fatalf("Failed to listen on multiplexed port %v", err)
+			}
+		}()
 	} else {
 		s.HTTPListener = listener
 	}
