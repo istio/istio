@@ -15,7 +15,7 @@
 # limitations under the License.
 
 WD=$(dirname "$0")
-WD=$(cd "$WD"; pwd)
+WD=$(cd "$WD" || exit; pwd)
 
 cat > "${WD}/client.conf" <<EOF
 [req]
