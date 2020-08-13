@@ -180,9 +180,6 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 
 	// Currently this mode is only used by GRPC, to extract Cluster for the default
 	// route.
-	// Current GRPC is also expecting the default route to be prefix=="", while we generate "/"
-	// in normal response.
-	// TODO: add support for full route, make sure GRPC is fixed to support both
 	for _, n := range routeNames {
 		hn, portn, err := net.SplitHostPort(n)
 		if err != nil {
