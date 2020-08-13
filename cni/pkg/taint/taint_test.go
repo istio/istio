@@ -95,8 +95,14 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 				Client: fake.NewSimpleClientset(),
 			}
 			ts.LoadConfig(tt.config)
-			if !reflect.DeepEqual(ts.Configs(), tt.wants) {
-				t.Fatalf("expected config: %v, actually %v", tt.wants, ts.configs)
+			gotItem := make(map[string]bool)
+			for _, config := range ts.Configs() {
+				gotItem[config.String()] = true
+			}
+			for _, want := range tt.wants {
+				if _, ok := gotItem[want.String()]; !ok {
+					t.Fatalf("expected config: %v, actually %v", tt.wants, ts.configs)
+				}
 			}
 		})
 	}

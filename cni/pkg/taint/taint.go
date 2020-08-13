@@ -85,6 +85,9 @@ func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 			for _, selector := range strings.Split(elem.LabelSelector, ",") {
 				selector = strings.TrimSpace(selector)
 				_, err = metav1.ParseToLabelSelector(selector)
+				if err != nil {
+					log.Fatalf("illegal selector, %s", err.Error())
+				}
 				ts.configs = append(ts.configs, ConfigSettings{Namespace: elem.Namespace, Name: elem.Name, LabelSelector: selector})
 			}
 		}
