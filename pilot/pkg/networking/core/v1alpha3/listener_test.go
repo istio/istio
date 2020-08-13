@@ -392,7 +392,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 			}
 			var chains []string
 			for _, fc := range listeners[0].FilterChains {
-				for _, cidr := range fc.FilterChainMatch.PrefixRanges {
+				for _, cidr := range fc.GetFilterChainMatch().GetPrefixRanges() {
 					chains = append(chains, cidr.AddressPrefix)
 				}
 			}
@@ -753,14 +753,14 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 		}
 	} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
 		if len(listeners[0].FilterChains) != 2 {
-			t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
+			t.Fatalf("expectd %d filter chains, found %d: %v", 2, len(listeners[0].FilterChains), xdstest.Dump(t, listeners[0]))
 		} else {
 			if !isHTTPFilterChain(listeners[0].FilterChains[1]) {
 				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
 			}
 
 			if !isTCPFilterChain(listeners[0].FilterChains[0]) {
-				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[2].Filters[0].Name)
+				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[0].Filters[0].Name)
 			}
 		}
 
@@ -938,7 +938,7 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 		}
 
 		if fc.FilterChainMatch.TransportProtocol != "tls" {
-			t.Fatalf("exepct %q transport protocol, found %q", "tls", fc.FilterChainMatch.TransportProtocol)
+			t.Fatalf("expected %q transport protocol, found %q", "tls", fc.FilterChainMatch.TransportProtocol)
 		}
 	} else {
 		if direction == model.TrafficDirectionInbound &&
@@ -947,8 +947,8 @@ func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, directio
 				len(plaintextHTTPALPNs), plaintextHTTPALPNs, fc.FilterChainMatch.ApplicationProtocols)
 		}
 
-		if fc.FilterChainMatch.TransportProtocol != "" {
-			t.Fatalf("exepct %q transport protocol, found %q", "", fc.FilterChainMatch.TransportProtocol)
+		if fc.FilterChainMatch.TransportProtocol != xdsfilters.RawBufferTransportProtocol {
+			t.Fatalf("expected %q transport protocol, found %q", xdsfilters.RawBufferTransportProtocol, fc.FilterChainMatch.TransportProtocol)
 		}
 	}
 
@@ -1812,12 +1812,13 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 		buildService("test1.com", wildcardIP, protocol.HTTP, tnow)}
 	listeners := buildOutboundListeners(t, &fakePlugin{}, getProxy(), nil, nil, services...)
 
-	if len(listeners[0].FilterChains) != 2 {
+	if len(listeners[0].FilterChains) != 3 {
 		t.Fatalf("expectd %d filter chains, found %d", 2, len(listeners[0].FilterChains))
 	}
 
 	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionOutbound, false)
 	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[1])
+	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[2])
 	verifyListenerFilters(t, listeners[0].ListenerFilters)
 }
 

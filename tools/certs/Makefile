@@ -2,7 +2,7 @@
 .PRECIOUS: %/ca-key.pem %/ca-cert.pem %/cert-chain.pem
 .PRECIOUS: %/selfSigned-ca-key.pem %/selfSigned-ca-cert.pem %/selfSigned-ca-cert-chain.pem
 .PRECIOUS: %/selfSigned-workload-cert-chain.pem %/selfSigned-workload-cert.pem
-.PRECIOUS: %/workload-cert.pem %/key.pem %/workload-cert-chain.pem
+.PRECIOUS: %/workload-cert.pem %/key.pem %/workload-cert-chain.pem %/vm-workload-cert.pem
 .SECONDARY: root-cert.csr root-ca.conf %/cluster-ca.csr %/intermediate.conf
 
 .DEFAULT_GOAL := help
@@ -89,9 +89,9 @@ root-cert.pem: root-cert.csr root-key.pem
 
 root-cert.csr: root-key.pem root-ca.conf
 	@echo "generating $@"
-	@openssl req -new -key $< -config root-ca.conf -out $@ 
+	@openssl req -new -key $< -config root-ca.conf -out $@
 
-root-ca.conf: 
+root-ca.conf:
 	@echo "[ req ]" > $@
 	@echo "encrypt_key = no" >> $@
 	@echo "prompt = no" >> $@
@@ -119,7 +119,8 @@ root-key.pem:
 .PHONY: %-cacerts-k8s
 
 %-cacerts-k8s: %/cert-chain.pem
-	@make clean
+# This shenanigans is to allow us to run `make clean` from within Make even if we used --makefile
+	@make --makefile $(realpath $(firstword $(MAKEFILE_LIST))) clean
 	@echo "done"
 
 %/cert-chain.pem: %/ca-cert.pem k8s-root-cert.pem
@@ -170,7 +171,7 @@ root-key.pem:
 %/selfSigned-cluster-ca.csr: L=$(dir $@)
 %/selfSigned-cluster-ca.csr: %/selfSigned-ca-key.pem %/intermediate.conf
 	@echo "generating $@"
-	@openssl req -new -config $(L)/intermediate.conf -key $< -out $@ 
+	@openssl req -new -config $(L)/intermediate.conf -key $< -out $@
 
 %/selfSigned-ca-key.pem:
 	@echo "generating $@"
@@ -207,7 +208,7 @@ root-key.pem:
 	@make clean
 	@echo "done"
 
-%/selfSigned-workload-cert-chain.pem: root-cert.pem %/selfSigned-ca-cert.pem %/selfSigned-workload-cert.pem	
+%/selfSigned-workload-cert-chain.pem: root-cert.pem %/selfSigned-ca-cert.pem %/selfSigned-workload-cert.pem
 	@echo "generating $@"
 	@cat $^ > $@
 	@echo "Intermediate and workload certs stored in $(dir $<)"
@@ -261,7 +262,8 @@ root-key.pem:
 .PHONY: %-certs-k8s
 
 %-certs-k8s: %/workload-cert-chain.pem k8s-root-cert.pem
-	@make clean
+# This shenanigans is to allow us to run `make clean` from within Make even if we used --makefile
+	@make --makefile $(realpath $(firstword $(MAKEFILE_LIST))) clean
 	@echo "done"
 
 %/workload-cert-chain.pem: k8s-root-cert.pem %/ca-cert.pem %/workload-cert.pem
@@ -277,3 +279,93 @@ root-key.pem:
 		-extensions req_ext -extfile $(dir $<)/workload.conf \
 		-in $< -out $@
 
+#------------------------------------------------------------------------
+
+.PHONY: %-certs-vm
+
+%-certs-vm: %/vm-workload-cert.pem
+	@make --makefile $(realpath $(firstword $(MAKEFILE_LIST))) clean
+	@echo "done"
+
+%/vm-workload-cert.pem: %/vm-workload.csr  k8s-root-cert.pem k8s-root-key.pem
+	@echo "generating $@"
+	@openssl x509 -req -days $(WORKLOAD_DAYS) \
+		-CA k8s-root-cert.pem  -CAkey k8s-root-key.pem -CAcreateserial\
+		-extensions req_ext -extfile $(dir $<)/vm-workload.conf \
+		-in $< -out $@
+%/vm-workload.csr: L=$(dir $@)
+%/vm-workload.csr: %/key.pem %/vm-workload.conf
+	@echo "generating $@"
+	@openssl req -new -config $(L)/vm-workload.conf -key $< -out $@
+
+%/vm-workload.conf: L=$(dir $@)
+%/vm-workload.conf:
+	@echo "[ req ]" > $@
+	@echo "encrypt_key = no" >> $@
+	@echo "prompt = no" >> $@
+	@echo "utf8 = yes" >> $@
+	@echo "default_md = sha256" >> $@
+	@echo "default_bits = $(INTERMEDIATE_KEYSZ)" >> $@
+	@echo "req_extensions = req_ext" >> $@
+	@echo "x509_extensions = req_ext" >> $@
+	@echo "distinguished_name = req_dn" >> $@
+	@echo "[ req_ext ]" >> $@
+	@echo "subjectKeyIdentifier = hash" >> $@
+	@echo "basicConstraints = critical, CA:false" >> $@
+	@echo "keyUsage = digitalSignature, keyEncipherment" >> $@
+	@echo "extendedKeyUsage = serverAuth, clientAuth" >> $@
+	@echo "subjectAltName=@san" >> $@
+	@echo "[ san ]" >> $@
+	@echo "URI.1 = spiffe://cluster.local/ns/$(L)sa/$(SERVICE_ACCOUNT)" >> $@
+	@echo "[ req_dn ]" >> $@
+	@echo "O = $(INTERMEDIATE_ORG)" >> $@
+	@echo "CN = $(WORKLOAD_CN)" >> $@
+	@echo "L = $(L:/=)" >> $@
+
+#------------------------------------------------------------------------
+
+## <namespace>/token-cert will get a certificate for namespace using the token method. This only requires namespace
+# permissions, will not access istio-system or the certifcate.
+# CA_ADDR can be set to a different location - reflecting the gateway address
+CA_ADDR ?= istiod.istio-system.svc:15012
+# Get a token
+%/token:
+	# Using local .kube/config credentials to get a JWT token.
+	echo '{"kind":"TokenRequest","apiVersion":"authentication.k8s.io/v1","spec":{"audiences":["istio-ca"], "expirationSeconds":2592000}}' | \
+			kubectl create --raw /api/v1/namespaces/$(dir $@)serviceaccounts/default/token -f - | \
+			jq -j '.status.token' > $(dir $@)istio-token
+	# Get the Istid root CA (only for self-signed)
+	kubectl -n istio-system get secret istio-ca-secret -ojsonpath='{.data.ca-cert\.pem}' | \
+		base64 -d > root-cert.pem
+
+.PHONY: %/token-cert
+
+# Get a cert from the CA, using the token. Alternative to downloading the root CA and generating the cert locally.
+# NOTE That this requires `istioca.proto` in the `/work/security/proto` directory
+%/token-cert: %/workload.csr %/token
+	echo -n '{"csr": "' >$(dir $@)/csr-escaped
+	cat  $< | awk -F'\\n' '{printf "%s\\n",$$0} END {print "\"}"}'  >> $(dir $@)/csr-escaped
+	cat $(dir $@)csr-escaped | grpcurl  -import-path /work/security/proto/ \
+        -proto /work/security/proto/istioca.proto -use-reflection=false \
+         -d @ -H "Authorization:  Bearer $(shell cat $(dir $@)istio-token )" \
+         ${CA_ADDR} istio.v1.auth.IstioCertificateService/CreateCertificate > $(dir $@)/cert.json
+	cat default/cert.json |jq .certChain[0] | sed 's/\\n/\n/g' | sed 's/"//' > $(dir $@)/workload-cert.pem
+	cat default/cert.json |jq .certChain[1] | sed 's/\\n/\n/g' | sed 's/"//' > $(dir $@)/root-cert.pem
+
+#------------------------------------------------------------------------
+##<nickname>-certs-k8s: generate istioctl cert-dir
+.PHONY: %-certs-istioctl
+
+# Construct a --cert-dir for istioctl.  Istioctl expects root-cert.pem, cert-chain.pem, and key.pem only.
+%-certs-istioctl:
+	@rm $*-istioctl/* $*/* | true
+	@rmdir $* $*-istioctl | true
+	@mkdir $*-istioctl
+	@make --makefile $(realpath $(firstword $(MAKEFILE_LIST))) $*-cacerts-k8s
+	@make --makefile $(realpath $(firstword $(MAKEFILE_LIST))) $*-certs-k8s
+	@cp $*/root-cert.pem $*-istioctl/root-cert.pem
+	@cp $*/workload-cert.pem $*-istioctl/cert-chain.pem
+	@cat $*/workload-cert-chain.pem >> $*-istioctl/cert-chain.pem
+	@cp $*/key.pem $*-istioctl/key.pem
+	@echo Use these certificates with istioctl using \"--cert-dir $*-istioctl\"
+	@echo For example, \"istioctl x version --xds-address localhost:15012 --authority istiod.istio-system.svc --cert-dir $*-istioctl\"

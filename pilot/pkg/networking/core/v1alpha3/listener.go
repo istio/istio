@@ -326,8 +326,13 @@ var (
 	// by [0.0, 100.0]; if outside the range it is set to 100.0
 	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
 
-	emptyFilterChainMatch = &listener.FilterChainMatch{}
-
+	emptyFilterChainMatch    = &listener.FilterChainMatch{}
+	tlsEmptyFilterChainMatch = &listener.FilterChainMatch{
+		TransportProtocol: xdsfilters.TLSTransportProtocol,
+	}
+	rawBufferEmptyFilterChainMatch = &listener.FilterChainMatch{
+		TransportProtocol: xdsfilters.RawBufferTransportProtocol,
+	}
 	lmutex          sync.RWMutex
 	cachedAccessLog *accesslog.AccessLog
 )
@@ -1569,7 +1574,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				if opt.match == nil {
 					opt.match = &listener.FilterChainMatch{}
 				}
-				opt.match.TransportProtocol = "raw_buffer"
+				opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 			}
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
 
@@ -1587,7 +1592,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 
 				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
 				opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
-				opt.match.TransportProtocol = "raw_buffer"
+				opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 			}
 
 			listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, opts...)
@@ -2188,12 +2193,26 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 // The match member of pass through filter chain depends on the existing non-passthrough filter chain.
 // TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
 func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
+	hasTransportProtocolSet := false
 	for _, fc := range l.FilterChains {
-		if isMatchAllFilterChain(fc) {
-			// We can only have one wildcard match. If the filter chain already has one, skip it
-			// This happens in the case of HTTP, which will get a fallthrough route added later,
-			// or TCP, which is not supported
-			return
+		if fc.GetFilterChainMatch().GetTransportProtocol() != "" {
+			hasTransportProtocolSet = true
+			break
+		}
+	}
+	for _, fc := range l.FilterChains {
+
+		// We can only have one wildcard match. If the filter chain already has one, skip it
+		// This happens in the case of HTTP, which will get a fallthrough route added later,
+		// or TCP, which is not supported
+		if hasTransportProtocolSet {
+			if isMatchAllFilterChain(fc) || filterChainMatchEqual(fc.GetFilterChainMatch(), tlsEmptyFilterChainMatch) || filterChainMatchEqual(fc.GetFilterChainMatch(), rawBufferEmptyFilterChainMatch) {
+				return
+			}
+		} else {
+			if isMatchAllFilterChain(fc) {
+				return
+			}
 		}
 	}
 
@@ -2218,23 +2237,27 @@ func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteL
 		}
 	}
 
-	outboundPassThroughFilterChain := &listener.FilterChain{
-		FilterChainMatch: &listener.FilterChainMatch{
-			TransportProtocol: "tls",
-		},
-		Name:             util.PassthroughFilterChain,
-		Filters:          mutable.FilterChains[0].TCP,
-	}
-	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+	if hasTransportProtocolSet {
+		outboundPassThroughFilterChain := &listener.FilterChain{
+			FilterChainMatch: tlsEmptyFilterChainMatch,
+			Name:    util.PassthroughFilterChain,
+			Filters: mutable.FilterChains[0].TCP,
+		}
+		l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
 
-	outboundPassThroughFilterChain = &listener.FilterChain{
-		FilterChainMatch: &listener.FilterChainMatch{
-			TransportProtocol: "raw_buffer",
-		},
-		Name:             util.PassthroughFilterChain,
-		Filters:          mutable.FilterChains[0].TCP,
+		outboundPassThroughFilterChain = &listener.FilterChain{
+			FilterChainMatch: rawBufferEmptyFilterChainMatch,
+			Name:    util.PassthroughFilterChain,
+			Filters: mutable.FilterChains[0].TCP,
+		}
+		l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
+	} else {
+		outboundPassThroughFilterChain := &listener.FilterChain{
+			Name:    util.PassthroughFilterChain,
+			Filters: mutable.FilterChains[0].TCP,
+		}
+		l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
 	}
-	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
