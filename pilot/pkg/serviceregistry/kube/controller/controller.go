@@ -17,13 +17,13 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/golang/sync/semaphore"
-	"github.com/hpcloud/tail/ratelimiter"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/golang/sync/semaphore"
 	"github.com/hashicorp/go-multierror"
+
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
