@@ -71,8 +71,6 @@ var (
 var (
 	// LocalSDS is the location of the in-process SDS server - must be in a writeable dir.
 	LocalSDS = "./etc/istio/proxy/SDS"
-
-	gatewaySecretChan chan struct{}
 )
 
 // Agent contains the configuration of the agent, based on the injected
@@ -82,13 +80,6 @@ var (
 // - root cert to use for connecting to XDS server
 // - CA address, with proper defaults and detection
 type Agent struct {
-	// SDSAddress is the address of the SDS server. Starts with unix: for hostpath mount or built-in
-	// May also be a https address.
-	SDSAddress string
-
-	// CertPath is set with the location of the certs, or empty if mounted certs are not present.
-	CertsPath string
-
 	// RootCert is the CA root certificate. It is loaded part of detecting the
 	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
 	// CA. If not set it should be assumed we are using a public certificate (like ACME).
@@ -170,8 +161,6 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 
 	discAddr := proxyConfig.DiscoveryAddress
 
-	sa.SDSAddress = "unix:" + LocalSDS
-
 	// Auth logic for istio-agent to Cert provider:
 	// - if PROV_CERT is set, it'll be included in the TLS context sent to the server
 	//   This is a 'provisioning certificate' - long lived, managed by a tool, exchanged for
@@ -184,15 +173,9 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	if citadel.ProvCert != "" {
 		certDir = citadel.ProvCert
 	}
-	if _, err := os.Stat(certDir + "/key.pem"); err == nil {
-		sa.CertsPath = certDir
-	}
-	if sa.CertsPath != "" {
-		log.Warna("Using existing certificate ", sa.CertsPath)
-	}
-
 	// If the root-cert is in the old location, use it.
 	if _, err := os.Stat(certDir + "/root-cert.pem"); err == nil {
+		log.Warna("Using existing certificate ", certDir)
 		CitadelCACertPath = certDir
 	}
 
@@ -200,10 +183,10 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 		// if not set, we will fallback to the discovery address
 		sa.secOpts.CAEndpoint = discAddr
 	}
-
 	// Next to the envoy config, writeable dir (mounted as mem)
-	sa.secOpts.WorkloadUDSPath = LocalSDS
-	sa.secOpts.CertsDir = sa.CertsPath
+	if sa.secOpts.WorkloadUDSPath == "" {
+		sa.secOpts.WorkloadUDSPath = LocalSDS
+	}
 	// Set TLSEnabled if the ControlPlaneAuthPolicy is set to MUTUAL_TLS
 	if sa.proxyConfig.ControlPlaneAuthPolicy == mesh.AuthenticationPolicy_MUTUAL_TLS {
 		sa.secOpts.TLSEnabled = true
@@ -445,9 +428,10 @@ func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.Sec
 
 		gSecretFetcher.InitWithKubeClientAndNs(cs.CoreV1(), namespace)
 
-		gatewaySecretChan = make(chan struct{})
-		gSecretFetcher.Run(gatewaySecretChan)
+		stopCh := make(chan struct{})
+		gSecretFetcher.Run(stopCh)
 	}
+
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
 }
