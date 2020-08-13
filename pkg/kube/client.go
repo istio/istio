@@ -481,7 +481,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	}
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 8080).DoRaw(ctx)
+		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
 			return nil, err
 		}
