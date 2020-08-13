@@ -232,6 +232,15 @@ func (os K8sObjects) Keys() []string {
 	return out
 }
 
+// UnstructuredItems returns the list of items of unstructured.Unstructured.
+func (os K8sObjects) UnstructuredItems() []*unstructured.Unstructured {
+	var usList []*unstructured.Unstructured
+	for _, obj := range os {
+		usList = append(usList, obj.UnstructuredObject())
+	}
+	return usList
+}
+
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	return ParseK8sObjectsFromYAMLManifestFailOption(manifest, true)
