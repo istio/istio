@@ -15,7 +15,10 @@
 package controller
 
 import (
+	"context"
 	"fmt"
+	"github.com/golang/sync/semaphore"
+	"github.com/hpcloud/tail/ratelimiter"
 	"sort"
 	"sync"
 	"time"
@@ -474,15 +477,22 @@ func (c *Controller) HasSynced() bool {
 // SyncAll syncs all the objects node->service->pod->endpoint in order
 func (c *Controller) SyncAll() {
 	syncResources(c.nodeInformer.GetStore(), c.onNodeEvent)
-	syncResources(c.nodeInformer.GetStore(), c.onServiceEvent)
+	syncResources(c.serviceInformer.GetStore(), c.onServiceEvent)
 	syncResources(c.pods.informer.GetStore(), c.pods.onEvent)
 	syncResources(c.endpoints.getInformer().GetStore(), c.endpoints.onEvent)
 }
 
 func syncResources(store cache.Store, handler func(obj interface{}, event model.Event) error) {
 	errG := multierror.Group{}
+	// TODO(landow) tune max workers
+	sem := semaphore.NewWeighted(100)
 	for _, item := range store.List() {
+		if err := sem.Acquire(context.TODO(), 1); err != nil {
+			// this should never happen without a real context
+			continue
+		}
 		errG.Go(func() error {
+			defer sem.Release(1)
 			return handler(item, model.EventAdd)
 		})
 	}
