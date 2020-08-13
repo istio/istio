@@ -23,15 +23,15 @@ import (
 
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
-	kubeApiAdmission "k8s.io/api/admission/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	gm "istio.io/istio/pilot/pkg/gcpmonitoring"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
-	admissionRequest = kubeApiAdmission.AdmissionRequest{
+	admissionRequest = kube.AdmissionRequest{
 		Resource: v1.GroupVersionResource{
 			Group:    "g",
 			Version:  "v",
@@ -48,11 +48,11 @@ func TestGCPMonitoringGalleyValidation(t *testing.T) {
 
 	var cases = []struct {
 		name      string
-		increment func(*kubeApiAdmission.AdmissionRequest)
-		req       *kubeApiAdmission.AdmissionRequest
+		increment func(*kube.AdmissionRequest)
+		req       *kube.AdmissionRequest
 		wantVal   *view.Row
 	}{
-		{"validation_failed", func(req *kubeApiAdmission.AdmissionRequest) { reportValidationFailed(req, "") },
+		{"validation_failed", func(req *kube.AdmissionRequest) { reportValidationFailed(req, "") },
 			&admissionRequest,
 			&view.Row{
 				Tags: []tag.Tag{
