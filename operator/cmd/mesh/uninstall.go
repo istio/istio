@@ -27,6 +27,8 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
@@ -137,7 +139,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, l)
+		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, nil, l)
 
 		if err := h.DeleteObjectsList(objectsList); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
@@ -154,7 +156,12 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
-	preCheckWarnings(cmd, uiArgs, iops.Revision, nil, l)
+	cpManifest := manifestMap[name.PilotComponentName]
+	cpObjects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(cpManifest, object.YAMLSeparator))
+	if err != nil {
+		return err
+	}
+	preCheckWarnings(cmd, uiArgs, iops.Revision, nil, cpObjects, l)
 	h, err = helmreconciler.NewHelmReconciler(client, restConfig, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
@@ -170,7 +177,7 @@ func uninstall(cmd *cobra.Command, rootArgs *rootArgs, uiArgs *uninstallArgs, lo
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
 func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
-	rev string, resourcesList []*unstructured.UnstructuredList, l *clog.ConsoleLogger) {
+	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
 	if err != nil {
 		l.LogAndError(err.Error())
@@ -180,19 +187,16 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 		needConfirmation = true
 		message += "All Istio resources will be pruned from the cluster\n"
 	} else {
-		if resourcesList != nil {
-			rmListString := constructResourceListOutput(resourcesList)
-			if rmListString == "" {
-				l.LogAndPrint("No resources will be pruned from the cluster. Please double check the input configs")
-				return
-			}
-			needConfirmation = true
-			message += fmt.Sprintf("The following resources will be pruned from the cluster: %s\n",
-				rmListString)
+		rmListString := constructResourceListOutput(resourcesList, objectsList)
+		if rmListString == "" {
+			l.LogAndPrint("No resources will be pruned from the cluster. Please double check the input configs")
+			return
 		}
-		if len(pids) != 0 {
-			needConfirmation = true
-			message += fmt.Sprintf("There are still %d proxies pointing to the control plane revision %s:\n", len(pids), uiArgs.revision)
+		needConfirmation = true
+		message += fmt.Sprintf("The following resources will be pruned from the cluster: %s\n",
+			rmListString)
+		if len(pids) != 0 && rev != "" {
+			message += fmt.Sprintf("There are still %d proxies pointing to the control plane revision %s:\n", len(pids), rev)
 			// just print the count only if there is a large list of proxies
 			if len(pids) <= 30 {
 				message += fmt.Sprintf("%s\n", strings.Join(pids, "\n"))
@@ -213,16 +217,23 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 }
 
 // constructResourceListOutput is a helper function to construct the output of to be removed resources list
-func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList) string {
-	kindNameMap := make(map[string][]string)
+func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects) string {
+	var items []*unstructured.Unstructured
+	if objectsList != nil {
+		items = objectsList.UnstructuredItems()
+	}
 	for _, usList := range resourcesList {
 		for _, o := range usList.Items {
-			nameList := kindNameMap[o.GetKind()]
-			if nameList == nil {
-				kindNameMap[o.GetKind()] = []string{}
-			}
-			kindNameMap[o.GetKind()] = append(kindNameMap[o.GetKind()], o.GetName())
+			items = append(items, &o)
 		}
+	}
+	kindNameMap := make(map[string][]string)
+	for _, o := range items {
+		nameList := kindNameMap[o.GetKind()]
+		if nameList == nil {
+			kindNameMap[o.GetKind()] = []string{}
+		}
+		kindNameMap[o.GetKind()] = append(kindNameMap[o.GetKind()], o.GetName())
 	}
 	if len(kindNameMap) == 0 {
 		return ""
