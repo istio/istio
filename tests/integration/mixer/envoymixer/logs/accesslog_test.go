@@ -41,7 +41,8 @@ func TestIstioAccessLogEnvoy(t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			// enabling ext-authz and grpc access log service
-			errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata"); if errr != nil {
+			errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata")
+			if errr != nil {
 				t.Fatalf("cannot apply testdata config")
 			}
 			defer ctx.Config().DeleteYAMLDir("istio-system", "../testdata")
@@ -68,7 +69,6 @@ func TestIstioAccessLogEnvoy(t *testing.T) {
 			util.GetAndValidateAccessLog(ns, t, "istio-mixer-type=telemetry", "mixer",
 				validateLog)
 
-
 		})
 }
 
@@ -92,14 +92,12 @@ components:
   policy:
     enabled: true
   telemetry:
-    enabled: true
-  pilot:
-    hub: "gcr.io/istio-testing"
-    tag: "1.7-alpha.7e53c75502db3f3b4afabb7ff16d43778eed92d3"`
+    enabled: true`
 		})).
 		Setup(testsetup).
 		Run()
 }
+
 //remove pilot piece
 
 func testsetup(ctx resource.Context) error {
@@ -162,8 +160,8 @@ func validateLog(content string) error {
 	if !strings.Contains(content, "\"source\":\"productpage\"") {
 		return fmt.Errorf("accesslog doesn't contain productpage source. Log %v", content)
 	}
-	if  !strings.Contains(content, "\"source\":\"istio-ingressgateway\"") {
-		return fmt.Errorf("accesslog doesn't contain istio-ingressgateway source. Log %v END CONTENT", content)
+	if !strings.Contains(content, "\"source\":\"istio-ingressgateway\"") {
+		return fmt.Errorf("accesslog doesn't contain istio-ingressgateway source. Log %v", content)
 	}
 	return nil
 }
