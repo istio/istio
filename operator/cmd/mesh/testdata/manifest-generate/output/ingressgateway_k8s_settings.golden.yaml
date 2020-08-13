@@ -134,15 +134,11 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-<<<<<<< HEAD
         - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15012
         - containerPort: 15443
-=======
-        - containerPort: 1234
->>>>>>> add securitycontext for pod.
         - containerPort: 15090
           name: http-envoy-prom
           protocol: TCP
@@ -197,12 +193,9 @@ spec:
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337
-<<<<<<< HEAD
-=======
         sysctls:
         - name: net.ipv4.ip_local_port_range
           value: 80 65535
->>>>>>> add securitycontext for pod.
       serviceAccountName: istio-ingressgateway-service-account
       volumes:
       - configMap:
