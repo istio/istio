@@ -233,10 +233,10 @@ func (os K8sObjects) Keys() []string {
 }
 
 // UnstructuredItems returns the list of items of unstructured.Unstructured.
-func (os K8sObjects) UnstructuredItems() []*unstructured.Unstructured {
-	var usList []*unstructured.Unstructured
+func (os K8sObjects) UnstructuredItems() []unstructured.Unstructured {
+	var usList []unstructured.Unstructured
 	for _, obj := range os {
-		usList = append(usList, obj.UnstructuredObject())
+		usList = append(usList, *obj.UnstructuredObject())
 	}
 	return usList
 }
