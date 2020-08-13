@@ -98,7 +98,6 @@ components:
 		Run()
 }
 
-
 func testsetup(ctx resource.Context) error {
 	bookinfoNs, err := namespace.New(ctx, namespace.Config{
 		Prefix: "istio-bookinfo",
