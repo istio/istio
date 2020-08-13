@@ -51,9 +51,13 @@ var envoyProtoBags = sync.Pool{
 }
 
 func fillAddress(reqMap map[string]interface{}, address *core.Address, name string) {
-	socketaddress := address.GetSocketAddress()
-	reqMap[name+".ip"] = []byte(net.ParseIP(socketaddress.GetAddress()).To16())
-	reqMap[name+".port"] = int64(socketaddress.GetPortValue())
+	if address == nil {
+		return
+	}
+	if socketaddress := address.GetSocketAddress(); socketaddress != nil {
+		reqMap[name+".ip"] = []byte(net.ParseIP(socketaddress.GetAddress()).To16())
+		reqMap[name+".port"] = int64(socketaddress.GetPortValue())
+	}
 }
 
 func reformatTime(theTime *timestamp.Timestamp, durationNanos int32) time.Time {
@@ -87,28 +91,32 @@ func stripPrincipal(principal string) string {
 // When you are done using the proto bag, call the Done method to recycle it.
 func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
-
-	attributes := req.GetAttributes()
-	request := attributes.GetRequest()
-	http := request.GetHttp()
-	destination := attributes.GetDestination()
-	source := attributes.GetSource()
-
 	reqMap := make(map[string]interface{})
 	reqMap["context.reporter.kind"] = "inbound"
-	fillAddress(reqMap, destination.GetAddress(), "destination")
-	fillAddress(reqMap, source.GetAddress(), "source")
-	reqMap["destination.principal"] = stripPrincipal(destination.GetPrincipal())
-	reqMap["source.principal"] = stripPrincipal(source.GetPrincipal())
-	reqMap["request.headers"] = attr.WrapStringMap(http.GetHeaders())
-	reqMap["request.host"] = http.GetHost()
-	reqMap["request.method"] = http.GetMethod()
-	reqMap["request.path"] = http.GetPath()
-	reqMap["request.scheme"] = http.GetScheme()
-	reqMap["request.time"] = reformatTime(request.GetTime(), 0)
-	reqMap["request.useragent"] = http.GetHeaders()["user-agent"]
-	fillContextProtocol(reqMap, http.GetHeaders())
-
+	if attributes := req.GetAttributes(); attributes != nil {
+		if destination := attributes.GetDestination(); destination != nil {
+			fillAddress(reqMap, destination.GetAddress(), "destination")
+			reqMap["destination.principal"] = stripPrincipal(destination.GetPrincipal())
+		}
+		if source := attributes.GetSource(); source != nil {
+			fillAddress(reqMap, source.GetAddress(), "source")
+			reqMap["source.principal"] = stripPrincipal(source.GetPrincipal())
+		}
+		if request := attributes.GetRequest(); request != nil {
+			if reqtime := request.GetTime(); reqtime != nil {
+				reqMap["request.time"] = reformatTime(reqtime, 0)
+			}
+			if http := request.GetHttp(); http != nil {
+				reqMap["request.headers"] = attr.WrapStringMap(http.GetHeaders())
+				reqMap["request.host"] = http.GetHost()
+				reqMap["request.method"] = http.GetMethod()
+				reqMap["request.path"] = http.GetPath()
+				reqMap["request.scheme"] = http.GetScheme()
+				reqMap["request.useragent"] = http.GetHeaders()["user-agent"]
+				fillContextProtocol(reqMap, http.GetHeaders())
+			}
+		}
+	}
 	pb.reqMap = reqMap
 
 	scope.Debugf("Returning bag with attributes:\n%v", pb)
@@ -125,36 +133,56 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 	var commonproperties alspb.AccessLogCommon
 
 	if httpLogs := msg.GetHttpLogs(); httpLogs != nil {
+		//default protocol to start but if it's grpc it will be overwritten
+		reqMap["context.protocol"] = "http"
 		commonproperties = *httpLogs.GetLogEntry()[num].GetCommonProperties()
-		request := httpLogs.GetLogEntry()[num].GetRequest()
-		response := httpLogs.GetLogEntry()[num].GetResponse()
+		if starttime := commonproperties.GetStartTime(); starttime != nil {
+			reqMap["request.time"] = reformatTime(starttime, 0)
+			if timetoupbyte := commonproperties.GetTimeToFirstUpstreamRxByte(); timetoupbyte != nil {
+				reqMap["response.time"] = reformatTime(starttime, timetoupbyte.Nanos)
+			}
+		}
 
-		reqMap["request.time"] = reformatTime(commonproperties.GetStartTime(), 0)
-		reqMap["response.time"] = reformatTime(commonproperties.GetStartTime(), commonproperties.GetTimeToFirstUpstreamRxByte().Nanos)
-		reqMap["request.headers"] = attr.WrapStringMap(request.GetRequestHeaders())
-		reqMap["request.host"] = request.GetAuthority()
-		reqMap["request.method"] = request.GetRequestMethod().String()
-		reqMap["request.path"] = request.GetPath()
-		reqMap["request.scheme"] = request.GetScheme()
-		reqMap["request.useragent"] = request.GetUserAgent()
-		reqMap["response.headers"] = attr.WrapStringMap(response.GetResponseHeaders())
-		reqMap["response.code"] = int64(response.GetResponseCode().GetValue())
-		reqMap["response.size"] = int64(response.GetResponseBodyBytes())
-		reqMap["response.total_size"] = int64(response.GetResponseBodyBytes()) + int64(response.GetResponseHeadersBytes())
-		fillContextProtocol(reqMap, request.GetRequestHeaders())
+		if request := httpLogs.GetLogEntry()[num].GetRequest(); request != nil {
+			reqMap["request.host"] = request.GetAuthority()
+			reqMap["request.method"] = request.GetRequestMethod().String()
+			reqMap["request.path"] = request.GetPath()
+			reqMap["request.scheme"] = request.GetScheme()
+			reqMap["request.useragent"] = request.GetUserAgent()
+			if reqheaders := request.GetRequestHeaders(); reqheaders != nil {
+				reqMap["request.headers"] = attr.WrapStringMap(reqheaders)
+				fillContextProtocol(reqMap, reqheaders)
+			}
+		}
+
+		if response := httpLogs.GetLogEntry()[num].GetResponse(); response != nil {
+			reqMap["response.headers"] = attr.WrapStringMap(response.GetResponseHeaders())
+			reqMap["response.code"] = int64(response.GetResponseCode().GetValue())
+			reqMap["response.size"] = int64(response.GetResponseBodyBytes())
+			reqMap["response.total_size"] = int64(response.GetResponseBodyBytes()) + int64(response.GetResponseHeadersBytes())
+		}
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
-		commonproperties = *tcpLogs.GetLogEntry()[num].GetCommonProperties()
-		connection := tcpLogs.GetLogEntry()[num].GetConnectionProperties()
-
-		reqMap["context.time"] = reformatTime(commonproperties.GetStartTime(), 0)
-		reqMap["connection.received.bytes"] = int64(connection.GetReceivedBytes())
-		reqMap["connection.sent.bytes"] = int64(connection.GetSentBytes())
 		reqMap["context.protocol"] = "tcp"
+		commonproperties = *tcpLogs.GetLogEntry()[num].GetCommonProperties()
+		if startTime := commonproperties.GetStartTime(); startTime != nil {
+			reqMap["context.time"] = reformatTime(startTime, 0)
+		}
+
+		if connection := tcpLogs.GetLogEntry()[num].GetConnectionProperties(); connection != nil {
+			reqMap["connection.received.bytes"] = int64(connection.GetReceivedBytes())
+			reqMap["connection.sent.bytes"] = int64(connection.GetSentBytes())
+		}
 	}
 	reqMap["context.reporter.kind"] = "inbound"
-
-	fillAddress(reqMap, commonproperties.GetDownstreamLocalAddress(), "destination")
-	fillAddress(reqMap, commonproperties.GetDownstreamRemoteAddress(), "source")
+	if downLocalAddress := commonproperties.GetDownstreamLocalAddress(); downLocalAddress != nil {
+		fillAddress(reqMap, downLocalAddress, "destination")
+	}
+	if downDirectRemoteAddress := commonproperties.GetDownstreamDirectRemoteAddress(); downDirectRemoteAddress != nil {
+		fillAddress(reqMap, downDirectRemoteAddress, "source")
+	}
+	if respflags := commonproperties.GetResponseFlags(); respflags != nil {
+		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(respflags)
+	}
 
 	if tlsproperties := commonproperties.GetTlsProperties(); tlsproperties != nil {
 		if localaltname := tlsproperties.GetLocalCertificateProperties().GetSubjectAltName(); localaltname != nil {
@@ -166,14 +194,12 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 		reqMap["connection.requested_server_name"] = tlsproperties.GetTlsSniHostname()
 	}
 
-	reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(commonproperties.GetResponseFlags())
-
 	// This is for identifying the log type as Service Access Logs instead of Mixer Report
 	// This is more specifically for making migration easier.
 	// In migration users will enable access log service and then after will
 	// disable Mixer Report. In the time period when both are reporting logs,
 	// this field allows users to distinguish between the two types of logs.
-	reqMap["context.reporter.type"] = "envoy_accesslog_service"
+	reqMap["context.reporter.uid"] = "envoy_accesslog_service"
 
 	pb.upstreamCluster = commonproperties.GetUpstreamCluster()
 	pb.reqMap = reqMap

@@ -329,7 +329,7 @@ func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
 
 	entry := &v2.HTTPAccessLogEntry{
 		CommonProperties: &v2.AccessLogCommon{
-			DownstreamRemoteAddress: &core.Address{
+			DownstreamDirectRemoteAddress: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						Address: "10.12.1.121",
@@ -410,7 +410,7 @@ func envoyProtoAttrsForTestingALSGRPC() *accesslog.StreamAccessLogsMessage {
 func envoyProtoAttrsForTestingALSTCP() *accesslog.StreamAccessLogsMessage {
 	entry := &v2.TCPAccessLogEntry{
 		CommonProperties: &v2.AccessLogCommon{
-			DownstreamRemoteAddress: &core.Address{
+			DownstreamDirectRemoteAddress: &core.Address{
 				Address: &core.Address_SocketAddress{
 					SocketAddress: &core.SocketAddress{
 						Address: "10.12.1.121",

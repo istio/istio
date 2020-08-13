@@ -1,0 +1,54 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: istio-policy
+  namespace: istio-system
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.http_connection_manager"
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+            access_log:
+              - name: envoy.access_loggers.http_grpc
+                typed_config:
+                  "@type": "type.googleapis.com/envoy.extensions.access_loggers.grpc.v3.HttpGrpcAccessLogConfig"
+                  common_config:
+                    log_name: istio-telemetry.istio-system
+                    grpc_service:
+                      google_grpc:
+                        target_uri: istio-telemetry.istio-system:9091
+                        stat_prefix: istio-telemetry.istio-system
+                  additional_request_headers_to_log:
+                    - :authority
+                    - content-type
+    - applyTo: NETWORK_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.tcp_proxy"
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
+            access_log:
+              - name: envoy.access_loggers.tcp_grpc
+                typed_config:
+                  "@type": "type.googleapis.com/envoy.extensions.access_loggers.grpc.v3.TcpGrpcAccessLogConfig"
+                  common_config:
+                    log_name: istio-telemetry.istio-system
+                    grpc_service:
+                      google_grpc:
+                        target_uri: istio-telemetry.istio-system:9091
+                        stat_prefix: istio-telemetry.istio-system
