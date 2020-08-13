@@ -16,7 +16,7 @@ subjects:
 ---
 
 
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   labels:
@@ -26,8 +26,8 @@ metadata:
   name: istio-sidecar-injector-istio-control
 webhooks:
 - admissionReviewVersions:
-  - v1
   - v1beta1
+  - v1
   clientConfig:
     caBundle: ""
     service:

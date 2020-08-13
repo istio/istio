@@ -125,8 +125,9 @@ type Server struct {
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
 
-	httpMux  *http.ServeMux // debug, monitoring and readiness.
-	httpsMux *http.ServeMux // webhooks
+	monitoringMux *http.ServeMux // debug, monitoring
+	readinessMux  *http.ServeMux // readiness.
+	httpsMux      *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
@@ -165,17 +166,21 @@ type Server struct {
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
-		ServiceDiscovery: aggregate.NewController(),
-		PushContext:      model.NewPushContext(),
-		DomainSuffix:     args.RegistryOptions.KubeOptions.DomainSuffix,
+		PushContext:  model.NewPushContext(),
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
+	ac := aggregate.NewController(aggregate.Options{
+		MeshHolder: e,
+	})
+	e.ServiceDiscovery = ac
 
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
 		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:     filewatcher.NewWatcher(),
-		httpMux:         http.NewServeMux(),
+		readinessMux:    http.NewServeMux(),
+		monitoringMux:   http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
 	}
 
@@ -439,7 +444,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	log.Info("initializing Istiod admin server")
 	s.httpServer = &http.Server{
 		Addr:    args.ServerOptions.HTTPAddr,
-		Handler: s.httpMux,
+		Handler: s.readinessMux,
 	}
 
 	// create http listener
@@ -449,7 +454,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	}
 
 	// Debug Server.
-	s.XDSServer.InitDebug(s.httpMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
 	// Monitoring Server.
 	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
@@ -457,7 +462,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	}
 
 	// Readiness Handler.
-	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
+	s.readinessMux.HandleFunc("/ready", s.istiodReadyHandler)
 
 	s.HTTPListener = listener
 	return nil

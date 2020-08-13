@@ -105,7 +105,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 					},
 				}
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel, push)
+				gwEp.Metadata = util.BuildLbEndpointMetadata(network, model.IstioMutualTLSModeLabel)
 				lbEndpoints = append(lbEndpoints, gwEp)
 			}
 		}

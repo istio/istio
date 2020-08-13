@@ -6,6 +6,6 @@ issue:
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
-releaseNotes: |
-  *Added*
-  - Enable the workload cert rotate automatically in VM
+releaseNotes:
+- |
+  **Added** Enable the workload cert rotate automatically in VM

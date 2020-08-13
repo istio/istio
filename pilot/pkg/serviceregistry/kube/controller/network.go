@@ -43,6 +43,7 @@ func (c *Controller) reloadNetworkLookup() {
 
 	ranger := cidranger.NewPCTrieRanger()
 
+	c.Lock()
 	for n, v := range meshNetworks.Networks {
 		for _, ep := range v.Endpoints {
 			if ep.GetFromCidr() != "" {
@@ -63,6 +64,7 @@ func (c *Controller) reloadNetworkLookup() {
 		}
 	}
 	c.ranger = ranger
+	c.Unlock()
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
 	if err := c.syncPods(); err != nil {

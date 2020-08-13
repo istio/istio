@@ -101,8 +101,7 @@ var (
 		"requestauthentications": "RequestAuthentications",
 		"gatewayclasses":         "GatewayClasses",
 		"httproutes":             "HTTPRoutes",
-		"tcproutes":              "TcpRoutes",
-		"trafficsplits":          "TrafficSplits",
+		"tcproutes":              "TCPRoutes",
 	}
 )
 

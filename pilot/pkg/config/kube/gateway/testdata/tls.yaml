@@ -21,10 +21,5 @@ spec:
       tls:
         certificateRefs:
           - name: my-cert
-            # TODO bug in service-apis CRD requires empty string here
-            group: ""
-            resource: ""
         options: {}
         minimumVersion: TLS1_2
-      routes:
-        namespaceSelector: {}

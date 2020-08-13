@@ -485,15 +485,12 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 
 		if !c.environment.IsControlPlaneCluster(cluster) {
-			installSettings = append(installSettings, "--set", "profile=remote")
 			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {
 				return err
 			}
 			installSettings = append(installSettings,
-				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
-				// Use the local Istiod for CA
-				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
+				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
 
 			if isCentralIstio(c.environment, cfg) {
 				installSettings = append(installSettings,

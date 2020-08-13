@@ -16,6 +16,7 @@ package pilot
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -27,9 +28,21 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+type EchoCall func() (echoclient.ParsedResponses, error)
+
 type TrafficTestCase struct {
-	name      string
-	config    string
+	name   string
+	config string
+
+	// Multiple calls. Cannot be used with call/validator
+	calls []TrafficCall
+
+	// Single call
+	call      func() (echoclient.ParsedResponses, error)
+	validator func(echoclient.ParsedResponses) error
+}
+
+type TrafficCall struct {
 	call      func() (echoclient.ParsedResponses, error)
 	validator func(echoclient.ParsedResponses) error
 }
@@ -58,10 +71,7 @@ spec:
 				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].RawResponse["Istio-Custom-Header"] != "user-defined-value" {
-					return fmt.Errorf("missing request header, have %+v", response[0].RawResponse)
-				}
-				return nil
+				return expectString(response[0].RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
 			},
 		},
 		{
@@ -77,7 +87,7 @@ spec:
   http:
   - match:
     - uri:
-        exact: /
+        exact: /foo
     redirect:
       uri: /new/path
   - match:
@@ -87,14 +97,140 @@ spec:
     - destination:
         host: b`,
 			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				if response[0].URL != "/new/path" {
-					return fmt.Errorf("incorrect URL, have %+v %+v", response[0].RawResponse["URL"], response[0].URL)
-				}
-				return nil
+				return expectString(response[0].URL, "/new/path?key=value", "URL")
 			},
+		},
+		{
+			name: "rewrite uri",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    rewrite:
+      uri: /new/path
+    route:
+    - destination:
+        host: b`,
+			call: func() (echoclient.ParsedResponses, error) {
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value#hash"})
+			},
+			validator: func(response echoclient.ParsedResponses) error {
+				return expectString(response[0].URL, "/new/path?key=value", "URL")
+			},
+		},
+		{
+			name: "rewrite authority",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - match:
+    - uri:
+        exact: /foo
+    rewrite:
+      authority: new-authority
+    route:
+    - destination:
+        host: b`,
+			call: func() (echoclient.ParsedResponses, error) {
+				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo"})
+			},
+			validator: func(response echoclient.ParsedResponses) error {
+				return expectString(response[0].Host, "new-authority", "authority")
+			},
+		},
+		{
+			name: "cors",
+			config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - corsPolicy:
+      allowOrigins:
+      - exact: cors.com
+      allowMethods:
+      - POST
+      - GET
+      allowCredentials: false
+      allowHeaders:
+      - X-Foo-Bar
+      - X-Foo-Baz
+      maxAge: "24h"
+    route:
+    - destination:
+        host: b
+`,
+			calls: []TrafficCall{
+				{
+					// Preflight request
+					call: func() (echoclient.ParsedResponses, error) {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						header.Add("Access-Control-Request-Method", "DELETE")
+						return apps.podA.Call(echo.CallOptions{
+							Target:   apps.podB,
+							PortName: "http",
+							Method:   "OPTIONS",
+							Headers:  header,
+						})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						if err := expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
+							return err
+						}
+						if err := expectString(response[0].RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
+							return err
+						}
+						if err := expectString(response[0].RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+							return err
+						}
+						if err := expectString(response[0].RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
+							return err
+						}
+						return nil
+					},
+				},
+				{
+					// GET
+					call: func() (echoclient.ParsedResponses, error) {
+						header := http.Header{}
+						header.Add("Origin", "cors.com")
+						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Headers: header})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin")
+					},
+				},
+				{
+					// GET without matching origin
+					call: func() (echoclient.ParsedResponses, error) {
+						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+					},
+					validator: func(response echoclient.ParsedResponses) error {
+						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
+					},
+				}},
 		},
 	}
 	splits := []map[string]int{
@@ -161,6 +297,13 @@ spec:
 		})
 	}
 	return cases
+}
+
+func expectString(got, expected, help string) error {
+	if got != expected {
+		return fmt.Errorf("got unexpected %v: got %q, wanted %q", help, got, expected)
+	}
+	return nil
 }
 
 // Todo merge with security TestReachability code
@@ -286,14 +429,27 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
 			defer ctx.Config().DeleteYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
 		}
-		retry.UntilSuccessOrFail(ctx, func() error {
-			resp, err := tt.call()
-			if err != nil {
-				ctx.Logf("call for %v failed, retrying: %v", tt.name, err)
-				return err
+		if tt.call != nil {
+			if tt.calls != nil {
+				ctx.Fatalf("defined calls and calls; may only define on or the other")
 			}
-			return tt.validator(resp)
-		}, retry.Delay(time.Millisecond*100))
+			tt.calls = []TrafficCall{{tt.call, tt.validator}}
+		}
+		for i, c := range tt.calls {
+			name := fmt.Sprintf("%s/%d", tt.name, i)
+			retry.UntilSuccessOrFail(ctx, func() error {
+				r, err := c.call()
+				if err != nil {
+					ctx.Logf("call for %v failed, retrying: %v", name, err)
+					return err
+				}
+				if err := c.validator(r); err != nil {
+					ctx.Logf("validation for call for %v failed, retrying: %v", name, err)
+					return err
+				}
+				return nil
+			}, retry.Delay(time.Millisecond*100))
+		}
 	})
 }
 

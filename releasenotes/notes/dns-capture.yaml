@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+releaseNotes:
+- |
+  **Added** experimental DNS resolution directly in the sidecar to better support service entries with TCP services, multicluster DNS resolution,
+  and dns resolution of Kubernetes services from VM sidecars. This feature is disabled by default and can be enabled by setting the following
+  in the Istio Operator: meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE="ALL". Setting this option will cause Istio to set the
+  `ndots` option in pod's `dnsConfig` to 4 for faster DNS resolution in common cluster setups.

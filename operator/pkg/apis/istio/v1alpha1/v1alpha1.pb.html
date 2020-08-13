@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 57
+number_of_entries: 58
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -2621,6 +2621,17 @@ No
 No
 </td>
 </tr>
+<tr id="TelemetryV2PrometheusConfig-config_override">
+<td><code>configOverride</code></td>
+<td><code><a href="#TelemetryV2PrometheusConfig-ConfigOverride">ConfigOverride</a></code></td>
+<td>
+<p>Overrides default telemetry v2 filter configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -3319,15 +3330,6 @@ No
 No
 </td>
 </tr>
-<tr id="SidecarInjectorConfig-injectLabel">
-<td><code>injectLabel</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="SidecarInjectorConfig-injectedAnnotations">
 <td><code>injectedAnnotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
@@ -3844,6 +3846,54 @@ No
 <section>
 <p>GOTYPE: interface{}</p>
 
+</section>
+<h2 id="TelemetryV2PrometheusConfig-ConfigOverride">TelemetryV2PrometheusConfig.ConfigOverride</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2PrometheusConfig-ConfigOverride-gateway">
+<td><code>gateway</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Overrides default gateway telemetry v2 configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2PrometheusConfig-ConfigOverride-inboundSidecar">
+<td><code>inboundSidecar</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Overrides default inbound sidecar telemetry v2 configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2PrometheusConfig-ConfigOverride-outboundSidecar">
+<td><code>outboundSidecar</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Overrides default outbound sidecar telemetry v2 configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
 </section>
 <h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
 <section>

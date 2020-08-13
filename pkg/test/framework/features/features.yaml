@@ -52,6 +52,8 @@ features:
       proxy-config:
       proxy-status:
       authz-check:
+      analysis:
+        line-numbers:
     helpers:
       add-to-mesh:
       remove-from-mesh:

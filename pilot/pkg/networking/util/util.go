@@ -500,7 +500,7 @@ func MergeAnyWithAny(dst *any.Any, src *any.Any) (*any.Any, error) {
 }
 
 // BuildLbEndpointMetadata adds metadata values to a lb endpoint
-func BuildLbEndpointMetadata(network string, tlsMode string, push *model.PushContext) *core.Metadata {
+func BuildLbEndpointMetadata(network string, tlsMode string) *core.Metadata {
 	if network == "" && tlsMode == model.DisabledTLSModeLabel {
 		return nil
 	}
@@ -564,6 +564,19 @@ func StringToExactMatch(in []string) []*matcher.StringMatcher {
 	for _, s := range in {
 		res = append(res, &matcher.StringMatcher{
 			MatchPattern: &matcher.StringMatcher_Exact{Exact: s},
+		})
+	}
+	return res
+}
+
+func StringToPrefixMatch(in []string) []*matcher.StringMatcher {
+	if len(in) == 0 {
+		return nil
+	}
+	res := make([]*matcher.StringMatcher, 0, len(in))
+	for _, s := range in {
+		res = append(res, &matcher.StringMatcher{
+			MatchPattern: &matcher.StringMatcher_Prefix{Prefix: s},
 		})
 	}
 	return res

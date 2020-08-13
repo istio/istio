@@ -41,6 +41,7 @@ type request struct {
 	Message     string
 	Timeout     time.Duration
 	ServerFirst bool
+	Method      string
 }
 
 type protocol interface {

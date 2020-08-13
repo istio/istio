@@ -87,10 +87,6 @@ type DiscoveryServer struct {
 
 	concurrentPushLimit chan struct{}
 
-	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
-	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
-	DebugConfigs bool
-
 	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
 	mutex sync.RWMutex
@@ -158,7 +154,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
-		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
 		serverReady:             false,
@@ -284,21 +279,11 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
-	push := model.NewPushContext()
-	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
-		adsLog.Errorf("XDS: Failed to update services: %v", err)
-		// We can't push if we can't read the data - stick with previous version.
-		pushContextErrors.Increment()
+
+	push, err := s.initPushContext(req, oldPushContext)
+	if err != nil {
 		return
 	}
-
-	if err := s.UpdateServiceShards(push); err != nil {
-		return
-	}
-
-	s.updateMutex.Lock()
-	s.Env.PushContext = push
-	s.updateMutex.Unlock()
 
 	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
 	versionNum.Inc()
@@ -462,6 +447,27 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			}()
 		}
 	}
+}
+
+// initPushContext creates a global push context and stores it on the environment.
+func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext) (*model.PushContext, error) {
+	push := model.NewPushContext()
+	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
+		adsLog.Errorf("XDS: Failed to update services: %v", err)
+		// We can't push if we can't read the data - stick with previous version.
+		pushContextErrors.Increment()
+		return nil, err
+	}
+
+	if err := s.UpdateServiceShards(push); err != nil {
+		return nil, err
+	}
+
+	s.updateMutex.Lock()
+	s.Env.PushContext = push
+	s.updateMutex.Unlock()
+
+	return push, nil
 }
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {

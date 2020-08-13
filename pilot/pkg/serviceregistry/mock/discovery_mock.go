@@ -22,11 +22,25 @@ import (
 var (
 	// HelloService is a mock service with `hello.default.svc.cluster.local` as
 	// a hostname and `10.1.0.0` for ip
-	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0")
+	HelloService = MakeService("hello.default.svc.cluster.local", "10.1.0.0", []string{})
+
+	// ReplicatedFooServiceName is a service replicated in all clusters.
+	ReplicatedFooServiceName = host.Name("foo.default.svc.cluster.local")
+	ReplicatedFooServiceV1   = MakeService(ReplicatedFooServiceName, "10.3.0.0", []string{
+		"spiffe://cluster.local/ns/default/sa/foo1",
+		"spiffe://cluster.local/ns/default/sa/foo-share",
+	})
+	ReplicatedFooServiceV2 = MakeService(ReplicatedFooServiceName, "10.3.0.1", []string{
+		"spiffe://cluster.local/ns/default/sa/foo2",
+		"spiffe://cluster.local/ns/default/sa/foo-share",
+	})
 
 	// WorldService is a mock service with `world.default.svc.cluster.local` as
 	// a hostname and `10.2.0.0` for ip
-	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0")
+	WorldService = MakeService("world.default.svc.cluster.local", "10.2.0.0", []string{
+		"spiffe://cluster.local/ns/default/sa/world1",
+		"spiffe://cluster.local/ns/default/sa/world2",
+	})
 
 	// ExtHTTPService is a mock external HTTP service
 	ExtHTTPService = MakeExternalHTTPService("httpbin.default.svc.cluster.local",

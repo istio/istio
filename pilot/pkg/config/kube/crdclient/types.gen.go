@@ -110,14 +110,9 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			Spec:       *(config.Spec.(*servicev1alpha1.HTTPRouteSpec)),
 		}, metav1.CreateOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TcpRoutes(config.Namespace).Create(context.TODO(), &servicev1alpha1.TcpRoute{
+		return sc.NetworkingV1alpha1().TCPRoutes(config.Namespace).Create(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TcpRouteSpec)),
-		}, metav1.CreateOptions{})
-	case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TrafficSplits(config.Namespace).Create(context.TODO(), &servicev1alpha1.TrafficSplit{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TrafficSplitSpec)),
+			Spec:       *(config.Spec.(*servicev1alpha1.TCPRouteSpec)),
 		}, metav1.CreateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", config.GroupVersionKind)
@@ -192,14 +187,9 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			Spec:       *(config.Spec.(*servicev1alpha1.HTTPRouteSpec)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TcpRoutes(config.Namespace).Update(context.TODO(), &servicev1alpha1.TcpRoute{
+		return sc.NetworkingV1alpha1().TCPRoutes(config.Namespace).Update(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TcpRouteSpec)),
-		}, metav1.UpdateOptions{})
-	case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TrafficSplits(config.Namespace).Update(context.TODO(), &servicev1alpha1.TrafficSplit{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TrafficSplitSpec)),
+			Spec:       *(config.Spec.(*servicev1alpha1.TCPRouteSpec)),
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", config.GroupVersionKind)
@@ -235,9 +225,7 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ re
 	case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().HTTPRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TcpRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-	case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TrafficSplits(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+		return sc.NetworkingV1alpha1().TCPRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)
 	}
@@ -440,25 +428,10 @@ var translationMap = map[resource.GroupVersionKind]func(r runtime.Object) *model
 		}
 	},
 	collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*servicev1alpha1.TcpRoute)
+		obj := r.(*servicev1alpha1.TCPRoute)
 		return &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-			},
-			Spec: &obj.Spec,
-		}
-	},
-	collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*servicev1alpha1.TrafficSplit)
-		return &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

@@ -792,6 +792,20 @@ message TelemetryV2PrometheusConfig {
 
   // Controls whether enabled WebAssembly runtime for stats filter.
   google.protobuf.BoolValue wasmEnabled = 2;
+
+  message ConfigOverride {
+    // Overrides default gateway telemetry v2 configuration.
+    TypeMapStringInterface gateway = 1;
+
+    // Overrides default inbound sidecar telemetry v2 configuration.
+    TypeMapStringInterface inboundSidecar = 2;
+
+    // Overrides default outbound sidecar telemetry v2 configuration.
+    TypeMapStringInterface outboundSidecar = 3;
+  }
+
+  // Overrides default telemetry v2 filter configuration.
+  ConfigOverride config_override = 3;
 }
 
 // Conrols telemetry v2 stackdriver settings.
@@ -981,8 +995,6 @@ message SidecarInjectorConfig {
 
   //  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
   google.protobuf.BoolValue rewriteAppHTTPProbe = 16;
-
-  string injectLabel = 18;
 
   // injectedAnnotations are additional annotations that will be added to the pod spec after injection
   // This is primarily to support PSP annotations.

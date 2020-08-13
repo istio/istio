@@ -887,8 +887,7 @@ func (ps *PushContext) updateContext(
 		case gvk.RequestAuthentication,
 			gvk.PeerAuthentication:
 			authnChanged = true
-		case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
-			collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
+		case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 			collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
 			collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
 			collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind():

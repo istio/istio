@@ -28,11 +28,8 @@ import (
 func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
+	rawListeners := s.ConfigGenerator.BuildListeners(con.proxy, push)
 
-	if s.DebugConfigs {
-		con.XdsListeners = rawListeners
-	}
 	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
@@ -42,7 +39,7 @@ func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, vers
 	}
 	ldsPushes.Increment()
 
-	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.node.ID, len(rawListeners))
+	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.proxy.ID, len(rawListeners))
 	return nil
 }
 
