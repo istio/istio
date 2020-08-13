@@ -17,6 +17,7 @@ package xds
 import (
 	"fmt"
 	"io/ioutil"
+	"istio.io/api/label"
 	"path"
 	"testing"
 
@@ -375,6 +376,20 @@ func TestMeshNetworking(t *testing.T) {
 						KubernetesObjects: k8sObjects,
 						ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: mtls-se-pod
+  namespace: pod
+spec:
+  host: se-pod.pod.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: MUTUAL
+      clientCertificate: /etc/certs/myclientcert.pem
+      privateKey: /etc/certs/client_private_key.pem
+      caCertificates: /etc/certs/rootcacerts.pem
+---
+apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: se-pod
@@ -584,8 +599,11 @@ type fakeServiceOpts struct {
 // If servicePorts is empty a default of http-80 will be used.
 func fakePodService(opts fakeServiceOpts) []runtime.Object {
 	baseMeta := metav1.ObjectMeta{
-		Name:      opts.name,
-		Labels:    labels.Instance{"app": opts.name},
+		Name: opts.name,
+		Labels: labels.Instance{
+			"app":         opts.name,
+			label.TLSMode: model.IstioMutualTLSModeLabel,
+		},
 		Namespace: opts.ns,
 	}
 	podMeta := baseMeta
