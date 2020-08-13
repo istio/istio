@@ -43,7 +43,7 @@ func TestIstioAccessLogEnvoy(t *testing.T) {
 			// enabling ext-authz and grpc access log service
 			errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata")
 			if errr != nil {
-				t.Fatalf("cannot apply testdata config")
+				t.Fatalf("cannot apply access log test config")
 			}
 			defer ctx.Config().DeleteYAMLDir("istio-system", "../testdata")
 
@@ -98,7 +98,6 @@ components:
 		Run()
 }
 
-//remove pilot piece
 
 func testsetup(ctx resource.Context) error {
 	bookinfoNs, err := namespace.New(ctx, namespace.Config{

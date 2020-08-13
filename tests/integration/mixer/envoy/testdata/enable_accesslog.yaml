@@ -4,28 +4,6 @@ metadata:
   name: istio-policy
   namespace: istio-system
 spec:
-  configPatches:
-    - applyTo: HTTP_FILTER
-      match:
-        context: SIDECAR_INBOUND
-        listener:
-          filterChain:
-            filter:
-              name: envoy.http_connection_manager
-              subFilter:
-                name: envoy.router
-      patch:
-        operation: INSERT_BEFORE
-        value:
-          name: envoy.ext_authz
-          typed_config:
-            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz"
-            grpc_service:
-              google_grpc:
-                target_uri: istio-policy.istio-system:9091
-                stat_prefix: istio-policy.istio-system
-
-              timeout: 5s
     - applyTo: NETWORK_FILTER
       match:
         context: SIDECAR_INBOUND

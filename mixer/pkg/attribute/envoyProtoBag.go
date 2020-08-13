@@ -51,6 +51,9 @@ var envoyProtoBags = sync.Pool{
 }
 
 func fillAddress(reqMap map[string]interface{}, address *core.Address, name string) {
+	if address == nil {
+		return
+	}
 	if socketaddress := address.GetSocketAddress(); socketaddress != nil {
 		reqMap[name+".ip"] = []byte(net.ParseIP(socketaddress.GetAddress()).To16())
 		reqMap[name+".port"] = int64(socketaddress.GetPortValue())
@@ -100,7 +103,9 @@ func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 			reqMap["source.principal"] = stripPrincipal(source.GetPrincipal())
 		}
 		if request := attributes.GetRequest(); request != nil {
-			reqMap["request.time"] = reformatTime(request.GetTime(), 0)
+			if reqtime := request.GetTime(); reqtime != nil {
+				reqMap["request.time"] = reformatTime(reqtime, 0)
+			}
 			if http := request.GetHttp(); http != nil {
 				reqMap["request.headers"] = attr.WrapStringMap(http.GetHeaders())
 				reqMap["request.host"] = http.GetHost()
@@ -137,8 +142,8 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 				reqMap["response.time"] = reformatTime(starttime, timetoupbyte.Nanos)
 			}
 		}
-		if request := httpLogs.GetLogEntry()[num].GetRequest(); request != nil {
 
+		if request := httpLogs.GetLogEntry()[num].GetRequest(); request != nil {
 			reqMap["request.host"] = request.GetAuthority()
 			reqMap["request.method"] = request.GetRequestMethod().String()
 			reqMap["request.path"] = request.GetPath()
@@ -149,6 +154,7 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 				fillContextProtocol(reqMap, reqheaders)
 			}
 		}
+
 		if response := httpLogs.GetLogEntry()[num].GetResponse(); response != nil {
 			reqMap["response.headers"] = attr.WrapStringMap(response.GetResponseHeaders())
 			reqMap["response.code"] = int64(response.GetResponseCode().GetValue())
@@ -158,7 +164,9 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 	} else if tcpLogs := msg.GetTcpLogs(); tcpLogs != nil {
 		reqMap["context.protocol"] = "tcp"
 		commonproperties = *tcpLogs.GetLogEntry()[num].GetCommonProperties()
-		reqMap["context.time"] = reformatTime(commonproperties.GetStartTime(), 0)
+		if startTime := commonproperties.GetStartTime(); startTime != nil {
+			reqMap["context.time"] = reformatTime(startTime, 0)
+		}
 
 		if connection := tcpLogs.GetLogEntry()[num].GetConnectionProperties(); connection != nil {
 			reqMap["connection.received.bytes"] = int64(connection.GetReceivedBytes())
@@ -170,11 +178,12 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 		fillAddress(reqMap, downLocalAddress, "destination")
 	}
 	if downDirectRemoteAddress := commonproperties.GetDownstreamDirectRemoteAddress(); downDirectRemoteAddress != nil {
-		fillAddress(reqMap, commonproperties.GetDownstreamDirectRemoteAddress(), "source")
+		fillAddress(reqMap, downDirectRemoteAddress, "source")
 	}
 	if respflags := commonproperties.GetResponseFlags(); respflags != nil {
 		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(respflags)
 	}
+
 	if tlsproperties := commonproperties.GetTlsProperties(); tlsproperties != nil {
 		if localaltname := tlsproperties.GetLocalCertificateProperties().GetSubjectAltName(); localaltname != nil {
 			reqMap["destination.principal"] = stripPrincipal(localaltname[0].GetUri())

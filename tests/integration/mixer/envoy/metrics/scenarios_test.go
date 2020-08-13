@@ -44,18 +44,16 @@ func TestIngessToPrometheus_IngressMetricEnvoy(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			// enabling ext-authz and grpc access log service
-			errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata")
-			if errr != nil {
-				t.Fatalf("cannot apply testdata config")
-			}
-			defer ctx.Config().DeleteYAMLDir("istio-system", "../testdata")
+		// enabling ext-authz and grpc access log service
+		errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata"); if errr != nil {
+			t.Fatalf("cannot apply access log test config")
+		}
+		defer ctx.Config().DeleteYAMLDir("istio-system", "../testdata")
 
 			ctx.NewSubTest("SetupAndPrometheus").
 				Run(func(ctx framework.TestContext) {
-					errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata")
-					if errr != nil {
-						t.Fatalf("cannot apply testdata config")
+					errr := ctx.Config().ApplyYAMLDir("istio-system", "../testdata"); if errr != nil {
+						t.Fatalf("cannot apply access log test config")
 					}
 					label := "destination_service"
 					labelValue := "productpage.{{.TestNamespace}}.svc.cluster.local"
