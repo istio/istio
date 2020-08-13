@@ -530,10 +530,10 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			ExportTo: []string{"."},
 			Subsets: []*networking.Subset{
 				{
-					Name: "subset8",
+					Name: "subset9",
 				},
 				{
-					Name: "subset9",
+					Name: "subset10",
 				},
 			},
 		},
@@ -588,12 +588,12 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		{
 			proxyNs:     "istio-system",
 			serviceNs:   "random",
-			wantSubsets: []string{"subset7", "subset8"},
+			wantSubsets: []string{"subset9", "subset10"},
 		},
 		{
 			proxyNs:     "istio-system",
 			serviceNs:   "istio-system",
-			wantSubsets: []string{"subset7", "subset8"},
+			wantSubsets: []string{"subset9", "subset10"},
 		},
 	}
 	for _, tt := range cases {

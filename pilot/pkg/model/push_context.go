@@ -1313,7 +1313,7 @@ func (ps *PushContext) initDestinationRules(env *Environment) error {
 	return nil
 }
 
-func makeProcessedDestRules() *processedDestRules {
+func newProcessedDestRules() *processedDestRules {
 	return &processedDestRules{
 		hosts:    make([]host.Name, 0),
 		exportTo: map[host.Name]map[visibility.Instance]bool{},
@@ -1331,7 +1331,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 	sortConfigByCreationTime(configs)
 	namespaceLocalDestRules := make(map[string]*processedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*processedDestRules)
-	rootNamespaceLocalDestRules := makeProcessedDestRules()
+	rootNamespaceLocalDestRules := newProcessedDestRules()
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
@@ -1348,7 +1348,7 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			// a proxy from this namespace will first look here for the destination rule for a given service
 			// This pool consists of both public/private destination rules.
 			if _, exist := namespaceLocalDestRules[configs[i].Namespace]; !exist {
-				namespaceLocalDestRules[configs[i].Namespace] = makeProcessedDestRules()
+				namespaceLocalDestRules[configs[i].Namespace] = newProcessedDestRules()
 			}
 			// Merge this destination rule with any public/private dest rules for same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
@@ -1366,12 +1366,13 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 
 		if !isPrivateOnly {
 			if _, exist := exportedDestRulesByNamespace[configs[i].Namespace]; !exist {
-				exportedDestRulesByNamespace[configs[i].Namespace] = makeProcessedDestRules()
+				exportedDestRulesByNamespace[configs[i].Namespace] = newProcessedDestRules()
 			}
 			// Merge this destination rule with any other exported dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
 			ps.mergeDestinationRule(exportedDestRulesByNamespace[configs[i].Namespace], configs[i], exportToMap)
-
+		} else {
+			// Keep track of private root namespace destination rules
 			if configs[i].Namespace == ps.Mesh.RootNamespace {
 				ps.mergeDestinationRule(rootNamespaceLocalDestRules, configs[i], exportToMap)
 			}
