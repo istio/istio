@@ -115,6 +115,9 @@ components:
               name: tls
             - port: 31400
               name: tcp
+            - port: 15012
+              targetPort: 15012
+              name: tcp-istiod
 values:
   pilot:
     env:

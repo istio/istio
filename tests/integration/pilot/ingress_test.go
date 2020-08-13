@@ -16,7 +16,6 @@ package pilot
 
 import (
 	"fmt"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -30,12 +29,6 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
-			if err != nil {
-				ctx.Fatal(err)
-			}
-			ctx.Config().ApplyYAMLOrFail(ctx, "", string(crd))
-
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
