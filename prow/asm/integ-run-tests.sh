@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script is mainly responsible for setting up the SUT and running the tests.
+# The env vars used here are set by the integ-suite-kubetest2.sh script, which
+# is the entrypoint for the test jobs run by Prow.
+
 WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 
@@ -25,6 +29,10 @@ set -u
 set -x
 
 echo "Using ${KUBECONFIG} to connect to the cluster(s)"
+
+echo "The kubetest2 deployer is ${DEPLOYER}"
+
+echo "The topology is ${TOPOLOGY}"
 
 echo "Installing ASM control plane..."
 
