@@ -27,12 +27,11 @@ metadata:
   name: foo
   namespace: bar
 spec:
+  metadata:
+    labels: {}
   template:
-    metadata:
-      labels: {}
-    spec:
-      ports: {}
-      serviceAccount: default
+    ports: {}
+    serviceAccount: default
 `
 
 	customYAML = `apiVersion: networking.istio.io/v1alpha3
@@ -41,16 +40,15 @@ metadata:
   name: foo
   namespace: bar
 spec:
+  metadata:
+    labels:
+      app: foo
+      bar: baz
   template:
-    metadata:
-      labels:
-        app: foo
-        bar: baz
-    spec:
-      ports:
-        grpc: 3550
-        http: 8080
-      serviceAccount: test
+    ports:
+      grpc: 3550
+      http: 8080
+    serviceAccount: test
 `
 )
 

@@ -110,14 +110,12 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 				},
 			}
 			spec := &networkingv1alpha3.WorkloadGroup{
-				Template: &networkingv1alpha3.WorkloadEntryTemplate{
-					Metadata: &metav1.ObjectMeta{
-						Labels: convertToStringMap(labels),
-					},
-					Spec: &networkingv1alpha3.WorkloadEntry{
-						Ports:          convertToUnsignedInt32Map(ports),
-						ServiceAccount: serviceAccount,
-					},
+				Metadata: &networkingv1alpha3.WorkloadGroup_ObjectMeta{
+					Labels: convertToStringMap(labels),
+				},
+				Template: &networkingv1alpha3.WorkloadEntry{
+					Ports:          convertToUnsignedInt32Map(ports),
+					ServiceAccount: serviceAccount,
 				},
 			}
 			wgYAML, err := generateWorkloadGroupYAML(u, spec)
@@ -142,8 +140,6 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 		return nil, err
 	}
 	u.Object["spec"] = iSpec
-	// remove creationTimestamp left behind by ObjectMeta
-	delete(iSpec["template"].(map[string]interface{})["metadata"].(map[string]interface{}), "creationTimestamp")
 
 	wgYAML, err := yaml.Marshal(u.Object)
 	if err != nil {
@@ -223,7 +219,9 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 
 // Creates all the relevant config for the given workload group and cluster
 func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, outputDir string) error {
-	fillWorkloadGroup(wg)
+	if err := validateWorkloadGroup(wg); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
@@ -239,22 +237,33 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	return nil
 }
 
-// used to populate nil WorkloadGroup structs (template, metadata, and spec)
-func fillWorkloadGroup(wg *clientv1alpha3.WorkloadGroup) {
+// Used to populate nil WorkloadGroup structs (metadata and template)
+// Additionally checks the invalid fields in template
+func validateWorkloadGroup(wg *clientv1alpha3.WorkloadGroup) error {
+	if wg.Spec.Metadata == nil {
+		wg.Spec.Metadata = &networkingv1alpha3.WorkloadGroup_ObjectMeta{}
+	}
 	if wg.Spec.Template == nil {
-		wg.Spec.Template = &networkingv1alpha3.WorkloadEntryTemplate{}
+		wg.Spec.Template = &networkingv1alpha3.WorkloadEntry{}
 	}
-	if wg.Spec.Template.Metadata == nil {
-		wg.Spec.Template.Metadata = &metav1.ObjectMeta{}
+	// error checks and warnings
+	template := wg.Spec.Template
+	if template.Address != "" {
+		return fmt.Errorf("Address %s should not be set in the WorkloadEntry template", template.Address)
 	}
-	if wg.Spec.Template.Spec == nil {
-		wg.Spec.Template.Spec = &networkingv1alpha3.WorkloadEntry{}
+	if len(template.Labels) != 0 {
+		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s", template.Labels)
 	}
+	// default service account for an empty field is "default"
+	if template.ServiceAccount == "" {
+		template.ServiceAccount = "default"
+	}
+	return nil
 }
 
 // Write cluster.env into the given directory
 func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
-	we := wg.Spec.Template.Spec
+	we := wg.Spec.Template
 	ports := []string{}
 	for _, v := range we.Ports {
 		ports = append(ports, fmt.Sprint(v))
@@ -298,7 +307,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 		},
 	}
 	namespace := wg.Namespace
-	serviceAccount := wg.Spec.Template.Spec.ServiceAccount
+	serviceAccount := wg.Spec.Template.ServiceAccount
 	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
 	// errors if the token could not be created with the given service account in the given namespace
 	if err != nil {
@@ -328,14 +337,14 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	}
 
 	labels := map[string]string{}
-	for k, v := range wg.Spec.Template.Metadata.Labels {
+	for k, v := range wg.Spec.Metadata.Labels {
 		labels[k] = v
 	}
-	// case where a user provided custom workload group has labels in the workload entry spec field
-	for k, v := range wg.Spec.Template.Spec.Labels {
+	// case where a user provided custom workload group has labels in the workload entry template field
+	for k, v := range wg.Spec.Template.Labels {
 		labels[k] = v
 	}
-	we := wg.Spec.Template.Spec
+	we := wg.Spec.Template
 	md := meshConfig.DefaultConfig.ProxyMetadata
 	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
 	md["DNS_AGENT"] = ""
@@ -363,6 +372,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	return ioutil.WriteFile(filepath.Join(dir, "mesh"), []byte(meshYAML), filePerms)
 }
 
+// Returns a map with each k,v entry on a new line
 func mapToString(m map[string]string) string {
 	var b strings.Builder
 	for k, v := range m {
