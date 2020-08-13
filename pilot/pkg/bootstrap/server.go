@@ -338,7 +338,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				return
 			}
 			log.Infof("starting secure gRPC discovery service at %s", s.SecureGrpcListener.Addr())
-			reflection.Register(s.secureGrpcServer)
 			if err := s.secureGrpcServer.Serve(s.SecureGrpcListener); err != nil {
 				log.Errorf("error from GRPC server: %v", err)
 			}
@@ -353,7 +352,6 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		if !s.waitForCacheSync(stop) {
 			return
 		}
-		reflection.Register(s.grpcServer)
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
@@ -558,6 +556,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
+	reflection.Register(s.grpcServer)
 }
 
 // initDNSServer initializes gRPC DNS Server for DNS resolutions.
@@ -652,6 +651,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
 	s.XDSServer.Register(s.secureGrpcServer)
+	reflection.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
 		go func() {
