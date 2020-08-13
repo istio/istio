@@ -13,3 +13,11 @@ spec:
           externalTrafficPolicy: Local
         serviceAnnotations:
           manifest-generate: "testserviceAnnotation"
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+          fsGroup: 1337
+          sysctls:
+          - name: "net.ipv4.ip_local_port_range"
+            value: "80 65535"
