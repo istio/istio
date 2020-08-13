@@ -505,8 +505,6 @@ func (s *ServiceEntryStore) ResyncEDS() {
 // edsUpdate triggers an EDS cache update for the given instances.
 // And triggers a push if `push` is true.
 func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push bool) {
-	allInstances := []*model.ServiceInstance{}
-
 	// must call it here to refresh s.instances if necessary
 	// otherwise may get no instances or miss some new addes instances
 	s.maybeRefreshIndexes()
@@ -516,6 +514,7 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
 
+	allInstances := []*model.ServiceInstance{}
 	s.storeMutex.RLock()
 	for key := range keys {
 		for _, i := range s.instances[key] {
