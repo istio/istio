@@ -29,8 +29,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
@@ -186,7 +188,7 @@ configure --name foo --namespace bar -o config`,
 				wg, err = kubeClient.Istio().NetworkingV1alpha3().WorkloadGroups(namespace).Get(context.Background(), name, metav1.GetOptions{})
 				// errors if the requested workload group does not exist in the given namespace
 				if err != nil {
-					return err
+					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
 
@@ -231,7 +233,11 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err := createCertsTokens(kubeClient, wg, outputDir); err != nil {
 		return err
 	}
-	if err := createMeshConfig(kubeClient, wg, clusterID, revision, outputDir); err != nil {
+	meshConfig, err := createMeshConfig(kubeClient, wg, clusterID, revision, outputDir)
+	if err != nil {
+		return err
+	}
+	if err := createHosts(kubeClient, wg, meshConfig, outputDir); err != nil {
 		return err
 	}
 	return nil
@@ -249,7 +255,7 @@ func validateWorkloadGroup(wg *clientv1alpha3.WorkloadGroup) error {
 	// error checks and warnings
 	template := wg.Spec.Template
 	if template.Address != "" {
-		return fmt.Errorf("Address %s should not be set in the WorkloadEntry template", template.Address)
+		return fmt.Errorf("address %s should not be set in the WorkloadEntry template", template.Address)
 	}
 	if len(template.Labels) != 0 {
 		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s", template.Labels)
@@ -294,7 +300,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	rootCert, err := kubeClient.CoreV1().ConfigMaps(wg.Namespace).Get(context.Background(), controller.CACertNamespaceConfigMap, metav1.GetOptions{})
 	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
-		return err
+		return fmt.Errorf("configmap %s was not found in namespace %s: %v", controller.CACertNamespaceConfigMap, wg.Namespace, err)
 	}
 	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
 		return err
@@ -306,12 +312,11 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 			ExpirationSeconds: &tokenDuration,
 		},
 	}
-	namespace := wg.Namespace
 	serviceAccount := wg.Spec.Template.ServiceAccount
-	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
+	tokenReq, err := kubeClient.CoreV1().ServiceAccounts(wg.Namespace).CreateToken(context.Background(), serviceAccount, token, metav1.CreateOptions{})
 	// errors if the token could not be created with the given service account in the given namespace
 	if err != nil {
-		return err
+		return fmt.Errorf("could not create a token under service account %s in namespace %s: %v", serviceAccount, wg.Namespace, err)
 	}
 	if err := ioutil.WriteFile(filepath.Join(dir, "istio-token"), []byte(tokenReq.Status.Token), filePerms); err != nil {
 		return err
@@ -320,7 +325,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 }
 
 // TODO: Support the proxy.istio.io/config annotation
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) error {
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) (*meshconfig.MeshConfig, error) {
 	istioCM := "istio"
 	// Case with multiple control planes
 	if revision != "" {
@@ -329,11 +334,11 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
 	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, istioNamespace, err)
 	}
 	meshConfig, err := mesh.ApplyMeshConfigDefaults(istio.Data[configMapKey])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	labels := map[string]string{}
@@ -367,9 +372,24 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 
 	meshYAML, err := gogoprotomarshal.ToYAML(meshConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return ioutil.WriteFile(filepath.Join(dir, "mesh"), []byte(meshYAML), filePerms)
+	return meshConfig, ioutil.WriteFile(filepath.Join(dir, "mesh"), []byte(meshYAML), filePerms)
+}
+
+// Retrieves the external IP of the ingress-gateway for the hosts file additions
+func createHosts(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, meshConfig *meshconfig.MeshConfig, dir string) error {
+	ingress, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), multicluster.IstioIngressGatewayServiceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("service %s was not found in namespace %s: %v", multicluster.IstioIngressGatewayServiceName, istioNamespace, err)
+	}
+	serviceIP := ingress.Status.LoadBalancer.Ingress[0].IP
+
+	var hosts []string
+	hosts = append(hosts, fmt.Sprintf("%s istiod.%s.svc\n", serviceIP, istioNamespace),
+		fmt.Sprintf("1.1.1.1 pod.%s.svc.%s\n", wg.Namespace, meshConfig.DefaultConfig.MeshId),
+		fmt.Sprintf("1.1.1.1 vm.%s.svc.%s\n", wg.Namespace, meshConfig.DefaultConfig.MeshId))
+	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(strings.Join(hosts, "")), filePerms)
 }
 
 // Returns a map with each k,v entry on a new line
