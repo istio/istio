@@ -431,12 +431,10 @@ BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
-	go version
 	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: init $(JUNIT_REPORT) ## Runs all benchmarks
-	go version
 	prow/benchtest.sh run $(BENCH_TARGETS)
 	prow/benchtest.sh compare
 

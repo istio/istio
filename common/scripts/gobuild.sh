@@ -22,7 +22,6 @@
 # limitations under the License.
 
 # This script builds and version stamps the output
-export PATH=/tmp/go:$PATH
 VERBOSE=${VERBOSE:-"0"}
 V=""
 if [[ "${VERBOSE}" == "1" ]];then
@@ -82,9 +81,6 @@ OPTIMIZATION_FLAGS="-trimpath"
 if [ "${DEBUG}" == "1" ]; then
     OPTIMIZATION_FLAGS=""
 fi
-
-go version
-echo $PATH
 
 time GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} ${GOBINARY} build \
         ${V} "${GOBUILDFLAGS_ARRAY[@]}" ${GCFLAGS:+-gcflags "${GCFLAGS}"} \
