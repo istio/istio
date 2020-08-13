@@ -18,9 +18,16 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/gogo/protobuf/types"
+	. "github.com/onsi/gomega"
 	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
+	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic/fake"
+	k8sTesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/galley/pkg/config/analysis/diag"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -35,15 +42,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
-
-	"github.com/gogo/protobuf/types"
-	. "github.com/onsi/gomega"
-	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic/fake"
-	k8sTesting "k8s.io/client-go/testing"
 )
 
 func TestNewSource(t *testing.T) {

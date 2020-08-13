@@ -93,6 +93,31 @@ func TestMain(m *testing.M) {
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
 			cfg.ExposeIstiod = true
 			cfg.ControlPlaneValues = `
+# Add TCP port, not in the default install
+components:
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        service:
+          ports:
+            - port: 15021
+              targetPort: 15021
+              name: status-port
+            - port: 80
+              targetPort: 8080
+              name: http2
+            - port: 443
+              targetPort: 8443
+              name: https
+            - port: 15443
+              targetPort: 15443
+              name: tls
+            - port: 31400
+              name: tcp
+            - port: 15012
+              targetPort: 15012
+              name: tcp-istiod
 values:
   pilot:
     env:

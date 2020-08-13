@@ -18,15 +18,14 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/ledger"
+	. "github.com/onsi/gomega"
+	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/schema/collections"
-
-	. "github.com/onsi/gomega"
-	"k8s.io/utils/clock"
+	"istio.io/pkg/ledger"
 )
 
 func TestStatusMaps(t *testing.T) {

@@ -42,6 +42,7 @@ var (
 	headerVal   string
 	headers     string
 	msg         string
+	method      string
 	http2       bool
 	serverFirst bool
 
@@ -120,6 +121,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
 	rootCmd.PersistentFlags().StringVar(&msg, "msg", "HelloWorld",
 		"message to send (for websockets)")
+	rootCmd.PersistentFlags().StringVar(&method, "method", "", "method to use (for HTTP)")
 	rootCmd.PersistentFlags().BoolVar(&http2, "http2", false,
 		"send http requests as HTTP with prior knowledge")
 	rootCmd.PersistentFlags().BoolVar(&serverFirst, "server-first", false,
@@ -139,6 +141,7 @@ func getRequest() (*proto.ForwardEchoRequest, error) {
 		Message:       msg,
 		Http2:         http2,
 		ServerFirst:   serverFirst,
+		Method:        method,
 	}
 
 	// Old http add header - deprecated

@@ -28,18 +28,16 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/cache/mock"
-	"istio.io/pkg/filewatcher"
-
+	"github.com/fsnotify/fsnotify"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/cache/mock"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-
-	"github.com/fsnotify/fsnotify"
+	"istio.io/pkg/filewatcher"
 )
 
 var (
@@ -182,6 +180,20 @@ FWy1
 		},
 		Type: "test-tls-secret",
 	}
+	fakeExpiredToken = "eyJhbGciOiJSUzI1NiIsImtpZCI6Ik5adXVfam5Zdm5xQ19ZbU54aXRycV" +
+		"gyVWo3cmZkaFplcEF2QUJpUmxmLXMifQ.eyJhdWQiOlsiaXN0aW8tY2EiXSwiZXhwIjoxNTk2Nz" +
+		"Y5MTYyLCJpYXQiOjE1OTY3Njg1NjIsImlzcyI6Imh0dHBzOi8vY29udGFpbmVyLmdvb2dsZWFwa" +
+		"XMuY29tL3YxL3Byb2plY3RzL3dpbGxpYW1saWlzdGlvdGVzdC9sb2NhdGlvbnMvdXMtd2VzdDIt" +
+		"YS9jbHVzdGVycy92bWRlYnVnIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJ2bXRlc3Q" +
+		"iLCJwb2QiOnsibmFtZSI6InNsZWVwLWY4Y2JmNWI3Ni14cHBteiIsInVpZCI6IjFkMDFkMWYwLW" +
+		"VkN2UtNDVhZS1iNTAzLTFhZjAwMDMyODFkZiJ9LCJzZXJ2aWNlYWNjb3VudCI6eyJuYW1lIjoic" +
+		"2xlZXAiLCJ1aWQiOiIzYmI3ZjJkYi1mMTEzLTQxYmItOTg3OC0yYTNhODlhYjNlMjYifX0sIm5i" +
+		"ZiI6MTU5Njc2ODU2Miwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OnZtdGVzdDpzbGVlcCJ" +
+		"9.Ekw9liKDDQgK-RSzIfb2fM0ZH6vQeBKBfA9LuH_3UcCQzKSXV_l-qST3GMmBcmrbAF8MZLcNA" +
+		"bzlwZ_lcWDAYGvHG89fA4OKSZsvG0d83_nuP9hx39qqXSdrJ_OJMTGXXHcvapCgFFMPVa59KDCe" +
+		"aHkbTjmn6v3NpJ78_Cq8VxpNBKZkrdxEZOKfyula7tWegneWwJN7r0XWKB4A6hefMV8ouGI9p0N" +
+		"JujQG96_RkbY4dMeii3Z45mI6CtnAcWZ2ph8bO-OJz83KiGwtzfWvLjrPYpo-vcS7TuPNgALFgB" +
+		"SfH9S2mnmv1eJuiAYj4HkWM0K0_GK3wIBMe-YxBEmd4w"
 )
 
 func TestWorkloadAgentGenerateSecretWithoutPluginProvider(t *testing.T) {
@@ -218,7 +230,7 @@ func testWorkloadAgentGenerateSecret(t *testing.T, isUsingPluginProvider bool) {
 		sc.Close()
 	}()
 
-	checkBool(t, "opt.ParseToken default", opt.ParseToken, false)
+	checkBool(t, "opt.SkipParseToken default", opt.SkipParseToken, false)
 
 	conID := "proxy1-id"
 	ctx := context.Background()
@@ -748,55 +760,6 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
 }
 
-func TestConstructCSRHostName(t *testing.T) {
-	data, err := ioutil.ReadFile("./testdata/testjwt")
-	if err != nil {
-		t.Errorf("failed to read test jwt file %v", err)
-	}
-	testJwt := string(data)
-
-	cases := []struct {
-		trustDomain string
-		token       string
-		expected    string
-		errFlag     bool
-	}{
-		{
-			token:    testJwt,
-			expected: "spiffe://cluster.local/ns/default/sa/sleep",
-			errFlag:  false,
-		},
-		{
-			trustDomain: "fooDomain",
-			token:       testJwt,
-			expected:    "spiffe://fooDomain/ns/default/sa/sleep",
-			errFlag:     false,
-		},
-		{
-			token:    "faketoken",
-			expected: "",
-			errFlag:  true,
-		},
-	}
-	for _, c := range cases {
-		got, err := constructCSRHostName(c.trustDomain, c.token)
-		if err != nil {
-			if c.errFlag == false {
-				t.Errorf("constructCSRHostName no error, but got %v", err)
-			}
-			continue
-		}
-
-		if c.errFlag == true {
-			t.Error("constructCSRHostName error")
-		}
-
-		if got != c.expected {
-			t.Errorf("constructCSRHostName got %q, want %q", got, c.expected)
-		}
-	}
-}
-
 func checkBool(t *testing.T, name string, got bool, want bool) {
 	if got != want {
 		t.Errorf("%s: got: %v, want: %v", name, got, want)
@@ -806,9 +769,18 @@ func checkBool(t *testing.T, name string, got bool, want bool) {
 func TestParseTokenFlag(t *testing.T) {
 	sc := createSecretCache()
 	defer sc.Close()
-	sc.configOptions.ParseToken = false
+	sc.configOptions.SkipParseToken = true
 	secret := security.SecretItem{}
 	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), false)
+}
+
+func TestExpiredToken(t *testing.T) {
+	sc := createSecretCache()
+	defer sc.Close()
+	sc.configOptions.SkipParseToken = false
+	secret := security.SecretItem{}
+	secret.Token = fakeExpiredToken
+	checkBool(t, "isTokenExpired", sc.isTokenExpired(&secret), true)
 }
 
 func TestRootCertificateExists(t *testing.T) {
@@ -884,7 +856,7 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		RotationInterval: 200 * time.Millisecond,
 		EvictionDuration: 0,
 		UseTokenForCSR:   true,
-		ParseToken:       true,
+		SkipParseToken:   false,
 	}
 
 	fetcher := &secretfetcher.SecretFetcher{

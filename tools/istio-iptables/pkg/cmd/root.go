@@ -22,16 +22,14 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/tools/istio-iptables/pkg/validation"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/istio/tools/istio-iptables/pkg/validation"
 	"istio.io/pkg/env"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"istio.io/pkg/log"
 )
 
@@ -109,15 +107,13 @@ func constructConfig() *config.Config {
 	if cfg.ProxyUID == "" {
 		usr, err := user.Lookup(envoyUserVar.Get())
 		var userID string
-		// Default to the UID of ENVOY_USER and root
+		// Default to the UID of ENVOY_USER
 		if err != nil {
 			userID = constants.DefaultProxyUID
 		} else {
 			userID = usr.Uid
 		}
-		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list
-		// for the CA agent.
-		cfg.ProxyUID = userID + ",0"
+		cfg.ProxyUID = userID
 	}
 	// For TPROXY as its uid and gid are same.
 	if cfg.ProxyGID == "" {

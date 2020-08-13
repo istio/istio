@@ -22,24 +22,23 @@ import (
 	"io/ioutil"
 	"time"
 
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
-	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
+	admissionregistrationv1beta1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/webhooks/validation/controller"
-
 	"istio.io/pkg/log"
 )
 
 // patchMutatingWebhookConfig patches a CA bundle into the specified webhook config.
-func patchMutatingWebhookConfig(client admissionregistrationv1client.MutatingWebhookConfigurationInterface,
+func patchMutatingWebhookConfig(client admissionregistrationv1beta1client.MutatingWebhookConfigurationInterface,
 	webhookConfigName, webhookName string, caBundle []byte) error {
 	config, err := client.Get(context.TODO(), webhookConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -65,7 +64,7 @@ func patchMutatingWebhookConfig(client admissionregistrationv1client.MutatingWeb
 	if err != nil {
 		return err
 	}
-	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, kubeApiAdmission.MutatingWebhookConfiguration{})
+	patch, err := strategicpatch.CreateTwoWayMergePatch(prev, curr, v1beta1.MutatingWebhookConfiguration{})
 	if err != nil {
 		return err
 	}
@@ -91,7 +90,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	}
 
 	var retry bool
-	if err = patchMutatingWebhookConfig(client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+	if err = patchMutatingWebhookConfig(client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations(),
 		injectionWebhookConfigName, webhookName, caCertPem); err != nil {
 		log.Warna("Error patching Webhook ", err)
 		retry = true
@@ -100,19 +99,19 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 	shouldPatch := make(chan struct{})
 
 	watchlist := cache.NewListWatchFromClient(
-		client.AdmissionregistrationV1().RESTClient(),
+		client.AdmissionregistrationV1beta1().RESTClient(),
 		"mutatingwebhookconfigurations",
 		"",
 		fields.ParseSelectorOrDie(fmt.Sprintf("metadata.name=%s", injectionWebhookConfigName)))
 
 	_, controller := cache.NewInformer(
 		watchlist,
-		&kubeApiAdmission.MutatingWebhookConfiguration{},
+		&v1beta1.MutatingWebhookConfiguration{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldConfig := oldObj.(*kubeApiAdmission.MutatingWebhookConfiguration)
-				newConfig := newObj.(*kubeApiAdmission.MutatingWebhookConfiguration)
+				oldConfig := oldObj.(*v1beta1.MutatingWebhookConfiguration)
+				newConfig := newObj.(*v1beta1.MutatingWebhookConfiguration)
 
 				if oldConfig.ResourceVersion != newConfig.ResourceVersion {
 					for i, w := range newConfig.Webhooks {
@@ -157,7 +156,7 @@ func PatchCertLoop(injectionWebhookConfigName, webhookName, caBundlePath string,
 }
 
 func doPatch(cs kubernetes.Interface, webhookConfigName, webhookName string, caCertPem []byte) (retry bool) {
-	client := cs.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	client := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 	if err := patchMutatingWebhookConfig(client, webhookConfigName, webhookName, caCertPem); err != nil {
 		log.Errorf("Patch webhook failed: %v", err)
 		return true

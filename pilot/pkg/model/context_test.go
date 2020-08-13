@@ -28,7 +28,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/mock"
@@ -291,17 +290,17 @@ func TestParseMetadata(t *testing.T) {
 	cases := []struct {
 		name     string
 		metadata map[string]interface{}
-		out      model.Proxy
+		out      *model.Proxy
 	}{
 		{
 			name: "Basic Case",
-			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+			out: &model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
 				Metadata: &model.NodeMetadata{Raw: map[string]interface{}{}}},
 		},
 		{
 			name:     "Capture Arbitrary Metadata",
 			metadata: map[string]interface{}{"foo": "bar"},
-			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+			out: &model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
 				Metadata: &model.NodeMetadata{
 					Raw: map[string]interface{}{
 						"foo": "bar",
@@ -315,7 +314,7 @@ func TestParseMetadata(t *testing.T) {
 					"foo": "bar",
 				},
 			},
-			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+			out: &model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
 				Metadata: &model.NodeMetadata{
 					Raw: map[string]interface{}{
 						"LABELS": map[string]interface{}{"foo": "bar"},
@@ -329,7 +328,7 @@ func TestParseMetadata(t *testing.T) {
 			metadata: map[string]interface{}{
 				"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
 			},
-			out: model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
+			out: &model.Proxy{Type: "sidecar", IPAddresses: []string{"1.1.1.1"}, DNSDomain: "domain", ID: "id", IstioVersion: model.MaxIstioVersion,
 				Metadata: &model.NodeMetadata{
 					Raw: map[string]interface{}{
 						"POD_PORTS": `[{"name":"http","containerPort":8080,"protocol":"TCP"},{"name":"grpc","containerPort":8079,"protocol":"TCP"}]`,
@@ -358,8 +357,8 @@ func TestParseMetadata(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to parse service node: %v", err)
 			}
-			if !reflect.DeepEqual(&tt.out, node) {
-				t.Errorf("Got \n%v, want \n%v", node, &tt.out)
+			if !reflect.DeepEqual(*tt.out.Metadata, *node.Metadata) {
+				t.Errorf("Got \n%v, want \n%v", *node.Metadata, *tt.out.Metadata)
 			}
 		})
 	}

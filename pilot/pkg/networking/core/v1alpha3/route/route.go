@@ -32,11 +32,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/util/gogo"
-
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
@@ -44,6 +40,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -744,6 +742,16 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	return out
 }
 
+func convertToExactEnvoyMatch(in []string) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, istioMatcher := range in {
+		res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: istioMatcher}})
+	}
+
+	return res
+}
+
 func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*matcher.StringMatcher {
 	res := make([]*matcher.StringMatcher, 0, len(in))
 
@@ -778,6 +786,8 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	out := route.CorsPolicy{}
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins, node)
+	} else if in.AllowOrigin != nil {
+		out.AllowOriginStringMatch = convertToExactEnvoyMatch(in.AllowOrigin)
 	}
 
 	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{

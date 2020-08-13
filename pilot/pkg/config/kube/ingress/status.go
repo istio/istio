@@ -31,11 +31,9 @@ import (
 	listerv1beta1 "k8s.io/client-go/listers/networking/v1beta1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
-
 	"istio.io/pkg/log"
 )
 

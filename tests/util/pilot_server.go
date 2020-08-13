@@ -23,15 +23,14 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/pkg/log"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-
-	"k8s.io/apimachinery/pkg/util/wait"
+	"istio.io/pkg/log"
 )
 
 var (

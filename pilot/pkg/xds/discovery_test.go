@@ -26,11 +26,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/monitoring"
 )
 
 func createProxies(n int) []*Connection {
@@ -61,6 +60,8 @@ func wgDoneOrTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 
 func TestSendPushesManyPushes(t *testing.T) {
 	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
 
@@ -74,11 +75,15 @@ func TestSendPushesManyPushes(t *testing.T) {
 		// Start receive thread
 		go func() {
 			for {
-				p := <-proxy.pushChannel
-				p.done()
-				pushesMu.Lock()
-				pushes[proxy.ConID]++
-				pushesMu.Unlock()
+				select {
+				case p := <-proxy.pushChannel:
+					p.done()
+					pushesMu.Lock()
+					pushes[proxy.ConID]++
+					pushesMu.Unlock()
+				case <-stopCh:
+					return
+				}
 			}
 		}()
 	}
@@ -104,6 +109,8 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 func TestSendPushesSinglePush(t *testing.T) {
 	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
 
@@ -120,12 +127,16 @@ func TestSendPushesSinglePush(t *testing.T) {
 		// Start receive thread
 		go func() {
 			for {
-				p := <-proxy.pushChannel
-				p.done()
-				pushesMu.Lock()
-				pushes[proxy.ConID]++
-				pushesMu.Unlock()
-				wg.Done()
+				select {
+				case p := <-proxy.pushChannel:
+					p.done()
+					pushesMu.Lock()
+					pushes[proxy.ConID]++
+					pushesMu.Unlock()
+					wg.Done()
+				case <-stopCh:
+					return
+				}
 			}
 		}()
 	}
@@ -322,7 +333,7 @@ func TestShouldRespond(t *testing.T) {
 		{
 			name: "initial request",
 			connection: &Connection{
-				node: &model.Proxy{
+				proxy: &model.Proxy{
 					Active: map[string]*model.WatchedResource{},
 				},
 			},
@@ -334,7 +345,7 @@ func TestShouldRespond(t *testing.T) {
 		{
 			name: "ack",
 			connection: &Connection{
-				node: &model.Proxy{
+				proxy: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
 						v3.ClusterType: {
 							VersionSent: "v1",
@@ -353,7 +364,7 @@ func TestShouldRespond(t *testing.T) {
 		{
 			name: "nack",
 			connection: &Connection{
-				node: &model.Proxy{
+				proxy: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
 						v3.ClusterType: {
 							VersionSent: "v1",
@@ -372,7 +383,7 @@ func TestShouldRespond(t *testing.T) {
 		{
 			name: "reconnect",
 			connection: &Connection{
-				node: &model.Proxy{
+				proxy: &model.Proxy{
 					Active: map[string]*model.WatchedResource{},
 				},
 			},
@@ -386,7 +397,7 @@ func TestShouldRespond(t *testing.T) {
 		{
 			name: "resources change",
 			connection: &Connection{
-				node: &model.Proxy{
+				proxy: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
 						v3.EndpointType: {
 							VersionSent:   "v1",
@@ -407,7 +418,7 @@ func TestShouldRespond(t *testing.T) {
 		{
 			name: "ack with same resources",
 			connection: &Connection{
-				node: &model.Proxy{
+				proxy: &model.Proxy{
 					Active: map[string]*model.WatchedResource{
 						v3.EndpointType: {
 							VersionSent:   "v1",
@@ -436,8 +447,8 @@ func TestShouldRespond(t *testing.T) {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {
-				if tt.connection.node.Active[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
-					tt.connection.node.Active[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
+				if tt.connection.proxy.Active[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
+					tt.connection.proxy.Active[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
 					t.Fatalf("Version & Nonce not updated properly")
 				}
 			}

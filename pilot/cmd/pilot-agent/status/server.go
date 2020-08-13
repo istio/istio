@@ -37,17 +37,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 	"go.opencensus.io/stats/view"
-
-	"istio.io/pkg/env"
-
-	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (

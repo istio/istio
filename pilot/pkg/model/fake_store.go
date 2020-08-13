@@ -15,12 +15,11 @@
 package model
 
 import (
+	"time"
+
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-
-	"time"
-
 	"istio.io/pkg/ledger"
 )
 

@@ -35,6 +35,7 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
+      meshId: cluster.local
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
@@ -183,7 +184,6 @@ data:
       "sidecarInjectorWebhook": {
         "alwaysInjectSelector": [],
         "enableNamespacesByDefault": false,
-        "injectLabel": "istio-injection",
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "objectSelector": {
@@ -377,9 +377,11 @@ data:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        {{- if .Values.global.caAddress }}
         - name: CA_ADDR
+        {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -1916,7 +1918,7 @@ spec:
 ---
 # Source: istio-discovery/templates/mutatingwebhook.yaml
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector
@@ -1934,13 +1936,13 @@ webhooks:
         path: "/inject"
       caBundle: ""
     sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
         apiVersions: ["v1"]
         resources: ["pods"]
     failurePolicy: Fail
+    admissionReviewVersions: ["v1beta1", "v1"]
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

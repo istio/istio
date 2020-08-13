@@ -33,7 +33,6 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pkg/kube/inject"
-
 	"istio.io/pkg/log"
 )
 

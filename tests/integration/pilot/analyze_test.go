@@ -15,11 +15,10 @@
 package pilot
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
-
-	"encoding/json"
 
 	. "github.com/onsi/gomega"
 
@@ -337,6 +336,31 @@ func TestTimeout(t *testing.T) {
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
 			g.Expect(err.Error()).To(ContainSubstring("timed out"))
+		})
+}
+
+// Verify the error line number in the message is correct
+func TestErrorLine(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Features("usability.observability.analysis.line-numbers").
+		Run(func(ctx framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
+
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 

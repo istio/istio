@@ -19,10 +19,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/log"
 )
 

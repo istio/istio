@@ -303,7 +303,6 @@ spec:
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
       rewriteAppHTTPProbe: true
-      injectLabel: istio-injection
       objectSelector:
         enabled: false
         autoInject: true

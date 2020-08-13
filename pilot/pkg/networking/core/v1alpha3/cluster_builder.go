@@ -24,13 +24,12 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -200,7 +199,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
-		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
@@ -280,7 +278,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode, cb.push)
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode)
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}

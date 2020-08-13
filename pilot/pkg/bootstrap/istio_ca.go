@@ -26,21 +26,18 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-
-	"istio.io/istio/pilot/pkg/features"
-
 	"google.golang.org/grpc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.

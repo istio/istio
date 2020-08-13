@@ -30,7 +30,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	kubeApiAdmission "k8s.io/api/admission/v1"
+	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 )
 
 const yamlSeparator = "\n---"
@@ -603,12 +604,8 @@ func TestWebhookInject(t *testing.T) {
 			if err != nil {
 				t.Fatalf(err.Error())
 			}
-			got := wh.inject(&kubeApiAdmission.AdmissionReview{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "admission.k8s.io/v1",
-					Kind:       "AdmissionReview",
-				},
-				Request: &kubeApiAdmission.AdmissionRequest{
+			got := wh.inject(&kube.AdmissionReview{
+				Request: &kube.AdmissionRequest{
 					Object: runtime.RawExtension{
 						Raw: podJSON,
 					},
@@ -753,12 +750,8 @@ func TestHelmInject(t *testing.T) {
 					// pod configuration. But since our input files are deployments, rather than actual pod instances,
 					// we have to apply the patch to the template portion of the deployment only.
 					templateJSON := convertToJSON(inputDeployment.Spec.Template, t)
-					got := webhook.inject(&kubeApiAdmission.AdmissionReview{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: "admission.k8s.io/v1",
-							Kind:       "AdmissionReview",
-						},
-						Request: &kubeApiAdmission.AdmissionRequest{
+					got := webhook.inject(&kube.AdmissionReview{
+						Request: &kube.AdmissionRequest{
 							Object: runtime.RawExtension{
 								Raw: templateJSON,
 							},
@@ -1115,7 +1108,7 @@ func istioProxy(d *appsv1.Deployment, t *testing.T) *corev1.Container {
 	return nil
 }
 
-func makeTestData(t testing.TB, skip bool) []byte {
+func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 	t.Helper()
 
 	pod := corev1.Pod{
@@ -1140,17 +1133,21 @@ func makeTestData(t testing.TB, skip bool) []byte {
 		t.Fatalf("Could not create test pod: %v", err)
 	}
 
-	review := kubeApiAdmission.AdmissionReview{
+	review := v1beta1.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
 			Kind:       "AdmissionReview",
+			APIVersion: fmt.Sprintf("admission.k8s.io/%s", apiVersion),
 		},
-		Request: &kubeApiAdmission.AdmissionRequest{
-			Kind: metav1.GroupVersionKind{},
+		Request: &v1beta1.AdmissionRequest{
+			Kind: metav1.GroupVersionKind{
+				Group:   v1beta1.GroupName,
+				Version: apiVersion,
+				Kind:    "AdmissionRequest",
+			},
 			Object: runtime.RawExtension{
 				Raw: raw,
 			},
-			Operation: kubeApiAdmission.Create,
+			Operation: v1beta1.Create,
 		},
 	}
 	reviewJSON, err := json.Marshal(review)
@@ -1221,8 +1218,9 @@ func TestRunAndServe(t *testing.T) {
 	defer func() { close(stop) }()
 	go wh.Run(stop)
 
-	validReview := makeTestData(t, false)
-	skipReview := makeTestData(t, true)
+	validReview := makeTestData(t, false, "v1beta1")
+	validReviewV1 := makeTestData(t, false, "v1")
+	skipReview := makeTestData(t, true, "v1beta1")
 
 	// nolint: lll
 	validPatch := []byte(`[
@@ -1330,6 +1328,14 @@ func TestRunAndServe(t *testing.T) {
 			wantPatch:      validPatch,
 		},
 		{
+			name:           "valid(v1 version)",
+			body:           validReviewV1,
+			contentType:    "application/json",
+			wantAllowed:    true,
+			wantStatusCode: http.StatusOK,
+			wantPatch:      validPatch,
+		},
+		{
 			name:           "skipped",
 			body:           skipReview,
 			contentType:    "application/json",
@@ -1379,7 +1385,7 @@ func TestRunAndServe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not read body: %v", err)
 			}
-			var gotReview kubeApiAdmission.AdmissionReview
+			var gotReview v1beta1.AdmissionReview
 			if err := json.Unmarshal(gotBody, &gotReview); err != nil {
 				t.Fatalf("could not decode response body: %v", err)
 			}
@@ -1454,7 +1460,7 @@ func BenchmarkInjectServe(b *testing.B) {
 	defer func() { close(stop) }()
 	go wh.Run(stop)
 
-	body := makeTestData(b, false)
+	body := makeTestData(b, false, "v1beta1")
 	req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))
 	req.Header.Add("Content-Type", "application/json")
 

@@ -37,7 +37,7 @@ var (
 	Info = Level{2, "Info"}
 
 	// Warning level is for warning messages
-	Warning = Level{1, "Warn"}
+	Warning = Level{1, "Warning"}
 
 	// Error level is for error messages
 	Error = Level{0, "Error"}

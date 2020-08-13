@@ -172,7 +172,6 @@ values.pilot.keepaliveMaxServerConnectionAge="30m"
 values.pilot.replicaCount=1
 values.pilot.traceSampling=1
 values.sidecarInjectorWebhook.enableNamespacesByDefault=false
-values.sidecarInjectorWebhook.injectLabel="istio-injection"
 values.sidecarInjectorWebhook.objectSelector.autoInject=true
 values.sidecarInjectorWebhook.objectSelector.enabled=false
 values.sidecarInjectorWebhook.rewriteAppHTTPProbe=true

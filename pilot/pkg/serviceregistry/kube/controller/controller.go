@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	"github.com/yl2chen/cidranger"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,9 +28,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -43,6 +39,8 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -218,10 +216,7 @@ type Controller struct {
 	// Network name for the registry as specified by the MeshNetworks configmap
 	networkForRegistry string
 
-	// initialSync becomes true only after the resources that exist at startup are processed
-	// to ensure correct ordering
-	syncMu      sync.Mutex
-	initialSync bool
+	once sync.Once
 }
 
 // NewController creates a new Kubernetes controller
@@ -471,45 +466,57 @@ func (c *Controller) HasSynced() bool {
 	}
 
 	// after informer caches sync the first time, process resources in order
-	c.syncMu.Lock()
-	defer c.syncMu.Unlock()
-	if !c.initialSync {
+	c.once.Do(func() {
 		if err := c.SyncAll(); err != nil {
 			log.Errorf("one or more errors force-syncing resources: %v", err)
 		}
-		c.initialSync = true
-	}
+	})
 
 	return true
 }
 
+// SyncAll syncs all the objects node->service->pod->endpoint in order
+// TODO: sync same kind of objects in parallel
+// This can cause great performance cost in multi clusters scenario.
+// Maybe just sync the cache and trigger one push at last.
 func (c *Controller) SyncAll() error {
 	var err *multierror.Error
 
 	nodes := c.nodeInformer.GetStore().List()
-	log.Debugf("initialzing %d nodes", len(nodes))
+	log.Debugf("initializing %d nodes", len(nodes))
 	for _, s := range nodes {
 		err = multierror.Append(err, c.onNodeEvent(s, model.EventAdd))
 	}
 
 	services := c.serviceInformer.GetStore().List()
-	log.Debugf("initialzing %d services", len(services))
+	log.Debugf("initializing %d services", len(services))
 	for _, s := range services {
 		err = multierror.Append(err, c.onServiceEvent(s, model.EventAdd))
 	}
 
+	err = multierror.Append(err, c.syncPods())
+	err = multierror.Append(err, c.syncEndpoints())
+
+	return multierror.Flatten(err.ErrorOrNil())
+}
+
+func (c *Controller) syncPods() error {
+	var err *multierror.Error
 	pods := c.pods.informer.GetStore().List()
-	log.Debugf("initialzing %d pods", len(pods))
+	log.Debugf("initializing %d pods", len(pods))
 	for _, s := range pods {
 		err = multierror.Append(err, c.pods.onEvent(s, model.EventAdd))
 	}
+	return err.ErrorOrNil()
+}
 
+func (c *Controller) syncEndpoints() error {
+	var err *multierror.Error
 	endpoints := c.endpoints.getInformer().GetStore().List()
-	log.Debugf("initialzing%d endpoints", len(endpoints))
+	log.Debugf("initializing%d endpoints", len(endpoints))
 	for _, s := range endpoints {
 		err = multierror.Append(err, c.endpoints.onEvent(s, model.EventAdd))
 	}
-
 	return err.ErrorOrNil()
 }
 
@@ -925,7 +932,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 				}
 			}
 			// fire off eds update
-			_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(service.Hostname), service.Attributes.Namespace, endpoints)
+			c.xdsUpdater.EDSUpdate(c.clusterID, string(service.Hostname), service.Attributes.Namespace, endpoints)
 		}
 	}
 }

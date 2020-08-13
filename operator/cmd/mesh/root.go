@@ -29,7 +29,7 @@ const (
 	releaseURL     = `https://github.com/istio/istio/releases/download/` + baseVersion + `/istio-` + baseVersion + `-linux-amd64.tar.gz`
 	setFlagHelpStr = `Override an IstioOperator value, e.g. to choose a profile
 (--set profile=demo), enable or disable components (--set components.policy.enabled=true), or override Istio
-settings (--set values.grafana.enabled=true). See documentation for more info:
+settings (--set meshConfig.enableTracing=true). See documentation for more info:
 https://istio.io/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec`
 	// ManifestsFlagHelpStr is the command line description for --manifests
 	ManifestsFlagHelpStr = `Specify a path to a directory of charts and profiles
@@ -42,12 +42,13 @@ or release tar URL (e.g. ` + releaseURL + `).
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
 	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
-	installationCompleteStr = `Installation complete`
-	ForceFlagHelpStr        = `Proceed even with validation errors.`
-	KubeConfigFlagHelpStr   = `Path to kube config.`
-	ContextFlagHelpStr      = `The name of the kubeconfig context to use.`
-	HubFlagHelpStr          = `The hub for the operator controller image.`
-	TagFlagHelpStr          = `The tag for the operator controller image.`
+	installationCompleteStr  = `Installation complete`
+	ForceFlagHelpStr         = `Proceed even with validation errors.`
+	KubeConfigFlagHelpStr    = `Path to kube config.`
+	ContextFlagHelpStr       = `The name of the kubeconfig context to use.`
+	HubFlagHelpStr           = `The hub for the operator controller image.`
+	TagFlagHelpStr           = `The tag for the operator controller image.`
+	OperatorNamespaceHelpstr = `The namespace the operator controller is installed into.`
 )
 
 type rootArgs struct {

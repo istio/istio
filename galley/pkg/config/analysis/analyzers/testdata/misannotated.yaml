@@ -40,8 +40,6 @@ metadata:
   labels:
     app: details
   annotations:
-    # annotation is known, but doesn't go on a Service
-    policy.istio.io/lang: golang
     # Annotation that Istio doesn't know about, but isn't an Istio annotation, thus ignored
     kubernetes.io/psp: my-privileged-psp
 spec:

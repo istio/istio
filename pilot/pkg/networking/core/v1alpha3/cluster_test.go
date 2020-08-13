@@ -22,11 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
-
-	authn_model "istio.io/istio/pilot/pkg/security/model"
-
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -34,19 +29,22 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	authn_beta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authn_model "istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -101,15 +99,19 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 		}
 		t.Run(testName, func(t *testing.T) {
 			g := NewWithT(t)
-			clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh,
-				&networking.DestinationRule{
+			clusters := buildTestClusters(clusterTest{
+				t:               t,
+				serviceHostname: "*.example.org",
+				nodeType:        model.SidecarProxy,
+				mesh:            testMesh,
+				destRule: &networking.DestinationRule{
 					Host: "*.example.org",
 					TrafficPolicy: &networking.TrafficPolicy{
 						ConnectionPool: s,
 					},
-				})
-			g.Expect(err).NotTo(HaveOccurred())
+				}})
 			g.Expect(len(clusters)).To(Equal(8))
+
 			for _, index := range clusterIndexes {
 				cluster := clusters[index]
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
@@ -208,14 +210,13 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		}
 		testName := fmt.Sprintf("%s-%s", tc.direction, settingsName)
 		t.Run(testName, func(t *testing.T) {
-			clusters, err := buildTestClusters("*.example.org", 0, tc.proxyType, nil, testMesh,
-				&networking.DestinationRule{
+			clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: tc.proxyType, mesh: testMesh,
+				destRule: &networking.DestinationRule{
 					Host: "*.example.org",
 					TrafficPolicy: &networking.TrafficPolicy{
 						ConnectionPool: settings,
 					},
-				})
-			g.Expect(err).NotTo(HaveOccurred())
+				}})
 			g.Expect(len(clusters)).To(Equal(tc.clusters))
 			c := clusters[tc.clusterIndex]
 			g.Expect(c.CommonHttpProtocolOptions).To(Not(BeNil()))
@@ -234,52 +235,39 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 	}
 }
 
-func buildTestClusters(serviceHostname string, serviceResolution model.Resolution,
-	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message) ([]*cluster.Cluster, error) {
-	return buildTestClustersWithAuthnPolicy(
-		serviceHostname,
-		serviceResolution,
-		false, // externalService
-		nodeType,
-		locality,
-		mesh,
-		destRule,
-		nil, // peerAuthn
-	)
+// clusterTest defines a structure containing all information needed to build a cluster for tests
+type clusterTest struct {
+	// Required
+	t                 testing.TB
+	serviceHostname   string
+	serviceResolution model.Resolution
+	nodeType          model.NodeType
+	locality          *core.Locality
+	mesh              meshconfig.MeshConfig
+	destRule          proto.Message
+	peerAuthn         *authn_beta.PeerAuthentication
+	externalService   bool
+
+	meta         *model.NodeMetadata
+	istioVersion *model.IstioVersion
+	proxyIps     []string
 }
 
-func buildTestClustersWithAuthnPolicy(serviceHostname string, serviceResolution model.Resolution, externalService bool,
-	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication) ([]*cluster.Cluster, error) {
-	return buildTestClustersWithProxyMetadata(
-		serviceHostname,
-		serviceResolution,
-		externalService,
-		nodeType,
-		locality,
-		mesh,
-		destRule,
-		peerAuthn,
-		&model.NodeMetadata{},
-		model.MaxIstioVersion)
+func (c clusterTest) fillDefaults() clusterTest {
+	if c.proxyIps == nil {
+		c.proxyIps = []string{"6.6.6.6", "::1"}
+	}
+	if c.istioVersion == nil {
+		c.istioVersion = model.MaxIstioVersion
+	}
+	if c.meta == nil {
+		c.meta = &model.NodeMetadata{}
+	}
+	return c
 }
 
-func buildTestClustersWithProxyMetadata(serviceHostname string, serviceResolution model.Resolution, externalService bool,
-	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
-	meta *model.NodeMetadata, istioVersion *model.IstioVersion) ([]*cluster.Cluster, error) {
-	return buildTestClustersWithProxyMetadataWithIps(serviceHostname, serviceResolution, externalService,
-		nodeType, locality, mesh,
-		destRule, peerAuthn, meta, istioVersion,
-		// Add default sidecar proxy meta
-		[]string{"6.6.6.6", "::1"})
-}
-
-func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceResolution model.Resolution, externalService bool,
-	nodeType model.NodeType, locality *core.Locality, mesh meshconfig.MeshConfig,
-	destRule proto.Message, peerAuthn *authn_beta.PeerAuthentication,
-	meta *model.NodeMetadata, istioVersion *model.IstioVersion, proxyIps []string) ([]*cluster.Cluster, error) {
+func buildTestClusters(c clusterTest) []*cluster.Cluster {
+	c = c.fillDefaults()
 	configgen := NewConfigGenerator([]plugin.Plugin{})
 
 	servicePort := model.PortList{
@@ -299,12 +287,12 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 		Namespace: TestServiceNamespace,
 	}
 	service := &model.Service{
-		Hostname:     host.Name(serviceHostname),
+		Hostname:     host.Name(c.serviceHostname),
 		Address:      "1.1.1.1",
 		ClusterVIPs:  make(map[string]string),
 		Ports:        servicePort,
-		Resolution:   serviceResolution,
-		MeshExternal: externalService,
+		Resolution:   c.serviceResolution,
+		MeshExternal: c.externalService,
 		Attributes:   serviceAttribute,
 	}
 
@@ -379,14 +367,14 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 			GroupVersionKind: gvk.DestinationRule,
 			Name:             "acme",
 		},
-		Spec: destRule,
+		Spec: c.destRule,
 	})
 	if err != nil {
-		return nil, err
+		c.t.Fatal(err)
 	}
-	if peerAuthn != nil {
+	if c.peerAuthn != nil {
 		policyName := "default"
-		if peerAuthn.Selector != nil {
+		if c.peerAuthn.Selector != nil {
 			policyName = "acme"
 		}
 		_, err := configStore.Create(model.Config{
@@ -395,40 +383,40 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 				Name:             policyName,
 				Namespace:        TestServiceNamespace,
 			},
-			Spec: peerAuthn,
+			Spec: c.peerAuthn,
 		})
 		if err != nil {
-			return nil, err
+			c.t.Fatal(err)
 		}
 	}
-	env := newTestEnvironment(serviceDiscovery, mesh, configStore)
+	env := newTestEnvironment(serviceDiscovery, c.mesh, configStore)
 
-	if meta.ClusterID == "" {
-		meta.ClusterID = "some-cluster-id"
+	if c.meta.ClusterID == "" {
+		c.meta.ClusterID = "some-cluster-id"
 	}
 
 	var proxy *model.Proxy
-	switch nodeType {
+	switch c.nodeType {
 	case model.SidecarProxy:
 		proxy = &model.Proxy{
 			Type:         model.SidecarProxy,
-			IPAddresses:  proxyIps,
-			Locality:     locality,
+			IPAddresses:  c.proxyIps,
+			Locality:     c.locality,
 			DNSDomain:    "com",
-			Metadata:     meta,
-			IstioVersion: istioVersion,
+			Metadata:     c.meta,
+			IstioVersion: c.istioVersion,
 		}
 	case model.Router:
 		proxy = &model.Proxy{
 			Type:         model.Router,
 			IPAddresses:  []string{"6.6.6.6"},
-			Locality:     locality,
+			Locality:     c.locality,
 			DNSDomain:    "default.example.org",
-			Metadata:     meta,
-			IstioVersion: istioVersion,
+			Metadata:     c.meta,
+			IstioVersion: c.istioVersion,
 		}
 	default:
-		panic(fmt.Sprintf("unsupported node type: %v", nodeType))
+		panic(fmt.Sprintf("unsupported node type: %v", c.nodeType))
 	}
 	proxy.SetSidecarScope(env.PushContext)
 
@@ -436,25 +424,19 @@ func buildTestClustersWithProxyMetadataWithIps(serviceHostname string, serviceRe
 	proxy.DiscoverIPVersions()
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
-
-	for _, cluster := range clusters {
-		// Validate Clusters so that generated clusters pass Envoy validation logic.
-		if err := cluster.Validate(); err != nil {
-			return nil, fmt.Errorf("cluster %s failed validation with error %s", cluster.Name, err.Error())
-		}
-	}
+	xdstest.ValidateClusters(c.t, clusters)
 	if len(env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()]) > 0 {
-		return nil, fmt.Errorf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
+		c.t.Fatalf("duplicate clusters detected %#v", env.PushContext.ProxyStatus[model.DuplicatedClusters.Name()])
 	}
-	return clusters, nil
+	return clusters
 }
 
 func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	g := NewWithT(t)
 
 	ttl := types.Duration{Nanos: 100}
-	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
-		&networking.DestinationRule{
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: model.Router, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
@@ -471,8 +453,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 					},
 				},
 			},
-		})
-	g.Expect(err).NotTo(HaveOccurred())
+		}})
 
 	g.Expect(len(clusters)).To(Equal(3))
 
@@ -487,8 +468,8 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 	g := NewWithT(t)
 
 	ttl := types.Duration{Nanos: 100}
-	clusters, err := buildTestClusters("*.example.org", 0, model.Router, nil, testMesh,
-		&networking.DestinationRule{
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: model.Router, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
@@ -504,8 +485,7 @@ func TestBuildGatewayClustersWithRingHashLbDefaultMinRingSize(t *testing.T) {
 					},
 				},
 			},
-		})
-	g.Expect(err).NotTo(HaveOccurred())
+		}})
 
 	g.Expect(len(clusters)).To(Equal(3))
 
@@ -543,8 +523,7 @@ func withClusterLocalHosts(m meshconfig.MeshConfig, hosts ...string) meshconfig.
 func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	g := NewWithT(t)
 
-	clusters, err := buildSniTestClustersForSidecar("foo.com")
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters := buildSniTestClustersForSidecar(t, "foo.com")
 
 	g.Expect(len(clusters)).To(Equal(10))
 
@@ -552,8 +531,7 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
 	g.Expect(getTLSContext(t, cluster).GetSni()).To(Equal("foo.com"))
 
-	clusters, err = buildSniTestClustersForSidecar("")
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters = buildSniTestClustersForSidecar(t, "")
 
 	g.Expect(len(clusters)).To(Equal(10))
 
@@ -602,9 +580,16 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 		},
 	}
 
-	clusters, err := buildTestClustersWithProxyMetadata("foo.example.org", model.ClientSideLB, false, model.SidecarProxy,
-		nil, testMesh, destRule, nil, envoyMetadata, model.MaxIstioVersion)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters := buildTestClusters(clusterTest{
+		t:                 t,
+		serviceHostname:   "foo.example.org",
+		serviceResolution: model.ClientSideLB,
+		nodeType:          model.SidecarProxy,
+		mesh:              testMesh,
+		destRule:          destRule,
+		meta:              envoyMetadata,
+		istioVersion:      model.MaxIstioVersion,
+	})
 
 	g.Expect(clusters).To(HaveLen(10))
 
@@ -634,17 +619,17 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	g.Expect(actualOutboundClusterCount).To(Equal(expectedOutboundClusterCount))
 }
 
-func buildSniTestClustersForSidecar(sniValue string) ([]*cluster.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, model.SidecarProxy, &model.NodeMetadata{})
+func buildSniTestClustersForSidecar(t *testing.T, sniValue string) []*cluster.Cluster {
+	return buildSniTestClustersWithMetadata(t, sniValue, model.SidecarProxy, &model.NodeMetadata{})
 }
 
-func buildSniDnatTestClustersForGateway(sniValue string) ([]*cluster.Cluster, error) {
-	return buildSniTestClustersWithMetadata(sniValue, model.Router, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
+func buildSniDnatTestClustersForGateway(t *testing.T, sniValue string) []*cluster.Cluster {
+	return buildSniTestClustersWithMetadata(t, sniValue, model.Router, &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)})
 }
 
-func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta *model.NodeMetadata) ([]*cluster.Cluster, error) {
-	return buildTestClustersWithProxyMetadata("foo.example.org", 0, false, typ, nil, testMesh,
-		&networking.DestinationRule{
+func buildSniTestClustersWithMetadata(t testing.TB, sniValue string, typ model.NodeType, meta *model.NodeMetadata) []*cluster.Cluster {
+	return buildTestClusters(clusterTest{t: t, serviceHostname: "foo.example.org", nodeType: typ, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
 				{
@@ -666,18 +651,16 @@ func buildSniTestClustersWithMetadata(sniValue string, typ model.NodeType, meta 
 				},
 			},
 		},
-		nil, // peerAuthn
-		meta,
-		model.MaxIstioVersion,
-	)
+		meta:         meta,
+		istioVersion: model.MaxIstioVersion,
+	})
 }
 
 func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	g := NewWithT(t)
 
 	// Do not set tcp_keepalive anywhere
-	clusters, err := buildTestClustersWithTCPKeepalive(None)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters := buildTestClustersWithTCPKeepalive(t, None)
 	g.Expect(len(clusters)).To(Equal(10))
 	cluster := clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -685,8 +668,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	g.Expect(cluster.UpstreamConnectionOptions).To(BeNil())
 
 	// Set mesh wide default for tcp_keepalive.
-	clusters, err = buildTestClustersWithTCPKeepalive(Mesh)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters = buildTestClustersWithTCPKeepalive(t, Mesh)
 	g.Expect(len(clusters)).To(Equal(10))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -696,8 +678,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(BeNil())
 
 	// Set DestinationRule override for tcp_keepalive.
-	clusters, err = buildTestClustersWithTCPKeepalive(DestinationRule)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters = buildTestClustersWithTCPKeepalive(t, DestinationRule)
 	g.Expect(len(clusters)).To(Equal(10))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -707,8 +688,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(BeNil())
 
 	// Set DestinationRule override for tcp_keepalive with empty value.
-	clusters, err = buildTestClustersWithTCPKeepalive(DestinationRuleForOsDefault)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters = buildTestClustersWithTCPKeepalive(t, DestinationRuleForOsDefault)
 	g.Expect(len(clusters)).To(Equal(10))
 	cluster = clusters[1]
 	g.Expect(cluster.Name).To(Equal("outbound|8080|foobar|foo.example.org"))
@@ -720,7 +700,7 @@ func TestBuildSidecarClustersWithMeshWideTCPKeepalive(t *testing.T) {
 	g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval).To(BeNil())
 }
 
-func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*cluster.Cluster, error) {
+func buildTestClustersWithTCPKeepalive(t testing.TB, configType ConfigType) []*cluster.Cluster {
 	// Set mesh wide defaults.
 	m := testMesh
 	if configType != None {
@@ -748,8 +728,8 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*cluster.Cluste
 		destinationRuleTCPKeepalive = &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{}
 	}
 
-	return buildTestClusters("foo.example.org", 0, model.SidecarProxy, nil, m,
-		&networking.DestinationRule{
+	return buildTestClusters(clusterTest{t: t, serviceHostname: "foo.example.org", nodeType: model.SidecarProxy, mesh: m,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			Subsets: []*networking.Subset{
 				{
@@ -771,7 +751,7 @@ func buildTestClustersWithTCPKeepalive(configType ConfigType) ([]*cluster.Cluste
 					},
 				},
 			},
-		})
+		}})
 }
 
 func TestClusterMetadata(t *testing.T) {
@@ -792,8 +772,7 @@ func TestClusterMetadata(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClusters("*.example.org", 0, model.SidecarProxy, nil, testMesh, destRule)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: model.SidecarProxy, mesh: testMesh, destRule: destRule})
 
 	clustersWithMetadata := 0
 
@@ -824,8 +803,7 @@ func TestClusterMetadata(t *testing.T) {
 	g.Expect(foundSubset).To(Equal(true))
 	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 6)) // outbound  outbound subsets  inbound
 
-	sniClusters, err := buildSniDnatTestClustersForGateway("test-sni")
-	g.Expect(err).NotTo(HaveOccurred())
+	sniClusters := buildSniDnatTestClustersForGateway(t, "test-sni")
 
 	foundSNISubset := false
 	for _, cluster := range sniClusters {
@@ -1043,15 +1021,14 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 	}
 
 	for _, outlier := range outliers {
-		clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-			&core.Locality{}, testMesh,
-			&networking.DestinationRule{
+		clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+			locality: &core.Locality{}, mesh: testMesh,
+			destRule: &networking.DestinationRule{
 				Host: "*.example.org",
 				TrafficPolicy: &networking.TrafficPolicy{
 					OutlierDetection: outlier,
 				},
-			})
-		g.Expect(err).NotTo(HaveOccurred())
+			}})
 		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold).To(Not(BeNil()))
 		g.Expect(clusters[0].CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
 	}
@@ -1139,15 +1116,14 @@ func TestApplyOutlierDetection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-				&core.Locality{}, testMesh,
-				&networking.DestinationRule{
+			clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+				locality: &core.Locality{}, mesh: testMesh,
+				destRule: &networking.DestinationRule{
 					Host: "*.example.org",
 					TrafficPolicy: &networking.TrafficPolicy{
 						OutlierDetection: tt.cfg,
 					},
-				})
-			g.Expect(err).NotTo(HaveOccurred())
+				}})
 			g.Expect(clusters[0].OutlierDetection).To(Equal(tt.o))
 		})
 	}
@@ -1168,26 +1144,21 @@ func TestStatNamePattern(t *testing.T) {
 		OutboundClusterStatName: "%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 	}
 
-	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&core.Locality{}, statConfigMesh,
-		&networking.DestinationRule{
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+		locality: &core.Locality{}, mesh: statConfigMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
-		})
-	g.Expect(err).NotTo(HaveOccurred())
+		}})
 	g.Expect(clusters[0].AltStatName).To(Equal("*.example.org_default_8080"))
 	g.Expect(clusters[4].AltStatName).To(Equal("LocalService_*.example.org"))
 }
 
 func TestDuplicateClusters(t *testing.T) {
-	g := NewWithT(t)
-
-	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&core.Locality{}, testMesh,
-		&networking.DestinationRule{
+	buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+		locality: &core.Locality{}, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
-		})
-	g.Expect(len(clusters)).To(Equal(8))
-	g.Expect(err).NotTo(HaveOccurred())
+		}})
 }
 
 func TestSidecarLocalityLB(t *testing.T) {
@@ -1205,21 +1176,20 @@ func TestSidecarLocalityLB(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&core.Locality{
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+		locality: &core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
-		}, testMesh,
-		&networking.DestinationRule{
+		}, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
 					MinHealthPercent: 10,
 				},
 			},
-		})
-	g.Expect(err).NotTo(HaveOccurred())
+		}})
 
 	if clusters[0].CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
@@ -1246,21 +1216,20 @@ func TestSidecarLocalityLB(t *testing.T) {
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
-	clusters, err = buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&core.Locality{
+	clusters = buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+		locality: &core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
-		}, testMesh,
-		&networking.DestinationRule{
+		}, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
 					MinHealthPercent: 10,
 				},
 			},
-		})
-	g.Expect(err).NotTo(HaveOccurred())
+		}})
 	if clusters[0].CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
 	}
@@ -1294,13 +1263,13 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClusters("*.example.org", model.DNSLB, model.SidecarProxy,
-		&core.Locality{
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+		locality: &core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
-		}, testMesh,
-		&networking.DestinationRule{
+		}, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
@@ -1318,8 +1287,7 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 					},
 				}},
 			},
-		})
-	g.Expect(err).NotTo(HaveOccurred())
+		}})
 
 	if clusters[0].CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", clusters[0])
@@ -1358,13 +1326,13 @@ func TestGatewayLocalityLB(t *testing.T) {
 		},
 	}
 
-	clusters, err := buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
-		&core.Locality{
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.Router,
+		locality: &core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
-		}, testMesh,
-		&networking.DestinationRule{
+		}, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
@@ -1372,79 +1340,63 @@ func TestGatewayLocalityLB(t *testing.T) {
 				},
 			},
 		},
-		nil, // peerAuthn,
-		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
-		model.MaxIstioVersion)
+		meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)}})
 
-	g.Expect(err).NotTo(HaveOccurred())
-
-	for _, cluster := range clusters {
-		if !strings.Contains(cluster.Name, "8080") {
-			continue
-		}
-		if cluster.CommonLbConfig == nil {
-			t.Errorf("CommonLbConfig should be set for cluster %+v", cluster)
-		}
-		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
-		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
-		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
-			locality := localityLbEndpoint.Locality
-			if locality.Region == "region1" && locality.SubZone == "subzone1" {
-				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
-				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
-			} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
-				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
-				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
-			} else if locality.Region == "region2" {
-				g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
-				g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
-				g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
-			}
+	c := xdstest.ExtractCluster("outbound|8080||*.example.org", clusters)
+	if c.CommonLbConfig == nil {
+		t.Errorf("CommonLbConfig should be set for cluster %+v", c)
+	}
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
+	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
+		locality := localityLbEndpoint.Locality
+		if locality.Region == "region1" && locality.SubZone == "subzone1" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+		} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+		} else if locality.Region == "region2" {
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
+			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
 		}
 	}
 
 	// Test failover
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
-	clusters, err = buildTestClustersWithProxyMetadata("*.example.org", model.DNSLB, false, model.Router,
-		&core.Locality{
+	clusters = buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.Router,
+		locality: &core.Locality{
 			Region:  "region1",
 			Zone:    "zone1",
 			SubZone: "subzone1",
-		}, testMesh,
-		&networking.DestinationRule{
+		}, mesh: testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				OutlierDetection: &networking.OutlierDetection{
 					MinHealthPercent: 10,
 				},
 			},
-		},
-		nil, // peerAuthn
-		&model.NodeMetadata{RouterMode: string(model.SniDnatRouter)},
-		model.MaxIstioVersion)
+		}, // peerAuthn
+		meta: &model.NodeMetadata{RouterMode: string(model.SniDnatRouter)}})
 
-	g.Expect(err).NotTo(HaveOccurred())
+	c = xdstest.ExtractCluster("outbound|8080||*.example.org", clusters)
+	if c.CommonLbConfig == nil {
+		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
+	}
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
 
-	for _, cluster := range clusters {
-		if !strings.Contains(cluster.Name, "8080") {
-			continue
-		}
-		if cluster.CommonLbConfig == nil {
-			t.Fatalf("CommonLbConfig should be set for cluster %+v", cluster)
-		}
-		g.Expect(cluster.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
-
-		g.Expect(len(cluster.LoadAssignment.Endpoints)).To(Equal(3))
-		for _, localityLbEndpoint := range cluster.LoadAssignment.Endpoints {
-			locality := localityLbEndpoint.Locality
-			if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
-				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
-			} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
-				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
-			} else if locality.Region == "region2" {
-				g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
-			}
+	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
+	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
+		locality := localityLbEndpoint.Locality
+		if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
+		} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
+		} else if locality.Region == "region2" {
+			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
 		}
 	}
 }
@@ -1504,8 +1456,13 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g := NewWithT(t)
 
-	clusters, err := buildTestClusters("*.example.org", model.Passthrough, model.SidecarProxy, nil, testMesh,
-		&networking.DestinationRule{
+	clusters := buildTestClusters(clusterTest{
+		t:                 t,
+		serviceHostname:   "*.example.org",
+		serviceResolution: model.Passthrough,
+		nodeType:          model.SidecarProxy,
+		mesh:              testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
@@ -1514,18 +1471,24 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 					},
 				},
 			},
-		})
+		}})
 
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
-	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
+	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
+		clusters)
+	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
+	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
 }
 
 func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	g := NewWithT(t)
 
-	clusters, err := buildTestClusters("*.example.org", model.ClientSideLB, model.SidecarProxy, nil, testMesh,
-		&networking.DestinationRule{
+	clusters := buildTestClusters(clusterTest{
+		t:                 t,
+		serviceHostname:   "*.example.org",
+		serviceResolution: model.ClientSideLB,
+		nodeType:          model.SidecarProxy,
+		mesh:              testMesh,
+		destRule: &networking.DestinationRule{
 			Host: "*.example.org",
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
@@ -1534,12 +1497,12 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 					},
 				},
 			},
-		})
+		}})
 
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(clusters[0].LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
-	g.Expect(clusters[0].GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
-	g.Expect(clusters[0].EdsClusterConfig).To(BeNil())
+	c := xdstest.ExtractCluster("outbound|8080||*.example.org", clusters)
+	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
+	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
+	g.Expect(c.EdsClusterConfig).To(BeNil())
 }
 
 func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
@@ -1553,14 +1516,11 @@ func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
-
-	for _, cluster := range clusters {
-		if err := cluster.Validate(); err != nil {
-			t.Fatalf("Cluster %s validation failed with error %s", cluster.Name, err.Error())
-		}
-		if cluster.Name != "BlackHoleCluster" {
-			g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-			g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
+	xdstest.ValidateClusters(t, clusters)
+	for _, c := range clusters {
+		if c.Name != "BlackHoleCluster" {
+			g.Expect(c.CircuitBreakers).NotTo(BeNil())
+			g.Expect(c.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 		}
 	}
 }
@@ -1604,11 +1564,12 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 	}
 	cb := NewClusterBuilder(proxy, env.PushContext)
 	clusters := configgen.buildInboundClusters(cb, instances)
+	xdstest.ValidateClusters(t, clusters)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
-	for _, cluster := range clusters {
-		g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-		g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
+	for _, c := range clusters {
+		g.Expect(c.CircuitBreakers).NotTo(BeNil())
+		g.Expect(c.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
 	}
 }
 
@@ -1740,6 +1701,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			cb := NewClusterBuilder(proxy, env.PushContext)
 			clusters := configgen.buildInboundClusters(cb, instances)
 			g.Expect(len(clusters)).ShouldNot(Equal(0))
+			xdstest.ValidateClusters(t, clusters)
 
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
@@ -1778,12 +1740,11 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
+	xdstest.ValidateClusters(t, clusters)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
-	for _, c := range clusters {
-		if c.Name == "outbound|6379||redis.com" {
-			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_ROUND_ROBIN))
-		}
-	}
+
+	c := xdstest.ExtractCluster("outbound|6379||redis.com", clusters)
+	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_ROUND_ROBIN))
 }
 
 func TestRedisProtocolClusterAtGateway(t *testing.T) {
@@ -1818,17 +1779,12 @@ func TestRedisProtocolClusterAtGateway(t *testing.T) {
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 
 	clusters := configgen.BuildClusters(proxy, env.PushContext)
+	xdstest.ValidateClusters(t, clusters)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
-	for _, c := range clusters {
-		// Validate Clusters so that generated clusters pass Envoy validation logic.
-		if err := c.Validate(); err != nil {
-			t.Fatalf("Cluster %s failed validation with error %s", c.Name, err.Error())
-		}
-		if c.Name == "outbound|6379||redis.com" {
-			g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_EDS}))
-			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_MAGLEV))
-		}
-	}
+
+	c := xdstest.ExtractCluster("outbound|6379||redis.com", clusters)
+	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_EDS}))
+	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_MAGLEV))
 }
 
 func TestAutoMTLSClusterSubsets(t *testing.T) {
@@ -1863,8 +1819,7 @@ func TestAutoMTLSClusterSubsets(t *testing.T) {
 
 	testMesh.EnableAutoMtls.Value = true
 
-	clusters, err := buildTestClusters(TestServiceNHostname, 0, model.SidecarProxy, nil, testMesh, destRule)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: TestServiceNHostname, nodeType: model.SidecarProxy, mesh: testMesh, destRule: destRule})
 
 	tlsContext := getTLSContext(t, clusters[1])
 	g.Expect(tlsContext).ToNot(BeNil())
@@ -1916,8 +1871,13 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 
 	testMesh.EnableAutoMtls.Value = true
 
-	clusters, err := buildTestClustersWithAuthnPolicy(TestServiceNHostname, 0, false, model.SidecarProxy, nil, testMesh, destRule, peerAuthn)
-	g.Expect(err).NotTo(HaveOccurred())
+	clusters := buildTestClusters(clusterTest{
+		t:               t,
+		serviceHostname: TestServiceNHostname,
+		nodeType:        model.SidecarProxy,
+		mesh:            testMesh,
+		destRule:        destRule,
+		peerAuthn:       peerAuthn})
 
 	// No policy visible, auto-mTLS should set to PERMISSIVE.
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
@@ -3569,13 +3529,7 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
 	proxy.SetSidecarScope(env.PushContext)
 	clusters := cfg.BuildClusters(proxy, env.PushContext)
-
-	for _, c := range clusters {
-		// Validate Clusters so that generated clusters pass Envoy validation logic.
-		if err := c.Validate(); err != nil {
-			t.Fatalf("Cluster %s failed validation with error %s", c.Name, err.Error())
-		}
-	}
+	xdstest.ValidateClusters(t, clusters)
 
 	// Expect to ignore STRICT_DNS cluster without endpoints.
 	g.Expect(len(clusters)).To(Equal(2))

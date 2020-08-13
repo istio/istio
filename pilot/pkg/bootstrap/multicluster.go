@@ -16,7 +16,6 @@ package bootstrap
 
 import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-
 	"istio.io/pkg/log"
 )
 

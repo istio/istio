@@ -19,14 +19,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -105,7 +104,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
 	fep := c.collectWorkloadInstanceEndpoints(svc)
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
+	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
 	// fire instance handles for k8s endpoints only
 	for _, handler := range c.instanceHandlers {
 		for _, ep := range endpoints {

@@ -24,19 +24,16 @@ import (
 	"github.com/gogo/protobuf/types"
 	fuzz "github.com/google/gofuzz"
 	"k8s.io/apimachinery/pkg/api/apitesting/fuzzer"
-
-	authentication "istio.io/api/authentication/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
-	policy "istio.io/api/policy/v1beta1"
-	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
-	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
-
 	metafuzzer "k8s.io/apimachinery/pkg/apis/meta/fuzzer"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 
+	authentication "istio.io/api/authentication/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	clientnetworkingalpha "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
+	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -128,9 +125,6 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		func(x *networking.LoadBalancerSettings, c fuzz.Continue) {
 			*x = networking.LoadBalancerSettings{}
 		},
-		func(t *policy.Authentication, c fuzz.Continue) {
-			*t = policy.Authentication{}
-		},
 		func(t *networking.EnvoyFilter_EnvoyConfigObjectMatch, c fuzz.Continue) {
 			*t = networking.EnvoyFilter_EnvoyConfigObjectMatch{}
 		},
@@ -158,11 +152,8 @@ func fixProtoFuzzer(codecs serializer.CodecFactory) []interface{} {
 		func(t *authentication.StringMatch, c fuzz.Continue) {
 			*t = authentication.StringMatch{}
 		},
-		func(t *policy.Tls, c fuzz.Continue) {
-			*t = policy.Tls{}
-		},
-		func(t *policy.Value, c fuzz.Continue) {
-			*t = policy.Value{}
+		func(t *types.Timestamp, c fuzz.Continue) {
+			*t = types.Timestamp{}
 		},
 		func(t *types.Value, c fuzz.Continue) {
 			*t = types.Value{Kind: &types.Value_StringValue{StringValue: ""}}

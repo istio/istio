@@ -27,8 +27,8 @@ import (
 	"strings"
 	"time"
 
-	multierror "github.com/hashicorp/go-multierror"
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
+	"github.com/hashicorp/go-multierror"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -40,18 +40,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
-	admissionregistrationv1 "k8s.io/client-go/informers/admissionregistration/v1"
+	"k8s.io/client-go/informers/admissionregistration/v1beta1"
 	v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("validationController", "validation webhook controller", 0)
@@ -114,7 +113,7 @@ type Controller struct {
 	client                   kubernetes.Interface
 	dynamicResourceInterface dynamic.ResourceInterface
 	endpointsInformer        v1.EndpointsInformer
-	webhookInformer          admissionregistrationv1.ValidatingWebhookConfigurationInformer
+	webhookInformer          v1beta1.ValidatingWebhookConfigurationInformer
 
 	queue                         workqueue.RateLimitingInterface
 	dryRunOfInvalidConfigRejected bool
@@ -248,7 +247,7 @@ func newController(
 		reconcileDone:            reconcileDone,
 	}
 
-	c.webhookInformer = client.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations()
+	c.webhookInformer = client.KubeInformer().Admissionregistration().V1beta1().ValidatingWebhookConfigurations()
 	c.webhookInformer.Informer().AddEventHandler(makeHandler(c.queue, configGVK, o.WebhookConfigName))
 
 	if !o.RemoteWebhookConfig {
@@ -428,7 +427,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(caBundle []byte, failu
 	}
 
 	if !reflect.DeepEqual(updated, current) {
-		latest, err := c.client.AdmissionregistrationV1().
+		latest, err := c.client.AdmissionregistrationV1beta1().
 			ValidatingWebhookConfigurations().Update(context.TODO(), updated, kubeApiMeta.UpdateOptions{})
 		if err != nil {
 			scope.Errorf("Failed to update validatingwebhookconfiguration %v (failurePolicy=%v, resourceVersion=%v): %v",

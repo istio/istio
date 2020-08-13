@@ -17,34 +17,34 @@ package xds
 import (
 	"errors"
 	"io"
-	"sync"
+	"strconv"
+	"sync/atomic"
 	"time"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
+	istiolog "istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 var (
 	adsLog = istiolog.RegisterScope("ads", "ads debugging", 0)
 
-	// SendTimeout is the max time to wait for a ADS send to complete. This helps detect
+	// sendTimeout is the max time to wait for a ADS send to complete. This helps detect
 	// clients in a bad state (not reading). In future it may include checking for ACK
-	SendTimeout = 5 * time.Second
+	sendTimeout = 5 * time.Second
+
+	// Tracks connections, increment on each new connection.
+	connectionNumber = int64(0)
 )
 
 // DiscoveryStream is an interface for ADS.
@@ -56,10 +56,7 @@ type DiscoveryStream interface {
 
 // Connection holds information about connected client.
 type Connection struct {
-	// Mutex to protect changes to this connection.
-	mu sync.RWMutex
-
-	// PeerAddr is the address of the client envoy, from network layer.
+	// PeerAddr is the address of the client, from network layer.
 	PeerAddr string
 
 	// Time of connection, for debugging
@@ -69,7 +66,8 @@ type Connection struct {
 	// Currently based on the node name and a counter.
 	ConID string
 
-	node *model.Proxy
+	// proxy is the client to which this connection is established.
+	proxy *model.Proxy
 
 	// Sending on this channel results in a push.
 	pushChannel chan *Event
@@ -77,14 +75,9 @@ type Connection struct {
 	// Both ADS and SDS streams implement this interface
 	stream DiscoveryStream
 
-	// Original node metadata, to avoid unmarshall/marshall.
+	// Original node metadata, to avoid unmarshal/marshal.
 	// This is included in internal events.
-	xdsNode *core.Node
-
-	// Computed Xds data. Mainly used for debug display.
-	XdsListeners []*listener.Listener                 `json:"-"`
-	XdsRoutes    map[string]*route.RouteConfiguration `json:"-"`
-	XdsClusters  []*cluster.Cluster
+	node *core.Node
 }
 
 // Event represents a config or registry event that results in a push.
@@ -92,6 +85,7 @@ type Event struct {
 	// Indicate whether the push is Full Push
 	full bool
 
+	// configsUpdated stores the config updates that triggered this push.
 	configsUpdated map[model.ConfigKey]struct{}
 
 	// Push context to use for the push.
@@ -108,12 +102,10 @@ type Event struct {
 
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
 	return &Connection{
-		pushChannel:  make(chan *Event),
-		PeerAddr:     peerAddr,
-		Connect:      time.Now(),
-		stream:       stream,
-		XdsListeners: []*listener.Listener{},
-		XdsRoutes:    map[string]*route.RouteConfiguration{},
+		pushChannel: make(chan *Event),
+		PeerAddr:    peerAddr,
+		Connect:     time.Now(),
+		stream:      stream,
 	}
 }
 
@@ -134,7 +126,7 @@ func isExpectedGRPCError(err error) bool {
 	return false
 }
 
-func (s *DiscoveryServer) receiveThread(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
+func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.DiscoveryRequest, errP *error) {
 	defer close(reqChannel) // indicates close of the remote side.
 	firstReq := true
 	for {
@@ -190,7 +182,7 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 
 	// Based on node metadata a different generator was selected,
 	// use it instead of the default behavior.
-	if con.node.XdsResourceGenerator != nil {
+	if con.proxy.XdsResourceGenerator != nil {
 		// Endpoints are special - will use the optimized code path.
 		err = s.handleCustomGenerator(con, discReq)
 		if err != nil {
@@ -278,7 +270,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	// This also detects close.
 	var receiveError error
 	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
-	go s.receiveThread(con, reqChannel, &receiveError)
+	go s.receive(con, reqChannel, &receiveError)
 
 	for {
 		// Block until either a request is received or a push is triggered.
@@ -302,16 +294,10 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 
 		case pushEv := <-con.pushChannel:
-			// It is called when config changes.
-			// This is not optimized yet - we should detect what changed based on event and only
-			// push resources that need to be pushed.
-
 			// TODO: possible race condition: if a config change happens while the envoy
 			// was getting the initial config, between LDS and RDS, the push will miss the
-			// monitored 'routes'. Same for CDS/EDS interval.
-			// It is very tricky to handle due to the protocol - but the periodic push recovers
-			// from it.
-
+			// monitored 'routes'. Same for CDS/EDS interval. It is very tricky to handle
+			// due to the protocol - but the periodic push recovers from it.
 			err := s.pushConnection(con, pushEv)
 			pushEv.done()
 			if err != nil {
@@ -353,7 +339,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, edsReject, discReq) {
 		return nil
 	}
-	con.node.Active[v3.EndpointType].ResourceNames = discReq.ResourceNames
+	con.proxy.Active[v3.EndpointType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
 	if err != nil {
@@ -366,7 +352,7 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, rdsReject, discReq) {
 		return nil
 	}
-	con.node.Active[v3.RouteType].ResourceNames = discReq.ResourceNames
+	con.proxy.Active[v3.RouteType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes()))
 	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 	if err != nil {
@@ -386,34 +372,34 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
-		incrementXDSRejects(rejectMetric, con.node.ID, errCode.String())
+		incrementXDSRejects(rejectMetric, con.proxy.ID, errCode.String())
 		if s.InternalGen != nil {
-			s.InternalGen.OnNack(con.node, request)
+			s.InternalGen.OnNack(con.proxy, request)
 		}
 		return false
 	}
 
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
-		con.mu.Lock()
-		con.node.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl}
-		con.mu.Unlock()
+		con.proxy.Lock()
+		con.proxy.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl}
+		con.proxy.Unlock()
 		return true
 	}
 
-	con.mu.RLock()
-	previousInfo := con.node.Active[request.TypeUrl]
-	con.mu.RUnlock()
+	con.proxy.RLock()
+	previousInfo := con.proxy.Active[request.TypeUrl]
+	con.proxy.RUnlock()
 
-	// If this is a case of Envoy reconnecting Istiod i.e. Istiod does not have
+	// This is a case of Envoy reconnecting Istiod i.e. Istiod does not have
 	// information about this typeUrl, but Envoy sends response nonce - either
 	// because Istiod is restarted or Envoy disconnects and reconnects.
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
 		adsLog.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
-		con.mu.Lock()
-		con.node.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
-		con.mu.Unlock()
+		con.proxy.Lock()
+		con.proxy.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.proxy.Unlock()
 		return true
 	}
 
@@ -428,11 +414,11 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
-	con.mu.Lock()
-	previousResources := con.node.Active[request.TypeUrl].ResourceNames
-	con.node.Active[request.TypeUrl].VersionAcked = request.VersionInfo
-	con.node.Active[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.mu.Unlock()
+	con.proxy.Lock()
+	previousResources := con.proxy.Active[request.TypeUrl].ResourceNames
+	con.proxy.Active[request.TypeUrl].VersionAcked = request.VersionInfo
+	con.proxy.Active[request.TypeUrl].NonceAcked = request.ResponseNonce
+	con.proxy.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
@@ -482,17 +468,21 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	}
 
 	// First request so initialize connection id and start tracking it.
-	con.mu.Lock()
-	con.node = proxy
+	con.proxy = proxy
 	con.ConID = connectionID(node.Id)
-	con.xdsNode = node
+	con.node = node
+
 	s.addCon(con.ConID, con)
-	con.mu.Unlock()
 
 	if s.InternalGen != nil {
 		s.InternalGen.OnConnect(con)
 	}
 	return nil
+}
+
+func connectionID(node string) string {
+	id := atomic.AddInt64(&connectionNumber, 1)
+	return node + "-" + strconv.FormatInt(id, 10)
 }
 
 // initProxy initializes the Proxy from node.
@@ -513,7 +503,8 @@ func (s *DiscoveryServer) initProxy(node *core.Node) (*model.Proxy, error) {
 	}
 
 	// Get the locality from the proxy's service instances.
-	// We expect all instances to have the same IP and therefore the same locality. So its enough to look at the first instance
+	// We expect all instances to have the same IP and therefore the same locality.
+	// So its enough to look at the first instance.
 	if len(proxy.ServiceInstances) > 0 {
 		proxy.Locality = util.ConvertLocality(proxy.ServiceInstances[0].Endpoint.Locality.Label)
 	}
@@ -585,7 +576,7 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// TODO: update the service deps based on NetworkScope
 	if !pushEv.full {
-		if !ProxyNeedsPush(con.node, pushEv) {
+		if !ProxyNeedsPush(con.proxy, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
@@ -601,13 +592,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 
 	// Update Proxy with current information.
-	if err := s.updateProxy(con.node, pushEv.push); err != nil {
+	if err := s.updateProxy(con.proxy, pushEv.push); err != nil {
 		return nil
 	}
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
-	if !ProxyNeedsPush(con.node, pushEv) {
-		if con.node.XdsResourceGenerator != nil {
+	if !ProxyNeedsPush(con.proxy, pushEv) {
+		if con.proxy.XdsResourceGenerator != nil {
 			// to verify if logic works on generator
 			adsLog.Infof("Skipping generator push to %v, no updates required", con.ConID)
 		} else {
@@ -633,8 +624,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// 'LDSWatch', etc.
 	// Each Generator is responsible for determining if the push event requires a push -
 	// returning nil if the push is not needed.
-	if con.node.XdsResourceGenerator != nil {
-		for _, w := range con.node.Active {
+	if con.proxy.XdsResourceGenerator != nil {
+		for _, w := range con.proxy.Active {
 			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w, pushEv.configsUpdated)
 			if err != nil {
 				return err
@@ -642,7 +633,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		}
 	}
 
-	pushTypes := PushTypeFor(con.node, pushEv)
+	pushTypes := PushTypeFor(con.proxy, pushEv)
 
 	if con.Watching(v3.ClusterType) && pushTypes[CDS] {
 		err := s.pushCds(con, pushEv.push, currentVersion)
@@ -692,7 +683,7 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID, ip string) {
 
 	s.adsClientsMutex.RLock()
 	for _, v := range s.adsClients {
-		if v.node.Metadata.ClusterID == clusterID && v.node.IPAddresses[0] == ip {
+		if v.proxy.Metadata.ClusterID == clusterID && v.proxy.IPAddresses[0] == ip {
 			connection = v
 			break
 		}
@@ -733,17 +724,18 @@ func AdsPushAll(s *DiscoveryServer) {
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	if !req.Full {
-		s.edsIncremental(version, req)
-		return
-	}
+		adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
+			version, model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry), s.adsClientCount())
+	} else {
+		totalService := len(req.Push.Services(nil))
+		adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
+			version, totalService, s.adsClientCount())
+		monServices.Record(float64(totalService))
 
-	adsLog.Infof("XDS: Pushing:%s Services:%d ConnectedEndpoints:%d",
-		version, len(req.Push.Services(nil)), s.adsClientCount())
-	monServices.Record(float64(len(req.Push.Services(nil))))
-
-	// Make sure the ConfigsUpdated map exists
-	if req.ConfigsUpdated == nil {
-		req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+		// Make sure the ConfigsUpdated map exists
+		if req.ConfigsUpdated == nil {
+			req.ConfigsUpdated = make(map[model.ConfigKey]struct{})
+		}
 	}
 
 	s.startPush(req)
@@ -755,6 +747,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	// Push config changes, iterating over connected envoys. This cover ADS and EDS(0.7), both share
 	// the same connection table
 	s.adsClientsMutex.RLock()
+
 	// Create a temp map to avoid locking the add/remove
 	pending := []*Connection{}
 	for _, v := range s.adsClients {
@@ -778,7 +771,7 @@ func (s *DiscoveryServer) addCon(conID string, con *Connection) {
 	s.adsClientsMutex.Lock()
 	defer s.adsClientsMutex.Unlock()
 	s.adsClients[conID] = con
-	recordXDSClients(con.node.Metadata.IstioVersion, 1)
+	recordXDSClients(con.proxy.Metadata.IstioVersion, 1)
 }
 
 func (s *DiscoveryServer) removeCon(conID string) {
@@ -790,8 +783,9 @@ func (s *DiscoveryServer) removeCon(conID string) {
 		totalXDSInternalErrors.Increment()
 	} else {
 		delete(s.adsClients, conID)
-		recordXDSClients(con.node.Metadata.IstioVersion, -1)
+		recordXDSClients(con.proxy.Metadata.IstioVersion, -1)
 	}
+
 	if s.StatusReporter != nil {
 		go s.StatusReporter.RegisterDisconnect(conID, AllEventTypes)
 	}
@@ -801,18 +795,18 @@ func (s *DiscoveryServer) removeCon(conID string) {
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	done := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
-	t := time.NewTimer(SendTimeout)
+	t := time.NewTimer(sendTimeout)
 	go func() {
 		err := conn.stream.Send(res)
-		conn.mu.Lock()
+		conn.proxy.Lock()
 		if res.Nonce != "" {
-			if conn.node.Active[res.TypeUrl] == nil {
-				conn.node.Active[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+			if conn.proxy.Active[res.TypeUrl] == nil {
+				conn.proxy.Active[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
 			}
-			conn.node.Active[res.TypeUrl].NonceSent = res.Nonce
-			conn.node.Active[res.TypeUrl].VersionSent = res.VersionInfo
+			conn.proxy.Active[res.TypeUrl].NonceSent = res.Nonce
+			conn.proxy.Active[res.TypeUrl].VersionSent = res.VersionInfo
 		}
-		conn.mu.Unlock()
+		conn.proxy.Unlock()
 		done <- err
 	}()
 	select {
@@ -827,46 +821,49 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	}
 }
 
-func (conn *Connection) NonceAcked(stype string) string {
-	conn.mu.RLock()
-	defer conn.mu.RUnlock()
-	if conn.node.Active != nil && conn.node.Active[stype] != nil {
-		return conn.node.Active[stype].NonceAcked
+// nolint
+func (conn *Connection) NonceAcked(typeUrl string) string {
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	if conn.proxy.Active != nil && conn.proxy.Active[typeUrl] != nil {
+		return conn.proxy.Active[typeUrl].NonceAcked
 	}
 	return ""
 }
 
-func (conn *Connection) NonceSent(stype string) string {
-	conn.mu.RLock()
-	defer conn.mu.RUnlock()
-	if conn.node.Active != nil && conn.node.Active[stype] != nil {
-		return conn.node.Active[stype].NonceSent
+// nolint
+func (conn *Connection) NonceSent(typeUrl string) string {
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	if conn.proxy.Active != nil && conn.proxy.Active[typeUrl] != nil {
+		return conn.proxy.Active[typeUrl].NonceSent
 	}
 	return ""
 }
 
 func (conn *Connection) Clusters() []string {
-	conn.mu.RLock()
-	defer conn.mu.RUnlock()
-	if conn.node.Active != nil && conn.node.Active[v3.EndpointType] != nil {
-		return conn.node.Active[v3.EndpointType].ResourceNames
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	if conn.proxy.Active != nil && conn.proxy.Active[v3.EndpointType] != nil {
+		return conn.proxy.Active[v3.EndpointType].ResourceNames
 	}
 	return []string{}
 }
 
 func (conn *Connection) Routes() []string {
-	conn.mu.RLock()
-	defer conn.mu.RUnlock()
-	if conn.node.Active != nil && conn.node.Active[v3.RouteType] != nil {
-		return conn.node.Active[v3.RouteType].ResourceNames
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	if conn.proxy.Active != nil && conn.proxy.Active[v3.RouteType] != nil {
+		return conn.proxy.Active[v3.RouteType].ResourceNames
 	}
 	return []string{}
 }
 
-func (conn *Connection) Watching(stype string) bool {
-	conn.mu.RLock()
-	defer conn.mu.RUnlock()
-	if conn.node.Active != nil && conn.node.Active[stype] != nil {
+// nolint
+func (conn *Connection) Watching(typeUrl string) bool {
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	if conn.proxy.Active != nil && conn.proxy.Active[typeUrl] != nil {
 		return true
 	}
 	return false

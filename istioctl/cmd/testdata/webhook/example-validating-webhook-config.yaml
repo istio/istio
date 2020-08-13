@@ -1,4 +1,4 @@
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   labels:
@@ -13,7 +13,7 @@ webhooks:
         path: /validate
     failurePolicy: Fail
     name: protovalidate.istio.io
-    admissionReviewVersions: ["v1", "v1beta1"]
+    admissionReviewVersions: ["v1beta1", "v1"]
     namespaceSelector:
       matchLabels:
         protovalidate-validation: enabled

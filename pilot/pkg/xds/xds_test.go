@@ -22,17 +22,17 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -193,12 +193,12 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		endpoints := ExtractEndpoints(s.Endpoints(proxy))
+		endpoints := xdstest.ExtractEndpoints(s.Endpoints(proxy))
 		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -220,13 +220,13 @@ func TestServiceScoping(t *testing.T) {
 		p.IPAddresses = []string{"100.100.100.100"}
 		proxy := s.SetupProxy(p)
 
-		endpoints := ExtractClusterEndpoints(s.Clusters(proxy))
+		endpoints := xdstest.ExtractClusterEndpoints(s.Clusters(proxy))
 		eps := endpoints["inbound|9080|custom-http|sidecar.app"]
 		if !listEqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
 			t.Fatalf("expected /var/run/someuds.sock, got %v", eps)
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -244,7 +244,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
@@ -257,7 +257,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
 	})
 }
 
@@ -268,7 +268,7 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
@@ -288,7 +288,7 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
@@ -363,16 +363,14 @@ func TestMeshNetworking(t *testing.T) {
 
 	for _, ingr := range ingresses {
 		t.Run(string(ingr.Spec.Type), func(t *testing.T) {
+			var k8sObjects []runtime.Object
+			k8sObjects = append(k8sObjects,
+				// NodePort ingress needs this
+				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
+				ingr)
+			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
 			for name, networkConfig := range meshNetworkConfigs {
 				t.Run(name, func(t *testing.T) {
-
-					var k8sObjects []runtime.Object
-					k8sObjects = append(k8sObjects,
-						// NodePort ingress needs this
-						&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
-						ingr)
-					k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
-
 					s := NewFakeDiscoveryServer(t, FakeOptions{
 						KubernetesObjects: k8sObjects,
 						ConfigString: `
@@ -415,7 +413,7 @@ spec:
       app: httpbin
     network: vm
 `,
-						MeshNetworks: networkConfig,
+						NetworksWatcher: mesh.NewFixedNetworksWatcher(networkConfig),
 					})
 					se := s.SetupProxy(&model.Proxy{
 						ID: "se-pod.pod",
@@ -474,7 +472,7 @@ spec:
 					}
 
 					for _, tt := range tests {
-						eps := ExtractEndpoints(s.Endpoints(tt.p))
+						eps := xdstest.ExtractEndpoints(s.Endpoints(tt.p))
 						for c, ip := range tt.expect {
 							t.Run(fmt.Sprintf("%s from %s", c, tt.p.ID), func(t *testing.T) {
 								assertListEqual(t, eps[c], []string{ip})
@@ -530,7 +528,7 @@ spec:
 	})
 
 	listeners := s.Listeners(proxy)
-	assertListEqual(t, ExtractListenerNames(listeners), []string{
+	assertListEqual(t, xdstest.ExtractListenerNames(listeners), []string{
 		"0.0.0.0_80",
 		"virtualInbound",
 		"virtualOutbound",
@@ -539,12 +537,12 @@ spec:
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 
 	found := false
-	for _, f := range ExtractListener("virtualOutbound", listeners).FilterChains {
+	for _, f := range xdstest.ExtractListener("virtualOutbound", listeners).FilterChains {
 		// We want to check the match all filter chain, as this is testing the fallback logic
 		if f.FilterChainMatch != nil {
 			continue
 		}
-		tcp := ExtractTCPProxy(t, f)
+		tcp := xdstest.ExtractTCPProxy(t, f)
 		if tcp.GetCluster() != expectedEgressCluster {
 			t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
 		}

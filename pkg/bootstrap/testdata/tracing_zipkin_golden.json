@@ -369,7 +369,6 @@
       ,
       {
         "name": "zipkin",
-        
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
@@ -388,7 +387,6 @@
           }]
         }
       }
-      
       
       
     ],
@@ -493,7 +491,6 @@
       }
     ]
   }
-  
   ,
   "tracing": {
     "http": {
@@ -508,7 +505,6 @@
       }
     }
   }
-  
   
   
   ,

@@ -240,7 +240,7 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 func createNamespace(cs kubernetes.Interface, namespace string) error {
 	if namespace == "" {
 		// Setup default namespace
-		namespace = "istio-system"
+		namespace = istioDefaultNamespace
 	}
 
 	ns := &v1.Namespace{ObjectMeta: v12.ObjectMeta{

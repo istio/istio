@@ -24,6 +24,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var (
@@ -657,6 +659,91 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 			}
 			if err != nil {
 				t.Errorf("unexpected error: %s. Expected no error.", err)
+			}
+		})
+	}
+}
+
+func TestExpandWithTrustDomains(t *testing.T) {
+	testCases := []struct {
+		name         string
+		spiffeURI    []string
+		trustDomains []string
+		want         map[string]struct{}
+	}{
+		{
+			name:      "Basic",
+			spiffeURI: []string{"spiffe://cluster.local/ns/def/na/def"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"spiffe://cluster.local/ns/def/na/def": {},
+				"spiffe://foo/ns/def/na/def":           {},
+			},
+		},
+		{
+			name:      "InvalidInput",
+			spiffeURI: []string{"spiffe:///abcdef", "spffff://a/b/c", "abcdef"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"spiffe:///abcdef": {},
+				"spffff://a/b/c":   {},
+				"abcdef":           {},
+			},
+		},
+		{
+			name:         "EmptyTrustDomains",
+			spiffeURI:    []string{"spiffe://cluster.local/ns/def/na/def"},
+			trustDomains: []string{},
+			want: map[string]struct{}{
+				"spiffe://cluster.local/ns/def/na/def": {},
+			},
+		},
+		{
+			name:      "WithOriginalTrustDomain",
+			spiffeURI: []string{"spiffe://cluster.local/ns/def/na/def"},
+			trustDomains: []string{
+				"foo",
+				"cluster.local",
+			},
+			want: map[string]struct{}{
+				"spiffe://cluster.local/ns/def/na/def": {},
+				"spiffe://foo/ns/def/na/def":           {},
+			},
+		},
+		{
+			name:      "TwoIentities",
+			spiffeURI: []string{"spiffe://cluster.local/ns/def/na/def", "spiffe://cluster.local/ns/a/na/a"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"spiffe://cluster.local/ns/def/na/def": {},
+				"spiffe://foo/ns/def/na/def":           {},
+				"spiffe://cluster.local/ns/a/na/a":     {},
+				"spiffe://foo/ns/a/na/a":               {},
+			},
+		},
+		{
+			name:      "CustomIdentityFormat",
+			spiffeURI: []string{"spiffe://cluster.local/custom-suffix"},
+			trustDomains: []string{
+				"foo",
+			},
+			want: map[string]struct{}{
+				"spiffe://cluster.local/custom-suffix": {},
+				"spiffe://foo/custom-suffix":           {},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ExpandWithTrustDomains(tc.spiffeURI, tc.trustDomains)
+			if diff := cmp.Diff(got, tc.want); diff != "" {
+				t.Errorf("unexpected expanded results: %v", diff)
 			}
 		})
 	}

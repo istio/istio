@@ -18,28 +18,16 @@ import (
 	"time"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/util/protomarshal"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes())
-	if s.DebugConfigs {
-		for _, r := range rawRoutes {
-			con.XdsRoutes[r.Name] = r
-			if adsLog.DebugEnabled() {
-				resp, _ := protomarshal.ToJSONWithIndent(r, " ")
-				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.node.ID)
-			}
-		}
-	}
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.proxy, push, con.Routes())
 
 	response := routeDiscoveryResponse(rawRoutes, version, push.Version)
 	err := con.send(response)
@@ -50,7 +38,7 @@ func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, ve
 	}
 	rdsPushes.Increment()
 
-	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.node.ID, len(rawRoutes))
+	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.proxy.ID, len(rawRoutes))
 	return nil
 }
 

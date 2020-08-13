@@ -19,9 +19,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
-
 	"runtime"
+	"strings"
 
 	"istio.io/pkg/log"
 )

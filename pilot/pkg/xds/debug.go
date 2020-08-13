@@ -18,30 +18,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
 	"net/http/pprof"
 	"sort"
 	"strings"
-
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/kube/inject"
-
-	"istio.io/istio/pilot/pkg/features"
+	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -86,6 +84,41 @@ var indexTmpl = template.Must(template.New("index").Parse(`<html>
 </html>
 `))
 
+// AdsClient defines the data that is displayed on "/adsz" endpoint.
+type AdsClient struct {
+	ConnectionID string    `json:"connectionId"`
+	ConnectedAt  time.Time `json:"connectedAt"`
+	PeerAddress  string    `json:"address"`
+}
+
+// AdsClients is collection of AdsClient connected to this Istiod.
+type AdsClients struct {
+	Connected []AdsClient `json:"clients"`
+}
+
+// SyncStatus is the synchronization status between Pilot and a given Envoy
+type SyncStatus struct {
+	ProxyID       string `json:"proxy,omitempty"`
+	ProxyVersion  string `json:"proxy_version,omitempty"`
+	IstioVersion  string `json:"istio_version,omitempty"`
+	ClusterSent   string `json:"cluster_sent,omitempty"`
+	ClusterAcked  string `json:"cluster_acked,omitempty"`
+	ListenerSent  string `json:"listener_sent,omitempty"`
+	ListenerAcked string `json:"listener_acked,omitempty"`
+	RouteSent     string `json:"route_sent,omitempty"`
+	RouteAcked    string `json:"route_acked,omitempty"`
+	EndpointSent  string `json:"endpoint_sent,omitempty"`
+	EndpointAcked string `json:"endpoint_acked,omitempty"`
+}
+
+// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
+type SyncedVersions struct {
+	ProxyID         string `json:"proxy,omitempty"`
+	ClusterVersion  string `json:"cluster_acked,omitempty"`
+	ListenerVersion string `json:"listener_acked,omitempty"`
+	RouteVersion    string `json:"route_acked,omitempty"`
+}
+
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
 func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controller, enableProfiling bool, webhook *inject.Webhook) {
 	// For debugging and load testing v2 we add an memory registry.
@@ -113,7 +146,6 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
 	s.addDebugHandler(mux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
-	s.addDebugHandler(mux, "/debug/cdsz", "Status and debug interface for CDS", s.cdsz)
 
 	s.addDebugHandler(mux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
 	s.addDebugHandler(mux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
@@ -138,31 +170,16 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, path string, help 
 	mux.HandleFunc(path, handler)
 }
 
-// SyncStatus is the synchronization status between Pilot and a given Envoy
-type SyncStatus struct {
-	ProxyID       string `json:"proxy,omitempty"`
-	ProxyVersion  string `json:"proxy_version,omitempty"`
-	IstioVersion  string `json:"istio_version,omitempty"`
-	ClusterSent   string `json:"cluster_sent,omitempty"`
-	ClusterAcked  string `json:"cluster_acked,omitempty"`
-	ListenerSent  string `json:"listener_sent,omitempty"`
-	ListenerAcked string `json:"listener_acked,omitempty"`
-	RouteSent     string `json:"route_sent,omitempty"`
-	RouteAcked    string `json:"route_acked,omitempty"`
-	EndpointSent  string `json:"endpoint_sent,omitempty"`
-	EndpointAcked string `json:"endpoint_acked,omitempty"`
-}
-
 // Syncz dumps the synchronization status of all Envoys connected to this Pilot instance
 func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 	syncz := make([]SyncStatus, 0)
 	s.adsClientsMutex.RLock()
 	for _, con := range s.adsClients {
-		con.mu.RLock()
-		if con.node != nil {
+		node := con.proxy
+		if node != nil {
 			syncz = append(syncz, SyncStatus{
-				ProxyID:       con.node.ID,
-				IstioVersion:  con.node.Metadata.IstioVersion,
+				ProxyID:       node.ID,
+				IstioVersion:  node.Metadata.IstioVersion,
 				ClusterSent:   con.NonceSent(v3.ClusterType),
 				ClusterAcked:  con.NonceAcked(v3.ClusterType),
 				ListenerSent:  con.NonceSent(v3.ListenerType),
@@ -173,7 +190,6 @@ func (s *DiscoveryServer) Syncz(w http.ResponseWriter, _ *http.Request) {
 				EndpointAcked: con.NonceAcked(v3.EndpointType),
 			})
 		}
-		con.mu.RUnlock()
 	}
 	s.adsClientsMutex.RUnlock()
 	out, err := json.MarshalIndent(&syncz, "", "    ")
@@ -266,14 +282,6 @@ func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprint(w, "\n{}]\n")
 }
 
-// SyncedVersions shows what resourceVersion of a given resource has been acked by Envoy.
-type SyncedVersions struct {
-	ProxyID         string `json:"proxy,omitempty"`
-	ClusterVersion  string `json:"cluster_acked,omitempty"`
-	ListenerVersion string `json:"listener_acked,omitempty"`
-	RouteVersion    string `json:"route_acked,omitempty"`
-}
-
 func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.Request) {
 	if !features.EnableDistributionTracking {
 		w.WriteHeader(http.StatusConflict)
@@ -288,12 +296,12 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 		s.adsClientsMutex.RLock()
 		for _, con := range s.adsClients {
 			// wrap this in independent scope so that panic's don't bypass Unlock...
-			con.mu.RLock()
+			con.proxy.RLock()
 
-			if con.node != nil && (proxyNamespace == "" || proxyNamespace == con.node.ConfigNamespace) {
+			if con.proxy != nil && (proxyNamespace == "" || proxyNamespace == con.proxy.ConfigNamespace) {
 				// read nonces from our statusreporter to allow for skipped nonces, etc.
 				results = append(results, SyncedVersions{
-					ProxyID: con.node.ID,
+					ProxyID: con.proxy.ID,
 					ClusterVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ClusterType),
 						resourceID, knownVersions),
 					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.ConID, v3.ListenerType),
@@ -302,7 +310,7 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 						resourceID, knownVersions),
 				})
 			}
-			con.mu.RUnlock()
+			con.proxy.RUnlock()
 		}
 		s.adsClientsMutex.RUnlock()
 
@@ -422,30 +430,21 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	}
 
 	s.adsClientsMutex.RLock()
-	defer s.adsClientsMutex.RUnlock()
+	clients := s.adsClients
+	s.adsClientsMutex.RUnlock()
 
-	// Dirty json generation - because standard json is dirty (struct madness)
-	// Unfortunately we must use the jsonbp to encode part of the json - I'm sure there are
-	// better ways, but this is mainly for debugging.
-	_, _ = fmt.Fprint(w, "[\n")
-	comma := false
-	for _, c := range s.adsClients {
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
+	adsClients := &AdsClients{}
+	for _, c := range clients {
+		adsClient := AdsClient{
+			ConnectionID: c.ConID,
+			ConnectedAt:  c.Connect,
+			PeerAddress:  c.PeerAddr,
 		}
-		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\",\n \"addr\": \"%s\",\n \"connect\": \"%v\",\n \"listeners\":[\n", c.ConID, c.PeerAddr, c.Connect)
-		printListeners(w, c)
-		_, _ = fmt.Fprint(w, "],\n")
-		_, _ = fmt.Fprintf(w, "\"RDSRoutes\":[\n")
-		printRoutes(w, c)
-		_, _ = fmt.Fprint(w, "],\n")
-		_, _ = fmt.Fprintf(w, "\"clusters\":[\n")
-		printClusters(w, c)
-		_, _ = fmt.Fprint(w, "]}\n")
+		adsClients.Connected = append(adsClients.Connected, adsClient)
 	}
-	_, _ = fmt.Fprint(w, "]\n")
+	if b, err := json.MarshalIndent(adsClients, "  ", "  "); err == nil {
+		_, _ = w.Write(b)
+	}
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
@@ -482,7 +481,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, error) {
 	dynamicActiveClusters := make([]*adminapi.ClustersConfigDump_DynamicCluster, 0)
-	clusters := s.ConfigGenerator.BuildClusters(conn.node, s.globalPushContext())
+	clusters := s.ConfigGenerator.BuildClusters(conn.proxy, s.globalPushContext())
 
 	for _, cs := range clusters {
 		cluster, err := ptypes.MarshalAny(cs)
@@ -500,7 +499,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 	}
 
 	dynamicActiveListeners := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
-	listeners := s.ConfigGenerator.BuildListeners(conn.node, s.globalPushContext())
+	listeners := s.ConfigGenerator.BuildListeners(conn.proxy, s.globalPushContext())
 	for _, cs := range listeners {
 		listener, err := ptypes.MarshalAny(cs)
 		if err != nil {
@@ -518,7 +517,7 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		return nil, err
 	}
 
-	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.node, s.globalPushContext(), conn.Routes())
+	routes := s.ConfigGenerator.BuildHTTPRoutes(conn.proxy, s.globalPushContext(), conn.Routes())
 	routeConfigAny := util.MessageToAny(&adminapi.RoutesConfigDump{})
 	if len(routes) > 0 {
 		dynamicRouteConfig := make([]*adminapi.RoutesConfigDump_DynamicRouteConfig, 0)
@@ -635,7 +634,7 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 		} else {
 			comma = true
 		}
-		cla := s.generateEndpoints(createEndpointBuilder(clusterName, con.node, s.globalPushContext()))
+		cla := s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, s.globalPushContext()))
 		jsonm := &jsonpb.Marshaler{Indent: "  "}
 		dbgString, _ := jsonm.MarshalToString(cla)
 		if _, err := w.Write([]byte(dbgString)); err != nil {
@@ -643,91 +642,6 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	_, _ = fmt.Fprintln(w, "]")
-}
-
-// cdsz implements a status and debug interface for CDS.
-// It is mapped to /debug/cdsz
-func (s *DiscoveryServer) cdsz(w http.ResponseWriter, req *http.Request) {
-	_ = req.ParseForm()
-	w.Header().Add("Content-Type", "application/json")
-
-	s.adsClientsMutex.RLock()
-
-	_, _ = fmt.Fprint(w, "[\n")
-	comma := false
-	for _, c := range s.adsClients {
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		_, _ = fmt.Fprintf(w, "\n\n  {\"node\": \"%s\", \"addr\": \"%s\", \"connect\": \"%v\",\"Clusters\":[\n", c.ConID, c.PeerAddr, c.Connect)
-		printClusters(w, c)
-		_, _ = fmt.Fprint(w, "]}\n")
-	}
-	_, _ = fmt.Fprint(w, "]\n")
-
-	s.adsClientsMutex.RUnlock()
-}
-
-func printListeners(w io.Writer, c *Connection) {
-	comma := false
-	for _, ls := range c.XdsListeners {
-		if ls == nil {
-			adsLog.Errorf("INVALID LISTENER NIL")
-			continue
-		}
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(ls)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
-	}
-}
-
-func printClusters(w io.Writer, c *Connection) {
-	comma := false
-	for _, cl := range c.XdsClusters {
-		if cl == nil {
-			adsLog.Errorf("INVALID Cluster NIL")
-			continue
-		}
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(cl)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
-	}
-}
-
-func printRoutes(w io.Writer, c *Connection) {
-	comma := false
-	for _, rt := range c.XdsRoutes {
-		if rt == nil {
-			adsLog.Errorf("INVALID ROUTE CONFIG NIL")
-			continue
-		}
-		if comma {
-			_, _ = fmt.Fprint(w, ",\n")
-		} else {
-			comma = true
-		}
-		jsonm := &jsonpb.Marshaler{Indent: "  "}
-		dbgString, _ := jsonm.MarshalToString(rt)
-		if _, err := w.Write([]byte(dbgString)); err != nil {
-			return
-		}
-	}
 }
 
 func (s *DiscoveryServer) getProxyConnection(proxyID string) *Connection {
@@ -750,11 +664,11 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 	instances := map[string][]*model.ServiceInstance{}
 	s.adsClientsMutex.RLock()
 	for _, con := range s.adsClients {
-		con.mu.RLock()
-		if con.node != nil {
-			instances[con.node.ID] = con.node.ServiceInstances
+		con.proxy.RLock()
+		if con.proxy != nil {
+			instances[con.proxy.ID] = con.proxy.ServiceInstances
 		}
-		con.mu.RUnlock()
+		con.proxy.RUnlock()
 	}
 	s.adsClientsMutex.RUnlock()
 	by, _ := json.MarshalIndent(instances, "", "  ")

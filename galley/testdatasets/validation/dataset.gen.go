@@ -15,6 +15,8 @@
 // dataset/networking-v1alpha3-VirtualService-valid.yaml
 // dataset/networking-v1alpha3-WorkloadEntry-invalid.yaml
 // dataset/networking-v1alpha3-WorkloadEntry-valid.yaml
+// dataset/networking-v1alpha3-WorkloadGroup-invalid.yaml
+// dataset/networking-v1alpha3-WorkloadGroup-valid.yaml
 // dataset/networking-v1beta-DestinationRule-invalid.yaml
 // dataset/networking-v1beta-DestinationRule-valid.yaml
 // dataset/networking-v1beta-Gateway-invalid.yaml
@@ -513,6 +515,66 @@ func datasetNetworkingV1alpha3WorkloadentryValidYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "dataset/networking-v1alpha3-WorkloadEntry-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingV1alpha3WorkloadgroupInvalidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: reviews
+  namespace: istio-system
+spec:
+  metadata:
+    labels:
+      app.kubernetes.io/name: reviews
+      app.kubernetes.io/version: "1.3.4"
+  template:
+`)
+
+func datasetNetworkingV1alpha3WorkloadgroupInvalidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1alpha3WorkloadgroupInvalidYaml, nil
+}
+
+func datasetNetworkingV1alpha3WorkloadgroupInvalidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1alpha3WorkloadgroupInvalidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1alpha3-WorkloadGroup-invalid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _datasetNetworkingV1alpha3WorkloadgroupValidYaml = []byte(`apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadGroup
+metadata:
+  name: reviews
+  namespace: istio-system
+spec:
+  metadata:
+    labels:
+      app.kubernetes.io/name: reviews
+      app.kubernetes.io/version: "1.3.4"
+  template:
+    ports:
+      grpc: 3550
+      http: 8080
+    serviceAccount: default
+`)
+
+func datasetNetworkingV1alpha3WorkloadgroupValidYamlBytes() ([]byte, error) {
+	return _datasetNetworkingV1alpha3WorkloadgroupValidYaml, nil
+}
+
+func datasetNetworkingV1alpha3WorkloadgroupValidYaml() (*asset, error) {
+	bytes, err := datasetNetworkingV1alpha3WorkloadgroupValidYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "dataset/networking-v1alpha3-WorkloadGroup-valid.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1053,6 +1115,8 @@ var _bindata = map[string]func() (*asset, error){
 	"dataset/networking-v1alpha3-VirtualService-valid.yaml":          datasetNetworkingV1alpha3VirtualserviceValidYaml,
 	"dataset/networking-v1alpha3-WorkloadEntry-invalid.yaml":         datasetNetworkingV1alpha3WorkloadentryInvalidYaml,
 	"dataset/networking-v1alpha3-WorkloadEntry-valid.yaml":           datasetNetworkingV1alpha3WorkloadentryValidYaml,
+	"dataset/networking-v1alpha3-WorkloadGroup-invalid.yaml":         datasetNetworkingV1alpha3WorkloadgroupInvalidYaml,
+	"dataset/networking-v1alpha3-WorkloadGroup-valid.yaml":           datasetNetworkingV1alpha3WorkloadgroupValidYaml,
 	"dataset/networking-v1beta-DestinationRule-invalid.yaml":         datasetNetworkingV1betaDestinationruleInvalidYaml,
 	"dataset/networking-v1beta-DestinationRule-valid.yaml":           datasetNetworkingV1betaDestinationruleValidYaml,
 	"dataset/networking-v1beta-Gateway-invalid.yaml":                 datasetNetworkingV1betaGatewayInvalidYaml,
@@ -1128,6 +1192,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"networking-v1alpha3-VirtualService-valid.yaml":          &bintree{datasetNetworkingV1alpha3VirtualserviceValidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-WorkloadEntry-invalid.yaml":         &bintree{datasetNetworkingV1alpha3WorkloadentryInvalidYaml, map[string]*bintree{}},
 		"networking-v1alpha3-WorkloadEntry-valid.yaml":           &bintree{datasetNetworkingV1alpha3WorkloadentryValidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-WorkloadGroup-invalid.yaml":         &bintree{datasetNetworkingV1alpha3WorkloadgroupInvalidYaml, map[string]*bintree{}},
+		"networking-v1alpha3-WorkloadGroup-valid.yaml":           &bintree{datasetNetworkingV1alpha3WorkloadgroupValidYaml, map[string]*bintree{}},
 		"networking-v1beta-DestinationRule-invalid.yaml":         &bintree{datasetNetworkingV1betaDestinationruleInvalidYaml, map[string]*bintree{}},
 		"networking-v1beta-DestinationRule-valid.yaml":           &bintree{datasetNetworkingV1betaDestinationruleValidYaml, map[string]*bintree{}},
 		"networking-v1beta-Gateway-invalid.yaml":                 &bintree{datasetNetworkingV1betaGatewayInvalidYaml, map[string]*bintree{}},

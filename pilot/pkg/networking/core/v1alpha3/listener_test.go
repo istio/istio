@@ -41,7 +41,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -50,6 +49,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -1468,12 +1468,12 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		name             string
 		in               *meshconfig.Tracing
 		out              *hcm.HttpConnectionManager_Tracing
-		tproxy           model.Proxy
+		tproxy           *model.Proxy
 		envPilotSampling float64
 	}{
 		{
 			name:             "random-sampling-env",
-			tproxy:           *getProxy(),
+			tproxy:           getProxy(),
 			envPilotSampling: 80.0,
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
@@ -1496,7 +1496,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 		{
 			name:             "random-sampling-env-and-meshconfig",
-			tproxy:           *getProxy(),
+			tproxy:           getProxy(),
 			envPilotSampling: 80.0,
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
@@ -1519,7 +1519,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 		{
 			name:             "random-sampling-too-low-env",
-			tproxy:           *getProxy(),
+			tproxy:           getProxy(),
 			envPilotSampling: -1,
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
@@ -1542,7 +1542,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 		{
 			name:             "random-sampling-too-high-meshconfig",
-			tproxy:           *getProxy(),
+			tproxy:           getProxy(),
 			envPilotSampling: 80.0,
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
@@ -1565,7 +1565,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 		{
 			name:             "random-sampling-too-high-env",
-			tproxy:           *getProxy(),
+			tproxy:           getProxy(),
 			envPilotSampling: 2000.0,
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
@@ -1590,7 +1590,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 			// upstream will set the default to 256 per
 			// its documentation
 			name:   "tag-max-path-length-not-set-default",
-			tproxy: *getProxy(),
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
 				CustomTags:       nil,
@@ -1612,7 +1612,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 		{
 			name:   "tag-max-path-length-set-to-1024",
-			tproxy: *getProxy(),
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				Tracer:           nil,
 				CustomTags:       nil,
@@ -1636,7 +1636,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 		{
 			name:   "custom-tags-sidecar",
-			tproxy: *getProxy(),
+			tproxy: getProxy(),
 			in: &meshconfig.Tracing{
 				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
 					"custom_tag_env": {
@@ -1708,7 +1708,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		},
 		{
 			name:   "custom-tracing-gateways",
-			tproxy: proxyGateway,
+			tproxy: &proxyGateway,
 			in: &meshconfig.Tracing{
 				MaxPathTagLength: 100,
 				CustomTags: map[string]*meshconfig.Tracing_CustomTag{
@@ -1777,7 +1777,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 		}
 
 		tc.tproxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-		httpProxy := configgen.buildHTTPProxy(&tc.tproxy, env.PushContext)
+		httpProxy := configgen.buildHTTPProxy(tc.tproxy, env.PushContext)
 
 		f := httpProxy.FilterChains[0].Filters[0]
 		verifyHTTPConnectionManagerFilter(t, f, tc.out, tc.name)
@@ -2056,11 +2056,7 @@ func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, s
 	proxy.ServiceInstances = proxyInstances
 
 	listeners := configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
-	for _, l := range listeners {
-		if err := l.Validate(); err != nil {
-			t.Fatalf("Listener %s failed validation with error  %v", l.Name, err)
-		}
-	}
+	xdstest.ValidateListeners(t, listeners)
 	return listeners
 }
 
@@ -2082,11 +2078,7 @@ func buildInboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, si
 		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
 	}
 	listeners := configgen.buildSidecarInboundListeners(proxy, env.PushContext)
-	for _, l := range listeners {
-		if err := l.Validate(); err != nil {
-			t.Fatalf("Listener %s failed validation with error  %v", l.Name, err)
-		}
-	}
+	xdstest.ValidateListeners(t, listeners)
 	return listeners
 }
 

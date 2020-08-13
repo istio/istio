@@ -24,7 +24,6 @@ data:
         zipkin:
           address: zipkin.istio-system:9411
     enablePrometheusMerge: true
-    mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
     rootNamespace: istio-control
