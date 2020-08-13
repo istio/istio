@@ -25,7 +25,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/kube"
@@ -151,8 +150,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 								ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
 									retry.UntilSuccessOrFail(ctx, func() error {
 										testID := util.RandomString(16)
-										res, err := sendTrafficMirror(podA, apps.podB[0], proto, testID)
-										if err != nil {
+										if err := sendTrafficMirror(podA, apps.podB[0], proto, testID); err != nil {
 											return err
 										}
 										expected := c.expectedDestination
@@ -160,7 +158,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 											expected = apps.podC
 										}
 
-										return verifyTrafficMirror(apps.podB, expected, res, c, testID)
+										return verifyTrafficMirror(apps.podB, expected, c, testID)
 									}, retry.Delay(time.Second))
 								})
 							}
@@ -171,7 +169,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 		})
 }
 
-func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) (client.ParsedResponses, error) {
+func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
 		Target:   to,
 		Count:    250,
@@ -183,19 +181,24 @@ func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID s
 	case protocol.GRPC:
 		options.Message = testID
 	default:
-		return nil, fmt.Errorf("protocol not supported in mirror testing: %s", proto)
+		return fmt.Errorf("protocol not supported in mirror testing: %s", proto)
 	}
-	return from.Call(options)
-}
 
-func verifyTrafficMirror(dest, mirror echo.Instances, res client.ParsedResponses, tc testCaseMirror, testID string) error {
-	// TODO(landow) we can probably look at ParsedResposne instead of using logs
-	countB, err := logCount(dest, testID)
+	_, err := from.Call(options)
 	if err != nil {
 		return err
 	}
 
-	countC, err := logCount(mirror, testID)
+	return nil
+}
+
+func verifyTrafficMirror(dest, mirror echo.Instances, tc testCaseMirror, testID string) error {
+	countsB, countB, err := logCount(dest, testID)
+	if err != nil {
+		return err
+	}
+
+	countsC, countC, err := logCount(mirror, testID)
 	if err != nil {
 		return err
 	}
@@ -215,35 +218,41 @@ func verifyTrafficMirror(dest, mirror echo.Instances, res client.ParsedResponses
 	}
 
 	if tc.percentage < 100 {
-		if err := res.CheckReachedClusters(dest.Clusters()); err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("expected original destination in all clusters to be reached: %v", err))
+		if len(countsB) < len(dest.Clusters()) {
+			merr = multierror.Append(merr, fmt.Errorf("expected original destination in all clusters to be reached, but got: %v", countsB))
 		}
 	}
 	if tc.percentage > 0 {
-		if err := res.CheckReachedClusters(mirror.Clusters()); err != nil {
-			merr = multierror.Append(merr, fmt.Errorf("expected mirror destination in all clusters to be reached: %v", err))
+		if len(countsC) < len(mirror.Clusters()) {
+			merr = multierror.Append(merr, fmt.Errorf("expected mirror destination in all clusters to be reached, but got: %v", countsC))
 		}
 	}
 
 	return merr.ErrorOrNil()
 }
 
-func logCount(instances echo.Instances, testID string) (float64, error) {
-	var logs string
+func logCount(instances echo.Instances, testID string) (counts map[string]float64, total float64, err error) {
+	counts = map[string]float64{}
 	for _, instance := range instances {
 		workloads, err := instance.Workloads()
 		if err != nil {
-			return -1, fmt.Errorf("failed to get Subsets: %v", err)
+			return nil, -1, fmt.Errorf("failed to get Subsets: %v", err)
 		}
-
+		var logs string
 		for _, w := range workloads {
 			l, err := w.Logs()
 			if err != nil {
-				return -1, fmt.Errorf("failed getting logs: %v", err)
+				return nil, -1, fmt.Errorf("failed getting logs: %v", err)
 			}
 			logs += l
 		}
+		if c := float64(strings.Count(logs, testID)); c > 0 {
+			counts[instance.Config().Cluster.Name()] = c
+		}
 	}
-
-	return float64(strings.Count(logs, testID)), nil
+	total = 0
+	for _, c := range counts {
+		total += c
+	}
+	return counts, total, nil
 }
