@@ -160,7 +160,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 											expected = apps.podC
 										}
 
-										return verifyTrafficMirror(podA, apps.podB, expected, res, c, testID)
+										return verifyTrafficMirror(apps.podB, expected, res, c, testID)
 									}, retry.Delay(time.Second))
 								})
 							}
@@ -188,7 +188,7 @@ func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID s
 	return from.Call(options)
 }
 
-func verifyTrafficMirror(source echo.Instance, dest, mirror echo.Instances, res client.ParsedResponses, tc testCaseMirror, testID string) error {
+func verifyTrafficMirror(dest, mirror echo.Instances, res client.ParsedResponses, tc testCaseMirror, testID string) error {
 	// TODO(landow) we can probably look at ParsedResposne instead of using logs
 	countB, err := logCount(dest, testID)
 	if err != nil {
