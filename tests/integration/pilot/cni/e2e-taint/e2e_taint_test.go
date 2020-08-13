@@ -24,20 +24,17 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/framework"
-
-	"k8s.io/apimachinery/pkg/api/errors"
-
-	"istio.io/istio/pkg/test/kube"
-
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	client "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/cni/pkg/taint"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
