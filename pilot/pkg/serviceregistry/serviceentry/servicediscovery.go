@@ -293,18 +293,30 @@ func (s *ServiceEntryStore) serviceEntryHandler(old, curr model.Config, event mo
 		return
 	}
 
-	// When doing a full push, the added, updated, unchanged services trigger an eds update
-	// so that endpoint shards are updated.
-	allServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
-	allServices = append(allServices, addedSvcs...)
-	allServices = append(allServices, updatedSvcs...)
-	allServices = append(allServices, unchangedSvcs...)
-	instances := convertServiceEntryToInstances(curr, allServices)
-	s.edsUpdate(instances, false)
-
 	// Recomputing the index here is too expensive - lazy build when it is needed.
 	// Only recompute indexes if services have changed.
 	s.refreshIndexes.Store(true)
+
+	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
+	// so that endpoint shards are updated.
+	allServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
+	noneDnsServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
+	allServices = append(allServices, addedSvcs...)
+	allServices = append(allServices, updatedSvcs...)
+	allServices = append(allServices, unchangedSvcs...)
+	for _, svc := range allServices {
+		if svc.Resolution != model.DNSLB {
+			noneDnsServices = append(noneDnsServices, svc)
+		}
+	}
+	// non dns service instances
+	var nonDnsServiceInstances []*model.ServiceInstance
+	if len(noneDnsServices) > 0 {
+		nonDnsServiceInstances = convertServiceEntryToInstances(curr, noneDnsServices)
+	}
+	// update eds endpoint shards
+	s.edsUpdate(nonDnsServiceInstances, false)
+
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: configsUpdated,
@@ -500,8 +512,6 @@ func (s *ServiceEntryStore) edsUpdate(instances []*model.ServiceInstance, push b
 	for _, i := range instances {
 		keys[makeInstanceKey(i)] = struct{}{}
 	}
-
-	s.maybeRefreshIndexes()
 
 	s.storeMutex.RLock()
 	for key := range keys {
