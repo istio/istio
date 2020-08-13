@@ -266,7 +266,6 @@ spec:
 			},
 		}
 
-		splittingCallCount := len(apps.podB) * 100
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
@@ -292,16 +291,14 @@ spec:
       weight: %d
 `, split[podBSvc], split[nakedSvc], split[vmASvc]),
 				call: func() (echoclient.ParsedResponses, error) {
-					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: splittingCallCount})
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: 100})
 				},
 				validator: func(responses echoclient.ParsedResponses) error {
 					if err := responses.CheckOK(); err != nil {
 						return err
 					}
 					errorThreshold := 10
-					for host, expPercent := range split {
-						pct := float32(expPercent) / 100
-						exp := int(pct * float32(splittingCallCount))
+					for host, exp := range split {
 						hits := responses.Hits(func(r *echoclient.ParsedResponse) bool {
 							return strings.HasPrefix(r.Hostname, host+"-")
 						})
