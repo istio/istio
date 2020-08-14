@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"k8s.io/client-go/kubernetes/scheme"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -121,6 +123,7 @@ func (fx *FakeXdsUpdater) Clear() {
 
 type FakeControllerOptions struct {
 	Objects           []runtime.Object
+	ObjectString      string
 	NetworksWatcher   mesh.NetworksWatcher
 	ServiceHandler    func(service *model.Service, event model.Event)
 	InstanceHandler   func(instance *model.ServiceInstance, event model.Event)
@@ -145,7 +148,7 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 	if opts.DomainSuffix != "" {
 		domainSuffix = opts.DomainSuffix
 	}
-	clients := kubelib.NewFakeClient(opts.Objects...)
+	clients := kubelib.NewFakeClient(getKubernetesObjects(opts)...)
 	options := Options{
 		WatchedNamespaces: opts.WatchedNamespaces, // default is all namespaces
 		ResyncPeriod:      1 * time.Second,
@@ -176,4 +179,28 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		fx = x
 	}
 	return &FakeController{c}, fx
+}
+
+func getKubernetesObjects(opts FakeControllerOptions) []runtime.Object {
+	if len(opts.Objects) > 0 {
+		return opts.Objects
+	}
+
+	objects := make([]runtime.Object, 0)
+	if len(opts.ObjectString) > 0 {
+		decode := scheme.Codecs.UniversalDeserializer().Decode
+		objectStrs := strings.Split(opts.ObjectString, "---")
+		for _, s := range objectStrs {
+			if len(strings.TrimSpace(s)) == 0 {
+				continue
+			}
+			o, _, err := decode([]byte(s), nil, nil)
+			if err != nil {
+				t.Fatalf("failed deserializing kubernetes object: %v", err)
+			}
+			objects = append(objects, o)
+		}
+	}
+
+	return objects
 }

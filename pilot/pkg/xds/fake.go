@@ -83,27 +83,6 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 	return f.Env.PushContext
 }
 
-func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
-	if len(opts.KubernetesObjects) > 0 {
-		return opts.KubernetesObjects
-	}
-
-	objects := make([]runtime.Object, 0)
-	if len(opts.KubernetesObjectString) > 0 {
-		decode := scheme.Codecs.UniversalDeserializer().Decode
-		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
-		for _, s := range objectStrs {
-			o, _, err := decode([]byte(s), nil, nil)
-			if err != nil {
-				t.Fatalf("failed deserializing kubernetes object: %v", err)
-			}
-			objects = append(objects, o)
-		}
-	}
-
-	return objects
-}
-
 func getConfigs(t test.Failer, opts FakeOptions) []model.Config {
 	if len(opts.Configs) > 0 {
 		return opts.Configs
@@ -138,7 +117,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	})
 
 	configs := getConfigs(t, opts)
-	k8sObjects := getKubernetesObjects(t, opts)
 	configStore := memory.MakeWithLedger(collections.Pilot, &model.DisabledLedger{}, true)
 	env := &model.Environment{}
 	plugins := []string{plugin.Authn, plugin.Authz, plugin.Health}
@@ -171,7 +149,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	se := serviceentry.NewServiceDiscovery(configController, model.MakeIstioStore(configStore), s)
 	serviceDiscovery.AddRegistry(se)
 	k8s, _ := kube.NewFakeControllerWithOptions(kube.FakeControllerOptions{
-		Objects:         k8sObjects,
+		Objects:         opts.KubernetesObjects,
+		ObjectString:    opts.KubernetesObjectString,
 		ClusterID:       "Kubernetes",
 		DomainSuffix:    "cluster.local",
 		XDSUpdater:      s,
