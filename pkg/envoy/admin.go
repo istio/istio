@@ -41,7 +41,7 @@ func DrainListeners(adminPort uint32, inboundonly bool) error {
 	if inboundonly {
 		drainURL = "drain_listeners?inboundonly&graceful"
 	} else {
-		drainURL = "drain_listeners&graceful"
+		drainURL = "drain_listeners?graceful"
 	}
 	res, err := doEnvoyPost(drainURL, "", "", adminPort)
 	log.Debugf("Drain listener endpoint response : %s", res.String())
