@@ -59,7 +59,16 @@ type uninstallArgs struct {
 	set []string
 	// manifestsPath is a path to a charts and profiles directory in the local filesystem, or URL with a release tgz.
 	manifestsPath string
+	// verbose generates verbose output.
+	verbose bool
 }
+
+const (
+	AllResourcesRemovedWarning = "All Istio resources will be pruned from the cluster\n"
+	NoResourcesRemovedWarning  = "No resources will be pruned from the cluster. Please double check the input configs\n"
+	GatewaysRemovedWarning     = "You are about to remove the following gateways: %s." +
+		" To avoid downtime, please quit this command and reinstall the gateway(s) with a revision that is not being removed from the cluster.\n"
+)
 
 func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
@@ -74,6 +83,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 		"The filename of the IstioOperator CR.")
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
+	cmd.PersistentFlags().BoolVarP(&args.verbose, "verbose", "v", false, "Verbose output.")
 }
 
 // UninstallCmd command uninstalls Istio from a cluster
@@ -185,24 +195,31 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 	needConfirmation, message := false, ""
 	if uiArgs.purge {
 		needConfirmation = true
-		message += "All Istio resources will be pruned from the cluster\n"
+		message += AllResourcesRemovedWarning
 	} else {
-		rmListString := constructResourceListOutput(resourcesList, objectsList)
+		rmListString, gwList := constructResourceListOutput(resourcesList, objectsList)
 		if rmListString == "" {
-			l.LogAndPrint("No resources will be pruned from the cluster. Please double check the input configs")
+			l.LogAndPrint(NoResourcesRemovedWarning)
 			return
 		}
-		needConfirmation = true
-		message += fmt.Sprintf("The following resources will be pruned from the cluster: %s\n",
-			rmListString)
+		if uiArgs.verbose {
+			message += fmt.Sprintf("The following resources will be pruned from the cluster: %s\n",
+				rmListString)
+		}
+
 		if len(pids) != 0 && rev != "" {
-			message += fmt.Sprintf("There are still %d proxies pointing to the control plane revision %s:\n", len(pids), rev)
+			needConfirmation = true
+			message += fmt.Sprintf("There are still %d proxies pointing to the control plane revision %s\n", len(pids), rev)
 			// just print the count only if there is a large list of proxies
 			if len(pids) <= 30 {
 				message += fmt.Sprintf("%s\n", strings.Join(pids, "\n"))
 			}
 			message += "If you proceed with the uninstall, these proxies will become detached from any control plane" +
-				" and will not function correctly. "
+				" and will not function correctly.\n"
+		}
+		if gwList != "" {
+			needConfirmation = true
+			message += fmt.Sprintf(GatewaysRemovedWarning, gwList)
 		}
 	}
 	if uiArgs.skipConfirmation {
@@ -217,15 +234,13 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 }
 
 // constructResourceListOutput is a helper function to construct the output of to be removed resources list
-func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects) string {
-	var items []*unstructured.Unstructured
+func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects) (string, string) {
+	var items []unstructured.Unstructured
 	if objectsList != nil {
 		items = objectsList.UnstructuredItems()
 	}
 	for _, usList := range resourcesList {
-		for _, o := range usList.Items {
-			items = append(items, &o)
-		}
+		items = append(items, usList.Items...)
 	}
 	kindNameMap := make(map[string][]string)
 	for _, o := range items {
@@ -236,11 +251,18 @@ func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList,
 		kindNameMap[o.GetKind()] = append(kindNameMap[o.GetKind()], o.GetName())
 	}
 	if len(kindNameMap) == 0 {
-		return ""
+		return "", ""
 	}
-	var output string
+	output, gwlist := "", []string{}
 	for kind, name := range kindNameMap {
 		output += fmt.Sprintf("%s: %s. ", kind, strings.Join(name, ", "))
+		if kind == "Deployment" {
+			for _, n := range name {
+				if strings.Contains(n, "gateway") {
+					gwlist = append(gwlist, n)
+				}
+			}
+		}
 	}
-	return output
+	return output, strings.Join(gwlist, ", ")
 }

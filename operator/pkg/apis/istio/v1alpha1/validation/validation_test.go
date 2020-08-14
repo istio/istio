@@ -92,7 +92,7 @@ func TestValidateProfiles(t *testing.T) {
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
 	for _, tt := range profiles {
 		t.Run(tt, func(t *testing.T) {
-			_, s, err := manifest.GenIOPSFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, nil, l)
+			_, s, err := manifest.GenIOPSFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, l)
 			if err != nil {
 				t.Fatal(err)
 			}
