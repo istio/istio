@@ -123,7 +123,7 @@ require (
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/genproto v0.0.0-20200722002428-88e341933a54
-	google.golang.org/grpc v1.30.0
+	google.golang.org/grpc v1.31.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.5.1
@@ -131,7 +131,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	helm.sh/helm/v3 v3.2.4
 	istio.io/api v0.0.0-20200813025026-b0d73f1d2ae9
-	istio.io/client-go v0.0.0-20200807223845-61c70ad04ec9
+	istio.io/client-go v0.0.0-20200812230733-f5504d568313
 	istio.io/gogo-genproto v0.0.0-20200720193312-b523a30fe746
 	istio.io/pkg v0.0.0-20200721143030-6b837ddaf2ab
 	k8s.io/api v0.18.6

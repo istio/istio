@@ -79,6 +79,11 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			ObjectMeta: objMeta,
 			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadEntry)),
 		}, metav1.CreateOptions{})
+	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().WorkloadGroups(config.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
+			ObjectMeta: objMeta,
+			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}, metav1.CreateOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(config.Namespace).Create(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
@@ -156,6 +161,11 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			ObjectMeta: objMeta,
 			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadEntry)),
 		}, metav1.UpdateOptions{})
+	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().WorkloadGroups(config.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
+			ObjectMeta: objMeta,
+			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}, metav1.UpdateOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(config.Namespace).Update(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
@@ -212,6 +222,8 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ re
 		return ic.NetworkingV1alpha3().VirtualServices(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadEntries(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().WorkloadGroups(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
@@ -327,6 +339,21 @@ var translationMap = map[resource.GroupVersionKind]func(r runtime.Object) *model
 		return &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+			},
+			Spec: &obj.Spec,
+		}
+	},
+	collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
+		obj := r.(*clientnetworkingv1alpha3.WorkloadGroup)
+		return &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

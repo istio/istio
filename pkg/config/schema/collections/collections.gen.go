@@ -173,6 +173,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// IstioNetworkingV1Alpha3Workloadgroups describes the collection
+	// istio/networking/v1alpha3/workloadgroups
+	IstioNetworkingV1Alpha3Workloadgroups = collection.Builder{
+		Name:         "istio/networking/v1alpha3/workloadgroups",
+		VariableName: "IstioNetworkingV1Alpha3Workloadgroups",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "WorkloadGroup",
+			Plural:        "workloadgroups",
+			Version:       "v1alpha3",
+			Proto:         "istio.networking.v1alpha3.WorkloadGroup",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// IstioSecurityV1Beta1Authorizationpolicies describes the collection
 	// istio/security/v1beta1/authorizationpolicies
 	IstioSecurityV1Beta1Authorizationpolicies = collection.Builder{
@@ -525,6 +543,24 @@ var (
 		}.MustBuild(),
 	}.MustBuild()
 
+	// K8SNetworkingIstioIoV1Alpha3Workloadgroups describes the collection
+	// k8s/networking.istio.io/v1alpha3/workloadgroups
+	K8SNetworkingIstioIoV1Alpha3Workloadgroups = collection.Builder{
+		Name:         "k8s/networking.istio.io/v1alpha3/workloadgroups",
+		VariableName: "K8SNetworkingIstioIoV1Alpha3Workloadgroups",
+		Disabled:     false,
+		Resource: resource.Builder{
+			Group:         "networking.istio.io",
+			Kind:          "WorkloadGroup",
+			Plural:        "workloadgroups",
+			Version:       "v1alpha3",
+			Proto:         "istio.networking.v1alpha3.WorkloadGroup",
+			ProtoPackage:  "istio.io/api/networking/v1alpha3",
+			ClusterScoped: false,
+			ValidateProto: validation.EmptyValidate,
+		}.MustBuild(),
+	}.MustBuild()
+
 	// K8SSecurityIstioIoV1Beta1Authorizationpolicies describes the collection
 	// k8s/security.istio.io/v1beta1/authorizationpolicies
 	K8SSecurityIstioIoV1Beta1Authorizationpolicies = collection.Builder{
@@ -662,6 +698,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -682,6 +719,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -702,6 +740,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -726,6 +765,7 @@ var (
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Sidecars).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Virtualservices).
 		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadentries).
+		MustAdd(K8SNetworkingIstioIoV1Alpha3Workloadgroups).
 		MustAdd(K8SSecurityIstioIoV1Beta1Authorizationpolicies).
 		MustAdd(K8SSecurityIstioIoV1Beta1Peerauthentications).
 		MustAdd(K8SSecurityIstioIoV1Beta1Requestauthentications).
@@ -744,6 +784,7 @@ var (
 		MustAdd(IstioNetworkingV1Alpha3Sidecars).
 		MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 		MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+		MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 		MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 		MustAdd(IstioSecurityV1Beta1Peerauthentications).
 		MustAdd(IstioSecurityV1Beta1Requestauthentications).
@@ -758,6 +799,7 @@ var (
 			MustAdd(IstioNetworkingV1Alpha3Sidecars).
 			MustAdd(IstioNetworkingV1Alpha3Virtualservices).
 			MustAdd(IstioNetworkingV1Alpha3Workloadentries).
+			MustAdd(IstioNetworkingV1Alpha3Workloadgroups).
 			MustAdd(IstioSecurityV1Beta1Authorizationpolicies).
 			MustAdd(IstioSecurityV1Beta1Peerauthentications).
 			MustAdd(IstioSecurityV1Beta1Requestauthentications).
