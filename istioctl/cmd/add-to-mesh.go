@@ -36,6 +36,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -55,8 +56,6 @@ const (
 
 var (
 	crdFactory = createDynamicInterface
-	// istio control plane revision (experimental)
-	revision string
 )
 
 // vmServiceOpts contains the options of a mesh expansion service running on VM.
@@ -121,6 +120,8 @@ istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.2
 }
 
 func deploymentMeshifyCmd() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+
 	cmd := &cobra.Command{
 		Use:   "deployment <deployment>",
 		Short: "Add deployment to Istio service mesh",
@@ -161,20 +162,18 @@ istioctl experimental add-to-mesh deployment productpage-v1`,
 			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer, func(warning string) {
+				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
-
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
 func svcMeshifyCmd() *cobra.Command {
-	var revision string
+	var opts clioptions.ControlPlaneOptions
 
 	cmd := &cobra.Command{
 		Use:   "service <service>",
@@ -218,15 +217,13 @@ istioctl experimental add-to-mesh service productpage`,
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer, func(warning string) {
+				args[0], ns, opts.Revision, meshConfig, writer, func(warning string) {
 					fmt.Fprintln(cmd.ErrOrStderr(), warning)
 				})
 		},
 	}
 
-	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
-
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 

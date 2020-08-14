@@ -32,6 +32,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
@@ -133,7 +134,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	createCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	createCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
 	createCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
-	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances; e.g. -l env=prod,vers=2")
+	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances")
 	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
 	return createCmd
@@ -153,7 +154,10 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 	return wgYAML, nil
 }
 
+// TODO: extract the cluster ID from the injector config (.Values.global.multiCluster.clusterName)
 func configureCommand() *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+
 	configureCmd := &cobra.Command{
 		Use:   "configure",
 		Short: "Generates all the required configuration files for a workload instance running on a VM or non-Kubernetes environment",
@@ -172,17 +176,15 @@ configure --name foo --namespace bar -o config`,
 			if outputDir == "" {
 				return fmt.Errorf("expecting an output directory")
 			}
-			if clusterID == "" {
-				return fmt.Errorf("expecting a cluster id")
-			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			wg := &clientv1alpha3.WorkloadGroup{}
-			kubeClient, err := kube.NewExtendedClient(kube.BuildClientCmd(kubeconfig, configContext), "")
+			kubeClient, err := kubeClientWithRevision(kubeconfig, configContext, opts.Revision)
 			if err != nil {
 				return err
 			}
+
+			wg := &clientv1alpha3.WorkloadGroup{}
 			if filename != "" {
 				if err := readWorkloadGroup(filename, wg); err != nil {
 					return err
@@ -194,22 +196,21 @@ configure --name foo --namespace bar -o config`,
 					return fmt.Errorf("workloadgroup %s not found in namespace %s: %v", name, namespace, err)
 				}
 			}
-
-			if err = createConfig(kubeClient, wg, clusterID, revision, ingressIP, outputDir); err != nil {
+			if err = createConfig(kubeClient, wg, clusterID, ingressIP, outputDir); err != nil {
 				return err
 			}
-			fmt.Printf("configuration generation into %s was successful\n", outputDir)
+			fmt.Printf("configuration generation into directory %s was successful\n", outputDir)
 			return nil
 		},
 	}
-	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact. Leave empty if getting the artifact from the API server")
+	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact. Leave this field empty if using the API server")
 	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
 	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
-	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
+	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "Kubernetes", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
-	configureCmd.PersistentFlags().StringVar(&revision, "revision", "", "control plane revision (experimental)")
 	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
+	opts.AttachControlPlaneFlags(configureCmd)
 	return configureCmd
 }
 
@@ -238,7 +239,7 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, ingressIP, outputDir string) error {
+func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, ingressIP, outputDir string) error {
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
@@ -248,10 +249,10 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err := createCertsTokens(kubeClient, wg, outputDir); err != nil {
 		return err
 	}
-	if err := createMeshConfig(kubeClient, wg, clusterID, revision, outputDir); err != nil {
+	if err := createMeshConfig(kubeClient, wg, clusterID, outputDir); err != nil {
 		return err
 	}
-	if err := createHosts(kubeClient, revision, ingressIP, outputDir); err != nil {
+	if err := createHosts(kubeClient, ingressIP, outputDir); err != nil {
 		return err
 	}
 	return nil
@@ -315,9 +316,10 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 }
 
 // TODO: Support the proxy.istio.io/config annotation
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) error {
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, dir string) error {
 	istioCM := "istio"
 	// Case with multiple control planes
+	revision := kubeClient.Revision()
 	if revision != "" {
 		istioCM = fmt.Sprintf("%s-%s", istioCM, revision)
 	}
@@ -376,7 +378,7 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.ExtendedClient, revision, ingressIP, dir string) error {
+func createHosts(kubeClient kube.ExtendedClient, ingressIP, dir string) error {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		ingress, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), multicluster.IstioIngressGatewayServiceName, metav1.GetOptions{})
@@ -387,8 +389,13 @@ func createHosts(kubeClient kube.ExtendedClient, revision, ingressIP, dir string
 	}
 
 	var hosts string
+	istiod := "istiod"
+	revision := kubeClient.Revision()
+	if revision != "" {
+		istiod = fmt.Sprintf("%s-%s", istiod, revision)
+	}
 	if ingressIP != "" {
-		hosts = fmt.Sprintf("%s istiod-%s.%s.svc\n", ingressIP, revision, istioNamespace)
+		hosts = fmt.Sprintf("%s %s.%s.svc\n", ingressIP, istiod, istioNamespace)
 	}
 	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }

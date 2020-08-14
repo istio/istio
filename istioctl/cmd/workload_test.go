@@ -130,12 +130,6 @@ func TestGenerateConfig(t *testing.T) {
 			expectedException: true,
 			expectedOutput:    "Error: expecting an output directory\n",
 		},
-		{
-			description:       "Invalid command args - missing cluster id",
-			args:              strings.Split("experimental workload entry configure --file fname --output ./config -", " "),
-			expectedException: true,
-			expectedOutput:    "Error: expecting a cluster id\n",
-		},
 	}
 
 	for i, c := range cases {
