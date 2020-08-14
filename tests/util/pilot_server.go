@@ -102,6 +102,7 @@ func setup(additionalArgs ...func(*bootstrap.PilotArgs)) (*bootstrap.Server, Tea
 		p.ServerOptions = bootstrap.DiscoveryServerOptions{
 			HTTPAddr:        httpAddr,
 			GRPCAddr:        ":0",
+			SecureGRPCAddr:  ":0",
 			EnableProfiling: true,
 		}
 		p.RegistryOptions = bootstrap.RegistryOptions{
