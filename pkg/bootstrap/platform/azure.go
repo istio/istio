@@ -32,10 +32,6 @@ const (
 	AzureDefaultAPIVersion = "2019-08-15"
 	SysVendorPath          = "/sys/class/dmi/id/sys_vendor"
 	MicrosoftIdentifier    = "Microsoft Corporation"
-
-	AzureName     = "azure_name"
-	AzureLocation = "azure_location"
-	AzureVMID     = "azure_vm_id"
 )
 
 var (
@@ -49,6 +45,7 @@ var (
 
 type azureEnv struct {
 	APIVersion      string
+	prefix          string
 	computeMetadata map[string]interface{}
 	networkMetadata map[string]interface{}
 }
@@ -58,7 +55,7 @@ type azureEnv struct {
 func IsAzure() bool {
 	sysVendor, err := ioutil.ReadFile(SysVendorPath)
 	if err != nil {
-		log.Warnf("Error reading sys_vendor in Azure platform detection: %v", err)
+		log.Debugf("Error reading sys_vendor in Azure platform detection: %v", err)
 	}
 	return strings.Contains(string(sysVendor), MicrosoftIdentifier)
 }
@@ -77,11 +74,22 @@ func (e *azureEnv) updateAPIVersion() {
 }
 
 // NewAzure returns a platform environment for Azure
+// Default prefix is azure_
 func NewAzure() Environment {
+	return NewAzureWithPrefix("azure_")
+}
+
+func NewAzureWithPrefix(prefix string) Environment {
 	e := &azureEnv{APIVersion: AzureDefaultAPIVersion}
 	e.updateAPIVersion()
 	e.parseMetadata(e.azureMetadata())
+	e.prefix = prefix
 	return e
+}
+
+// Returns the name with the prefix attached
+func (e *azureEnv) prefixName(name string) string {
+	return e.prefix + name
 }
 
 // Retrieves Azure instance metadata response body stores it in the Azure environment
@@ -135,13 +143,13 @@ func stringToJSON(s string) map[string]interface{} {
 func (e *azureEnv) Metadata() map[string]string {
 	md := map[string]string{}
 	if an := e.azureName(); an != "" {
-		md[AzureName] = an
+		md[e.prefixName("name")] = an
 	}
 	if al := e.azureLocation(); al != "" {
-		md[AzureLocation] = al
+		md[e.prefixName("location")] = al
 	}
 	if aid := e.azureVMID(); aid != "" {
-		md[AzureVMID] = aid
+		md[e.prefixName("vmId")] = aid
 	}
 	for k, v := range e.azureTags() {
 		md[k] = v
@@ -176,13 +184,13 @@ func (e *azureEnv) azureName() string {
 	return ""
 }
 
-// Returns the Azure tags prefixed by "azure_"
+// Returns the Azure tags
 func (e *azureEnv) azureTags() map[string]string {
 	tags := map[string]string{}
 	if at, ok := e.computeMetadata["tags"]; ok && len(at.(string)) > 0 {
 		for _, tag := range strings.Split(at.(string), ";") {
 			kv := strings.Split(tag, ":")
-			tags["azure_"+kv[0]] = kv[1]
+			tags[e.prefixName(kv[0])] = kv[1]
 		}
 	}
 	return tags
