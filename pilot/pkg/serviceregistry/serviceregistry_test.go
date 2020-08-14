@@ -78,7 +78,7 @@ func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceE
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
-	eventch := make(chan Event, 10)
+	eventch := make(chan Event, 100)
 
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
