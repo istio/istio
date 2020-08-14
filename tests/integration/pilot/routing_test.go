@@ -71,7 +71,7 @@ spec:
 				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
 			},
 			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+				return fmt.Errorf("temp error to test dumping")
 			},
 		},
 		{
