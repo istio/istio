@@ -337,7 +337,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
 
-	mergedYAML, err := util.OverlayYAML(profileYAML, overlayYAML)
+	mergedYAML, err := util.OverlayIOP(profileYAML, overlayYAML)
 	if err != nil {
 		return nil, err
 	}
