@@ -69,26 +69,6 @@ func TestAuthenticate(t *testing.T) {
 			},
 			expectedErrMsg: "target JWT extraction error: no bearer token exists in HTTP authorization header",
 		},
-		"Review error": {
-			token: "bearer-token",
-			metadata: metadata.MD{
-				"clusterid": []string{primaryCluster},
-				"authorization": []string{
-					"Basic callername",
-				},
-			},
-			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
-		},
-		"Wrong identity length": {
-			token: "bearer-token",
-			metadata: metadata.MD{
-				"clusterid": []string{primaryCluster},
-				"authorization": []string{
-					"Basic callername",
-				},
-			},
-			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
-		},
 		"token not authenticated": {
 			token: invlidToken,
 			metadata: metadata.MD{
