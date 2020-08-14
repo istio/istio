@@ -24,6 +24,12 @@
         "source_principal": "spiffe://cluster.local/ns/{{ .Namespace }}/sa/{{ .SourceName }}",
         "source_version": "v1",
         "source_workload": "{{ .SourceName }}-v1",
-        "protocol": "{{ .Protocol }}"
+        "protocol": "{{ .Protocol }}",
+        "log_sampled": "false",
+        "upstream_cluster": "inbound|{{ .Port }}|{{ .Protocol }}|{{ .DestName }}.{{ .Namespace }}.svc.cluster.local",
+        "route_name": "default",
+        "requested_server_name": "outbound_.{{ .Port }}_._.{{ .DestName }}.{{ .Namespace }}.svc.cluster.local",
+        "x-envoy-original-dst-host": "",
+        "x-envoy-original-path": ""
     }
 }
