@@ -30,11 +30,11 @@ var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeTyp
 // towards the proxy.
 func ConfigAffectsProxy(pushEv *Event, proxy *model.Proxy) bool {
 	// Empty changes means "all" to get a backward compatibility.
-	if len(pushEv.configsUpdated) == 0 {
+	if len(pushEv.push.ConfigsUpdated) == 0 {
 		return true
 	}
 
-	for config := range pushEv.configsUpdated {
+	for config := range pushEv.push.ConfigsUpdated {
 		affected := true
 
 		// Some configKinds only affect specific proxy types
@@ -79,9 +79,9 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *Event) bool {
 	}
 
 	// If the proxy's service updated, need push for it.
-	if len(proxy.ServiceInstances) > 0 && pushEv.configsUpdated != nil {
+	if len(proxy.ServiceInstances) > 0 && pushEv.push.ConfigsUpdated != nil {
 		svc := proxy.ServiceInstances[0].Service
-		if _, ok := pushEv.configsUpdated[model.ConfigKey{
+		if _, ok := pushEv.push.ConfigsUpdated[model.ConfigKey{
 			Kind:      gvk.ServiceEntry,
 			Name:      string(svc.Hostname),
 			Namespace: svc.Attributes.Namespace,
@@ -108,7 +108,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 
 	// In case configTypes is not set, for example mesh configuration updated.
 	// If push scoping is not enabled, we push all xds
-	if len(pushEv.configsUpdated) == 0 {
+	if len(pushEv.push.ConfigsUpdated) == 0 {
 		out[EDS] = true
 		out[CDS] = true
 		out[LDS] = true
@@ -119,7 +119,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 	// Note: CDS push must be followed by EDS, otherwise after Cluster is warmed, no ClusterLoadAssignment is retained.
 
 	if proxy.Type == model.SidecarProxy {
-		for config := range pushEv.configsUpdated {
+		for config := range pushEv.push.ConfigsUpdated {
 			switch config.Kind {
 			case gvk.VirtualService:
 				out[LDS] = true
@@ -164,7 +164,7 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 			}
 		}
 	} else {
-		for config := range pushEv.configsUpdated {
+		for config := range pushEv.push.ConfigsUpdated {
 			switch config.Kind {
 			case gvk.VirtualService:
 				out[LDS] = true

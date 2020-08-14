@@ -82,22 +82,11 @@ type Connection struct {
 
 // Event represents a config or registry event that results in a push.
 type Event struct {
-	// Indicate whether the push is Full Push
-	full bool
-
-	// configsUpdated stores the config updates that triggered this push.
-	configsUpdated map[model.ConfigKey]struct{}
-
-	// Push context to use for the push.
-	push *model.PushContext
-
-	// start represents the time a push was started.
-	start time.Time
+	// Push PushRequest to use for the push.
+	push *model.PushRequest
 
 	// function to call once a push is finished. This must be called or future changes may be blocked.
 	done func()
-
-	noncePrefix string
 }
 
 func newConnection(peerAddr string, stream DiscoveryStream) *Connection {
@@ -575,16 +564,16 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// TODO: update the service deps based on NetworkScope
-	if !pushEv.full {
+	if !pushEv.push.Full {
 		if !ProxyNeedsPush(con.proxy, pushEv) {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
-		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.configsUpdated, gvk.ServiceEntry)
+		edsUpdatedServices := model.ConfigNamesOfKind(pushEv.push.ConfigsUpdated, gvk.ServiceEntry)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
 		if len(con.Clusters()) > 0 && len(edsUpdatedServices) > 0 {
-			if err := s.pushEds(pushEv.push, con, versionInfo(), edsUpdatedServices); err != nil {
+			if err := s.pushEds(pushEv.push.Push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
 		}
@@ -592,7 +581,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 
 	// Update Proxy with current information.
-	if err := s.updateProxy(con.proxy, pushEv.push); err != nil {
+	if err := s.updateProxy(con.proxy, pushEv.push.Push); err != nil {
 		return nil
 	}
 
@@ -609,7 +598,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
 			// inform distribution status reporter that this connection has been updated, because it effectively has
 			for _, distributionType := range AllEventTypes {
-				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushEv.noncePrefix)
+				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushEv.push.Push.Version)
 			}
 		}
 		return nil
@@ -626,7 +615,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// returning nil if the push is not needed.
 	if con.proxy.XdsResourceGenerator != nil {
 		for _, w := range con.proxy.Active {
-			err := s.pushGeneratorV2(con, pushEv.push, currentVersion, w, pushEv.configsUpdated)
+			err := s.pushGeneratorV2(con, pushEv.push.Push, currentVersion, w, pushEv.push.ConfigsUpdated)
 			if err != nil {
 				return err
 			}
@@ -636,39 +625,39 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushTypes := PushTypeFor(con.proxy, pushEv)
 
 	if con.Watching(v3.ClusterType) && pushTypes[CDS] {
-		err := s.pushCds(con, pushEv.push, currentVersion)
+		err := s.pushCds(con, pushEv.push.Push, currentVersion)
 		if err != nil {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ClusterType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.ClusterType, pushEv.push.Push.Version)
 	}
 
 	if len(con.Clusters()) > 0 && pushTypes[EDS] {
-		err := s.pushEds(pushEv.push, con, currentVersion, nil)
+		err := s.pushEds(pushEv.push.Push, con, currentVersion, nil)
 		if err != nil {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushEv.push.Push.Version)
 	}
 	if con.Watching(v3.ListenerType) && pushTypes[LDS] {
-		err := s.pushLds(con, pushEv.push, currentVersion)
+		err := s.pushLds(con, pushEv.push.Push, currentVersion)
 		if err != nil {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ListenerType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.ListenerType, pushEv.push.Push.Version)
 	}
 	if len(con.Routes()) > 0 && pushTypes[RDS] {
-		err := s.pushRoute(con, pushEv.push, currentVersion)
+		err := s.pushRoute(con, pushEv.push.Push, currentVersion)
 		if err != nil {
 			return err
 		}
 	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.RouteType, pushEv.noncePrefix)
+		s.StatusReporter.RegisterEvent(con.ConID, v3.RouteType, pushEv.push.Push.Version)
 	}
-	proxiesConvergeDelay.Record(time.Since(pushEv.start).Seconds())
+	proxiesConvergeDelay.Record(time.Since(pushEv.push.Start).Seconds())
 	return nil
 }
 

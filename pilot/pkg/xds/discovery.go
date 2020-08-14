@@ -417,24 +417,20 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			semaphore <- struct{}{}
 
 			// Get the next proxy to push. This will block if there are no updates required.
-			client, info := queue.Dequeue()
-			recordPushTriggers(info.Reason...)
+			client, push := queue.Dequeue()
+			recordPushTriggers(push.Reason...)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)
 				<-semaphore
 			}
 
-			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
+			proxiesQueueTime.Record(time.Since(push.Start).Seconds())
 
 			go func() {
 				pushEv := &Event{
-					full:           info.Full,
-					push:           info.Push,
-					done:           doneFunc,
-					start:          info.Start,
-					configsUpdated: info.ConfigsUpdated,
-					noncePrefix:    info.Push.Version,
+					push: push,
+					done: doneFunc,
 				}
 
 				select {
