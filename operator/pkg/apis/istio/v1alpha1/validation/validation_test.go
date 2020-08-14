@@ -127,7 +127,7 @@ func TestValidateProfiles(t *testing.T) {
 	}
 	for _, tt := range profiles {
 		t.Run(tt, func(t *testing.T) {
-			_, s, err := manifest.GenIOPSFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, nil, nil)
+			_, s, err := manifest.GenIOPSFromProfile(tt, "", []string{"installPackagePath=" + manifests}, false, false, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
