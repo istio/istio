@@ -92,7 +92,6 @@ func CreateTokenManager(tokenManagerType string, config Config) stsservice.Token
 	return tm
 }
 
-
 func (projectInfo GCPProjectInfo) GKEClusterURL() string {
 	return fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
 		projectInfo.id, projectInfo.clusterLocation, projectInfo.cluster)

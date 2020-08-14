@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 	k8sauth "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -64,7 +65,6 @@ func checkAudience(jwt string) bool {
 
 	return len(structuredPayload.Aud) > 0
 }
-
 
 // ValidateK8sJwt validates a k8s JWT at API server.
 // Return {<namespace>, <serviceaccountname>} in the targetToken when the validation passes.
