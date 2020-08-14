@@ -144,12 +144,12 @@ func (s *scope) done(nocleanup bool) error {
 				name = fmt.Sprintf("resource %v", r.ID())
 			}
 
-			scopes.Framework.Infof("Begin cleaning up %s", name)
+			scopes.Framework.Debugf("Begin cleaning up %s", name)
 			if e := c.Close(); e != nil {
-				scopes.Framework.Infof("Error cleaning up %s: %v", name, e)
+				scopes.Framework.Debugf("Error cleaning up %s: %v", name, e)
 				err = multierror.Append(err, e)
 			}
-			scopes.Framework.Infof("Cleanup complete for %s", name)
+			scopes.Framework.Debugf("Cleanup complete for %s", name)
 		}
 	}
 	s.mu.Lock()
