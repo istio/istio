@@ -272,7 +272,7 @@ func (c *testContext) WhenDone(fn func() error) {
 func (c *testContext) Done() {
 	if c.Failed() {
 		scopes.Framework.Debugf("Begin dumping testContext: %q", c.id)
-		c.scope.dump()
+		rt.Dump(c)
 		scopes.Framework.Debugf("Completed dumping testContext: %q", c.id)
 	}
 
