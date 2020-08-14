@@ -213,6 +213,8 @@ configure --name foo --namespace bar -o config`,
 	return configureCmd
 }
 
+// Reads a WorkloadGroup yaml. Additionally populates default values if unset
+// TODO: add WorkloadGroup validation in pkg/config/validation
 func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error {
 	f, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -221,14 +223,22 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 	if err = yaml.Unmarshal(f, wg); err != nil {
 		return err
 	}
+	// fill empty structs
+	if wg.Spec.Metadata == nil {
+		wg.Spec.Metadata = &networkingv1alpha3.WorkloadGroup_ObjectMeta{}
+	}
+	if wg.Spec.Template == nil {
+		wg.Spec.Template = &networkingv1alpha3.WorkloadEntry{}
+	}
+	// default service account for an empty field is "default"
+	if wg.Spec.Template.ServiceAccount == "" {
+		wg.Spec.Template.ServiceAccount = "default"
+	}
 	return nil
 }
 
 // Creates all the relevant config for the given workload group and cluster
 func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, ingressIP, outputDir string) error {
-	if err := validateWorkloadGroup(wg); err != nil {
-		return err
-	}
 	if err := os.MkdirAll(outputDir, filePerms); err != nil {
 		return err
 	}
@@ -243,30 +253,6 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	}
 	if err := createHosts(kubeClient, revision, ingressIP, outputDir); err != nil {
 		return err
-	}
-	return nil
-}
-
-// Used to populate nil WorkloadGroup structs (metadata and template)
-// Additionally checks the invalid fields in template
-func validateWorkloadGroup(wg *clientv1alpha3.WorkloadGroup) error {
-	if wg.Spec.Metadata == nil {
-		wg.Spec.Metadata = &networkingv1alpha3.WorkloadGroup_ObjectMeta{}
-	}
-	if wg.Spec.Template == nil {
-		wg.Spec.Template = &networkingv1alpha3.WorkloadEntry{}
-	}
-	// error checks and warnings
-	template := wg.Spec.Template
-	if template.Address != "" {
-		return fmt.Errorf("address %s should not be set in the WorkloadEntry template", template.Address)
-	}
-	if len(template.Labels) != 0 {
-		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s\n", template.Labels)
-	}
-	// default service account for an empty field is "default"
-	if template.ServiceAccount == "" {
-		template.ServiceAccount = "default"
 	}
 	return nil
 }
@@ -355,10 +341,13 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		labels[k] = v
 	}
 	// case where a user provided custom workload group has labels in the workload entry template field
-	for k, v := range wg.Spec.Template.Labels {
-		labels[k] = v
-	}
 	we := wg.Spec.Template
+	if len(we.Labels) > 0 {
+		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s\n", we.Labels)
+		for k, v := range we.Labels {
+			labels[k] = v
+		}
+	}
 	md := meshConfig.DefaultConfig.ProxyMetadata
 	md["CANONICAL_SERVICE"], md["CANONICAL_REVISION"] = inject.ExtractCanonicalServiceLabels(labels, wg.Name)
 	md["DNS_AGENT"] = ""
