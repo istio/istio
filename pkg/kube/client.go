@@ -477,7 +477,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return nil, err
 	}
 	if len(istiods) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
+		return nil, errors.New("unable to find any Istiod instances")
 	}
 	result := map[string][]byte{}
 	for _, istiod := range istiods {

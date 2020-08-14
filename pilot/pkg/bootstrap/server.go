@@ -30,6 +30,7 @@ import (
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -464,7 +465,21 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	// Readiness Handler.
 	s.readinessMux.HandleFunc("/ready", s.istiodReadyHandler)
 
-	s.HTTPListener = listener
+	// This happens only if the GRPC port (15010) is disabled. We will multiplex it on the HTTP port.
+	// Does not impact the HTTPS gRPC or HTTPS.
+	if s.GRPCListener == nil {
+		m := cmux.New(listener)
+		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTPListener = m.Match(cmux.Any())
+		go func() {
+			err := m.Serve()
+			if err != nil {
+				log.Warnf("Failed to listen on multiplexed port %v", err)
+			}
+		}()
+	} else {
+		s.HTTPListener = listener
+	}
 	return nil
 }
 
