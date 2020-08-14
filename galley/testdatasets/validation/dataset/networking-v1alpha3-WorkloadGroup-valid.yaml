@@ -2,7 +2,6 @@ apiVersion: networking.istio.io/v1alpha3
 kind: WorkloadGroup
 metadata:
   name: reviews
-  namespace: istio-system
 spec:
   metadata:
     labels:
