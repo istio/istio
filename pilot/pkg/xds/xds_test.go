@@ -22,20 +22,19 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/rand"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type SidecarTestConfig struct {
@@ -368,7 +367,7 @@ func TestMeshNetworking(t *testing.T) {
 				// NodePort ingress needs this
 				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
 				ingr)
-			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
+			k8sObjects = append(k8sObjects, kubecontroller.FakePodService(kubecontroller.FakeServiceOpts{Name: "kubeapp", Namespace: "pod", PodIPs: []string{"10.10.10.20"}})...)
 			for name, networkConfig := range meshNetworkConfigs {
 				t.Run(name, func(t *testing.T) {
 					s := NewFakeDiscoveryServer(t, FakeOptions{
@@ -569,75 +568,6 @@ spec:
 	}
 	if !found {
 		t.Fatalf("failed to find expected fallthrough route")
-	}
-}
-
-type fakeServiceOpts struct {
-	name         string
-	ns           string
-	ip           string
-	podLabels    labels.Instance
-	servicePorts []corev1.ServicePort
-}
-
-// fakePodService build the minimal k8s objects required to discover one endpoint.
-// If servicePorts is empty a default of http-80 will be used.
-func fakePodService(opts fakeServiceOpts) []runtime.Object {
-	baseMeta := metav1.ObjectMeta{
-		Name:      opts.name,
-		Labels:    labels.Instance{"app": opts.name},
-		Namespace: opts.ns,
-	}
-	podMeta := baseMeta
-	podMeta.Name = opts.name + "-" + rand.String(4)
-	for k, v := range opts.podLabels {
-		podMeta.Labels[k] = v
-	}
-
-	if len(opts.servicePorts) == 0 {
-		opts.servicePorts = []corev1.ServicePort{{
-			Port:     80,
-			Name:     "http",
-			Protocol: corev1.ProtocolTCP,
-		}}
-	}
-	var endpointPorts []corev1.EndpointPort
-	for _, sp := range opts.servicePorts {
-		endpointPorts = append(endpointPorts, corev1.EndpointPort{
-			Name:        sp.Name,
-			Port:        sp.Port,
-			Protocol:    sp.Protocol,
-			AppProtocol: sp.AppProtocol,
-		})
-	}
-
-	return []runtime.Object{
-		&corev1.Pod{
-			ObjectMeta: podMeta,
-		},
-		&corev1.Service{
-			ObjectMeta: baseMeta,
-			Spec: corev1.ServiceSpec{
-				ClusterIP: "1.2.3.4", // just can't be 0.0.0.0/ClusterIPNone
-				Selector:  baseMeta.Labels,
-				Ports:     opts.servicePorts,
-			},
-		},
-		&corev1.Endpoints{
-			ObjectMeta: baseMeta,
-			Subsets: []corev1.EndpointSubset{{
-				Addresses: []corev1.EndpointAddress{{
-					IP: opts.ip,
-					TargetRef: &corev1.ObjectReference{
-						APIVersion: "v1",
-						Kind:       "Pod",
-						Name:       podMeta.Name,
-						Namespace:  podMeta.Namespace,
-					},
-				}},
-				Ports: endpointPorts,
-			}},
-		},
 	}
 }
 

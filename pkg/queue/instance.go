@@ -30,6 +30,8 @@ type Instance interface {
 	Push(task Task)
 	// Run the loop until a signal on the channel
 	Run(<-chan struct{})
+	// Len returns the number of tasks in the queue
+	Len() int
 }
 
 type queueImpl struct {
@@ -120,4 +122,10 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 			})
 		}
 	}
+}
+
+func (q *queueImpl) Len() int {
+	q.mutex.RLock()
+	defer q.mutex.RUnlock()
+	return len(q.tasks)
 }

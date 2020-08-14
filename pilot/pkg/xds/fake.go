@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"net"
-	"strings"
 	"text/template"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"

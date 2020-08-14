@@ -15,6 +15,12 @@
 package controller
 
 import (
+	"fmt"
+	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
+	"k8s.io/api/core/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	"strings"
 	"time"
@@ -196,7 +202,8 @@ func getKubernetesObjects(opts FakeControllerOptions) []runtime.Object {
 			}
 			o, _, err := decode([]byte(s), nil, nil)
 			if err != nil {
-				t.Fatalf("failed deserializing kubernetes object: %v", err)
+				log.Warn("failed decoding kubernetes object for fake controller")
+				continue
 			}
 			objects = append(objects, o)
 		}
@@ -204,3 +211,88 @@ func getKubernetesObjects(opts FakeControllerOptions) []runtime.Object {
 
 	return objects
 }
+
+type FakeServiceOpts struct {
+	Name         string
+	Namespace    string
+	PodIPs       []string
+	PodLabels    labels.Instance
+	ServicePorts []v1.ServicePort
+}
+
+// FakePodService build the minimal k8s objects required to discover one endpoint.
+// If ServicePorts is empty a default of http-80 will be used.
+func FakePodService(opts FakeServiceOpts) []runtime.Object {
+	baseMeta := v12.ObjectMeta{
+		Name:      opts.Name,
+		Labels:    labels.Instance{"app": opts.Name},
+		Namespace: opts.Namespace,
+	}
+	podMeta := baseMeta
+	podMeta.Name = opts.Name + "-%s"
+	for k, v := range opts.PodLabels {
+		podMeta.Labels[k] = v
+	}
+
+	if len(opts.ServicePorts) == 0 {
+		opts.ServicePorts = []v1.ServicePort{{
+			Port:     80,
+			Name:     "http",
+			Protocol: v1.ProtocolTCP,
+		}}
+	}
+	var endpointPorts []v1.EndpointPort
+	for _, sp := range opts.ServicePorts {
+		endpointPorts = append(endpointPorts, v1.EndpointPort{
+			Name:        sp.Name,
+			Port:        sp.Port,
+			Protocol:    sp.Protocol,
+			AppProtocol: sp.AppProtocol,
+		})
+	}
+
+	ep := &v1.Endpoints{
+		ObjectMeta: baseMeta,
+		Subsets: []v1.EndpointSubset{{
+			Addresses: []v1.EndpointAddress{},
+			Ports:     endpointPorts,
+		}},
+	}
+	objects := []runtime.Object{
+		&v1.Service{
+			ObjectMeta: baseMeta,
+			Spec: v1.ServiceSpec{
+				ClusterIP: "1.2.3.4", // just can't be 0.0.0.0/ClusterIPNone
+				Selector:  baseMeta.Labels,
+				Ports:     opts.ServicePorts,
+			},
+		},
+		ep,
+	}
+
+	for _, ip := range opts.PodIPs {
+		podMeta := podMeta
+		podMeta.Name = fmt.Sprintf(podMeta.Name, rand.String(4))
+		objects = append(objects,
+			&v1.Pod{
+				ObjectMeta: podMeta,
+				Status: v1.PodStatus{
+					PodIP: ip,
+				},
+			})
+		ep.Subsets[0].Addresses = append(ep.Subsets[0].Addresses,
+			v1.EndpointAddress{
+				IP: ip,
+				TargetRef: &v1.ObjectReference{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       podMeta.Name,
+					Namespace:  podMeta.Namespace,
+				},
+			},
+		)
+	}
+
+	return objects
+}
+
