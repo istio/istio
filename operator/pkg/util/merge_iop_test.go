@@ -18,12 +18,16 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -41,7 +45,38 @@ func TestOverlayIOP(t *testing.T) {
 
 func TestOverlayIOPDefaultMeshConfig(t *testing.T) {
 	// Transform default mesh config into map[string]interface{} for inclusion in IstioOperator.
-	my, err := yaml.Marshal(mesh.DefaultMeshConfig())
+	mcfg := meshconfig.MeshConfig{
+		EnableTracing:               true,
+		AccessLogFile:               "",
+		AccessLogEncoding:           meshconfig.MeshConfig_TEXT,
+		AccessLogFormat:             "",
+		EnableEnvoyAccessLogService: false,
+		ProtocolDetectionTimeout:    types.DurationProto(5 * time.Second),
+		IngressService:              "istio-ingressgateway",
+		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
+		IngressClass:                "istio",
+		TrustDomain:                 "cluster.local",
+		TrustDomainAliases:          []string{},
+		EnableAutoMtls:              &types.BoolValue{Value: true},
+		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
+			Enabled: &types.BoolValue{Value: true},
+		},
+		Certificates: []*meshconfig.Certificate{},
+
+		// Not set in the default mesh config - code defaults.
+		RootNamespace:                  constants.IstioSystemNamespace,
+		ProxyListenPort:                15001,
+		ConnectTimeout:                 types.DurationProto(10 * time.Second),
+		EnableSdsTokenMount:            false,
+		DefaultServiceExportTo:         []string{"*"},
+		DefaultVirtualServiceExportTo:  []string{"*"},
+		DefaultDestinationRuleExportTo: []string{"*"},
+		DnsRefreshRate:                 types.DurationProto(5 * time.Second), // 5 seconds is the default refresh rate used in Envoy
+		ThriftConfig:                   &meshconfig.MeshConfig_ThriftConfig{},
+		ServiceSettings:                make([]*meshconfig.MeshConfig_ServiceSettings, 0),
+	}
+	my, err := yaml.Marshal(mcfg)
 	if err != nil {
 		t.Fatal(err)
 	}

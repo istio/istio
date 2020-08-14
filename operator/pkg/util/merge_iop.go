@@ -72,6 +72,7 @@ type gatewaySpec struct {
 
 type externalComponentSpec struct {
 	IstioCoreDNS *componentSpec `json:"istiocoredns" patchStrategy:"merge"`
+	Prometheus   *componentSpec `json:"prometheus" patchStrategy:"merge"`
 }
 
 type values struct {
@@ -87,11 +88,32 @@ type values struct {
 	MeshConfig             *meshConfig                      `json:"meshConfig" patchStrategy:"merge"`
 	Base                   *v1alpha12.BaseConfig            `json:"base" patchStrategy:"merge"`
 	IstiodRemote           *v1alpha12.IstiodRemoteConfig    `json:"istiodRemote" patchStrategy:"merge"`
+	Mixer                  *v1alpha12.MixerConfig           `json:"mixer" patchStrategy:"merge"`
+	Prometheus             *v1alpha12.PrometheusConfig      `json:"prometheus" patchStrategy:"merge"`
+	Kiali                  *v1alpha12.KialiConfig           `json:"kiali" patchStrategy:"merge"`
+	Tracing                *TracingConfig                   `json:"tracing" patchStrategy:"merge"`
+	Grafana                *grafanaConfig                   `json:"grafana" patchStrategy:"merge"`
 }
 
 type gatewaysConfig struct {
 	IstioEgressgateway  *egressGatewayConfig  `json:"istio-egressgateway" patchStrategy:"merge"`
 	IstioIngressgateway *ingressGatewayConfig `json:"istio-ingressgateway" patchStrategy:"merge"`
+}
+
+// Configurations for different tracing system to be installed.
+type TracingConfig struct {
+	// Enables tracing systems installation.
+	Enabled                          *protobuf.BoolValue                `json:"enabled" patchStrategy:"replace"`
+	Jaeger                           *v1alpha12.TracingJaegerConfig     `json:"jaeger" patchStrategy:"replace"`
+	NodeSelector                     map[string]interface{}             `json:"nodeSelector" patchStrategy:"merge"`
+	Provider                         string                             `json:"provider" patchStrategy:"replace"`
+	Service                          *v1alpha12.ServiceConfig           `json:"service" patchStrategy:"replace"`
+	Zipkin                           *v1alpha12.TracingZipkinConfig     `json:"zipkin" patchStrategy:"replace"`
+	Opencensus                       *v1alpha12.TracingOpencensusConfig `json:"opencensus" patchStrategy:"replace"`
+	ContextPath                      string                             `json:"contextPath" patchStrategy:"replace"`
+	PodAntiAffinityLabelSelector     []map[string]interface{}           `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{}           `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	Tolerations                      []map[string]interface{}           `json:"tolerations" patchStrategy:"replace"`
 }
 
 // Configuration for an ingress gateway.
@@ -135,6 +157,27 @@ type egressGatewayConfig struct {
 	ConfigVolumes                    []map[string]interface{}  `json:"configVolumes" patchStrategy:"replace"`
 	AdditionalContainers             []map[string]interface{}  `json:"additionalContainers" patchStrategy:"replace"`
 	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`
+}
+
+type grafanaConfig struct {
+	Image                            map[string]interface{}   `json:"image" patchStrategy:"replace"`
+	Enabled                          *protobuf.BoolValue      `json:"enabled" patchStrategy:"replace"`
+	Persist                          *protobuf.BoolValue      `json:"persist" patchStrategy:"replace"`
+	StorageClassName                 string                   `json:"StorageClassName" patchStrategy:"replace"`
+	AccessMode                       string                   `json:"accessMode" patchStrategy:"replace"`
+	ContextPath                      string                   `json:"contextPath" patchStrategy:"replace"`
+	Security                         map[string]interface{}   `json:"security" patchStrategy:"merge"`
+	Service                          map[string]interface{}   `json:"service" patchStrategy:"replace"`
+	Datasources                      map[string]interface{}   `json:"datasources" patchStrategy:"replace"`
+	DashboardProviders               map[string]interface{}   `json:"dashboardProviders" patchStrategy:"replace"`
+	NodeSelector                     map[string]interface{}   `json:"nodeSelector" patchStrategy:"merge"`
+	PodAntiAffinityLabelSelector     []map[string]interface{} `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{} `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	PodAnnotations                   map[string]interface{}   `json:"podAnnotations" patchStrategy:"merge"`
+	Ports                            []*v1alpha12.PortsConfig `json:"ports" patchStrategy:"merge" patchMergeKey:"name"`
+	Env                              map[string]interface{}   `json:"env" patchStrategy:"merge"`
+	EnvSecrets                       map[string]interface{}   `json:"envSecrets" patchStrategy:"merge"`
+	Tolerations                      []map[string]interface{} `json:"tolerations" patchStrategy:"merge"`
 }
 
 type meshConfig struct {
@@ -197,7 +240,8 @@ type meshConfigServiceSettings struct {
 }
 
 type telemetryConfig struct {
-	V2 *telemetryV2Config `json:"v2" patchStrategy:"merge"`
+	V1 *v1alpha12.TelemetryV1Config `json:"v1" patchStrategy:"merge"`
+	V2 *telemetryV2Config           `json:"v2" patchStrategy:"merge"`
 }
 
 type telemetryV2Config struct {
