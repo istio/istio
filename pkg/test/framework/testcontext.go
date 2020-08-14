@@ -54,8 +54,18 @@ type TestContext interface {
 	CreateTmpDirectoryOrFail(prefix string) string
 
 	// WhenDone runs the given function when the test context completes.
+	// The function will not be skipped by nocleanup.
 	// This function may not (safely) access the test context.
 	WhenDone(fn func() error)
+
+	// Cleanup runs the given function when the test context completes.
+	// This function may not (safely) access the test context.
+	Cleanup(fn func())
+
+	// CleanupOrFail runs the given function when the test context completes.
+	// The context is failed if an error is returned.
+	// This function may not (safely) access the test context.
+	CleanupOrFail(fn func() error)
 
 	// Done should be called when this context is no longer needed. It triggers the asynchronous cleanup of any
 	// allocated resources.
@@ -266,7 +276,18 @@ func (c *testContext) NewSubTest(name string) Test {
 }
 
 func (c *testContext) WhenDone(fn func() error) {
-	c.scope.addCloser(&closer{fn})
+	c.scope.addCloser(&closer{fn: fn, canSkip: false})
+}
+
+func (c *testContext) Cleanup(fn func()) {
+	c.scope.addCloser(&closer{fn: func() error {
+		fn()
+		return nil
+	}})
+}
+
+func (c *testContext) CleanupOrFail(fn func() error) {
+	c.scope.addCloser(&closer{fn: fn})
 }
 
 func (c *testContext) Done() {
@@ -361,7 +382,8 @@ func (c *testContext) Skipped() bool {
 var _ io.Closer = &closer{}
 
 type closer struct {
-	fn func() error
+	fn      func() error
+	canSkip bool
 }
 
 func (c *closer) Close() error {
