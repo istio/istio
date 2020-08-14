@@ -1,3 +1,0 @@
-- name: multi-in-one-test
-  selector: critical=test1, addon=test2
-  namespace: test1

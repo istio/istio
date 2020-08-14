@@ -1,6 +1,0 @@
-- name: critical-test1
-  selector: critical=test1
-  namespace: test1
-- name: addon=test2
-  selector: addon=test2
-  namespace: test2

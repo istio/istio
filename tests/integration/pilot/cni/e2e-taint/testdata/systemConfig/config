@@ -1,3 +1,0 @@
-- name: critical-test1
-  selector: critical=test1
-  namespace: kube-system
