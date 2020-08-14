@@ -1371,11 +1371,9 @@ func (ps *PushContext) SetDestinationRules(configs []Config) {
 			// Merge this destination rule with any other exported dest rule for the same host in the same namespace
 			// If there are no duplicates, the dest rule will be added to the list
 			ps.mergeDestinationRule(exportedDestRulesByNamespace[configs[i].Namespace], configs[i], exportToMap)
-		} else {
+		} else if configs[i].Namespace == ps.Mesh.RootNamespace {
 			// Keep track of private root namespace destination rules
-			if configs[i].Namespace == ps.Mesh.RootNamespace {
-				ps.mergeDestinationRule(rootNamespaceLocalDestRules, configs[i], exportToMap)
-			}
+			ps.mergeDestinationRule(rootNamespaceLocalDestRules, configs[i], exportToMap)
 		}
 	}
 
