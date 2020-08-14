@@ -440,7 +440,7 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// initIstiodHTTPServer initializes monitoring, debug and readiness end points.
+// initIstiodAdminServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
 	log.Info("initializing Istiod admin server")
 	s.httpServer = &http.Server{
@@ -465,21 +465,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	// Readiness Handler.
 	s.readinessMux.HandleFunc("/ready", s.istiodReadyHandler)
 
-	// This happens only if the GRPC port (15010) is disabled. We will multiplex it on the HTTP port.
-	// Does not impact the HTTPS gRPC or HTTPS.
-	if s.GRPCListener == nil {
-		m := cmux.New(listener)
-		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
-		s.HTTPListener = m.Match(cmux.Any())
-		go func() {
-			err := m.Serve()
-			if err != nil {
-				log.Warnf("Failed to listen on multiplexed port %v", err)
-			}
-		}()
-	} else {
-		s.HTTPListener = listener
-	}
+	s.HTTPListener = listener
 	return nil
 }
 
@@ -499,6 +485,20 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 		return err
 	}
 	s.GRPCListener = grpcListener
+
+	// This happens only if the GRPC port (15010) is disabled. We will multiplex
+	// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
+	if s.GRPCListener == nil {
+		m := cmux.New(s.HTTPListener)
+		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTPListener = m.Match(cmux.Any())
+		go func() {
+			err := m.Serve()
+			if err != nil {
+				log.Warnf("Failed to listen on multiplexed port %v", err)
+			}
+		}()
+	}
 
 	return nil
 }
