@@ -32,7 +32,7 @@ const (
 // TLS handled by a proxy/gateway in front of Istiod.
 func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	// create the https server for hosting the k8s injectionWebhook handlers.
-	if s.kubeClient == nil || args.ServerOptions.HTTPSAddr == "OFF" {
+	if s.kubeClient == nil || args.ServerOptions.HTTPSAddr == "" {
 		s.httpsMux = s.readinessMux
 		return
 	}

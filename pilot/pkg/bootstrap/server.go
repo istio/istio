@@ -461,14 +461,14 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		return err
 	}
 
-	if args.ServerOptions.MonitoringAddr == "OFF" {
+	if args.ServerOptions.MonitoringAddr == "" {
 		s.monitoringMux = s.readinessMux
 	}
 	// Debug Server.
 	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
 	// Monitoring Server.
-	if args.ServerOptions.MonitoringAddr != "OFF" {
+	if args.ServerOptions.MonitoringAddr != "" {
 		if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
 			return fmt.Errorf("error initializing monitor: %v", err)
 		}
@@ -492,7 +492,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
-	if args.ServerOptions.GRPCAddr == "OFF" {
+	if args.ServerOptions.GRPCAddr == "" {
 		return nil
 	}
 	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
@@ -609,7 +609,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
-	if args.ServerOptions.SecureGRPCAddr == "OFF" {
+	if args.ServerOptions.SecureGRPCAddr == "" {
 		log.Warnf("The secure discovery port is disabled")
 		return nil
 	}

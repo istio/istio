@@ -72,7 +72,7 @@ type DiscoveryServerOptions struct {
 
 	// The listening address for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
-	// If the address is "OFF", the secure port is disabled, and the
+	// If the address is empty, the secure port is disabled, and the
 	// webhooks are registred on the HTTP port - a gateway in front will
 	// terminate TLS instead.
 	HTTPSAddr string
