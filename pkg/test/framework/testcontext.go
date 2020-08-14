@@ -150,7 +150,7 @@ func newTestContext(test *testImpl, goTest *testing.T, s *suiteContext, parentSc
 	}
 
 	scopes.Framework.Debugf("Creating New test context")
-	workDir := path.Join(s.settings.RunDir(), goTest.Name())
+	workDir := path.Join(s.settings.RunDir(), goTest.Name(), "_test_context")
 	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
 		goTest.Fatalf("Error creating work dir %q: %v", workDir, err)
 	}
