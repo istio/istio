@@ -62,6 +62,11 @@ func workloadCommands() *cobra.Command {
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
 		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-Kubernetes environments",
+		Example: `# workload group yaml generation
+workload group create
+
+# workload entry configuration generation
+workload entry configure`,
 	}
 	workloadCmd.AddCommand(groupCommand())
 	workloadCmd.AddCommand(entryCommand())
@@ -70,8 +75,9 @@ func workloadCommands() *cobra.Command {
 
 func groupCommand() *cobra.Command {
 	groupCmd := &cobra.Command{
-		Use:   "group",
-		Short: "Commands dealing with WorkloadGroup resources",
+		Use:     "group",
+		Short:   "Commands dealing with WorkloadGroup resources",
+		Example: "group create --name foo --namespace bar --labels app=foobar",
 	}
 	groupCmd.AddCommand(createCommand())
 	return groupCmd
@@ -79,8 +85,9 @@ func groupCommand() *cobra.Command {
 
 func entryCommand() *cobra.Command {
 	entryCmd := &cobra.Command{
-		Use:   "entry",
-		Short: "Commands dealing with WorkloadEntry resources",
+		Use:     "entry",
+		Short:   "Commands dealing with WorkloadEntry resources",
+		Example: "entry configure -f workloadgroup.yaml -o outputDir",
 	}
 	entryCmd.AddCommand(configureCommand())
 	return entryCmd
