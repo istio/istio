@@ -102,6 +102,7 @@ require (
 	github.com/prometheus/prom2json v1.2.2 // indirect
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/satori/go.uuid v1.2.0
+	github.com/soheilhy/cmux v0.1.4
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
@@ -124,6 +125,7 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/genproto v0.0.0-20200722002428-88e341933a54
 	google.golang.org/grpc v1.31.0
+	google.golang.org/grpc/examples v0.0.0-20200813212649-1dbe29f66992 // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.5.1
