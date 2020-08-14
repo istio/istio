@@ -428,8 +428,7 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
 		if len(tt.config) > 0 {
 			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
 			ctx.WhenDone(func() error {
-				ctx.Config().DeleteYAMLOrFail(ctx, apps.namespace.Name(), tt.config)
-				return nil
+				return ctx.Config().DeleteYAML(apps.namespace.Name(), tt.config)
 			})
 		}
 		if tt.call != nil {
