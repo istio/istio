@@ -111,6 +111,7 @@ type Options struct {
 	XDSUpdater model.XDSUpdater
 
 	// TrustDomain used in SPIFFE identity
+	// Deprecated - MeshConfig should be used.
 	TrustDomain string
 
 	// NetworksWatcher observes changes to the mesh networks config.
