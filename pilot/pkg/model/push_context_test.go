@@ -520,8 +520,26 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
+	destinationRuleRootNamespaceLocal := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule1",
+			Namespace: "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"."},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset9",
+				},
+				{
+					Name: "subset10",
+				},
+			},
+		},
+	}
 	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2,
-		destinationRuleNamespace3, destinationRuleRootNamespace})
+		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal})
 	cases := []struct {
 		proxyNs     string
 		serviceNs   string
@@ -567,21 +585,33 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			serviceNs:   "random",
 			wantSubsets: []string{"subset5", "subset6"},
 		},
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "random",
+			wantSubsets: []string{"subset9", "subset10"},
+		},
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "istio-system",
+			wantSubsets: []string{"subset9", "subset10"},
+		},
 	}
 	for _, tt := range cases {
-		destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
-			&Service{Hostname: host.Name(testhost), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
-		if destRuleConfig == nil {
-			t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
-		}
-		destRule := destRuleConfig.Spec.(*networking.DestinationRule)
-		var gotSubsets []string
-		for _, ss := range destRule.Subsets {
-			gotSubsets = append(gotSubsets, ss.Name)
-		}
-		if !reflect.DeepEqual(gotSubsets, tt.wantSubsets) {
-			t.Fatalf("proxy in %s namespace: want %+v, got %+v", tt.proxyNs, tt.wantSubsets, gotSubsets)
-		}
+		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
+			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+				&Service{Hostname: host.Name(testhost), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
+			if destRuleConfig == nil {
+				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
+			}
+			destRule := destRuleConfig.Spec.(*networking.DestinationRule)
+			var gotSubsets []string
+			for _, ss := range destRule.Subsets {
+				gotSubsets = append(gotSubsets, ss.Name)
+			}
+			if !reflect.DeepEqual(gotSubsets, tt.wantSubsets) {
+				t.Fatalf("want %+v, got %+v", tt.wantSubsets, gotSubsets)
+			}
+		})
 	}
 }
 
