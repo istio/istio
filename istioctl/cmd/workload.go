@@ -35,8 +35,8 @@ import (
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -49,6 +49,7 @@ var (
 	filename       string
 	outputDir      string
 	clusterID      string
+	ingressIP      string
 	ports          []string
 )
 
@@ -59,7 +60,7 @@ const (
 func workloadCommands() *cobra.Command {
 	workloadCmd := &cobra.Command{
 		Use:   "workload",
-		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-k8s environments",
+		Short: "Commands to assist in configuring and deploying workloads running on VMs and other non-Kubernetes environments",
 	}
 	workloadCmd.AddCommand(groupCommand())
 	workloadCmd.AddCommand(entryCommand())
@@ -90,7 +91,7 @@ func createCommand() *cobra.Command {
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
 		Long: `Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries.
 The default output is serialized YAML, which can be piped into 'kubectl apply -f -' to send the artifact to the API Server.`,
-		Example: "create --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --serviceAccount sa",
+		Example: "create --name foo --namespace bar --labels app=foo,bar=baz --ports grpc=3550,http=8080 --annotations annotation=foobar --serviceAccount sa",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				return fmt.Errorf("expecting a workload name")
@@ -113,7 +114,8 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 			}
 			spec := &networkingv1alpha3.WorkloadGroup{
 				Metadata: &networkingv1alpha3.WorkloadGroup_ObjectMeta{
-					Labels: convertToStringMap(labels),
+					Labels:      convertToStringMap(labels),
+					Annotations: convertToStringMap(annotations),
 				},
 				Template: &networkingv1alpha3.WorkloadEntry{
 					Ports:          convertToUnsignedInt32Map(ports),
@@ -131,6 +133,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	createCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	createCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances will belong to")
 	createCmd.PersistentFlags().StringSliceVarP(&labels, "labels", "l", nil, "The labels to apply to the workload instances; e.g. -l env=prod,vers=2")
+	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances; e.g. -l env=prod,vers=2")
 	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
 	return createCmd
@@ -153,8 +156,8 @@ func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1a
 func configureCommand() *cobra.Command {
 	configureCmd := &cobra.Command{
 		Use:   "configure",
-		Short: "Generates all the required configuration files for a workload instance running on a VM or non-k8s environment",
-		Long: `Generates all the required configuration files for workload instance on a VM or non-k8s environment from a WorkloadGroup artifact.
+		Short: "Generates all the required configuration files for a workload instance running on a VM or non-Kubernetes environment",
+		Long: `Generates all the required configuration files for workload instance on a VM or non-Kubernetes environment from a WorkloadGroup artifact.
 This includes a MeshConfig resource, the cluster.env file, and necessary certificates and security tokens.
 Configure requires either the WorkloadGroup artifact path or its location on the API server.`,
 		Example: `# configure example using a local WorkloadGroup artifact
@@ -192,19 +195,21 @@ configure --name foo --namespace bar -o config`,
 				}
 			}
 
-			if err = createConfig(kubeClient, wg, clusterID, revision, outputDir); err != nil {
+			if err = createConfig(kubeClient, wg, clusterID, revision, ingressIP, outputDir); err != nil {
 				return err
 			}
+			fmt.Printf("configuration generation into %s was successful\n", outputDir)
 			return nil
 		},
 	}
-	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact")
+	configureCmd.PersistentFlags().StringVarP(&filename, "file", "f", "", "filename of the WorkloadGroup artifact. Leave empty if getting the artifact from the API server")
 	configureCmd.PersistentFlags().StringVar(&name, "name", "", "The name of the workload group")
 	configureCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "The namespace that the workload instances belongs to")
 	configureCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "", "Output directory for generated files")
 	configureCmd.PersistentFlags().StringVar(&clusterID, "clusterID", "", "The ID used to identify the cluster")
 	configureCmd.PersistentFlags().Int64Var(&tokenDuration, "tokenDuration", 3600, "The token duration in seconds (default: 1 hour)")
 	configureCmd.PersistentFlags().StringVar(&revision, "revision", "", "control plane revision (experimental)")
+	configureCmd.PersistentFlags().StringVar(&ingressIP, "ingressIP", "", "IP address of the ingress gateway")
 	return configureCmd
 }
 
@@ -220,7 +225,7 @@ func readWorkloadGroup(filename string, wg *clientv1alpha3.WorkloadGroup) error 
 }
 
 // Creates all the relevant config for the given workload group and cluster
-func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, outputDir string) error {
+func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, ingressIP, outputDir string) error {
 	if err := validateWorkloadGroup(wg); err != nil {
 		return err
 	}
@@ -233,11 +238,10 @@ func createConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGro
 	if err := createCertsTokens(kubeClient, wg, outputDir); err != nil {
 		return err
 	}
-	meshConfig, err := createMeshConfig(kubeClient, wg, clusterID, revision, outputDir)
-	if err != nil {
+	if err := createMeshConfig(kubeClient, wg, clusterID, revision, outputDir); err != nil {
 		return err
 	}
-	if err := createHosts(kubeClient, wg, meshConfig, outputDir); err != nil {
+	if err := createHosts(kubeClient, revision, ingressIP, outputDir); err != nil {
 		return err
 	}
 	return nil
@@ -258,7 +262,7 @@ func validateWorkloadGroup(wg *clientv1alpha3.WorkloadGroup) error {
 		return fmt.Errorf("address %s should not be set in the WorkloadEntry template", template.Address)
 	}
 	if len(template.Labels) != 0 {
-		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s", template.Labels)
+		fmt.Printf("Labels should be set in the metadata. The following WorkloadEntry labels will override metadata labels: %s\n", template.Labels)
 	}
 	// default service account for an empty field is "default"
 	if template.ServiceAccount == "" {
@@ -282,10 +286,8 @@ func createClusterEnv(wg *clientv1alpha3.WorkloadGroup, dir string) error {
 
 	// default attributes and service name, namespace, ports, service account, service CIDR
 	clusterEnv := map[string]string{
-		"ISTIO_CP_AUTH":       "MUTUAL_TLS",
 		"ISTIO_INBOUND_PORTS": portBehavior,
 		"ISTIO_NAMESPACE":     wg.Namespace,
-		"ISTIO_PILOT_PORT":    "15012",
 		"ISTIO_SERVICE":       fmt.Sprintf("%s.%s", wg.Name, wg.Namespace),
 		"ISTIO_SERVICE_CIDR":  "*",
 		"SERVICE_ACCOUNT":     we.ServiceAccount,
@@ -302,7 +304,7 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("configmap %s was not found in namespace %s: %v", controller.CACertNamespaceConfigMap, wg.Namespace, err)
 	}
-	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
+	if err = ioutil.WriteFile(filepath.Join(dir, "root-cert.pem"), []byte(rootCert.Data[constants.CACertNamespaceConfigMapDataName]), filePerms); err != nil {
 		return err
 	}
 
@@ -318,14 +320,16 @@ func createCertsTokens(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Worklo
 	if err != nil {
 		return fmt.Errorf("could not create a token under service account %s in namespace %s: %v", serviceAccount, wg.Namespace, err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(dir, "istio-token"), []byte(tokenReq.Status.Token), filePerms); err != nil {
+	tokenPath := filepath.Join(dir, "istio-token")
+	if err := ioutil.WriteFile(tokenPath, []byte(tokenReq.Status.Token), filePerms); err != nil {
 		return err
 	}
+	fmt.Printf("warning: a security token for namespace %s and service account %s has been generated and stored at %s\n", wg.Namespace, serviceAccount, tokenPath)
 	return nil
 }
 
 // TODO: Support the proxy.istio.io/config annotation
-func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) (*meshconfig.MeshConfig, error) {
+func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, clusterID, revision, dir string) error {
 	istioCM := "istio"
 	// Case with multiple control planes
 	if revision != "" {
@@ -334,11 +338,16 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 	istio, err := kubeClient.CoreV1().ConfigMaps(istioNamespace).Get(context.Background(), istioCM, metav1.GetOptions{})
 	// errors if the requested configmap does not exist in the given namespace
 	if err != nil {
-		return nil, fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, istioNamespace, err)
+		return fmt.Errorf("configmap %s was not found in namespace %s: %v", istioCM, istioNamespace, err)
 	}
-	meshConfig, err := mesh.ApplyMeshConfigDefaults(istio.Data[configMapKey])
-	if err != nil {
-		return nil, err
+	// fill some fields before applying the yaml to prevent errors later
+	meshConfig := &meshconfig.MeshConfig{
+		DefaultConfig: &meshconfig.ProxyConfig{
+			ProxyMetadata: map[string]string{},
+		},
+	}
+	if err := gogoprotomarshal.ApplyYAML(istio.Data[configMapKey], meshConfig); err != nil {
+		return err
 	}
 
 	labels := map[string]string{}
@@ -370,26 +379,29 @@ func createMeshConfig(kubeClient kube.ExtendedClient, wg *clientv1alpha3.Workloa
 		md["ISTIO_METAJSON_LABELS"] = string(labelsJSON)
 	}
 
-	meshYAML, err := gogoprotomarshal.ToYAML(meshConfig)
+	proxyYAML, err := gogoprotomarshal.ToYAML(meshConfig.DefaultConfig)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return meshConfig, ioutil.WriteFile(filepath.Join(dir, "mesh"), []byte(meshYAML), filePerms)
+	return ioutil.WriteFile(filepath.Join(dir, "mesh.yaml"), []byte(proxyYAML), filePerms)
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.ExtendedClient, wg *clientv1alpha3.WorkloadGroup, meshConfig *meshconfig.MeshConfig, dir string) error {
-	ingress, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), multicluster.IstioIngressGatewayServiceName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("service %s was not found in namespace %s: %v", multicluster.IstioIngressGatewayServiceName, istioNamespace, err)
+func createHosts(kubeClient kube.ExtendedClient, revision, ingressIP, dir string) error {
+	// try to infer the ingress IP if the provided one is invalid
+	if validation.ValidateIPAddress(ingressIP) != nil {
+		ingress, err := kubeClient.CoreV1().Services(istioNamespace).Get(context.Background(), multicluster.IstioIngressGatewayServiceName, metav1.GetOptions{})
+		if err == nil && ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
+			ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
+		}
+		// TODO: add case where the load balancer is a DNS name
 	}
-	serviceIP := ingress.Status.LoadBalancer.Ingress[0].IP
 
-	var hosts []string
-	hosts = append(hosts, fmt.Sprintf("%s istiod.%s.svc\n", serviceIP, istioNamespace),
-		fmt.Sprintf("1.1.1.1 pod.%s.svc.%s\n", wg.Namespace, meshConfig.DefaultConfig.MeshId),
-		fmt.Sprintf("1.1.1.1 vm.%s.svc.%s\n", wg.Namespace, meshConfig.DefaultConfig.MeshId))
-	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(strings.Join(hosts, "")), filePerms)
+	var hosts string
+	if ingressIP != "" {
+		hosts = fmt.Sprintf("%s istiod-%s.%s.svc\n", ingressIP, revision, istioNamespace)
+	}
+	return ioutil.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
 }
 
 // Returns a map with each k,v entry on a new line
