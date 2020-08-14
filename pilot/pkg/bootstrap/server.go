@@ -128,8 +128,8 @@ type Server struct {
 	monitoringMux *http.ServeMux // debug, monitoring
 	// readinessMux listens on the httpAddr (8080). If a Gateway is used in front and https is off it is also multiplexing
 	// the rest of the features.
-	readinessMux  *http.ServeMux // readiness.
-	httpsMux      *http.ServeMux // webhooks
+	readinessMux *http.ServeMux // readiness.
+	httpsMux     *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
