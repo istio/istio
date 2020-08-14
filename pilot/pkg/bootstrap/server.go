@@ -480,10 +480,8 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
-	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
-	if err != nil {
-		return err
-	}
+	grpcListener, _ := net.Listen("tcp", args.ServerOptions.GRPCAddr)
+
 	s.GRPCListener = grpcListener
 
 	// This happens only if the GRPC port (15010) is disabled. We will multiplex
