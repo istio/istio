@@ -474,7 +474,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		go func() {
 			err := m.Serve()
 			if err != nil {
-				log.Fatalf("Failed to listen on multiplexed port %v", err)
+				log.Warnf("Failed to listen on multiplexed port %v", err)
 			}
 		}()
 	} else {
