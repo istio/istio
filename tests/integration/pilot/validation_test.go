@@ -119,7 +119,9 @@ func TestValidation(t *testing.T) {
 					}
 
 					wetRunErr := ctx.Clusters().Default().ApplyYAMLFiles(ns.Name(), applyFiles...)
-					defer func() { _ = ctx.Clusters().Default().DeleteYAMLFiles(ns.Name(), applyFiles...) }()
+					ctx.WhenDone(func() error {
+						return ctx.Clusters().Default().DeleteYAMLFiles(ns.Name(), applyFiles...)
+					})
 
 					if err != nil && wetRunErr == nil {
 						ctx.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
