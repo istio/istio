@@ -493,7 +493,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 
 	s.initGrpcServer(args.KeepaliveOptions)
 	if args.ServerOptions.GRPCAddr == "" {
-			return
+		return
 	}
 	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
 	if err != nil {
