@@ -165,15 +165,15 @@ func (s *scope) waitForDone() {
 	<-s.closeChan
 }
 
-func (s *scope) dump() {
+func (s *scope) dump(ctx resource.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, c := range s.children {
-		c.dump()
+		c.dump(ctx)
 	}
 	for _, c := range s.resources {
 		if d, ok := c.(resource.Dumper); ok {
-			d.Dump()
+			d.Dump(ctx)
 		}
 	}
 }

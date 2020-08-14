@@ -45,7 +45,9 @@ func setupConfig(cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:
-  - enabled: true`
+  - enabled: true
+    name: istio-egressgateway
+`
 }
 
 func setupPrometheus(ctx resource.Context) (err error) {
