@@ -265,9 +265,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initRegistryEventHandlers(); err != nil {
 		return nil, fmt.Errorf("error initializing handlers: %v", err)
 	}
-	if err := s.initDiscoveryService(args); err != nil {
-		return nil, fmt.Errorf("error initializing discovery service: %v", err)
-	}
+
+	s.initDiscoveryService(args)
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
@@ -470,7 +469,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 }
 
 // initDiscoveryService intializes discovery server on plain text port.
-func (s *Server) initDiscoveryService(args *PilotArgs) error {
+func (s *Server) initDiscoveryService(args *PilotArgs) {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -480,13 +479,16 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
-	grpcListener, _ := net.Listen("tcp", args.ServerOptions.GRPCAddr)
-
+	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
+	if err != nil {
+		log.Warnf("Failed to listen on gRPC port %v", err)
+	}
 	s.GRPCListener = grpcListener
 
 	// This happens only if the GRPC port (15010) is disabled. We will multiplex
 	// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
 	if s.GRPCListener == nil {
+		log.Info("multplexing gRPC on http port")
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTPListener = m.Match(cmux.Any())
@@ -497,8 +499,6 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 			}
 		}()
 	}
-
-	return nil
 }
 
 // Wait for the stop, and do cleanups
