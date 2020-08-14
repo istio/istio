@@ -2505,6 +2505,14 @@ spec:
                     patch:
                       description: The patch to apply along with the operation.
                       properties:
+                        filterClass:
+                          description: Determines the filter insertion order.
+                          enum:
+                          - UNSPECIFIED
+                          - AUTHN
+                          - AUTHZ
+                          - STATS
+                          type: string
                         operation:
                           description: Determines how the patch should be applied.
                           enum:
@@ -2515,6 +2523,7 @@ spec:
                           - INSERT_BEFORE
                           - INSERT_AFTER
                           - INSERT_FIRST
+                          - REPLACE
                           type: string
                         value:
                           description: The JSON config of the object being patched.
