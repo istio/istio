@@ -206,7 +206,8 @@ func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.Manifest
 	cpManifestMap := make(name.ManifestMap)
 	if revision != "" {
 		labels[label.IstioRev] = revision
-	} else if !includeClusterResources {
+	}
+	if !includeClusterResources {
 		// only delete istiod resources if revision is empty and --purge flag is not true.
 		cpManifestMap[name.PilotComponentName] = manifestMap[name.PilotComponentName]
 		manifestMap = cpManifestMap
