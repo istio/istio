@@ -16,76 +16,27 @@ package tokenreview
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	k8sauth "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
-
-var (
-	// Require 3P TOKEN disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
-	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
-	// the Apiserver.
-	Require3PToken = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false,
-		"Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
-
-	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
-	// contain the JWTs intended for Citadel.
-	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
-		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
-			"The token is accepted if it matches with one of the audiences").Get(), ",")
-)
-
-type jwtPayload struct {
-	// Aud is JWT token audience - used to identify 3p tokens.
-	// It is empty for the default K8S tokens.
-	Aud []string `json:"aud"`
-}
-
-// is3P detects if the token has an audience (3p) or is a 1st party JWT.
-// This allows migration and interop - we need to accept both.
-func is3P(jwt string) bool {
-	jwtSplit := strings.Split(jwt, ".")
-	if len(jwtSplit) != 3 {
-		return true
-	}
-	payload := jwtSplit[1]
-
-	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
-	if err != nil {
-		return true
-	}
-
-	structuredPayload := &jwtPayload{}
-	err = json.Unmarshal(payloadBytes, &structuredPayload)
-	if err != nil {
-		return true
-	}
-
-	return len(structuredPayload.Aud) > 0
-}
 
 // ValidateK8sJwt validates a k8s JWT at API server.
 // Return {<namespace>, <serviceaccountname>} in the targetToken when the validation passes.
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
-// jwtPolicy: the policy for validating JWT.
-func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken, jwtPolicy string) ([]string, error) {
+// aud: list of audiences to check. If empty 1st party tokens will be checked.
+func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken string, aud []string) ([]string, error) {
 	tokenReview := &k8sauth.TokenReview{
 		Spec: k8sauth.TokenReviewSpec{
 			Token: targetToken,
 		},
 	}
-	if is3P(targetToken) || Require3PToken.Get() {
-		tokenReview.Spec.Audiences = TokenAudiences
-		log.Infoa("Checking audience: ", tokenReview.Spec.Audiences)
+	if aud != nil {
+		tokenReview.Spec.Audiences = aud
 	}
 	reviewRes, err := kubeClient.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
 	if err != nil {
