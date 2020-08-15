@@ -337,6 +337,14 @@ func (c *Controller) reconcileRequest(req *reconcileRequest) error {
 		}
 	}()
 
+	// Stop early if webhook is not present, rather than attempting (and failing) to reconcile permanently
+	// If the webhook is later added a new reconciliation request will trigger it to update
+	_, err := c.webhookInformer.Lister().Get(c.o.WebhookConfigName)
+	if err != nil && kubeErrors.IsNotFound(err) {
+		scope.Infof("Skip patching webhook, webhook not found")
+		return nil
+	}
+
 	scope.Infof("Reconcile(enter): %v", req)
 	defer func() { scope.Debugf("Reconcile(exit)") }()
 
