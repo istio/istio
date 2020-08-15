@@ -32,14 +32,13 @@ import (
 var (
 	// The default audience for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
-	DefaultAudience = env.RegisterStringVar("TOKEN_AUDIENCE", "istio-ca", "Audience to check in accepted JWTW tokens")
-	RequireAudience = env.RegisterBoolVar("REQUIRE_AUDIENCE", false, "Reject tokens without audience. If false, K8S token will be accepted")
+	DefaultAudience = env.RegisterStringVar("TOKEN_AUDIENCE", "istio-ca", "Audience to check in accepted JWT tokens")
+	RequireAudience = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false, "Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
 )
 
 type jwtPayload struct {
-	// Aud is the expected audience, defaults to istio-ca - but is based on istiod.yaml configuration.
-	// If set to a different value - use the value defined by istiod.yaml. Env variable can
-	// still override
+	// Aud is JWT token audience - used to identify 3p tokens.
+	// It is empty for the default K8S tokens.
 	Aud []string `json:"aud"`
 }
 
