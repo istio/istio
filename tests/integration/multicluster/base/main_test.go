@@ -19,15 +19,13 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
-	ist                              istio.Instance
-	clusterLocalNS, mcReachabilityNS namespace.Instance
-	controlPlaneValues               string
+	ist    istio.Instance
+	appCtx multicluster.AppContext
 )
 
 func TestMain(m *testing.M) {
@@ -35,24 +33,27 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster).
 		RequireMinClusters(2).
-		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(multicluster.Setup(&appCtx)).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
+			cfg.ControlPlaneValues = appCtx.ControlPlaneValues
 			cfg.ExposeIstiod = true
-
-			// Set the control plane values on the config.
-			cfg.ControlPlaneValues = controlPlaneValues
 		})).
+		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.ReachabilityTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
+}
+
+func TestCrossClusterLoadbalancing(t *testing.T) {
+	multicluster.LoadbalancingTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.ClusterLocalTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }
 
 func TestTelemetry(t *testing.T) {
-	multicluster.TelemetryTest(t, mcReachabilityNS, "installation.multicluster.multimaster", "installation.multicluster.remote")
+	multicluster.TelemetryTest(t, appCtx, "installation.multicluster.multimaster", "installation.multicluster.remote")
 }

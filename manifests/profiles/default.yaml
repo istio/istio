@@ -105,8 +105,10 @@ spec:
           ports:
             - port: 80
               name: http2
+              targetPort: 8080
             - port: 443
               name: https
+              targetPort: 8443
             - port: 15443
               targetPort: 15443
               name: tls

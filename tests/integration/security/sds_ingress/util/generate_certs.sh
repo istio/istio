@@ -14,16 +14,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD" || exit; pwd)
+
+cat > "${WD}/client.conf" <<EOF
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth, serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS = *.example.com
+EOF
+
+cat > "${WD}/server.conf" <<EOF
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth, serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS = *.example.com
+EOF
+
 openssl req -new -newkey rsa:4096 -x509 -sha256 \
         -days 3650 -nodes -out rootA.crt -keyout rootA.key \
         -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=*.example.com" \
         -addext "subjectAltName = DNS:*.example.com"
 
-openssl req -out clientA.csr -newkey rsa:2048 -nodes -keyout clientA.key -subj "/CN=*.example.com/O= A organization"
-openssl x509 -req -days 3650 -CA rootA.crt -CAkey rootA.key -set_serial 0 -in clientA.csr -out clientA.crt
+openssl genrsa -out "clientA.key" 2048
+openssl req -new -key "clientA.key" -out clientA.csr -subj "/CN=*.example.com" -config "${WD}/client.conf"
+openssl x509 -req -days 3650 -CA rootA.crt -CAkey rootA.key -set_serial 0 -in clientA.csr -out clientA.crt -extensions v3_req -extfile "${WD}/client.conf"
 
-openssl req -out serverA.csr -newkey rsa:2048 -nodes -keyout serverA.key -subj "/CN=*.example.com/O= A organization"
-openssl x509 -req -days 3650 -CA rootA.crt -CAkey rootA.key -set_serial 0 -in serverA.csr -out serverA.crt
+openssl genrsa -out "serverA.key" 2048
+openssl req -new -key "serverA.key" -out serverA.csr -subj "/CN=*.example.com" -config "${WD}/server.conf"
+openssl x509 -req -days 3650 -CA rootA.crt -CAkey rootA.key -set_serial 0 -in serverA.csr -out serverA.crt -extensions v3_req -extfile "${WD}/server.conf"
 
 
 openssl req -new -newkey rsa:4096 -x509 -sha256 \
@@ -31,8 +64,10 @@ openssl req -new -newkey rsa:4096 -x509 -sha256 \
         -subj "/C=US/ST=Denial/L=Ether/O=Dis/CN=*.example.com" \
         -addext "subjectAltName = DNS:*.example.com"
 
-openssl req -out clientB.csr -newkey rsa:2048 -nodes -keyout clientB.key -subj "/CN=*.example.com/O= B organization"
-openssl x509 -req -days 3650 -CA rootB.crt -CAkey rootB.key -set_serial 0 -in clientB.csr -out clientB.crt
+openssl genrsa -out "clientB.key" 2048
+openssl req -new -key "clientB.key" -out clientB.csr -subj "/CN=*.example.com" -config "${WD}/client.conf"
+openssl x509 -req -days 3650 -CA rootB.crt -CAkey rootB.key -set_serial 0 -in clientB.csr -out clientB.crt -extensions v3_req -extfile "${WD}/client.conf"
 
-openssl req -out serverB.csr -newkey rsa:2048 -nodes -keyout serverB.key -subj "/CN=*.example.com/O= A organization"
-openssl x509 -req -days 3650 -CA rootB.crt -CAkey rootB.key -set_serial 0 -in serverB.csr -out serverB.crt
+openssl genrsa -out "serverB.key" 2048
+openssl req -new -key "serverB.key" -out serverB.csr -subj "/CN=*.example.com" -config "${WD}/server.conf"
+openssl x509 -req -days 3650 -CA rootB.crt -CAkey rootB.key -set_serial 0 -in serverB.csr -out serverB.crt -extensions v3_req -extfile "${WD}/server.conf"

@@ -11,9 +11,5 @@ spec:
       k8s:
         service:
           externalTrafficPolicy: Local
-          ports:
-          - name: foo
-            port: 1234
-            targetPort: 1234
         serviceAnnotations:
           manifest-generate: "testserviceAnnotation"

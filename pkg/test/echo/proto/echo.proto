@@ -42,6 +42,8 @@ message ForwardEchoRequest {
   string url = 4;
   repeated Header headers = 5;
   string message = 6;
+  // Method for the request. Valid only for HTTP
+  string method = 9;
   // If true, requests will be sent using h2c prior knowledge
   bool http2 = 7;
   // If true, requests will not be sent until magic string is received

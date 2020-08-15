@@ -249,7 +249,7 @@ func (s *suiteImpl) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error
 	defer func() {
 		// Dump if the setup function fails
 		if err != nil && ctx.Settings().CIMode {
-			rt.Dump()
+			rt.Dump(ctx)
 		}
 	}()
 	err = fn(ctx)
@@ -304,7 +304,7 @@ func (s *suiteImpl) run() (errLevel int) {
 
 	defer func() {
 		if errLevel != 0 && ctx.Settings().CIMode {
-			rt.Dump()
+			rt.Dump(ctx)
 		}
 
 		if err := rt.Close(); err != nil {

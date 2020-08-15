@@ -96,13 +96,13 @@ var (
 		"sidecars":               "Sidecars",
 		"virtualservices":        "VirtualServices",
 		"workloadentries":        "WorkloadEntries",
+		"workloadgroups":         "WorkloadGroups",
 		"authorizationpolicies":  "AuthorizationPolicies",
 		"peerauthentications":    "PeerAuthentications",
 		"requestauthentications": "RequestAuthentications",
 		"gatewayclasses":         "GatewayClasses",
 		"httproutes":             "HTTPRoutes",
-		"tcproutes":              "TcpRoutes",
-		"trafficsplits":          "TrafficSplits",
+		"tcproutes":              "TCPRoutes",
 	}
 )
 

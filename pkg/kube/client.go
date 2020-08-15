@@ -477,11 +477,11 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return nil, err
 	}
 	if len(istiods) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
+		return nil, errors.New("unable to find any Istiod instances")
 	}
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 8080).DoRaw(ctx)
+		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
 			return nil, err
 		}
