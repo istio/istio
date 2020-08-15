@@ -102,6 +102,8 @@ func CreateCASecret(ctx resource.Context) error {
 		},
 	}
 
+	// Just clean any existing cacerts.
+	_ = cluster.CoreV1().Secrets(systemNs.Name()).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	_, err = cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		return err

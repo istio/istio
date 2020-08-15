@@ -61,4 +61,8 @@ type CallOptions struct {
 
 	// Method to send. Defaults to HTTP. Only relevant for HTTP.
 	Method string
+
+	// Use the custom certificate to make the call. This is mostly used to make mTLS request directly
+	// (without proxy) from naked client to test certificates issued by custom CA instead of the Istio self-signed CA.
+	Cert, Key string
 }
