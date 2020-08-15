@@ -42,9 +42,9 @@ type jwtPayload struct {
 	Aud []string `json:"aud"`
 }
 
-// checkAudience detects if the token has an audience or is a 1st party JWT.
+// is3P detects if the token has an audience (3p) or is a 1st party JWT.
 // This allows migration and interop - we need to accept both.
-func checkAudience(jwt string) bool {
+func is3P(jwt string) bool {
 	jwtSplit := strings.Split(jwt, ".")
 	if len(jwtSplit) != 3 {
 		return true
@@ -76,7 +76,7 @@ func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken, jwtPolicy stri
 			Token: targetToken,
 		},
 	}
-	if checkAudience(targetToken) || RequireAudience.Get() {
+	if is3P(targetToken) || RequireAudience.Get() {
 		tokenReview.Spec.Audiences = []string{DefaultAudience.Get()}
 		log.Infoa("Checking audience: ", tokenReview.Spec.Audiences)
 	}
