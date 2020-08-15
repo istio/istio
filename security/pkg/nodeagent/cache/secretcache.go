@@ -570,40 +570,34 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			return true
 		}
 
-		if sc.configOptions.CredFetcher != nil {
-			// Refresh token through credential fetcher.
-			cacheLog.Debugf("%s getting a new token through credential fetcher", logPrefix)
-			t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
-			if err != nil {
-				cacheLog.Warnf("%s credential fetcher failed to get a new token, continue using the original token: %v", logPrefix, err)
-			} else {
-				secret.Token = t
-			}
-		} else {
-			tok, err := ioutil.ReadFile(sc.configOptions.JWTPath)
-			if err != nil {
-				cacheLog.Errorf("failed to get credential token: %v", err)
-			} else {
-				secret.Token = string(tok)
-			}
-		}
-
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) && !sc.useCertToRotate() {
-				cacheLog.Debugf("%s token expired", logPrefix)
-				// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-				// requiring the client to send another SDS request.
-				sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-				return true
-			}
 
+			// TODO: not clear why a wg is used, and then a wait - instead of just running the code. Cleanup ?
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				cacheLog.Debugf("%s use token to generate key/cert", logPrefix)
+				if !sc.useCertToRotate() {
+					if sc.configOptions.CredFetcher != nil {
+						// Refresh token through credential fetcher.
+						cacheLog.Debugf("%s getting a new token through credential fetcher", logPrefix)
+						t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
+						if err != nil {
+							cacheLog.Warnf("%s credential fetcher failed to get a new token, continue using the original token: %v", logPrefix, err)
+						} else {
+							secret.Token = t
+						}
+					} else {
+						tok, err := ioutil.ReadFile(sc.configOptions.JWTPath)
+						if err != nil {
+							cacheLog.Errorf("failed to get credential token: %v", err)
+						} else {
+							secret.Token = string(tok)
+						}
+					}
+				}
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likely this code path may not necessary, since TTL of cert is much longer than token.
