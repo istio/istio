@@ -111,7 +111,7 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 		googleCAClientLog.Errorf("CertChain length is %d, expected more than 1", len(resp.CertChain))
 		return nil, errors.New("invalid response cert chain")
 	}
-	googleCAClientLog.Infof("Cert created with GoogleCA %s %d", zone, len(resp.CertChain))
+	googleCAClientLog.Infof("Cert created with GoogleCA %s chain length %d", zone, len(resp.CertChain))
 
 	return resp.CertChain, nil
 }
