@@ -487,6 +487,14 @@
                               "cluster": "agent"
                             }
                           }
+                          {
+                            "match": {
+                              "prefix": "/quitquitquit"
+                            },
+                            "route": {
+                              "cluster": "agent"
+                            }
+                          }
                         ]
                       }
                     ]
