@@ -35,10 +35,8 @@ if [[ -z "${IGNORE_DIRTY_TREE}" ]] && ! git diff-index --quiet HEAD --; then
   tree_status="Modified"
 fi
 
-# security wanted VERSION='unknown'
-VERSION="${BUILD_GIT_REVISION}"
-if [[ -n ${ISTIO_VERSION} ]]; then
-  VERSION="${ISTIO_VERSION}"
+if [[ -z ${VERSION} ]]; then
+  VERSION="${BUILD_GIT_REVISION}"
 fi
 
 GIT_DESCRIBE_TAG=$(git describe --tags)
