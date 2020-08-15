@@ -1070,55 +1070,55 @@ func TestAuthorization_Path(t *testing.T) {
 		})
 }
 
-// //Test that LOG action does not impact authorization
-// func TestAuthorization_Log(t *testing.T) {
-// 	framework.NewTest(t).
-// 		Run(func(ctx framework.TestContext) {
-// 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-// 				Prefix: "v1beta1-log",
-// 				Inject: true,
-// 			})
+//Test that LOG action does not impact authorization
+func TestAuthorization_Log(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-log",
+				Inject: true,
+			})
 
-// 			var a, b, c echo.Instance
-// 			echoboot.NewBuilder(ctx).
-// 				With(&a, util.EchoConfig("a", ns, false, nil)).
-// 				With(&b, util.EchoConfig("b", ns, false, nil)).
-// 				With(&c, util.EchoConfig("c", ns, false, nil)).
-// 				BuildOrFail(t)
+			var a, b, c echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				BuildOrFail(t)
 
-// 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
-// 				return rbacUtil.TestCase{
-// 					Request: connection.Checker{
-// 						From: a,
-// 						Options: echo.CallOptions{
-// 							Target:   target,
-// 							PortName: "http",
-// 							Scheme:   scheme.HTTP,
-// 							Path:     path,
-// 						},
-// 					},
-// 					ExpectAllowed: expectAllowed,
-// 				}
-// 			}
-// 			cases := []rbacUtil.TestCase{
-// 				newTestCase(b, "/allow_log", true),
-// 				newTestCase(c, "/deny_log", false),
-// 			}
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(b, "/allow_log", true),
+				newTestCase(c, "/deny_log", false),
+			}
 
-// 			args := map[string]string{
-// 				"Namespace":     ns.Name(),
-// 				"RootNamespace": rootNamespace,
-// 			}
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
 
-// 			applyPolicy := func(filename string, ns namespace.Instance) []string {
-// 				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
-// 				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
-// 				return policy
-// 			}
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
 
-// 			policy := applyPolicy("testdata/authz/v1beta1-log.yaml.tmpl", ns)
-// 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
+			policy := applyPolicy("testdata/authz/v1beta1-log.yaml.tmpl", ns)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
-// 			rbacUtil.RunRBACTest(t, cases)
-// 		})
-// }
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
