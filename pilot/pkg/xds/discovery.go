@@ -429,8 +429,8 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 
 			go func() {
 				pushEv := &Event{
-					push: push,
-					done: doneFunc,
+					pushRequest: push,
+					done:        doneFunc,
 				}
 
 				select {
