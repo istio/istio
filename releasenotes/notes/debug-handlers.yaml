@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+
+releaseNotes:
+  - |
+    **Updated** the debug handlers on port 8080 are now conditionally added based environment variable ENABLE_DEBUG_ON_HTTP_ADDR.
+
+upgradeNotes:
+  - title: Update debug scripts to use 15014 port.
+    content: |
+      If you have any debug scripts that look at 8080 port, please update them to use 15014(monitoring) port. In future releases 
+      they will not be exposed on 8080 port. In this release this behavior can be controlled using enviroment variable 
+      "ENABLE_DEBUG_ON_HTTP_ADDR". 
+

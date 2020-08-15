@@ -127,8 +127,9 @@ type Server struct {
 	secureGrpcServer *grpc.Server
 
 	monitoringMux *http.ServeMux // debug, monitoring
-	// readinessMux listens on the httpAddr (8080). If a Gateway is used in front and https is off it is also multiplexing
-	// the rest of the features.
+	// readinessMux listens on the httpAddr (8080). If a Gateway is used
+	// in front and https is off it is also multiplexing the rest of the
+	// features.
 	readinessMux *http.ServeMux // readiness.
 	httpsMux     *http.ServeMux // webhooks
 
@@ -466,6 +467,11 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	}
 	// Debug Server.
 	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+
+	// Add debug handlers on readinessMux for backward compatibility.
+	if features.EnableDebugOnHttpAddr && args.ServerOptions.MonitoringAddr != "" {
+		s.XDSServer.AddDebugHandlers(s.readinessMux, args.ServerOptions.EnableProfiling, wh)
+	}
 
 	// Monitoring Server.
 	if args.ServerOptions.MonitoringAddr != "" {

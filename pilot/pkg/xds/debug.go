@@ -132,6 +132,10 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 		ServiceDiscovery: s.MemRegistry,
 		Controller:       s.MemRegistry.Controller,
 	})
+	s.AddDebugHandlers(mux, enableProfiling, webhook)
+}
+
+func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook *inject.Webhook) {
 
 	if enableProfiling {
 		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
