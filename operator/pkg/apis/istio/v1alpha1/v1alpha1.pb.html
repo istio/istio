@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 58
+number_of_entries: 59
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -187,10 +187,45 @@ No
 No
 </td>
 </tr>
+<tr id="CNIConfig-taint">
+<td><code>taint</code></td>
+<td><code><a href="#CNITaintConfig">CNITaintConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="CNIConfig-podAnnotations" class="deprecated ">
 <td><code>podAnnotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CNITaintConfig">CNITaintConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CNITaintConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether taint behavior is enabled.</p>
+
 </td>
 <td>
 No

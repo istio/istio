@@ -240,7 +240,7 @@ func TestKubeOnly(t *testing.T) {
 				Inject: true,
 			})
 
-			defer applyFileOrFail(ctx, ns.Name(), gatewayFile).Delete()
+			applyFileOrFail(ctx, ns.Name(), gatewayFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -263,7 +263,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 				Inject: true,
 			})
 
-			defer applyFileOrFail(ctx, ns.Name(), virtualServiceFile).Delete()
+			applyFileOrFail(ctx, ns.Name(), virtualServiceFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -291,8 +291,8 @@ func TestAllNamespaces(t *testing.T) {
 				Inject: true,
 			})
 
-			defer applyFileOrFail(ctx, ns1.Name(), gatewayFile).Delete()
-			defer applyFileOrFail(ctx, ns2.Name(), gatewayFile).Delete()
+			applyFileOrFail(ctx, ns1.Name(), gatewayFile)
+			applyFileOrFail(ctx, ns2.Name(), gatewayFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -423,24 +423,13 @@ func istioctlWithStderr(t *testing.T, i istioctl.Instance, ns string, useKube bo
 	return i.Invoke(args)
 }
 
-func applyFileOrFail(ctx framework.TestContext, ns, filename string) interface {
-	Delete()
-} {
+// applyFileOrFail applys the given yaml file and deletes it during context cleanup
+func applyFileOrFail(ctx framework.TestContext, ns, filename string) {
 	ctx.Helper()
 	if err := ctx.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
 		ctx.Fatal(err)
 	}
-	return &cleanup{
-		func() {
-			ctx.Clusters().Default().DeleteYAMLFiles(ns, filename)
-		},
-	}
-}
-
-type cleanup struct {
-	close func()
-}
-
-func (c *cleanup) Delete() {
-	c.close()
+	ctx.WhenDone(func() error {
+		return ctx.Clusters().Default().DeleteYAMLFiles(ns, filename)
+	})
 }

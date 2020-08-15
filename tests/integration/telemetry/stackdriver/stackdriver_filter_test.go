@@ -125,6 +125,13 @@ func setupConfig(cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 meshConfig:
   enableTracing: true
+values:
+  telemetry:
+    v2:
+      stackdriver:
+        configOverride:
+          meshEdgesReportingDuration: "5s"
+          enable_mesh_edges_reporting: true
 `
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
@@ -132,7 +139,6 @@ meshConfig:
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
-	cfg.Values["telemetry.v2.stackdriver.configOverride"] = `{"enable_mesh_edges_reporting": true,"meshEdgesReportingDuration":"5s"}`
 }
 
 func testSetup(ctx resource.Context) (err error) {

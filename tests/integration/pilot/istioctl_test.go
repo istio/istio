@@ -171,8 +171,10 @@ func TestDescribe(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			deployment := file.AsStringOrFail(t, "testdata/a.yaml")
-			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), deployment)
-			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), deployment)
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), deployment)
+			ctx.WhenDone(func() error {
+				return ctx.Config().DeleteYAML(apps.namespace.Name(), deployment)
+			})
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -391,8 +393,10 @@ func TestAuthZCheck(t *testing.T) {
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			authPol := file.AsStringOrFail(t, "testdata/authz-a.yaml")
-			ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), authPol)
-			defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), authPol)
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), authPol)
+			ctx.WhenDone(func() error {
+				return ctx.Config().DeleteYAML(apps.namespace.Name(), authPol)
+			})
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
