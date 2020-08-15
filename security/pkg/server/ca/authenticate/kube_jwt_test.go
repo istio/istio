@@ -27,8 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"istio.io/istio/pkg/security"
-
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 )
