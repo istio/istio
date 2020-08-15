@@ -450,7 +450,7 @@
                             "route": {
                               "cluster": "agent"
                             }
-                          }
+                          },
                           {
                             "match": {
                               "prefix": "/quitquitquit"
