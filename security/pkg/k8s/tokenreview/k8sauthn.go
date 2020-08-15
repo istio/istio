@@ -30,10 +30,17 @@ import (
 )
 
 var (
-	// The default audience for SDS trustworthy JWT. This is to make sure that the CSR requests
+	// Require 3P TOKEN disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
+	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
+	// the Apiserver.
+	Require3PToken = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false,
+		"Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
+
+	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
-	DefaultAudience = env.RegisterStringVar("TOKEN_AUDIENCE", "istio-ca", "Audience to check in accepted JWT tokens")
-	RequireAudience = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false, "Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
+	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
+		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
+			"The token is accepted if it matches with one of the audiences").Get(), ",")
 )
 
 type jwtPayload struct {
@@ -76,8 +83,8 @@ func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken, jwtPolicy stri
 			Token: targetToken,
 		},
 	}
-	if is3P(targetToken) || RequireAudience.Get() {
-		tokenReview.Spec.Audiences = []string{DefaultAudience.Get()}
+	if is3P(targetToken) || Require3PToken.Get() {
+		tokenReview.Spec.Audiences = TokenAudiences
 		log.Infoa("Checking audience: ", tokenReview.Spec.Audiences)
 	}
 	reviewRes, err := kubeClient.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
