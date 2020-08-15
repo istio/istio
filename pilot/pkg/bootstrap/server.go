@@ -469,7 +469,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
 	// Add debug handlers on readinessMux for backward compatibility.
-	if features.EnableDebugOnHttpAddr && args.ServerOptions.MonitoringAddr != "" {
+	if features.EnableDebugOnHTTPAddr && args.ServerOptions.MonitoringAddr != "" {
 		s.XDSServer.AddDebugHandlers(s.readinessMux, args.ServerOptions.EnableProfiling, wh)
 	}
 
