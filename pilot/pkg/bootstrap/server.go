@@ -462,14 +462,16 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		return err
 	}
 
-	if args.ServerOptions.MonitoringAddr == "" {
+	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
+	if shouldMultiplex {
 		s.monitoringMux = s.readinessMux
 	}
 	// Debug Server.
 	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
-	// Add debug handlers on readinessMux for backward compatibility.
-	if features.EnableDebugOnHTTPAddr && args.ServerOptions.MonitoringAddr != "" {
+	// Debug handlers are currently added on monitoring mux and readiness mux.
+	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
+	if !shouldMultiplex {
 		s.XDSServer.AddDebugHandlers(s.readinessMux, args.ServerOptions.EnableProfiling, wh)
 	}
 

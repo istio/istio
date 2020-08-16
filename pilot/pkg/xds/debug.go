@@ -136,6 +136,11 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 }
 
 func (s *DiscoveryServer) AddDebugHandlers(mux *http.ServeMux, enableProfiling bool, webhook *inject.Webhook) {
+	// Debug handlers on HTTP ports are added for backward compatibility.
+	// They will be exposed on XDS-over-TLS in future releases.
+	if !features.EnableDebugOnHTTP {
+		return
+	}
 
 	if enableProfiling {
 		s.addDebugHandler(mux, "/debug/pprof/", "Displays pprof index", pprof.Index)
