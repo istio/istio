@@ -91,29 +91,13 @@ type values struct {
 	Mixer                  *v1alpha12.MixerConfig           `json:"mixer" patchStrategy:"merge"`
 	Prometheus             *v1alpha12.PrometheusConfig      `json:"prometheus" patchStrategy:"merge"`
 	Kiali                  *v1alpha12.KialiConfig           `json:"kiali" patchStrategy:"merge"`
-	Tracing                *TracingConfig                   `json:"tracing" patchStrategy:"merge"`
+	Tracing                *tracingConfig                   `json:"tracing" patchStrategy:"merge"`
 	Grafana                *grafanaConfig                   `json:"grafana" patchStrategy:"merge"`
 }
 
 type gatewaysConfig struct {
 	IstioEgressgateway  *egressGatewayConfig  `json:"istio-egressgateway" patchStrategy:"merge"`
 	IstioIngressgateway *ingressGatewayConfig `json:"istio-ingressgateway" patchStrategy:"merge"`
-}
-
-// Configurations for different tracing system to be installed.
-type TracingConfig struct {
-	// Enables tracing systems installation.
-	Enabled                          *protobuf.BoolValue                `json:"enabled" patchStrategy:"replace"`
-	Jaeger                           *v1alpha12.TracingJaegerConfig     `json:"jaeger" patchStrategy:"replace"`
-	NodeSelector                     map[string]interface{}             `json:"nodeSelector" patchStrategy:"merge"`
-	Provider                         string                             `json:"provider" patchStrategy:"replace"`
-	Service                          *v1alpha12.ServiceConfig           `json:"service" patchStrategy:"replace"`
-	Zipkin                           *v1alpha12.TracingZipkinConfig     `json:"zipkin" patchStrategy:"replace"`
-	Opencensus                       *v1alpha12.TracingOpencensusConfig `json:"opencensus" patchStrategy:"replace"`
-	ContextPath                      string                             `json:"contextPath" patchStrategy:"replace"`
-	PodAntiAffinityLabelSelector     []map[string]interface{}           `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
-	PodAntiAffinityTermLabelSelector []map[string]interface{}           `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
-	Tolerations                      []map[string]interface{}           `json:"tolerations" patchStrategy:"replace"`
 }
 
 // Configuration for an ingress gateway.
@@ -159,13 +143,24 @@ type egressGatewayConfig struct {
 	Zvpn                             *v1alpha12.ZeroVPNConfig  `json:"zvpn" patchStrategy:"replace"`
 }
 
+// Configurations for different tracing system to be installed.
+type tracingConfig struct {
+	// Enables tracing systems installation.
+	Enabled                          *protobuf.BoolValue                `json:"enabled" patchStrategy:"replace"`
+	Jaeger                           *v1alpha12.TracingJaegerConfig     `json:"jaeger" patchStrategy:"replace"`
+	NodeSelector                     map[string]interface{}             `json:"nodeSelector" patchStrategy:"merge"`
+	Service                          *v1alpha12.ServiceConfig           `json:"service" patchStrategy:"replace"`
+	Zipkin                           *v1alpha12.TracingZipkinConfig     `json:"zipkin" patchStrategy:"replace"`
+	Opencensus                       *v1alpha12.TracingOpencensusConfig `json:"opencensus" patchStrategy:"replace"`
+	PodAntiAffinityLabelSelector     []map[string]interface{}           `json:"podAntiAffinityLabelSelector" patchStrategy:"replace"`
+	PodAntiAffinityTermLabelSelector []map[string]interface{}           `json:"podAntiAffinityTermLabelSelector" patchStrategy:"replace"`
+	Tolerations                      []map[string]interface{}           `json:"tolerations" patchStrategy:"replace"`
+}
+
 type grafanaConfig struct {
 	Image                            map[string]interface{}   `json:"image" patchStrategy:"replace"`
 	Enabled                          *protobuf.BoolValue      `json:"enabled" patchStrategy:"replace"`
 	Persist                          *protobuf.BoolValue      `json:"persist" patchStrategy:"replace"`
-	StorageClassName                 string                   `json:"StorageClassName" patchStrategy:"replace"`
-	AccessMode                       string                   `json:"accessMode" patchStrategy:"replace"`
-	ContextPath                      string                   `json:"contextPath" patchStrategy:"replace"`
 	Security                         map[string]interface{}   `json:"security" patchStrategy:"merge"`
 	Service                          map[string]interface{}   `json:"service" patchStrategy:"replace"`
 	Datasources                      map[string]interface{}   `json:"datasources" patchStrategy:"replace"`
