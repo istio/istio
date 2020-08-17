@@ -383,10 +383,6 @@ type BootstrapNodeMetadata struct {
 	// ExchangeKeys specifies a list of metadata keys that should be used for Node Metadata Exchange.
 	ExchangeKeys StringList `json:"EXCHANGE_KEYS,omitempty"`
 
-	// InstanceName is the short name for the workload instance (ex: pod name)
-	// replaces POD_NAME
-	InstanceName string `json:"NAME,omitempty"`
-
 	// WorkloadName specifies the name of the workload represented by this node.
 	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
 
@@ -490,6 +486,9 @@ type NodeMetadata struct {
 
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
+
+	// InstanceName is the pod name (for K8S) or an identifier of the instance.
+	InstanceName string `json:"NAME,omitempty"`
 
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,

@@ -49,6 +49,9 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			if err := s.initKubeRegistry(serviceControllers, args); err != nil {
 				return err
 			}
+			// Initial implementation - eventually will be integrated with MC, so each cluster gets
+			// pod events.
+			s.XDSServer.XEventing = s.kubeRegistry
 		case serviceregistry.Mock:
 			s.initMockRegistry(serviceControllers)
 		default:

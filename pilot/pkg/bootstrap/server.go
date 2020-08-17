@@ -76,6 +76,8 @@ var (
 		plugin.Authz,
 		plugin.Health,
 	}
+
+	startupTime time.Time
 )
 
 const (
@@ -84,6 +86,7 @@ const (
 )
 
 func init() {
+	startupTime = time.Now()
 	// Disable gRPC tracing. It has performance impacts (See https://github.com/grpc/grpc-go/issues/695)
 	grpc.EnableTracing = false
 
@@ -396,6 +399,12 @@ func (s *Server) Start(stop <-chan struct{}) error {
 				log.Warna(err)
 			}
 		}()
+	}
+
+	if s.kubeRegistry != nil {
+		s.kubeRegistry.IstiodEvent("istio-system",
+			"istio-start",
+			fmt.Sprintf("time:%v", time.Since(startupTime)), false)
 	}
 
 	s.waitForShutdown(stop)

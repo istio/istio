@@ -16,6 +16,7 @@ package xds
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"sync/atomic"
@@ -147,6 +148,13 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 				if s.InternalGen != nil {
 					s.InternalGen.OnDisconnect(con)
 				}
+				if s.XEventing != nil {
+					// TODO: more info - actual instance of istiod, timestamp, etc.
+					s.XEventing.PodEvent(con.proxy.ConfigNamespace, con.proxy.Metadata.InstanceName,
+						"istio-disconnect",
+						con.ConID, false)
+				}
+
 			}()
 		}
 
@@ -465,6 +473,12 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	if s.InternalGen != nil {
 		s.InternalGen.OnConnect(con)
+	}
+	if s.XEventing != nil {
+		// TODO: more info - actual instance of istiod, timestamp, etc.
+		s.XEventing.PodEvent(con.proxy.ConfigNamespace, con.proxy.Metadata.InstanceName,
+			"istio-connect",
+			fmt.Sprintf("id=%s", con.ConID), false)
 	}
 	return nil
 }

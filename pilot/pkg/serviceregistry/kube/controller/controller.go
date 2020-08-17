@@ -17,17 +17,24 @@ package controller
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/yl2chen/cidranger"
+	"istio.io/pkg/env"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -79,6 +86,9 @@ var (
 		"pilot_k8s_endpoints_pending_pod",
 		"Number of endpoints that do not currently have any corresponding pods.",
 	)
+
+	enableEventing = env.RegisterBoolVar("K8S_EVENTS", true,
+		"Enable reporting of k8s events")
 )
 
 func init() {
@@ -218,6 +228,11 @@ type Controller struct {
 	networkForRegistry string
 
 	once sync.Once
+
+	eventsInformer   cache.SharedIndexInformer
+	eventBroadcaster record.EventBroadcaster
+	Recoder          record.EventRecorder
+	nsLister         listerv1.NamespaceLister
 }
 
 // NewController creates a new Kubernetes controller
@@ -243,6 +258,33 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.serviceLister = kubeClient.KubeInformer().Core().V1().Services().Lister()
 	registerHandlers(c.serviceInformer, c.queue, "Services", c.onServiceEvent, nil)
 
+	if enableEventing.Get() {
+		// To get events posted by other Istiod instances, in order to sync and support debug tools.
+		// This will also allow us to get readiness/status when VM health check is done, and possibly get faster
+		// updates about endpoints.
+		c.eventsInformer = kubeClient.KubeInformer().Core().V1().Events().Informer()
+		c.eventsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				if ev, ok := obj.(*corev1.Event); ok {
+					c.onEvent(ev, "add")
+				}
+			},
+			UpdateFunc: func(old, obj interface{}) {
+				if ev, ok := obj.(*corev1.Event); ok {
+					c.onEvent(ev, "update")
+				}
+			},
+		})
+
+		c.eventBroadcaster = record.NewBroadcaster()
+		// TODO: add revision - from MeshConfig ( after it is added !)
+
+		c.Recoder = c.eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "istiod"})
+		c.eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{
+			Interface: kubeClient.CoreV1().Events(""),
+		})
+		c.nsLister = kubeClient.KubeInformer().Core().V1().Namespaces().Lister()
+	}
 	switch options.EndpointMode {
 	case EndpointsOnly:
 		c.endpoints = newEndpointsController(c, kubeClient.KubeInformer().Core().V1().Endpoints())
@@ -274,12 +316,92 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	return c
 }
 
+func (c *Controller) onEvent(ev *v1.Event, s string) {
+	if !strings.HasPrefix(ev.Reason, "istio-") {
+		return
+	}
+	log.Infoa("KEvent ", s, " ",ev.Source,  ev.Namespace, ev.Count, ev.InvolvedObject, ev.Reason, ev.Message)
+	// TODO: update the PushContext/endpoint info - note that info from k8s eventing is not trusted, should be used for debug only 
+	// (until we add a signature). XDS and real pubsub will have authentication of the source.
+}
+
 func (c *Controller) Provider() serviceregistry.ProviderID {
 	return serviceregistry.Kubernetes
 }
 
 func (c *Controller) Cluster() string {
 	return c.clusterID
+}
+
+// IstiodEvent is an event associated with a Istiod tenant. In K8S namespace is the tenancy unit - we may
+// not run deployments or services in the cluster (for example central istiod), but a namespace is expected.
+func (c *Controller) IstiodEvent(ns, reason, msg string, warn bool) {
+	if c.Recoder == nil {
+		return
+	}
+	// Event type can be normal and warning
+	evType := corev1.EventTypeNormal
+	if warn {
+		evType = corev1.EventTypeWarning
+	}
+	// reference is required
+	p, err := c.nsLister.Get(ns)
+	if err != nil {
+		log.Infoa("Pod not found, skipping event ", err)
+		return
+	}
+	log.Infoa("NS: ", p)
+	ref := &v1.ObjectReference{
+		Kind:            "",
+		APIVersion:      "",
+		Name:            "istio",
+		Namespace:       ns,
+		UID:             "",
+		ResourceVersion: "",
+	}
+
+	c.Recoder.Event(ref, evType, reason, msg)
+}
+
+// PodEvent reports an event back to a Pod. Can be used with 'kubectl describe pod' or 'kubectl get events'.
+// Important events associated with the Envoy connection should be reported.
+// The method signatures avoid deps on K8S API, so the events can be reported via other mechanisms ( XDS, pubsub)
+func (c *Controller) PodEvent(ns, pod, reason, msg string, warn bool) {
+	if c.Recoder == nil {
+		return
+	}
+	// Event type can be normal and warning
+	evType := corev1.EventTypeNormal
+	if warn {
+		evType = corev1.EventTypeWarning
+	}
+	// reference is required
+	p, err := c.pods.podInformer.Lister().Pods(ns).Get(pod)
+	var ref runtime.Object
+	if err != nil {
+		log.Infoa("Pod not found, dummy object", err)
+		ref = &v1.ObjectReference{
+			Kind:            "Pod",
+			APIVersion:      "v1",
+			Name:            pod,
+			Namespace:       ns,
+			UID:             "",
+			ResourceVersion: "",
+		}
+	} else {
+		log.Infoa("Pod  found ", p)
+		ref = p
+		//ref = &v1.ObjectReference{
+		//	Kind:            "Pod",
+		//	APIVersion:      "v1",
+		//	Name:            pod,
+		//	Namespace:       ns,
+		//	UID:             p.UID,
+		//	ResourceVersion: p.ResourceVersion,
+		//}
+	}
+	// TODO: use annotatedEventf, json object
+	c.Recoder.Event(ref, evType, reason, msg)
 }
 
 func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
