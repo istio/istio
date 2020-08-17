@@ -783,30 +783,36 @@ func (s *DiscoveryServer) removeCon(conID string) {
 
 // Send with timeout
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
-	done := make(chan error, 1)
+	errChan := make(chan error, 1)
 	// hardcoded for now - not sure if we need a setting
 	t := time.NewTimer(sendTimeout)
 	go func() {
-		err := conn.stream.Send(res)
-		conn.proxy.Lock()
-		if res.Nonce != "" {
-			if conn.proxy.Active[res.TypeUrl] == nil {
-				conn.proxy.Active[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-			}
-			conn.proxy.Active[res.TypeUrl].NonceSent = res.Nonce
-			conn.proxy.Active[res.TypeUrl].VersionSent = res.VersionInfo
-		}
-		conn.proxy.Unlock()
-		done <- err
+		errChan <- conn.stream.Send(res)
+		close(errChan)
 	}()
 	select {
 	case <-t.C:
 		// TODO: wait for ACK
 		adsLog.Infof("Timeout writing %s", conn.ConID)
 		xdsResponseWriteTimeouts.Increment()
-		return errors.New("timeout sending")
-	case err := <-done:
-		t.Stop()
+		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
+	case err := <-errChan:
+		if err == nil {
+			conn.proxy.Lock()
+			if res.Nonce != "" {
+				if conn.proxy.Active[res.TypeUrl] == nil {
+					conn.proxy.Active[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				}
+				conn.proxy.Active[res.TypeUrl].NonceSent = res.Nonce
+				conn.proxy.Active[res.TypeUrl].VersionSent = res.VersionInfo
+			}
+			conn.proxy.Unlock()
+		}
+		// To ensure the channel is empty after a call to Stop, check the
+		// return value and drain the channel (from Stop docs).
+		if !t.Stop() {
+			<-t.C
+		}
 		return err
 	}
 }
