@@ -97,7 +97,6 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 		<-m.shutdown
 	}
 
-
 	return m, nil
 }
 

@@ -117,8 +117,8 @@ type Server struct {
 	kubeClient     kubelib.Client
 
 	// kubeRegistry is the service registry handling the primary cluster.
-	kubeRegistry   *kubecontroller.Controller
-	multicluster   *kubecontroller.Multicluster
+	kubeRegistry *kubecontroller.Controller
+	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -137,7 +137,7 @@ type Server struct {
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
 	// the rest of the features if their port is empty.
-	httpMux  *http.ServeMux // readiness.
+	httpMux *http.ServeMux // readiness.
 
 	// httpsMux listens on the httpsAddr(15017), handling webhooks
 	// If the address os empty, the webhooks will be set on the default httpPort.
