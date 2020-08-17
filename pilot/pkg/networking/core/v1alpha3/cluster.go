@@ -1082,7 +1082,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-		
+
 		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 			ValidationContext: certValidationContext,
 		}
