@@ -126,7 +126,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	// This happens regardless of Require3PToken setting.
 	//
 	// If 'Require3PToken' is set - we will also set the audiences field, forcing the check.
-	// If Require3P is not set - and token does not have audeince - we will
+	// If Require3P is not set - and token does not have audience - we will
 	// tolerate the unbound tokens.
 	if !isK8SUnbound(targetJWT) || security.Require3PToken.Get() {
 		aud = security.TokenAudiences
