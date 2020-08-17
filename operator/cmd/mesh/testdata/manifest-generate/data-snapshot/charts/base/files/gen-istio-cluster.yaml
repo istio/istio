@@ -1364,6 +1364,14 @@ spec:
                   patch:
                     description: The patch to apply along with the operation.
                     properties:
+                      filterClass:
+                        description: Determines the filter insertion order.
+                        enum:
+                        - UNSPECIFIED
+                        - AUTHN
+                        - AUTHZ
+                        - STATS
+                        type: string
                       operation:
                         description: Determines how the patch should be applied.
                         enum:
@@ -1374,6 +1382,7 @@ spec:
                         - INSERT_BEFORE
                         - INSERT_AFTER
                         - INSERT_FIRST
+                        - REPLACE
                         type: string
                       value:
                         description: The JSON config of the object being patched.
@@ -2779,6 +2788,98 @@ spec:
   - name: v1beta1
     served: true
     storage: false
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: workloadgroups.networking.istio.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. It is not guaranteed to be set in happens-before order
+      across separate operations. Clients may not set this value. It is represented
+      in RFC3339 form and is in UTC. Populated by the system. Read-only. Null for
+      lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata'
+    name: Age
+    type: date
+  group: networking.istio.io
+  names:
+    categories:
+    - istio-io
+    - networking-istio-io
+    kind: WorkloadGroup
+    listKind: WorkloadGroupList
+    plural: workloadgroups
+    shortNames:
+    - wg
+    singular: workloadgroup
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          description: 'Describes a collection of workload instances. See more details
+            at: https://istio.io/docs/reference/config/networking/workload-group.html'
+          properties:
+            metadata:
+              description: Metadata that will be used for all corresponding `WorkloadEntries`.
+              properties:
+                annotations:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  type: object
+              type: object
+            template:
+              description: Template to be used for the generation of `WorkloadEntry`
+                resources that belong to this `WorkloadGroup`.
+              properties:
+                address:
+                  format: string
+                  type: string
+                labels:
+                  additionalProperties:
+                    format: string
+                    type: string
+                  description: One or more labels associated with the endpoint.
+                  type: object
+                locality:
+                  description: The locality associated with the endpoint.
+                  format: string
+                  type: string
+                network:
+                  format: string
+                  type: string
+                ports:
+                  additionalProperties:
+                    type: integer
+                  description: Set of ports associated with the endpoint.
+                  type: object
+                serviceAccount:
+                  format: string
+                  type: string
+                weight:
+                  description: The load balancing weight associated with the endpoint.
+                  type: integer
+              type: object
+          type: object
+        status:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+      type: object
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
 
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
