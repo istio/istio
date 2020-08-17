@@ -138,7 +138,9 @@ func (s *scope) done(nocleanup bool) error {
 		c := s.closers[i]
 
 		if nocleanup {
-			if cc, ok := c.(*closer); ok && cc.canSkip {
+			if cc, ok := c.(*closer); ok && cc.noskip {
+				continue
+			} else if !ok {
 				continue
 			}
 		}

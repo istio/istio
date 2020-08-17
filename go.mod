@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.14
+go 1.15
 
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
@@ -132,16 +132,16 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200814214330-c60647764a7b
+	istio.io/api v0.0.0-20200817160544-291eb3ba8ada
 	istio.io/client-go v0.0.0-20200812230733-f5504d568313
 	istio.io/gogo-genproto v0.0.0-20200720193312-b523a30fe746
 	istio.io/pkg v0.0.0-20200721143030-6b837ddaf2ab
-	k8s.io/api v0.18.6
-	k8s.io/apiextensions-apiserver v0.18.6
-	k8s.io/apimachinery v0.18.6
-	k8s.io/cli-runtime v0.18.6
-	k8s.io/client-go v0.18.6
-	k8s.io/kubectl v0.18.6
+	k8s.io/api v0.18.8
+	k8s.io/apiextensions-apiserver v0.18.8
+	k8s.io/apimachinery v0.18.8
+	k8s.io/cli-runtime v0.18.8
+	k8s.io/client-go v0.18.8
+	k8s.io/kubectl v0.18.8
 	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
 	sigs.k8s.io/controller-runtime v0.6.1
 	sigs.k8s.io/service-apis v0.0.0-20200731055707-56154e7bfde5

@@ -276,7 +276,7 @@ func (c *testContext) NewSubTest(name string) Test {
 }
 
 func (c *testContext) WhenDone(fn func() error) {
-	c.scope.addCloser(&closer{fn: fn, canSkip: false})
+	c.scope.addCloser(&closer{fn: fn, noskip: true})
 }
 
 func (c *testContext) Cleanup(fn func()) {
@@ -382,8 +382,8 @@ func (c *testContext) Skipped() bool {
 var _ io.Closer = &closer{}
 
 type closer struct {
-	fn      func() error
-	canSkip bool
+	fn     func() error
+	noskip bool
 }
 
 func (c *closer) Close() error {
