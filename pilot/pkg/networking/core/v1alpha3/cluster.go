@@ -1027,7 +1027,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 
 		// If CredentialName is not set fallback to file based approach
 		res := model.SdsCertificateConfig{
-			CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+			CaCertificatePath: tls.CaCertificates,
 		}
 
 		tlsContext = &auth.UpstreamTlsContext{
@@ -1090,12 +1090,12 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			{
 				CertificateChain: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+						Filename: tls.ClientCertificate,
 					},
 				},
 				PrivateKey: &core.DataSource{
 					Specifier: &core.DataSource_Filename{
-						Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+						Filename: tls.PrivateKey,
 					},
 				},
 			},
