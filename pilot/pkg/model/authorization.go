@@ -65,7 +65,7 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	return policy, nil
 }
 
-// ListAuthorizationPolicies returns the deny and allow AuthorizationPolicy for the workload in the given namespace.
+// ListAuthorizationPolicies returns the deny, allow, and audit AuthorizationPolicies for the workload in the given namespace.
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Collection) (
 	denyPolicies []AuthorizationPolicy, allowPolicies []AuthorizationPolicy, auditPolicies []AuthorizationPolicy) {
 	if policy == nil {

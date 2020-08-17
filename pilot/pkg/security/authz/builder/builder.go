@@ -111,10 +111,6 @@ func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle, ac
 		Policies: map[string]*rbacpb.Policy{},
 	}
 
-	forAllow := false
-	if action == rbacpb.RBAC_ALLOW {
-		forAllow = true
-	}
 	for _, policy := range policies {
 		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", policy.Namespace, policy.Name, i)
@@ -128,7 +124,7 @@ func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle, ac
 				continue
 			}
 			m.MigrateTrustDomain(tdBundle)
-			generated, err := m.Generate(forTCP, forAllow)
+			generated, err := m.Generate(forTCP, action)
 			if err != nil {
 				authzLog.Errorf("skipped rule %s: %v", name, err)
 				continue
