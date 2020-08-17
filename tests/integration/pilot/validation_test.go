@@ -101,20 +101,20 @@ func TestValidation(t *testing.T) {
 					})
 
 					applyFiles := ctx.WriteYAMLOrFail(ctx, "apply", ym)
-					err = ctx.Clusters().Default().ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
+					dryRunErr := ctx.Clusters().Default().ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
 
 					switch {
-					case err != nil && d.isValid():
-						if denied(err) {
-							ctx.Fatalf("got unexpected for valid config: %v", err)
+					case dryRunErr != nil && d.isValid():
+						if denied(dryRunErr) {
+							ctx.Fatalf("got unexpected for valid config: %v", dryRunErr)
 						} else {
-							ctx.Fatalf("got unexpected unknown error for valid config: %v", err)
+							ctx.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
 						}
-					case err == nil && !d.isValid():
+					case dryRunErr == nil && !d.isValid():
 						ctx.Fatalf("got unexpected success for invalid config")
-					case err != nil && !d.isValid():
-						if !denied(err) {
-							ctx.Fatalf("config request denied for wrong reason: %v", err)
+					case dryRunErr != nil && !d.isValid():
+						if !denied(dryRunErr) {
+							ctx.Fatalf("config request denied for wrong reason: %v", dryRunErr)
 						}
 					}
 
@@ -123,11 +123,11 @@ func TestValidation(t *testing.T) {
 						return ctx.Clusters().Default().DeleteYAMLFiles(ns.Name(), applyFiles...)
 					})
 
-					if err != nil && wetRunErr == nil {
-						ctx.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
+					if dryRunErr != nil && wetRunErr == nil {
+						ctx.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
 					}
-					if err == nil && wetRunErr != nil {
-						ctx.Fatalf("wet run returned no errors, but dry run returned: %v", err)
+					if dryRunErr == nil && wetRunErr != nil {
+						ctx.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
 					}
 				})
 			}
