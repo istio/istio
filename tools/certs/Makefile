@@ -250,7 +250,6 @@ root-key.pem:
 	@echo "subjectAltName=@san" >> $@
 	@echo "[ san ]" >> $@
 	@echo "URI.1 = spiffe://cluster.local/ns/$(L)sa/$(SERVICE_ACCOUNT)" >> $@
-	@echo "DNS.1 = spiffe://cluster.local/ns/$(L)sa/$(SERVICE_ACCOUNT)" >> $@
 	@echo "[ req_dn ]" >> $@
 	@echo "O = $(INTERMEDIATE_ORG)" >> $@
 	@echo "CN = $(WORKLOAD_CN)" >> $@
