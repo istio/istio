@@ -164,17 +164,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		},
 	}
 
-	if features.XDSAuth {
-		// This is equivalent with the mTLS authentication for workload-to-workload.
-		// The GRPC server is configured in bootstrap.initSecureDiscoveryService, using the root
-		// certificate as 'ClientCAs'. To accept additional signers for client identities - add them
-		// there, will be used for CA signing as well.
-		out.Authenticators = append(out.Authenticators, &authenticate.ClientCertAuthenticator{})
-
-		// TODO: we may want to support JWT/OIDC auth as well - using the same list of auth as
-		// CA. Will require additional refactoring - probably best for 1.7.
-	}
-
 	// Flush cached discovery responses when detecting jwt public key change.
 	model.GetJwtKeyResolver().PushFunc = func() {
 		out.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
