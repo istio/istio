@@ -61,6 +61,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -291,6 +292,20 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
+	}
+
+	// Notice that the order of authenticators matters, since at runtime
+	// authenticators are activated sequentially and the first successful attempt
+	// is used as the authentication result.
+	// The JWT authenticator requires the multicluster registry to be initialized, so we build this later
+	authenticators := []authenticate.Authenticator{
+		&authenticate.ClientCertAuthenticator{},
+		authenticate.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
+	}
+
+	caOpts.Authenticators = authenticators
+	if features.XDSAuth {
+		s.XDSServer.Authenticators = authenticators
 	}
 
 	s.initDNSServer(args)

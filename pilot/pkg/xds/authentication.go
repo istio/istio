@@ -22,6 +22,8 @@ import (
 
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 // authenticate authenticates the ADS request using the configured authenticators.
@@ -29,7 +31,7 @@ import (
 // If no authenticators are configured, or if the request is on a non-secure
 // stream ( 15010 ) - returns an empty list of principals and no errors.
 func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
-	if len(s.Authenticators) == 0 {
+	if !features.XDSAuth {
 		return nil, nil
 	}
 
@@ -56,6 +58,6 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))
 	}
 
-	adsLog.Errora("Failed to authenticate client from ", peerInfo.Addr.String(), " ", strings.Join(authFailMsgs, ";"))
+	adsLog.Errora("Failed to authenticate client from ", peerInfo.Addr.String(), " ", strings.Join(authFailMsgs, "; "))
 	return nil, errors.New("authentication failure")
 }
