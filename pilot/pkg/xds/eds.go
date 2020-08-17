@@ -289,7 +289,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
-	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.destinationRule, b.port, b.subsetName)
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
@@ -338,10 +338,12 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	pushStart := time.Now()
 	defer edsPushTime.Record(time.Since(pushStart).Seconds())
 
-	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
+	resources := make([]*any.Any, 0)
 	endpoints := 0
 	empty := 0
 
+	cached := 0
+	regenerated := 0
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters() {
@@ -354,22 +356,30 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, con.proxy, push)
-		l := s.generateEndpoints(builder)
-		if l == nil {
-			continue
-		}
+		if marshalledEndpoint, f := s.cache.Get(builder); f {
+			resources = append(resources, marshalledEndpoint)
+			cached++
+		} else {
+			l := s.generateEndpoints(builder)
+			if l == nil {
+				continue
+			}
+			regenerated++
 
-		for _, e := range l.Endpoints {
-			endpoints += len(e.LbEndpoints)
-		}
+			for _, e := range l.Endpoints {
+				endpoints += len(e.LbEndpoints)
+			}
 
-		if len(l.Endpoints) == 0 {
-			empty++
+			if len(l.Endpoints) == 0 {
+				empty++
+			}
+			resource := util.MessageToAny(l)
+			resources = append(resources, resource)
+			s.cache.Insert(builder, resource)
 		}
-		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
+	response := endpointDiscoveryResponse(resources, version, push.Version)
 	err := con.send(response)
 	if err != nil {
 		recordSendError("EDS", con.ConID, edsSendErrPushes, err)
@@ -378,11 +388,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	edsPushes.Increment()
 
 	if edsUpdatedServices == nil {
-		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty)
+		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
+			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
 	} else {
-		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty)
+		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
+			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
 	}
 	return nil
 }
@@ -417,7 +427,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment, version, noncePrefix string) *discovery.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*any.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
 		TypeUrl: v3.EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
@@ -426,9 +436,7 @@ func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment
 		// will begin seeing results it deems to be good.
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),
-	}
-	for _, loadAssignment := range loadAssignments {
-		out.Resources = append(out.Resources, util.MessageToAny(loadAssignment))
+		Resources:   loadAssignments,
 	}
 
 	return out
