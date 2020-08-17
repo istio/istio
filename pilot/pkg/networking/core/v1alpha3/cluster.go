@@ -861,7 +861,7 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	c := opts.cluster
 	proxy := opts.proxy
 
-	certValidationContext := &auth.CertificateValidationContext{}
+	var certValidationContext *auth.CertificateValidationContext
 	var trustedCa *core.DataSource
 
 	// Configure root cert for UpstreamTLSContext
@@ -901,18 +901,20 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 			c.TransportSocket = nil
 			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
 				{
-					Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
-					Match: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
-						},
-					},
+					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
 				},
 				defaultTransportSocketMatch,
 			}
 		}
 	}
+}
+
+var istioMtlsTransportSocketMatch = &structpb.Struct{
+	Fields: map[string]*structpb.Value{
+		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
+	},
 }
 
 func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings,
