@@ -213,15 +213,14 @@ func retrieveListenerMatches(l *listener.Listener) []filterchain {
 		if match.DestinationPort != nil {
 			port = fmt.Sprintf(":%d", match.DestinationPort.GetValue())
 		}
-		if match.AddressSuffix != "" {
-			descrs = append(descrs, fmt.Sprintf("Addr: %s%s", match.AddressSuffix, port))
-		}
 		if len(match.PrefixRanges) > 0 {
 			pf := []string{}
 			for _, p := range match.PrefixRanges {
 				pf = append(pf, fmt.Sprintf("%s/%d", p.AddressPrefix, p.GetPrefixLen().GetValue()))
 			}
 			descrs = append(descrs, fmt.Sprintf("Addr: %s%s", strings.Join(pf, ","), port))
+		} else if port != "" {
+			descrs = append(descrs, fmt.Sprintf("Addr: *%s", port))
 		}
 		if len(descrs) == 0 {
 			descrs = []string{"ALL"}
