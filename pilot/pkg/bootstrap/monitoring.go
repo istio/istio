@@ -63,9 +63,11 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 
 	// get the network stuff setup
 	var listener net.Listener
-	var err error
-	if listener, err = net.Listen("tcp", addr); err != nil {
-		return nil, fmt.Errorf("unable to listen on socket: %v", err)
+	if addr != "" {
+		var err error
+		if listener, err = net.Listen("tcp", addr); err != nil {
+			return nil, fmt.Errorf("unable to listen on socket: %v", err)
+		}
 	}
 
 	// NOTE: this is a temporary solution to provide bare-bones debug functionality
@@ -75,22 +77,26 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 	if err = addMonitor(mux); err != nil {
 		return nil, fmt.Errorf("could not establish self-monitoring: %v", err)
 	}
-	m.monitoringServer = &http.Server{
-		Handler: mux,
+	if addr != "" {
+		m.monitoringServer = &http.Server{
+			Handler: mux,
+		}
 	}
 
 	version.Info.RecordComponentBuildTag("pilot")
 
-	go func() {
-		m.shutdown <- struct{}{}
-		_ = m.monitoringServer.Serve(listener)
-		m.shutdown <- struct{}{}
-	}()
+	if addr != "" {
+		go func() {
+			m.shutdown <- struct{}{}
+			_ = m.monitoringServer.Serve(listener)
+			m.shutdown <- struct{}{}
+		}()
+		// This is here to work around (mostly) a race condition in the Serve
+		// function. If the Close method is called before or during the execution of
+		// Serve, the call may be ignored and Serve never returns.
+		<-m.shutdown
+	}
 
-	// This is here to work around (mostly) a race condition in the Serve
-	// function. If the Close method is called before or during the execution of
-	// Serve, the call may be ignored and Serve never returns.
-	<-m.shutdown
 
 	return m, nil
 }
