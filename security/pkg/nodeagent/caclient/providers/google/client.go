@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"istio.io/istio/pkg/bootstrap/platform"
 
 	"istio.io/istio/pkg/security"
 	gcapb "istio.io/istio/security/proto/providers/google"
@@ -95,6 +96,9 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 	out = out.Copy()
 	out["authorization"] = []string{token}
 
+	if gkeClusterURL == "" && platform.IsGCP() {
+		gkeClusterURL = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+	}
 	zone := parseZone(gkeClusterURL)
 	if zone != "" {
 		out["x-goog-request-params"] = []string{fmt.Sprintf("location=locations/%s", zone)}
