@@ -17,6 +17,9 @@ package v1alpha3
 import (
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
 	core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
@@ -100,7 +103,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType: core.ApiConfigSource_GRPC,
@@ -132,7 +135,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: features.InitialFetchTimeout,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
 											ApiType: core.ApiConfigSource_GRPC,
