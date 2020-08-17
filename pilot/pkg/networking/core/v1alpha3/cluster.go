@@ -1075,7 +1075,8 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-
+		// Fallback to file mount secret instead of SDS
+		if !node.Metadata.SdsEnabled {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1093,6 +1094,30 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 					},
 				},
 			}
+		} else {
+			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+			// which does not support rotation, we will serve them over SDS by reading the files.
+			res := model.SdsCertificateConfig{
+				CertificatePath:   tls.ClientCertificate,
+				PrivateKeyPath:    tls.PrivateKey,
+				CaCertificatePath: tls.CaCertificates,
+			}
+			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
+
+			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
+			if res.GetRootResourceName() == "" {
+				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
+				tlsContext.Sni = tls.Sni
+			} else {
+				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+					},
+				}
+			}
+		}
 
 		// For any connection other than ISTIO_MUTUAL, we need to set the ALPN for H2, if its HTTP port. If we dont, then
 		// the ALPN filter will set it as istio-http/1.1 or istio/h2 etc. which may not be accepted by
