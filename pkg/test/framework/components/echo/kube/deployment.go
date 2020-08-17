@@ -118,6 +118,9 @@ spec:
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
+{{- if $p.ServerFirst }}
+          - --server-first={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -128,6 +131,9 @@ spec:
           - "{{ $p.Port }}"
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
+{{- end }}
+{{- if $p.ServerFirst }}
+          - --server-first={{ $p.Port }}
 {{- end }}
 {{- end }}
           - --version
@@ -269,6 +275,9 @@ spec:
              --port \
 {{- end }}
              "{{ $p.Port }}" \
+{{- if $p.ServerFirst }}
+             --server-first={{ $p.Port }} \
+{{- end }}
 {{- end }}
         env:
         {{- range $name, $value := $.Environment }}

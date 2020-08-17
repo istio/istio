@@ -111,6 +111,9 @@ type Port struct {
 
 	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
 	TLS bool
+
+	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
+	ServerFirst bool
 }
 
 // Workload provides an interface for a single deployed echo server.
