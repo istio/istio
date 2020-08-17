@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/istio/security/pkg/util"
 	"istio.io/pkg/log"
 )
 
@@ -156,7 +157,7 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 }
 
 // Construct the audience field for GetFederatedToken request.
-func (p *Plugin) constructAudience() string {
+func (p *Plugin) constructAudience(subjectToken string) string {
 	provider := ""
 	if p.credFetcher != nil {
 		provider = p.credFetcher.GetIdentityProvider()
@@ -166,7 +167,21 @@ func (p *Plugin) constructAudience() string {
 	if provider == "" {
 		provider = p.gkeClusterURL
 	}
-	return fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, provider)
+
+	var identityNS string
+	// Prefer to use the identity namespace from the token audience. The trust domain
+	// could configured differently from the identity namespace.
+	// Note the token exchange request would fail anyway if the identity namespace is not
+	// matched with the audience of the token.
+	if audiences, err := util.GetAud(subjectToken); len(audiences) == 1 && audiences[0] != "" {
+		identityNS = audiences[0]
+	} else {
+		pluginLog.Errorf("expect only 1 non-empty audience in token but found %v with error %v. Fallback to use trust domain %q as the identity namespace.",
+			audiences, err, p.trustDomain)
+		identityNS = p.trustDomain
+	}
+
+	return fmt.Sprintf("identitynamespace:%s:%s", identityNS, provider)
 }
 
 // constructFederatedTokenRequest returns an HTTP request for federated token.
@@ -186,7 +201,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
 	}
-	aud := p.constructAudience()
+	aud := p.constructAudience(parameters.SubjectToken)
 	query := map[string]string{
 		"audience":           aud,
 		"grantType":          parameters.GrantType,

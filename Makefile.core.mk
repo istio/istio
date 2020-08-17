@@ -274,6 +274,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator \
   ./cni/cmd/istio-cni \
   ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
   ./tools/istio-iptables
 
