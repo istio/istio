@@ -1070,20 +1070,21 @@ func TestAuthorization_Path(t *testing.T) {
 		})
 }
 
-//Test that LOG action does not impact authorization
-func TestAuthorization_Log(t *testing.T) {
+// Test that the AUDIT action does not impact allowing or denying a request
+func TestAuthorization_Audit(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "v1beta1-log",
+				Prefix: "v1beta1-audit",
 				Inject: true,
 			})
 
-			var a, b, c echo.Instance
+			var a, b, c, d echo.Instance
 			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&c, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -1101,8 +1102,12 @@ func TestAuthorization_Log(t *testing.T) {
 				}
 			}
 			cases := []rbacUtil.TestCase{
-				newTestCase(b, "/allow_log", true),
-				newTestCase(c, "/deny_log", false),
+				newTestCase(b, "/allow_audit", true),
+				newTestCase(b, "/other", true),
+				newTestCase(c, "/allow_audit", true),
+				newTestCase(c, "/deny_audit", false),
+				newTestCase(d, "/allow_audit", true),
+				newTestCase(d, "/deny_audit", false),
 			}
 
 			args := map[string]string{
@@ -1116,7 +1121,7 @@ func TestAuthorization_Log(t *testing.T) {
 				return policy
 			}
 
-			policy := applyPolicy("testdata/authz/v1beta1-log.yaml.tmpl", ns)
+			policy := applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
 			rbacUtil.RunRBACTest(t, cases)

@@ -659,6 +659,7 @@ security,TestAuthorization_NegativeMatch
 security,TestAuthorization_Path
 security,TestAuthorization_TCP
 security,TestAuthorization_WorkloadSelector
+security,TestAuthorization_Audit
 security,TestAuthorizationForHTTPServices
 security,TestIngressRequestAuthentication
 security,TestMtlsHealthCheck
