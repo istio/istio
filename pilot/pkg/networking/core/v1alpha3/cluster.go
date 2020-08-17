@@ -947,7 +947,6 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			Sni:              tls.Sni,
 		}
 
-		// TODO: cleanup required check out istio/istio/pull/24822 as SDS is enabled by default
 		if !node.Metadata.SdsEnabled {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
@@ -983,30 +982,16 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			tlsContext.Sni = c.Name
 		}
 
-		// `istio-peer-exchange` alpn is only used when using mtls communication between peers.
-		// We add `istio-peer-exchange` to the list of alpn strings.
-		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
-		if c.Http2ProtocolOptions != nil {
-			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-			// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
-			// metadataexchange is enabled.
-			if features.EnableTCPMetadataExchange {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
-			} else {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
-			}
-		} else {
-			// This is in-mesh cluster, advertise it with ALPN.
-			// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
-			// metadataexchange is enabled.
-			if features.EnableTCPMetadataExchange {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
-			} else {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
-			}
+		// We know that the other side is Istio enabled as this is Istio mTLS connection.
+		// if this is a TCP cluster, set the alpn as istio-peer-exchange to indicate that
+		// we will be exchanging metadata before sending actual payload. For HTTP ports, the ALPN
+		// filter will take care of setting the appropriate ALPN
+		if opts.port == nil || opts.port.Protocol.IsTCP() {
+			tlsContext.CommonTlsContext.AlpnProtocols = mtlsTCPWithMxcALPNs
 		}
 	case networking.ClientTLSSettings_SIMPLE:
-		if tls.CredentialName != "" {
+		// only for egress gateway
+		if tls.CredentialName != "" && opts.proxy.Type == model.Router {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
@@ -1016,16 +1001,19 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.GatewaySdsUdsPath)
 
-			if c.Http2ProtocolOptions != nil {
+			// For any connection other than ISTIO_MUTUAL, we need to set the ALPN for H2, if its HTTP port. If we dont, then
+			// the ALPN filter will set it as istio-http/1.1 or istio/h2 etc. which may not be accepted by
+			// the upstream.
+			if opts.port != nil && opts.port.Protocol.IsHTTP2() {
 				// This is HTTP/2 cluster, advertise it with ALPN.
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+				tlsContext.CommonTlsContext.AlpnProtocols = util.TLSNegotiationAlpnH2Outbound
 			}
 			return tlsContext, nil
 		}
 
-		// If CredentialName is not set fallback to file based approach
+		// The rest of the logic is for sidecars
 		res := model.SdsCertificateConfig{
-			CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+			CaCertificatePath: tls.CaCertificates,
 		}
 
 		tlsContext = &auth.UpstreamTlsContext{
@@ -1046,13 +1034,15 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 
-		if c.Http2ProtocolOptions != nil {
+		// For any connection other than ISTIO_MUTUAL, we need to set the ALPN for H2, if its HTTP port. If we dont, then
+		// the ALPN filter will set it as istio-http/1.1 or istio/h2 etc. which may not be accepted by
+		// the upstream.
+		if opts.port != nil && opts.port.Protocol.IsHTTP2() {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			tlsContext.CommonTlsContext.AlpnProtocols = util.TLSNegotiationAlpnH2Outbound
 		}
-
 	case networking.ClientTLSSettings_MUTUAL:
-		if tls.CredentialName != "" {
+		if tls.CredentialName != "" && opts.proxy.Type == model.Router {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
@@ -1062,14 +1052,17 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
 			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.GatewaySdsUdsPath)
 
-			if c.Http2ProtocolOptions != nil {
+			// For any connection other than ISTIO_MUTUAL, we need to set the ALPN for H2, if its HTTP port. If we dont, then
+			// the ALPN filter will set it as istio-http/1.1 or istio/h2 etc. which may not be accepted by
+			// the upstream.
+			if opts.port != nil && opts.port.Protocol.IsHTTP2() {
 				// This is HTTP/2 cluster, advertise it with ALPN.
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+				tlsContext.CommonTlsContext.AlpnProtocols = util.TLSNegotiationAlpnH2Outbound
 			}
 			return tlsContext, nil
 		}
 
-		// If CredentialName is not set fallback to file based approach
+		// The rest of the logic is for sidecars
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 			err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
 				c.Name)
@@ -1080,8 +1073,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-		// Fallback to file mount secret instead of SDS
-		if !node.Metadata.SdsEnabled {
+
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1089,43 +1081,23 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				{
 					CertificateChain: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+							Filename: tls.ClientCertificate,
 						},
 					},
 					PrivateKey: &core.DataSource{
 						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+							Filename: tls.PrivateKey,
 						},
 					},
 				},
 			}
-		} else {
-			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-			// which does not support rotation, we will serve them over SDS by reading the files.
-			res := model.SdsCertificateConfig{
-				CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-				PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
-			}
-			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
 
-			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
-			if res.GetRootResourceName() == "" {
-				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
-				tlsContext.Sni = tls.Sni
-			} else {
-				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
-					},
-				}
-			}
-		}
-		if c.Http2ProtocolOptions != nil {
+		// For any connection other than ISTIO_MUTUAL, we need to set the ALPN for H2, if its HTTP port. If we dont, then
+		// the ALPN filter will set it as istio-http/1.1 or istio/h2 etc. which may not be accepted by
+		// the upstream.
+		if opts.port != nil && opts.port.Protocol.IsHTTP2() {
 			// This is HTTP/2 cluster, advertise it with ALPN.
-			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+			tlsContext.CommonTlsContext.AlpnProtocols = util.TLSNegotiationAlpnH2Outbound
 		}
 	}
 	return tlsContext, nil

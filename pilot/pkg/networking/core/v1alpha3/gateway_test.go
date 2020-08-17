@@ -61,7 +61,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -100,7 +100,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			sdsPath: "unix:/var/run/sds/uds_path",
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "default",
@@ -162,7 +162,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -192,7 +192,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
@@ -235,7 +235,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
@@ -282,7 +282,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -313,7 +313,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificates: []*auth.TlsCertificate{
 						{
 							CertificateChain: &core.DataSource{
@@ -347,7 +347,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
@@ -420,7 +420,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",
@@ -493,7 +493,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 			},
 			result: &auth.DownstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
+					AlpnProtocols: util.TlsNegotiationAlpnHTTPGatewayInbound,
 					TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 						{
 							Name: "ingress-sds-resource-name",

@@ -2001,8 +2001,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
-					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.mtlsTCPWithMxcALPNs) {
+					t.Fatalf("expected alpn list %v; got %v", mtlsTCPWithMxcALPNs, got)
 				}
 			},
 		},
@@ -2015,7 +2015,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocketMatch: false,
 			http2ProtocolOptions:       http2ProtocolOptions,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshH2WithMxc) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.TLSNegotiationAlpnH2Outbound) {
 					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshH2WithMxc, got)
 				}
 			},
@@ -2053,8 +2053,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				if got := ctx.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig().GetName(); rootName != got {
 					t.Fatalf("expected root name %v got %v", rootName, got)
 				}
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
-					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.TLSNegotiationAlpnH2Outbound) {
+					t.Fatalf("expected alpn list %v; got %v", util.TLSNegotiationAlpnH2Outbound, got)
 				}
 				if got := ctx.GetSni(); got != simpleTLSSettingsWithCerts.Sni {
 					t.Fatalf("expected TLSContext SNI %v; got %v", simpleTLSSettingsWithCerts.Sni, got)
@@ -2102,8 +2102,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				if got := ctx.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()[0].GetName(); certName != got {
 					t.Fatalf("expected cert name %v got %v", certName, got)
 				}
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
-					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.TLSNegotiationAlpnH2Outbound) {
+					t.Fatalf("expected alpn list %v; got %v", util.TLSNegotiationAlpnH2Outbound, got)
 				}
 				if got := ctx.GetSni(); got != mutualTLSSettingsWithCerts.Sni {
 					t.Fatalf("expected TLSContext SNI %v; got %v", mutualTLSSettingsWithCerts.Sni, got)
@@ -2118,8 +2118,8 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
-				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNInMeshWithMxc) {
-					t.Fatalf("expected alpn list %v; got %v", util.ALPNInMeshWithMxc, got)
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, mtlsTCPWithMxcALPNs) {
+					t.Fatalf("expected alpn list %v; got %v", mtlsTCPWithMxcALPNs, got)
 				}
 			},
 		},
@@ -2325,7 +2325,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNInMeshWithMxc,
+						AlpnProtocols: mtlsTCPWithMxcALPNs,
 					},
 					Sni: "some-sni.com",
 				},
@@ -2452,7 +2452,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNInMeshWithMxc,
+						AlpnProtocols: mtlsTCPWithMxcALPNs,
 					},
 					Sni: "some-sni.com",
 				},
@@ -2538,7 +2538,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNInMeshWithMxc,
+						AlpnProtocols: mtlsTCPWithMxcALPNs,
 					},
 					Sni: "some-sni.com",
 				},
@@ -2689,7 +2689,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNH2Only,
+						AlpnProtocols: util.TLSNegotiationAlpnH2Outbound,
 					},
 					Sni: "some-sni.com",
 				},
@@ -2913,7 +2913,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNH2Only,
+						AlpnProtocols: util.TLSNegotiationAlpnH2Outbound,
 					},
 					Sni: "some-sni.com",
 				},
@@ -3242,7 +3242,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNH2Only,
+						AlpnProtocols: util.TLSNegotiationAlpnH2Outbound,
 					},
 					Sni: "some-sni.com",
 				},
@@ -3415,7 +3415,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNH2Only,
+						AlpnProtocols: util.TLSNegotiationAlpnH2Outbound,
 					},
 					Sni: "some-sni.com",
 				},

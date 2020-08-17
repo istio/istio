@@ -46,6 +46,9 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -58,8 +61,6 @@ import (
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -147,15 +148,6 @@ const (
 	ThriftRLSDefaultTimeoutMS = 50
 )
 
-type FilterChainMatchOptions struct {
-	// Application protocols of the filter chain match
-	ApplicationProtocols []string
-	// Transport protocol of the filter chain match. "tls" or empty
-	TransportProtocol string
-	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
-	Protocol istionetworking.ListenerProtocol
-}
-
 // A set of pre-allocated variables related to protocol sniffing logic for
 // propagating the ALPN to upstreams
 var (
@@ -164,127 +156,11 @@ var (
 	// properly use a HTTP or TCP listener
 	plaintextHTTPALPNs = []string{"http/1.0", "http/1.1", "h2c"}
 	mtlsHTTPALPNs      = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
-
-	mtlsTCPALPNs        = []string{"istio"}
-	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
+	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange"}
 
 	// ALPN used for TCP Metadata Exchange.
 	tcpMxcALPN = "istio-peer-exchange"
 
-	// Double the number of filter chains. Half of filter chains are used as http filter chain and half of them are used as tcp proxy
-	// id in [0, len(allChains)/2) are configured as http filter chain, [(len(allChains)/2, len(allChains)) are configured as tcp proxy
-	// If mTLS permissive is enabled, there are five filter chains. The filter chain match should be
-	//  FCM 1: ALPN [istio-http/1.0, istio-http/1.1, istio-h2] Transport protocol: tls      --> HTTP traffic from sidecar over TLS
-	//  FCM 2: ALPN [http/1.0, http/1.1, h2c] Transport protocol: N/A                       --> HTTP traffic over plain text
-	//  FCM 3: ALPN [istio] Transport protocol: tls                                         --> TCP traffic from sidecar over TLS
-	//  FCM 4: ALPN [] Transport protocol: N/A                                              --> TCP traffic over plain text
-	//  FCM 5: ALPN [] Transport protocol: tls                                              --> TCP traffic over TLS
-	// If traffic is over plain text or mTLS is strict mode, there are two filter chains. The filter chain match should be
-	//  FCM 1: ALPN [http/1.0, http/1.1, h2c, istio-http/1.0, istio-http/1.1, istio-h2]     --> HTTP traffic over plain text or TLS
-	//  FCM 2: ALPN []                                                                      --> TCP traffic over plain text or TLS
-	inboundPermissiveFilterChainMatchOptions = []FilterChainMatchOptions{
-		{
-			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
-			ApplicationProtocols: mtlsHTTPALPNs,
-			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
-			ApplicationProtocols: plaintextHTTPALPNs,
-			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol: istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, but sent over mTLS
-			ApplicationProtocols: mtlsTCPALPNs,
-			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolTCP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, sent over plaintext
-			// or it could be that the client has no sidecar. In this case, this filter chain is simply
-			// receiving plaintext TCP traffic.
-			Protocol: istionetworking.ListenerProtocolTCP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, sent over one-way
-			// TLS (HTTPS for example) by the downstream application.
-			// or it could be that the client has no sidecar, and it is directly making a HTTPS connection to
-			// this sidecar. In this case, this filter chain is receiving plaintext one-way TLS traffic. The TLS
-			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
-			// this filter chain match will treat the traffic as just another TCP proxy.
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolTCP,
-		},
-	}
-
-	// Same as inboundPermissiveFilterChainMatchOptions except for following case:
-	// FCM 3: ALPN [istio-peer-exchange, istio] Transport protocol: tls            --> TCP traffic from sidecar over TLS
-	inboundPermissiveFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
-		{
-			// client side traffic was detected as HTTP by the outbound listener, sent over mTLS
-			ApplicationProtocols: mtlsHTTPALPNs,
-			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// client side traffic was detected as HTTP by the outbound listener, sent out as plain text
-			ApplicationProtocols: plaintextHTTPALPNs,
-			// No transport protocol match as this filter chain (+match) will be used for plain text connections
-			Protocol: istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, but sent over mTLS
-			ApplicationProtocols: mtlsTCPWithMxcALPNs,
-			// If client sends mTLS traffic, transport protocol will be set by the TLS inspector
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolTCP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, sent over plaintext
-			// or it could be that the client has no sidecar. In this case, this filter chain is simply
-			// receiving plaintext TCP traffic.
-			Protocol: istionetworking.ListenerProtocolTCP,
-		},
-		{
-			// client side traffic could not be identified by the outbound listener, sent over one-way
-			// TLS (HTTPS for example) by the downstream application.
-			// or it could be that the client has no sidecar, and it is directly making a HTTPS connection to
-			// this sidecar. In this case, this filter chain is receiving plaintext one-way TLS traffic. The TLS
-			// inspector would detect this as TLS traffic [not necessarily mTLS]. But since there is no ALPN to match,
-			// this filter chain match will treat the traffic as just another TCP proxy.
-			TransportProtocol: "tls",
-			Protocol:          istionetworking.ListenerProtocolTCP,
-		},
-	}
-
-	inboundStrictFilterChainMatchOptions = []FilterChainMatchOptions{
-		{
-			// client side traffic was detected as HTTP by the outbound listener.
-			// If we are in strict mode, we will get mTLS HTTP ALPNS only.
-			ApplicationProtocols: mtlsHTTPALPNs,
-			Protocol:             istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// Could not detect traffic on the client side. Server side has no mTLS.
-			Protocol: istionetworking.ListenerProtocolTCP,
-		},
-	}
-
-	inboundPlainTextFilterChainMatchOptions = []FilterChainMatchOptions{
-		{
-			ApplicationProtocols: plaintextHTTPALPNs,
-			Protocol:             istionetworking.ListenerProtocolHTTP,
-		},
-		{
-			// Could not detect traffic on the client side. Server side has no mTLS.
-			Protocol: istionetworking.ListenerProtocolTCP,
-		},
-	}
 
 	// State logged by the metadata exchange filter about the upstream and downstream service instances
 	// We need to propagate these as part of access log service stream
@@ -710,63 +586,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 	}
 
 	if len(allChains) == 0 {
+		// This case should not happen as the plugins will always add atleast one filter chain
 		// add one empty entry to the list so we generate a default listener below
-		allChains = []istionetworking.FilterChain{{}}
-	}
-
-	tlsInspectorEnabled := false
-	hasTLSContext := false
-allChainsLabel:
-	for _, c := range allChains {
-		for _, lf := range c.ListenerFilters {
-			if lf.Name == wellknown.TlsInspector {
-				tlsInspectorEnabled = true
-				break allChainsLabel
-			}
+		allChains = []istionetworking.FilterChain{
+			{
+				FilterChainMatchOptions: istionetworking.FilterChainMatchOptions{Protocol: pluginParams.ListenerProtocol},
+			},
 		}
-
-		hasTLSContext = hasTLSContext || c.TLSContext != nil
 	}
 
-	var filterChainMatchOption []FilterChainMatchOptions
-	// Detect protocol by sniffing and double the filter chain
-	if pluginParams.ListenerProtocol == istionetworking.ListenerProtocolAuto {
-		allChains = append(allChains, allChains...)
-		if tlsInspectorEnabled {
-			allChains = append(allChains, istionetworking.FilterChain{})
-			if features.EnableTCPMetadataExchange {
-				filterChainMatchOption = inboundPermissiveFilterChainMatchWithMxcOptions
-			} else {
-				filterChainMatchOption = inboundPermissiveFilterChainMatchOptions
-			}
-
-		} else {
-			if hasTLSContext {
-				filterChainMatchOption = inboundStrictFilterChainMatchOptions
-			} else {
-				filterChainMatchOption = inboundPlainTextFilterChainMatchOptions
-			}
-		}
-		listenerOpts.needHTTPInspector = true
-	}
-
-	// name all the filter chains
-
-	for id, chain := range allChains {
+	for _, chain := range allChains {
 		var httpOpts *httpListenerOpts
 		var thriftOpts *thriftListenerOpts
 		var tcpNetworkFilters []*listener.Filter
 		var filterChainMatch *listener.FilterChainMatch
 
-		switch pluginParams.ListenerProtocol {
+		switch chain.FilterChainMatchOptions.Protocol {
 		case istionetworking.ListenerProtocolHTTP:
 			filterChainMatch = chain.FilterChainMatch
-			if filterChainMatch != nil && len(filterChainMatch.ApplicationProtocols) > 0 {
-				// This is the filter chain used by permissive mTLS. Append mtlsHTTPALPNs as the client side will
-				// override the ALPN with mtlsHTTPALPNs.
-				// TODO: This should move to authN code instead of us appending additional ALPNs here.
-				filterChainMatch.ApplicationProtocols = append(filterChainMatch.ApplicationProtocols, mtlsHTTPALPNs...)
-			}
 			httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
 
 		case istionetworking.ListenerProtocolThrift:
@@ -776,31 +613,6 @@ allChainsLabel:
 		case istionetworking.ListenerProtocolTCP:
 			filterChainMatch = chain.FilterChainMatch
 			tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance)
-
-		case istionetworking.ListenerProtocolAuto:
-			// Make sure id is not out of boundary of filterChainMatchOption
-			if filterChainMatchOption == nil || len(filterChainMatchOption) <= id {
-				continue
-			}
-
-			// TODO(yxue) avoid bypassing authN using TCP
-			// Build filter chain options for listener configured with protocol sniffing
-			fcm := &listener.FilterChainMatch{}
-			if chain.FilterChainMatch != nil {
-				fcm = protomarshal.ShallowCopy(chain.FilterChainMatch).(*listener.FilterChainMatch)
-			}
-			fcm.ApplicationProtocols = filterChainMatchOption[id].ApplicationProtocols
-			fcm.TransportProtocol = filterChainMatchOption[id].TransportProtocol
-			filterChainMatch = fcm
-			if filterChainMatchOption[id].Protocol == istionetworking.ListenerProtocolHTTP {
-				httpOpts = configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, pluginParams)
-				if chain.TLSContext != nil && chain.TLSContext.CommonTlsContext != nil {
-					chain.TLSContext.CommonTlsContext.AlpnProtocols = dropAlpnFromList(
-						chain.TLSContext.CommonTlsContext.AlpnProtocols, tcpMxcALPN)
-				}
-			} else {
-				tcpNetworkFilters = buildInboundNetworkFilters(pluginParams.Push, pluginParams.ServiceInstance)
-			}
 		default:
 			log.Warnf("Unsupported inbound protocol %v for port %#v", pluginParams.ListenerProtocol,
 				pluginParams.ServiceInstance.ServicePort)

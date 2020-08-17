@@ -84,6 +84,7 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
 type FilterChain struct {
 	// FilterChainMatch is the match used to select the filter chain.
+	// TODO: move out
 	FilterChainMatch *listener.FilterChainMatch
 	// TLSContext is the TLS settings for this filter chains.
 	TLSContext *tls.DownstreamTlsContext
@@ -92,6 +93,7 @@ type FilterChain struct {
 	ListenerFilters []*listener.ListenerFilter
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
+	// TODO: this is redundant compared to the FilterChainMatchOptions.Protocol
 	ListenerProtocol ListenerProtocol
 	// IstioMutualGateway is set only when this filter chain is part of a Gateway, and
 	// the Server corresponding to this filter chain is doing TLS termination with ISTIO_MUTUAL as the TLS mode.
@@ -106,6 +108,8 @@ type FilterChain struct {
 	TCP []*listener.Filter
 	// IsFallthrough indicates if the filter chain is fallthrough.
 	IsFallThrough bool
+	// FilterChainMatchOptions indicates the type of filter chain match desired by the plugin for this filter chain
+	FilterChainMatchOptions FilterChainMatchOptions
 }
 
 // MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
@@ -119,3 +123,13 @@ type MutableObjects struct {
 	// FilterChains is the set of filter chains that will be attached to Listener.
 	FilterChains []FilterChain
 }
+
+type FilterChainMatchOptions struct {
+	// Application protocols of the filter chain match
+	ApplicationProtocols []string
+	// Transport protocol of the filter chain match. "tls" or empty
+	TransportProtocol string
+	// Filter chain protocol. HTTP for HTTP proxy and TCP for TCP proxy
+	Protocol ListenerProtocol
+}
+

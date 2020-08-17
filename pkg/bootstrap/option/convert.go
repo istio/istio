@@ -104,7 +104,8 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		// FIXME: Why is this forcing envoys to only do H2 from sidecars to zipkin/metrics/access logs?
+		tlsContext.CommonTlsContext.AlpnProtocols = util.TLSNegotiationAlpnH2Outbound
 	case networkingAPI.ClientTLSSettings_MUTUAL:
 		res := model.SdsCertificateConfig{
 			CertificatePath:   model.GetOrDefault(metadata.TLSClientCertChain, tls.ClientCertificate),
@@ -122,7 +123,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+		tlsContext.CommonTlsContext.AlpnProtocols = util.TLSNegotiationAlpnH2Outbound
 	case networkingAPI.ClientTLSSettings_ISTIO_MUTUAL:
 		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
@@ -133,7 +134,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
 			},
 		}
-		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+		tlsContext.CommonTlsContext.AlpnProtocols = util.TLSNegotiationAlpnH2Outbound
 	default:
 		// No TLS.
 		return nil
