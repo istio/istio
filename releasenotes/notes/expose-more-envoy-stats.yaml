@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 23166
+releaseNotes:
+- |
+  **Added** Expose more Envoy native stats for better visibility and debuggability. Newly exposed stats can be found [here](https://github.com/istio/istio/issues/23166#issuecomment-674687100).
