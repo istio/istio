@@ -58,4 +58,7 @@ type CallOptions struct {
 
 	// Message to be sent if this is a GRPC request
 	Message string
+
+	// Method to send. Defaults to HTTP. Only relevant for HTTP.
+	Method string
 }

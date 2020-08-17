@@ -760,55 +760,6 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
 }
 
-func TestConstructCSRHostName(t *testing.T) {
-	data, err := ioutil.ReadFile("./testdata/testjwt")
-	if err != nil {
-		t.Errorf("failed to read test jwt file %v", err)
-	}
-	testJwt := string(data)
-
-	cases := []struct {
-		trustDomain string
-		token       string
-		expected    string
-		errFlag     bool
-	}{
-		{
-			token:    testJwt,
-			expected: "spiffe://cluster.local/ns/default/sa/sleep",
-			errFlag:  false,
-		},
-		{
-			trustDomain: "fooDomain",
-			token:       testJwt,
-			expected:    "spiffe://fooDomain/ns/default/sa/sleep",
-			errFlag:     false,
-		},
-		{
-			token:    "faketoken",
-			expected: "",
-			errFlag:  true,
-		},
-	}
-	for _, c := range cases {
-		got, err := constructCSRHostName(c.trustDomain, c.token)
-		if err != nil {
-			if c.errFlag == false {
-				t.Errorf("constructCSRHostName no error, but got %v", err)
-			}
-			continue
-		}
-
-		if c.errFlag == true {
-			t.Error("constructCSRHostName error")
-		}
-
-		if got != c.expected {
-			t.Errorf("constructCSRHostName got %q, want %q", got, c.expected)
-		}
-	}
-}
-
 func checkBool(t *testing.T, name string, got bool, want bool) {
 	if got != want {
 		t.Errorf("%s: got: %v, want: %v", name, got, want)

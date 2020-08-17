@@ -273,7 +273,6 @@ spec:
       traceSampling: 1
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
-      injectLabel: istio-injection
       objectSelector:
         autoInject: true
         enabled: false

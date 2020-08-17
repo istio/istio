@@ -38,6 +38,9 @@ const (
 
 	// DNSListenerFilterName is the name of UDP listener filter for resolving DNS queries
 	DNSListenerFilterName = "envoy.filters.udp.dns_filter"
+
+	TLSTransportProtocol       = "tls"
+	RawBufferTransportProtocol = "raw_buffer"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling

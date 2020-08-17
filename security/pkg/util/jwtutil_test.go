@@ -16,6 +16,7 @@ package util
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -49,6 +50,12 @@ var (
 		"UyWo5irFa3qcwbOUB9kuuUNGBdtbFBN5yIYLpfa9E-MtTX_zJ9fQ9j2pi8Z4ljii0tEmPmRxokHkmG_xNJjUkxKU" +
 		"WZf4bLDdCEjVFyshNae-FdxiUVyeyYorTYzwZZYQch9MJeedg4keKKUOvCCJUlKixd2qAe-H7r15RPmo4AU5O5YL" +
 		"65xiNg"
+
+	// oneAudString includes one `aud` claim "abc" of type string.
+	oneAudString = "header.eyJhdWQiOiJhYmMiLCJleHAiOjQ3MzI5OTQ4MDEsImlhdCI6MTU3OTM5NDgwMSwiaXNzIjoidGVzdC1pc3N1ZXItMUBpc3Rpby5pbyIsInN1YiI6InN1Yi0xIn0.signature" // nolint: lll
+
+	// twoAudList includes two `aud` claims ["abc", "xyz"] of type []string.
+	twoAudList = "header.eyJhdWQiOlsiYWJjIiwieHl6Il0sImV4cCI6NDczMjk5NDgwMSwiaWF0IjoxNTc5Mzk0ODAxLCJpc3MiOiJ0ZXN0LWlzc3Vlci0xQGlzdGlvLmlvIiwic3ViIjoic3ViLTEifQ.signature" // nolint: lll
 )
 
 func TestIsJwtExpired(t *testing.T) {
@@ -97,5 +104,36 @@ func TestIsJwtExpired(t *testing.T) {
 		} else if err == nil && expired != tc.expResult {
 			t.Errorf("%s: Got expiration %v not matching expected expiration %v", id, expired, tc.expResult)
 		}
+	}
+}
+
+func TestGetAud(t *testing.T) {
+	testCases := map[string]struct {
+		jwt string
+		aud []string
+	}{
+		"no audience": {
+			jwt: firstPartyJwt,
+		},
+		"one audience string": {
+			jwt: oneAudString,
+			aud: []string{"abc"},
+		},
+		"one audience list": {
+			jwt: thirdPartyJwt,
+			aud: []string{"yonggangl-istio-4.svc.id.goog"},
+		},
+		"two audiences list": {
+			jwt: twoAudList,
+			aud: []string{"abc", "xyz"},
+		},
+	}
+
+	for id, tc := range testCases {
+		t.Run(id, func(t *testing.T) {
+			if got, _ := GetAud(tc.jwt); !reflect.DeepEqual(tc.aud, got) {
+				t.Errorf("want audience %v but got %v", tc.aud, got)
+			}
+		})
 	}
 }

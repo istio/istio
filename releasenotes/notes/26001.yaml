@@ -4,6 +4,6 @@ area: pilot
 issue:
   - 25339
 
-releaseNotes: |
-  *Added*
-  - sets timeout to fetch workload certs to 0 because workload certs are guaranteed to exist, making a timeout irrelevant.
+releaseNotes:
+- |
+  **Added** sets timeout to fetch workload certs to 0 because workload certs are guaranteed to exist, making a timeout irrelevant.

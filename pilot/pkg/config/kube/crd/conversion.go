@@ -164,7 +164,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 
 		cfg, err := ConvertObject(s, &obj, "")
 		if err != nil {
-			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
+			return nil, nil, fmt.Errorf("cannot parse proto message for %v: %v", obj.Name, err)
 		}
 
 		if withValidate {
@@ -189,9 +189,4 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 // object with kubectl and then re-ingests it.
 func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 	return parseInputsImpl(inputs, true)
-}
-
-// ParseInputsWithoutValidation same as ParseInputs, but do not apply schema validation.
-func ParseInputsWithoutValidation(inputs string) ([]model.Config, []IstioKind, error) {
-	return parseInputsImpl(inputs, false)
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (
@@ -89,8 +91,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		Example: `  # Apply a default Istio installation
   istioctl install
 
-  # Enable grafana dashboard
-  istioctl install --set values.grafana.enabled=true
+  # Enable Tracing
+  istioctl install --set meshConfig.enableTracing=true
 
   # Generate the demo profile and don't wait for confirmation
   istioctl install --set profile=demo --skip-confirmation
@@ -139,6 +141,22 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	if err != nil {
 		return err
 	}
+
+	serverVersion, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		return fmt.Errorf("error getting Kubernetes version: %w", err)
+	}
+	ok, err := k8sversion.CheckKubernetesVersion(serverVersion)
+	if err != nil {
+		return fmt.Errorf("error checking if Kubernetes version is supported: %w", err)
+	}
+	if !ok {
+		l.LogAndPrintf("\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is %s.\n"+
+			"Proceeding with the installation, but you might experience problems. "+
+			"See https://istio.io/latest/docs/setup/platform-setup/ for a list of supported versions.\n",
+			serverVersion.GitVersion, version.Info.Version, k8sversion.MinK8SVersion)
+	}
+
 	_, iops, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err

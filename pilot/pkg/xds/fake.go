@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"net"
-	"reflect"
 	"strings"
 	"text/template"
 	"time"
@@ -28,13 +27,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	envoy_extensions_filters_network_tcp_proxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,13 +40,13 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -165,7 +158,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		m = &def
 	}
 
-	serviceDiscovery := aggregate.NewController()
+	serviceDiscovery := aggregate.NewController(aggregate.Options{})
 	env.PushContext = model.NewPushContext()
 	env.ServiceDiscovery = serviceDiscovery
 	env.IstioConfigStore = model.MakeIstioStore(configStore)
@@ -379,137 +372,12 @@ func (f *FakeDiscoveryServer) Clusters(p *model.Proxy) []*cluster.Cluster {
 
 func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
-	for _, c := range ExtractEdsClusterNames(f.Clusters(p)) {
-		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(createEndpointBuilder(c, p, f.PushContext())))
+	for _, c := range xdstest.ExtractEdsClusterNames(f.Clusters(p)) {
+		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(NewEndpointBuilder(c, p, f.PushContext())))
 	}
 	return loadAssignments
 }
 
 func (f *FakeDiscoveryServer) Routes(p *model.Proxy) []*route.RouteConfiguration {
-	return f.Discovery.ConfigGenerator.BuildHTTPRoutes(p, f.PushContext(), ExtractRoutesFromListeners(f.Listeners(p)))
-}
-
-func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
-	slice := InterfaceSlice(p)
-	if len(slice) == 0 {
-		return &discovery.DiscoveryResponse{}
-	}
-	resources := make([]*any.Any, 0, len(slice))
-	for _, v := range slice {
-		resources = append(resources, util.MessageToAny(v.(proto.Message)))
-	}
-	return &discovery.DiscoveryResponse{
-		Resources: resources,
-		TypeUrl:   resources[0].TypeUrl,
-	}
-}
-
-func InterfaceSlice(slice interface{}) []interface{} {
-	s := reflect.ValueOf(slice)
-	if s.Kind() != reflect.Slice {
-		panic("InterfaceSlice() given a non-slice type")
-	}
-
-	ret := make([]interface{}, s.Len())
-
-	for i := 0; i < s.Len(); i++ {
-		ret[i] = s.Index(i).Interface()
-	}
-
-	return ret
-}
-
-func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
-	routes := []string{}
-	for _, l := range ll {
-		for _, fc := range l.FilterChains {
-			for _, filter := range fc.Filters {
-				if filter.Name == wellknown.HTTPConnectionManager {
-					filter.GetTypedConfig()
-					hcon := &hcm.HttpConnectionManager{}
-					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcon); err != nil {
-						panic(err)
-					}
-					switch r := hcon.GetRouteSpecifier().(type) {
-					case *hcm.HttpConnectionManager_Rds:
-						routes = append(routes, r.Rds.RouteConfigName)
-					}
-				}
-			}
-		}
-	}
-	return routes
-}
-
-func ExtractListenerNames(ll []*listener.Listener) []string {
-	res := []string{}
-	for _, l := range ll {
-		res = append(res, l.Name)
-	}
-	return res
-}
-
-func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
-	for _, l := range ll {
-		if l.Name == name {
-			return l
-		}
-	}
-	return nil
-}
-
-func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy {
-	for _, fc := range fcs.Filters {
-		if fc.Name == wellknown.TCPProxy {
-			tcpProxy := &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy{}
-			if fc.GetTypedConfig() != nil {
-				if err := ptypes.UnmarshalAny(fc.GetTypedConfig(), tcpProxy); err != nil {
-					t.Fatalf("failed to unmarshal tcp proxy")
-				}
-			}
-			return tcpProxy
-		}
-	}
-	return nil
-}
-
-func ExtractEndpoints(endpoints []*endpoint.ClusterLoadAssignment) map[string][]string {
-	got := map[string][]string{}
-	for _, cla := range endpoints {
-		if cla == nil {
-			continue
-		}
-		for _, ep := range cla.Endpoints {
-			for _, lb := range ep.LbEndpoints {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetSocketAddress().Address)
-				} else {
-					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetPipe().Path)
-				}
-			}
-		}
-	}
-	return got
-}
-
-func ExtractClusterEndpoints(clusters []*cluster.Cluster) map[string][]string {
-	cla := []*endpoint.ClusterLoadAssignment{}
-	for _, c := range clusters {
-		cla = append(cla, c.LoadAssignment)
-	}
-	return ExtractEndpoints(cla)
-}
-
-func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
-	res := []string{}
-	for _, c := range cl {
-		switch v := c.ClusterDiscoveryType.(type) {
-		case *cluster.Cluster_Type:
-			if v.Type != cluster.Cluster_EDS {
-				continue
-			}
-		}
-		res = append(res, c.Name)
-	}
-	return res
+	return f.Discovery.ConfigGenerator.BuildHTTPRoutes(p, f.PushContext(), xdstest.ExtractRoutesFromListeners(f.Listeners(p)))
 }

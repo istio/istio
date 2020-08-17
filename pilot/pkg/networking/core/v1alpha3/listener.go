@@ -42,6 +42,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1848,6 +1849,9 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 			ConfigType: &hcm.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
 					EmitFilterState: true,
+					PerMethodStatSpecifier: &grpcstats.FilterConfig_StatsForAllMethods{
+						StatsForAllMethods: &wrapperspb.BoolValue{Value: false},
+					},
 				}),
 			},
 		})

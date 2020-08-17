@@ -42,6 +42,7 @@ var (
 				Hostname: svc.HostnameMatch{Match: svc.HostnameMatchAny},
 				Port:     9009,
 				Protocol: "HTTP",
+				Routes:   svc.RouteBindingSelector{Resource: "httproutes"},
 			},
 		},
 	}

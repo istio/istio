@@ -320,7 +320,7 @@ func GetProfileYAML(installPackagePath, profileOrPath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		baseCRYAML, err = util.OverlayYAML(defaultYAML, baseCRYAML)
+		baseCRYAML, err = util.OverlayIOP(defaultYAML, baseCRYAML)
 		if err != nil {
 			return "", err
 		}

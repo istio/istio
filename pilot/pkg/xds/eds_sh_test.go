@@ -246,9 +246,9 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 	}
 
 	if len(gws) != 0 {
-		server.Env.Networks().Networks[id] = &meshconfig.Network{
+		addNetwork(server, id, &meshconfig.Network{
 			Gateways: gws,
-		}
+		})
 	}
 
 	svcLabels := map[string]string{
@@ -283,6 +283,17 @@ func initRegistry(server *xds.FakeDiscoveryServer, clusterNum int, gatewaysIP []
 		}
 	}
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
+}
+
+func addNetwork(server *xds.FakeDiscoveryServer, id string, network *meshconfig.Network) {
+	meshNetworks := *server.Env.Networks()
+	c := map[string]*meshconfig.Network{}
+	for k, v := range meshNetworks.Networks {
+		c[k] = v
+	}
+	c[id] = network
+	meshNetworks.Networks = c
+	server.Env.SetNetworks(&meshNetworks)
 }
 
 func sendCDSReqWithMetadata(node string, metadata *structpb.Struct, edsstr discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {

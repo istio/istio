@@ -3,5 +3,6 @@ kind: feature
 area: traffic-management
 issue:
 - 25744
-releaseNotes: |
-  *Added* support for injecting istio-cni into `k8s.v1.cni.cncf.io/networks` annotation with pre-existing value that uses JSON notation.
+releaseNotes:
+- |
+  **Added** support for injecting istio-cni into `k8s.v1.cni.cncf.io/networks` annotation with pre-existing value that uses JSON notation.

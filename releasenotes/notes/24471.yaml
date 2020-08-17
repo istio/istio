@@ -4,5 +4,6 @@ area: istioctl
 issue:
   - 24471
 
-releaseNotes: |
-  *Added* 'istioctl analyze' now warns if deprecated mixer resources are present
+releaseNotes:
+- |
+  **Added** `istioctl analyze` now warns if deprecated mixer resources are present

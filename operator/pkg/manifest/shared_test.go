@@ -89,8 +89,9 @@ func TestReadLayeredYAMLs(t *testing.T) {
 				return
 			}
 
-			if util.YAMLDiff(got, want) != "" {
-				t.Errorf("ReadLayeredYAMLs() got = %v, want %v", got, want)
+			diff := util.YAMLDiff(got, want)
+			if diff != "" {
+				t.Errorf("ReadLayeredYAMLs() got:\n%s\nwant:\n%s\ndiff:\n%s", got, want, diff)
 			}
 		})
 	}

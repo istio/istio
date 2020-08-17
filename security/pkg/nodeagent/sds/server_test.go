@@ -233,7 +233,7 @@ func createSDSClient(t *testing.T, socket string) (*grpc.ClientConn, sds.SecretD
 		t.Errorf("failed to setup connection to socket %q", socket)
 	}
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(credentialTokenHeaderKey, "FakeSubjectToken")
+	header := metadata.Pairs(credentialTokenHeaderKey, msts.FakeSubjectToken)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {
