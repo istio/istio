@@ -169,6 +169,50 @@ func (r ParsedResponses) CheckPortOrFail(t test.Failer, expected int) ParsedResp
 	return r
 }
 
+func (r ParsedResponses) clusterDistribution() map[string]int {
+	hits := map[string]int{}
+	for _, rr := range r {
+		hits[rr.Cluster]++
+	}
+	return hits
+}
+
+// CheckReachedClusters returns an error if there wasn't at least one response from each of the given clusters.
+// This can be used in combination with echo.Instances.Clusters(), for example:
+//     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
+func (r ParsedResponses) CheckReachedClusters(clusterNames []string) error {
+	hits := r.clusterDistribution()
+	for _, expCluster := range clusterNames {
+		if hits[expCluster] == 0 {
+			return fmt.Errorf("did not reach all of %v, got %v", clusterNames, hits)
+		}
+	}
+	return nil
+}
+
+// CheckEqualClusterTraffic checks that traffic was equally distributed across clusters, with some error (20%).
+// If there were 100 requests and 5 clusters we'd expect 20±4 responses to come from each cluster,
+// This method does not validate that all clusters were hit, instead use CheckReachedClusters in combindation with this.
+func (r ParsedResponses) CheckEqualClusterTraffic() error {
+	clusterHits := r.clusterDistribution()
+	expected := len(r) / len(clusterHits)
+	for _, hits := range clusterHits {
+		if !almostEquals(hits, expected, expected/5) {
+			return fmt.Errorf("requests were not equally distributed across clusters: %v", clusterHits)
+		}
+	}
+	return nil
+}
+
+func almostEquals(a, b, precision int) bool {
+	upper := a + precision
+	lower := a - precision
+	if b < lower || b > upper {
+		return false
+	}
+	return true
+}
+
 func (r ParsedResponses) CheckCluster(expected string) error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if response.Cluster != expected {

@@ -25,6 +25,19 @@ import (
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
+// Clusters returns a list of cluster names that the instances are deployed in
+func (i Instances) Clusters() []string {
+	clusters := map[string]struct{}{}
+	for _, instance := range i {
+		clusters[instance.Config().Cluster.Name()] = struct{}{}
+	}
+	out := make([]string, 0, len(clusters))
+	for name := range clusters {
+		out = append(out, name)
+	}
+	return out
+}
+
 // Matcher is used to filter matching instances
 type Matcher func(Instance) bool
 
