@@ -108,6 +108,7 @@ func TestHandleInboundIpv6RulesWithEmptyInboundPorts(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -j RETURN",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
@@ -197,6 +198,7 @@ func TestHandleInboundIpv6RulesWithInboundPorts(t *testing.T) {
 		"ip6tables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN",
 		"ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN",
+		"ip6tables -t nat -A ISTIO_OUTPUT -j RETURN",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: %#v ; Actual: %#v", expected, actual)
@@ -431,6 +433,45 @@ func TestHandleInboundIpv4RulesWithIpNetsWithKubeVirtInterfaces(t *testing.T) {
 	}
 }
 
+func TestHandleInboundIpv4RulesWithDefaultNetworkRange(t *testing.T) {
+	cfg := constructTestConfig()
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	ipv4Range := NetworkRange{
+		IsWildcard: false,
+		IPNets:     nil,
+	}
+	iptConfigurator.handleInboundIpv4Rules(ipv4Range)
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected := []string{
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+}
+
+func TestHandleInboundIpv4RulesWithDefaultNetworkRangeWithKubeVirtInterfaces(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.KubevirtInterfaces = "eth1,eth2"
+
+	iptConfigurator := NewIptablesConfigurator(cfg, &dep.StdoutStubDependencies{})
+	ipv4Range := NetworkRange{
+		IsWildcard: false,
+		IPNets:     nil,
+	}
+	iptConfigurator.handleInboundIpv4Rules(ipv4Range)
+	actual := FormatIptablesCommands(iptConfigurator.iptables.BuildV4())
+	expected := []string{
+		"iptables -t nat -N ISTIO_OUTPUT",
+		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("Output mismatch.\nExpected: %#v\nActual: %#v", expected, actual)
+	}
+}
+
 func TestSeparateV4V6WithWildcardCIDRPrefix(t *testing.T) {
 	cfg := constructTestConfig()
 
@@ -650,6 +691,7 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN",
 		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
