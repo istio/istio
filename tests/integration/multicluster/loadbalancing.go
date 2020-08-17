@@ -30,17 +30,13 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("loadbalancing").
 				Run(func(ctx framework.TestContext) {
-					for _, src := range apps.LBEchos {
-						src := src
-						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.Name())).
-							Run(func(ctx framework.TestContext) {
-								res := callOrFail(ctx, src, apps.LBEchos[0])
-								if err := res.CheckReachedClusters(apps.LBEchos.Clusters()); err != nil {
-									ctx.Fatal(err)
-								}
-								// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
-							})
-					}
+					ctx.NewSubTest(fmt.Sprintf("from %s", apps.LBEchos[0].Config().Cluster.Name())).
+						Run(func(ctx framework.TestContext) {
+							res := callOrFail(ctx, apps.LBEchos[0], apps.LBEchos[0])
+							if err := res.CheckEqualClusterTraffic(); err != nil {
+								ctx.Fatal(err)
+							}
+						})
 				})
 		})
 }
