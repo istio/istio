@@ -48,12 +48,6 @@ const (
 
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
-
-	// Prefixes of V2 metrics.
-	// "reporter" prefix is for istio standard metrics.
-	// "component" suffix is for istio_build metric.
-	v2Prefixes = "reporter=,"
-	v2Suffix   = ",component"
 )
 
 var (
@@ -214,14 +208,14 @@ var (
 )
 
 func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config *meshAPI.ProxyConfig) []option.Instance {
-	parseOption := func(metaOption string, required string) []string {
+	parseOption := func(metaOption string, required []string) []string {
 		var inclusionOption []string
 		if len(metaOption) > 0 {
 			inclusionOption = strings.Split(metaOption, ",")
 		}
 
 		if len(required) > 0 {
-			inclusionOption = append(inclusionOption, strings.Split(required, ",")...)
+			inclusionOption = append(inclusionOption, required...)
 		}
 
 		// At the sidecar we can limit downstream metrics collection to the inbound listener.
@@ -246,10 +240,37 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 	}
 
 	return []option.Instance{
-		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, requiredEnvoyStatsMatcherInclusionPrefixes)),
-		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, "")),
-		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
+		option.EnvoyStatsMatcherInclusionPrefix(parseOption(meta.StatsInclusionPrefixes, getEnvoyStatsInclusionPrefixes())),
+		option.EnvoyStatsMatcherInclusionSuffix(parseOption(meta.StatsInclusionSuffixes, getEnvoyStatsInclusionSuffixes())),
+		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, []string{})),
 		option.EnvoyExtraStatTags(extraStatTags),
+	}
+}
+
+func getEnvoyStatsInclusionPrefixes() []string {
+	return []string{
+		// Prefix of required stats used by readiness checks
+		"cluster_manager", "listener_manager", "server", "cluster.xds-grpc",
+		// Wasm runtime stats prefix
+		"wasm",
+	}
+}
+
+func getEnvoyStatsInclusionSuffixes() []string {
+	return []string{
+		// Downstream connection stats suffix
+		"downstream_cx_total", "downstream_cx_active", "downstream_cx_http1_total", "downstream_cx_http2_total",
+		"downstream_cx_http1_active", "downstream_cx_http2_active", "downstream_cx_destroy", "downstream_cx_destroy_remote",
+		"downstream_cx_destroy_local", "downstream_cx_destroy_local_active_rq", "downstream_cx_destroy_remote_active_rq",
+		// Upstream connection stats suffix
+		"upstream_cx_total", "upstream_cx_active", "upstream_cx_destroy_local", "upstream_cx_destroy_remote",
+		"upstream_cx_destroy_local_with_active_rq", "upstream_cx_destroy_remote_with_active_rq", "upstream_cx_close_notify",
+		// HTTP request route stats suffix
+		"no_route", "no_cluster", "rq_redirect", "rq_total", "rq_direct_response", "rq_reset_after_downstream_response_started",
+		// Lisener debug stats suffix
+		"no_filter_chain_match", "downstream_pre_cx_timeout",
+		// TCP metadata exchange stats suffix
+		"alpn_protocol_not_found", "alpn_protocol_found", "initial_header_not_found", "header_not_found", "metadata_added",
 	}
 }
 

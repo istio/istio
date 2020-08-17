@@ -25,6 +25,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -48,9 +49,9 @@ import (
 )
 
 type stats struct {
-	prefixes string
-	suffixes string
-	regexps  string
+	prefixes []string
+	suffixes []string
+	regexps  []string
 }
 
 var (
@@ -263,8 +264,10 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2",
 				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
-			stats: stats{prefixes: "prefix1,prefix2",
-				suffixes: "suffix1,suffix2"},
+			stats: stats{
+				prefixes: []string{"prefix1", "prefix2"},
+				suffixes: []string{"suffix1", "suffix2"},
+			},
 		},
 		{
 			base: "stats_inclusion",
@@ -273,7 +276,8 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			stats: stats{
-				suffixes: upstreamStatsSuffixes + "," + downstreamStatsSuffixes},
+				suffixes: append(strings.Split(upstreamStatsSuffixes, ","), strings.Split(downstreamStatsSuffixes, ",")...),
+			},
 		},
 		{
 			base: "stats_inclusion",
@@ -282,7 +286,9 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
 			},
 			// {pod_ip} is unrolled
-			stats: stats{prefixes: "http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_"},
+			stats: stats{
+				prefixes: []string{"http.10.3.3.3_", "http.10.4.4.4_", "http.10.5.5.5_", "http.10.6.6.6_"},
+			},
 		},
 		{
 			base: "stats_inclusion",
@@ -290,7 +296,9 @@ func TestGolden(t *testing.T) {
 				"sidecar.istio.io/statsInclusionRegexps": "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
 				"sidecar.istio.io/extraStatTags":         "dlp_status,dlp_error",
 			},
-			stats: stats{regexps: "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
+			stats: stats{
+				regexps: []string{"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time"},
+			},
 		},
 		{
 			base: "tracing_tls",
@@ -426,8 +434,15 @@ func prettyPrint(b []byte) []byte {
 	return out.Bytes()
 }
 
-func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want string, typ string) {
-	var patterns []string
+func getTelemetryV2Prefixes() []string {
+	// Prefixes of V2 metrics.
+	// "reporter=" prefix is for istio standard metrics.
+	// "component" prefix is for istio_build metric.
+	return []string{"reporter=", "component"}
+}
+
+func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want []string, typ string) {
+	gotPatterns := []string{}
 	for _, pattern := range got.GetPatterns() {
 		var pat string
 		switch typ {
@@ -442,12 +457,14 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want s
 		}
 
 		if pat != "" {
-			patterns = append(patterns, pat)
+			gotPatterns = append(gotPatterns, pat)
 		}
 	}
-	gotPattern := strings.Join(patterns, ",")
-	if want != gotPattern {
-		t.Fatalf("%s mismatch:\ngot: %s\nwant: %s", typ, gotPattern, want)
+
+	sort.Strings(want)
+	sort.Strings(gotPatterns)
+	if !reflect.DeepEqual(want, gotPatterns) {
+		t.Fatalf("%s mismatch:\ngot: %s\nwant: %s", typ, gotPatterns, want)
 	}
 }
 
@@ -470,10 +487,11 @@ func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats) {
 	gsm := got.GetStatsConfig().GetStatsMatcher()
 
-	if stats.prefixes == "" {
-		stats.prefixes = v2Prefixes + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
-	} else {
-		stats.prefixes = v2Prefixes + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
+	stats.prefixes = append(stats.prefixes, getTelemetryV2Prefixes()...)
+	stats.prefixes = append(stats.prefixes, getEnvoyStatsInclusionPrefixes()...)
+	stats.suffixes = append(stats.suffixes, getEnvoyStatsInclusionSuffixes()...)
+	if stats.regexps == nil {
+		stats.regexps = []string{}
 	}
 
 	if err := gsm.Validate(); err != nil {
