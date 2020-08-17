@@ -24,20 +24,20 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
-
-	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
-	"istio.io/istio/pkg/test/framework/components/ingress"
-	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 )
 
 const (
@@ -103,7 +103,13 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 		secret := createSecret(ingressType, cn, systemNS.Name(), ingressCred, isCompoundAndNotGeneric)
 		_, err := cluster.CoreV1().Secrets(systemNS.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err != nil {
-			t.Fatalf("Failed to create secret (error: %s)", err)
+			if errors.IsAlreadyExists(err) {
+				if _, err := cluster.CoreV1().Secrets(systemNS.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+					t.Fatalf("Failed to update secret (error: %s)", err)
+				}
+			} else {
+				t.Fatalf("Failed to update secret (error: %s)", err)
+			}
 		}
 	}
 	// Check if Kubernetes secret is ready
@@ -118,9 +124,9 @@ func CreateIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames
 	}, retry.Timeout(time.Second*5))
 }
 
-// DeleteIngressKubeSecret deletes a secret
+// DeleteKubeSecret deletes a secret
 // nolint: interfacer
-func DeleteIngressKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string) {
+func DeleteKubeSecret(t test.Failer, ctx framework.TestContext, credNames []string) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, ctx)
 	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
@@ -211,7 +217,6 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 			Cert:       tlsCtx.Cert,
 			CallType:   callType,
 			Address:    endpointAddress,
-			Timeout:    time.Second,
 		})
 		errorMatch := true
 		if err != nil {
@@ -237,9 +242,9 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, // nolint:interfacer
 	ingressType ingress.CallType, ingressCred IngressCredential, isCompoundAndNotGeneric bool) {
 	t.Helper()
-	istioCfg := istio.DefaultConfigOrFail(t, ctx)
-	systemNS := namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)
-	cluster := ctx.Environment().(*kube.Environment).KubeClusters[0]
+	cluster := ctx.Clusters().Default()
+	ist := istio.GetOrFail(t, ctx)
+	systemNS := namespace.ClaimOrFail(t, ctx, ist.Settings().SystemNamespace)
 	for _, cn := range credNames {
 		scrt, err := cluster.CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), cn, metav1.GetOptions{})
 		if err != nil {
@@ -261,6 +266,9 @@ func RotateSecrets(t *testing.T, ctx framework.TestContext, credNames []string, 
 		}
 		return nil
 	}, retry.Timeout(time.Second*5))
+
+	// the ingress component reuses http clients that may have long-lived connections
+	ist.IngressFor(cluster).CloseClients()
 }
 
 // createSecret creates a kubernetes secret which stores private key, server certificate for TLS ingress gateway.
@@ -289,7 +297,7 @@ func SetupTest(ctx framework.TestContext) namespace.Instance {
 		Inject: true,
 	})
 	var a echo.Instance
-	echoboot.NewBuilderOrFail(ctx, ctx).
+	echoboot.NewBuilder(ctx).
 		With(&a, echo.Config{
 			Service:   "server",
 			Namespace: serverNs,
@@ -393,12 +401,10 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance) { 
 		credNames = append(credNames, cred)
 	}
 	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, false)
-	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
-	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
-		Istio: inst,
-	})
+	ing := inst.IngressFor(ctx.Clusters().Default())
 	tlsContext := TLSContext{
 		CaCert:     CaCertA,
 		PrivateKey: TLSClientKeyA,
@@ -433,12 +439,10 @@ func RunTestMultiTLSGateways(ctx framework.TestContext, inst istio.Instance) { /
 		credNames = append(credNames, cred)
 	}
 	CreateIngressKubeSecret(ctx, ctx, credNames, ingress.Mtls, IngressCredentialA, false)
-	defer DeleteIngressKubeSecret(ctx, ctx, credNames)
+	defer DeleteKubeSecret(ctx, ctx, credNames)
 	ns := SetupTest(ctx)
 	SetupConfig(ctx, ctx, ns, tests...)
-	ing := ingress.NewOrFail(ctx, ctx, ingress.Config{
-		Istio: inst,
-	})
+	ing := inst.IngressFor(ctx.Clusters().Default())
 	tlsContext := TLSContext{
 		CaCert: CaCertA,
 	}

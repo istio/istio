@@ -15,19 +15,20 @@
 package utils
 
 import (
-	"reflect"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
@@ -35,7 +36,6 @@ import (
 )
 
 const (
-	expMixerSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-mixer-service-account"
 	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
@@ -77,6 +77,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 		sdsUdsPath       string
 		node             *model.Proxy
 		listenerProtocol networking.ListenerProtocol
+		trustDomains     []string
 	}
 	tests := []struct {
 		name string
@@ -166,10 +167,12 @@ func TestBuildInboundFilterChain(t *testing.T) {
 								{
 									Name: "default",
 									SdsConfig: &core.ConfigSource{
-										InitialFetchTimeout: features.InitialFetchTimeout,
+										InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
-												ApiType: core.ApiConfigSource_GRPC,
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
 												GrpcServices: []*core.GrpcService{
 													{
 														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -184,14 +187,89 @@ func TestBuildInboundFilterChain(t *testing.T) {
 							},
 							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-									DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
+									DefaultValidationContext: &auth.CertificateValidationContext{},
 									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 										Name: "ROOTCA",
 										SdsConfig: &core.ConfigSource{
-											InitialFetchTimeout: features.InitialFetchTimeout,
+											InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
-													ApiType: core.ApiConfigSource_GRPC,
+													ApiType:             core.ApiConfigSource_GRPC,
+													TransportApiVersion: core.ApiVersion_V3,
+													GrpcServices: []*core.GrpcService{
+														{
+															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+																EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							AlpnProtocols: []string{"h2", "http/1.1"},
+						},
+						RequireClientCertificate: protovalue.BoolTrue,
+					},
+				},
+			},
+		},
+		{
+			name: "MTLSStrict using SDS with local trust domain",
+			args: args{
+				mTLSMode:   model.MTLSStrict,
+				sdsUdsPath: "/tmp/sdsuds.sock",
+				node: &model.Proxy{
+					Metadata: &model.NodeMetadata{
+						SdsEnabled: true,
+					},
+				},
+				listenerProtocol: networking.ListenerProtocolHTTP,
+				trustDomains:     []string{"cluster.local"},
+			},
+			want: []networking.FilterChain{
+				{
+					TLSContext: &auth.DownstreamTlsContext{
+						CommonTlsContext: &auth.CommonTlsContext{
+							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+								{
+									Name: "default",
+									SdsConfig: &core.ConfigSource{
+										InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+										ResourceApiVersion:  core.ApiVersion_V3,
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: []*matcher.StringMatcher{
+										{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/"}},
+									}},
+									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+										Name: "ROOTCA",
+										SdsConfig: &core.ConfigSource{
+											InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+											ResourceApiVersion:  core.ApiVersion_V3,
+											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+												ApiConfigSource: &core.ApiConfigSource{
+													ApiType:             core.ApiConfigSource_GRPC,
+													TransportApiVersion: core.ApiVersion_V3,
 													GrpcServices: []*core.GrpcService{
 														{
 															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -279,19 +357,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("BuildInboundFilterChain() = %v, want %v", spew.Sdump(got), spew.Sdump(tt.want))
-				t.Logf("got:\n%v\n", got[0].TLSContext.CommonTlsContext.TlsCertificateSdsSecretConfigs[0])
+			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol, tt.args.trustDomains)
+			if diff := cmp.Diff(got, tt.want, protocmp.Transform()); diff != "" {
+				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}
 		})
-	}
-}
-
-func TestGetMixerSAN(t *testing.T) {
-	spiffe.SetTrustDomain("cluster.local")
-	mixerSANs := GetSAN("istio-system", MixerSvcAccName)
-	if strings.Compare(mixerSANs, expMixerSAN) != 0 {
-		t.Errorf("GetMixerSAN() => expected %#v but got %#v", expMixerSAN, mixerSANs[0])
 	}
 }
 

@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 )
@@ -71,7 +70,6 @@ spec:
 	cfg := echo.Config{
 		Namespace: ns,
 		Service:   name,
-		Pilot:     p,
 		Ports: []echo.Port{{
 			Name:         "http-8080",
 			Protocol:     protocol.HTTP,
@@ -88,7 +86,7 @@ spec:
 	if !rewrite {
 		cfg.ReadinessTimeout = time.Second * 15
 	}
-	err := echoboot.NewBuilderOrFail(t, ctx).
+	_, err := echoboot.NewBuilder(ctx).
 		With(&healthcheck, cfg).
 		Build()
 	gotSuccess := err == nil

@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -81,7 +82,7 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	} else if s.Port.TLS {
 		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if cerr != nil {
-			return fmt.Errorf("could not load TLS keys: %v", err)
+			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
@@ -287,9 +288,15 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	writeField(body, "Proto", r.Proto)
 	writeField(body, "RemoteAddr", r.RemoteAddr)
 
-	for name, values := range r.Header {
+	keys := []string{}
+	for k := range r.Header {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		values := r.Header[key]
 		for _, value := range values {
-			writeField(body, response.Field(name), value)
+			writeField(body, response.Field(key), value)
 		}
 	}
 

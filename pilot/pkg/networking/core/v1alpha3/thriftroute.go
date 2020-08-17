@@ -23,10 +23,9 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
 // buildDefaultThriftInboundRoute builds a default inbound route.

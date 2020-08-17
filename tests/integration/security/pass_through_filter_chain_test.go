@@ -55,7 +55,6 @@ func TestPassThroughFilterChain(t *testing.T) {
 					Service:   service,
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
-					Pilot:     p,
 					Ports: []echo.Port{
 						{
 							Name:     "grpc",
@@ -85,7 +84,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 			}
 
 			var x, a, b, c, d echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&x, newEchoConfig("x")).
 				With(&a, newEchoConfig("a")).
 				With(&b, newEchoConfig("b")).

@@ -26,13 +26,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/istioctl/pkg/writer/envoy/clusters"
 	"istio.io/istio/istioctl/pkg/writer/envoy/configdump"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -43,7 +42,7 @@ const (
 var (
 	fqdn, direction, subset string
 	port                    int
-	verboseListener         bool
+	verboseProxyConfig      bool
 
 	address, listenerType string
 
@@ -384,7 +383,7 @@ func proxyConfig() *cobra.Command {
 				Address: address,
 				Port:    uint32(port),
 				Type:    listenerType,
-				Verbose: verboseListener,
+				Verbose: verboseProxyConfig,
 			}
 
 			switch outputFormat {
@@ -401,7 +400,7 @@ func proxyConfig() *cobra.Command {
 	listenerConfigCmd.PersistentFlags().StringVar(&address, "address", "", "Filter listeners by address field")
 	listenerConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 	listenerConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter listeners by Port field")
-	listenerConfigCmd.PersistentFlags().BoolVar(&verboseListener, "verbose", true, "Output filter chain information")
+	listenerConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -552,7 +551,8 @@ func proxyConfig() *cobra.Command {
 				return err
 			}
 			filter := configdump.RouteFilter{
-				Name: routeName,
+				Name:    routeName,
+				Verbose: verboseProxyConfig,
 			}
 			switch outputFormat {
 			case summaryOutput:
@@ -566,6 +566,7 @@ func proxyConfig() *cobra.Command {
 	}
 
 	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
+	routeConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	routeConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 

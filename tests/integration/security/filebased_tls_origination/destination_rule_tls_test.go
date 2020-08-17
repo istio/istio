@@ -20,12 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/test/echo/common/scheme"
-
-	"istio.io/istio/pkg/test/env"
-
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
@@ -46,7 +44,7 @@ func mustReadFile(t *testing.T, f string) string {
 func TestDestinationRuleTls(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.egress.mtls").
+		Features("security.egress.tls.filebased").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "tls",
@@ -71,12 +69,11 @@ spec:
 `)
 
 			var client, server echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: ns,
 					Ports:     []echo.Port{},
-					Pilot:     p,
 					Subsets: []echo.SubsetConfig{{
 						Version: "v1",
 						// Set up custom annotations to mount the certs. We will re-use the configmap created by "server"
@@ -110,7 +107,6 @@ spec:
 							TLS:          true,
 						},
 					},
-					Pilot: p,
 					// Set up TLS certs on the server. This will make the server listen with these credentials.
 					TLSSettings: &common.TLSSettings{
 						RootCert:   mustReadFile(t, "root-cert.pem"),

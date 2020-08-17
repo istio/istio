@@ -17,11 +17,10 @@ package memory
 import (
 	"errors"
 
-	"istio.io/pkg/ledger"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/ledger"
 )
 
 type controller struct {
@@ -36,6 +35,15 @@ func NewController(cs model.ConfigStore) model.ConfigStoreCache {
 	out := &controller{
 		configStore: cs,
 		monitor:     NewMonitor(cs),
+	}
+	return out
+}
+
+// NewSyncController return an implementation of model.ConfigStoreCache which processes events synchronously
+func NewSyncController(cs model.ConfigStore) model.ConfigStoreCache {
+	out := &controller{
+		configStore: cs,
+		monitor:     NewSyncMonitor(cs),
 	}
 	return out
 }

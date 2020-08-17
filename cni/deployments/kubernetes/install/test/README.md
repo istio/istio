@@ -1,6 +1,6 @@
 # Testing the Scripts
 
-## Test install-cni.sh
+## Test install-cni
 
 ### Run
 

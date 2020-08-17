@@ -18,10 +18,9 @@ import (
 	"errors"
 	"fmt"
 
-	istioKube "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/framework/resource/environment"
-	"istio.io/istio/pkg/test/scopes"
+	"k8s.io/client-go/rest"
 
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -42,6 +41,11 @@ type Settings struct {
 	// component will fall back to node-port in this case.
 	Minikube bool
 
+	// Indicates that the LoadBalancer services can obtain a public IP. If not, NodePort be used as a workaround
+	// for ingress gateway. KinD will not support LoadBalancer out of the box and requires a workaround such as
+	// MetalLB.
+	LoadBalancerSupported bool
+
 	// ControlPlaneTopology maps each cluster to the cluster that runs its control plane. For replicated control
 	// plane cases (where each cluster has its own control plane), the cluster will map to itself (e.g. 0->0).
 	ControlPlaneTopology map[resource.ClusterIndex]resource.ClusterIndex
@@ -56,12 +60,7 @@ type SetupSettingsFunc func(s *Settings)
 // Setup is a setup function that allows overriding values in the Kube environment settings.
 func Setup(sfn SetupSettingsFunc) resource.SetupFn {
 	return func(ctx resource.Context) error {
-		switch ctx.Environment().EnvironmentName() {
-		case environment.Kube:
-			sfn(ctx.Environment().(*Environment).s)
-		default:
-			scopes.Framework.Warnf("kube.SetupSettings: Skipping on non-kube environment: %s", ctx.Environment().EnvironmentName())
-		}
+		sfn(ctx.Environment().(*Environment).s)
 		return nil
 	}
 }
@@ -102,7 +101,7 @@ func (s *Settings) String() string {
 	result := ""
 
 	result += fmt.Sprintf("KubeConfig:           %s\n", s.KubeConfig)
-	result += fmt.Sprintf("MiniKubeIngress:      %v\n", s.Minikube)
+	result += fmt.Sprintf("LoadBalancerSupported:      %v\n", s.LoadBalancerSupported)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.ControlPlaneTopology)
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
 
@@ -113,7 +112,14 @@ func newClients(kubeConfigs []string) ([]istioKube.ExtendedClient, error) {
 	out := make([]istioKube.ExtendedClient, 0, len(kubeConfigs))
 	for _, cfg := range kubeConfigs {
 		if len(cfg) > 0 {
-			a, err := istioKube.NewExtendedClient(istioKube.BuildClientCmd(cfg, ""), "")
+			rc, err := istioKube.DefaultRestConfig(cfg, "", func(config *rest.Config) {
+				config.QPS = 200
+				config.Burst = 400
+			})
+			if err != nil {
+				return nil, err
+			}
+			a, err := istioKube.NewExtendedClient(istioKube.NewClientConfigForRestConfig(rc), "")
 			if err != nil {
 				return nil, fmt.Errorf("client setup: %v", err)
 			}

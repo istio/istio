@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/operator/pkg/compare"
 	"istio.io/istio/operator/pkg/helm"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -38,7 +39,7 @@ import (
 )
 
 const (
-	istioTestVersion = "istio-1.6.0"
+	istioTestVersion = "istio-1.7.0"
 	testTGZFilename  = istioTestVersion + "-linux.tar.gz"
 )
 
@@ -76,45 +77,19 @@ type testGroup []struct {
 	chartSource                 chartSourceType
 }
 
-func TestManifestGeneratePrometheus(t *testing.T) {
-	g := NewGomegaWithT(t)
-	_, objs, err := generateManifest("prometheus", "", liveCharts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{
-		"ClusterRole::prometheus-istio-system",
-		"ClusterRoleBinding::prometheus-istio-system",
-		"ConfigMap:istio-system:prometheus",
-		"Deployment:istio-system:prometheus",
-		"Service:istio-system:prometheus",
-		"ServiceAccount:istio-system:prometheus",
-	}
-	g.Expect(objectHashesOrdered(objs)).Should(ContainElements(want))
-}
-
 func TestManifestGenerateComponentHubTag(t *testing.T) {
-	g := NewGomegaWithT(t)
-	m, _, err := generateManifest("component_hub_tag", "", liveCharts)
+	g := NewWithT(t)
+
+	objs, err := runManifestCommands("component_hub_tag", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
-	g.Expect(objs.size()).Should(Not(Equal(0)))
 
 	tests := []struct {
 		deploymentName string
 		containerName  string
 		want           string
 	}{
-		{
-			deploymentName: "prometheus",
-			want:           "docker.io/prometheus:1.1.1",
-		},
-		{
-			deploymentName: "grafana",
-			want:           "grafana/grafana:1.2.3",
-		},
 		{
 			deploymentName: "istio-ingressgateway",
 			containerName:  "istio-proxy",
@@ -125,144 +100,155 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 			containerName:  "discovery",
 			want:           "component.pilot.hub/pilot:2",
 		},
-		{
-			deploymentName: "kiali",
-			want:           "docker.io/testing/kiali:v1.18",
-		},
 	}
 
 	for _, tt := range tests {
-		containerName := tt.deploymentName
-		if tt.containerName != "" {
-			containerName = tt.containerName
+		for _, os := range objs {
+			containerName := tt.deploymentName
+			if tt.containerName != "" {
+				containerName = tt.containerName
+			}
+			container := mustGetContainer(g, os, tt.deploymentName, containerName)
+			g.Expect(container).Should(HavePathValueEqual(PathValue{"image", tt.want}))
 		}
-		container := mustGetContainer(g, objs, tt.deploymentName, containerName)
-		g.Expect(container).Should(HavePathValueEqual(PathValue{"image", tt.want}))
 	}
 }
 
 func TestManifestGenerateGateways(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	flags := "-s components.ingressGateways.[0].k8s.resources.requests.memory=999Mi " +
 		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m"
-	m, _, err := generateManifest("gateways", flags, liveCharts)
+
+	objss, err := runManifestCommands("gateways", flags, liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	objs := parseObjectSetFromManifest(t, m)
+	for _, objs := range objss {
+		g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
+		g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
+		g.Expect(objs.kind(name.ServiceStr).labels("istio=ingressgateway").size()).Should(Equal(3))
+		g.Expect(objs.kind(name.RoleStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(name.RoleBindingStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(name.SAStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
 
-	g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.ServiceStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.RoleStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.RoleBindingStr).size()).Should(Equal(3))
-	g.Expect(objs.kind(name.SAStr).size()).Should(Equal(3))
+		dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
+		d := dobj.Unstructured()
+		c := dobj.Container("istio-proxy")
+		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "999Mi"}))
 
-	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
-	d := dobj.Unstructured()
-	c := dobj.Container("istio-proxy")
-	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("aaa:aaa-val,bbb:bbb-val")}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "111m"}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "999Mi"}))
+		dobj = mustGetDeployment(g, objs, "user-ingressgateway")
+		d = dobj.Unstructured()
+		c = dobj.Container("istio-proxy")
+		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "555m"}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "888Mi"}))
 
-	dobj = mustGetDeployment(g, objs, "user-ingressgateway")
-	d = dobj.Unstructured()
-	c = dobj.Container("istio-proxy")
-	g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("ccc:ccc-val,ddd:ddd-val")}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "555m"}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.memory", "888Mi"}))
+		dobj = mustGetDeployment(g, objs, "ilb-gateway")
+		d = dobj.Unstructured()
+		c = dobj.Container("istio-proxy")
+		s := mustGetService(g, objs, "ilb-gateway").Unstructured()
+		g.Expect(d).Should(HavePathValueContain(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
+		g.Expect(c).Should(HavePathValueEqual(PathValue{"env.[name:PILOT_CERT_PROVIDER].value", "foobar"}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
+		g.Expect(s).Should(HavePathValueContain(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
 
-	dobj = mustGetDeployment(g, objs, "ilb-gateway")
-	d = dobj.Unstructured()
-	c = dobj.Container("istio-proxy")
-	s := mustGetService(g, objs, "ilb-gateway").Unstructured()
-	g.Expect(d).Should(HavePathValueEqual(PathValue{"metadata.labels", toMap("app:istio-ingressgateway,istio:ingressgateway,release: istio")}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"resources.requests.cpu", "333m"}))
-	g.Expect(c).Should(HavePathValueEqual(PathValue{"volumeMounts.[name:ilbgateway-certs].name", "ilbgateway-certs"}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"metadata.annotations", toMap("cloud.google.com/load-balancer-type: internal")}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[0]", portVal("grpc-pilot-mtls", 15011, -1)}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[1]", portVal("tcp-citadel-grpc-tls", 8060, 8060)}))
-	g.Expect(s).Should(HavePathValueEqual(PathValue{"spec.ports.[2]", portVal("tcp-dns", 5353, -1)}))
+		for _, o := range objs.kind(name.HPAStr).objSlice {
+			ou := o.Unstructured()
+			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
+			g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
+		}
 
-	for _, o := range objs.kind(name.HPAStr).objSlice {
-		ou := o.Unstructured()
-		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(1)}))
-		g.Expect(ou).Should(HavePathValueEqual(PathValue{"spec.maxReplicas", int64(5)}))
+		checkRoleBindingsReferenceRoles(g, objs)
 	}
-
-	checkRoleBindingsReferenceRoles(g, objs)
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {
-	g := NewGomegaWithT(t)
-	m, _, err := generateManifest("istiod_remote", "", liveCharts)
+	g := NewWithT(t)
+
+	objss, err := runManifestCommands("istiod_remote", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
 
-	// check core CRDs exists
-	g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+	for _, objs := range objss {
+		// check core CRDs exists
+		g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
-	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
-	g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-pilot-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
 
-	mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
-	g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject/cluster/remote0/net/network2"}))
-	g.Expect(mwc).Should(HavePathValueContain(PathValue{"webhooks.[0].namespaceSelector.matchLabels", toMap("istio-injection:enabled")}))
+		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
+		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject/cluster/remote0/net/network2"}))
+		g.Expect(mwc).Should(HavePathValueContain(PathValue{"webhooks.[0].namespaceSelector.matchLabels", toMap("istio-injection:enabled")}))
 
-	vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
-	g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
+		vwc := mustGetValidatingWebhookConfiguration(g, objs, "istiod-istio-system").Unstructured()
+		g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
 
-	ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
-	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
-	g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+		ep := mustGetEndpoint(g, objs, "istiod").Unstructured()
+		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
+		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
 
-	checkClusterRoleBindingsReferenceRoles(g, objs)
+		checkClusterRoleBindingsReferenceRoles(g, objs)
+	}
 }
 
 func TestManifestGenerateAllOff(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	m, _, err := generateManifest("all_off", "", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
+	objs, err := parseObjectSetFromManifest(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	g.Expect(objs.size()).Should(Equal(0))
 }
 
 func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	// Change profile from empty to minimal using flag.
 	m, _, err := generateManifest("empty", "-s profile=minimal", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
+	objs, err := parseObjectSetFromManifest(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// minimal profile always has istiod, empty does not.
 	mustGetDeployment(g, objs, "istiod")
 }
 
 func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	m, _, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
+	objs, err := parseObjectSetFromManifest(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	dobj := mustGetDeployment(g, objs, "istiod")
 
 	c := dobj.Container("discovery")
@@ -270,12 +256,15 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 }
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs := parseObjectSetFromManifest(t, m)
+	objs, err := parseObjectSetFromManifest(m)
+	if err != nil {
+		t.Fatal(err)
+	}
 	dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 
 	c := dobj.Container("istio-proxy")
@@ -351,30 +340,6 @@ func TestManifestGeneratePilot(t *testing.T) {
 	})
 }
 
-func TestManifestGenerateTelemetry(t *testing.T) {
-	runTestGroup(t, testGroup{
-		{
-			desc: "all_off",
-		},
-		{
-			desc:       "telemetry_default",
-			diffIgnore: "",
-		},
-		{
-			desc:       "telemetry_k8s_settings",
-			diffSelect: "Deployment:*:istio-telemetry, HorizontalPodAutoscaler:*:istio-telemetry",
-		},
-		{
-			desc:       "telemetry_override_values",
-			diffSelect: "handler:*:prometheus",
-		},
-		{
-			desc:       "telemetry_override_kubernetes",
-			diffSelect: "Deployment:*:istio-telemetry, handler:*:prometheus",
-		},
-	})
-}
-
 func TestManifestGenerateGateway(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
@@ -384,23 +349,13 @@ func TestManifestGenerateGateway(t *testing.T) {
 	})
 }
 
-func TestManifestGenerateAddonK8SOverride(t *testing.T) {
-	runTestGroup(t, testGroup{
-		{
-			desc:       "addon_k8s_override",
-			diffSelect: "Service:*:prometheus, Deployment:*:prometheus, Service:*:kiali",
-		},
-	})
-}
-
 // TestManifestGenerateHelmValues tests whether enabling components through the values passthrough interface works as
 // expected i.e. without requiring enablement also in IstioOperator API.
 func TestManifestGenerateHelmValues(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
-			desc: "helm_values_enablement",
-			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway," +
-				" Deployment:*:kiali, Service:*:kiali, Deployment:*:prometheus, Service:*:prometheus",
+			desc:       "helm_values_enablement",
+			diffSelect: "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway",
 		},
 	})
 }
@@ -442,18 +397,18 @@ func TestManifestGenerateFlagAliases(t *testing.T) {
 
 func TestMultiICPSFiles(t *testing.T) {
 	inPathBase := filepath.Join(testDataDir, "input/all_off.yaml")
-	inPathOverride := filepath.Join(testDataDir, "input/telemetry_override_only.yaml")
+	inPathOverride := filepath.Join(testDataDir, "input/helm_values_enablement.yaml")
 	got, err := runManifestGenerate([]string{inPathBase, inPathOverride}, "", snapshotCharts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	outPath := filepath.Join(testDataDir, "output/telemetry_override_values"+goldenFileSuffixHideChangesInReview)
+	outPath := filepath.Join(testDataDir, "output/helm_values_enablement"+goldenFileSuffixHideChangesInReview)
 
 	want, err := readFile(outPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	diffSelect := "handler:*:prometheus"
+	diffSelect := "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway"
 	got, err = compare.FilterManifest(got, diffSelect, "")
 	if err != nil {
 		t.Errorf("error selecting from output manifest: %v", err)
@@ -650,7 +605,7 @@ func TestLDFlags(t *testing.T) {
 	version.DockerInfo.Hub = "testHub"
 	version.DockerInfo.Tag = "testTag"
 	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, installerScope)
-	_, iops, err := GenerateConfig(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
+	_, iops, err := manifest.GenerateConfig(nil, []string{"installPackagePath=" + string(liveCharts)}, true, nil, l)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -674,7 +629,11 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				filenames = []string{inPath}
 			}
 
-			got, err := runManifestGenerate(filenames, tt.flags, tt.chartSource)
+			csource := snapshotCharts
+			if tt.chartSource != "" {
+				csource = tt.chartSource
+			}
+			got, err := runManifestGenerate(filenames, tt.flags, csource)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -724,28 +683,6 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	}
 }
 
-// runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
-// flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
-func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
-	args := "manifest generate"
-	for _, f := range filenames {
-		args += " -f " + f
-	}
-	if flags != "" {
-		args += " " + flags
-	}
-	switch {
-	case chartSource == compiledInCharts:
-		// For compiled in charts, pass no flag
-	case len(chartSource) > 0:
-		args += " --set installPackagePath=" + string(chartSource)
-	default:
-		// We default to using snapshot directory
-		args += " --set installPackagePath=" + string(snapshotCharts)
-	}
-	return runCommand(args)
-}
-
 // nolint: unparam
 func generateManifest(inFile, flags string, chartSource chartSourceType) (string, object.K8sObjects, error) {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
@@ -755,4 +692,10 @@ func generateManifest(inFile, flags string, chartSource chartSourceType) (string
 	}
 	objs, err := object.ParseK8sObjectsFromYAMLManifest(manifest)
 	return manifest, objs, err
+}
+
+// runManifestGenerate runs the manifest generate command. If filenames is set, passes the given filenames as -f flag,
+// flags is passed to the command verbatim. If you set both flags and path, make sure to not use -f in flags.
+func runManifestGenerate(filenames []string, flags string, chartSource chartSourceType) (string, error) {
+	return runManifestCommand("generate", filenames, flags, chartSource)
 }

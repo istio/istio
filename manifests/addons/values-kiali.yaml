@@ -1,0 +1,10 @@
+# We set up anonymous authentication as this is for demos.
+auth:
+  strategy: anonymous
+deployment:
+  accessible_namespaces:
+  - '**'
+  image_version: v1.22
+  ingress_enabled: false
+login_token:
+  signing_key: CHANGEME

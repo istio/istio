@@ -19,23 +19,17 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.7-dev
+VERSION ?= 1.8-dev
 
 # Base version of Istio image to use
-BASE_VERSION ?= 1.7-dev.4
+BASE_VERSION ?= 1.8-dev.0
 
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
 
-ISTIO_CNI_HUB ?= gcr.io/istio-testing
-export ISTIO_CNI_HUB
-ISTIO_CNI_TAG ?= latest
-export ISTIO_CNI_TAG
-
 # cumulatively track the directories/files to delete after a clean
 DIRS_TO_CLEAN:=
-FILES_TO_CLEAN:=
 
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
@@ -138,6 +132,9 @@ endif
 
 export ISTIO_ENVOY_BASE_URL ?= https://storage.googleapis.com/istio-build/proxy
 
+# Use envoy as the sidecar by default
+export SIDECAR ?= envoy
+
 # OS-neutral vars. These currently only work for linux.
 export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
 export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
@@ -152,7 +149,7 @@ export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
 export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
 export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
 export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
-export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= envoy-${ISTIO_ENVOY_VERSION}
+export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_ENVOY_VERSION}
 export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
 
 # Envoy macOS vars.
@@ -231,7 +228,7 @@ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
 	touch $(ISTIO_OUT)/istio_is_init
 
 # init.sh downloads envoy and webassembly plugins
-${ISTIO_OUT}/envoy: init
+${ISTIO_OUT}/${SIDECAR}: init
 ${ISTIO_ENVOY_LINUX_DEBUG_PATH}: init
 ${ISTIO_ENVOY_LINUX_RELEASE_PATH}: init
 ${ISTIO_ENVOY_MACOS_RELEASE_PATH}: init
@@ -272,19 +269,17 @@ buildcache:
 BINARIES:=./istioctl/cmd/istioctl \
   ./pilot/cmd/pilot-discovery \
   ./pilot/cmd/pilot-agent \
-  ./mixer/cmd/mixs \
-  ./mixer/cmd/mixc \
-  ./mixer/tools/mixgen \
-  ./security/tools/sdsclient \
   ./pkg/test/echo/cmd/client \
   ./pkg/test/echo/cmd/server \
-  ./mixer/test/policybackend \
   ./operator/cmd/operator \
-  ./cni/cmd/istio-cni ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni \
+  ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni-taint \
+  ./cni/cmd/install-cni \
   ./tools/istio-iptables
 
 # List of binaries included in releases
-RELEASE_BINARIES:=pilot-discovery pilot-agent mixc mixs mixgen istioctl sdsclient
+RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl
 
 .PHONY: build
 build: depend ## Builds all go binaries.
@@ -319,7 +314,7 @@ $(foreach bin,$(BINARIES),$(eval $(call build-linux,$(bin))))
 # As an optimization, these still build everything
 $(foreach bin,$(BINARIES),$(shell basename $(bin))): build
 
-MARKDOWN_LINT_WHITELIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
+MARKDOWN_LINT_ALLOWLIST=localhost:8080,storage.googleapis.com/istio-artifacts/pilot/,http://ratings.default.svc.cluster.local:9080/ratings
 
 lint-helm-global:
 	find manifests -name 'Chart.yaml' -print0 | ${XARGS} -L 1 dirname | xargs -r helm lint --strict -f manifests/charts/global.yaml
@@ -327,13 +322,11 @@ lint-helm-global:
 
 lint: lint-python lint-copyright-banner lint-scripts lint-go lint-dockerfiles lint-markdown lint-yaml lint-licenses lint-helm-global ## Runs all linters.
 	@bin/check_samples.sh
-	@go run mixer/tools/adapterlinter/main.go ./mixer/adapter/...
 	@testlinter
-	@envvarlinter galley istioctl mixer pilot security
+	@envvarlinter galley istioctl pilot security
 
 go-gen:
 	@mkdir -p /tmp/bin
-	@go build -o /tmp/bin/mixgen "${REPO_ROOT}/mixer/tools/mixgen/main.go"
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 gen-charts:
@@ -357,13 +350,16 @@ gen-check: check-no-modify gen check-clean-repo
 sync-configs-from-istiod:
 	cp manifests/charts/istio-control/istio-discovery/files/injection-template.yaml manifests/charts/istiod-remote/files/
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.6.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.7.yaml manifests/charts/istiod-remote/templates/
+	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_1.8.yaml manifests/charts/istiod-remote/templates/
 
 # Generate kustomize templates.
 gen-kustomize:
-	helm3 template istio --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
 	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
-	helm3 template istiod-remote manifests/charts/istiod-remote \
+	helm3 template istiod-remote --namespace istio-system manifests/charts/istiod-remote \
 		-f manifests/charts/global.yaml > manifests/charts/istiod-remote/files/gen-istiod-remote.yaml
 
 #-----------------------------------------------------------------------------
@@ -430,9 +426,9 @@ ${ISTIO_BIN}/go-junit-report:
 # This is just an alias for racetest now
 test: racetest
 
-TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./mixer/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/...
-# For now, keep a minimal subset. This can be expanded in the future, especially after mixer removal, which has some expensive tests that may OOM.
-BENCH_TAREGTS ?= ./pilot/...
+TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
+# For now, keep a minimal subset. This can be expanded in the future.
+BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
@@ -440,11 +436,14 @@ racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
-	prow/benchtest.sh run $(BENCH_TAREGTS)
+	prow/benchtest.sh run $(BENCH_TARGETS)
 	prow/benchtest.sh compare
 
 report-benchtest:
 	prow/benchtest.sh report
+
+cni.install-test: docker.install-cni
+	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} ./cni/test/...
 
 #-----------------------------------------------------------------------------
 # Target: clean
@@ -453,7 +452,6 @@ report-benchtest:
 
 clean: ## Cleans all the intermediate files and folders previously generated.
 	rm -rf $(DIRS_TO_CLEAN)
-	rm -f $(FILES_TO_CLEAN)
 
 #-----------------------------------------------------------------------------
 # Target: docker
@@ -464,9 +462,6 @@ clean: ## Cleans all the intermediate files and folders previously generated.
 include tools/istio-docker.mk
 
 push: docker.push ## Build and push docker images to registry defined by $HUB and $TAG
-
-FILES_TO_CLEAN+=install/consul/istio.yaml \
-                samples/bookinfo/platform/consul/bookinfo.sidecars.yaml
 
 #-----------------------------------------------------------------------------
 # Target: environment and tools

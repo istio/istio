@@ -18,6 +18,10 @@ import (
 	"io/ioutil"
 	"testing"
 
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -26,11 +30,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
-
-	"github.com/gogo/protobuf/proto"
-
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 )
 
 const (

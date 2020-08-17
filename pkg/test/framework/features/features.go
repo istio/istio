@@ -19,10 +19,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"istio.io/istio/pkg/test/env"
-
 	"github.com/ghodss/yaml"
 
+	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/log"
 )
 
@@ -60,6 +59,9 @@ func (c *checkerImpl) Check(feature Feature) (check bool, scenario string) {
 }
 
 func checkPathSegment(m map[string]interface{}, path []string) (check bool, scenario string) {
+	if len(path) < 1 {
+		return false, ""
+	}
 	segment := path[0]
 	if val, ok := m[segment]; ok {
 		if valmap, ok := val.(map[string]interface{}); ok {
@@ -71,17 +73,17 @@ func checkPathSegment(m map[string]interface{}, path []string) (check bool, scen
 	return false, ""
 }
 
-var GlobalWhitelist = fromFile(env.IstioSrc + "/pkg/test/framework/features/whitelist.txt")
+var GlobalAllowlist = fromFile(env.IstioSrc + "/pkg/test/framework/features/allowlist.txt")
 
-type Whitelist struct {
+type Allowlist struct {
 	hashset map[string]bool
 }
 
-func fromFile(path string) *Whitelist {
-	result := &Whitelist{hashset: map[string]bool{}}
+func fromFile(path string) *Allowlist {
+	result := &Allowlist{hashset: map[string]bool{}}
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Errorf("Error reading whitelist file: %s", path)
+		log.Errorf("Error reading allowlist file: %s", path)
 		return nil
 	}
 	for _, i := range strings.Split(string(data), "\n") {
@@ -94,7 +96,7 @@ func fromFile(path string) *Whitelist {
 
 }
 
-func (w *Whitelist) Contains(suite, test string) bool {
+func (w *Allowlist) Contains(suite, test string) bool {
 	_, ok := w.hashset[fmt.Sprintf("%s,%s", suite, test)]
 	return ok
 }

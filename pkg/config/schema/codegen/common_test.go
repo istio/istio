@@ -49,7 +49,7 @@ func TestCommentBlock(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			output := commentBlock(c.input, c.indentTabs)
 			g.Expect(output).To(Equal(c.expected))
 		})
@@ -119,7 +119,7 @@ func TestWordWrap(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			output := wordWrap(c.input, c.maxLineLength)
 			g.Expect(output).To(Equal(c.expected))
 		})

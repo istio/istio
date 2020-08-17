@@ -17,27 +17,60 @@ import (
 	"istio.io/api/networking/v1alpha3"
 )
 
-func getRouteDestinations(vs *v1alpha3.VirtualService) []*v1alpha3.Destination {
-	destinations := make([]*v1alpha3.Destination, 0)
+// AnnotatedDestination holds metadata about a Destination object that is used for analyzing
+type AnnotatedDestination struct {
+	RouteRule        string
+	ServiceIndex     int
+	DestinationIndex int
+	Destination      *v1alpha3.Destination
+}
 
-	for _, r := range vs.GetTcp() {
-		for _, rd := range r.GetRoute() {
-			destinations = append(destinations, rd.GetDestination())
+func getRouteDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestination {
+	destinations := make([]*AnnotatedDestination, 0)
+	for i, r := range vs.GetTcp() {
+		for j, rd := range r.GetRoute() {
+			destinations = append(destinations, &AnnotatedDestination{
+				RouteRule:        "tcp",
+				ServiceIndex:     i,
+				DestinationIndex: j,
+				Destination:      rd.GetDestination(),
+			})
 		}
 	}
-	for _, r := range vs.GetTls() {
-		for _, rd := range r.GetRoute() {
-			destinations = append(destinations, rd.GetDestination())
+	for i, r := range vs.GetTls() {
+		for j, rd := range r.GetRoute() {
+			destinations = append(destinations, &AnnotatedDestination{
+				RouteRule:        "tls",
+				ServiceIndex:     i,
+				DestinationIndex: j,
+				Destination:      rd.GetDestination(),
+			})
 		}
 	}
-	for _, r := range vs.GetHttp() {
-		for _, rd := range r.GetRoute() {
-			destinations = append(destinations, rd.GetDestination())
+	for i, r := range vs.GetHttp() {
+		for j, rd := range r.GetRoute() {
+			destinations = append(destinations, &AnnotatedDestination{
+				RouteRule:        "http",
+				ServiceIndex:     i,
+				DestinationIndex: j,
+				Destination:      rd.GetDestination(),
+			})
 		}
-		// If there is a mirror destination, check it too
-		m := r.GetMirror()
-		if m != nil {
-			destinations = append(destinations, m)
+	}
+
+	return destinations
+}
+
+func getHTTPMirrorDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestination {
+	var destinations []*AnnotatedDestination
+
+	for i, r := range vs.GetHttp() {
+		if m := r.GetMirror(); m != nil {
+			destinations = append(destinations, &AnnotatedDestination{
+				RouteRule:    "http.mirror",
+				ServiceIndex: i,
+				Destination:  m,
+			})
 		}
 	}
 

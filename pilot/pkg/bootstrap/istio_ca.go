@@ -26,21 +26,18 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-
-	"istio.io/istio/pilot/pkg/features"
-
 	"google.golang.org/grpc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -112,6 +109,9 @@ var (
 
 	audience = env.RegisterStringVar("AUDIENCE", "",
 		"Expected audience in the tokens. ")
+
+	caRSAKeySize = env.RegisterIntVar("CITADEL_SELF_SIGNED_CA_RSA_KEY_SIZE", 2048,
+		"Specify the RSA key size to use for self-signed Istio CA certificates.")
 )
 
 type CAOptions struct {
@@ -176,6 +176,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
+	// Adds client cert auth and kube (sds enabled)
 	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
 		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
 		true, features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
@@ -199,10 +200,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 			log.Infoa("K8S token doesn't support OIDC, using only in-cluster auth")
 		}
 	}
-
-	// Allow authorization with a previously issued certificate, for VMs
-	// Will return a caller with identities extracted from the SAN, should be a SPIFFE identity.
-	caServer.Authenticators = append(caServer.Authenticators, &authenticate.ClientCertAuthenticator{})
 
 	if serverErr := caServer.Run(); serverErr != nil {
 		// stop the registry-related controllers
@@ -339,7 +336,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
 			maxCertTTL, opts.TrustDomain, true,
 			opts.Namespace, -1, client, rootCertFile,
-			enableJitterForRootCertRotator.Get())
+			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a self-signed istiod CA: %v", err)
 		}
@@ -358,7 +355,7 @@ func (s *Server) createIstioCA(client corev1.CoreV1Interface, opts *CAOptions) (
 		s.caBundlePath = certChainFile
 
 		caOpts, err = ca.NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile,
-			rootCertFile, workloadCertTTL.Get(), maxCertTTL)
+			rootCertFile, workloadCertTTL.Get(), maxCertTTL, caRSAKeySize.Get())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}

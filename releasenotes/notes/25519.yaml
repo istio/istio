@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 25154
+releaseNotes:
+- |
+  **Removed** the `pilot_xds_eds_instances` and `pilot_xds_eds_all_locality_endpoints` Istiod metrics, which were not
+  accurate.

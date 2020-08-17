@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+issue:
+- 22019
+releaseNotes:
+- |
+  **Improve** certificates referenced in DestinationRules to reload without a restart.
+
+

@@ -25,13 +25,14 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/pkg/log"
-
-	mixercrd "istio.io/istio/mixer/pkg/config/crd"
-	mixerstore "istio.io/istio/mixer/pkg/config/store"
-	"istio.io/istio/mixer/pkg/runtime/config/constant"
-	mixervalidate "istio.io/istio/mixer/pkg/validate"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/util"
+	operator_validate "istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/protocol"
@@ -39,25 +40,14 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-
-	operator_istio "istio.io/istio/operator/pkg/apis/istio"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util"
-	operator_validate "istio.io/istio/operator/pkg/validate"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	"istio.io/pkg/log"
 )
 
 var (
-	mixerAPIVersion = "config.istio.io/v1alpha2"
-
 	errMissingFilename = errors.New(`error: you must specify resources by --filename.
 Example resource specifications include:
    '-f rsrc.yaml'
    '--filename=rsrc.json'`)
-	errKindNotSupported = errors.New("kind is not supported")
 
 	validFields = map[string]struct{}{
 		"apiVersion": {},
@@ -65,15 +55,6 @@ Example resource specifications include:
 		"metadata":   {},
 		"spec":       {},
 		"status":     {},
-	}
-
-	validMixerKinds = map[string]struct{}{
-		constant.RulesKind:             {},
-		constant.AdapterKind:           {},
-		constant.TemplateKind:          {},
-		constant.HandlerKind:           {},
-		constant.InstanceKind:          {},
-		constant.AttributeManifestKind: {},
 	}
 
 	istioDeploymentLabel = []string{
@@ -89,7 +70,6 @@ const (
 )
 
 type validator struct {
-	mixerValidator mixerstore.BackendValidator
 }
 
 func checkFields(un *unstructured.Unstructured) error {
@@ -125,28 +105,6 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		return schema.Resource().ValidateProto(obj.Name, obj.Namespace, obj.Spec)
 	}
 
-	if v.mixerValidator != nil && un.GetAPIVersion() == mixerAPIVersion {
-		if !v.mixerValidator.SupportsKind(un.GetKind()) {
-			return errKindNotSupported
-		}
-		if err := checkFields(un); err != nil {
-			return err
-		}
-		if _, ok := validMixerKinds[un.GetKind()]; !ok {
-			log.Warnf("deprecated Mixer kind %q, please use %q or %q instead", un.GetKind(),
-				constant.HandlerKind, constant.InstanceKind)
-		}
-
-		return v.mixerValidator.Validate(&mixerstore.BackendEvent{
-			Type: mixerstore.Update,
-			Key: mixerstore.Key{
-				Name:      un.GetName(),
-				Namespace: un.GetNamespace(),
-				Kind:      un.GetKind(),
-			},
-			Value: mixercrd.ToBackEndResource(un),
-		})
-	}
 	var errs error
 	if un.IsList() {
 		_ = un.EachListItem(func(item runtime.Object) error {
@@ -186,7 +144,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 			// and ask operator code to check.
 			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
 			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by)
+			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
 			if err != nil {
 				return err
 			}
@@ -245,6 +203,7 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 
 func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error {
 	decoder := yaml.NewDecoder(reader)
+	decoder.SetStrict(true)
 	var errs error
 	for {
 		// YAML allows non-string keys and the produces generic keys for nested fields
@@ -270,14 +229,12 @@ func (v *validator) validateFile(istioNamespace *string, reader io.Reader) error
 	}
 }
 
-func validateFiles(istioNamespace *string, filenames []string, referential bool, writer io.Writer) error {
+func validateFiles(istioNamespace *string, filenames []string, writer io.Writer) error {
 	if len(filenames) == 0 {
 		return errMissingFilename
 	}
 
-	v := &validator{
-		mixerValidator: mixervalidate.NewDefaultValidator(referential),
-	}
+	v := &validator{}
 
 	var errs, err error
 	var reader io.Reader
@@ -318,7 +275,7 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 
 	c := &cobra.Command{
 		Use:   "validate -f FILENAME [options]",
-		Short: "Validate Istio policy and rules (NOTE: validate is deprecated and will be removed in 1.6. Use 'istioctl analyze' to validate configuration.)",
+		Short: "Validate Istio policy and rules files",
 		Example: `
 		# Validate bookinfo-gateway.yaml
 		istioctl validate -f bookinfo-gateway.yaml
@@ -334,7 +291,7 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			return validateFiles(istioNamespace, filenames, referential, c.OutOrStderr())
+			return validateFiles(istioNamespace, filenames, c.OutOrStderr())
 		},
 	}
 

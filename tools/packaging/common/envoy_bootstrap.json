@@ -111,7 +111,7 @@
           {{- end }}
           {{- range $a, $s := .inclusionRegexps }}
           {
-          "regex": "{{js $s}}"
+          "safe_regex": {"google_re2":{}, "regex":"{{js $s}}"}
           },
           {{- end }}
           {
@@ -231,6 +231,7 @@
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+            "sni": "{{ .discovery_host }}",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2"
@@ -239,6 +240,8 @@
                 {
                   "name": "default",
                   "sds_config": {
+                    "resource_api_version": "V3",
+                    "initial_fetch_timeout": "0s",
                     "api_config_source": {
                       "api_type": "GRPC",
                       "transport_api_version": "V3",
@@ -307,9 +310,9 @@
       ,
       {
         "name": "zipkin",
-        {{ if .tracing_tls }}
+        {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
-        {{ end }}
+        {{- end }}
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
@@ -332,9 +335,9 @@
       ,
       {
         "name": "lightstep",
-        {{ if .tracing_tls }}
+        {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
-        {{ end }}
+        {{- end }}
         "http2_protocol_options": {},
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -358,9 +361,9 @@
       ,
       {
         "name": "datadog_agent",
-        {{ if .tracing_tls }}
+        {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
-        {{ end }}
+        {{- end }}
         "connect_timeout": "1s",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -380,17 +383,17 @@
         }
       }
       {{ end }}
-      {{ if .envoy_metrics_service_address }}
+      {{- if .envoy_metrics_service_address }}
       ,
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-      {{ if .envoy_metrics_service_tls }}
+      {{- if .envoy_metrics_service_tls }}
         "transport_socket": {{ .envoy_metrics_service_tls }},
-      {{ end }}
-      {{ if .envoy_metrics_service_tcp_keepalive }}
+      {{- end }}
+      {{- if .envoy_metrics_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_metrics_service_tcp_keepalive }},
-      {{ end }}
+      {{- end }}
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
         "connect_timeout": "1s",
@@ -415,10 +418,10 @@
       {
         "name": "envoy_accesslog_service",
         "type": "STRICT_DNS",
-      {{ if .envoy_accesslog_service_tls }}
+      {{- if .envoy_accesslog_service_tls }}
         "transport_socket": {{ .envoy_accesslog_service_tls }},
-      {{ end }}
-      {{ if .envoy_accesslog_service_tcp_keepalive }}
+      {{- end }}
+      {{- if .envoy_accesslog_service_tcp_keepalive }}
         "upstream_connection_options": {{ .envoy_accesslog_service_tcp_keepalive }},
       {{ end }}
         "respect_dns_ttl": true,
@@ -542,7 +545,7 @@
       }
     ]
   }
-  {{ if .zipkin }}
+  {{- if .zipkin }}
   ,
   "tracing": {
     "http": {
@@ -557,7 +560,7 @@
       }
     }
   }
-  {{ else if .lightstep }}
+  {{- else if .lightstep }}
   ,
   "tracing": {
     "http": {
@@ -569,7 +572,7 @@
       }
     }
   }
-  {{ else if .datadog }}
+  {{- else if .datadog }}
   ,
   "tracing": {
     "http": {
@@ -581,7 +584,7 @@
       }
     }
   }
-  {{ else if .stackdriver }}
+  {{- else if .stackdriver }}
   ,
   "tracing": {
     "http": {
@@ -642,7 +645,8 @@
     {{ if .envoy_metrics_service_address }}
     {
       "name": "envoy.metrics_service",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
         "grpc_service": {
           "envoy_grpc": {
             "cluster_name": "envoy_metrics_service"
@@ -654,7 +658,8 @@
     {{ if .statsd }}
     {
       "name": "envoy.statsd",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {
           "socket_address": {{ .statsd }}
         }

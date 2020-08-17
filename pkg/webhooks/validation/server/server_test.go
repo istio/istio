@@ -17,7 +17,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -35,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/istio/mixer/pkg/config/store"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/config"
 	"istio.io/istio/pkg/testcerts"
 )
@@ -46,16 +45,6 @@ const (
 	// CRD resources.
 	testDomainSuffix = "local.cluster"
 )
-
-type fakeValidator struct{ err error }
-
-func (fv *fakeValidator) Validate(*store.BackendEvent) error {
-	return fv.err
-}
-
-func (fv *fakeValidator) SupportsKind(string) bool {
-	return true
-}
 
 func TestArgs_String(t *testing.T) {
 	p := DefaultArgs()
@@ -92,11 +81,10 @@ func createTestWebhook(t testing.TB) (*Webhook, func()) {
 	}
 
 	options := Options{
-		Port:           port,
-		DomainSuffix:   testDomainSuffix,
-		Schemas:        collections.Mocks,
-		MixerValidator: &fakeValidator{},
-		Mux:            http.NewServeMux(),
+		Port:         port,
+		DomainSuffix: testDomainSuffix,
+		Schemas:      collections.Mocks,
+		Mux:          http.NewServeMux(),
 	}
 	wh, err := New(options)
 	if err != nil {
@@ -165,66 +153,66 @@ func TestAdmitPilot(t *testing.T) {
 	cases := []struct {
 		name    string
 		admit   admitFunc
-		in      *kubeApiAdmission.AdmissionRequest
+		in      *kube.AdmissionRequest
 		allowed bool
 	}{
 		{
 			name:  "valid create",
 			admit: wh.admitPilot,
-			in: &kubeApiAdmission.AdmissionRequest{
+			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
-				Operation: kubeApiAdmission.Create,
+				Operation: kube.Create,
 			},
 			allowed: true,
 		},
 		{
 			name:  "valid update",
 			admit: wh.admitPilot,
-			in: &kubeApiAdmission.AdmissionRequest{
+			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
-				Operation: kubeApiAdmission.Update,
+				Operation: kube.Update,
 			},
 			allowed: true,
 		},
 		{
 			name:  "unsupported operation",
 			admit: wh.admitPilot,
-			in: &kubeApiAdmission.AdmissionRequest{
+			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: valid},
-				Operation: kubeApiAdmission.Delete,
+				Operation: kube.Delete,
 			},
 			allowed: true,
 		},
 		{
 			name:  "invalid spec",
 			admit: wh.admitPilot,
-			in: &kubeApiAdmission.AdmissionRequest{
+			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: invalidConfig},
-				Operation: kubeApiAdmission.Create,
+				Operation: kube.Create,
 			},
 			allowed: false,
 		},
 		{
 			name:  "corrupt object",
 			admit: wh.admitPilot,
-			in: &kubeApiAdmission.AdmissionRequest{
+			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: append([]byte("---"), valid...)},
-				Operation: kubeApiAdmission.Create,
+				Operation: kube.Create,
 			},
 			allowed: false,
 		},
 		{
 			name:  "invalid extra key create",
 			admit: wh.admitPilot,
-			in: &kubeApiAdmission.AdmissionRequest{
+			in: &kube.AdmissionRequest{
 				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
 				Object:    runtime.RawExtension{Raw: extraKeyConfig},
-				Operation: kubeApiAdmission.Create,
+				Operation: kube.Create,
 			},
 			allowed: false,
 		},
@@ -240,170 +228,19 @@ func TestAdmitPilot(t *testing.T) {
 	}
 }
 
-func makeMixerConfig(t *testing.T, i int, includeBogusKey bool) []byte {
-	t.Helper()
-
-	name := fmt.Sprintf("%s%d", "mock-config", i)
-
-	r := collections.Mock.Resource()
-	var un unstructured.Unstructured
-	un.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   r.Group(),
-		Version: r.Version(),
-		Kind:    r.Kind(),
-	})
-	un.SetName(name)
-	un.Object["spec"] = map[string]interface{}{"foo": 1}
-	if includeBogusKey {
-		un.Object["unexpected_key"] = "any value"
-	}
-
-	raw, err := json.Marshal(&un)
-	if err != nil {
-		t.Fatalf("Marshal(%v) failed: %v", un, err)
-	}
-	return raw
-}
-
-func TestAdmitMixer(t *testing.T) {
-	rawConfig := makeMixerConfig(t, 0, false)
-	extraKeyConfig := makeMixerConfig(t, 0, true)
-	wh, cancel := createTestWebhook(t)
-	defer cancel()
-
-	cases := []struct {
-		name      string
-		in        *kubeApiAdmission.AdmissionRequest
-		allowed   bool
-		validator store.BackendValidator
-	}{
-		{
-			name: "valid create",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "valid-create",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "valid update",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "valid-update",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Update,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "valid delete",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "valid-delete",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Delete,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "invalid update",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid-update",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Update,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
-		},
-		{
-			name: "invalid delete",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "to-be-deleted",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Delete,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   true,
-		},
-		{
-			name: "invalid delete (missing name)",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Delete,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
-		},
-		{
-			name: "invalid create",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid create",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{errors.New("fail")},
-			allowed:   false,
-		},
-		{
-			name: "invalid operation",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid operation",
-				Object:    runtime.RawExtension{Raw: rawConfig},
-				Operation: kubeApiAdmission.Connect,
-			},
-			validator: &fakeValidator{},
-			allowed:   true,
-		},
-		{
-			name: "invalid object",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid object",
-				Object:    runtime.RawExtension{Raw: append([]byte("---"), rawConfig...)},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{},
-			allowed:   false,
-		},
-		{
-			name: "invalid extra key create",
-			in: &kubeApiAdmission.AdmissionRequest{
-				Kind:      kubeApisMeta.GroupVersionKind{Kind: collections.Mock.Resource().Kind()},
-				Name:      "invalid extra key create",
-				Object:    runtime.RawExtension{Raw: extraKeyConfig},
-				Operation: kubeApiAdmission.Create,
-			},
-			validator: &fakeValidator{},
-			allowed:   false,
-		},
-	}
-
-	for i, c := range cases {
-		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
-			wh.validator = c.validator // override mixer backend validator
-			got := wh.admitMixer(c.in)
-			if c.allowed != got.Allowed {
-				t.Fatalf("got %v want %v", got, c.allowed)
-			}
-		})
-	}
-}
-
-func makeTestReview(t *testing.T, valid bool) []byte {
+func makeTestReview(t *testing.T, valid bool, apiVersion string) []byte {
 	t.Helper()
 	review := kubeApiAdmission.AdmissionReview{
+		TypeMeta: kubeApisMeta.TypeMeta{
+			Kind:       "AdmissionReview",
+			APIVersion: fmt.Sprintf("admission.k8s.io/%s", apiVersion),
+		},
 		Request: &kubeApiAdmission.AdmissionRequest{
-			Kind: kubeApisMeta.GroupVersionKind{},
+			Kind: kubeApisMeta.GroupVersionKind{
+				Group:   kubeApiAdmission.GroupName,
+				Version: apiVersion,
+				Kind:    "AdmissionRequest",
+			},
 			Object: runtime.RawExtension{
 				Raw: makePilotConfig(t, 0, valid, false),
 			},
@@ -451,8 +288,9 @@ func TestServe(t *testing.T) {
 	}()
 	go wh.Run(stop)
 
-	validReview := makeTestReview(t, true)
-	invalidReview := makeTestReview(t, false)
+	validReview := makeTestReview(t, true, "v1beta1")
+	validReviewV1 := makeTestReview(t, true, "v1")
+	invalidReview := makeTestReview(t, false, "v1beta1")
 
 	cases := []struct {
 		name            string
@@ -465,6 +303,14 @@ func TestServe(t *testing.T) {
 		{
 			name:            "valid",
 			body:            validReview,
+			contentType:     "application/json",
+			wantAllowed:     true,
+			wantStatusCode:  http.StatusOK,
+			allowedResponse: true,
+		},
+		{
+			name:            "valid(v1 version)",
+			body:            validReviewV1,
 			contentType:     "application/json",
 			wantAllowed:     true,
 			wantStatusCode:  http.StatusOK,
@@ -506,8 +352,8 @@ func TestServe(t *testing.T) {
 			req.Header.Add("Content-Type", c.contentType)
 			w := httptest.NewRecorder()
 
-			serve(w, req, func(*kubeApiAdmission.AdmissionRequest) *kubeApiAdmission.AdmissionResponse {
-				return &kubeApiAdmission.AdmissionResponse{Allowed: c.allowedResponse}
+			serve(w, req, func(*kube.AdmissionRequest) *kube.AdmissionResponse {
+				return &kube.AdmissionResponse{Allowed: c.allowedResponse}
 			})
 
 			res := w.Result()

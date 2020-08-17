@@ -24,26 +24,22 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/api/networking/v1beta1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/config/schema/collections"
-
-	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -102,11 +98,7 @@ func marshalYaml(t *testing.T, cl []model.Config) []byte {
 	result := []byte{}
 	separator := []byte("---\n")
 	for _, config := range cl {
-		s, exists := collections.All.FindByGroupVersionKind(config.GroupVersionKind)
-		if !exists {
-			t.Fatalf("Unknown kind %v for %v", config.GroupVersionKind, config.Name)
-		}
-		obj, err := crd.ConvertConfig(s, config)
+		obj, err := crd.ConvertConfig(config)
 		if err != nil {
 			t.Fatalf("Could not decode %v: %v", config.Name, err)
 		}

@@ -22,7 +22,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth" // allow out of cluster authentication
+
+	//  allow out of cluster authentication
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -53,8 +55,8 @@ func BuildClientCmd(kubeconfig, context string) clientcmd.ClientConfig {
 
 	//Config loading rules:
 	// 1. kubeconfig if it not empty string
-	// 2. In cluster config if running in-cluster
-	// 3. Config(s) in KUBECONFIG environment variable
+	// 2. Config(s) in KUBECONFIG environment variable
+	// 3. In cluster config if running in-cluster
 	// 4. Use $HOME/.kube/config
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig

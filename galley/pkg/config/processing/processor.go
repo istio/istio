@@ -16,7 +16,6 @@ package processing
 
 import (
 	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pkg/config/event"
 )
 

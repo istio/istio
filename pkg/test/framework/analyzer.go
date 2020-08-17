@@ -204,12 +204,12 @@ func (t *testAnalyzer) Run(_ func(ctx TestContext)) {
 	t.hasRun = true
 
 	// don't fail tests that would otherwise be skipped
-	if t.skip != "" {
+	if analysis.SkipReason != "" || t.skip != "" {
 		return
 	}
 
 	// TODO: should we also block new cases?
-	if len(t.featureLabels) < 1 && !features.GlobalWhitelist.Contains(analysis.SuiteID, t.goTest.Name()) {
+	if len(t.featureLabels) < 1 && !features.GlobalAllowlist.Contains(analysis.SuiteID, t.goTest.Name()) {
 		t.goTest.Fatalf("Detected new test %s in suite %s with no feature labels.  "+
 			"See istio/istio/pkg/test/framework/features/README.md", t.goTest.Name(), analysis.SuiteID)
 	}

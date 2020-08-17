@@ -20,12 +20,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pkg/config/mesh"
 )
 
 func TestDefaults(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	m := DefaultMeshConfig()
 	expect := mesh.DefaultMeshConfig()

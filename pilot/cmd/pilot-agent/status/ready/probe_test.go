@@ -31,7 +31,7 @@ var (
 )
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(liveServerStats)
 	defer server.Close()
@@ -109,7 +109,7 @@ server.state: 0`,
 }
 
 func TestEnvoyInitializing(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(initServerStats)
 	defer server.Close()
@@ -121,7 +121,7 @@ func TestEnvoyInitializing(t *testing.T) {
 }
 
 func TestEnvoyNoClusterManagerStats(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(onlyServerStats)
 	defer server.Close()
@@ -133,7 +133,7 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 }
 
 func TestEnvoyNoServerStats(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	server := createAndStartServer(noServerStats)
 	defer server.Close()

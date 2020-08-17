@@ -30,21 +30,20 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/howeyc/fsnotify"
-
-	"istio.io/api/label"
-
-	"istio.io/api/annotation"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/cmd/pilot-agent/status"
-	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/log"
-
-	"k8s.io/api/admission/v1beta1"
+	kubeApiAdmissionv1 "k8s.io/api/admission/v1"
+	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -55,7 +54,8 @@ var (
 
 func init() {
 	_ = corev1.AddToScheme(runtimeScheme)
-	_ = v1beta1.AddToScheme(runtimeScheme)
+	_ = kubeApiAdmissionv1.AddToScheme(runtimeScheme)
+	_ = kubeApiAdmissionv1beta1.AddToScheme(runtimeScheme)
 }
 
 const (
@@ -313,7 +313,7 @@ func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, remo
 	return patch
 }
 
-func addContainer(target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
+func addContainer(sic *SidecarInjectionSpec, target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
 	saJwtSecretMountName := ""
 	var saJwtSecretMount corev1.VolumeMount
 	// find service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
@@ -340,7 +340,7 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 		if first {
 			first = false
 			value = []corev1.Container{add}
-		} else if add.Name == "istio-validation" {
+		} else if shouldBeInjectedInFront(add, sic) {
 			path += "/0"
 		} else {
 			path += "/-"
@@ -352,6 +352,17 @@ func addContainer(target, added []corev1.Container, basePath string) (patch []rf
 		})
 	}
 	return patch
+}
+
+func shouldBeInjectedInFront(container corev1.Container, sic *SidecarInjectionSpec) bool {
+	switch container.Name {
+	case ValidationContainerName:
+		return true
+	case ProxyContainerName:
+		return sic.HoldApplicationUntilProxyStarts
+	default:
+		return false
+	}
 }
 
 func addSecurityContext(target *corev1.PodSecurityContext, basePath string) (patch []rfc6902PatchOperation) {
@@ -529,8 +540,8 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 		annotations["prometheus.io/scrape"] = "true"
 	}
 
-	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
-	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
+	patch = append(patch, addContainer(sic, pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
+	patch = append(patch, addContainer(sic, pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
@@ -652,11 +663,11 @@ func injectionStatus(pod *corev1.Pod) *SidecarInjectionStatus {
 	}
 }
 
-func toAdmissionResponse(err error) *v1beta1.AdmissionResponse {
-	return &v1beta1.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
+func toAdmissionResponse(err error) *kube.AdmissionResponse {
+	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
-func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.AdmissionResponse {
+func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
@@ -679,7 +690,7 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.Adm
 	if !injectRequired(ignoredNamespaces, wh.Config, &pod.Spec, &pod.ObjectMeta) {
 		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
 		totalSkippedInjections.Increment()
-		return &v1beta1.AdmissionResponse{
+		return &kube.AdmissionResponse{
 			Allowed: true,
 		}
 	}
@@ -687,15 +698,13 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.Adm
 	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
 	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
 	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	if wh.meshConfig.SdsUdsPath != "" {
-		var grp = int64(1337)
-		if pod.Spec.SecurityContext == nil {
-			pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-				FSGroup: &grp,
-			}
-		} else {
-			pod.Spec.SecurityContext.FSGroup = &grp
+	var grp = int64(1337)
+	if pod.Spec.SecurityContext == nil {
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
 		}
+	} else {
+		pod.Spec.SecurityContext.FSGroup = &grp
 	}
 
 	// try to capture more useful namespace/name info for deployments, etc.
@@ -760,11 +769,11 @@ func (wh *Webhook) inject(ar *v1beta1.AdmissionReview, path string) *v1beta1.Adm
 
 	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
-	reviewResponse := v1beta1.AdmissionResponse{
+	reviewResponse := kube.AdmissionResponse{
 		Allowed: true,
 		Patch:   patchBytes,
-		PatchType: func() *v1beta1.PatchType {
-			pt := v1beta1.PatchTypeJSONPatch
+		PatchType: func() *string {
+			pt := "JSONPatch"
 			return &pt
 		}(),
 	}
@@ -799,25 +808,36 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
 	}
 
-	var reviewResponse *v1beta1.AdmissionResponse
-	ar := v1beta1.AdmissionReview{}
-	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
+	var reviewResponse *kube.AdmissionResponse
+	var obj runtime.Object
+	var ar *kube.AdmissionReview
+	if out, _, err := deserializer.Decode(body, nil, obj); err != nil {
 		handleError(fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		log.Debugf("AdmissionRequest for path=%s\n", path)
-		reviewResponse = wh.inject(&ar, path)
+		ar, err = kube.AdmissionReviewKubeToAdapter(out)
+		if err != nil {
+			handleError(fmt.Sprintf("Could not decode object: %v", err))
+		}
+		reviewResponse = wh.inject(ar, path)
 	}
 
-	response := v1beta1.AdmissionReview{}
-	if reviewResponse != nil {
-		response.Response = reviewResponse
-		if ar.Request != nil {
-			response.Response.UID = ar.Request.UID
+	response := kube.AdmissionReview{}
+	response.Response = reviewResponse
+	var responseKube runtime.Object
+	var apiVersion string
+	if ar != nil {
+		apiVersion = ar.APIVersion
+		response.TypeMeta = ar.TypeMeta
+		if response.Response != nil {
+			if ar.Request != nil {
+				response.Response.UID = ar.Request.UID
+			}
 		}
 	}
-
-	resp, err := json.Marshal(response)
+	responseKube = kube.AdmissionReviewAdapterToKube(&response, apiVersion)
+	resp, err := json.Marshal(responseKube)
 	if err != nil {
 		log.Errorf("Could not encode response: %v", err)
 		http.Error(w, fmt.Sprintf("could not encode response: %v", err), http.StatusInternalServerError)

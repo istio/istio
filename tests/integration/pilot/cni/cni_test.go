@@ -22,7 +22,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
@@ -57,7 +56,7 @@ func TestCNIReachability(t *testing.T) {
 			if err != nil {
 				ctx.Fatal(err)
 			}
-			rctx := reachability.CreateContext(ctx, pilot.NewOrFail(t, ctx, pilot.Config{}), false)
+			rctx := reachability.CreateContext(ctx, false)
 			systemNM := namespace.ClaimSystemNamespaceOrFail(ctx, ctx)
 
 			testCases := []reachability.TestCase{
@@ -65,6 +64,10 @@ func TestCNIReachability(t *testing.T) {
 					ConfigFile: "global-mtls-on.yaml",
 					Namespace:  systemNM,
 					Include: func(src echo.Instance, opts echo.CallOptions) bool {
+						// Exclude headless naked service, because it is no sidecar
+						if src == rctx.HeadlessNaked || opts.Target == rctx.HeadlessNaked {
+							return false
+						}
 						// Exclude calls to the headless TCP port.
 						if opts.Target == rctx.Headless && opts.PortName == "tcp" {
 							return false

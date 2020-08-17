@@ -30,12 +30,11 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/pkg/log"
-
+	pb "istio.io/api/security/v1alpha1"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
-	pb "istio.io/istio/security/proto"
+	"istio.io/pkg/log"
 )
 
 // Config for Vault prototyping purpose

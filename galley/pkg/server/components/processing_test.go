@@ -37,7 +37,7 @@ import (
 )
 
 func TestProcessing_StartErrors(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	defer resetPatchTable()
 
 loop:
@@ -87,7 +87,7 @@ loop:
 }
 
 func TestProcessing_Basic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	resetPatchTable()
 	defer resetPatchTable()
 

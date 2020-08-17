@@ -1,0 +1,33 @@
+{
+    "http_request": {
+        "request_method": "GET",
+        "request_url": "http://server.{{ .EchoNamespace }}.svc.cluster.local:8090/",
+        "protocol": "http",
+        "status": "200"
+    },
+    "labels": {
+        "destination_canonical_revision": "v1",
+        "destination_canonical_service": "vm-server",
+        "destination_namespace": "{{ .EchoNamespace }}",
+        "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+        "destination_service_host": "server.{{ .EchoNamespace }}.svc.cluster.local",
+        "destination_workload": "vm-server-v1",
+        "mesh_uid": "test-mesh",
+        "response_flag": "-",
+        "service_authentication_policy": "MUTUAL_TLS",
+        "source_app": "client",
+        "source_canonical_revision": "v1",
+        "source_canonical_service": "client",
+        "source_namespace": "{{ .EchoNamespace }}",
+        "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+        "source_version": "v1",
+        "source_workload": "client-v1",
+        "protocol": "http",
+        "log_sampled": "false",
+        "upstream_cluster": "inbound|8090|http|server.{{ .EchoNamespace }}.svc.cluster.local",
+        "route_name": "default",
+        "requested_server_name": "outbound_.8090_._.server.{{ .EchoNamespace }}.svc.cluster.local",
+        "x-envoy-original-dst-host": "",
+        "x-envoy-original-path": ""
+    }
+}

@@ -24,12 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/security/pkg/k8s/chiron"
+	"istio.io/pkg/log"
 )
 
 const (

@@ -17,11 +17,10 @@ package features
 import (
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
+	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
 
@@ -51,11 +50,6 @@ var (
 		4*1024*1024,
 		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
-
-	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
-	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
-	// For larger clusters it can increase memory use and GC - useful for small tests.
-	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
 
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()

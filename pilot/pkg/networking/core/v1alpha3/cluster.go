@@ -31,8 +31,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
@@ -46,14 +44,12 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 const (
 	// DefaultLbType set to round robin
 	DefaultLbType = networking.LoadBalancerSettings_ROUND_ROBIN
-
-	// ManagementClusterHostname indicates the hostname used for building inbound clusters for management ports
-	ManagementClusterHostname = "mgmtCluster"
 )
 
 var (
@@ -409,7 +405,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 	if cfg != nil {
 		destinationRule := cfg.Spec.(*networking.DestinationRule)
 		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := SelectTrafficPolicyComponents(destinationRule.TrafficPolicy, instance.ServicePort)
+			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
@@ -447,32 +443,26 @@ const (
 	autoDetected
 )
 
-// conditionallyConvertToIstioMtls fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+// buildAutoMtlsSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
 // If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
 // creates and populates the config as if they are set as ISTIO_MUTUAL.
-func conditionallyConvertToIstioMtls(
+func buildAutoMtlsSettings(
 	tls *networking.ClientTLSSettings,
 	serviceAccounts []string,
 	sni string,
 	proxy *model.Proxy,
 	autoMTLSEnabled bool,
 	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode) (*networking.ClientTLSSettings, mtlsContextType) {
-	mtlsCtx := userSupplied
-	if tls == nil {
-		if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
-			return nil, mtlsCtx
+	serviceMTLSMode model.MutualTLSMode,
+	clusterDiscoveryType cluster.Cluster_DiscoveryType) (*networking.ClientTLSSettings, mtlsContextType) {
+	if tls != nil {
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return tls, userSupplied
 		}
 
-		mtlsCtx = autoDetected
-		// we will setup transport sockets later
-		tls = &networking.ClientTLSSettings{
-			Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
-		}
-	}
-	if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
+		// Update TLS settings for ISTIO_MUTUAL.
 		// Use client provided SNI if set. Otherwise, overwrite with the auto generated SNI
-		// user specified SNIs in the istio mtls settings are useful when routing via gateways
+		// user specified SNIs in the istio mtls settings are useful when routing via gateways.
 		sniToUse := tls.Sni
 		if len(sniToUse) == 0 {
 			sniToUse = sni
@@ -481,9 +471,19 @@ func conditionallyConvertToIstioMtls(
 		if len(subjectAltNamesToUse) == 0 {
 			subjectAltNamesToUse = serviceAccounts
 		}
-		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), mtlsCtx
+		return buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, proxy), userSupplied
 	}
-	return tls, mtlsCtx
+
+	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
+		return nil, userSupplied
+	}
+	// Do not enable auto mtls when cluster type is `Cluster_ORIGINAL_DST`
+	// We don't know whether headless service instance has sidecar injected or not.
+	if clusterDiscoveryType == cluster.Cluster_ORIGINAL_DST {
+		return nil, userSupplied
+	}
+	// Build settings for auto MTLS.
+	return buildIstioMutualTLS(serviceAccounts, sni, proxy), autoDetected
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
@@ -499,29 +499,16 @@ func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Prox
 }
 
 // SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
-func SelectTrafficPolicyComponents(policy *networking.TrafficPolicy, port *model.Port) (
+func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings) {
 	if policy == nil {
 		return nil, nil, nil, nil
 	}
-	// Default to traffic policy's settings.
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
 
-	// Check if port level overrides exist, if yes override with them.
-	if port != nil && len(policy.PortLevelSettings) > 0 {
-		for _, p := range policy.PortLevelSettings {
-			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				connectionPool = p.ConnectionPool
-				outlierDetection = p.OutlierDetection
-				loadBalancer = p.LoadBalancer
-				tls = p.Tls
-				break
-			}
-		}
-	}
 	return connectionPool, outlierDetection, loadBalancer, tls
 }
 
@@ -627,8 +614,7 @@ func setH2Options(cluster *cluster.Cluster) {
 }
 
 func applyTrafficPolicy(opts buildClusterOpts) {
-	connectionPool, outlierDetection, loadBalancer, tls := SelectTrafficPolicyComponents(opts.policy, opts.port)
-
+	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	applyH2Upgrade(opts, connectionPool)
 	applyConnectionPool(opts.push, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
@@ -637,8 +623,8 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
 		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
-		tls, mtlsCtxType = conditionallyConvertToIstioMtls(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
-			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
+			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
 		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
 	}
 }
@@ -738,6 +724,10 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	}
 
 	out := &cluster.OutlierDetection{}
+
+	// SuccessRate based outlier detection should be disabled.
+	out.EnforcingSuccessRate = &wrappers.UInt32Value{Value: 0}
+
 	if e := outlier.Consecutive_5XxErrors; e != nil {
 		v := e.GetValue()
 
@@ -870,7 +860,8 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 
 	c := opts.cluster
 	proxy := opts.proxy
-	certValidationContext := &auth.CertificateValidationContext{}
+
+	var certValidationContext *auth.CertificateValidationContext
 	var trustedCa *core.DataSource
 
 	// Configure root cert for UpstreamTLSContext
@@ -910,12 +901,8 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 			c.TransportSocket = nil
 			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
 				{
-					Name: "tlsMode-" + model.IstioMutualTLSModeLabel,
-					Match: &structpb.Struct{
-						Fields: map[string]*structpb.Value{
-							model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
-						},
-					},
+					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
+					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
 				},
 				defaultTransportSocketMatch,
@@ -924,12 +911,26 @@ func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSS
 	}
 }
 
+var istioMtlsTransportSocketMatch = &structpb.Struct{
+	Fields: map[string]*structpb.Value{
+		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
+	},
+}
+
 func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings,
 	node *model.Proxy, certValidationContext *auth.CertificateValidationContext) (*auth.UpstreamTlsContext, error) {
 	c := opts.cluster
 	proxy := opts.proxy
 
-	tlsContext := &auth.UpstreamTlsContext{}
+	// Hack to avoid egress sds cluster config generation for sidecar when
+	// CredentialName is set in DestinationRule
+	if tls.CredentialName != "" && proxy.Type == model.SidecarProxy {
+		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
+			return nil, nil
+		}
+	}
+
+	var tlsContext *auth.UpstreamTlsContext
 
 	switch tls.Mode {
 	case networking.ClientTLSSettings_DISABLE:
@@ -949,7 +950,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		}
 
 		// TODO: cleanup required check out istio/istio/pull/24822 as SDS is enabled by default
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
+		if !node.Metadata.SdsEnabled {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -969,12 +970,12 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		} else {
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName, opts.push.Mesh.SdsUdsPath))
+				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName, opts.push.Mesh.SdsUdsPath),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
 				},
 			}
 		}
@@ -1006,7 +1007,6 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
 		}
-
 	case networking.ClientTLSSettings_SIMPLE:
 		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
@@ -1034,12 +1034,20 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
-			},
+
+		// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
+		if res.GetRootResourceName() == "" {
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
+			tlsContext.Sni = tls.Sni
+		} else {
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+				},
+			}
 		}
+
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
@@ -1074,8 +1082,8 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-		// Fallback to file mount secret instead of SDS if meshConfig.sdsUdsPath isn't set or SDS is disabled
-		if !node.Metadata.SdsEnabled || opts.push.Mesh.SdsUdsPath == "" {
+		// Fallback to file mount secret instead of SDS
+		if !node.Metadata.SdsEnabled {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
 				ValidationContext: certValidationContext,
 			}
@@ -1102,12 +1110,19 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
 			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName(), opts.push.Mesh.SdsUdsPath))
-			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName(), opts.push.Mesh.SdsUdsPath),
-				},
+				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
+
+			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
+			if res.GetRootResourceName() == "" {
+				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
+				tlsContext.Sni = tls.Sni
+			} else {
+				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+					},
+				}
 			}
 		}
 		if c.Http2ProtocolOptions != nil {

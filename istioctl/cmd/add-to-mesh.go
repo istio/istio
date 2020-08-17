@@ -25,7 +25,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,8 +36,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -48,6 +45,12 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
+)
+
+const (
+	// RequirementsURL specifies deployment requirements for pod and services
+	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
 )
 
 var (
@@ -126,7 +129,7 @@ func deploymentMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+See ` + RequirementsURL + `
 
 See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
 
@@ -158,7 +161,9 @@ istioctl experimental add-to-mesh deployment productpage-v1`,
 			deps := make([]appsv1.Deployment, 0)
 			deps = append(deps, *dep)
 			return injectSideCarIntoDeployment(client, deps, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer, func(warning string) {
+					fmt.Fprintln(cmd.ErrOrStderr(), warning)
+				})
 		},
 	}
 
@@ -179,7 +184,7 @@ func svcMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+See ` + RequirementsURL + `
 
 See also 'istioctl experimental remove-from-mesh service' which does the reverse.
 
@@ -213,7 +218,9 @@ istioctl experimental add-to-mesh service productpage`,
 				return nil
 			}
 			return injectSideCarIntoDeployment(client, matchingDeployments, sidecarTemplate, valuesConfig,
-				args[0], ns, revision, meshConfig, writer)
+				args[0], ns, revision, meshConfig, writer, func(warning string) {
+					fmt.Fprintln(cmd.ErrOrStderr(), warning)
+				})
 		},
 	}
 
@@ -307,12 +314,12 @@ func setupParameters(sidecarTemplate, valuesConfig *string) (*meshconfig.MeshCon
 }
 
 func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Deployment, sidecarTemplate, valuesConfig,
-	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer) error {
+	svcName, svcNamespace string, revision string, meshConfig *meshconfig.MeshConfig, writer io.Writer, warningHandler func(string)) error {
 	var errs error
 	for _, dep := range deps {
 		log.Debugf("updating deployment %s.%s with Istio sidecar injected",
 			dep.Name, dep.Namespace)
-		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep)
+		newDep, err := inject.IntoObject(sidecarTemplate, valuesConfig, revision, meshConfig, &dep, warningHandler)
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("failed to inject sidecar to deployment resource %s.%s for service %s.%s due to %v",
 				dep.Name, dep.Namespace, svcName, svcNamespace, err))
@@ -344,9 +351,8 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			continue
 		}
 		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
-			"Next Step: Add related labels to the deployment to align with Istio's requirement: "+
-			"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
-			dep.Name, dep.Namespace)
+			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
+			dep.Name, dep.Namespace, RequirementsURL)
 	}
 	return errs
 }

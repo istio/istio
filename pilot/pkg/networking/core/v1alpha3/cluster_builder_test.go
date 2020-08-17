@@ -23,21 +23,18 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -260,12 +257,280 @@ func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 	}
 }
 
+func TestMergeTrafficPolicy(t *testing.T) {
+	cases := []struct {
+		name     string
+		original *networking.TrafficPolicy
+		subset   *networking.TrafficPolicy
+		port     *model.Port
+		expected *networking.TrafficPolicy
+	}{
+		{
+			name:     "all nil policies",
+			original: nil,
+			subset:   nil,
+			port:     nil,
+			expected: nil,
+		},
+		{
+			name: "no subset policy",
+			original: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+			subset: nil,
+			port:   nil,
+			expected: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+		},
+		{
+			name:     "no parent policy",
+			original: nil,
+			subset: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+		},
+		{
+			name: "merge non-conflicting fields",
+			original: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				},
+			},
+		},
+		{
+			name: "subset overwrite top-level fields",
+			original: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode: networking.ClientTLSSettings_SIMPLE,
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+			},
+		},
+		{
+			name:     "merge port level policy, and do not inherit top-level fields",
+			original: nil,
+			subset: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						LoadBalancer: &networking.LoadBalancerSettings{
+							LbPolicy: &networking.LoadBalancerSettings_Simple{
+								Simple: networking.LoadBalancerSettings_LEAST_CONN,
+							},
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_LEAST_CONN,
+					},
+				},
+			},
+		},
+		{
+			name: "merge port level policy, and do not inherit top-level fields",
+			original: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 20,
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 15,
+						},
+					},
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 13,
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 8080},
+			expected: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 13,
+				},
+			},
+		},
+		{
+			name: "default cluster, non-matching port selector",
+			original: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 20,
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 15,
+						},
+					},
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+					{
+						Port: &networking.PortSelector{
+							Number: 8080,
+						},
+						OutlierDetection: &networking.OutlierDetection{
+							ConsecutiveErrors: 13,
+						},
+					},
+				},
+			},
+			port: &model.Port{Port: 9090},
+			expected: &networking.TrafficPolicy{
+				LoadBalancer: &networking.LoadBalancerSettings{
+					LbPolicy: &networking.LoadBalancerSettings_Simple{
+						Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+					},
+				},
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					ConsecutiveErrors: 20,
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := MergeTrafficPolicy(tt.original, tt.subset, tt.port)
+			if !reflect.DeepEqual(policy, tt.expected) {
+				t.Errorf("Unexpected merged TrafficPolicy. want %v, got %v", tt.expected, policy)
+			}
+		})
+	}
+
+}
+
 func TestApplyEdsConfig(t *testing.T) {
 	cases := []struct {
-		name       string
-		cluster    *cluster.Cluster
-		cdsVersion string
-		edsConfig  *cluster.Cluster_EdsClusterConfig
+		name      string
+		cluster   *cluster.Cluster
+		edsConfig *cluster.Cluster_EdsClusterConfig
 	}{
 		{
 			name:      "non eds type of cluster",
@@ -282,29 +547,15 @@ func TestApplyEdsConfig(t *testing.T) {
 						Ads: &core.AggregatedConfigSource{},
 					},
 					InitialFetchTimeout: features.InitialFetchTimeout,
-				},
-			},
-		},
-		{
-			name:    "eds type of cluster v3",
-			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			edsConfig: &cluster.Cluster_EdsClusterConfig{
-				ServiceName: "foo",
-				EdsConfig: &core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_Ads{
-						Ads: &core.AggregatedConfigSource{},
-					},
-					InitialFetchTimeout: features.InitialFetchTimeout,
 					ResourceApiVersion:  core.ApiVersion_V3,
 				},
 			},
-			cdsVersion: v3.ClusterType,
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			maybeApplyEdsConfig(tt.cluster, tt.cdsVersion)
+			maybeApplyEdsConfig(tt.cluster)
 			if !reflect.DeepEqual(tt.cluster.EdsClusterConfig, tt.edsConfig) {
 				t.Errorf("Unexpected Eds config in cluster. want %v, got %v", tt.edsConfig, tt.cluster.EdsClusterConfig)
 			}

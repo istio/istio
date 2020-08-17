@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/mixer"
+	util "istio.io/istio/tests/integration/telemetry"
 	"istio.io/istio/tests/integration/telemetry/tracing"
 )
 
@@ -67,8 +67,6 @@ func setupConfig(cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["tracing.provider"] = "zipkin"
 	cfg.Values["meshConfig.enableTracing"] = "true"
-	cfg.Values["meshConfig.disablePolicyChecks"] = "true"
 	cfg.Values["pilot.traceSampling"] = "100.0"
 }

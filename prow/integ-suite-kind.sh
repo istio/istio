@@ -93,6 +93,8 @@ export TEST_ENV=kind
 # See https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster
 export PULL_POLICY=IfNotPresent
 
+# We run a local-registry in a docker container that KinD nodes pull from
+# These values are must match what is in config/trustworthy-jwt.yaml
 export KIND_REGISTRY_NAME="kind-registry"
 export KIND_REGISTRY_PORT="5000"
 export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
@@ -110,7 +112,7 @@ fi
 export IP_FAMILY="${IP_FAMILY:-ipv4}"
 
 # Setup junit report and verbose logging
-export T="${T:-"-v"}"
+export T="${T:-"-v -count=1"}"
 export CI="true"
 
 make init
@@ -122,16 +124,21 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     # TODO: Support IPv6 multicluster
     time setup_kind_clusters "${TOPOLOGY}" "${NODE_IMAGE:-}"
 
+    # KinD will have a LoadBalancer for multicluster
+    export TEST_ENV=kind-metallb
     # Set the kube configs to point to the clusters.
-    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG}"
-    export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-1"
+    export INTEGRATION_TEST_KUBECONFIG="${CLUSTER1_KUBECONFIG},${CLUSTER2_KUBECONFIG},${CLUSTER3_KUBECONFIG},${CLUSTER4_KUBECONFIG},${CLUSTER5_KUBECONFIG}"
+    # 3 clusters on one network, 2 on the other
+    export INTEGRATION_TEST_NETWORKS="0:test-network-0,1:test-network-0,2:test-network-0,3:test-network-1,4:test-network-1"
+    # Cluster 0, 1 and 4 share cluster 0's control plane
+    # Clusters 2 and 3 control themselves
+    export INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY="0:0,1:0,2:2,3:3,4:0"
   fi
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
-  time build_images "${PARAMS[*]}"
   time setup_kind_registry
-  time kind_push_images
+  time build_images "${PARAMS[*]}"
 fi
 
 # If a variant is defined, update the tag accordingly

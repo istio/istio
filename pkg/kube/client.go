@@ -57,12 +57,10 @@ import (
 	serviceapisfake "sigs.k8s.io/service-apis/pkg/client/clientset/versioned/fake"
 	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
+	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-
-	"istio.io/api/label"
-
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -175,9 +173,10 @@ var _ ExtendedClient = &client{}
 
 const resyncInterval = 0
 
-func NewFakeClient() Client {
+func NewFakeClient(objects ...runtime.Object) Client {
 	var c client
-	c.Interface = fake.NewSimpleClientset()
+	c.Interface = fake.NewSimpleClientset(objects...)
+	c.kube = c.Interface
 	c.kubeInformer = informers.NewSharedInformerFactory(c.Interface, resyncInterval)
 
 	s := runtime.NewScheme()
@@ -216,6 +215,7 @@ type client struct {
 	extSet        kubeExtClient.Interface
 	versionClient discovery.ServerVersionInterface
 
+	kube         kubernetes.Interface
 	kubeInformer informers.SharedInformerFactory
 
 	dynamic         dynamic.Interface
@@ -250,6 +250,7 @@ func newClientInternal(clientFactory util.Factory, revision string) (*client, er
 	}
 
 	c.Interface, err = kubernetes.NewForConfig(c.config)
+	c.kube = c.Interface
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +319,7 @@ func (c *client) Dynamic() dynamic.Interface {
 }
 
 func (c *client) Kube() kubernetes.Interface {
-	return c
+	return c.kube
 }
 
 func (c *client) Metadata() metadata.Interface {
@@ -467,25 +468,25 @@ func (c *client) proxyGet(name, namespace, path string, port int) rest.ResponseW
 	return request
 }
 
-func (c *client) AllDiscoveryDo(ctx context.Context, pilotNamespace, path string) (map[string][]byte, error) {
-	pilots, err := c.GetIstioPods(ctx, pilotNamespace, map[string]string{
+func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
+	istiods, err := c.GetIstioPods(ctx, istiodNamespace, map[string]string{
 		"labelSelector": "app=istiod",
 		"fieldSelector": "status.phase=Running",
 	})
 	if err != nil {
 		return nil, err
 	}
-	if len(pilots) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
+	if len(istiods) == 0 {
+		return nil, errors.New("unable to find any Istiod instances")
 	}
 	result := map[string][]byte{}
-	for _, pilot := range pilots {
-		res, err := c.proxyGet(pilot.Name, pilot.Namespace, path, 8080).DoRaw(ctx)
+	for _, istiod := range istiods {
+		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
 			return nil, err
 		}
 		if len(res) > 0 {
-			result[pilot.Name] = res
+			result[istiod.Name] = res
 		}
 	}
 	return result, err

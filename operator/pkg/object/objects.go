@@ -153,6 +153,11 @@ func (o *K8sObject) GroupVersionKind() schema.GroupVersionKind {
 	return o.object.GroupVersionKind()
 }
 
+// Version returns the APIVersion of the K8sObject
+func (o *K8sObject) Version() string {
+	return o.object.GetAPIVersion()
+}
+
 // Hash returns a unique hash for the K8sObject
 func (o *K8sObject) Hash() string {
 	return Hash(o.Kind, o.Namespace, o.Name)
@@ -225,6 +230,15 @@ func (os K8sObjects) Keys() []string {
 		out = append(out, oo.Hash())
 	}
 	return out
+}
+
+// UnstructuredItems returns the list of items of unstructured.Unstructured.
+func (os K8sObjects) UnstructuredItems() []unstructured.Unstructured {
+	var usList []unstructured.Unstructured
+	for _, obj := range os {
+		usList = append(usList, *obj.UnstructuredObject())
+	}
+	return usList
 }
 
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.

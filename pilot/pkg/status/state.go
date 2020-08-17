@@ -16,25 +16,26 @@ package status
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"k8s.io/apimachinery/pkg/labels"
-
-	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
 
+	"istio.io/api/meta/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/pkg/log"
 )
 
@@ -56,54 +57,56 @@ type DistributionController struct {
 	CurrentState     map[Resource]map[string]Progress
 	ObservationTime  map[string]time.Time
 	UpdateInterval   time.Duration
-	client           dynamic.Interface
+	dynamicClient    dynamic.Interface
 	clock            clock.Clock
 	knownResources   map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface
 	currentlyWriting ResourceLock
 	StaleInterval    time.Duration
-	QPS              float32
-	Burst            int
+	cmInformer       cache.SharedIndexInformer
 }
 
-func (c *DistributionController) Start(restConfig *rest.Config, namespace string, stop <-chan struct{}) {
-	scope.Info("Starting status leader controller")
-	// default UpdateInterval
-	if c.UpdateInterval == 0 {
-		c.UpdateInterval = 200 * time.Millisecond
+func NewController(restConfig rest.Config, namespace string) *DistributionController {
+	c := &DistributionController{
+		CurrentState:    make(map[Resource]map[string]Progress),
+		ObservationTime: make(map[string]time.Time),
+		knownResources:  make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface),
+		UpdateInterval:  200 * time.Millisecond,
+		StaleInterval:   time.Minute,
+		clock:           clock.RealClock{},
 	}
-	// default StaleInterval
-	if c.StaleInterval == 0 {
-		c.StaleInterval = time.Minute
-	}
-	if c.clock == nil {
-		c.clock = clock.RealClock{}
-	}
-	c.CurrentState = make(map[Resource]map[string]Progress)
-	c.ObservationTime = make(map[string]time.Time)
-	c.knownResources = make(map[schema.GroupVersionResource]dynamic.NamespaceableResourceInterface)
 
 	// client-go defaults to 5 QPS, with 10 Boost, which is insufficient for updating status on all the config
 	// in the mesh.  These values can be configured using environment variables for tuning (see pilot/pkg/features)
-	restConfig.QPS = c.QPS
-	restConfig.Burst = c.Burst
+	restConfig.QPS = float32(features.StatusQPS)
+	restConfig.Burst = features.StatusBurst
 	var err error
-	if c.client, err = dynamic.NewForConfig(restConfig); err != nil {
+	if c.dynamicClient, err = dynamic.NewForConfig(&restConfig); err != nil {
 		scope.Fatalf("Could not connect to kubernetes: %s", err)
 	}
-	// create watch
-	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(restConfig), 1*time.Minute,
+
+	// configmap informer
+	i := informers.NewSharedInformerFactoryWithOptions(kubernetes.NewForConfigOrDie(&restConfig), 1*time.Minute,
 		informers.WithNamespace(namespace),
 		informers.WithTweakListOptions(func(listOptions *metav1.ListOptions) {
 			listOptions.LabelSelector = labels.Set(map[string]string{labelKey: "true"}).AsSelector().String()
 		})).
 		Core().V1().ConfigMaps()
+	c.cmInformer = i.Informer()
 	i.Informer().AddEventHandler(&DistroReportHandler{dc: c})
+
+	return c
+}
+
+func (c *DistributionController) Start(stop <-chan struct{}) {
+	scope.Info("Starting status leader controller")
+
 	// this will list all existing configmaps, as well as updates, right?
 	ctx := NewIstioContext(stop)
-	go i.Informer().Run(ctx.Done())
+	go c.cmInformer.Run(ctx.Done())
 
-	//create Status Writer
+	//  create Status Writer
 	t := c.clock.Tick(c.UpdateInterval)
+
 	go func() {
 		for {
 			select {
@@ -158,7 +161,7 @@ func (c *DistributionController) initK8sResource(gvr schema.GroupVersionResource
 	if result, ok := c.knownResources[gvr]; ok {
 		return result
 	}
-	result = c.client.Resource(gvr)
+	result = c.dynamicClient.Resource(gvr)
 	c.knownResources[gvr] = result
 	return
 }
@@ -218,45 +221,45 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 	}
 }
 
-func GetTypedStatus(in interface{}) (out IstioStatus, err error) {
+func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
 	var statusBytes []byte
-	if statusBytes, err = yaml.Marshal(in); err == nil {
-		err = yaml.Unmarshal(statusBytes, &out)
+	if statusBytes, err = json.Marshal(in); err == nil {
+		err = json.Unmarshal(statusBytes, &out)
 	}
 	return
 }
 
-func boolToConditionStatus(b bool) v1beta1.ConditionStatus {
+func boolToConditionStatus(b bool) string {
 	if b {
-		return metav1.ConditionTrue
+		return "True"
 	}
-	return metav1.ConditionFalse
+	return "False"
 }
 
-func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *IstioStatus) {
+func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *v1alpha1.IstioStatus) {
 	needsReconcile := false
 	currentStatus, err := GetTypedStatus(current["status"])
-	desiredCondition := IstioCondition{
-		Type:               Reconciled,
+	desiredCondition := v1alpha1.IstioCondition{
+		Type:               "Reconciled",
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
-		LastProbeTime:      metav1.NewTime(clock.Now()),
-		LastTransitionTime: metav1.NewTime(clock.Now()),
+		LastProbeTime:      types.TimestampNow(),
+		LastTransitionTime: types.TimestampNow(),
 		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
 	}
 	if err != nil {
 		// the status field is in an unexpected state.
 		scope.Warn("Encountered unexpected status content.  Overwriting status.")
 		scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current["status"])
-		currentStatus = IstioStatus{
-			Conditions: []IstioCondition{desiredCondition},
+		currentStatus = v1alpha1.IstioStatus{
+			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
 		}
 		return true, &currentStatus
 	}
-	var currentCondition *IstioCondition
+	var currentCondition *v1alpha1.IstioCondition
 	conditionIndex := -1
 	for i, c := range currentStatus.Conditions {
-		if c.Type == Reconciled {
-			currentCondition = &c
+		if c.Type == "Reconciled" {
+			currentCondition = currentStatus.Conditions[i]
 			conditionIndex = i
 		}
 	}
@@ -266,9 +269,9 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 		needsReconcile = true
 	}
 	if conditionIndex > -1 {
-		currentStatus.Conditions[conditionIndex] = desiredCondition
+		currentStatus.Conditions[conditionIndex] = &desiredCondition
 	} else {
-		currentStatus.Conditions = append(currentStatus.Conditions, desiredCondition)
+		currentStatus.Conditions = append(currentStatus.Conditions, &desiredCondition)
 	}
 	return needsReconcile, &currentStatus
 }

@@ -21,10 +21,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"istio.io/istio/pkg/adsc"
-
-	"istio.io/pkg/log"
-
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -32,8 +28,10 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	controllermemory "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/log"
 )
 
 // Server represents the XDS serving feature of Istiod (pilot).
@@ -87,6 +85,7 @@ func NewXDS() *SimpleServer {
 	env.PushContext.Mesh = env.Watcher.Mesh()
 
 	ds := NewDiscoveryServer(env, nil)
+	ds.CachesSynced()
 
 	// Config will have a fixed format:
 	// - aggregate store
@@ -106,7 +105,7 @@ func NewXDS() *SimpleServer {
 	s.MemoryConfigStore = model.MakeIstioStore(configController)
 
 	// Endpoints/Clusters - using the config store for ServiceEntries
-	serviceControllers := aggregate.NewController()
+	serviceControllers := aggregate.NewController(aggregate.Options{})
 
 	serviceEntryStore := serviceentry.NewServiceDiscovery(configController, s.MemoryConfigStore, ds)
 	serviceEntryRegistry := serviceregistry.Simple{
@@ -150,6 +149,7 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 	}
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
+	s.DiscoveryServer.RegisterLegacyv2(gs)
 	reflection.Register(gs)
 	s.GRPCListener = lis
 	go func() {
@@ -186,6 +186,12 @@ func (p *ProxyGen) AddClient(adsc *adsc.ADSC) {
 	p.server.m.Lock()
 	p.adsc = adsc // TODO: list
 	p.server.m.Unlock()
+}
+
+func (p *ProxyGen) Close() {
+	if p.adsc != nil {
+		p.adsc.Close()
+	}
 }
 
 // TODO: remove clients, multiple clients (agent has only one)

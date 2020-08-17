@@ -20,7 +20,6 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pkg/config/constants"
@@ -106,6 +105,7 @@ func ServiceToServiceEntry(svc *model.Service) *model.Config {
 			Name:   p.Name,
 			// Protocol is converted to protocol.Instance - reverse conversion will use the name.
 			Protocol: string(p.Protocol),
+			// TODO: target port
 		})
 	}
 
@@ -241,11 +241,16 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		instancePort = 0
 		addr = strings.TrimPrefix(addr, model.UnixAddressPrefix)
-	} else {
+	} else if len(endpoint.Ports) > 0 { // endpoint port map takes precedence
 		instancePort = endpoint.Ports[servicePort.Name]
 		if instancePort == 0 {
 			instancePort = servicePort.Number
 		}
+	} else if servicePort.TargetPort > 0 {
+		instancePort = servicePort.TargetPort
+	} else {
+		// final fallback is to the service port value
+		instancePort = servicePort.Number
 	}
 
 	tlsMode := getTLSModeFromWorkloadEntry(endpoint)
@@ -272,9 +277,9 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 	}
 }
 
-// convertWorkloadInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
-// same as the ServiceEntry convertInstances.
-func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
+// convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
+// same as the ServiceEntry convertServiceEntryToInstances.
+func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
 		for _, port := range se.Ports {
@@ -284,7 +289,7 @@ func convertWorkloadInstances(wle *networking.WorkloadEntry, services []*model.S
 	return out
 }
 
-func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
+func convertServiceEntryToInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if services == nil {
@@ -292,8 +297,9 @@ func convertInstances(cfg model.Config, services []*model.Service) []*model.Serv
 	}
 	for _, service := range services {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			if len(serviceEntry.Endpoints) == 0 &&
+			if len(serviceEntry.Endpoints) == 0 && serviceEntry.WorkloadSelector == nil &&
 				serviceEntry.Resolution == networking.ServiceEntry_DNS {
+				// Note: only convert the hostname to service instance if WorkloadSelector is not set
 				// when service entry has discovery type DNS and no endpoints
 				// we create endpoints from service's host
 				// Do not use serviceentry.hosts as a service entry is converted into
@@ -332,19 +338,22 @@ func getTLSModeFromWorkloadEntry(wle *networking.WorkloadEntry) string {
 	return tlsMode
 }
 
-// The foreign service instance has pointer to the foreign service and its service port.
+// The workload instance has pointer to the service and its service port.
 // We need to create our own but we can retain the endpoint already created.
-// TODO(rshriram): we currently ignore the pod(endpoint) ports and setup 1-1 mapping
-// from service port to endpoint port. Need to figure out a way to map k8s pod port to
-// appropriate service entry port
-func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serviceEntryServices []*model.Service,
+func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpoint, serviceEntryServices []*model.Service,
 	serviceEntry *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range serviceEntryServices {
 		for _, serviceEntryPort := range serviceEntry.Ports {
-			ep := *foreignInstance.Endpoint
+			ep := *workloadInstance
 			ep.ServicePortName = serviceEntryPort.Name
-			ep.EndpointPort = serviceEntryPort.Number
+			// if target port is set, use the target port else fallback to the service port
+			// TODO: we need a way to get the container port map from k8s
+			if serviceEntryPort.TargetPort > 0 {
+				ep.EndpointPort = serviceEntryPort.TargetPort
+			} else {
+				ep.EndpointPort = serviceEntryPort.Number
+			}
 			ep.EnvoyEndpoint = nil
 			out = append(out, &model.ServiceInstance{
 				Endpoint:    &ep,
@@ -358,14 +367,23 @@ func convertForeignServiceInstances(foreignInstance *model.ServiceInstance, serv
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-// TODO(rshriram): we currently ignore the workload entry (endpoint) ports. K8S will setup 1-1 mapping
-// from service port to endpoint port. Need to figure out a way to map workload entry port to
-// appropriate k8s service port
-func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
-	we *networking.WorkloadEntry) *model.ServiceInstance {
+func convertWorkloadEntryToWorkloadInstance(namespace string, cfg model.Config) *model.WorkloadInstance {
+	we := cfg.Spec.(*networking.WorkloadEntry)
+	// we will merge labels from metadata with spec, with precedence to the metadata
+	labels := map[string]string{}
+	for k, v := range we.Labels {
+		labels[k] = v
+	}
+	for k, v := range cfg.Labels {
+		labels[k] = v
+	}
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
+		return nil
+	}
+	if net.ParseIP(addr) == nil {
+		// k8s can't use workloads with hostnames in the address field.
 		return nil
 	}
 	tlsMode := getTLSModeFromWorkloadEntry(we)
@@ -373,22 +391,20 @@ func convertWorkloadEntryToServiceInstanceForK8S(namespace string,
 	if we.ServiceAccount != "" {
 		sa = spiffe.MustGenSpiffeURI(namespace, we.ServiceAccount)
 	}
-	return &model.ServiceInstance{
+	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
+			// Not setting ports here as its done by k8s controller
 			Network: we.Network,
 			Locality: model.Locality{
 				Label: we.Locality,
 			},
 			LbWeight:       we.Weight,
-			Labels:         we.Labels,
+			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},
-		Service: &model.Service{
-			Attributes: model.ServiceAttributes{
-				Namespace: namespace,
-			},
-		},
+		PortMap:   we.Ports,
+		Namespace: namespace,
 	}
 }

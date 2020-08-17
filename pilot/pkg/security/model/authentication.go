@@ -15,20 +15,18 @@
 package model
 
 import (
-	"sync"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	envoy_config_grpc_credential "github.com/envoyproxy/go-control-plane/envoy/config/grpc_credential/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -49,9 +47,6 @@ const (
 
 	// K8sSATrustworthyJwtFileName is the token volume mount file name for k8s trustworthy jwt token.
 	K8sSATrustworthyJwtFileName = "/var/run/secrets/tokens/istio-token"
-
-	// FileBasedMetadataPlugName is File Based Metadata credentials plugin name.
-	FileBasedMetadataPlugName = "envoy.grpc_credentials.file_based_metadata"
 
 	// K8sSAJwtTokenHeaderKey is the request header key for k8s jwt token.
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
@@ -84,12 +79,13 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecr
 		StatPrefix: SDSStatPrefix,
 	}
 
-	return &tls.SdsSecretConfig{
+	cfg := &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
-					ApiType: core.ApiConfigSource_GRPC,
+					ApiType:             core.ApiConfigSource_GRPC,
+					TransportApiVersion: core.ApiVersion_V3,
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_GoogleGrpc_{
@@ -99,23 +95,25 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecr
 					},
 				},
 			},
+			ResourceApiVersion:  core.ApiVersion_V3,
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
+
+	return cfg
 }
 
-// ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
-func ConstructSdsSecretConfig(name, sdsUdsPath string) *tls.SdsSecretConfig {
-	if name == "" || sdsUdsPath == "" {
-		return nil
-	}
-
-	return &tls.SdsSecretConfig{
-		Name: name,
+// Preconfigured SDS configs to avoid excessive memory allocations
+var (
+	// set the fetch timeout to 0 here in defaultSDSConfig and rootSDSConfig
+	// because workload certs are guaranteed exist.
+	defaultSDSConfig = &tls.SdsSecretConfig{
+		Name: SDSDefaultResourceName,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 				ApiConfigSource: &core.ApiConfigSource{
-					ApiType: core.ApiConfigSource_GRPC,
+					ApiType:             core.ApiConfigSource_GRPC,
+					TransportApiVersion: core.ApiVersion_V3,
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -125,9 +123,67 @@ func ConstructSdsSecretConfig(name, sdsUdsPath string) *tls.SdsSecretConfig {
 					},
 				},
 			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+		},
+	}
+	rootSDSConfig = &tls.SdsSecretConfig{
+		Name: SDSRootResourceName,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:             core.ApiConfigSource_GRPC,
+					TransportApiVersion: core.ApiVersion_V3,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+		},
+	}
+)
+
+// ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
+func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
+	if name == "" {
+		return nil
+	}
+
+	if name == SDSDefaultResourceName {
+		return defaultSDSConfig
+	}
+	if name == SDSRootResourceName {
+		return rootSDSConfig
+	}
+
+	cfg := &tls.SdsSecretConfig{
+		Name: name,
+		SdsConfig: &core.ConfigSource{
+			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+				ApiConfigSource: &core.ApiConfigSource{
+					ApiType:             core.ApiConfigSource_GRPC,
+					TransportApiVersion: core.ApiVersion_V3,
+					GrpcServices: []*core.GrpcService{
+						{
+							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+							},
+						},
+					},
+				},
+			},
+			ResourceApiVersion:  core.ApiVersion_V3,
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
+
+	return cfg
 }
 
 // ConstructValidationContext constructs ValidationContext in CommonTLSContext.
@@ -149,8 +205,17 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 	return ret
 }
 
+func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
+	var res []string
+	for _, td := range trustDomainAliases {
+		res = append(res, spiffe.URIPrefix+td+"/")
+	}
+	return res
+}
+
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
+	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
 	// configure TLS with SDS
 	if metadata.SdsEnabled && sdsPath != "" {
 		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
@@ -162,16 +227,22 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.N
 			CaCertificatePath: metadata.TLSServerRootCert,
 		}
 
+		// TODO: if subjectAltName ends with *, create a prefix match as well.
+		// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
+		matchSAN := util.StringToExactMatch(subjectAltNames)
+		if len(trustDomainAliases) > 0 {
+			matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
+		}
+
 		// configure server listeners with SDS.
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(
-					model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName), sdsPath),
+				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
 			},
 		}
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName), sdsPath),
+			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
 		}
 	} else {
 		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
@@ -253,60 +324,4 @@ func ApplyCustomSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext, tl
 			},
 		}
 	}
-}
-
-// ConstructgRPCCallCredentials is used to construct SDS config which is only available from 1.1
-func ConstructgRPCCallCredentials(tokenFileName, headerKey string) []*core.GrpcService_GoogleGrpc_CallCredentials {
-	// If k8s sa jwt token file exists, envoy only handles plugin credentials.
-	config := &envoy_config_grpc_credential.FileBasedMetadataConfig{
-		SecretData: &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: tokenFileName,
-			},
-		},
-		HeaderKey: headerKey,
-	}
-
-	any := findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey, config)
-
-	return []*core.GrpcService_GoogleGrpc_CallCredentials{
-		{
-			CredentialSpecifier: &core.GrpcService_GoogleGrpc_CallCredentials_FromPlugin{
-				FromPlugin: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin{
-					Name: FileBasedMetadataPlugName,
-					ConfigType: &core.GrpcService_GoogleGrpc_CallCredentials_MetadataCredentialsFromPlugin_TypedConfig{
-						TypedConfig: any},
-				},
-			},
-		},
-	}
-}
-
-type fbMetadataAnyKey struct {
-	tokenFileName string
-	headerKey     string
-}
-
-var fileBasedMetadataConfigAnyMap sync.Map
-
-// findOrMarshalFileBasedMetadataConfig searches google.protobuf.Any in fileBasedMetadataConfigAnyMap
-// by tokenFileName and headerKey, and returns google.protobuf.Any proto if found. If not found,
-// it takes the fbMetadata and marshals it into google.protobuf.Any, and stores this new
-// google.protobuf.Any into fileBasedMetadataConfigAnyMap.
-// FileBasedMetadataConfig only supports non-deterministic marshaling. As each SDS config contains
-// marshaled FileBasedMetadataConfig, the SDS config would differ if marshaling FileBasedMetadataConfig
-// returns different result. Once SDS config differs, Envoy will create multiple SDS clients to fetch
-// same SDS resource. To solve this problem, we use findOrMarshalFileBasedMetadataConfig so that
-// FileBasedMetadataConfig is marshaled once, and is reused in all SDS configs.
-func findOrMarshalFileBasedMetadataConfig(tokenFileName, headerKey string, fbMetadata *envoy_config_grpc_credential.FileBasedMetadataConfig) *any.Any {
-	key := fbMetadataAnyKey{
-		tokenFileName: tokenFileName,
-		headerKey:     headerKey,
-	}
-	if v, found := fileBasedMetadataConfigAnyMap.Load(key); found {
-		return v.(*any.Any)
-	}
-	any, _ := ptypes.MarshalAny(fbMetadata)
-	fileBasedMetadataConfigAnyMap.Store(key, any)
-	return any
 }

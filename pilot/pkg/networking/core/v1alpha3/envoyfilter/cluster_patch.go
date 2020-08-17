@@ -19,11 +19,10 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
 // ApplyClusterPatches applies patches to CDS clusters
@@ -32,7 +31,7 @@ func ApplyClusterPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	clusters []*cluster.Cluster) (out []*cluster.Cluster) {
-	defer runtime.HandleCrash(func() {
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("clusters patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.

@@ -16,10 +16,12 @@ package main
 
 import (
 	"fmt"
-	"os" // Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -100,6 +102,11 @@ func run() {
 	}
 
 	var mgrOpt manager.Options
+	leaderElectionID := "istio-operator-lock"
+	if operatorRevision, found := os.LookupEnv("REVISION"); found && operatorRevision != "" {
+		leaderElectionID += "-" + operatorRevision
+	}
+	log.Infof("leader election cm: %s", leaderElectionID)
 	if watchNS != "" {
 		namespaces := strings.Split(watchNS, ",")
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.
@@ -108,7 +115,7 @@ func run() {
 			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
-			LeaderElectionID:        "istio-operator-lock",
+			LeaderElectionID:        leaderElectionID,
 		}
 	} else {
 		// Create manager option for watching all namespaces.
@@ -117,7 +124,7 @@ func run() {
 			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
-			LeaderElectionID:        "istio-operator-lock",
+			LeaderElectionID:        leaderElectionID,
 		}
 	}
 

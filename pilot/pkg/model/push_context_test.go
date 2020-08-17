@@ -21,14 +21,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -522,8 +520,26 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
+	destinationRuleRootNamespaceLocal := Config{
+		ConfigMeta: ConfigMeta{
+			Name:      "rule1",
+			Namespace: "istio-system",
+		},
+		Spec: &networking.DestinationRule{
+			Host:     testhost,
+			ExportTo: []string{"."},
+			Subsets: []*networking.Subset{
+				{
+					Name: "subset9",
+				},
+				{
+					Name: "subset10",
+				},
+			},
+		},
+	}
 	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2,
-		destinationRuleNamespace3, destinationRuleRootNamespace})
+		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal})
 	cases := []struct {
 		proxyNs     string
 		serviceNs   string
@@ -569,21 +585,33 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			serviceNs:   "random",
 			wantSubsets: []string{"subset5", "subset6"},
 		},
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "random",
+			wantSubsets: []string{"subset9", "subset10"},
+		},
+		{
+			proxyNs:     "istio-system",
+			serviceNs:   "istio-system",
+			wantSubsets: []string{"subset9", "subset10"},
+		},
 	}
 	for _, tt := range cases {
-		destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
-			&Service{Hostname: host.Name(testhost), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
-		if destRuleConfig == nil {
-			t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
-		}
-		destRule := destRuleConfig.Spec.(*networking.DestinationRule)
-		var gotSubsets []string
-		for _, ss := range destRule.Subsets {
-			gotSubsets = append(gotSubsets, ss.Name)
-		}
-		if !reflect.DeepEqual(gotSubsets, tt.wantSubsets) {
-			t.Fatalf("proxy in %s namespace: want %+v, got %+v", tt.proxyNs, tt.wantSubsets, gotSubsets)
-		}
+		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
+			destRuleConfig := ps.DestinationRule(&Proxy{ConfigNamespace: tt.proxyNs},
+				&Service{Hostname: host.Name(testhost), Attributes: ServiceAttributes{Namespace: tt.serviceNs}})
+			if destRuleConfig == nil {
+				t.Fatalf("proxy in %s namespace: dest rule is nil, expected subsets %+v", tt.proxyNs, tt.wantSubsets)
+			}
+			destRule := destRuleConfig.Spec.(*networking.DestinationRule)
+			var gotSubsets []string
+			for _, ss := range destRule.Subsets {
+				gotSubsets = append(gotSubsets, ss.Name)
+			}
+			if !reflect.DeepEqual(gotSubsets, tt.wantSubsets) {
+				t.Fatalf("want %+v, got %+v", tt.wantSubsets, gotSubsets)
+			}
+		})
 	}
 }
 
@@ -816,78 +844,6 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 }
 
-func TestSubsetToLabels(t *testing.T) {
-	ps := NewPushContext()
-	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
-	ps.Mesh = &meshconfig.MeshConfig{
-		RootNamespace: "istio-system",
-	}
-	testhost := "httpbin.org"
-	destinationRuleNamespace1 := Config{
-		ConfigMeta: ConfigMeta{
-			Name:      "rule1",
-			Namespace: "test",
-		},
-		Spec: &networking.DestinationRule{
-			Host: testhost,
-			Subsets: []*networking.Subset{
-				{
-					Name: "subset1",
-				},
-				{
-					Name:   "subset2",
-					Labels: map[string]string{},
-				},
-				{
-					Name: "subset3",
-					Labels: map[string]string{
-						"a": "b",
-					},
-				},
-			},
-		},
-	}
-	proxy := &Proxy{
-		Metadata:        &NodeMetadata{IstioVersion: "1.6.0"},
-		ConfigNamespace: "test",
-	}
-
-	ps.SetDestinationRules([]Config{destinationRuleNamespace1})
-
-	for _, test := range []struct {
-		name     string
-		subset   string
-		expected labels.Collection
-	}{
-		{
-			name:     "No labels",
-			subset:   "subset1",
-			expected: nil,
-		},
-		{
-			name:     "Empty labels",
-			subset:   "subset2",
-			expected: nil,
-		},
-		{
-			name:   "With labels",
-			subset: "subset3",
-			expected: labels.Collection{
-				{
-					"a": "b",
-				},
-			},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			labelsCollection := ps.SubsetToLabels(proxy, test.subset, host.Name(testhost))
-			if cmp.Diff(labelsCollection, test.expected) != "" {
-				t.Errorf("want %v, but got %v", test.expected, labelsCollection)
-			}
-		})
-	}
-}
-
 func TestIsClusterLocal(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -987,7 +943,7 @@ func TestIsClusterLocal(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			env := &Environment{Watcher: mesh.NewFixedWatcher(&c.m)}
 			push := &PushContext{

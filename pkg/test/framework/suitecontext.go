@@ -24,11 +24,10 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/test/framework/features"
-	"istio.io/istio/pkg/test/util/yml"
-
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/yml"
 )
 
 // suiteContext contains suite-level items used during runtime.
@@ -139,11 +138,7 @@ func (s *suiteContext) Environment() resource.Environment {
 	return s.environment
 }
 
-func (s *suiteContext) IsMulticluster() bool {
-	return s.Environment().IsMulticluster()
-}
-
-func (s *suiteContext) Clusters() []resource.Cluster {
+func (s *suiteContext) Clusters() resource.Clusters {
 	return s.Environment().Clusters()
 }
 

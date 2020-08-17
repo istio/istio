@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 18771
+- 18838
+releaseNotes:
+ - |
+  **Upgraded** the CRD and Webhook versions to `v1`.
+upgradeNotes:
+ - title: Require Kubernetes 1.16+
+   content: Kubernetes 1.16+ is now required for installation.
+
+

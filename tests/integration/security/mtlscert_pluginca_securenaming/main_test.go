@@ -17,18 +17,14 @@ package mtlscertplugincasecurenaming
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/security/util/cert"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -45,11 +41,5 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&inst, nil, cert.CreateCASecret)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 }

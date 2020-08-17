@@ -17,6 +17,7 @@ package inmemory
 import (
 	"testing"
 
+	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
@@ -25,8 +26,6 @@ import (
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
-
-	"github.com/gogo/protobuf/types"
 )
 
 var (
@@ -34,7 +33,7 @@ var (
 )
 
 func TestInMemory_Register_Empty(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	i := New(cols)
 	h := &fixtures.Accumulator{}
@@ -53,7 +52,7 @@ func TestInMemory_Register_Empty(t *testing.T) {
 }
 
 func TestInMemory_Set_BeforeSync(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	r := &resource.Instance{
 		Metadata: resource.Metadata{
@@ -87,7 +86,7 @@ func TestInMemory_Set_BeforeSync(t *testing.T) {
 }
 
 func TestInMemory_Set_Add(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	r := &resource.Instance{
 		Metadata: resource.Metadata{
@@ -131,7 +130,7 @@ func TestInMemory_Set_Add(t *testing.T) {
 }
 
 func TestInMemory_Set_Update(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	r1 := &resource.Instance{
 		Metadata: resource.Metadata{
@@ -188,7 +187,7 @@ func TestInMemory_Set_Update(t *testing.T) {
 }
 
 func TestInMemory_Clear_BeforeSync(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	i := New(cols)
 	i.Get(basicmeta.K8SCollection1.Name()).Set(data.EntryN1I1V1)
@@ -212,7 +211,7 @@ func TestInMemory_Clear_BeforeSync(t *testing.T) {
 }
 
 func TestInMemory_Clear_AfterSync(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	i := New(cols)
 	i.Get(basicmeta.K8SCollection1.Name()).Set(data.EntryN1I1V1)
@@ -238,7 +237,7 @@ func TestInMemory_Clear_AfterSync(t *testing.T) {
 }
 
 func TestInMemory_DoubleStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	i := New(cols)
 	h := &fixtures.Accumulator{}
@@ -258,7 +257,7 @@ func TestInMemory_DoubleStart(t *testing.T) {
 }
 
 func TestInMemory_DoubleStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	i := New(cols)
 	h := &fixtures.Accumulator{}

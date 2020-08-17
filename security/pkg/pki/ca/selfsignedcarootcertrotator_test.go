@@ -29,7 +29,6 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/security/pkg/cmd"
-
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
 )
@@ -238,7 +237,7 @@ func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
 		Org:           rotator.config.org,
 		IsCA:          true,
 		IsSelfSigned:  true,
-		RSAKeySize:    caKeySize,
+		RSAKeySize:    rotator.ca.caRSAKeySize,
 		IsDualUse:     rotator.config.dualUse,
 	}
 	pemCert, pemKey, ckErr := util.GenRootCertFromExistingKey(options)
@@ -329,11 +328,12 @@ func getDefaultSelfSignedIstioCAOptions(fclient *fake.Clientset) *IstioCAOptions
 	}
 	rootCertFile := ""
 	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
 
 	caopts, _ := NewSelfSignedIstioCAOptions(context.Background(),
 		cmd.DefaultRootCertGracePeriodPercentile, caCertTTL,
 		rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
-		caNamespace, -1, client, rootCertFile, false)
+		caNamespace, -1, client, rootCertFile, false, rsaKeySize)
 	return caopts
 }
 

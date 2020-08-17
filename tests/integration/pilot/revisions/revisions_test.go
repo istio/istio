@@ -19,12 +19,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-
-	"istio.io/istio/pkg/test/framework/components/istio"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -70,7 +68,7 @@ func TestMultiRevision(t *testing.T) {
 			})
 
 			var client, server echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&client, echo.Config{
 					Service:   "client",
 					Namespace: stable,

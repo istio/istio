@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -27,33 +28,31 @@ import (
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
 
-	"istio.io/istio/pkg/dns"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	securityutil "istio.io/istio/pilot/pkg/security/authn/utils"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (
@@ -69,7 +68,6 @@ var (
 	proxyIP            string
 	registryID         serviceregistry.ProviderID
 	trustDomain        string
-	mixerIdentity      string
 	stsPort            int
 	tokenManagerPlugin string
 
@@ -88,7 +86,6 @@ var (
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
-	istioNamespaceVar    = env.RegisterStringVar("ISTIO_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
 
@@ -96,6 +93,11 @@ var (
 		"the provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
+	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
+	// May also be used in K8S to use a Secret to bootstrap (as a 'refresh key'), but use short-lived tokens
+	// with extra SAN (labels, etc) in data path.
+	provCert = env.RegisterStringVar("PROV_CERT", "",
+		"Set to a directory containing provisioned certs, for VMs").Get()
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
@@ -104,6 +106,43 @@ var (
 		"",
 		"The proxy configuration. This will be set by the injection - gateways will use file mounts.",
 	).Get()
+
+	caProviderEnv = env.RegisterStringVar("CA_PROVIDER", "Citadel", "name of authentication provider").Get()
+	// TODO: default to same as discovery address
+	caEndpointEnv = env.RegisterStringVar("CA_ADDR", "", "Address of the spiffee certificate provider. Defaults to discoveryAddress").Get()
+
+	// TODO: this is a horribly named env, it's really TOKEN_EXCHANGE_PLUGINS - but to avoid breaking
+	// it's left unchanged. It may not be needed because we autodetect.
+	pluginNamesEnv = env.RegisterStringVar("PLUGINS", "", "Token exchange plugins").Get()
+
+	// This is also disabled by presence of the SDS socket directory
+	enableGatewaySDSEnv = env.RegisterBoolVar("ENABLE_INGRESS_GATEWAY_SDS", false,
+		"Enable provisioning gateway secrets. Requires Secret read permission").Get()
+
+	// TODO: This is already present in ProxyConfig !!!
+	trustDomainEnv = env.RegisterStringVar("TRUST_DOMAIN", "",
+		"The trust domain for spiffe certificates").Get()
+
+	secretTTLEnv = env.RegisterDurationVar("SECRET_TTL", 24*time.Hour,
+		"The cert lifetime requested by istio agent").Get()
+
+	secretRotationGracePeriodRatioEnv = env.RegisterFloatVar("SECRET_GRACE_PERIOD_RATIO", 0.5,
+		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+	secretRotationIntervalEnv = env.RegisterDurationVar("SECRET_ROTATION_CHECK_INTERVAL", 5*time.Minute,
+		"The ticker to detect and rotate the certificates, by default 5 minutes").Get()
+	staledConnectionRecycleIntervalEnv = env.RegisterDurationVar("STALED_CONNECTION_RECYCLE_RUN_INTERVAL", 5*time.Minute,
+		"The ticker to detect and close stale connections").Get()
+	initialBackoffInMilliSecEnv = env.RegisterIntVar("INITIAL_BACKOFF_MSEC", 0, "").Get()
+	pkcs8KeysEnv                = env.RegisterBoolVar("PKCS8_KEY", false,
+		"Whether to generate PKCS#8 private keys").Get()
+	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
+	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
+	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
+	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
+		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
+	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
+		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
+			"for example in vm we don't use token to rotate cert.").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -179,8 +218,6 @@ var (
 			if len(role.ID) == 0 {
 				if registryID == serviceregistry.Kubernetes {
 					role.ID = podName + "." + podNamespace
-				} else if registryID == serviceregistry.Consul {
-					role.ID = role.IPAddresses[0] + ".service.consul"
 				} else {
 					role.ID = role.IPAddresses[0]
 				}
@@ -212,28 +249,57 @@ var (
 				log.Info("Using existing certs")
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
+			secOpts := &security.Options{
 				PilotCertProvider:  pilotCertProvider,
-				JWTPath:            jwtPath,
 				OutputKeyCertToDir: outputKeyCertToDir,
+				ProvCert:           provCert,
+				JWTPath:            jwtPath,
 				ClusterID:          clusterIDVar.Get(),
-			})
+				FileMountedCerts:   fileMountedCertsEnv,
+				CAEndpoint:         caEndpointEnv,
+				UseTokenForCSR:     useTokenForCSREnv,
+				CredFetcher:        nil,
+			}
+			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
-			// Connection to Istiod secure port
-			if sa.RequireCerts {
-				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_MUTUAL_TLS
+			secOpts.EnableWorkloadSDS = true
+
+			secOpts.EnableGatewaySDS = enableGatewaySDSEnv
+			secOpts.CAProviderName = caProviderEnv
+
+			// TODO: extract from ProxyConfig
+			secOpts.TrustDomain = trustDomainEnv
+			secOpts.Pkcs8Keys = pkcs8KeysEnv
+			secOpts.ECCSigAlg = eccSigAlgEnv
+			secOpts.RecycleInterval = staledConnectionRecycleIntervalEnv
+			secOpts.ECCSigAlg = eccSigAlgEnv
+			secOpts.SecretTTL = secretTTLEnv
+			secOpts.SecretRotationGracePeriodRatio = secretRotationGracePeriodRatioEnv
+			secOpts.RotationInterval = secretRotationIntervalEnv
+			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
+			// Disable the secret eviction for istio agent.
+			secOpts.EvictionDuration = 0
+			secOpts.SkipParseToken = skipParseTokenEnv
+
+			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+			// GCE is the only supported plugin at the moment.
+			if credFetcherTypeEnv == security.GCE {
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
+				if err != nil {
+					return fmt.Errorf("failed to create credential fetcher: %v", err)
+				}
+				log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, secOpts.TrustDomain)
+				secOpts.CredFetcher = credFetcher
 			}
 
-			var pilotSAN, mixerSAN []string
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{}, secOpts)
+
+			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
-				// Obtain the Mixer SAN, which uses SPIFFE certs. Used below to create a Envoy proxy.
-				mixerSAN = getSAN(getControlPlaneNamespace(podNamespace, proxyConfig.DiscoveryAddress), securityutil.MixerSvcAccName, mixerIdentity)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
 			log.Infof("PilotSAN %#v", pilotSAN)
-			log.Infof("MixerSAN %#v", mixerSAN)
 
 			// Start in process SDS.
 			_, err = sa.Start(role.Type == model.SidecarProxy, podNamespaceVar.Get())
@@ -247,26 +313,13 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				localHostAddr := localHostIPv4
-				if proxyIPv6 {
-					localHostAddr = localHostIPv6
-				}
-				prober := kubeAppProberNameVar.Get()
-				statusServer, err := status.NewServer(status.Config{
-					LocalHostAddr:  localHostAddr,
-					AdminPort:      uint16(proxyConfig.ProxyAdminPort),
-					StatusPort:     uint16(proxyConfig.StatusPort),
-					KubeAppProbers: prober,
-					NodeType:       role.Type,
-				})
-				if err != nil {
-					cancel()
+				if err := initStatusServer(ctx, proxyIPv6, proxyConfig); err != nil {
 					return err
 				}
-				go statusServer.Run(ctx)
 			}
 
 			// If security token service (STS) port is not zero, start STS server and
@@ -278,13 +331,12 @@ var (
 					localHostAddr = localHostIPv6
 				}
 				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{TrustDomain: trustDomain})
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,
 				}, tokenManager)
 				if err != nil {
-					cancel()
 					return err
 				}
 				defer stsServer.Stop()
@@ -314,7 +366,6 @@ var (
 				LogLevel:            proxyLogLevel,
 				ComponentLogLevel:   proxyComponentLogLevel,
 				PilotSubjectAltName: pilotSAN,
-				MixerSubjectAltName: mixerSAN,
 				NodeIPs:             role.IPAddresses,
 				PodName:             podName,
 				PodNamespace:        podNamespace,
@@ -325,6 +376,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
+				Sidecar:             role.Type == model.SidecarProxy,
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
@@ -347,41 +399,30 @@ var (
 	}
 )
 
-// explicitly set the trustdomain so the pilot and mixer SAN will have same trustdomain
-// and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
-func setSpiffeTrustDomain(podNamespace string, domain string) {
-	pilotTrustDomain := trustDomain
-	if len(pilotTrustDomain) == 0 {
-		if registryID == serviceregistry.Kubernetes &&
-			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
-			pilotTrustDomain = constants.DefaultKubernetesDomain
-		} else if registryID == serviceregistry.Consul &&
-			(domain == "service.consul" || domain == "") {
-			pilotTrustDomain = ""
-		} else {
-			pilotTrustDomain = domain
-		}
+func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
+	localHostAddr := localHostIPv4
+	if proxyIPv6 {
+		localHostAddr = localHostIPv6
 	}
-	spiffe.SetTrustDomain(pilotTrustDomain)
-}
-
-func getSAN(ns string, defaultSA string, overrideIdentity string) []string {
-	var san []string
-	if overrideIdentity == "" {
-		san = append(san, securityutil.GetSAN(ns, defaultSA))
-	} else {
-		san = append(san, securityutil.GetSAN("", overrideIdentity))
-
+	prober := kubeAppProberNameVar.Get()
+	statusServer, err := status.NewServer(status.Config{
+		LocalHostAddr:  localHostAddr,
+		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
+		StatusPort:     uint16(proxyConfig.StatusPort),
+		KubeAppProbers: prober,
+		NodeType:       role.Type,
+	})
+	if err != nil {
+		return err
 	}
-	return san
+	go statusServer.Run(ctx)
+	return nil
 }
 
 func getDNSDomain(podNamespace, domain string) string {
 	if len(domain) == 0 {
 		if registryID == serviceregistry.Kubernetes {
 			domain = podNamespace + ".svc." + constants.DefaultKubernetesDomain
-		} else if registryID == serviceregistry.Consul {
-			domain = "service.consul"
 		} else {
 			domain = ""
 		}
@@ -392,8 +433,8 @@ func getDNSDomain(podNamespace, domain string) string {
 func init() {
 	proxyCmd.PersistentFlags().StringVar((*string)(&registryID), "serviceregistry",
 		string(serviceregistry.Kubernetes),
-		fmt.Sprintf("Select the platform for service registry, options are {%s, %s, %s}",
-			serviceregistry.Kubernetes, serviceregistry.Consul, serviceregistry.Mock))
+		fmt.Sprintf("Select the platform for service registry, options are {%s, %s}",
+			serviceregistry.Kubernetes, serviceregistry.Mock))
 	proxyCmd.PersistentFlags().StringVar(&proxyIP, "ip", "",
 		"Proxy IP address. If not provided uses ${INSTANCE_IP} environment variable.")
 	proxyCmd.PersistentFlags().StringVar(&role.ID, "id", "",
@@ -402,8 +443,6 @@ func init() {
 		"DNS domain suffix. If not provided uses ${POD_NAMESPACE}.svc.cluster.local")
 	proxyCmd.PersistentFlags().StringVar(&trustDomain, "trust-domain", "",
 		"The domain to use for identities")
-	proxyCmd.PersistentFlags().StringVar(&mixerIdentity, "mixerIdentity", "",
-		"The identity used as the suffix for mixer's spiffe SAN. This would only be used by pilot all other proxy would get this value from pilot")
 
 	proxyCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfig", "./etc/istio/config/mesh",
 		"File name for Istio mesh configuration. If not specified, a default mesh will be used. This may be overridden by "+

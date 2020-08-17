@@ -23,8 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
@@ -32,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/event"
 	"istio.io/istio/pkg/config/resource"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -60,7 +59,7 @@ var (
 )
 
 func TestBasic(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -101,7 +100,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestNodes(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -169,7 +168,7 @@ func TestNodes(t *testing.T) {
 }
 
 func TestPods(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -247,7 +246,7 @@ func TestPods(t *testing.T) {
 }
 
 func TestServices(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()
@@ -320,7 +319,7 @@ func TestServices(t *testing.T) {
 }
 
 func TestEndpoints(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	// Set the log level to debug for codecov.
 	prevLevel := setDebugLogLevel()

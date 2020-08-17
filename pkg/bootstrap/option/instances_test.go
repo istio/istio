@@ -25,11 +25,11 @@ import (
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/option"
 )
 
+// nolint: lll
 func TestOptions(t *testing.T) {
 	cases := []struct {
 		testName    string
@@ -55,18 +55,6 @@ func TestOptions(t *testing.T) {
 			key:      "pilot_SAN",
 			option:   option.PilotSubjectAltName([]string{"fake", "other"}),
 			expected: `[{"exact":"fake"},{"exact":"other"}]`,
-		},
-		{
-			testName: "mixerSAN",
-			key:      "MixerSubjectAltName",
-			option:   option.MixerSubjectAltName([]string{"fake"}),
-			expected: "fake",
-		},
-		{
-			testName: "mixerSAN empty",
-			key:      "MixerSubjectAltName",
-			option:   option.MixerSubjectAltName(make([]string, 0)),
-			expected: nil,
 		},
 		{
 			testName: "nil connect timeout",
@@ -518,7 +506,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyMetricsServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.BootstrapNodeMetadata{}),
-			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext\",\"common_tls_context\":{\"alpn_protocols\":[\"istio\",\"h2\"],\"combined_validation_context\":{\"default_validation_context\":{},\"validation_context_sds_secret_config\":{\"name\":\"ROOTCA\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}},\"tls_certificate_sds_secret_configs\":[{\"name\":\"default\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}]},\"sni\":\"envoy_metrics_service\"}}", // nolint: lll
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_metrics_service"}}`,
 		},
 		{
 			testName: "envoy metrics keepalive nil",
@@ -588,7 +576,7 @@ func TestOptions(t *testing.T) {
 			option: option.EnvoyAccessLogServiceTLS(&networkingAPI.ClientTLSSettings{
 				Mode: networkingAPI.ClientTLSSettings_ISTIO_MUTUAL,
 			}, &model.BootstrapNodeMetadata{}),
-			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext\",\"common_tls_context\":{\"alpn_protocols\":[\"istio\",\"h2\"],\"combined_validation_context\":{\"default_validation_context\":{},\"validation_context_sds_secret_config\":{\"name\":\"ROOTCA\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}},\"tls_certificate_sds_secret_configs\":[{\"name\":\"default\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}]},\"sni\":\"envoy_accesslog_service\"}}", // nolint: lll
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["istio","h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"ROOTCA","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"default","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"initial_fetch_timeout":"0s","resource_api_version":"V3"}}]},"sni":"envoy_accesslog_service"}}`,
 		},
 		{
 			testName: "envoy access log keepalive nil",
@@ -701,13 +689,13 @@ func TestOptions(t *testing.T) {
 				Mode:           networkingAPI.ClientTLSSettings_SIMPLE,
 				CaCertificates: "/etc/tracing/ca.pem",
 			}, &model.BootstrapNodeMetadata{}, false),
-			expected: "{\"name\":\"envoy.transport_sockets.tls\",\"typed_config\":{\"@type\":\"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext\",\"common_tls_context\":{\"combined_validation_context\":{\"default_validation_context\":{},\"validation_context_sds_secret_config\":{\"name\":\"file-root:/etc/tracing/ca.pem\",\"sds_config\":{\"api_config_source\":{\"api_type\":\"GRPC\",\"grpc_services\":[{\"envoy_grpc\":{\"cluster_name\":\"sds-grpc\"}}]}}}}},\"sni\":\"tracer\"}}", // nolint: lll
+			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/tracing/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}}},"sni":"tracer"}}`,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.testName, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			params, err := option.NewTemplateParams(c.option)
 			if c.expectError {

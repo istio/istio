@@ -17,13 +17,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/gomega"
 
-	"github.com/gogo/protobuf/proto"
-
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
@@ -33,7 +31,7 @@ import (
 )
 
 func TestCorrectArgs(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	m1 := &v1alpha3.VirtualService{}
 
@@ -81,12 +79,12 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	a := ValidationAnalyzer{s: testSchema}
 
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		g.Expect(a.Metadata().Inputs).To(ConsistOf(testCol))
 	})
 
 	t.Run("NoErrors", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
 				{
@@ -99,7 +97,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 
 	t.Run("SingleError", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
@@ -115,7 +113,7 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 
 	t.Run("MultiError", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
 				{
@@ -153,6 +151,7 @@ type fakeOrigin struct{}
 func (fakeOrigin) FriendlyName() string          { return "myFriendlyName" }
 func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
 func (fakeOrigin) Reference() resource.Reference { return fakeReference{} }
+func (fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }
 
 type fakeReference struct{}
 

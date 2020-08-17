@@ -53,22 +53,22 @@ func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.Disco
 	isAck := true
 
 	t := discReq.TypeUrl
-	con.mu.Lock()
-	w := con.node.ActiveExperimental[t]
+	con.proxy.Lock()
+	w := con.proxy.ActiveExperimental[t]
 	if w == nil {
 		w = &model.WatchedResource{
 			TypeUrl: t,
 		}
-		con.node.ActiveExperimental[t] = w
+		con.proxy.ActiveExperimental[t] = w
 		isAck = false // newly watched resource
 	}
-	con.mu.Unlock()
+	con.proxy.Unlock()
 
 	if discReq.ErrorDetail != nil {
 		errCode := codes.Code(discReq.ErrorDetail.Code)
 		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
 		if s.InternalGen != nil {
-			s.InternalGen.OnNack(con.node, discReq)
+			s.InternalGen.OnNack(con.proxy, discReq)
 		}
 		return w, true
 	}
@@ -146,8 +146,8 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 
 	// XdsResourceGenerator is the default generator for this connection. We want to allow
 	// some types to use custom generators - for example EDS.
-	g := con.node.XdsResourceGenerator
-	if cg, f := s.Generators[con.node.Metadata.Generator+"/"+w.TypeUrl]; f {
+	g := con.proxy.XdsResourceGenerator
+	if cg, f := s.Generators[con.proxy.Metadata.Generator+"/"+w.TypeUrl]; f {
 		g = cg
 	}
 	if cg, f := s.Generators[w.TypeUrl]; f {
@@ -161,7 +161,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 		return nil
 	}
 
-	cl := g.Generate(con.node, push, w, nil)
+	cl := g.Generate(con.proxy, push, w, nil)
 	sz := 0
 	for _, rc := range cl {
 		resp.Resources = append(resp.Resources, rc)
@@ -178,7 +178,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
 
-	adsLog.Infof("Pushed %s to %s count=%d size=%d", w.TypeUrl, con.node.ID, len(cl), sz)
+	adsLog.Infof("Pushed %s to %s count=%d size=%d", w.TypeUrl, con.proxy.ID, len(cl), sz)
 
 	return nil
 }
@@ -192,7 +192,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 	currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
 	// TODO: generators may send incremental changes if both sides agree on the protocol.
 	// This is specific to each generator type.
-	cl := con.node.XdsResourceGenerator.Generate(con.node, push, w, updates)
+	cl := con.proxy.XdsResourceGenerator.Generate(con.proxy, push, w, updates)
 	if cl == nil {
 		return nil // No push needed.
 	}
@@ -223,6 +223,6 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 	w.LastSize = sz // just resource size - doesn't include header and types
 	w.NonceSent = resp.Nonce
 
-	adsLog.Infof("XDS: PUSH %s for node:%s resources:%d", w.TypeUrl, con.node.ID, len(cl))
+	adsLog.Infof("XDS: PUSH %s for node:%s resources:%d", w.TypeUrl, con.proxy.ID, len(cl))
 	return nil
 }

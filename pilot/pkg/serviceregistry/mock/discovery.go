@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/spiffe"
 )
 
 var (
@@ -46,11 +45,12 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 }
 
 // MakeService creates a memory service
-func MakeService(hostname host.Name, address string) *model.Service {
+func MakeService(hostname host.Name, address string, serviceAccounts []string) *model.Service {
 	return &model.Service{
-		CreationTime: time.Now(),
-		Hostname:     hostname,
-		Address:      address,
+		CreationTime:    time.Now(),
+		Hostname:        hostname,
+		Address:         address,
+		ServiceAccounts: serviceAccounts,
 		Ports: []*model.Port{
 			{
 				Name:     PortHTTPName,
@@ -238,10 +238,9 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	if svc.Hostname == "world.default.svc.cluster.local" {
-		return []string{
-			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
-			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
+	for h, s := range sd.services {
+		if h == svc.Hostname {
+			return s.ServiceAccounts
 		}
 	}
 	return make([]string, 0)
@@ -254,6 +253,10 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 }
 
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
+	return nil
+}
+
+func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
 	return nil
 }
 

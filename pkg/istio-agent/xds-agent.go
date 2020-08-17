@@ -15,6 +15,7 @@
 package istioagent
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -22,16 +23,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
+	"istio.io/istio/pilot/pkg/xds"
 	envoyv2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-
-	"istio.io/istio/security/pkg/nodeagent/cache"
-
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
@@ -86,11 +85,10 @@ func (sa *Agent) initXDS() {
 	g["api/"+envoyv2.EndpointType] = epGen
 
 	g[xds.TypeURLConnections] = p
-	g[envoyv2.ClusterType] = p
 	g[v3.ClusterType] = p
 
 	// GrpcServer server over UDS, shared by SDS and XDS
-	serverOptions.GrpcServer = grpc.NewServer()
+	sa.secOpts.GrpcServer = grpc.NewServer()
 
 	var err error
 	sa.localListener, err = net.Listen("tcp", sa.cfg.LocalXDSAddr)
@@ -103,12 +101,21 @@ func (sa *Agent) initXDS() {
 	sa.LocalXDSListener = sa.localListener
 }
 
+func (sa *Agent) Close() {
+	if sa.localGrpcServer != nil {
+		sa.localGrpcServer.Stop()
+	}
+	_ = sa.localListener.Close()
+	_ = sa.LocalXDSListener.Close()
+	sa.proxyGen.Close()
+}
+
 // startXDS will start the XDS proxy and client. Will connect to Istiod (or XDS server),
 // and start fetching configs to be cached.
 // If 'RequireCerts' is set, will attempt to get certificates. Will then attempt to connect to
 // the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the
 // local XDS proxy and return.
-func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.SecretManager) error {
+func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager) error {
 	if sa.cfg.LocalXDSAddr == "" {
 		return nil
 	}
@@ -125,16 +132,20 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets cache.Sec
 	cfg := &adsc.Config{
 		XDSSAN:          discHost,
 		ResponseHandler: sa.proxyGen,
+		GrpcOpts:        sa.cfg.GrpcOptions,
 	}
-	if sa.RequireCerts {
+
+	// Set Secrets and JWTPath if the default ControlPlaneAuthPolicy is MUTUAL_TLS
+	if sa.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 		cfg.Secrets = secrets
-		cfg.JWTPath = sa.cfg.JWTPath
+		cfg.JWTPath = sa.secOpts.JWTPath
 	}
+
 	ads, err := adsc.New(proxyConfig, cfg)
 	if err != nil {
 		// Error to be handled by caller - probably by exit if
 		// we are in 'envoy using proxy' mode.
-		return err
+		return fmt.Errorf("adsc: %v", err)
 	}
 
 	ads.LocalCacheDir = savePath.Get()

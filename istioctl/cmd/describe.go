@@ -29,23 +29,17 @@ import (
 	rbac_http_filter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
-	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	"istio.io/pkg/log"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
-	mixerclient "istio.io/api/mixer/v1/config/client"
 	"istio.io/api/networking/v1alpha3"
-
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -61,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
 )
 
 type myProtoValue struct {
@@ -683,42 +678,13 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 	return "", nil
 }
 
-func mixerConfigMatches(ns string, name string, tmixer *any.Any) bool {
-	if tmixer != nil {
-		svcName, svcNamespace, err := getTypedMixerDestinationSvc(tmixer)
-		if err == nil && svcNamespace == ns && svcName == name {
-			return true
-		}
-	}
-
-	return false
-}
-
-// routeDestinationMatchesSvc determines if there ismixer configuration to use this service as a destination
+// routeDestinationMatchesSvc determines whether or not to use this service as a destination
 func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
 	if route == nil {
 		return false
 	}
 
-	// If Istio was deployed with telemetry or policy we'll have the K8s Service
-	// nicely connected to the Envoy Route.
-	// nolint: staticcheck
-	if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, route.GetTypedPerFilterConfig()["mixer"]) {
-		return true
-	}
-
-	if rte := route.GetRoute(); rte != nil {
-		if weightedClusters := rte.GetWeightedClusters(); weightedClusters != nil {
-			for _, weightedCluster := range weightedClusters.Clusters {
-				// nolint: staticcheck
-				if mixerConfigMatches(svc.ObjectMeta.Namespace, svc.ObjectMeta.Name, weightedCluster.GetTypedPerFilterConfig()["mixer"]) {
-					return true
-				}
-			}
-		}
-	}
-
-	// No mixer config, infer from VirtualHost domains matching <service>.<namespace>.svc.cluster.local
+	// Infer from VirtualHost domains matching <service>.<namespace>.svc.cluster.local
 	re := regexp.MustCompile(`(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`)
 	for _, domain := range vh.Domains {
 		ss := re.FindStringSubmatch(domain)
@@ -741,19 +707,6 @@ func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.Vi
 	}
 
 	return false
-}
-
-func getTypedMixerDestinationSvc(tmixer *any.Any) (string, string, error) {
-	serviceCfg := &mixerclient.ServiceConfig{}
-	if err := ptypes.UnmarshalAny(tmixer, serviceCfg); err != nil {
-		return "", "", err
-	}
-	svcNameValue, ok1 := serviceCfg.MixerAttributes.Attributes["destination.service.name"]
-	svcNamespaceValue, ok2 := serviceCfg.MixerAttributes.Attributes["destination.service.namespace"]
-	if ok1 && ok2 {
-		return svcNameValue.GetStringValue(), svcNamespaceValue.GetStringValue(), nil
-	}
-	return "", "", fmt.Errorf("no mixer config")
 }
 
 // getIstioConfig returns .metadata.filter_metadata.istio.config, err

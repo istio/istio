@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 25112
+releaseNotes:
+- |
+  **Fixed** an issue when high pod churn rate can cause Istiod to get stuck.

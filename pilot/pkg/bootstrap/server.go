@@ -27,28 +27,17 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/reflection"
-
-	"istio.io/istio/pilot/pkg/status"
-
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-
-	"istio.io/istio/pilot/pkg/networking/apigen"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
-
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
+	"google.golang.org/grpc/reflection"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
@@ -59,8 +48,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -72,6 +61,10 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 var (
@@ -81,7 +74,6 @@ var (
 		plugin.Authn,
 		plugin.Authz,
 		plugin.Health,
-		plugin.Mixer,
 	}
 )
 
@@ -113,8 +105,7 @@ type readinessProbe func() (bool, error)
 type Server struct {
 	MonitorListeningAddr net.Addr
 
-	// TODO(nmittler): Consider alternatives to exposing these directly
-	EnvoyXdsServer *xds.DiscoveryServer
+	XDSServer *xds.DiscoveryServer
 
 	clusterID   string
 	environment *model.Environment
@@ -135,8 +126,11 @@ type Server struct {
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
 
-	httpMux  *http.ServeMux // debug, monitoring and readiness.
-	httpsMux *http.ServeMux // webhooks
+	monitoringMux *http.ServeMux // debug, monitoring
+	// readinessMux listens on the httpAddr (8080). If a Gateway is used in front and https is off it is also multiplexing
+	// the rest of the features.
+	readinessMux *http.ServeMux // readiness.
+	httpsMux     *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
@@ -175,17 +169,21 @@ type Server struct {
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
-		ServiceDiscovery: aggregate.NewController(),
-		PushContext:      model.NewPushContext(),
-		DomainSuffix:     args.RegistryOptions.KubeOptions.DomainSuffix,
+		PushContext:  model.NewPushContext(),
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
+	ac := aggregate.NewController(aggregate.Options{
+		MeshHolder: e,
+	})
+	e.ServiceDiscovery = ac
 
 	s := &Server{
 		clusterID:       getClusterID(args),
 		environment:     e,
-		EnvoyXdsServer:  xds.NewDiscoveryServer(e, args.Plugins),
+		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:     filewatcher.NewWatcher(),
-		httpMux:         http.NewServeMux(),
+		readinessMux:    http.NewServeMux(),
+		monitoringMux:   http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
 	}
 
@@ -223,7 +221,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		return nil, err
 	}
 
-	s.initGenerators()
 	s.initJwtPolicy()
 
 	// Options based on the current 'defaults' in istio.
@@ -270,9 +267,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initRegistryEventHandlers(); err != nil {
 		return nil, fmt.Errorf("error initializing handlers: %v", err)
 	}
-	if err := s.initDiscoveryService(args); err != nil {
-		return nil, fmt.Errorf("error initializing discovery service: %v", err)
-	}
+
+	s.initDiscoveryService(args)
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
@@ -305,6 +301,10 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		})
 	}
 
+	s.addReadinessProbe("discovery", func() (bool, error) {
+		return s.XDSServer.IsServerReady(), nil
+	})
+
 	return s, nil
 }
 
@@ -322,7 +322,7 @@ func getClusterID(args *PilotArgs) string {
 // If Port == 0, a port number is automatically chosen. Content serving is started by this method,
 // but is executed asynchronously. Serving can be canceled at any time by closing the provided stop channel.
 func (s *Server) Start(stop <-chan struct{}) error {
-	log.Infof("Staring Istiod Server with primary cluster %s", s.clusterID)
+	log.Infof("Starting Istiod Server with primary cluster %s", s.clusterID)
 
 	// Now start all of the components.
 	for _, fn := range s.startFuncs {
@@ -346,6 +346,12 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
+		if s.GRPCListener == nil {
+			return // listener is off - using handler
+		}
+		if !s.waitForCacheSync(stop) {
+			return
+		}
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
@@ -356,10 +362,9 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		return fmt.Errorf("failed to sync cache")
 	}
 
-	// Trigger a push, so that the global push context is updated with the new config and Pilot's local Envoy
-	// also is updated with new config.
-	log.Infof("All caches have been synced up, triggering a push")
-	s.EnvoyXdsServer.Push(&model.PushRequest{Full: true})
+	// Inform Discovery Server so that it can start accepting connections.
+	log.Infof("All caches have been synced up, marking server ready")
+	s.XDSServer.CachesSynced()
 
 	// At this point we are ready - start Http Listener so that it can respond to readiness events.
 	go func() {
@@ -410,8 +415,8 @@ func (s *Server) initKubeClient(args *PilotArgs) error {
 		var err error
 		// Used by validation
 		s.kubeRestConfig, err = kubelib.DefaultRestConfig(args.RegistryOptions.KubeConfig, "", func(config *rest.Config) {
-			config.QPS = 20
-			config.Burst = 40
+			config.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
+			config.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
 		})
 		if err != nil {
 			return fmt.Errorf("failed creating kube config: %v", err)
@@ -442,12 +447,12 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// initIstiodHTTPServer initializes monitoring, debug and readiness end points.
+// initIstiodAdminServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
 	log.Info("initializing Istiod admin server")
 	s.httpServer = &http.Server{
 		Addr:    args.ServerOptions.HTTPAddr,
-		Handler: s.httpMux,
+		Handler: s.readinessMux,
 	}
 
 	// create http listener
@@ -456,38 +461,60 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		return err
 	}
 
+	if args.ServerOptions.MonitoringAddr == "" {
+		s.monitoringMux = s.readinessMux
+	}
 	// Debug Server.
-	s.EnvoyXdsServer.InitDebug(s.httpMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
 
 	// Monitoring Server.
-	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
-		return fmt.Errorf("error initializing monitor: %v", err)
+	if args.ServerOptions.MonitoringAddr != "" {
+		if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
+			return fmt.Errorf("error initializing monitor: %v", err)
+		}
 	}
 
 	// Readiness Handler.
-	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
+	s.readinessMux.HandleFunc("/ready", s.istiodReadyHandler)
 
 	s.HTTPListener = listener
 	return nil
 }
 
 // initDiscoveryService intializes discovery server on plain text port.
-func (s *Server) initDiscoveryService(args *PilotArgs) error {
+func (s *Server) initDiscoveryService(args *PilotArgs) {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		s.EnvoyXdsServer.Start(stop)
+		log.Infof("Starting ADS server")
+		s.XDSServer.Start(stop)
 		return nil
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
+	if args.ServerOptions.GRPCAddr == "" {
+		return
+	}
 	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
 	if err != nil {
-		return err
+		log.Warnf("Failed to listen on gRPC port %v", err)
 	}
 	s.GRPCListener = grpcListener
 
-	return nil
+	// This happens only if the GRPC port (15010) is disabled. We will multiplex
+	// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
+	if s.GRPCListener == nil {
+		log.Info("multplexing gRPC on http port")
+		m := cmux.New(s.HTTPListener)
+		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTPListener = m.Match(cmux.Any())
+		go func() {
+			err := m.Serve()
+			if err != nil {
+				log.Warnf("Failed to listen on multiplexed port %v", err)
+			}
+		}()
+	}
 }
 
 // Wait for the stop, and do cleanups
@@ -541,7 +568,7 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	grpcOptions := s.grpcServerOptions(options)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
-	s.EnvoyXdsServer.Register(s.grpcServer)
+	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
 }
 
@@ -595,6 +622,11 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
+	if args.ServerOptions.SecureGRPCAddr == "" {
+		log.Warnf("The secure discovery port is disabled")
+		return nil
+	}
+
 	if s.peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
 		log.Warnf("The secure discovery service is disabled")
@@ -631,7 +663,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	opts = append(opts, grpc.Creds(tlsCreds))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
-	s.EnvoyXdsServer.Register(s.secureGrpcServer)
+	s.XDSServer.Register(s.secureGrpcServer)
 	reflection.Register(s.secureGrpcServer)
 
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -703,19 +735,25 @@ func (s *Server) addTerminatingStartFunc(fn startFunc) {
 }
 
 func (s *Server) waitForCacheSync(stop <-chan struct{}) bool {
-	if !cache.WaitForCacheSync(stop, func() bool {
-		if !s.ServiceController().HasSynced() {
-			return false
-		}
-		if !s.configController.HasSynced() {
-			return false
-		}
-		return true
-	}) {
+	if !cache.WaitForCacheSync(stop, s.cachesSynced) {
 		log.Errorf("Failed waiting for cache sync")
 		return false
 	}
 
+	return true
+}
+
+// cachesSynced checks whether caches have been synced.
+func (s *Server) cachesSynced() bool {
+	if s.multicluster != nil && !s.multicluster.HasSynced() {
+		return false
+	}
+	if !s.ServiceController().HasSynced() {
+		return false
+	}
+	if !s.configController.HasSynced() {
+		return false
+	}
 	return true
 }
 
@@ -733,17 +771,17 @@ func (s *Server) initRegistryEventHandlers() error {
 			}: {}},
 			Reason: []model.TriggerReason{model.ServiceUpdate},
 		}
-		s.EnvoyXdsServer.ConfigUpdate(pushReq)
+		s.XDSServer.ConfigUpdate(pushReq)
 	}
 	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
 		return fmt.Errorf("append service handler failed: %v", err)
 	}
 
 	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
-		// TODO: This is an incomplete code. This code path is called for consul, etc.
+		// TODO: This is an incomplete code. This code path is called for legacy MCP, etc.
 		// In all cases, this is simply an instance update and not a config update. So, we need to update
 		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
 				Kind:      gvk.ServiceEntry,
@@ -775,7 +813,7 @@ func (s *Server) initRegistryEventHandlers() error {
 				}: {}},
 				Reason: []model.TriggerReason{model.ConfigUpdate},
 			}
-			s.EnvoyXdsServer.ConfigUpdate(pushReq)
+			s.XDSServer.ConfigUpdate(pushReq)
 			if features.EnableStatus {
 				if event != model.EventDelete {
 					s.statusReporter.AddInProgressResource(curr)
@@ -997,32 +1035,17 @@ func (s *Server) initControllers(args *PilotArgs) error {
 // initNamespaceController initializes namespace controller to sync config map.
 func (s *Server) initNamespaceController(args *PilotArgs) {
 	if s.CA != nil && s.kubeClient != nil {
+		// create namespace controller
+		nsController := kubecontroller.NewNamespaceController(s.fetchCARoot, s.kubeClient)
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
-					log.Infof("Starting namespace controller")
-					nc := kubecontroller.NewNamespaceController(s.fetchCARoot, args.RegistryOptions.KubeOptions, s.kubeClient)
-					nc.Run(stop)
-				}).
-				Run(stop)
+			le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.NamespaceController, s.kubeClient.Kube())
+			le.AddRunFunction(func(leaderStop <-chan struct{}) {
+				nsController.Run(leaderStop)
+			})
+			le.Run(stop)
 			return nil
 		})
 	}
-}
-
-// initGenerators initializes generators to be used by XdsServer.
-func (s *Server) initGenerators() {
-	s.EnvoyXdsServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &xds.EdsGenerator{Server: s.EnvoyXdsServer}
-	s.EnvoyXdsServer.Generators["grpc/"+v2.EndpointType] = epGen
-	s.EnvoyXdsServer.Generators["api"] = &apigen.APIGenerator{}
-	s.EnvoyXdsServer.Generators["api/"+v2.EndpointType] = epGen
-	s.EnvoyXdsServer.InternalGen = &xds.InternalGen{
-		Server: s.EnvoyXdsServer,
-	}
-	s.EnvoyXdsServer.Generators["api/"+xds.TypeURLConnections] = s.EnvoyXdsServer.InternalGen
-	s.EnvoyXdsServer.Generators["event"] = s.EnvoyXdsServer.InternalGen
 }
 
 // initJwtPolicy initializes JwtPolicy.
@@ -1067,7 +1090,11 @@ func (s *Server) startCA(caOpts *CAOptions) {
 	if s.CA != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("staring CA")
-			s.RunCA(s.secureGrpcServer, s.CA, caOpts)
+			grpcServer := s.secureGrpcServer
+			if s.secureGrpcServer == nil {
+				grpcServer = s.grpcServer
+			}
+			s.RunCA(grpcServer, s.CA, caOpts)
 			return nil
 		})
 	}
@@ -1085,14 +1112,14 @@ func (s *Server) initMeshHandlers() {
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		// Inform ConfigGenerator about the mesh config change so that it can rebuild any cached config, before triggering full push.
-		s.EnvoyXdsServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})
 	})
 	s.environment.AddNetworksHandler(func() {
-		s.EnvoyXdsServer.ConfigUpdate(&model.PushRequest{
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: []model.TriggerReason{model.GlobalUpdate},
 		})

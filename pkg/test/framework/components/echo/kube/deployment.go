@@ -22,7 +22,6 @@ import (
 	"github.com/Masterminds/sprig"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -94,9 +93,6 @@ spec:
         prometheus.io/port: "15014"
 {{- range $name, $value := $subset.Annotations }}
         {{ $name.Name }}: {{ printf "%q" $value.Value }}
-{{- end }}
-{{- if $.IncludeInboundPorts }}
-        traffic.sidecar.istio.io/includeInboundPorts: "{{ $.IncludeInboundPorts }}"
 {{- end }}
     spec:
 {{- if $.ServiceAccount }}
@@ -215,13 +211,24 @@ spec:
         istio.io/test-vm-version: {{ $subset.Version }}
     spec:
       # Disable kube-dns, to mirror VM
-      dnsPolicy: Default
+      # we set policy to none and explicitly provide a set of invalid values
+      # for nameservers, search namespaces, etc. ndots is set to 1 so that
+      # the application will first try to resolve the hostname (a, a.ns, etc.) as is
+      # before attempting to add the search namespaces.
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+        - "8.8.8.8"
+        searches:
+        - "com"
+        options:
+        - name: "ndots"
+          value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
       containers:
       - name: istio-proxy
         image: {{ $.Hub }}/{{ $.VM.Image }}:{{ $.Tag }}
-        #image: {{ $.Hub }}/app_sidecar:{{ $.Tag }}
         imagePullPolicy: {{ $.PullPolicy }}
         securityContext:
           capabilities:
@@ -233,11 +240,24 @@ spec:
         - bash
         - -c
         - |-
-          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* > /var/lib/istio/envoy/cluster.env'
+          # Capture all inbound and outbound traffic
+          sudo sh -c 'echo ISTIO_SERVICE_CIDR=* >> /var/lib/istio/envoy/cluster.env'
+          sudo sh -c 'echo ISTIO_INBOUND_PORTS=* >> /var/lib/istio/envoy/cluster.env'
+          # Use token auth not certs
+          sudo sh -c 'echo PROV_CERT="" >> /var/lib/istio/envoy/cluster.env'
+          # Block standard inbound ports
+          sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
+          # Capture all DNS traffic in the VM and forward to Envoy
+          # sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
+
+          # Setup the namespace
+          sudo sh -c 'echo ISTIO_NAMESPACE={{ $.Namespace }} >> /var/lib/istio/envoy/sidecar.env'
+
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
 
           # TODO: run with systemctl?
+          export ISTIO_AGENT_FLAGS="--concurrency 2"
           sudo -E /usr/local/bin/istio-start.sh&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
@@ -251,20 +271,10 @@ spec:
              "{{ $p.Port }}" \
 {{- end }}
         env:
-        # We use token not certs
-        - name: PROV_CERT
-          value: ""
-        # By default we do not capture inbound. For these tests we will mark as capture all
-        - name: ISTIO_INBOUND_PORTS
-          value: "*"
-        # Block standard inbound ports
-        - name: ISTIO_LOCAL_EXCLUDE_PORTS
-          value: "15090,15021,15020"
-        # Capture all DNS traffic in the VM and forward to Envoy
-        - name: ISTIO_META_DNS_CAPTURE
-          value: "ALL"
-        - name: ISTIO_NAMESPACE # start.sh reads this and converts to POD_NAMESPACE
-          value: {{ $.Namespace }}
+        {{- range $name, $value := $.Environment }}
+        - name: {{ $name }}
+          value: "{{ $value }}"
+        {{- end }}
         readinessProbe:
           httpGet:
             path: /healthz/ready
@@ -311,17 +321,20 @@ func init() {
 	}
 }
 
-func generateYAML(cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+func generateYAML(ctx resource.Context, cfg echo.Config, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Create the parameters for the YAML template.
 	settings, err := image.SettingsFromCommandLine()
 	if err != nil {
 		return "", "", err
 	}
-	return generateYAMLWithSettings(cfg, settings, cluster)
+	return generateYAMLWithSettings(ctx, cfg, settings, cluster)
 }
 
-func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
-	cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
+const DefaultVMImage = "app_sidecar_ubuntu_bionic"
+
+func generateYAMLWithSettings(
+	ctx resource.Context, cfg echo.Config,
+	settings *image.Settings, cluster resource.Cluster) (serviceYAML string, deploymentYAML string, err error) {
 	// Convert legacy config to workload oritended.
 	if cfg.Subsets == nil {
 		cfg.Subsets = []echo.SubsetConfig{
@@ -339,20 +352,21 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 
 	var vmImage, istiodIP, istiodPort string
 	if cfg.DeployAsVM {
-		s, err := kube.NewSettingsFromCommandLine()
+		ist, err := istio.Get(ctx)
 		if err != nil {
 			return "", "", err
 		}
-		addr, err := istio.GetRemoteDiscoveryAddress("istio-system", cluster, s.Minikube)
+		addr, err := ist.RemoteDiscoveryAddressFor(cluster)
 		if err != nil {
 			return "", "", err
 		}
+
 		istiodIP = addr.IP.String()
 		istiodPort = strconv.Itoa(addr.Port)
 
 		// if image is not provided, default to app_sidecar
 		if cfg.VMImage == "" {
-			vmImage = "app_sidecar_ubuntu_bionic"
+			vmImage = DefaultVMImage
 		} else {
 			vmImage = cfg.VMImage
 		}
@@ -362,28 +376,28 @@ func generateYAMLWithSettings(cfg echo.Config, settings *image.Settings,
 		namespace = cfg.Namespace.Name()
 	}
 	params := map[string]interface{}{
-		"Hub":                 settings.Hub,
-		"Tag":                 settings.Tag,
-		"PullPolicy":          settings.PullPolicy,
-		"Service":             cfg.Service,
-		"Version":             cfg.Version,
-		"Headless":            cfg.Headless,
-		"Locality":            cfg.Locality,
-		"ServiceAccount":      cfg.ServiceAccount,
-		"Ports":               cfg.Ports,
-		"WorkloadOnlyPorts":   cfg.WorkloadOnlyPorts,
-		"ContainerPorts":      getContainerPorts(cfg.Ports),
-		"ServiceAnnotations":  cfg.ServiceAnnotations,
-		"IncludeInboundPorts": cfg.IncludeInboundPorts,
-		"Subsets":             cfg.Subsets,
-		"TLSSettings":         cfg.TLSSettings,
-		"Cluster":             cfg.Cluster.Name(),
-		"Namespace":           namespace,
+		"Hub":                settings.Hub,
+		"Tag":                settings.Tag,
+		"PullPolicy":         settings.PullPolicy,
+		"Service":            cfg.Service,
+		"Version":            cfg.Version,
+		"Headless":           cfg.Headless,
+		"Locality":           cfg.Locality,
+		"ServiceAccount":     cfg.ServiceAccount,
+		"Ports":              cfg.Ports,
+		"WorkloadOnlyPorts":  cfg.WorkloadOnlyPorts,
+		"ContainerPorts":     getContainerPorts(cfg.Ports),
+		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"Subsets":            cfg.Subsets,
+		"TLSSettings":        cfg.TLSSettings,
+		"Cluster":            cfg.Cluster.Name(),
+		"Namespace":          namespace,
 		"VM": map[string]interface{}{
 			"Image":      vmImage,
 			"IstiodIP":   istiodIP,
 			"IstiodPort": istiodPort,
 		},
+		"Environment": cfg.VMEnvironment,
 	}
 
 	serviceYAML, err = tmpl.Execute(serviceTemplate, params)

@@ -20,7 +20,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin/registry"

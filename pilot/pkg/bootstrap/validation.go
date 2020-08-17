@@ -17,16 +17,12 @@ package bootstrap
 import (
 	"strings"
 
-	"k8s.io/client-go/dynamic"
-
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/mixer/pkg/validate"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -36,7 +32,9 @@ var (
 	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
 
 	validationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", validationWebhookConfigNameTemplate,
-		"Name of validatingwegbhookconfiguration to patch, if istioctl is not used.")
+		"Name of validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.")
+
+	validationEnabled = env.RegisterBoolVar("VALIDATION_ENABLED", true, "Enable config validation handler.")
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
@@ -44,13 +42,16 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	}
 
+	if !validationEnabled.Get() {
+		return nil
+	}
+
 	log.Info("initializing config validator")
 	// always start the validation server
 	params := server.Options{
-		MixerValidator: validate.NewDefaultValidator(false),
-		Schemas:        collections.Istio,
-		DomainSuffix:   args.RegistryOptions.KubeOptions.DomainSuffix,
-		Mux:            s.httpsMux,
+		Schemas:      collections.Istio,
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
+		Mux:          s.httpsMux,
 	}
 	whServer, err := server.New(params)
 	if err != nil {
@@ -62,12 +63,7 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return nil
 	})
 
-	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" {
-		dynamicInterface, err := dynamic.NewForConfig(s.kubeRestConfig)
-		if err != nil {
-			return err
-		}
-
+	if webhookConfigName := validationWebhookConfigName.Get(); webhookConfigName != "" && s.kubeClient != nil {
 		if webhookConfigName == validationWebhookConfigNameTemplate {
 			webhookConfigName = strings.ReplaceAll(validationWebhookConfigNameTemplate, validationWebhookConfigNameTemplateVar, args.Namespace)
 		}
@@ -82,18 +78,18 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}
-		whController, err := controller.New(o, s.kubeClient, dynamicInterface)
+		whController, err := controller.New(o, s.kubeClient)
 		if err != nil {
+			log.Errorf("failed to start validation controller: %v", err)
 			return err
 		}
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
-				AddRunFunction(func(stop <-chan struct{}) {
-					log.Infof("Starting validation controller")
-					whController.Start(stop)
-				}).
-				Run(stop)
+			le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient)
+			le.AddRunFunction(func(leaderStop <-chan struct{}) {
+				log.Infof("Starting validation controller")
+				whController.Start(leaderStop)
+			})
+			le.Run(stop)
 			return nil
 		})
 	}

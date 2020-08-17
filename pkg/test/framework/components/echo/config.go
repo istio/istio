@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -32,9 +31,6 @@ type Config struct {
 
 	// Domain of the echo Instance. If not provided, a default will be selected.
 	Domain string
-
-	// Pilot component reference (may be required, depending on the environment/configuration).
-	Pilot pilot.Instance
 
 	// Service indicates the service name of the Echo application.
 	Service string
@@ -63,10 +59,6 @@ type Config struct {
 	// ServiceAnnotations is annotations on service object.
 	ServiceAnnotations Annotations
 
-	// IncludeInboundPorts provides the ports that inbound listener should capture
-	// "*" means capture all.
-	IncludeInboundPorts string
-
 	// ReadinessTimeout specifies the timeout that we wait the application to
 	// become ready.
 	ReadinessTimeout time.Duration
@@ -87,6 +79,9 @@ type Config struct {
 
 	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
 	VMImage string
+
+	// The set of environment variables to set for `DeployAsVM` instances.
+	VMEnvironment map[string]string
 }
 
 // SubsetConfig is the config for a group of Subsets (e.g. Kubernetes deployment).

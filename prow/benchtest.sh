@@ -26,19 +26,24 @@ set -eux
 
 GCS_BENCHMARK_DIR="${GCS_BENCHMARK_DIR:-istio-prow/benchmarks}"
 
-BENCHMARK_COUNT="${BENCHMARK_COUNT:-3}"
+BENCHMARK_COUNT="${BENCHMARK_COUNT:-5}"
+BENCHMARK_CPUS="${BENCHMARK_CPUS:-8}"
 
 REPORT_JUNIT="${REPORT_JUNIT:-${ARTIFACTS}/junit_benchmarks.xml}"
 REPORT_PLAINTEXT="${REPORT_PLAINTEXT:-${ARTIFACTS}/benchmark-log.txt}"
 
-# Sha we should compare against. Defaults to the PULL_BASE_REF, which is the last commit on the branch we are on.
+# Sha we should compare against. Defaults to the PULL_BASE_SHA, which is the last commit on the branch we are on.
 # For example, a PR on master will compare to the HEAD of master.
-COMPARE_GIT_SHA="${COMPARE_GIT_SHA:-${PULL_BASE_REF:-${GIT_SHA}}}"
+COMPARE_GIT_SHA="${COMPARE_GIT_SHA:-${PULL_BASE_SHA:-${GIT_SHA}}}"
 
 case "${1}" in
   run)
     shift
-    benchmarkjunit "$@" -l "${REPORT_PLAINTEXT}" --output="${REPORT_JUNIT}" --test-arg "--count" --test-arg "${BENCHMARK_COUNT}"
+    benchmarkjunit "$@" -l "${REPORT_PLAINTEXT}" --output="${REPORT_JUNIT}" \
+      --test-arg "--benchmem" \
+      --test-arg "--count=${BENCHMARK_COUNT}" \
+      --test-arg "--cpu=${BENCHMARK_CPUS}" \
+      --test-arg "--test.timeout=30m"
     # Print out the results as well for ease of debugging, so they are in the logs instead of just output
     cat "${REPORT_PLAINTEXT}"
     ;;

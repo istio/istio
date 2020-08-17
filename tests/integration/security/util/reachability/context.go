@@ -20,19 +20,17 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/tests/integration/pilot/vm"
-
-	"istio.io/istio/pkg/test/util/retry"
-
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/util"
 	"istio.io/istio/tests/integration/security/util/connection"
+	"istio.io/pkg/log"
 )
 
 // TestCase represents reachability test cases.
@@ -59,27 +57,27 @@ type TestCase struct {
 
 // Context is a context for reachability tests.
 type Context struct {
-	ctx          framework.TestContext
-	p            pilot.Instance
-	Namespace    namespace.Instance
-	A, B         echo.Instance
-	Multiversion echo.Instance
-	Headless     echo.Instance
-	Naked        echo.Instance
-	VM           echo.Instance
+	ctx           framework.TestContext
+	Namespace     namespace.Instance
+	A, B          echo.Instance
+	Multiversion  echo.Instance
+	Headless      echo.Instance
+	Naked         echo.Instance
+	VM            echo.Instance
+	HeadlessNaked echo.Instance
 }
 
 // CreateContext creates and initializes reachability context.
-func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Context {
+func CreateContext(ctx framework.TestContext, buildVM bool) Context {
 	ns := namespace.NewOrFail(ctx, ctx, namespace.Config{
 		Prefix: "reachability",
 		Inject: true,
 	})
 
-	var a, b, multiVersion, headless, naked, vmInstance echo.Instance
+	var a, b, multiVersion, headless, naked, vmInstance, headlessNaked echo.Instance
 
 	// Multi-version specific setup
-	cfg := util.EchoConfig("multiversion", ns, false, nil, p)
+	cfg := util.EchoConfig("multiversion", ns, false, nil)
 	cfg.Subsets = []echo.SubsetConfig{
 		// Istio deployment, with sidecar.
 		{
@@ -93,33 +91,33 @@ func CreateContext(ctx framework.TestContext, p pilot.Instance, buildVM bool) Co
 	}
 
 	// VM specific setup
-	vmCfg := util.EchoConfig("vm", ns, false, nil, p)
+	vmCfg := util.EchoConfig("vm", ns, false, nil)
 
 	// for test cases that have `buildVM` off, vm will function like a regular pod
 	vmCfg.DeployAsVM = buildVM
-	vmCfg.VMImage = vm.DefaultVMImage
-	vmCfg.Ports[0].ServicePort = vmCfg.Ports[0].InstancePort
 
-	echoboot.NewBuilderOrFail(ctx, ctx).
-		With(&a, util.EchoConfig("a", ns, false, nil, p)).
-		With(&b, util.EchoConfig("b", ns, false, nil, p)).
+	echoboot.NewBuilder(ctx).
+		With(&a, util.EchoConfig("a", ns, false, nil)).
+		With(&b, util.EchoConfig("b", ns, false, nil)).
 		With(&multiVersion, cfg).
-		With(&headless, util.EchoConfig("headless", ns, true, nil, p)).
+		With(&headless, util.EchoConfig("headless", ns, true, nil)).
 		With(&naked, util.EchoConfig("naked", ns, false, echo.NewAnnotations().
-			SetBool(echo.SidecarInject, false), p)).
+			SetBool(echo.SidecarInject, false))).
 		With(&vmInstance, vmCfg).
+		With(&headlessNaked, util.EchoConfig("headless-naked", ns, true, echo.NewAnnotations().
+			SetBool(echo.SidecarInject, false))).
 		BuildOrFail(ctx)
 
 	return Context{
-		ctx:          ctx,
-		p:            p,
-		Namespace:    ns,
-		A:            a,
-		B:            b,
-		Multiversion: multiVersion,
-		Headless:     headless,
-		Naked:        naked,
-		VM:           vmInstance,
+		ctx:           ctx,
+		Namespace:     ns,
+		A:             a,
+		B:             b,
+		Multiversion:  multiVersion,
+		Headless:      headless,
+		Naked:         naked,
+		VM:            vmInstance,
+		HeadlessNaked: headlessNaked,
 	}
 }
 
@@ -144,6 +142,7 @@ func (rc *Context) Run(testCases []TestCase) {
 		},
 	}
 
+	ik := istioctl.NewOrFail(rc.ctx, rc.ctx, istioctl.Config{})
 	for _, c := range testCases {
 		// Create a copy to avoid races, as tests are run in parallel
 		c := c
@@ -158,18 +157,32 @@ func (rc *Context) Run(testCases []TestCase) {
 				// TODO(https://github.com/istio/istio/issues/20460) We shouldn't need a retry loop
 				return rc.ctx.Config().ApplyYAML(c.Namespace.Name(), policyYAML)
 			})
-			ctx.WhenDone(func() error {
-				return rc.ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
+			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
+			t0 := time.Now()
+			if err := ik.WaitForConfigs(c.Namespace.Name(), policyYAML); err != nil {
+				// Continue anyways, so we can assess the effectiveness of using `istioctl wait`
+				ctx.Logf("warning: failed to wait for config: %v", err)
+				// Get proxy status for additional debugging
+				s, _, _ := ik.Invoke([]string{"ps"})
+				ctx.Logf("proxy status: %v", s)
+			}
+			// TODO(https://github.com/istio/istio/issues/25945) introducing istioctl wait in favor of a 10s sleep lead to flakes
+			// to work around this, we will temporarily make sure we are always sleeping at least 10s, even if istioctl wait is faster.
+			// This allows us to debug istioctl wait, while still ensuring tests are stable
+			sleep := time.Second*10 - time.Since(t0)
+			ctx.Logf("[%s] [%v] Wait for additional %v config propagate to endpoints...", testName, time.Now(), sleep)
+			time.Sleep(sleep)
+			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
+			ctx.Cleanup(func() {
+				if err := retry.UntilSuccess(func() error {
+					return rc.ctx.Config().DeleteYAML(c.Namespace.Name(), policyYAML)
+				}); err != nil {
+					log.Errorf("failed to delete configuration: %v", err)
+				}
 			})
 
-			// Give some time for the policy propagate.
-			// TODO: query pilot or app to know instead of sleep.
-			ctx.Logf("[%s] [%v] Wait for config propagate to endpoints...", testName, time.Now())
-			time.Sleep(10 * time.Second)
-			ctx.Logf("[%s] [%v] Finish waiting. Continue testing.", testName, time.Now())
-
-			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked} {
-				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.VM} {
+			for _, src := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Naked, rc.HeadlessNaked} {
+				for _, dest := range []echo.Instance{rc.A, rc.B, rc.Headless, rc.Multiversion, rc.Naked, rc.VM, rc.HeadlessNaked} {
 					copts := &callOptions
 					// If test case specified service call options, use that instead.
 					if c.CallOpts != nil {
@@ -214,4 +227,12 @@ func (rc *Context) Run(testCases []TestCase) {
 			}
 		})
 	}
+}
+
+func (rc *Context) IsNaked(i echo.Instance) bool {
+	return i == rc.HeadlessNaked || i == rc.Naked
+}
+
+func (rc *Context) IsHeadless(i echo.Instance) bool {
+	return i == rc.HeadlessNaked || i == rc.Headless
 }

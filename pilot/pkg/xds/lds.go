@@ -22,17 +22,15 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
 	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawListeners := s.ConfigGenerator.BuildListeners(con.node, push)
+	rawListeners := s.ConfigGenerator.BuildListeners(con.proxy, push)
 
-	if s.DebugConfigs {
-		con.LDSListeners = rawListeners
-	}
-	response := ldsDiscoveryResponse(rawListeners, version, push.Version, con.node.RequestedTypes.LDS)
+	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
 	err := con.send(response)
 	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
@@ -41,14 +39,14 @@ func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, vers
 	}
 	ldsPushes.Increment()
 
-	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.node.ID, len(rawListeners))
+	adsLog.Infof("LDS: PUSH for node:%s listeners:%d", con.proxy.ID, len(rawListeners))
 	return nil
 }
 
 // LdsDiscoveryResponse returns a list of listeners for the given environment and source node.
-func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
+func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix string) *discovery.DiscoveryResponse {
 	resp := &discovery.DiscoveryResponse{
-		TypeUrl:     typeURL,
+		TypeUrl:     v3.ListenerType,
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),
 	}
@@ -58,9 +56,7 @@ func ldsDiscoveryResponse(ls []*listener.Listener, version, noncePrefix, typeURL
 			totalXDSInternalErrors.Increment()
 			continue
 		}
-		lr := util.MessageToAny(ll)
-		lr.TypeUrl = typeURL
-		resp.Resources = append(resp.Resources, lr)
+		resp.Resources = append(resp.Resources, util.MessageToAny(ll))
 	}
 
 	return resp

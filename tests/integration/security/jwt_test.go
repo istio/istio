@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -59,17 +58,19 @@ func TestRequestAuthentication(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/requestauthn/b-authn-authz.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/requestauthn/f-authn.yaml.tmpl"),
 			)
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
-			var a, b, c, d, e echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, p)).
-				With(&e, util.EchoConfig("e", ns, false, nil, p)).
+			var a, b, c, d, e, f echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
+				With(&e, util.EchoConfig("e", ns, false, nil)).
+				With(&f, util.EchoConfig("f", ns, false, nil)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
@@ -260,6 +261,48 @@ func TestRequestAuthentication(t *testing.T) {
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 				},
+				{
+					Name: "invalid-jwks-valid-token-noauthz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   f,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusUnauthorized,
+				},
+				{
+					Name: "invalid-jwks-expired-token-noauthz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   f,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusUnauthorized,
+				},
+				{
+					Name: "invalid-jwks-no-token-noauthz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   f,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+				},
 			}
 			for _, c := range testCases {
 				t.Run(c.Name, func(t *testing.T) {
@@ -275,13 +318,7 @@ func TestRequestAuthentication(t *testing.T) {
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			var ingr ingress.Instance
-			var err error
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: ist,
-			}); err != nil {
-				t.Fatal(err)
-			}
+			ingr := ist.IngressFor(ctx.Clusters().Default())
 
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "req-authn-ingress",
@@ -307,9 +344,9 @@ func TestIngressRequestAuthentication(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), ingressCfgs...)
 
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(ctx, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
 			// These test cases verify in-mesh traffic doesn't need tokens.

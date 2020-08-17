@@ -26,7 +26,6 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -44,20 +43,19 @@ var (
 type kubeNamespace struct {
 	id   resource.ID
 	name string
-	env  *kube.Environment
 	ctx  resource.Context
 }
 
-func (n *kubeNamespace) Dump() {
+func (n *kubeNamespace) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Namespace %s State...", n.name)
 
-	d, err := n.ctx.CreateTmpDirectory(n.name + "-state")
+	d, err := ctx.CreateTmpDirectory(n.name + "-state")
 	if err != nil {
 		scopes.Framework.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
 		return
 	}
 
-	for _, cluster := range n.env.KubeClusters {
+	for _, cluster := range n.ctx.Clusters() {
 		kube2.DumpPods(cluster, d, n.name)
 	}
 }
@@ -82,7 +80,7 @@ func (n *kubeNamespace) Close() (err error) {
 		ns := n.name
 		n.name = ""
 
-		for _, cluster := range n.env.KubeClusters {
+		for _, cluster := range n.ctx.Clusters() {
 			err = cluster.CoreV1().Namespaces().Delete(context.TODO(), ns, kube2.DeleteOptionsForeground())
 		}
 	}
@@ -129,13 +127,12 @@ func newKube(ctx resource.Context, nsConfig *Config) (Instance, error) {
 	ns := fmt.Sprintf("%s-%d-%d", nsConfig.Prefix, nsid, r)
 	n := &kubeNamespace{
 		name: ns,
-		env:  ctx.Environment().(*kube.Environment),
 		ctx:  ctx,
 	}
 	id := ctx.TrackResource(n)
 	n.id = id
 
-	for _, cluster := range n.env.KubeClusters {
+	for _, cluster := range n.ctx.Clusters() {
 		if _, err := cluster.CoreV1().Namespaces().Create(context.TODO(), &kubeApiCore.Namespace{
 			ObjectMeta: kubeApiMeta.ObjectMeta{
 				Name:   ns,

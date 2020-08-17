@@ -25,11 +25,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/xds"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-
-	_ "google.golang.org/grpc/xds/experimental" // To install the xds resolvers and balancers.
 )
 
 var (
@@ -85,7 +84,7 @@ func TestAPIGen(t *testing.T) {
 		adscConn.Store = model.MakeIstioStore(configController)
 
 		adscConn.Send(&xdsapi.DiscoveryRequest{
-			TypeUrl: adsc.ListenerType,
+			TypeUrl: v3.ListenerType,
 		})
 
 		adscConn.WatchConfig()

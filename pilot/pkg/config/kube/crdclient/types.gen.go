@@ -34,10 +34,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 
-	mixerclientv1 "istio.io/api/mixer/v1/config/client"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	securityv1beta1 "istio.io/api/security/v1beta1"
-	clientconfigv1alpha3 "istio.io/client-go/pkg/apis/config/v1alpha2"
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 
@@ -46,26 +44,6 @@ import (
 
 func create(ic versionedclient.Interface, sc serviceapisclient.Interface, config model.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch config.GroupVersionKind {
-	case collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().HTTPAPISpecBindings(config.Namespace).Create(context.TODO(), &clientconfigv1alpha3.HTTPAPISpecBinding{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.HTTPAPISpecBinding)),
-		}, metav1.CreateOptions{})
-	case collections.IstioConfigV1Alpha2Httpapispecs.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().HTTPAPISpecs(config.Namespace).Create(context.TODO(), &clientconfigv1alpha3.HTTPAPISpec{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.HTTPAPISpec)),
-		}, metav1.CreateOptions{})
-	case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().QuotaSpecBindings(config.Namespace).Create(context.TODO(), &clientconfigv1alpha3.QuotaSpecBinding{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.QuotaSpecBinding)),
-		}, metav1.CreateOptions{})
-	case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().QuotaSpecs(config.Namespace).Create(context.TODO(), &clientconfigv1alpha3.QuotaSpec{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.QuotaSpec)),
-		}, metav1.CreateOptions{})
 	case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(config.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
@@ -101,6 +79,11 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			ObjectMeta: objMeta,
 			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadEntry)),
 		}, metav1.CreateOptions{})
+	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().WorkloadGroups(config.Namespace).Create(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
+			ObjectMeta: objMeta,
+			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}, metav1.CreateOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(config.Namespace).Create(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
@@ -132,14 +115,9 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			Spec:       *(config.Spec.(*servicev1alpha1.HTTPRouteSpec)),
 		}, metav1.CreateOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TcpRoutes(config.Namespace).Create(context.TODO(), &servicev1alpha1.TcpRoute{
+		return sc.NetworkingV1alpha1().TCPRoutes(config.Namespace).Create(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TcpRouteSpec)),
-		}, metav1.CreateOptions{})
-	case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TrafficSplits(config.Namespace).Create(context.TODO(), &servicev1alpha1.TrafficSplit{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TrafficSplitSpec)),
+			Spec:       *(config.Spec.(*servicev1alpha1.TCPRouteSpec)),
 		}, metav1.CreateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", config.GroupVersionKind)
@@ -148,26 +126,6 @@ func create(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 
 func update(ic versionedclient.Interface, sc serviceapisclient.Interface, config model.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch config.GroupVersionKind {
-	case collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().HTTPAPISpecBindings(config.Namespace).Update(context.TODO(), &clientconfigv1alpha3.HTTPAPISpecBinding{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.HTTPAPISpecBinding)),
-		}, metav1.UpdateOptions{})
-	case collections.IstioConfigV1Alpha2Httpapispecs.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().HTTPAPISpecs(config.Namespace).Update(context.TODO(), &clientconfigv1alpha3.HTTPAPISpec{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.HTTPAPISpec)),
-		}, metav1.UpdateOptions{})
-	case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().QuotaSpecBindings(config.Namespace).Update(context.TODO(), &clientconfigv1alpha3.QuotaSpecBinding{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.QuotaSpecBinding)),
-		}, metav1.UpdateOptions{})
-	case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().QuotaSpecs(config.Namespace).Update(context.TODO(), &clientconfigv1alpha3.QuotaSpec{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*mixerclientv1.QuotaSpec)),
-		}, metav1.UpdateOptions{})
 	case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(config.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.DestinationRule{
 			ObjectMeta: objMeta,
@@ -203,6 +161,11 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			ObjectMeta: objMeta,
 			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadEntry)),
 		}, metav1.UpdateOptions{})
+	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().WorkloadGroups(config.Namespace).Update(context.TODO(), &clientnetworkingv1alpha3.WorkloadGroup{
+			ObjectMeta: objMeta,
+			Spec:       *(config.Spec.(*networkingv1alpha3.WorkloadGroup)),
+		}, metav1.UpdateOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(config.Namespace).Update(context.TODO(), &clientsecurityv1beta1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
@@ -234,14 +197,9 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 			Spec:       *(config.Spec.(*servicev1alpha1.HTTPRouteSpec)),
 		}, metav1.UpdateOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TcpRoutes(config.Namespace).Update(context.TODO(), &servicev1alpha1.TcpRoute{
+		return sc.NetworkingV1alpha1().TCPRoutes(config.Namespace).Update(context.TODO(), &servicev1alpha1.TCPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TcpRouteSpec)),
-		}, metav1.UpdateOptions{})
-	case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TrafficSplits(config.Namespace).Update(context.TODO(), &servicev1alpha1.TrafficSplit{
-			ObjectMeta: objMeta,
-			Spec:       *(config.Spec.(*servicev1alpha1.TrafficSplitSpec)),
+			Spec:       *(config.Spec.(*servicev1alpha1.TCPRouteSpec)),
 		}, metav1.UpdateOptions{})
 	default:
 		return nil, fmt.Errorf("unsupported type: %v", config.GroupVersionKind)
@@ -250,14 +208,6 @@ func update(ic versionedclient.Interface, sc serviceapisclient.Interface, config
 
 func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ resource.GroupVersionKind, name, namespace string) error {
 	switch typ {
-	case collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().HTTPAPISpecBindings(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-	case collections.IstioConfigV1Alpha2Httpapispecs.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().HTTPAPISpecs(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-	case collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().QuotaSpecBindings(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-	case collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind():
-		return ic.ConfigV1alpha2().QuotaSpecs(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().DestinationRules(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind():
@@ -272,6 +222,8 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ re
 		return ic.NetworkingV1alpha3().VirtualServices(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind():
 		return ic.NetworkingV1alpha3().WorkloadEntries(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+	case collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind():
+		return ic.NetworkingV1alpha3().WorkloadGroups(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind():
 		return ic.SecurityV1beta1().AuthorizationPolicies(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind():
@@ -285,75 +237,13 @@ func delete(ic versionedclient.Interface, sc serviceapisclient.Interface, typ re
 	case collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind():
 		return sc.NetworkingV1alpha1().HTTPRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	case collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TcpRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
-	case collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind():
-		return sc.NetworkingV1alpha1().TrafficSplits(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+		return sc.NetworkingV1alpha1().TCPRoutes(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 	default:
 		return fmt.Errorf("unsupported type: %v", typ)
 	}
 }
 
 var translationMap = map[resource.GroupVersionKind]func(r runtime.Object) *model.Config{
-	collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*clientconfigv1alpha3.HTTPAPISpecBinding)
-		return &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind:  collections.IstioConfigV1Alpha2Httpapispecbindings.Resource().GroupVersionKind(),
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-			},
-			Spec: &obj.Spec,
-		}
-	},
-	collections.IstioConfigV1Alpha2Httpapispecs.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*clientconfigv1alpha3.HTTPAPISpec)
-		return &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind:  collections.IstioConfigV1Alpha2Httpapispecs.Resource().GroupVersionKind(),
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-			},
-			Spec: &obj.Spec,
-		}
-	},
-	collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*clientconfigv1alpha3.QuotaSpecBinding)
-		return &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind:  collections.IstioMixerV1ConfigClientQuotaspecbindings.Resource().GroupVersionKind(),
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-			},
-			Spec: &obj.Spec,
-		}
-	},
-	collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*clientconfigv1alpha3.QuotaSpec)
-		return &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind:  collections.IstioMixerV1ConfigClientQuotaspecs.Resource().GroupVersionKind(),
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-			},
-			Spec: &obj.Spec,
-		}
-	},
 	collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
 		obj := r.(*clientnetworkingv1alpha3.DestinationRule)
 		return &model.Config{
@@ -459,6 +349,21 @@ var translationMap = map[resource.GroupVersionKind]func(r runtime.Object) *model
 			Spec: &obj.Spec,
 		}
 	},
+	collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
+		obj := r.(*clientnetworkingv1alpha3.WorkloadGroup)
+		return &model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(),
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+			},
+			Spec: &obj.Spec,
+		}
+	},
 	collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
 		obj := r.(*clientsecurityv1beta1.AuthorizationPolicy)
 		return &model.Config{
@@ -550,25 +455,10 @@ var translationMap = map[resource.GroupVersionKind]func(r runtime.Object) *model
 		}
 	},
 	collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*servicev1alpha1.TcpRoute)
+		obj := r.(*servicev1alpha1.TCPRoute)
 		return &model.Config{
 			ConfigMeta: model.ConfigMeta{
 				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-			},
-			Spec: &obj.Spec,
-		}
-	},
-	collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(): func(r runtime.Object) *model.Config {
-		obj := r.(*servicev1alpha1.TrafficSplit)
-		return &model.Config{
-			ConfigMeta: model.ConfigMeta{
-				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

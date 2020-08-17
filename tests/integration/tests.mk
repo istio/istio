@@ -13,11 +13,11 @@ ifneq ($(CI),)
 endif
 
 ifeq ($(TEST_ENV),minikube)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.minikube
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
 else ifeq ($(TEST_ENV),minikube-none)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.minikube
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
 else ifeq ($(TEST_ENV),kind)
-    _INTEGRATION_TEST_FLAGS += --istio.test.kube.minikube
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.loadbalancer=false
 endif
 
 ifneq ($(ARTIFACTS),)
@@ -58,8 +58,17 @@ ifneq ($(_INTEGRATION_TEST_NETWORKS),)
     _INTEGRATION_TEST_FLAGS += --istio.test.kube.networkTopology=$(_INTEGRATION_TEST_NETWORKS)
 endif
 
-test.integration.analyze: | $(JUNIT_REPORT)
-	$(GO) test -p 1 ${T} ./tests/integration/... -timeout 30m \
+# If $(INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY) is set, add the networkTopology flag
+_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY ?= $(INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY)
+ifneq ($(_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY),)
+    _INTEGRATION_TEST_FLAGS += --istio.test.kube.controlPlaneTopology=$(_INTEGRATION_TEST_CONTROLPLANE_TOPOLOGY)
+endif
+
+test.integration.analyze: test.integration...analyze
+
+test.integration.%.analyze: | $(JUNIT_REPORT)
+	$(GO) test -p 1 ${T} ./tests/integration/$(subst .,/,$*)/... -timeout 30m \
+	${_INTEGRATION_TEST_FLAGS} \
 	--istio.test.analyze \
 	2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 

@@ -25,7 +25,7 @@ docker: docker.all
 
 DOCKER_TARGETS ?= docker.pilot docker.proxyv2 docker.app docker.app_sidecar_ubuntu_xenial \
 docker.app_sidecar_ubuntu_bionic docker.app_sidecar_ubuntu_focal docker.app_sidecar_debian_9 \
-docker.app_sidecar_debian_10 docker.test_policybackend docker.mixer docker.mixer_codegen \
+docker.app_sidecar_debian_10 docker.app_sidecar_centos_8  \
 docker.istioctl docker.operator docker.install-cni
 
 # Echo docker directory and the template to pass image name and version to for VM testing
@@ -44,7 +44,7 @@ $(ISTIO_DOCKER) $(ISTIO_DOCKER_TAR):
 # $(ISTIO_DOCKER)/pilot-agent: $(ISTIO_OUT_LINUX)/pilot-agent | $(ISTIO_DOCKER)
 # 	cp $(ISTIO_OUT_LINUX)/$FILE $(ISTIO_DOCKER)/($FILE)
 DOCKER_FILES_FROM_ISTIO_OUT_LINUX:=client server \
-                             pilot-discovery pilot-agent mixs mixgen \
+                             pilot-discovery pilot-agent \
                              istioctl manager
 $(foreach FILE,$(DOCKER_FILES_FROM_ISTIO_OUT_LINUX), \
         $(eval $(ISTIO_DOCKER)/$(FILE): $(ISTIO_OUT_LINUX)/$(FILE) | $(ISTIO_DOCKER); cp $(ISTIO_OUT_LINUX)/$(FILE) $(ISTIO_DOCKER)/$(FILE)))
@@ -64,12 +64,12 @@ $(foreach FILE,$(DOCKER_FILES_FROM_SOURCE), \
 # BUILD_ARGS tells  $(DOCKER_RULE) to execute a docker build with the specified commands
 
 # The file must be named 'envoy', depends on the release.
-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
+${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}: ${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 	mkdir -p $(DOCKER_BUILD_TOP)/proxyv2
 ifdef DEBUG_IMAGE
-	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_LINUX_DEBUG_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 else
-	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/envoy
+	cp ${ISTIO_ENVOY_LINUX_RELEASE_PATH} ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${SIDECAR}
 endif
 
 # The file must be named 'envoy_bootstrap.json' because Dockerfile.proxyv2 hard-codes this.
@@ -78,19 +78,23 @@ ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json: ${ISTIO_ENVOY_BOOTSTRA
 
 # rule for wasm extensions.
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm: init
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.compiled.wasm: init
 $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm: init
+$(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm: init
 
 # Default proxy image.
-docker.proxyv2: BUILD_PRE=&& chmod 755 envoy pilot-agent
-docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION}
+docker.proxyv2: BUILD_PRE=&& chmod 755 ${SIDECAR} pilot-agent
+docker.proxyv2: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION} --build-arg BASE_VERSION=${BASE_VERSION} --build-arg SIDECAR=${SIDECAR}
 docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/envoy_bootstrap.json
-docker.proxyv2: install/gcp/bootstrap/gcp_envoy_bootstrap.json
-docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/envoy
+docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/${SIDECAR}
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
 docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.compiled.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
+docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.compiled.wasm
 	$(DOCKER_RULE)
 
 docker.pilot: BUILD_PRE=&& chmod 755 pilot-discovery cacert.pem
@@ -164,10 +168,15 @@ docker.app_sidecar_debian_10: $(ISTIO_OUT_LINUX)/server
 	$(RENAME_TEMPLATE)
 	$(DOCKER_RULE)
 
-# Test policy backend for mixer integration
-docker.test_policybackend: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.test_policybackend: mixer/docker/Dockerfile.test_policybackend
-docker.test_policybackend: $(ISTIO_OUT_LINUX)/policybackend
+# Test application bundled with the sidecar (for non-k8s).
+docker.app_sidecar_centos_8: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.app_sidecar_centos_8: tools/packaging/common/envoy_bootstrap.json
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/release/istio-sidecar.rpm
+docker.app_sidecar_centos_8: $(ISTIO_DOCKER)/certs
+docker.app_sidecar_centos_8: pkg/test/echo/docker/echo-start.sh
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/client
+docker.app_sidecar_centos_8: $(ISTIO_OUT_LINUX)/server
+docker.app_sidecar_centos_8: pkg/test/echo/docker/Dockerfile.app_sidecar_centos_8
 	$(DOCKER_RULE)
 
 docker.istioctl: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
@@ -181,27 +190,14 @@ docker.operator: operator/docker/Dockerfile.operator
 docker.operator: $(ISTIO_OUT_LINUX)/operator
 	$(DOCKER_RULE)
 
-# mixer docker images
-
-docker.mixer: BUILD_PRE=&& chmod 755 mixs
-docker.mixer: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.mixer: mixer/docker/Dockerfile.mixer
-docker.mixer: $(ISTIO_DOCKER)/mixs
-	$(DOCKER_RULE)
-
-# mixer codegen docker images
-docker.mixer_codegen: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
-docker.mixer_codegen: mixer/docker/Dockerfile.mixer_codegen
-docker.mixer_codegen: $(ISTIO_DOCKER)/mixgen
-	$(DOCKER_RULE)
-
 # CNI
-docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni $(ISTIO_OUT_LINUX)/istio-cni-repair
+docker.install-cni: BUILD_ARGS=--build-arg BASE_VERSION=${BASE_VERSION}
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-repair
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
-docker.install-cni: cni/deployments/kubernetes/install/scripts/install-cni.sh
-docker.install-cni: cni/deployments/kubernetes/install/scripts/istio-cni.conf.default
+docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint
 docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
-docker.install-cni: cni/deployments/kubernetes/install/scripts/filter.jq
 	$(DOCKER_RULE)
 
 .PHONY: dockerx dockerx.save

@@ -18,7 +18,10 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	buildversion "istio.io/pkg/version"
 )
@@ -43,19 +46,20 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	if tag == "" {
 		tag = "latest"
 	}
-	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", "Path to file containing IstioOperator custom resource")
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", "Path to kube config")
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", "The name of the kubeconfig context to use")
-	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, "The hub for the operator controller image")
-	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, "The tag for the operator controller image")
-	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace,
-		"The namespace the operator controller is installed into")
+	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
+	cmd.PersistentFlags().StringVar(&args.common.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
 	cmd.PersistentFlags().StringVar(&args.common.istioNamespace, "istioNamespace", istioDefaultNamespace,
 		"The namespace Istio is installed into. Deprecated, use '--watchedNamespaces' instead.")
 	cmd.PersistentFlags().StringVar(&args.common.watchedNamespaces, "watchedNamespaces", istioDefaultNamespace,
 		"The namespaces the operator controller watches, could be namespace list separated by comma, eg. 'ns1,ns2'")
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.common.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
+	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "",
+		revisionFlagHelpStr)
 }
 
 func operatorInitCmd(rootArgs *rootArgs, oiArgs *operatorInitArgs) *cobra.Command {
@@ -79,7 +83,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 		l.LogAndFatal(err)
 	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
-	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace)
+	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace, oiArgs.common.revision)
 	if already {
 		l.LogAndPrintf("Operator controller is already installed in %s namespace, updating.", oiArgs.common.operatorNamespace)
 	}
@@ -105,8 +109,16 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	if err != nil {
 		l.LogAndFatal(err)
 	}
+	var iop *iopv1alpha1.IstioOperator
+	if oiArgs.common.revision != "" {
+		emptyiops := &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: oiArgs.common.revision}
+		iop, err = translate.IOPStoIOP(emptyiops, "", "")
+		if err != nil {
+			l.LogAndFatal(err)
+		}
+	}
 
-	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, l); err != nil {
+	if err := applyManifest(restConfig, client, mstr, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 		l.LogAndFatal(err)
 	}
 
@@ -115,7 +127,7 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 			l.LogAndFatal(err)
 
 		}
-		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, l); err != nil {
+		if err := applyManifest(restConfig, client, customResource, name.IstioOperatorComponentName, opts, iop, l); err != nil {
 			l.LogAndFatal(err)
 		}
 	}

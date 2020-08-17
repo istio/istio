@@ -18,36 +18,34 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
-	"istio.io/istio/pkg/config/resource"
 )
 
 func TestMessages_Sort(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"B",
 	)
 	secondMsg := NewMessage(
 		NewMessageType(Warning, "A1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"B",
 	)
 	thirdMsg := NewMessage(
 		NewMessageType(Warning, "B1", "Template: %q"),
-		testResource("A"),
+		MockResource("A"),
 		"B",
 	)
 	fourthMsg := NewMessage(
 		NewMessageType(Warning, "B1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"A",
 	)
 	fifthMsg := NewMessage(
 		NewMessageType(Warning, "B1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"B",
 	)
 
@@ -60,7 +58,7 @@ func TestMessages_Sort(t *testing.T) {
 }
 
 func TestMessages_SortWithNilOrigin(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -74,7 +72,7 @@ func TestMessages_SortWithNilOrigin(t *testing.T) {
 	)
 	thirdMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"B",
 	)
 
@@ -87,22 +85,22 @@ func TestMessages_SortWithNilOrigin(t *testing.T) {
 }
 
 func TestMessages_SortedCopy(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"B",
 	)
 	secondMsg := NewMessage(
 		NewMessageType(Warning, "A1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"B",
 	)
 	// Oops, we have a duplicate (identical to firstMsg) - it should be removed.
 	thirdMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
-		testResource("B"),
+		MockResource("B"),
 		"B",
 	)
 
@@ -114,11 +112,74 @@ func TestMessages_SortedCopy(t *testing.T) {
 	g.Expect(newMsgs).To(Equal(expectedMsgs))
 }
 
-func testResource(name string) *resource.Instance {
-	return &resource.Instance{
-		Metadata: resource.Metadata{
-			FullName: resource.NewShortOrFullName("default", name),
-		},
-		Origin: testOrigin{name: name},
+func TestMessages_SetRefDoc(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		MockResource("B"),
+		"B",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Info, "C1", "Template: %q"),
+		MockResource("B"),
+		"B",
+	)
+
+	msgs := Messages{firstMsg, secondMsg}
+	msgs.SetDocRef("istioctl-awesome")
+
+	getDocURL := func(msg Message) string {
+		return msg.Unstructured(false)["documentation_url"].(string)
 	}
+
+	g.Expect(getDocURL(msgs[0])).To(Equal("https://istio.io/docs/reference/config/analysis/b1/?ref=istioctl-awesome"))
+	g.Expect(getDocURL(msgs[1])).To(Equal("https://istio.io/docs/reference/config/analysis/c1/?ref=istioctl-awesome"))
+}
+
+func TestMessages_Filter(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Error, "B1", "Template: %q"),
+		MockResource("B"),
+		"B",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Info, "A1", "Template: %q"),
+		MockResource("B"),
+		"B",
+	)
+	thirdMsg := NewMessage(
+		NewMessageType(Warning, "C1", "Template: %q"),
+		MockResource("B"),
+		"B",
+	)
+
+	msgs := Messages{firstMsg, secondMsg, thirdMsg}
+	filteredMsgs := msgs.FilterOutLowerThan(Warning)
+	expectedMsgs := Messages{firstMsg, thirdMsg}
+
+	g.Expect(filteredMsgs).To(Equal(expectedMsgs))
+}
+
+func TestMessages_FilterOutAll(t *testing.T) {
+	g := NewWithT(t)
+
+	firstMsg := NewMessage(
+		NewMessageType(Info, "A1", "Template: %q"),
+		MockResource("B"),
+		"B",
+	)
+	secondMsg := NewMessage(
+		NewMessageType(Warning, "C1", "Template: %q"),
+		MockResource("B"),
+		"B",
+	)
+
+	msgs := Messages{firstMsg, secondMsg}
+	filteredMsgs := msgs.FilterOutLowerThan(Error)
+	expectedMsgs := Messages{}
+
+	g.Expect(filteredMsgs).To(Equal(expectedMsgs))
 }

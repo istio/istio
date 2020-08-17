@@ -17,6 +17,7 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,27 +42,24 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"istio.io/istio/pkg/util/protomarshal"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/pkg/log"
+	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -119,7 +117,7 @@ const (
 
 	// EnvoyTextLogFormat format for envoy text based access logs for Istio 1.3 onwards
 	EnvoyTextLogFormat = "[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% " +
-		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% \"%DYNAMIC_METADATA(istio.mixer:status)%\" " +
+		"%PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% " +
 		"\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% " +
 		"%DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" " +
 		"\"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\" \"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" " +
@@ -318,7 +316,6 @@ var (
 			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
 			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
-			"istio_policy_status":               {Kind: &structpb.Value_StringValue{StringValue: "%DYNAMIC_METADATA(istio.mixer:status)%"}},
 			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
 		},
 	}
@@ -442,7 +439,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(push, builder)
 	case model.Router:
-		builder = configgen.buildGatewayListeners(node, push, builder)
+		builder = configgen.buildGatewayListeners(builder)
 	}
 
 	builder.patchListeners()
@@ -1076,14 +1073,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					pluginParams.ListenerProtocol = istionetworking.ModelProtocolToListenerProtocol(servicePort.Protocol,
 						core.TrafficDirection_OUTBOUND)
 
-					// Support Kubernetes statefulsets/headless services with TCP ports only.
+					// Support statefulsets/headless services with TCP ports, and empty service address field.
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
-					// wildcard route match to get to the appropriate pod through original dst clusters.
+					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
-						service.Attributes.ServiceRegistry == string(serviceregistry.Kubernetes) && servicePort.Protocol.IsTCP() {
+						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
 						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
 							for _, instance := range instances {
+								// Make sure each endpoint address is a valid address
+								// as service entries could have NONE resolution with label selectors for workload
+								// entries (which could technically have hostnames).
+								if net.ParseIP(instance.Endpoint.Address) == nil {
+									continue
+								}
 								// Skip build outbound listener to the node itself,
 								// as when app access itself by pod ip will not flow through this listener.
 								// Simultaneously, it will be duplicate with inbound listener.
@@ -1124,8 +1127,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			httpListeners = append(httpListeners, l.listener)
 		}
 	}
-
 	tcpListeners = append(tcpListeners, httpListeners...)
+	// Build pass through filter chains now that all the non-passthrough filter chains are ready.
+	for _, listener := range tcpListeners {
+		configgen.appendListenerFallthroughRouteForCompleteListener(listener, node, push)
+	}
 	removeListenerFilterTimeout(tcpListeners)
 	return tcpListeners
 }
@@ -1168,7 +1174,6 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	// TODO: plugins for HTTP_PROXY mode, envoyfilter needs another listener match for SIDECAR_HTTP_PROXY
-	// there is no mixer for http_proxy
 	mutable := &istionetworking.MutableObjects{
 		Listener:     l,
 		FilterChains: []istionetworking.FilterChain{{}},
@@ -1602,7 +1607,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	// Lets build the new listener with the filter chains. In the end, we will
 	// merge the filter chains with any existing listener on the same port/bind point
 	l := buildListener(listenerOpts)
-	appendListenerFallthroughRoute(l, &listenerOpts, pluginParams.Node, currentListenerEntry)
+	// Note that the fall through route is built at the very end of all outbound listeners
 	l.TrafficDirection = core.TrafficDirection_OUTBOUND
 
 	mutable := &istionetworking.MutableObjects{
@@ -1814,7 +1819,6 @@ type filterChainOpts struct {
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
-	isFallThrough    bool
 }
 
 // buildListenerOpts are the options required to build a Listener
@@ -1845,6 +1849,9 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 			ConfigType: &hcm.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
 					EmitFilterState: true,
+					PerMethodStatSpecifier: &grpcstats.FilterConfig_StatsForAllMethods{
+						StatsForAllMethods: &wrapperspb.BoolValue{Value: false},
+					},
 				}),
 			},
 		})
@@ -1894,16 +1901,13 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 					ConfigSourceSpecifier: &core.ConfigSource_Ads{
 						Ads: &core.AggregatedConfigSource{},
 					},
+					ResourceApiVersion:  core.ApiVersion_V3,
 					InitialFetchTimeout: features.InitialFetchTimeout,
 				},
 				RouteConfigName: httpOpts.rds,
 			},
 		}
 		connectionManager.RouteSpecifier = rds
-		if pluginParams.Node.RequestedTypes.LDS == v3.ListenerType {
-			// For v3 listeners, send v3 routes
-			rds.Rds.ConfigSource.ResourceApiVersion = core.ApiVersion_V3
-		}
 	} else {
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
@@ -2175,12 +2179,10 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 	return listener
 }
 
-// appendListenerFallthroughRoute adds a filter that will match all traffic and direct to the
-// PassthroughCluster. This should be appended as the final filter or it will mask the others.
-// This allows external https traffic, even when port the port (usually 443) is in use by another service.
-func appendListenerFallthroughRoute(l *listener.Listener, opts *buildListenerOpts,
-	node *model.Proxy, currentListenerEntry *outboundListenerEntry) {
-	wildcardMatch := &listener.FilterChainMatch{}
+// Create pass through filter chain for the listener assuming all the other filter chains are ready.
+// The match member of pass through filter chain depends on the existing non-passthrough filter chain.
+// TODO(lambdai): Calculate the filter chain match to replace the wildcard and replace appendListenerFallthroughRoute.
+func (configgen *ConfigGeneratorImpl) appendListenerFallthroughRouteForCompleteListener(l *listener.Listener, node *model.Proxy, push *model.PushContext) {
 	for _, fc := range l.FilterChains {
 		if isMatchAllFilterChain(fc) {
 			// We can only have one wildcard match. If the filter chain already has one, skip it
@@ -2190,24 +2192,33 @@ func appendListenerFallthroughRoute(l *listener.Listener, opts *buildListenerOpt
 		}
 	}
 
-	if currentListenerEntry != nil {
-		for _, fc := range currentListenerEntry.listener.FilterChains {
-			if isMatchAllFilterChain(fc) {
-				// We can only have one wildcard match. If the existing filter chain already has one, skip it
-				// This can happen when there are multiple https services
-				return
-			}
+	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(push, node)
+
+	in := &plugin.InputParams{
+		Node: node,
+		Push: push,
+	}
+	mutable := &istionetworking.MutableObjects{
+		FilterChains: []istionetworking.FilterChain{
+			{
+				TCP: fallthroughNetworkFilters,
+			},
+		},
+	}
+
+	for _, p := range configgen.Plugins {
+		if err := p.OnOutboundPassthroughFilterChain(in, mutable); err != nil {
+			log.Debugf("Fail to set pass through filter chain for listener: %#v", l.Name)
+			return
 		}
 	}
 
-	fallthroughNetworkFilters := buildOutboundCatchAllNetworkFiltersOnly(opts.push, node)
-
-	opts.filterChainOpts = append(opts.filterChainOpts, &filterChainOpts{
-		filterChainName: util.PassthroughFilterChain,
-		networkFilters:  fallthroughNetworkFilters,
-		isFallThrough:   true,
-	})
-	l.FilterChains = append(l.FilterChains, &listener.FilterChain{FilterChainMatch: wildcardMatch})
+	outboundPassThroughFilterChain := &listener.FilterChain{
+		FilterChainMatch: &listener.FilterChainMatch{},
+		Name:             util.PassthroughFilterChain,
+		Filters:          mutable.FilterChains[0].TCP,
+	}
+	l.FilterChains = append(l.FilterChains, outboundPassThroughFilterChain)
 }
 
 // buildCompleteFilterChain adds the provided TCP and HTTP filters to the provided Listener and serializes them.
@@ -2230,23 +2241,17 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 		mutable.Listener.FilterChains[i].Name = opt.filterChainName
 
 		if opt.thriftOpts != nil && features.EnableThriftFilter {
-			var quotas []model.Config
 			// Add the TCP filters first.. and then the Thrift filter
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
 			thriftProxies[i] = buildThriftProxy(opt.thriftOpts)
-
-			if pluginParams.Service != nil {
-				quotas = opts.push.QuotaSpecByDestination(pluginParams.Service.Hostname)
-			}
 
 			// If the RLS service was provided, add the RLS to the Thrift filter
 			// chain. Rate limiting is only applied client-side.
 			if rlsURI := opts.push.Mesh.ThriftConfig.RateLimitUrl; rlsURI != "" &&
 				mutable.Listener.TrafficDirection == core.TrafficDirection_OUTBOUND &&
 				pluginParams.Service != nil &&
-				pluginParams.Service.Hostname != "" &&
-				len(quotas) > 0 {
+				pluginParams.Service.Hostname != "" && false { // TODO: restore ability to add thrift quota
 				rateLimitConfig := buildThriftRatelimit(fmt.Sprint(pluginParams.Service.Hostname), opts.push.Mesh.ThriftConfig)
 				rateLimitFilter := &thrift.ThriftFilter{
 					Name: "envoy.filters.thrift.rate_limit",
@@ -2270,14 +2275,11 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 				len(thriftProxies[i].ThriftFilters), mutable.Listener.Name, i)
 		} else if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
-			// In HTTP, we need to have mixer, RBAC, etc. upfront so that they can enforce policies immediately
+			// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
 			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
-			// codec is used by RBAC or mixer later.
+			// codec is used by RBAC later.
 
 			if len(opt.networkFilters) > 0 {
-				if opt.isFallThrough {
-					insertFallthroughMetadata(mutable.Listener.FilterChains[i])
-				}
 				// this is the terminating filter
 				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
 
@@ -2294,7 +2296,10 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			// Add the TCP filters first.. and then the HTTP connection manager
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
 
-			opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
+			// If statPrefix has been set before calling this method, respect that.
+			if len(opt.httpOpts.statPrefix) == 0 {
+				opt.httpOpts.statPrefix = strings.ToLower(mutable.Listener.TrafficDirection.String()) + "_" + mutable.Listener.Name
+			}
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,
@@ -2350,15 +2355,9 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 
 	for _, incomingFilterChain := range incoming {
 		conflict := false
-		fallthroughChain := false
 
-		for i, existingFilterChain := range mergedFilterChains {
-			fallthroughChain, conflict = fallthroughOrConflict(existingFilterChain, incomingFilterChain)
-
-			if fallthroughChain {
-				mergedFilterChains[i] = incomingFilterChain
-				continue
-			}
+		for _, existingFilterChain := range mergedFilterChains {
+			conflict = isConflict(existingFilterChain, incomingFilterChain)
 
 			if conflict {
 				// NOTE: While pluginParams.Service can be nil,
@@ -2387,7 +2386,7 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 			}
 
 		}
-		if !conflict && !fallthroughChain {
+		if !conflict {
 			// There is no conflict with any filter chain in the existing listener.
 			// So append the new filter chains to the existing listener's filter chains
 			mergedFilterChains = append(mergedFilterChains, incomingFilterChain)
@@ -2400,25 +2399,9 @@ func mergeTCPFilterChains(incoming []*listener.FilterChain, pluginParams *plugin
 	return mergedFilterChains
 }
 
-// fallthroughOrConflict determines whether the incoming filter chain has conflict with existing.
-// It also identifies whether the existing filter chain is a fallthrough and hence should be replaced.
-func fallthroughOrConflict(existing, incoming *listener.FilterChain) (bool, bool) {
-	switch {
-	case isMatchAllFilterChain(existing):
-		// This is a catch all filter chain.
-		// We can only merge with a non-catch all filter chain
-		// Else mark it as conflict
-		if isMatchAllFilterChain(incoming) {
-			// replace fallthrough filter chain with the real service one
-			if isFallthroughFilterChain(existing) {
-				return true, false
-			}
-			return false, true
-		}
-	case filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch):
-		return false, true
-	}
-	return false, false
+// isConflict determines whether the incoming filter chain has conflict with existing filter chain.
+func isConflict(existing, incoming *listener.FilterChain) bool {
+	return filterChainMatchEqual(existing.FilterChainMatch, incoming.FilterChainMatch)
 }
 
 func filterChainMatchEmpty(fcm *listener.FilterChainMatch) bool {
@@ -2502,7 +2485,6 @@ func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain 
 		} else {
 			filterChain[id].ListenerProtocol = istionetworking.ListenerProtocolHTTP
 		}
-		filterChain[id].IsFallThrough = opts.filterChainOpts[id].isFallThrough
 	}
 
 	return filterChain
@@ -2555,32 +2537,9 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 	return &core.TransportSocket{Name: util.EnvoyTLSSocketName, ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: util.MessageToAny(tlsContext)}}
 }
 
-func insertFallthroughMetadata(chain *listener.FilterChain) {
-	if chain.Metadata == nil {
-		chain.Metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
-		}
-	}
-	if chain.Metadata.FilterMetadata[PilotMetaKey] == nil {
-		chain.Metadata.FilterMetadata[PilotMetaKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
-		}
-	}
-	chain.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] =
-		&structpb.Value{Kind: &structpb.Value_BoolValue{BoolValue: true}}
-}
-
 func isMatchAllFilterChain(fc *listener.FilterChain) bool {
 	// See if it is empty filter chain.
 	return filterChainMatchEmpty(fc.FilterChainMatch)
-}
-
-func isFallthroughFilterChain(fc *listener.FilterChain) bool {
-	if fc.Metadata != nil && fc.Metadata.FilterMetadata != nil &&
-		fc.Metadata.FilterMetadata[PilotMetaKey] != nil && fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"] != nil {
-		return fc.Metadata.FilterMetadata[PilotMetaKey].Fields["fallthrough"].GetBoolValue()
-	}
-	return false
 }
 
 func removeListenerFilterTimeout(listeners []*listener.Listener) {

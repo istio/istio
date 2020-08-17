@@ -17,23 +17,67 @@ package istioagent
 import (
 	"testing"
 
-	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/security"
 )
 
-// Validate that Agent comes up without errors when configured with file mounted certs.
-func TestSDSAgentWithFileMountedCerts(t *testing.T) {
-	fm := fileMountedCertsEnv
-	fileMountedCertsEnv = true
-	defer func() { fileMountedCertsEnv = fm }()
-	// Validate that SDS server can start without any error.
-	sa := NewAgent(&mesh.ProxyConfig{
-		DiscoveryAddress: "istiod.istio-system:15010",
-	}, &AgentConfig{
-		PilotCertProvider: "custom",
-		ClusterID:         "kubernetes",
-	})
-	_, err := sa.Start(true, "test")
-	if err != nil {
-		t.Fatalf("Unexpected error starting Agent %v", err)
+func TestNewAgent(t *testing.T) {
+	type testResult struct {
+		optCAEndpoint  string
+		optUseLocalJWT bool
+	}
+	proxyConfig := mesh.DefaultProxyConfig()
+	tests := []struct {
+		name             string
+		fileMountedCerts bool
+		caEndpoint       string
+		expected         *testResult
+	}{
+		{
+			name:             "istiod",
+			fileMountedCerts: false,
+			caEndpoint:       "",
+			expected: &testResult{
+				optCAEndpoint:  "istiod.istio-system.svc:15012",
+				optUseLocalJWT: true,
+			},
+		},
+		{
+			name:             "customCA",
+			fileMountedCerts: false,
+			caEndpoint:       "MyCA",
+			expected: &testResult{
+				optCAEndpoint:  "MyCA",
+				optUseLocalJWT: true,
+			},
+		},
+		{
+			name:             "istiod-filemount",
+			fileMountedCerts: true,
+			caEndpoint:       "",
+			expected: &testResult{
+				optCAEndpoint:  "istiod.istio-system.svc:15012",
+				optUseLocalJWT: false,
+			},
+		},
+	}
+	for _, tt := range tests {
+		secOpts := &security.Options{
+			FileMountedCerts: tt.fileMountedCerts,
+			CAEndpoint:       tt.caEndpoint,
+		}
+		sa := NewAgent(&proxyConfig,
+			&AgentConfig{}, secOpts)
+		if sa == nil {
+			t.Fatalf("failed to create SDS agent: %s", tt.name)
+		}
+		if sa.secOpts.CAEndpoint != tt.expected.optCAEndpoint {
+			t.Errorf("Test %s failed, expected: %s got: %s", tt.name,
+				tt.expected.optCAEndpoint, sa.secOpts.CAEndpoint)
+		}
+		if sa.secOpts.UseLocalJWT != tt.expected.optUseLocalJWT {
+			t.Errorf("Test %s failed, expected: %t got: %t", tt.name,
+				tt.expected.optUseLocalJWT, sa.secOpts.UseLocalJWT)
+		}
 	}
 }

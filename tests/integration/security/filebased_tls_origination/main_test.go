@@ -17,18 +17,14 @@ package filebasedtlsorigination
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/security/util/cert"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
@@ -41,12 +37,6 @@ func TestMain(m *testing.M) {
 		RequireSingleCluster().
 		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
 		Run()
 
 }
@@ -59,8 +49,10 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
+    name: istio-egressgateway
   ingressGateways:
   - enabled: false
+    name: istio-ingressgateway
 values:
    gateways:
       istio-egressgateway:

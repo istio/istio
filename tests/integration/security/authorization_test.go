@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -60,10 +59,10 @@ func TestAuthorization_mTLS(t *testing.T) {
 			})
 
 			var a, b, c echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns2, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns2, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -119,11 +118,11 @@ func TestAuthorization_JWT(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
 
 			var a, b, c, d echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, namePrefix string, jwt string, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -194,11 +193,11 @@ func TestAuthorization_WorkloadSelector(t *testing.T) {
 			})
 
 			var a, bInNS1, cInNS1, cInNS2 echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns1, false, nil, p)).
-				With(&bInNS1, util.EchoConfig("b", ns1, false, nil, p)).
-				With(&cInNS1, util.EchoConfig("c", ns1, false, nil, p)).
-				With(&cInNS2, util.EchoConfig("c", ns2, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns1, false, nil)).
+				With(&bInNS1, util.EchoConfig("b", ns1, false, nil)).
+				With(&cInNS1, util.EchoConfig("c", ns1, false, nil)).
+				With(&cInNS2, util.EchoConfig("c", ns2, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(namePrefix string, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -275,10 +274,10 @@ func TestAuthorization_Deny(t *testing.T) {
 			})
 
 			var a, b, c echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -366,12 +365,12 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			var a, b, c, d, x echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, p)).
-				With(&x, util.EchoConfig("x", ns2, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
+				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(from, target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -396,15 +395,15 @@ func TestAuthorization_NegativeMatch(t *testing.T) {
 				// Test the policy with overlapped `paths` and `not_paths` on b.
 				// a and x should have the same results:
 				// - path with prefix `/prefix` should be denied explicitly.
-				// - path `/prefix/whitelist` should be excluded from the deny.
+				// - path `/prefix/allowlist` should be excluded from the deny.
 				// - path `/allow` should be allowed implicitly.
 				newTestCase(a, b, "/prefix", false),
 				newTestCase(a, b, "/prefix/other", false),
-				newTestCase(a, b, "/prefix/whitelist", true),
+				newTestCase(a, b, "/prefix/allowlist", true),
 				newTestCase(a, b, "/allow", true),
 				newTestCase(x, b, "/prefix", false),
 				newTestCase(x, b, "/prefix/other", false),
-				newTestCase(x, b, "/prefix/whitelist", true),
+				newTestCase(x, b, "/prefix/allowlist", true),
 				newTestCase(x, b, "/allow", true),
 
 				// Test the policy that denies other namespace on c.
@@ -446,17 +445,11 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			var b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
-			var ingr ingress.Instance
-			var err error
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: ist,
-			}); err != nil {
-				t.Fatal(err)
-			}
+			ingr := ist.IngressFor(ctx.Clusters().Default())
 
 			cases := []struct {
 				Name     string
@@ -517,9 +510,9 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 				Inject: true,
 			})
 
-			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
+			var a, b, c echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
@@ -531,8 +524,8 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 							ServicePort: 8090,
 						},
 					},
-					Pilot: p,
 				}).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
 				BuildOrFail(t)
 
 			args := map[string]string{
@@ -545,24 +538,103 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 			defer ctx.Config().DeleteYAMLOrFail(t, "", policies...)
 
 			cases := []struct {
-				path string
-				code string
-				body string
+				name  string
+				path  string
+				code  string
+				body  string
+				host  string
+				from  echo.Workload
+				token string
 			}{
 				{
+					name: "allow path to company.com",
 					path: "/allow",
 					code: response.StatusCodeOK,
 					body: "handled-by-egress-gateway",
+					host: "www.company.com",
+					from: getWorkload(a, t),
 				},
 				{
+					name: "deny path to company.com",
 					path: "/deny",
 					code: response.StatusCodeForbidden,
 					body: "RBAC: access denied",
+					host: "www.company.com",
+					from: getWorkload(a, t),
+				},
+				{
+					name: "allow service account a to a-only.com over mTLS",
+					path: "/",
+					code: response.StatusCodeOK,
+					body: "handled-by-egress-gateway",
+					host: "a-only.com",
+					from: getWorkload(a, t),
+				},
+				{
+					name: "deny service account c to a-only.com over mTLS",
+					path: "/",
+					code: response.StatusCodeForbidden,
+					body: "RBAC: access denied",
+					host: "a-only.com",
+					from: getWorkload(c, t),
+				},
+				{
+					name:  "allow a with JWT to jwt-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeOK,
+					body:  "handled-by-egress-gateway",
+					host:  "jwt-only.com",
+					from:  getWorkload(a, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "allow c with JWT to jwt-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeOK,
+					body:  "handled-by-egress-gateway",
+					host:  "jwt-only.com",
+					from:  getWorkload(c, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "deny c with wrong JWT to jwt-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeForbidden,
+					body:  "RBAC: access denied",
+					host:  "jwt-only.com",
+					from:  getWorkload(c, t),
+					token: jwt.TokenIssuer2,
+				},
+				{
+					name:  "allow service account a with JWT to jwt-and-a-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeOK,
+					body:  "handled-by-egress-gateway",
+					host:  "jwt-and-a-only.com",
+					from:  getWorkload(a, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "deny service account c with JWT to jwt-and-a-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeForbidden,
+					body:  "RBAC: access denied",
+					host:  "jwt-and-a-only.com",
+					from:  getWorkload(c, t),
+					token: jwt.TokenIssuer1,
+				},
+				{
+					name:  "deny service account a with wrong JWT to jwt-and-a-only.com over mTLS",
+					path:  "/",
+					code:  response.StatusCodeForbidden,
+					body:  "RBAC: access denied",
+					host:  "jwt-and-a-only.com",
+					from:  getWorkload(a, t),
+					token: jwt.TokenIssuer2,
 				},
 			}
 
 			for _, tc := range cases {
-				from := getWorkload(a, t)
 				request := &epb.ForwardEchoRequest{
 					// Use a fake IP to make sure the request is handled by our test.
 					Url:   fmt.Sprintf("http://10.4.4.4%s", tc.path),
@@ -570,13 +642,19 @@ func TestAuthorization_EgressGateway(t *testing.T) {
 					Headers: []*epb.Header{
 						{
 							Key:   "Host",
-							Value: "www.company.com",
+							Value: tc.host,
 						},
 					},
 				}
-				t.Run(tc.path, func(t *testing.T) {
+				if tc.token != "" {
+					request.Headers = append(request.Headers, &epb.Header{
+						Key:   "Authorization",
+						Value: "Bearer " + tc.token,
+					})
+				}
+				t.Run(tc.name, func(t *testing.T) {
 					retry.UntilSuccessOrFail(t, func() error {
-						responses, err := from.ForwardEcho(context.TODO(), request)
+						responses, err := tc.from.ForwardEcho(context.TODO(), request)
 						if err != nil {
 							return err
 						}
@@ -628,17 +706,21 @@ func TestAuthorization_TCP(t *testing.T) {
 					InstancePort: 8091,
 				},
 				{
-					Name:         "tcp",
+					Name:         "tcp-8092",
 					Protocol:     protocol.TCP,
 					InstancePort: 8092,
 				},
+				{
+					Name:         "tcp-8093",
+					Protocol:     protocol.TCP,
+					InstancePort: 8093,
+				},
 			}
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&x, util.EchoConfig("x", ns2, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&x, util.EchoConfig("x", ns2, false, nil)).
 				With(&a, echo.Config{
 					Subsets:        []echo.SubsetConfig{{}},
 					Namespace:      ns,
-					Pilot:          p,
 					Service:        "a",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -646,7 +728,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&b, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "b",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -654,7 +735,6 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&c, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "c",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -662,14 +742,12 @@ func TestAuthorization_TCP(t *testing.T) {
 				With(&d, echo.Config{
 					Namespace:      ns,
 					Subsets:        []echo.SubsetConfig{{}},
-					Pilot:          p,
 					Service:        "d",
 					Ports:          ports,
 					ServiceAccount: true,
 				}).
 				With(&e, echo.Config{
 					Namespace:      ns,
-					Pilot:          p,
 					Service:        "e",
 					Ports:          ports,
 					ServiceAccount: true,
@@ -695,18 +773,26 @@ func TestAuthorization_TCP(t *testing.T) {
 				// The policy on workload b denies request with path "/data" to port 8090:
 				// - request to port http-8090 should be denied because both path and port are matched.
 				// - request to port http-8091 should be allowed because the port is not matched.
-				// - request to port tcp should be allowed because the port is not matched.
+				// - request to port tcp-8092 should be allowed because the port is not matched.
 				newTestCase(a, b, "http-8090", false, scheme.HTTP),
 				newTestCase(a, b, "http-8091", true, scheme.HTTP),
-				newTestCase(a, b, "tcp", true, scheme.TCP),
+				newTestCase(a, b, "tcp-8092", true, scheme.TCP),
 
 				// The policy on workload c denies request to port 8090:
 				// - request to port http-8090 should be denied because the port is matched.
 				// - request to http port 8091 should be allowed because the port is not matched.
 				// - request to tcp port 8092 should be allowed because the port is not matched.
+				// - request from b to tcp port 8092 should be allowed by default.
+				// - request from b to tcp port 8093 should be denied because the principal is matched.
+				// - request from x to tcp port 8092 should be denied because the namespace is matched.
+				// - request from x to tcp port 8093 should be allowed by default.
 				newTestCase(a, c, "http-8090", false, scheme.HTTP),
 				newTestCase(a, c, "http-8091", true, scheme.HTTP),
-				newTestCase(a, c, "tcp", true, scheme.TCP),
+				newTestCase(a, c, "tcp-8092", true, scheme.TCP),
+				newTestCase(b, c, "tcp-8092", true, scheme.TCP),
+				newTestCase(b, c, "tcp-8093", false, scheme.TCP),
+				newTestCase(x, c, "tcp-8092", false, scheme.TCP),
+				newTestCase(x, c, "tcp-8093", true, scheme.TCP),
 
 				// The policy on workload d denies request from service account a and workloads in namespace 2:
 				// - request from a to d should be denied because it has service account a.
@@ -714,19 +800,19 @@ func TestAuthorization_TCP(t *testing.T) {
 				// - request from c to d should be allowed.
 				// - request from x to a should be allowed because there is no policy on a.
 				// - request from x to d should be denied because it's in namespace 2.
-				newTestCase(a, d, "tcp", false, scheme.TCP),
-				newTestCase(b, d, "tcp", true, scheme.TCP),
-				newTestCase(c, d, "tcp", true, scheme.TCP),
-				newTestCase(x, a, "tcp", true, scheme.TCP),
-				newTestCase(x, d, "tcp", false, scheme.TCP),
+				newTestCase(a, d, "tcp-8092", false, scheme.TCP),
+				newTestCase(b, d, "tcp-8092", true, scheme.TCP),
+				newTestCase(c, d, "tcp-8092", true, scheme.TCP),
+				newTestCase(x, a, "tcp-8092", true, scheme.TCP),
+				newTestCase(x, d, "tcp-8092", false, scheme.TCP),
 
 				// The policy on workload e denies request with path "/other":
 				// - request to port http-8090 should be allowed because the path is not matched.
 				// - request to port http-8091 should be allowed because the path is not matched.
-				// - request to port tcp should be denied because policy uses HTTP fields.
+				// - request to port tcp-8092 should be denied because policy uses HTTP fields.
 				newTestCase(a, e, "http-8090", true, scheme.HTTP),
 				newTestCase(a, e, "http-8091", true, scheme.HTTP),
-				newTestCase(a, e, "tcp", false, scheme.TCP),
+				newTestCase(a, e, "tcp-8092", false, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -752,9 +838,9 @@ func TestAuthorization_Conditions(t *testing.T) {
 
 			portC := 8090
 			var a, b, c echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", nsA, false, nil, p)).
-				With(&b, util.EchoConfig("b", nsB, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", nsA, false, nil)).
+				With(&b, util.EchoConfig("b", nsB, false, nil)).
 				With(&c, echo.Config{
 					Service:   "c",
 					Namespace: nsC,
@@ -766,7 +852,6 @@ func TestAuthorization_Conditions(t *testing.T) {
 							InstancePort: portC,
 						},
 					},
-					Pilot: p,
 				}).
 				BuildOrFail(t)
 
@@ -853,11 +938,11 @@ func TestAuthorization_GRPC(t *testing.T) {
 				Inject: true,
 			})
 			var a, b, c, d echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
-				With(&a, util.EchoConfig("a", ns, false, nil, p)).
-				With(&b, util.EchoConfig("b", ns, false, nil, p)).
-				With(&c, util.EchoConfig("c", ns, false, nil, p)).
-				With(&d, util.EchoConfig("d", ns, false, nil, p)).
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			cases := []rbacUtil.TestCase{
@@ -927,20 +1012,18 @@ func TestAuthorization_Path(t *testing.T) {
 			}
 
 			var a, b echo.Instance
-			echoboot.NewBuilderOrFail(t, ctx).
+			echoboot.NewBuilder(ctx).
 				With(&a, echo.Config{
 					Service:   "a",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				With(&b, echo.Config{
 					Service:   "b",
 					Namespace: ns,
 					Subsets:   []echo.SubsetConfig{{}},
 					Ports:     ports,
-					Pilot:     p,
 				}).
 				BuildOrFail(t)
 

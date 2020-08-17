@@ -27,14 +27,12 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/pkg/config/schema/resource"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/pkg/log"
 )
 
 // FromJSON converts a canonical JSON to a proto message
@@ -104,7 +102,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, error) {
+func ConvertConfig(cfg model.Config) (IstioObject, error) {
 	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
@@ -115,8 +113,8 @@ func ConvertConfig(schema collection.Schema, cfg model.Config) (IstioObject, err
 	}
 	return &IstioKind{
 		TypeMeta: meta_v1.TypeMeta{
-			Kind:       schema.Resource().Kind(),
-			APIVersion: schema.Resource().APIVersion(),
+			Kind:       cfg.GroupVersionKind.Kind,
+			APIVersion: cfg.GroupVersionKind.Group + "/" + cfg.GroupVersionKind.Version,
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name:              cfg.Name,
@@ -166,7 +164,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 
 		cfg, err := ConvertObject(s, &obj, "")
 		if err != nil {
-			return nil, nil, fmt.Errorf("cannot parse proto message: %v", err)
+			return nil, nil, fmt.Errorf("cannot parse proto message for %v: %v", obj.Name, err)
 		}
 
 		if withValidate {
@@ -191,9 +189,4 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 // object with kubectl and then re-ingests it.
 func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
 	return parseInputsImpl(inputs, true)
-}
-
-// ParseInputsWithoutValidation same as ParseInputs, but do not apply schema validation.
-func ParseInputsWithoutValidation(inputs string) ([]model.Config, []IstioKind, error) {
-	return parseInputsImpl(inputs, false)
 }

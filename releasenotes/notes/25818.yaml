@@ -1,0 +1,37 @@
+apiVersion: release-notes/v2
+
+# This YAML file describes the format for specifying a release notes entry for Istio.
+# This should be filled in for all user facing changes.
+
+# kind describes the type of change that this represents.
+# Valid Values are:
+# - bug-fix -- Used to specify that this change represents a bug fix.
+# - security-fix -- Used to specify that this change represents a security fix.
+# - feature -- Used to specify a new feature that has been added.
+# - test -- Used to describe additional testing added. This file is optional for
+#   tests, but included for completeness.
+kind: security-fix
+
+# area describes the area that this change affects.
+# Valid values are:
+# - traffic-management
+# - security
+# - telemetry
+# - installation
+# - istioctl
+# - documentation
+area: security
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Fixed** an issue preventing the use of source principal based authorization at Istio Gateway when the Server's TLS mode is ISTIO_MUTUAL.
+
+# securityNotes is a markdown listing of any changes related to the security of
+# Istio.
+securityNotes:
+  - |
+    __Source principal validation at Gateway does not work even with ISTIO_MUTUAL TLS mode__:
+    When the Gateway server's TLS mode is ISTIO_MUTUAL, Istio's authN filter is not installed on the appropriate filter chain. Consequently, any Istio Authorization policy with source principal based rules will not work when applied to a Gateway workload.
+    - __CVSS Score__: 5.9 [AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:U/C:H/I:H/A:N&version=3.1)

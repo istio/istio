@@ -19,18 +19,20 @@ import (
 	"fmt"
 	"strings"
 
+	k8sauth "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	k8sauth "k8s.io/api/authentication/v1"
-
 	"istio.io/istio/pkg/jwt"
+	"istio.io/pkg/env"
 )
 
-const (
-	// The default audience for SDS trustworthy JWT. This is to make sure that the CSR requests
+var (
+	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
-	DefaultAudience = "istio-ca"
+	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
+		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
+			"The token is accepted if it matches with one of the audiences").Get(), ",")
 )
 
 // ValidateK8sJwt validates a k8s JWT at API server.
@@ -45,7 +47,7 @@ func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken, jwtPolicy stri
 		},
 	}
 	if jwtPolicy == jwt.PolicyThirdParty {
-		tokenReview.Spec.Audiences = []string{DefaultAudience}
+		tokenReview.Spec.Audiences = TokenAudiences
 	} else if jwtPolicy != jwt.PolicyFirstParty {
 		return nil, fmt.Errorf("invalid JWT policy: %v", jwtPolicy)
 	}

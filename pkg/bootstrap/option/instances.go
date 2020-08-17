@@ -21,7 +21,6 @@ import (
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 )
 
@@ -44,14 +43,6 @@ func ProxyConfig(value *meshAPI.ProxyConfig) Instance {
 
 func PilotSubjectAltName(value []string) Instance {
 	return newOption("pilot_SAN", value).withConvert(sanConverter(value))
-}
-
-func MixerSubjectAltName(value []string) Instance {
-	san := ""
-	if len(value) > 0 {
-		san = value[0]
-	}
-	return newOptionOrSkipIfZero("MixerSubjectAltName", san)
 }
 
 func ConnectTimeout(value *types.Duration) Instance {
@@ -243,4 +234,8 @@ func STSEnabled(value bool) Instance {
 
 func ProvCert(value string) Instance {
 	return newOption("provisioned_cert", value)
+}
+
+func DiscoveryHost(value string) Instance {
+	return newOption("discovery_host", value)
 }

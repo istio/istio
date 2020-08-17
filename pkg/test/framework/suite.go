@@ -31,14 +31,12 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	ferrors "istio.io/istio/pkg/test/framework/errors"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/environment"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 // test.Run uses 0, 1, 2 exit codes. Use different exit codes for our framework.
@@ -226,17 +224,14 @@ func (s *suiteImpl) RequireSingleCluster() Suite {
 
 func (s *suiteImpl) RequireEnvironmentVersion(version string) Suite {
 	fn := func(ctx resource.Context) error {
-		if environmentName(ctx) == environment.Kube {
-			kenv := ctx.Environment().(*kube.Environment)
-			ver, err := kenv.KubeClusters[0].GetKubernetesVersion()
-			if err != nil {
-				return fmt.Errorf("failed to get Kubernetes version: %v", err)
-			}
-			serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
-			if serverVersion < version {
-				s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
-					version, serverVersion))
-			}
+		ver, err := ctx.Clusters()[0].GetKubernetesVersion()
+		if err != nil {
+			return fmt.Errorf("failed to get Kubernetes version: %v", err)
+		}
+		serverVersion := fmt.Sprintf("%s.%s", ver.Major, ver.Minor)
+		if serverVersion < version {
+			s.Skip(fmt.Sprintf("Required Kubernetes version (%v) is greater than current: %v",
+				version, serverVersion))
 		}
 		return nil
 	}
@@ -254,7 +249,7 @@ func (s *suiteImpl) runSetupFn(fn resource.SetupFn, ctx SuiteContext) (err error
 	defer func() {
 		// Dump if the setup function fails
 		if err != nil && ctx.Settings().CIMode {
-			rt.Dump()
+			rt.Dump(ctx)
 		}
 	}()
 	err = fn(ctx)
@@ -309,7 +304,7 @@ func (s *suiteImpl) run() (errLevel int) {
 
 	defer func() {
 		if errLevel != 0 && ctx.Settings().CIMode {
-			rt.Dump()
+			rt.Dump(ctx)
 		}
 
 		if err := rt.Close(); err != nil {
@@ -366,7 +361,7 @@ type SuiteOutcome struct {
 	TestOutcomes []TestOutcome
 }
 
-func environmentName(ctx resource.Context) environment.Name {
+func environmentName(ctx resource.Context) string {
 	if ctx.Environment() != nil {
 		return ctx.Environment().EnvironmentName()
 	}
@@ -375,7 +370,7 @@ func environmentName(ctx resource.Context) environment.Name {
 
 func isMulticluster(ctx resource.Context) bool {
 	if ctx.Environment() != nil {
-		return ctx.Environment().IsMulticluster()
+		return ctx.Clusters().IsMulticluster()
 	}
 	return false
 }
@@ -395,7 +390,7 @@ func (s *suiteImpl) writeOutput() {
 		ctx.outcomeMu.RLock()
 		out := SuiteOutcome{
 			Name:         ctx.Settings().TestID,
-			Environment:  environmentName(ctx).String(),
+			Environment:  environmentName(ctx),
 			Multicluster: isMulticluster(ctx),
 			TestOutcomes: ctx.testOutcomes,
 		}
@@ -457,7 +452,7 @@ func initRuntime(s *suiteImpl) error {
 		environmentFactory = newEnvironment
 	}
 
-	if err := configureLogging(settings.CIMode); err != nil {
+	if err := configureLogging(); err != nil {
 		return err
 	}
 
@@ -479,6 +474,9 @@ func newEnvironment(ctx resource.Context) (resource.Environment, error) {
 	s, err := kube.NewSettingsFromCommandLine()
 	if err != nil {
 		return nil, err
+	}
+	if s.Minikube {
+		return nil, fmt.Errorf("istio.test.kube.minikube is deprecated; set --istio.test.kube.loadbalancer=false instead")
 	}
 	return kube.New(ctx, s)
 }

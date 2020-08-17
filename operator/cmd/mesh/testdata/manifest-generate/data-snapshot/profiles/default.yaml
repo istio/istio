@@ -45,70 +45,6 @@ spec:
             maxSurge: "100%"
             maxUnavailable: "25%"
 
-    # Policy feature
-    policy:
-      enabled: false
-      k8s:
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-policy
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
-    # Telemetry feature
-    telemetry:
-      enabled: false
-      k8s:
-        env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                apiVersion: v1
-                fieldPath: metadata.namespace
-          - name: GOMAXPROCS
-            value: "6"
-        hpaSpec:
-          maxReplicas: 5
-          minReplicas: 1
-          scaleTargetRef:
-            apiVersion: apps/v1
-            kind: Deployment
-            name: istio-telemetry
-          metrics:
-            - type: Resource
-              resource:
-                name: cpu
-                targetAverageUtilization: 80
-        replicaCount: 1
-        resources:
-          requests:
-            cpu: 1000m
-            memory: 1G
-          limits:
-            cpu: 4800m
-            memory: 4G
-        strategy:
-          rollingUpdate:
-            maxSurge: "100%"
-            maxUnavailable: "25%"
-
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -255,20 +191,11 @@ spec:
       # Default behavior: latest images will be Always else IfNotPresent.
       imagePullPolicy: ""
       operatorManageWebhooks: false
-      controlPlaneSecurityEnabled: true
       tracer:
-        lightstep:
-          address: ""                # example: lightstep-satellite:443
-          accessToken: ""            # example: abcdefg1234567
-        zipkin:
-          address: ""
-        datadog:
-          address: "$(HOST_IP):8126"
-        stackdriver:
-          debug: false
-          maxNumberOfAttributes: 200
-          maxNumberOfAnnotations: 200
-          maxNumberOfMessageEvents: 200
+        lightstep: {}
+        zipkin: {}
+        datadog: {}
+        stackdriver: {}
       imagePullSecrets: []
       arch:
         amd64: 2
@@ -299,7 +226,6 @@ spec:
       sts:
         servicePort: 0
       meshNetworks: {}
-      enableHelmTest: false
       mountMtlsCerts: false
     base:
       enableCRDTemplates: false
@@ -311,27 +237,18 @@ spec:
       replicaCount: 1
       image: pilot
       traceSampling: 1.0
-      configNamespace: istio-config
-      appNamespaces: []
       env: {}
       cpu:
         targetAverageUtilization: 80
       nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
       keepaliveMaxServerConnectionAge: 30m
       enableProtocolSniffingForOutbound: true
       enableProtocolSniffingForInbound: true
       deploymentLabels:
       configMap: true
-      policy:
-        enabled: false
 
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
         enabled: true
         metadataExchange: {}
@@ -343,50 +260,6 @@ spec:
           monitoring: false
           topology: false
           configOverride: {}
-    mixer:
-      adapters:
-        stdio:
-          enabled: false
-          outputAsJson: false
-        prometheus:
-          enabled: true
-          metricsExpiryDuration: 10m
-        kubernetesenv:
-          enabled: true
-        stackdriver:
-          enabled: false
-          auth:
-            appCredentials: false
-            apiKey: ""
-            serviceAccountPath: ""
-          tracer:
-            enabled: false
-            sampleProbability: 1
-        useAdapterCRDs: false
-
-      telemetry:
-        image: mixer
-        replicaCount: 1
-        autoscaleEnabled: true
-        sessionAffinityEnabled: false
-        loadshedding:
-          mode: enforce
-          latencyThreshold: 100ms
-        env:
-          GOMAXPROCS: "6"
-        nodeSelector: {}
-        tolerations: []
-        podAntiAffinityLabelSelector: []
-        podAntiAffinityTermLabelSelector: []
-
-      policy:
-        autoscaleEnabled: true
-        image: mixer
-        sessionAffinityEnabled: false
-        adapters:
-          kubernetesenv:
-            enabled: true
-          useAdapterCRDs: false
 
     istiodRemote:
       injectionURL: ""
@@ -408,26 +281,17 @@ spec:
 
       istio-ingressgateway:
         autoscaleEnabled: true
-        applicationPorts: ""
-        debug: info
-        domain: ""
         type: LoadBalancer
         name: istio-ingressgateway
         zvpn: {}
         env: {}
         meshExpansionPorts:
-          - port: 15011
-            targetPort: 15011
-            name: tcp-pilot-grpc-tls
-          - port: 15012
-            targetPort: 15012
-            name: tcp-istiod
-          - port: 8060
-            targetPort: 8060
-            name: tcp-citadel-grpc-tls
-          - port: 853
-            targetPort: 8853
-            name: tcp-dns-tls
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 853
+          targetPort: 8853
+          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs
@@ -439,148 +303,13 @@ spec:
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
       rewriteAppHTTPProbe: true
-      injectLabel: istio-injection
       objectSelector:
         enabled: false
         autoInject: true
 
-    prometheus:
-      hub: docker.io/prom
-      tag: v2.18.1
-      retention: 6h
-      scrapeInterval: 15s
-      contextPath: /prometheus
-
-      security:
-        enabled: true
-      nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      provisionPrometheusCert: true
-
-    grafana:
-      image:
-        repository: grafana/grafana
-        tag: 7.0.3
-      persist: false
-      storageClassName: ""
-      accessMode: ReadWriteMany
-      security:
-        enabled: false
-        secretName: grafana
-        usernameKey: username
-        passphraseKey: passphrase
-      contextPath: /grafana
-      service:
-        annotations: {}
-        name: http
-        type: ClusterIP
-        externalPort: 3000
-        loadBalancerIP:
-        loadBalancerSourceRanges:
-      datasources:
-        datasources.yaml:
-          apiVersion: 1
-          datasources:
-      dashboardProviders:
-        dashboardproviders.yaml:
-          apiVersion: 1
-          providers:
-            - name: 'istio'
-              orgId: 1
-              folder: 'istio'
-              type: file
-              disableDeletion: false
-              options:
-                path: /var/lib/grafana/dashboards/istio
-      nodeSelector: {}
-      tolerations: []
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      env: {}
-      envSecrets: {}
-
-    tracing:
-      provider: jaeger
-      nodeSelector: {}
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      jaeger:
-        hub: docker.io/jaegertracing
-        tag: "1.18"
-        memory:
-          max_traces: 50000
-        spanStorageType: badger
-        persist: false
-        storageClassName: ""
-        accessMode: ReadWriteMany
-      zipkin:
-        hub: docker.io/openzipkin
-        tag: 2.20.0
-        probeStartupDelay: 10
-        queryPort: 9411
-        resources:
-          limits:
-            cpu: 1000m
-            memory: 2048Mi
-          requests:
-            cpu: 150m
-            memory: 900Mi
-        javaOptsHeap: 700
-        maxSpans: 500000
-        node:
-          cpus: 2
-      opencensus:
-        hub: docker.io/omnition
-        tag: 0.1.9
-        resources:
-          limits:
-            cpu: "1"
-            memory: 2Gi
-          requests:
-            cpu: 200m
-            memory: 400Mi
-        exporters:
-          stackdriver:
-            enable_tracing: true
-      service:
-        annotations: {}
-        name: http-query
-        type: ClusterIP
-        externalPort: 9411
     istiocoredns:
       coreDNSImage: coredns/coredns
       coreDNSTag: 1.6.2
       coreDNSPluginImage: istio/coredns-plugin:0.2-istio-1.1
 
-    kiali:
-      hub: quay.io/kiali
-      tag: v1.18
-      contextPath: /kiali
-      nodeSelector: {}
-      podAntiAffinityLabelSelector: []
-      podAntiAffinityTermLabelSelector: []
-      dashboard:
-        secretName: kiali
-        usernameKey: username
-        passphraseKey: passphrase
-        viewOnlyMode: false
-        grafanaURL:
-        grafanaInClusterURL: http://grafana:3000
-        jaegerURL:
-        jaegerInClusterURL: http://tracing/jaeger
-        auth:
-          strategy: login
-      prometheusNamespace:
-      createDemoSecret: false
-      security:
-        enabled: false
-        cert_file: /kiali-cert/cert-chain.pem
-        private_key_file: /kiali-cert/key.pem
-      service:
-        annotations: {}
-
-    # TODO: derive from operator API
-    version: ""
     clusterResources: true

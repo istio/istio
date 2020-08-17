@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"strings"
 
 	"golang.org/x/net/http2"
@@ -52,7 +53,11 @@ func (c *httpProtocol) setHost(r *http.Request, host string) {
 }
 
 func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
-	httpReq, err := http.NewRequest("GET", req.URL, nil)
+	method := req.Method
+	if method == "" {
+		method = "GET"
+	}
+	httpReq, err := http.NewRequest(method, req.URL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -82,7 +87,13 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 
 	outBuffer.WriteString(fmt.Sprintf("[%d] %s=%d\n", req.RequestID, response.StatusCodeField, httpResp.StatusCode))
 
-	for key, values := range httpResp.Header {
+	keys := []string{}
+	for k := range httpResp.Header {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		values := httpResp.Header[key]
 		for _, value := range values {
 			outBuffer.WriteString(fmt.Sprintf("[%d] ResponseHeader=%s:%s\n", req.RequestID, key, value))
 		}
@@ -109,5 +120,6 @@ func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, e
 }
 
 func (c *httpProtocol) Close() error {
+	c.client.CloseIdleConnections()
 	return nil
 }

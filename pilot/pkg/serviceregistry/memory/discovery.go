@@ -35,6 +35,11 @@ type ServiceController struct {
 	sync.RWMutex
 }
 
+func (c *ServiceController) AppendWorkloadHandler(f func(*model.WorkloadInstance, model.Event)) error {
+	// Memory does not support workload handlers; everything is done in terms of instances
+	return nil
+}
+
 var _ model.Controller = &ServiceController{}
 
 // AppendServiceHandler appends a service handler to the controller
@@ -185,9 +190,8 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpoints []*model.IstioEndpoint) {
 
 	sh := host.Name(service)
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
 
+	sd.mutex.Lock()
 	svc := sd.services[sh]
 	if svc == nil {
 		return
@@ -235,7 +239,9 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
 	}
-	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
+	sd.mutex.Unlock()
+
+	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
 // Services implements discovery interface

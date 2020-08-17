@@ -22,18 +22,14 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/rest"
 
-	"istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
-	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/pkg/log"
 )
 
 type manifestGenerateArgs struct {
@@ -56,7 +52,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringSliceVarP(&args.inFilename, "filename", "f", nil, filenameFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.outFilename, "output", "o", "", "Manifest output directory path.")
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
-	cmd.PersistentFlags().BoolVar(&args.force, "force", false, "Proceed even with validation errors.")
+	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
@@ -71,8 +67,8 @@ func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOp
 		Example: `  # Generate a default Istio installation
   istioctl manifest generate
 
-  # Enable grafana dashboard
-  istioctl manifest generate --set values.grafana.enabled=true
+  # Enable Tracing
+  istioctl install --set meshConfig.enableTracing=true
 
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
@@ -98,7 +94,7 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
-	manifests, _, err := GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
+	manifests, _, err := manifest.GenManifests(mgArgs.inFilename, applyFlagAliases(mgArgs.set, mgArgs.manifestsPath, mgArgs.revision), mgArgs.force, nil, l)
 	if err != nil {
 		return err
 	}
@@ -121,38 +117,6 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 	}
 
 	return nil
-}
-
-// GenManifests generates a manifest map, keyed by the component name, from input file list and a YAML tree
-// representation of path-values passed through the --set flag.
-// If force is set, validation errors will not cause processing to abort but will result in warnings going to the
-// supplied logger.
-func GenManifests(inFilename []string, setFlags []string, force bool,
-	kubeConfig *rest.Config, l clog.Logger) (name.ManifestMap, *v1alpha1.IstioOperatorSpec, error) {
-	mergedYAML, _, err := GenerateConfig(inFilename, setFlags, force, kubeConfig, l)
-	if err != nil {
-		return nil, nil, err
-	}
-	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, l)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	t := translate.NewTranslator()
-
-	cp, err := controlplane.NewIstioControlPlane(mergedIOPS, t)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := cp.Run(); err != nil {
-		return nil, nil, err
-	}
-
-	manifests, errs := cp.RenderManifest()
-	if errs != nil {
-		return manifests, mergedIOPS, errs.ToError()
-	}
-	return manifests, mergedIOPS, nil
 }
 
 // orderedManifests generates a list of manifests from the given map sorted by the default object order
@@ -182,8 +146,8 @@ func orderedManifests(mm name.ManifestMap) ([]string, error) {
 
 // RenderToDir writes manifests to a local filesystem directory tree.
 func RenderToDir(manifests name.ManifestMap, outputDir string, dryRun bool, l clog.Logger) error {
-	l.LogAndPrint("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
-	l.LogAndPrint("Rendering manifests to output dir %s", outputDir)
+	l.LogAndPrintf("Component dependencies tree: \n%s", helmreconciler.InstallTreeString())
+	l.LogAndPrintf("Rendering manifests to output dir %s", outputDir)
 	return renderRecursive(manifests, helmreconciler.InstallTree, outputDir, dryRun, l)
 }
 
@@ -192,7 +156,7 @@ func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.Comp
 		componentName := string(k)
 		// In cases (like gateways) where multiple instances can exist, concatenate the manifests and apply as one.
 		ym := strings.Join(manifests[k], helm.YAMLSeparator)
-		l.LogAndPrint("Rendering: %s", componentName)
+		l.LogAndPrintf("Rendering: %s", componentName)
 		dirName := filepath.Join(outputDir, componentName)
 		if !dryRun {
 			if err := os.MkdirAll(dirName, os.ModePerm); err != nil {
@@ -200,7 +164,7 @@ func renderRecursive(manifests name.ManifestMap, installTree helmreconciler.Comp
 			}
 		}
 		fname := filepath.Join(dirName, componentName) + ".yaml"
-		l.LogAndPrint("Writing manifest to %s", fname)
+		l.LogAndPrintf("Writing manifest to %s", fname)
 		if !dryRun {
 			if err := ioutil.WriteFile(fname, []byte(ym), 0644); err != nil {
 				return fmt.Errorf("could not write manifest config; %s", err)

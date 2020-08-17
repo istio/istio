@@ -22,10 +22,9 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/pkg/log"
 )
 
 func ApplyRouteConfigurationPatches(
@@ -33,7 +32,7 @@ func ApplyRouteConfigurationPatches(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
-	defer runtime.HandleCrash(func() {
+	defer runtime.HandleCrash(runtime.LogPanic, func(interface{}) {
 		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.

@@ -33,15 +33,8 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-
-	"istio.io/istio/pilot/pkg/networking/util"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/schema/resource"
-
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -52,12 +45,15 @@ import (
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/security/pkg/nodeagent/cache"
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/nodeagent/cache"
+	"istio.io/pkg/log"
 )
 
 // Config for the ADS connection.
@@ -84,7 +80,7 @@ type Config struct {
 	CertDir string
 
 	// Secrets is the interface used for getting keys and rootCA.
-	Secrets cache.SecretManager
+	Secrets security.SecretManager
 
 	// For getting the certificate, using same code as SDS server.
 	// Either the JWTPath or the certs must be present.
@@ -111,6 +107,11 @@ type Config struct {
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler ResponseHandler
+
+	// TODO: remove the duplication - all security settings belong here.
+	SecOpts *security.Options
+
+	GrpcOpts []grpc.DialOption
 }
 
 // ADSC implements a basic client for ADS, for use in stress tests and tools
@@ -122,10 +123,15 @@ type ADSC struct {
 
 	conn *grpc.ClientConn
 
+	// Indicates if the ADSC client is closed
+	closed bool
+
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
 
 	url string
+
+	grpcOpts []grpc.DialOption
 
 	watchTime time.Time
 
@@ -194,15 +200,6 @@ type ResponseHandler interface {
 	HandleResponse(con *ADSC, response *discovery.DiscoveryResponse)
 }
 
-const (
-	typePrefix = "type.googleapis.com/envoy.api.v2."
-
-	// ListenerType is sent after clusters and endpoints.
-	ListenerType = typePrefix + "Listener"
-	// RouteType is sent after listeners.
-	routeType = typePrefix + "RouteConfiguration"
-)
-
 var (
 	adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
 )
@@ -240,6 +237,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		cfg:         opts,
 		syncCh:      make(chan string, len(collections.Pilot.All())),
 		sync:        map[string]time.Time{},
+		grpcOpts:    opts.GrpcOpts,
 	}
 	if certDir != "" {
 		opts.CertDir = certDir
@@ -292,6 +290,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var clientCert tls.Certificate
 	var serverCABytes []byte
 	var err error
+	var certName string
 
 	if a.cfg.Secrets != nil {
 		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
@@ -300,6 +299,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 			tok = []byte("")
 		}
 
+		certName = fmt.Sprintf("(generated from %s)", a.cfg.JWTPath)
 		key, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
 			cache.WorkloadKeyCertResourceName, string(tok))
 		if err != nil {
@@ -318,7 +318,8 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 
 		serverCABytes = rootCA.RootCert
 	} else {
-		clientCert, err = tls.LoadX509KeyPair(a.cfg.CertDir+"/cert-chain.pem",
+		certName = a.cfg.CertDir + "/cert-chain.pem"
+		clientCert, err = tls.LoadX509KeyPair(certName,
 			a.cfg.CertDir+"/key.pem")
 		if err != nil {
 			return nil, err
@@ -332,6 +333,18 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	serverCAs := x509.NewCertPool()
 	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
 		return nil, err
+	}
+
+	// If we supply an expired cert to the server it will just close the connection
+	// without useful message.  If the cert is obviously bogus, refuse to use it.
+	now := time.Now()
+	for _, cert := range clientCert.Certificate {
+		cert, err := x509.ParseCertificate(cert)
+		if err == nil {
+			if now.After(cert.NotAfter) {
+				return nil, fmt.Errorf("certificate %s expired %v", certName, cert.NotAfter)
+			}
+		}
 	}
 
 	shost, _, _ := net.SplitHostPort(a.url)
@@ -353,36 +366,29 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 func (a *ADSC) Close() {
 	a.mutex.Lock()
 	_ = a.conn.Close()
+	a.closed = true
 	a.mutex.Unlock()
 }
 
 // Run will run one connection to the ADS client.
 func (a *ADSC) Run() error {
-
-	// TODO: pass version info, nonce properly
 	var err error
+
+	opts := a.grpcOpts
 	if len(a.cfg.CertDir) > 0 || a.cfg.Secrets != nil {
 		tlsCfg, err := a.tlsConfig()
 		if err != nil {
 			return err
 		}
 		creds := credentials.NewTLS(tlsCfg)
-
-		opts := []grpc.DialOption{
-			// Verify Pilot cert and service account
-			grpc.WithTransportCredentials(creds),
-		}
-		a.conn, err = grpc.Dial(a.url, opts...)
-		if err != nil {
-			return err
-		}
+		opts = append(opts, grpc.WithTransportCredentials(creds))
 	} else {
-		a.conn, err = grpc.Dial(a.url, grpc.WithInsecure())
-		if err != nil {
-			return err
-		}
+		opts = append(opts, grpc.WithInsecure())
 	}
-
+	a.conn, err = grpc.Dial(a.url, opts...)
+	if err != nil {
+		return err
+	}
 	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
 	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
@@ -409,7 +415,7 @@ func (a *ADSC) hasSynced() bool {
 		t := a.sync[s.Resource().GroupVersionKind().String()]
 		a.mutex.RUnlock()
 		if t.IsZero() {
-			log.Warn("NOT SYNCE" + s.Resource().GroupVersionKind().String())
+			log.Warnf("Not synced: %v", s.Resource().GroupVersionKind().String())
 			return false
 		}
 	}
@@ -417,6 +423,11 @@ func (a *ADSC) hasSynced() bool {
 }
 
 func (a *ADSC) reconnect() {
+	a.mutex.RLock()
+	if a.closed {
+		return
+	}
+	a.mutex.RUnlock()
 	err := a.Run()
 	if err == nil {
 		a.cfg.BackoffPolicy.Reset()
@@ -485,57 +496,22 @@ func (a *ADSC) handleRecv() {
 			a.VersionInfo[rsc.TypeUrl] = msg.VersionInfo
 			valBytes := rsc.Value
 			switch rsc.TypeUrl {
-			case v2.ListenerType:
-				{
-					ll := &listener.Listener{}
-					_ = proto.Unmarshal(valBytes, ll)
-					listeners = append(listeners, ll)
-				}
 			case v3.ListenerType:
-				{
-					ll := &listener.Listener{}
-					_ = proto.Unmarshal(valBytes, ll)
-					listeners = append(listeners, ll)
-				}
-			case v2.ClusterType:
-				{
-					cl := &cluster.Cluster{}
-					_ = proto.Unmarshal(valBytes, cl)
-					clusters = append(clusters, cl)
-				}
-
+				ll := &listener.Listener{}
+				_ = proto.Unmarshal(valBytes, ll)
+				listeners = append(listeners, ll)
 			case v3.ClusterType:
-				{
-					cl := &cluster.Cluster{}
-					_ = proto.Unmarshal(valBytes, cl)
-					clusters = append(clusters, cl)
-				}
-
+				cl := &cluster.Cluster{}
+				_ = proto.Unmarshal(valBytes, cl)
+				clusters = append(clusters, cl)
 			case v3.EndpointType:
-				{
-					el := &endpoint.ClusterLoadAssignment{}
-					_ = proto.Unmarshal(valBytes, el)
-					eds = append(eds, el)
-				}
-			case v2.EndpointType:
-				{
-					el := &endpoint.ClusterLoadAssignment{}
-					_ = proto.Unmarshal(valBytes, el)
-					eds = append(eds, el)
-				}
+				el := &endpoint.ClusterLoadAssignment{}
+				_ = proto.Unmarshal(valBytes, el)
+				eds = append(eds, el)
 			case v3.RouteType:
-				{
-					rl := &route.RouteConfiguration{}
-					_ = proto.Unmarshal(valBytes, rl)
-					routes = append(routes, rl)
-				}
-			case v2.RouteType:
-				{
-					rl := &route.RouteConfiguration{}
-					_ = proto.Unmarshal(valBytes, rl)
-					routes = append(routes, rl)
-				}
-
+				rl := &route.RouteConfiguration{}
+				_ = proto.Unmarshal(valBytes, rl)
+				routes = append(routes, rl)
 			default:
 				err = a.handleMCP(gvk, rsc, valBytes)
 				if err != nil {
@@ -548,17 +524,6 @@ func (a *ADSC) handleRecv() {
 		// This scheme also allows us to chunk large responses !
 
 		// TODO: add hook to inject nacks
-
-		a.mutex.Lock()
-		if len(gvk) == 3 {
-			gt := resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
-			a.sync[gt.String()] = time.Now()
-		}
-		a.Received[msg.TypeUrl] = msg
-		// TODO: add hook to inject nacks
-		a.ack(msg)
-		a.mutex.Unlock()
-
 		if len(listeners) > 0 {
 			a.handleLDS(listeners)
 		}
@@ -571,6 +536,17 @@ func (a *ADSC) handleRecv() {
 		if len(routes) > 0 {
 			a.handleRDS(routes)
 		}
+
+		a.mutex.Lock()
+		if len(gvk) == 3 {
+			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+			a.sync[gt.String()] = time.Now()
+			a.syncCh <- gt.String()
+		}
+		a.Received[msg.TypeUrl] = msg
+		a.ack(msg)
+		a.mutex.Unlock()
+
 		select {
 		case a.XDSUpdates <- msg:
 		default:
@@ -637,15 +613,12 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			filter = l.FilterChains[len(l.FilterChains)-2].Filters[0]
 		}
 
-		if filter.Name == "mixer" {
-			filter = l.FilterChains[len(l.FilterChains)-1].Filters[1]
-		}
-		if filter.Name == "envoy.tcp_proxy" {
+		if filter.Name == wellknown.TCPProxy {
 			lt[l.Name] = l
 			config, _ := conversion.MessageToStruct(filter.GetTypedConfig())
 			c := config.Fields["cluster"].GetStringValue()
 			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
-		} else if filter.Name == "envoy.http_connection_manager" {
+		} else if filter.Name == wellknown.HTTPConnectionManager {
 			lh[l.Name] = l
 
 			// Getting from config is too painful..
@@ -655,11 +628,11 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			} else {
 				routes = append(routes, fmt.Sprintf("%d", port))
 			}
-		} else if filter.Name == "envoy.mongo_proxy" {
+		} else if filter.Name == wellknown.MongoProxy {
 			// ignore for now
-		} else if filter.Name == "envoy.redis_proxy" {
+		} else if filter.Name == wellknown.RedisProxy {
 			// ignore for now
-		} else if filter.Name == "envoy.filters.network.mysql_proxy" {
+		} else if filter.Name == wellknown.MySQLProxy {
 			// ignore for now
 		} else {
 			tm := &jsonpb.Marshaler{Indent: "  "}
@@ -675,7 +648,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	if len(routes) > 0 {
-		a.sendRsc(routeType, routes)
+		a.sendRsc(v3.RouteType, routes)
 	}
 	a.httpListeners = lh
 	a.tcpListeners = lt
@@ -828,9 +801,8 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
 		_ = a.stream.Send(&discovery.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       ListenerType,
+			Node:    a.node(),
+			TypeUrl: v3.ListenerType,
 		})
 	}
 
@@ -917,14 +889,22 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			toDelete := t
 			// legacy names, still used in tests.
 			switch t {
-			case ListenerType:
+			case v3.ListenerType:
 				delete(want, "lds")
 			case v3.ClusterType:
 				delete(want, "cds")
 			case v3.EndpointType:
 				delete(want, "eds")
-			case routeType:
+			case v3.RouteType:
 				delete(want, "rds")
+			case "lds":
+				delete(want, v3.ListenerType)
+			case "cds":
+				delete(want, v3.ClusterType)
+			case "eds":
+				delete(want, v3.EndpointType)
+			case "rds":
+				delete(want, v3.RouteType)
 			}
 			delete(want, toDelete)
 			got = append(got, t)
@@ -981,9 +961,8 @@ func (a *ADSC) EndpointsJSON() string {
 func (a *ADSC) Watch() {
 	a.watchTime = time.Now()
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       v3.ClusterType,
+		Node:    a.node(),
+		TypeUrl: v3.ClusterType,
 	})
 }
 
@@ -1025,8 +1004,16 @@ func (a *ADSC) WaitConfigSync(max time.Duration) bool {
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
+	ex := a.Received[typeurl]
+	version := ""
+	nonce := ""
+	if ex != nil {
+		version = ex.VersionInfo
+		nonce = ex.Nonce
+	}
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: "",
+		ResponseNonce: nonce,
+		VersionInfo:   version,
 		Node:          a.node(),
 		TypeUrl:       typeurl,
 		ResourceNames: rsc,
@@ -1034,11 +1021,24 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 }
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
+	var resources []string
+	if msg.TypeUrl == v3.EndpointType {
+		for c := range a.edsClusters {
+			resources = append(resources, c)
+		}
+	}
+	if msg.TypeUrl == v3.RouteType {
+		for r := range a.routes {
+			resources = append(resources, r)
+		}
+	}
+
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
 		Node:          a.node(),
 		VersionInfo:   msg.VersionInfo,
+		ResourceNames: resources,
 	})
 }
 
@@ -1105,7 +1105,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 		return err
 	}
-	val.GroupVersionKind = resource.GroupVersionKind{gvk[0], gvk[1], gvk[2]}
+	val.GroupVersionKind = resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 	if cfg == nil {
 		_, err = a.Store.Create(*val)

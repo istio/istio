@@ -24,19 +24,16 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
 
-	mpb "istio.io/api/mixer/v1"
-	mccpb "istio.io/api/mixer/v1/config/client"
 	networking "istio.io/api/networking/v1alpha3"
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/config"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -81,82 +78,6 @@ var (
 		TrafficPolicy: &networking.TrafficPolicy{
 			LoadBalancer: &networking.LoadBalancerSettings{
 				LbPolicy: new(networking.LoadBalancerSettings_Simple),
-			},
-		},
-	}
-
-	// ExampleHTTPAPISpec is an example HTTPAPISpec
-	ExampleHTTPAPISpec = &mccpb.HTTPAPISpec{
-		Attributes: &mpb.Attributes{
-			Attributes: map[string]*mpb.Attributes_AttributeValue{
-				"api.service": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "petstore"}},
-			},
-		},
-		Patterns: []*mccpb.HTTPAPISpecPattern{{
-			Attributes: &mpb.Attributes{
-				Attributes: map[string]*mpb.Attributes_AttributeValue{
-					"api.operation": {Value: &mpb.Attributes_AttributeValue_StringValue{StringValue: "getPet"}},
-				},
-			},
-			HttpMethod: "GET",
-			Pattern: &mccpb.HTTPAPISpecPattern_UriTemplate{
-				UriTemplate: "/pets/{id}",
-			},
-		}},
-		ApiKeys: []*mccpb.APIKey{{
-			Key: &mccpb.APIKey_Header{
-				Header: "X-API-KEY",
-			},
-		}},
-	}
-
-	// ExampleHTTPAPISpecBinding is an example HTTPAPISpecBinding
-	ExampleHTTPAPISpecBinding = &mccpb.HTTPAPISpecBinding{
-		Services: []*mccpb.IstioService{
-			{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-		},
-		ApiSpecs: []*mccpb.HTTPAPISpecReference{
-			{
-				Name:      "petstore",
-				Namespace: "default",
-			},
-		},
-	}
-
-	// ExampleQuotaSpec is an example QuotaSpec
-	ExampleQuotaSpec = &mccpb.QuotaSpec{
-		Rules: []*mccpb.QuotaRule{{
-			Match: []*mccpb.AttributeMatch{{
-				Clause: map[string]*mccpb.StringMatch{
-					"api.operation": {
-						MatchType: &mccpb.StringMatch_Exact{
-							Exact: "getPet",
-						},
-					},
-				},
-			}},
-			Quotas: []*mccpb.Quota{{
-				Quota:  "fooQuota",
-				Charge: 2,
-			}},
-		}},
-	}
-
-	// ExampleQuotaSpecBinding is an example QuotaSpecBinding
-	ExampleQuotaSpecBinding = &mccpb.QuotaSpecBinding{
-		Services: []*mccpb.IstioService{
-			{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-		},
-		QuotaSpecs: []*mccpb.QuotaSpecBinding_QuotaSpecReference{
-			{
-				Name:      "fooQuota",
-				Namespace: "default",
 			},
 		},
 	}
@@ -379,10 +300,6 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		{"DestinationRule", configName, collections.IstioNetworkingV1Alpha3Destinationrules, ExampleDestinationRule},
 		{"ServiceEntry", configName, collections.IstioNetworkingV1Alpha3Serviceentries, ExampleServiceEntry},
 		{"Gateway", configName, collections.IstioNetworkingV1Alpha3Gateways, ExampleGateway},
-		{"HTTPAPISpec", configName, collections.IstioConfigV1Alpha2Httpapispecs, ExampleHTTPAPISpec},
-		{"HTTPAPISpecBinding", configName, collections.IstioConfigV1Alpha2Httpapispecbindings, ExampleHTTPAPISpecBinding},
-		{"QuotaSpec", configName, collections.IstioMixerV1ConfigClientQuotaspecs, ExampleQuotaSpec},
-		{"QuotaSpecBinding", configName, collections.IstioMixerV1ConfigClientQuotaspecbindings, ExampleQuotaSpecBinding},
 		{"AuthorizationPolicy", configName, collections.IstioSecurityV1Beta1Authorizationpolicies, ExampleAuthorizationPolicy},
 	}
 

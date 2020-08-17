@@ -18,10 +18,12 @@
 export CLUSTER1_NAME=${CLUSTER1_NAME:-"cluster1"}
 export CLUSTER2_NAME=${CLUSTER2_NAME:-"cluster2"}
 export CLUSTER3_NAME=${CLUSTER3_NAME:-"cluster3"}
+export CLUSTER4_NAME=${CLUSTER4_NAME:-"cluster4"}
+export CLUSTER5_NAME=${CLUSTER5_NAME:-"cluster5"}
 
-export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}")
-export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16)
-export CLUSTER_SVC_SUBNETS=(10.255.10.0/24 10.255.20.0/24 10.255.30.0/24)
+export CLUSTER_NAMES=("${CLUSTER1_NAME}" "${CLUSTER2_NAME}" "${CLUSTER3_NAME}" "${CLUSTER4_NAME}" "${CLUSTER5_NAME}" )
+export CLUSTER_POD_SUBNETS=(10.10.0.0/16 10.20.0.0/16 10.30.0.0/16 10.40.0.0/16 10.50.0.0/16)
+export CLUSTER_SVC_SUBNETS=(10.255.10.0/24 10.255.20.0/24 10.255.30.0/24 10.255.40.0/24 10.255.50.0/24)
 
 export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 
@@ -70,21 +72,31 @@ function download_untar_istio_release() {
   tar -xzf "${dir}/istio-${tag}-linux.tar.gz" -C "${dir}"
 }
 
+function buildx-create() {
+  export DOCKER_CLI_EXPERIMENTAL=enabled
+  if ! docker buildx ls | grep -q container-builder; then
+    docker buildx create --driver-opt network=host --name container-builder
+  fi
+  docker buildx use container-builder
+}
+
 function build_images() {
   SELECT_TEST="${1}"
+
+  buildx-create
+
   # Build just the images needed for tests
   targets="docker.pilot docker.proxyv2 "
 
   # use ubuntu:bionic to test vms by default
-  targets+="docker.app docker.app_sidecar_ubuntu_bionic docker.test_policybackend "
+  targets+="docker.app docker.app_sidecar_ubuntu_bionic "
   if [[ "${SELECT_TEST}" == "test.integration.pilot.kube" ]]; then
     targets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_ubuntu_focal docker.app_sidecar_ubuntu_bionic "
-    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 "
+    targets+="docker.app_sidecar_debian_9 docker.app_sidecar_debian_10 docker.app_sidecar_centos_8 "
   fi
-  targets+="docker.mixer "
   targets+="docker.operator "
   targets+="docker.install-cni "
-  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx
+  DOCKER_BUILD_VARIANTS="${VARIANT:-default}" DOCKER_TARGETS="${targets}" make dockerx.pushx
 }
 
 # Creates a local registry for kind nodes to pull images from. Expects that the "kind" network already exists.
@@ -105,11 +117,6 @@ function setup_kind_registry() {
       kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}";
     done
   done
-}
-
-# Pushes images to local kind registry
-function kind_push_images() {
-  docker images "${HUB}/*:${TAG}*" --format '{{.Repository}}:{{.Tag}}' | xargs -n1 docker push
 }
 
 function cleanup_kind_cluster() {
@@ -150,20 +157,13 @@ function setup_kind_cluster() {
       CONFIG=./prow/config/trustworthy-jwt.yaml
       # Configure the cluster IP Family only for default configs
     if [ "${IP_FAMILY}" = "ipv6" ]; then
+      grep 'ipFamily: ipv6' "${CONFIG}" || \
       cat <<EOF >> "${CONFIG}"
 networking:
   ipFamily: ipv6
 EOF
     fi
   fi
-
-  # Make kind nodes pull images using the in-container address and port for images in localhost:$KIND_REGISTRY_PORT/*
-  cat <<EOF >> "${CONFIG}"
-containerdConfigPatches:
-  - |-
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${KIND_REGISTRY_PORT}"]
-        endpoint = ["http://${KIND_REGISTRY_NAME}:5000"]
-EOF
 
   # Create KinD cluster
   if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v9 --retain --image "${IMAGE}" --wait=60s); then
@@ -196,13 +196,14 @@ function setup_kind_clusters() {
     CLUSTER_POD_SUBNET="${CLUSTER_POD_SUBNETS[$IDX]}"
     CLUSTER_SVC_SUBNET="${CLUSTER_SVC_SUBNETS[$IDX]}"
     CLUSTER_YAML="${ARTIFACTS}/config-${CLUSTER_NAME}.yaml"
-    cat <<EOF > "${CLUSTER_YAML}"
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
+    if [ ! -f "${CLUSTER_YAML}" ]; then
+      cp ./prow/config/trustworthy-jwt.yaml "${CLUSTER_YAML}"
+      cat <<EOF >> "${CLUSTER_YAML}"
 networking:
   podSubnet: ${CLUSTER_POD_SUBNET}
   serviceSubnet: ${CLUSTER_SVC_SUBNET}
 EOF
+    fi
 
     CLUSTER_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
 
@@ -235,13 +236,34 @@ EOF
   export CLUSTER1_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER1_NAME}"
   export CLUSTER2_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER2_NAME}"
   export CLUSTER3_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER3_NAME}"
+  export CLUSTER4_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER4_NAME}"
+  export CLUSTER5_KUBECONFIG="${KUBECONFIG_DIR}/${CLUSTER5_NAME}"
+  KUBECONFIGS=("${CLUSTER1_KUBECONFIG}" "${CLUSTER2_KUBECONFIG}" "${CLUSTER3_KUBECONFIG}" "${CLUSTER4_KUBECONFIG}" "${CLUSTER5_KUBECONFIG}")
 
   if [[ "${TOPOLOGY}" != "SINGLE_CLUSTER" ]]; then
-    # Clusters 1 and 2 are on the same network
-    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" 1
-    # Cluster 3 is on a different network but we still need to set up routing for MetalLB addresses
-    connect_kind_clusters "${CLUSTER1_NAME}" "${CLUSTER1_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
-    connect_kind_clusters "${CLUSTER2_NAME}" "${CLUSTER2_KUBECONFIG}" "${CLUSTER3_NAME}" "${CLUSTER3_KUBECONFIG}" 0
+    # Network 1 (Clusters 1, 2 and 3)
+    function setup_network() {
+      FROM="${1}"
+      TO="${2}"
+      for i in $(seq "$FROM" "$TO"); do
+        for j in $(seq "$FROM" "$TO"); do
+          if [ "${j}" -gt "${i}" ]; then
+          connect_kind_clusters "${CLUSTER_NAMES[i]}" "${KUBECONFIGS[i]}" "${CLUSTER_NAMES[j]}" "${KUBECONFIGS[j]}" 1
+          fi
+        done
+      done
+    }
+    # Network 1 contains clusters 1, 2 and 3
+    setup_network 0 2
+    # Network 2 contains clusters 4 and 5
+    setup_network 3 4
+
+    # We still need to set up routing for MetalLB addresses between clusters on different networks.
+    for i in $(seq 0 1 2); do
+      for j in $(seq 3 4); do
+        connect_kind_clusters "${CLUSTER_NAMES[i]}" "${KUBECONFIGS[i]}" "${CLUSTER_NAMES[j]}" "${KUBECONFIGS[j]}" 0
+      done
+    done
   fi
 }
 
@@ -281,7 +303,7 @@ function install_metallb() {
 
   if [ -z "${METALLB_IPS[*]}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
-    DOCKER_KIND_SUBNET="$(docker inspect kind | jq .[0].IPAM.Config[0].Subnet -r)"
+    DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[0].Subnet' -r)"
     METALLB_IPS=()
     while read -r ip; do
       METALLB_IPS+=("$ip")

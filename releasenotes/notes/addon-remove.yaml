@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 22762
+releaseNotes:
+- |
+  **Deprecated** installation of telemetry addons by `istioctl`. These will be disabled by default, and in a future release removed entirely. More information on installing these addons can be found in the [Integrations](/docs/ops/integrations/) page.

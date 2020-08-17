@@ -27,14 +27,12 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/security/pkg/cmd"
-
-	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
-
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (
@@ -55,9 +53,6 @@ const (
 	RootCertID = "root-cert.pem"
 	// ServiceAccountNameAnnotationKey is the key to specify corresponding service account in the annotation of K8s secrets.
 	ServiceAccountNameAnnotationKey = "istio.io/service-account.name"
-
-	// The size of a private key for a self-signed Istio CA.
-	caKeySize = 2048
 
 	// The standard key size to use when generating an RSA private key
 	rsaKeySize = 2048
@@ -82,6 +77,7 @@ type IstioCAOptions struct {
 
 	DefaultCertTTL time.Duration
 	MaxCertTTL     time.Duration
+	CARSAKeySize   int
 
 	KeyCertBundle util.KeyCertBundle
 
@@ -97,7 +93,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 	maxCertTTL time.Duration, org string, dualUse bool, namespace string,
 	readCertRetryInterval time.Duration, client corev1.CoreV1Interface,
-	rootCertFile string, enableJitter bool) (caOpts *IstioCAOptions, err error) {
+	rootCertFile string, enableJitter bool, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, if readSigningCertOnly is unset,
 	// it generates a self-signed key/cert pair and write it to CASecret.
 	// For subsequent restart, CA will reads key/cert from CASecret.
@@ -144,7 +140,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,
-			RSAKeySize:   caKeySize,
+			RSAKeySize:   caRSAKeySize,
 			IsDualUse:    dualUse,
 		}
 		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
@@ -185,11 +181,12 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile, rootCertFile string,
-	defaultCertTTL, maxCertTTL time.Duration) (caOpts *IstioCAOptions, err error) {
+	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int) (caOpts *IstioCAOptions, err error) {
 	caOpts = &IstioCAOptions{
 		CAType:         pluggedCertCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
+		CARSAKeySize:   caRSAKeySize,
 	}
 	if _, err := os.Stat(signingKeyFile); err != nil {
 		// self generating for testing or local, non-k8s run
@@ -198,7 +195,7 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 			Org:          "cluster.local",       // TODO: pass trustDomain ( or better - pass MeshConfig )
 			IsCA:         true,
 			IsSelfSigned: true,
-			RSAKeySize:   caKeySize,
+			RSAKeySize:   caRSAKeySize,
 			IsDualUse:    true, // hardcoded to true for K8S as well
 		}
 		pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
@@ -249,6 +246,7 @@ func NewPluggedCertIstioCAOptions(certChainFile, signingCertFile, signingKeyFile
 type IstioCA struct {
 	defaultCertTTL time.Duration
 	maxCertTTL     time.Duration
+	caRSAKeySize   int
 
 	keyCertBundle util.KeyCertBundle
 
@@ -265,6 +263,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		maxCertTTL:    opts.MaxCertTTL,
 		keyCertBundle: opts.KeyCertBundle,
 		livenessProbe: probe.NewProbe(),
+		caRSAKeySize:  opts.CARSAKeySize,
 	}
 
 	if opts.CAType == selfSignedCA && opts.RotatorConfig.CheckInterval > time.Duration(0) {

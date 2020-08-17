@@ -29,7 +29,11 @@ template: |
     - "-b"
     - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
     - "-d"
+  {{- if excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}
     - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+  {{- else }}
+    - "15090,15021"
+  {{- end }}
     {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") -}}
     - "-q"
     - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
@@ -47,12 +51,14 @@ template: |
     - "--skip-rule-apply"
     {{ end -}}
     imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-  {{- if .Values.global.proxy_init.resources }}
+  {{- if .ProxyConfig.ProxyMetadata }}
     env:
     {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
     - name: {{ $key }}
       value: "{{ $value }}"
     {{- end }}
+  {{- end }}
+  {{- if .Values.global.proxy_init.resources }}
     resources:
       {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
   {{- else }}
@@ -149,15 +155,24 @@ template: |
   {{- if .Values.global.proxy.lifecycle }}
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
-    {{- end }}
+  {{- else if .Values.global.proxy.holdApplicationUntilProxyStarts}}
+    lifecycle:
+      postStart:
+        exec:
+          command:
+          - pilot-agent
+          - wait
+  {{- end }}
     env:
     - name: JWT_POLICY
       value: {{ .Values.global.jwtPolicy }}
     - name: PILOT_CERT_PROVIDER
       value: {{ .Values.global.pilotCertProvider }}
-    {{- if .Values.global.caAddress }}
     - name: CA_ADDR
+    {{- if .Values.global.caAddress }}
       value: {{ .Values.global.caAddress }}
+    {{- else }}
+      value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
     {{- end }}
     - name: POD_NAME
       valueFrom:
@@ -204,13 +219,7 @@ template: |
         {{- end}}
         ]
     - name: ISTIO_META_APP_CONTAINERS
-      value: |-
-        [
-          {{- range $index, $container := .Spec.Containers }}
-            {{- if ne $index 0}},{{- end}}
-            {{ $container.Name }}
-          {{- end}}
-        ]
+      value: "{{- range $index, $container := .Spec.Containers }}{{- if ne $index 0}},{{- end}}{{ $container.Name }}{{- end}}"
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
     - name: ISTIO_META_INTERCEPTION_MODE
@@ -417,11 +426,7 @@ template: |
   {{- end }}
   podRedirectAnnot:
   {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
-  {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
-    k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
-  {{- else }}
-    k8s.v1.cni.cncf.io/networks: "istio-cni"
-  {{- end }}
+    k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `istio-cni` }}'
   {{- end }}
     sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
     traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"

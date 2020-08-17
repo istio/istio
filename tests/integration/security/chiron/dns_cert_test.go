@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -27,11 +28,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	kube2 "istio.io/istio/pkg/test/kube"
-
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/tests/integration/security/util/secret"
-
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (

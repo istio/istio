@@ -46,7 +46,7 @@ type kubeComponent struct {
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
-		cluster: resource.ClusterOrDefault(cfg.Cluster, ctx.Environment()),
+		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
 	c.id = ctx.TrackResource(c)
 	var err error

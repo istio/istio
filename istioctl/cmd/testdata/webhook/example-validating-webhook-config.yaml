@@ -13,6 +13,7 @@ webhooks:
         path: /validate
     failurePolicy: Fail
     name: protovalidate.istio.io
+    admissionReviewVersions: ["v1beta1", "v1"]
     namespaceSelector:
       matchLabels:
         protovalidate-validation: enabled

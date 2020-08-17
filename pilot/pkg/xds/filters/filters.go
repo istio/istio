@@ -28,7 +28,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/networking/util"
-	alpn "istio.io/istio/security/proto/envoy/config/filter/http/alpn/v2alpha1"
+	alpn "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
 )
 
 const (
@@ -38,6 +38,9 @@ const (
 
 	// DNSListenerFilterName is the name of UDP listener filter for resolving DNS queries
 	DNSListenerFilterName = "envoy.filters.udp.dns_filter"
+
+	TLSTransportProtocol       = "tls"
+	RawBufferTransportProtocol = "raw_buffer"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling

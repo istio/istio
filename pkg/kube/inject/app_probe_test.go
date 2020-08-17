@@ -16,9 +16,9 @@ package inject
 import (
 	"testing"
 
-	"istio.io/api/annotation"
-
 	corev1 "k8s.io/api/core/v1"
+
+	"istio.io/api/annotation"
 )
 
 func TestFindSidecar(t *testing.T) {

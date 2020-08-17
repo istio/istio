@@ -21,13 +21,11 @@ import (
 	"strings"
 	"testing"
 
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
@@ -35,20 +33,19 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pilot/pkg/config/memory"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	istio_proto "istio.io/istio/pkg/proto"
-
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	istio_proto "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -325,7 +322,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
 								Name:      wellknown.HTTPConnectionManager,
-								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "envoy.fault"},
+								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "envoy.fault"}, // Use deprecated name for test.
 							},
 						},
 					},
@@ -334,7 +331,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.fault",
+{"name": "envoy.filters.http.fault",
 "typed_config": {
         "@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
         "downstreamNodes": ["foo"]
@@ -406,7 +403,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.http_connection_manager",
+{"name": "envoy.filters.network.http_connection_manager",
  "typed_config": {
         "@type": "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager",
          "xffNumTrustedHops": "4"
@@ -426,7 +423,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: wellknown.HTTPConnectionManager,
+								Name: "envoy.http_connection_manager", // Use deprecated name for test.
 							},
 						},
 					},
@@ -435,7 +432,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.http_connection_manager", 
+{"name": "envoy.filters.network.http_connection_manager", 
  "typed_config": {
         "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "mergeSlashes": true,
@@ -992,7 +989,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 								AlwaysSetRequestIdInResponse: true,
 								HttpFilters: []*http_conn.HttpFilter{
 									{Name: "http-filter3"},
-									{Name: wellknown.Router},
+									{Name: "envoy.router"}, // Use deprecated name for test.
 									{Name: "http-filter2"},
 								},
 							}),
@@ -1003,28 +1000,24 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 		},
 	}
 
-	path := filepath.Join(env.IstioSrc, "tests/integration/telemetry/stats/prometheus/testdata")
-	files, err := ioutil.ReadDir(path)
+	file, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml"))
 	if err != nil {
 		b.Fatalf("failed to read telemetry v2 Envoy Filters")
 	}
-	if len(files) != 2 {
-		// Cheap attempt to make sure someone notices this test exists if they make changes to the folder and break things.
-		b.Fatalf("Expected to find 2 EnvoyFilters for telemetry v2.")
-	}
 	var configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch
-	for _, patchFile := range files {
-		f, err := ioutil.ReadFile(filepath.Join(path, patchFile.Name()))
-		if err != nil {
-			b.Fatalf("failed to read file %v", patchFile)
+
+	configs, _, err := crd.ParseInputs(string(file))
+	if err != nil {
+		b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
+	}
+	for _, c := range configs {
+		if c.GroupVersionKind != gvk.EnvoyFilter {
+			continue
 		}
-		configs, _, err := crd.ParseInputs(string(f))
-		if err != nil {
-			b.Fatalf("failed to unmarshal EnvoyFilter: %v", err)
-		}
-		for _, c := range configs {
-			configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
-		}
+		configPatches = append(configPatches, c.Spec.(*networking.EnvoyFilter).ConfigPatches...)
+	}
+	if len(configPatches) == 0 {
+		b.Fatalf("found no patches, failed to read telemetry config?")
 	}
 
 	sidecarProxy := &model.Proxy{

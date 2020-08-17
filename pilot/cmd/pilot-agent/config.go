@@ -25,14 +25,12 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/pkg/log"
 )
 
 func constructProxyConfig() (meshconfig.ProxyConfig, error) {
@@ -63,8 +61,6 @@ func constructProxyConfig() (meshconfig.ProxyConfig, error) {
 	if proxyConfig.StatsdUdpAddress != "" {
 		addr, err := network.ResolveAddr(proxyConfig.StatsdUdpAddress)
 		if err != nil {
-			// If istio-mixer.istio-system can't be resolved, skip generating the statsd config.
-			// (instead of crashing). Mixer is optional.
 			log.Warnf("resolve StatsdUdpAddress failed: %v", err)
 			proxyConfig.StatsdUdpAddress = ""
 		} else {
@@ -155,30 +151,4 @@ func getPilotSan(discoveryAddress string) string {
 		discHost = "istiod.istio-system.svc"
 	}
 	return discHost
-}
-
-func getControlPlaneNamespace(podNamespace string, discoveryAddress string) string {
-	ns := ""
-	if registryID == serviceregistry.Kubernetes {
-		partDiscoveryAddress := strings.Split(discoveryAddress, ":")
-		discoveryHostname := partDiscoveryAddress[0]
-		parts := strings.Split(discoveryHostname, ".")
-		if len(parts) == 1 {
-			// namespace of pilot is not part of discovery address use
-			// pod namespace e.g. istio-pilot:15005
-			ns = podNamespace
-		} else if len(parts) == 2 {
-			// namespace is found in the discovery address
-			// e.g. istio-pilot.istio-system:15005
-			ns = parts[1]
-		} else {
-			// discovery address is a remote address. For remote clusters
-			// only support the default config, or env variable
-			ns = istioNamespaceVar.Get()
-			if ns == "" {
-				ns = constants.IstioSystemNamespace
-			}
-		}
-	}
-	return ns
 }

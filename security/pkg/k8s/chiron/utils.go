@@ -24,16 +24,16 @@ import (
 	"net"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
-
 	cert "k8s.io/api/certificates/v1beta1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	rand "k8s.io/apimachinery/pkg/util/rand"
 	certclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/security/pkg/pki/util"
+	"istio.io/pkg/log"
 )
 
 const (

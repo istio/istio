@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: networking
+releaseNotes:
+- |
+  **Removed** compiled in support for Consul service registry. Integration will be done using XDS in the future.

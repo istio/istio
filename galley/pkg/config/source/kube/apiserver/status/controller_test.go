@@ -36,7 +36,7 @@ import (
 const subfield = "testMessages"
 
 func TestBasicStartStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 	k, cl := setupClient()
@@ -49,7 +49,7 @@ func TestBasicStartStop(t *testing.T) {
 }
 
 func TestDoubleStart(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 	k, cl := setupClient()
@@ -63,7 +63,7 @@ func TestDoubleStart(t *testing.T) {
 }
 
 func TestDoubleStop(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 	k, cl := setupClient()
@@ -76,7 +76,7 @@ func TestDoubleStop(t *testing.T) {
 }
 
 func TestNoReconcilation(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 	k, cl := setupClient()
@@ -89,7 +89,7 @@ func TestNoReconcilation(t *testing.T) {
 }
 
 func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 
@@ -117,7 +117,7 @@ func TestBasicReconcilation_BeforeUpdate(t *testing.T) {
 }
 
 func TestBasicReconcilation_AfterUpdate(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 
@@ -146,7 +146,7 @@ func TestBasicReconcilation_AfterUpdate(t *testing.T) {
 }
 
 func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 
@@ -181,7 +181,7 @@ func TestBasicReconcilation_AfterUpdate_Othersubfield(t *testing.T) {
 }
 
 func TestBasicReconcilation_NewStatus(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 
@@ -216,11 +216,11 @@ func TestBasicReconcilation_NewStatus(t *testing.T) {
 
 	actualStatusMap := u.Object["status"].(map[string]interface{})
 
-	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).Unstructured(false)))
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).UnstructuredAnalysisMessageBase()))
 }
 
 func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 
@@ -255,11 +255,11 @@ func TestBasicReconcilation_NewStatusOldNonMap(t *testing.T) {
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
 
 	actualStatusMap := u.Object["status"].(map[string]interface{})
-	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).Unstructured(false)))
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).UnstructuredAnalysisMessageBase()))
 }
 
 func TestBasicReconcilation_UpdateError(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 
@@ -291,11 +291,11 @@ func TestBasicReconcilation_UpdateError(t *testing.T) {
 	u := cl.Actions()[1].(k8stesting.UpdateActionImpl).Object.(*unstructured.Unstructured)
 
 	actualStatusMap := u.Object["status"].(map[string]interface{})
-	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).Unstructured(false)))
+	g.Expect(actualStatusMap[subfield]).To(ConsistOf(expectedMessage(m).UnstructuredAnalysisMessageBase()))
 }
 
 func TestBasicReconcilation_GetError(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 
@@ -326,7 +326,7 @@ func TestBasicReconcilation_GetError(t *testing.T) {
 }
 
 func TestBasicReconcilation_VersionMismatch(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	c := NewController(subfield)
 

@@ -1,4 +1,31 @@
 ---
+# Source: istiod-remote/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio
+  namespace: default
+  labels:
+    istio.io/rev: default
+    release: istiod-remote
+data:
+
+  # Configuration file for the mesh networks to be used by the Split Horizon EDS.
+  meshNetworks: |-
+    networks: {}
+
+  mesh: |-
+    defaultConfig:
+      discoveryAddress: istiod.default.svc:15012
+      proxyMetadata:
+        DNS_AGENT: ""
+      tracing:
+        zipkin:
+          address: zipkin.istio-system:9411
+    enablePrometheusMerge: true
+    rootNamespace: istio-system
+    trustDomain: cluster.local
+---
 # Source: istiod-remote/templates/istiod-injector-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -20,10 +47,7 @@ data:
         },
         "caAddress": "",
         "centralIstiod": false,
-        "configRootNamespace": "istio-system",
         "configValidation": true,
-        "controlPlaneSecurityEnabled": true,
-        "createRemoteSvcEndpoints": false,
         "defaultConfigVisibilitySettings": [],
         "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
@@ -35,7 +59,6 @@ data:
           }
         },
         "defaultTolerations": [],
-        "enableHelmTest": false,
         "hub": "gcr.io/istio-testing",
         "imagePullPolicy": "",
         "imagePullSecrets": [],
@@ -64,9 +87,7 @@ data:
         "oneNamespace": false,
         "operatorManageWebhooks": false,
         "pilotCertProvider": "istiod",
-        "policyNamespace": "istio-system",
         "priorityClassName": "",
-        "prometheusNamespace": "istio-system",
         "proxy": {
           "autoInject": "enabled",
           "clusterDomain": "cluster.local",
@@ -99,8 +120,8 @@ data:
           "image": "proxyv2",
           "resources": {
             "limits": {
-              "cpu": "100m",
-              "memory": "50Mi"
+              "cpu": "2000m",
+              "memory": "1024Mi"
             },
             "requests": {
               "cpu": "10m",
@@ -109,8 +130,6 @@ data:
           }
         },
         "remotePilotAddress": "",
-        "remotePolicyAddress": "",
-        "remoteTelemetryAddress": "",
         "sds": {
           "token": {
             "aud": "istio-ca"
@@ -120,7 +139,6 @@ data:
           "servicePort": 0
         },
         "tag": "latest",
-        "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
             "address": "$(HOST_IP):8126"
@@ -201,7 +219,11 @@ data:
         - "-b"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeInboundPorts` `*` }}"
         - "-d"
+      {{- if excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}
         - "15090,15021,{{ excludeInboundPort (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) (annotation .ObjectMeta `traffic.sidecar.istio.io/excludeInboundPorts` .Values.global.proxy.excludeInboundPorts) }}"
+      {{- else }}
+        - "15090,15021"
+      {{- end }}
         {{ if or (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/includeOutboundPorts`) (ne (valueOrDefault .Values.global.proxy.includeOutboundPorts "") "") -}}
         - "-q"
         - "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundPorts` .Values.global.proxy.includeOutboundPorts }}"
@@ -219,12 +241,14 @@ data:
         - "--skip-rule-apply"
         {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
-      {{- if .Values.global.proxy_init.resources }}
+      {{- if .ProxyConfig.ProxyMetadata }}
         env:
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
+      {{- end }}
+      {{- if .Values.global.proxy_init.resources }}
         resources:
           {{ toYaml .Values.global.proxy_init.resources | indent 4 }}
       {{- else }}
@@ -321,15 +345,24 @@ data:
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 4 }}
-        {{- end }}
+      {{- else if .Values.global.proxy.holdApplicationUntilProxyStarts}}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - pilot-agent
+              - wait
+      {{- end }}
         env:
         - name: JWT_POLICY
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        {{- if .Values.global.caAddress }}
         - name: CA_ADDR
+        {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -376,13 +409,7 @@ data:
             {{- end}}
             ]
         - name: ISTIO_META_APP_CONTAINERS
-          value: |-
-            [
-              {{- range $index, $container := .Spec.Containers }}
-                {{- if ne $index 0}},{{- end}}
-                {{ $container.Name }}
-              {{- end}}
-            ]
+          value: "{{- range $index, $container := .Spec.Containers }}{{- if ne $index 0}},{{- end}}{{ $container.Name }}{{- end}}"
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         - name: ISTIO_META_INTERCEPTION_MODE
@@ -589,11 +616,7 @@ data:
       {{- end }}
       podRedirectAnnot:
       {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}
-      {{ if isset .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks` }}
-        k8s.v1.cni.cncf.io/networks: "{{ index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`}}, istio-cni"
-      {{- else }}
-        k8s.v1.cni.cncf.io/networks: "istio-cni"
-      {{- end }}
+        k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `istio-cni` }}'
       {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
         traffic.sidecar.istio.io/includeOutboundIPRanges: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/includeOutboundIPRanges` .Values.global.proxy.includeIPRanges }}"
@@ -630,14 +653,16 @@ webhooks:
       service:
         name: istiod
         namespace: istio-system
-        path: "/inject"      
-      caBundle: 
+        path: "/inject"
+      caBundle:
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
         apiVersions: ["v1"]
         resources: ["pods"]
     failurePolicy: Fail
+    admissionReviewVersions: ["v1beta1", "v1"]
+    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

@@ -24,7 +24,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 
-	caClientInterface "istio.io/istio/security/pkg/nodeagent/caclient/interface"
+	"istio.io/istio/pkg/security"
 	"istio.io/pkg/log"
 )
 
@@ -46,7 +46,7 @@ type vaultClient struct {
 
 // NewVaultClient create a CA client for the Vault provider 1.
 func NewVaultClient(tls bool, tlsRootCert []byte,
-	vaultAddr, vaultLoginRole, vaultLoginPath, vaultSignCsrPath string) (caClientInterface.Client, error) {
+	vaultAddr, vaultLoginRole, vaultLoginPath, vaultSignCsrPath string) (security.Client, error) {
 	c := &vaultClient{
 		enableTLS:        tls,
 		tlsRootCert:      tlsRootCert,

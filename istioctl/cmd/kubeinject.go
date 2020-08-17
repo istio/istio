@@ -25,17 +25,15 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (
@@ -306,7 +304,18 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 				return nil
 			}
 
-			return inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig, reader, writer)
+			var warnings []string
+			retval := inject.IntoResourceFile(sidecarTemplate, valuesConfig, revision, meshConfig,
+				reader, writer, func(warning string) {
+					warnings = append(warnings, warning)
+				})
+			if len(warnings) > 0 {
+				fmt.Fprintln(c.ErrOrStderr())
+			}
+			for _, warning := range warnings {
+				fmt.Fprintln(c.ErrOrStderr(), warning)
+			}
+			return retval
 		},
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// istioctl kube-inject is typically redirected to a .yaml file;

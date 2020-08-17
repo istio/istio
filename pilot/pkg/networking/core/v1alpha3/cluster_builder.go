@@ -24,14 +24,12 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -77,12 +75,14 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 		opts.serviceMTLSMode = cb.push.BestEffortInferServiceMTLSMode(service, port)
 	}
 
+	// merge with applicable port level traffic policy settings
+	opts.policy = MergeTrafficPolicy(nil, opts.policy, opts.port)
 	// Apply traffic policy for the main default cluster.
 	applyTrafficPolicy(opts)
 
 	// Apply EdsConfig if needed. This should be called after traffic policy is applied because, traffic policy might change
 	// discovery type.
-	maybeApplyEdsConfig(c, cb.proxy.RequestedTypes.CDS)
+	maybeApplyEdsConfig(c)
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
@@ -124,22 +124,68 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 		// Apply traffic policy for subset cluster with the destination rule traffice policy.
 		opts.cluster = subsetCluster
-		opts.policy = destinationRule.TrafficPolicy
 		opts.istioMtlsSni = defaultSni
-		applyTrafficPolicy(opts)
 
 		// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-		if subset.TrafficPolicy != nil {
-			opts.policy = subset.TrafficPolicy
-			applyTrafficPolicy(opts)
-		}
+		opts.policy = MergeTrafficPolicy(destinationRule.TrafficPolicy, subset.TrafficPolicy, opts.port)
+		// Apply traffic policy for the subset cluster.
+		applyTrafficPolicy(opts)
 
-		maybeApplyEdsConfig(subsetCluster, cb.proxy.RequestedTypes.CDS)
+		maybeApplyEdsConfig(subsetCluster)
 
 		subsetCluster.Metadata = util.AddSubsetToMetadata(clusterMetadata, subset.Name)
 		subsetClusters = append(subsetClusters, subsetCluster)
 	}
 	return subsetClusters
+}
+
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
+	}
+
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
+	}
+
+	mergedPolicy := &networking.TrafficPolicy{}
+	if original != nil {
+		mergedPolicy.ConnectionPool = original.ConnectionPool
+		mergedPolicy.LoadBalancer = original.LoadBalancer
+		mergedPolicy.OutlierDetection = original.OutlierDetection
+		mergedPolicy.Tls = original.Tls
+	}
+
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil && len(subsetPolicy.PortLevelSettings) > 0 {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				// per the docs, port level policies do not inherit and intead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool
+				mergedPolicy.OutlierDetection = p.OutlierDetection
+				mergedPolicy.LoadBalancer = p.LoadBalancer
+				mergedPolicy.Tls = p.Tls
+				break
+			}
+		}
+	}
+	return mergedPolicy
 }
 
 // buildDefaultCluster builds the default cluster and also applies default traffic policy.
@@ -153,7 +199,6 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS:
-		c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 		dnsRate := gogo.DurationToProtoDuration(cb.push.Mesh.DnsRefreshRate)
 		c.DnsRefreshRate = dnsRate
 		c.RespectDnsTtl = true
@@ -233,7 +278,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		if instance.Endpoint.LbWeight > 0 {
 			ep.LoadBalancingWeight.Value = instance.Endpoint.LbWeight
 		}
-		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.UID, instance.Endpoint.Network, instance.Endpoint.TLSMode, cb.push)
+		ep.Metadata = util.BuildLbEndpointMetadata(instance.Endpoint.Network, instance.Endpoint.TLSMode)
 		locality := instance.Endpoint.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
@@ -351,7 +396,7 @@ func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationR
 }
 
 // maybeApplyEdsConfig applies EdsClusterConfig on the passed in cluster if it is an EDS type of cluster.
-func maybeApplyEdsConfig(c *cluster.Cluster, cdsVersion string) {
+func maybeApplyEdsConfig(c *cluster.Cluster) {
 	switch v := c.ClusterDiscoveryType.(type) {
 	case *cluster.Cluster_Type:
 		if v.Type != cluster.Cluster_EDS {
@@ -364,12 +409,8 @@ func maybeApplyEdsConfig(c *cluster.Cluster, cdsVersion string) {
 			ConfigSourceSpecifier: &core.ConfigSource_Ads{
 				Ads: &core.AggregatedConfigSource{},
 			},
+			ResourceApiVersion:  core.ApiVersion_V3,
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
-	}
-
-	if cdsVersion == v3.ClusterType {
-		// For v3 clusters, send v3 eds config.
-		c.EdsClusterConfig.EdsConfig.ResourceApiVersion = core.ApiVersion_V3
 	}
 }

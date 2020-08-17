@@ -24,14 +24,13 @@ import (
 	"strconv"
 	"time"
 
-	"istio.io/api/annotation"
-
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/containernetworking/cni/pkg/version"
 	"go.uber.org/zap"
 
+	"istio.io/api/annotation"
 	"istio.io/pkg/log"
 )
 
@@ -54,7 +53,7 @@ type Kubernetes struct {
 	InterceptRuleMgrType string   `json:"intercept_type"`
 	NodeName             string   `json:"node_name"`
 	ExcludeNamespaces    []string `json:"exclude_namespaces"`
-	CniBinDir            string   `json:"cni_bin_dir"`
+	CNIBinDir            string   `json:"cni_bin_dir"`
 }
 
 // PluginConf is whatever you expect your configuration json to be. This is whatever
@@ -146,8 +145,8 @@ func cmdAdd(args *skel.CmdArgs) error {
 	}
 	log.Infof("Getting identifiers with arguments: %s", args.Args)
 	log.Infof("Loaded k8s arguments: %v", k8sArgs)
-	if conf.Kubernetes.CniBinDir != "" {
-		nsSetupBinDir = conf.Kubernetes.CniBinDir
+	if conf.Kubernetes.CNIBinDir != "" {
+		nsSetupBinDir = conf.Kubernetes.CNIBinDir
 	}
 	if conf.Kubernetes.InterceptRuleMgrType != "" {
 		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType

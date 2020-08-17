@@ -17,30 +17,25 @@ package centralistio
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/multicluster"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
-	ist                              istio.Instance
-	pilots                           []pilot.Instance
-	clusterLocalNS, mcReachabilityNS namespace.Instance
-	controlPlaneValues               string
+	ist    istio.Instance
+	appCtx multicluster.AppContext
 )
 
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Label(label.Multicluster).
+		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
-		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(multicluster.Setup(&appCtx)).
 		Setup(kube.Setup(func(s *kube.Settings) {
 			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
@@ -52,21 +47,38 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 
 			cfg.Values["global.centralIstiod"] = "true"
+			cfg.ExposeIstiod = true
 
 			// Set the control plane values on the config.
-			cfg.ControlPlaneValues = controlPlaneValues + `
-  gateways:
-    istio-ingressgateway:
-      meshExpansionPorts:
-      - port: 15017
-        targetPort: 15017
-        name: tcp-webhook
-      - port: 15012
-        targetPort: 15012
-        name: tcp-istiod
+			// For ingress, add port 15017 to the default list of ports.
+			cfg.ControlPlaneValues = appCtx.ControlPlaneValues + `
   global:
     centralIstiod: true
-    caAddress: istiod.istio-system.svc:15012`
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: true
+    k8s:
+      service:
+        ports:
+        - port: 15021
+          targetPort: 15021
+          name: status-port
+        - port: 80
+          targetPort: 8080
+          name: http2
+        - port: 443
+          targetPort: 8443
+          name: https
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 15443
+          targetPort: 15443
+          name: tls
+        - port: 15017
+          targetPort: 15017
+          name: tcp-webhook`
 			cfg.RemoteClusterValues = `
 components:
   base:
@@ -82,27 +94,18 @@ values:
   global:
     centralIstiod: true`
 		})).
-		Setup(func(ctx resource.Context) (err error) {
-			pilots = make([]pilot.Instance, len(ctx.Environment().Clusters()))
-			// All clusters talk to the same pilot
-			pilot, err := pilot.New(ctx, pilot.Config{
-				Cluster: ctx.Environment().Clusters()[0],
-			})
-			if err != nil {
-				return err
-			}
-			for i := 0; i < len(ctx.Environment().Clusters()); i++ {
-				pilots[i] = pilot
-			}
-			return nil
-		}).
+		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, pilots, "installation.multicluster.central-istiod")
+	multicluster.ReachabilityTest(t, appCtx, "installation.multicluster.central-istiod")
+}
+
+func TestCrossClusterLoadbalancing(t *testing.T) {
+	multicluster.LoadbalancingTest(t, appCtx, "installation.multicluster.central-istiod")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, pilots, "installation.multicluster.central-istiod")
+	multicluster.ClusterLocalTest(t, appCtx, "installation.multicluster.central-istiod")
 }

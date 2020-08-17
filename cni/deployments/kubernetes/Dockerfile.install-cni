@@ -1,20 +1,24 @@
-FROM ubuntu:xenial
+# BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+ARG BASE_DISTRIBUTION=default
+
+# Version is the base image version from the TLD Makefile
+ARG BASE_VERSION=latest
+
+# The following section is used as base image if BASE_DISTRIBUTION=default
+FROM docker.io/istio/base:${BASE_VERSION} as default
 
 LABEL description="Istio CNI plugin installer."
 
-RUN apt-get update && apt-get install -qqy --no-install-recommends \
-jq='1.5*' \
-&& rm -rf /var/lib/apt/lists/*
-
 COPY istio-cni /opt/cni/bin/
 COPY istio-iptables /opt/cni/bin/
-COPY install-cni.sh /install-cni.sh
-COPY filter.jq /filter.jq
-COPY istio-cni.conf.default /istio-cni.conf.tmp
+COPY install-cni /usr/local/bin/
 
 # Copy over the Repair binary
 COPY istio-cni-repair /opt/cni/bin/
 
+# Copy over the Taint binary
+COPY istio-cni-taint /opt/cni/bin/
+
 ENV PATH=$PATH:/opt/cni/bin
 WORKDIR /opt/cni/bin
-CMD ["/install-cni.sh"]
+CMD ["/usr/local/bin/install-cni"]

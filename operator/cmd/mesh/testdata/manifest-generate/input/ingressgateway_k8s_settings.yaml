@@ -4,8 +4,6 @@ spec:
   components:
     pilot:
       enabled: false
-    policy:
-      enabled: false
     ingressGateways:
     - namespace: istio-system
       name: istio-ingressgateway
@@ -13,11 +11,5 @@ spec:
       k8s:
         service:
           externalTrafficPolicy: Local
-          ports:
-          - name: foo
-            port: 1234
-            targetPort: 1234
         serviceAnnotations:
           manifest-generate: "testserviceAnnotation"
-    telemetry:
-      enabled: false

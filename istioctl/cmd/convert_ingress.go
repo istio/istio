@@ -27,24 +27,18 @@ import (
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/pkg/log"
 )
 
 var (
 	inFilenames        []string
 	outConvertFilename string
-
-	schemas = collection.SchemasFor(
-		collections.IstioNetworkingV1Alpha3Virtualservices,
-		collections.IstioNetworkingV1Alpha3Gateways)
 )
 
 func convertConfigs(readers []io.Reader, writer io.Writer, client kubernetes.Interface) error {
@@ -72,7 +66,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer, client kubernetes.Int
 		return multierror.Prefix(err, "Ingress rules invalid")
 	}
 
-	writeYAMLOutput(schemas, out, writer)
+	writeYAMLOutput(out, writer)
 
 	// sanity check that the outputs are valid
 	if err := validateConfigs(out); err != nil {
@@ -134,14 +128,9 @@ func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error
 	return out, outIngresses, nil
 }
 
-func writeYAMLOutput(schemas collection.Schemas, configs []model.Config, writer io.Writer) {
+func writeYAMLOutput(configs []model.Config, writer io.Writer) {
 	for i, cfg := range configs {
-		s, exists := schemas.FindByGroupVersionKind(cfg.GroupVersionKind)
-		if !exists {
-			log.Errorf("Unknown kind %q for %v", cfg.GroupVersionKind, cfg.Name)
-			continue
-		}
-		obj, err := crd.ConvertConfig(s, cfg)
+		obj, err := crd.ConvertConfig(cfg)
 		if err != nil {
 			log.Errorf("Could not decode %v: %v", cfg.Name, err)
 			continue

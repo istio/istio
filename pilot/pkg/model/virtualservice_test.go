@@ -24,7 +24,6 @@ import (
 	fuzz "github.com/google/gofuzz"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/visibility"
@@ -1463,6 +1462,24 @@ func TestHasConflict(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "withoutHeaders mismatch",
+			root: &networking.HTTPMatchRequest{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Prefix{Prefix: "h1"},
+					},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				WithoutHeaders: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Exact{Exact: "h2"},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "port",
 			root: &networking.HTTPMatchRequest{
 				Port: 0,
@@ -1633,6 +1650,11 @@ var gatewayNameTests = []struct {
 		"gateway.default",
 		"foo",
 		"default/gateway",
+	},
+	{
+		"private.ingress.svc.cluster.local",
+		"foo",
+		"ingress/private",
 	},
 }
 

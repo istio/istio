@@ -18,33 +18,33 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/ledger"
+	. "github.com/onsi/gomega"
+	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/schema/collections"
-
-	. "github.com/onsi/gomega"
-	"k8s.io/utils/clock"
+	"istio.io/pkg/ledger"
 )
 
 func TestStatusMaps(t *testing.T) {
 	r := initReporterWithoutStarting()
-	typ := xds.UnknownEventType
+	typ := ""
 	r.processEvent("conA", typ, "a")
 	r.processEvent("conB", typ, "a")
 	r.processEvent("conC", typ, "c")
 	r.processEvent("conD", typ, "d")
 	RegisterTestingT(t)
+	x := struct{}{}
 	Expect(r.status).To(Equal(map[string]string{"conA": "a", "conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conA", "conB"}, "c": {"conC"}, "d": {"conD"}}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conA": x, "conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
 	r.processEvent("conA", typ, "d")
 	Expect(r.status).To(Equal(map[string]string{"conA": "d", "conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conB"}, "c": {"conC"}, "d": {"conD", "conA"}}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB": x}, "c": {"conC": x}, "d": {"conD": x, "conA": x}}))
 	r.RegisterDisconnect("conA", []xds.EventType{typ})
 	Expect(r.status).To(Equal(map[string]string{"conB": "a", "conC": "c", "conD": "d"}))
-	Expect(r.reverseStatus).To(Equal(map[string][]string{"a": {"conB"}, "c": {"conC"}, "d": {"conD"}}))
+	Expect(r.reverseStatus).To(Equal(map[string]map[string]struct{}{"a": {"conB": x}, "c": {"conC": x}, "d": {"conD": x}}))
 }
 
 func initReporterWithoutStarting() (out Reporter) {
@@ -55,7 +55,7 @@ func initReporterWithoutStarting() (out Reporter) {
 	out.UpdateInterval = 300 * time.Millisecond
 	out.store = nil // TODO
 	out.cm = nil    // TODO
-	out.reverseStatus = make(map[string][]string)
+	out.reverseStatus = make(map[string]map[string]struct{})
 	out.status = make(map[string]string)
 	return
 }
@@ -108,7 +108,7 @@ func TestBuildReport(t *testing.T) {
 	}
 	// mark each fake connection as having acked version 1 of all resources
 	for _, con := range connections {
-		r.processEvent(con, xds.UnknownEventType, firstNoncePrefix)
+		r.processEvent(con, "", firstNoncePrefix)
 	}
 	// modify one resource to version 2
 	resources[1].ResourceVersion = "2"
@@ -120,7 +120,7 @@ func TestBuildReport(t *testing.T) {
 	// mark only one connection as having acked version 2
 	r.processEvent(connections[1], "", l.RootHash())
 	// mark one connection as having disconnected.
-	r.RegisterDisconnect(connections[2], []xds.EventType{xds.UnknownEventType})
+	r.RegisterDisconnect(connections[2], []xds.EventType{""})
 	err = r.store.SetLedger(l)
 	Expect(err).NotTo(HaveOccurred())
 	// build a report, which should have only two dataplanes, with 50% acking v2 of config

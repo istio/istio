@@ -25,15 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	cert "k8s.io/api/certificates/v1beta1"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	kt "k8s.io/client-go/testing"
+
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (

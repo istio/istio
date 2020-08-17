@@ -53,13 +53,13 @@ spec:
   # rule[8] `from`: all fields, `to`: all fields, `when`: all fields.
   - from:
     - source:
-        principals: ["principal"]
+        principals: ["principal", "*principal-suffix", "principal-prefix*", "*"]
         requestPrincipals: ["requestPrincipals"]
-        namespaces: ["ns"]
+        namespaces: ["ns", "*ns-suffix", "ns-prefix*", "*"]
         ipBlocks: ["1.2.3.4"]
-        notPrincipals: ["not-principal"]
+        notPrincipals: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*"]
         notRequestPrincipals: ["not-requestPrincipals"]
-        notNamespaces: ["not-ns"]
+        notNamespaces: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*"]
         notIpBlocks: ["9.0.0.1"]
     to:
     - operation:
@@ -79,11 +79,11 @@ spec:
         values: ["10.10.10.10"]
         notValues: ["90.10.10.10"]
       - key: "source.namespace"
-        values: ["ns"]
-        notValues: ["not-ns"]
+        values: ["ns", "*ns-suffix", "ns-prefix*", "*"]
+        notValues: ["not-ns", "*not-ns-suffix", "not-ns-prefix*", "*"]
       - key: "source.principal"
-        values: ["principal"]
-        notValues: ["not-principal"]
+        values: ["principal", "*principal-suffix", "principal-prefix*", "*"]
+        notValues: ["not-principal", "*not-principal-suffix", "not-principal-prefix*", "*"]
       - key: "request.auth.principal"
         values: ["requestPrincipals"]
         notValues: ["not-requestPrincipals"]

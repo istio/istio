@@ -16,15 +16,16 @@ package controller
 
 import (
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -33,10 +34,14 @@ import (
 type kubeEndpointsController interface {
 	HasSynced() bool
 	Run(stopCh <-chan struct{})
+	getInformer() cache.SharedIndexInformer
+	onEvent(curr interface{}, event model.Event) error
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
 		labelsList labels.Collection) ([]*model.ServiceInstance, error)
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
+	// forgetEndpoint does internal bookkeeping on a deleted endpoint
+	forgetEndpoint(endpoint interface{})
 	getServiceInfo(ep interface{}) (host.Name, string, string)
 }
 
@@ -56,7 +61,6 @@ func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
 
 // processEndpointEvent triggers the config update.
 func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep interface{}) error {
-	log.Debugf("Handle event %s for endpoint %s in namespace %s", event, name, namespace)
 	if features.EnableHeadlessService {
 		if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
 			// if the service is headless service, trigger a full push.
@@ -94,11 +98,13 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, ns)
 	var endpoints []*model.IstioEndpoint
-	if event != model.EventDelete {
+	if event == model.EventDelete {
+		epc.forgetEndpoint(ep)
+	} else {
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
-	fep := c.collectAllForeignEndpoints(svc)
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
+	fep := c.collectWorkloadInstanceEndpoints(svc)
+	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
 	// fire instance handles for k8s endpoints only
 	for _, handler := range c.instanceHandlers {
 		for _, ep := range endpoints {
@@ -110,4 +116,39 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 			handler(si, event)
 		}
 	}
+}
+
+// getPod fetches a pod by IP address.
+// A pod may be missing (nil) for two reasons:
+// * It is an endpoint without an associated Pod. In this case, expectPod will be false.
+// * It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
+//   this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
+//   should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
+//   correctness and security.
+func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (rpod *v1.Pod, expectPod bool) {
+	pod := c.pods.getPodByIP(ip)
+	if pod != nil {
+		return pod, false
+	}
+	// This means, the endpoint event has arrived before pod event.
+	// This might happen because PodCache is eventually consistent.
+	if targetRef != nil && targetRef.Kind == "Pod" {
+		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
+		// There is a small chance getInformer may have the pod, but it hasn't
+		// made its way to the PodCache yet as it a shared queue.
+		podFromInformer, f, err := c.pods.informer.GetStore().GetByKey(key)
+		if err != nil || !f {
+			log.Debugf("Endpoint without pod %s %s.%s error: %v", ip, ep.Name, ep.Namespace, err)
+			endpointsWithNoPods.Increment()
+			if c.metrics != nil {
+				c.metrics.AddMetric(model.EndpointNoPod, string(host), nil, ip)
+			}
+			// Tell pod cache we want to queue the endpoint event when this pod arrives.
+			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
+			c.pods.queueEndpointEventOnPodArrival(epkey, ip)
+			return nil, true
+		}
+		pod = podFromInformer.(*v1.Pod)
+	}
+	return pod, false
 }

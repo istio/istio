@@ -24,13 +24,12 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/pkg/log"
 )
 
 type message struct {
@@ -74,7 +74,6 @@ var testGrid = []testCase{
 		analyzer: &annotations.K8sAnalyzer{},
 		expected: []message{
 			{msg.UnknownAnnotation, "Service httpbin"},
-			{msg.MisplacedAnnotation, "Service details"},
 			{msg.InvalidAnnotation, "Pod invalid-annotations"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
@@ -87,9 +86,6 @@ var testGrid = []testCase{
 		analyzer:   &deprecation.FieldAnalyzer{},
 		expected: []message{
 			{msg.Deprecated, "VirtualService productpage.foo"},
-			{msg.Deprecated, "Sidecar no-selector.default"},
-			{msg.Deprecated, "Sidecar no-selector.default"},
-			{msg.Deprecated, "Sidecar no-selector.default"},
 			{msg.Deprecated, "Sidecar no-selector.default"},
 		},
 	},
@@ -315,6 +311,76 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
 		},
 	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel and simple at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-simple-mutual.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel and mutual at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-mutual-simple.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with both cacerts",
+		inputFiles: []string{
+			"testdata/destinationrule-with-ca.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
@@ -333,7 +399,7 @@ func TestAnalyzers(t *testing.T) {
 	for _, tc := range testGrid {
 		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := tc.analyzer.Metadata().Name
@@ -363,7 +429,7 @@ func TestAnalyzers(t *testing.T) {
 	// Verify that the collections actually accessed during testing actually match
 	// the collections declared as inputs for each of the analyzers
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := NewWithT(t)
 	outer:
 		for _, a := range All() {
 			analyzerName := a.Metadata().Name
@@ -393,7 +459,7 @@ func TestAnalyzers(t *testing.T) {
 
 // Verify that all of the analyzers tested here are also registered in All()
 func TestAnalyzersInAll(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	var allNames []string
 	for _, a := range All() {
@@ -406,7 +472,7 @@ func TestAnalyzersInAll(t *testing.T) {
 }
 
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	existingNames := make(map[string]struct{})
 	for _, a := range All() {
@@ -424,7 +490,7 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 }
 
 func TestAnalyzersHaveDescription(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 
 	for _, a := range All() {
 		g.Expect(a.Metadata().Description).ToNot(Equal(""))

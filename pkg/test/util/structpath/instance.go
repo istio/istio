@@ -25,12 +25,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
-
 	"gopkg.in/d4l3k/messagediff.v1"
+	"k8s.io/client-go/util/jsonpath"
 
 	"istio.io/istio/pkg/test"
-
-	"k8s.io/client-go/util/jsonpath"
 )
 
 var (
@@ -297,7 +295,7 @@ func (i *Instance) findValue(path string) (interface{}, error) {
 	}
 	values, err := parser.FindResults(i.structure)
 	if err != nil {
-		return nil, fmt.Errorf("err finding results for path: %v - %v", path, err)
+		return nil, fmt.Errorf("err finding results for path: %v: %v. Structure: %v", path, err, i.structure)
 	}
 	if len(values) == 0 || len(values[0]) == 0 {
 		return nil, fmt.Errorf("no value for path: %v", path)

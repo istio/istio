@@ -32,11 +32,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/util/gogo"
-
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
@@ -44,6 +40,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -63,8 +61,10 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
-	// TODO remove max program size once all envoys have unlimited default
-	// nolint: staticcheck
+	// TODO: In the current version of Envoy, MaxProgramSize has been deprecated. However even if we do not send
+	// MaxProgramSize, Envoy is enforcing max size of 100 via runtime. We will have to remove this and find a
+	// way to specify via runtime or find a better option.
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/regex.proto.html#type-matcher-v3-regexmatcher-googlere2.
 	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
@@ -364,7 +364,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 
 	out := &route.Route{
-		Match:    translateRouteMatch(match),
+		Match:    translateRouteMatch(match, node),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
 	}
 
@@ -374,6 +374,12 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 	}
 	// add a name to the route
 	out.Name = routeName
+
+	operations := translateHeadersOperations(in.Headers)
+	out.RequestHeadersToAdd = operations.requestHeadersToAdd
+	out.ResponseHeadersToAdd = operations.responseHeadersToAdd
+	out.RequestHeadersToRemove = operations.requestHeadersToRemove
+	out.ResponseHeadersToRemove = operations.responseHeadersToRemove
 
 	out.TypedPerFilterConfig = make(map[string]*any.Any)
 	if redirect := in.Redirect; redirect != nil {
@@ -397,14 +403,14 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 		case 308:
 			action.Redirect.ResponseCode = route.RedirectAction_PERMANENT_REDIRECT
 		default:
-			log.Warnf("Redirect Code %d are not yet supported", in.Redirect.RedirectCode)
+			log.Warnf("Redirect Code %d is not yet supported", in.Redirect.RedirectCode)
 			action = nil
 		}
 
 		out.Action = action
 	} else {
 		action := &route.RouteAction{
-			Cors:        translateCORSPolicy(in.CorsPolicy),
+			Cors:        translateCORSPolicy(in.CorsPolicy, node),
 			RetryPolicy: retry.ConvertPolicy(in.Retries),
 		}
 
@@ -427,19 +433,6 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				HostRewriteLiteral: rewrite.Authority,
 			}
 		}
-
-		requestHeadersToAdd := translateAppendHeaders(in.Headers.GetRequest().GetSet(), false)
-		requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(in.Headers.GetRequest().GetAdd(), true)...)
-		out.RequestHeadersToAdd = requestHeadersToAdd
-		responseHeadersToAdd := translateAppendHeaders(in.Headers.GetResponse().GetSet(), false)
-		responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(in.Headers.GetResponse().GetAdd(), true)...)
-		out.ResponseHeadersToAdd = responseHeadersToAdd
-		requestHeadersToRemove := make([]string, 0)
-		requestHeadersToRemove = append(requestHeadersToRemove, in.Headers.GetRequest().GetRemove()...)
-		out.RequestHeadersToRemove = requestHeadersToRemove
-		responseHeadersToRemove := make([]string, 0)
-		responseHeadersToRemove = append(responseHeadersToRemove, in.Headers.GetResponse().GetRemove()...)
-		out.ResponseHeadersToRemove = responseHeadersToRemove
 
 		if in.Mirror != nil {
 			if mp := mirrorPercent(in); mp != nil {
@@ -465,14 +458,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 				}
 			}
 
-			requestHeadersToAdd := translateAppendHeaders(dst.Headers.GetRequest().GetSet(), false)
-			requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(dst.Headers.GetRequest().GetAdd(), true)...)
-			responseHeadersToAdd := translateAppendHeaders(dst.Headers.GetResponse().GetSet(), false)
-			responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(dst.Headers.GetResponse().GetAdd(), true)...)
-			requestHeadersToRemove := make([]string, 0)
-			requestHeadersToRemove = append(requestHeadersToRemove, dst.Headers.GetRequest().GetRemove()...)
-			responseHeadersToRemove := make([]string, 0)
-			responseHeadersToRemove = append(responseHeadersToRemove, dst.Headers.GetResponse().GetRemove()...)
+			operations := translateHeadersOperations(dst.Headers)
 
 			hostname := host.Name(dst.GetDestination().GetHost())
 			n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], port)
@@ -480,10 +466,10 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 			clusterWeight := &route.WeightedCluster_ClusterWeight{
 				Name:                    n,
 				Weight:                  weight,
-				RequestHeadersToAdd:     requestHeadersToAdd,
-				RequestHeadersToRemove:  requestHeadersToRemove,
-				ResponseHeadersToAdd:    responseHeadersToAdd,
-				ResponseHeadersToRemove: responseHeadersToRemove,
+				RequestHeadersToAdd:     operations.requestHeadersToAdd,
+				RequestHeadersToRemove:  operations.requestHeadersToRemove,
+				ResponseHeadersToAdd:    operations.responseHeadersToAdd,
+				ResponseHeadersToRemove: operations.responseHeadersToRemove,
 			}
 
 			weighted = append(weighted, clusterWeight)
@@ -593,20 +579,46 @@ func translateAppendHeaders(headers map[string]string, appendFlag bool) []*core.
 	return headerValueOptionList
 }
 
+type headersOperations struct {
+	requestHeadersToAdd     []*core.HeaderValueOption
+	responseHeadersToAdd    []*core.HeaderValueOption
+	requestHeadersToRemove  []string
+	responseHeadersToRemove []string
+}
+
+// translateHeadersOperations translates headers operations
+func translateHeadersOperations(headers *networking.Headers) headersOperations {
+	req := headers.GetRequest()
+	resp := headers.GetResponse()
+
+	requestHeadersToAdd := translateAppendHeaders(req.GetSet(), false)
+	requestHeadersToAdd = append(requestHeadersToAdd, translateAppendHeaders(req.GetAdd(), true)...)
+
+	responseHeadersToAdd := translateAppendHeaders(resp.GetSet(), false)
+	responseHeadersToAdd = append(responseHeadersToAdd, translateAppendHeaders(resp.GetAdd(), true)...)
+
+	return headersOperations{
+		requestHeadersToAdd:     requestHeadersToAdd,
+		responseHeadersToAdd:    responseHeadersToAdd,
+		requestHeadersToRemove:  append([]string{}, req.GetRemove()...), // copy slice
+		responseHeadersToRemove: append([]string{}, resp.GetRemove()...),
+	}
+}
+
 // translateRouteMatch translates match condition
-func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
+func translateRouteMatch(in *networking.HTTPMatchRequest, node *model.Proxy) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
 	}
 
 	for name, stringMatch := range in.Headers {
-		matcher := translateHeaderMatch(name, stringMatch)
+		matcher := translateHeaderMatch(name, stringMatch, node)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
-		matcher := translateHeaderMatch(name, stringMatch)
+		matcher := translateHeaderMatch(name, stringMatch, node)
 		matcher.InvertMatch = true
 		out.Headers = append(out.Headers, matcher)
 	}
@@ -626,12 +638,8 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 			out.PathSpecifier = &route.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
 					// nolint: staticcheck
-					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-						MaxProgramSize: &wrappers.UInt32Value{
-							Value: uint32(maxRegExProgramSize),
-						},
-					}},
-					Regex: m.Regex,
+					EngineType: regexMatcher(node),
+					Regex:      m.Regex,
 				},
 			}
 		}
@@ -640,22 +648,22 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out.CaseSensitive = &wrappers.BoolValue{Value: !in.IgnoreUriCase}
 
 	if in.Method != nil {
-		matcher := translateHeaderMatch(HeaderMethod, in.Method)
+		matcher := translateHeaderMatch(HeaderMethod, in.Method, node)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Authority != nil {
-		matcher := translateHeaderMatch(HeaderAuthority, in.Authority)
+		matcher := translateHeaderMatch(HeaderAuthority, in.Authority, node)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	if in.Scheme != nil {
-		matcher := translateHeaderMatch(HeaderScheme, in.Scheme)
+		matcher := translateHeaderMatch(HeaderScheme, in.Scheme, node)
 		out.Headers = append(out.Headers, matcher)
 	}
 
 	for name, stringMatch := range in.QueryParams {
-		matcher := translateQueryParamMatch(name, stringMatch)
+		matcher := translateQueryParamMatch(name, stringMatch, node)
 		out.QueryParameters = append(out.QueryParameters, matcher)
 	}
 
@@ -663,7 +671,7 @@ func translateRouteMatch(in *networking.HTTPMatchRequest) *route.RouteMatch {
 }
 
 // translateQueryParamMatch translates a StringMatch to a QueryParameterMatcher.
-func translateQueryParamMatch(name string, in *networking.StringMatch) *route.QueryParameterMatcher {
+func translateQueryParamMatch(name string, in *networking.StringMatch, node *model.Proxy) *route.QueryParameterMatcher {
 	out := &route.QueryParameterMatcher{
 		Name: name,
 	}
@@ -677,13 +685,8 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 		out.QueryParameterMatchSpecifier = &route.QueryParameterMatcher_StringMatch{
 			StringMatch: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					// nolint: staticcheck
-					EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-						MaxProgramSize: &wrappers.UInt32Value{
-							Value: uint32(maxRegExProgramSize),
-						},
-					}},
-					Regex: m.Regex,
+					EngineType: regexMatcher(node),
+					Regex:      m.Regex,
 				},
 			},
 			}}
@@ -710,7 +713,7 @@ func isCatchAllHeaderMatch(in *networking.StringMatch) bool {
 }
 
 // translateHeaderMatch translates to HeaderMatcher
-func translateHeaderMatch(name string, in *networking.StringMatch) *route.HeaderMatcher {
+func translateHeaderMatch(name string, in *networking.StringMatch, node *model.Proxy) *route.HeaderMatcher {
 	out := &route.HeaderMatcher{
 		Name: name,
 	}
@@ -730,7 +733,7 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 	case *networking.StringMatch_Regex:
 		out.HeaderMatchSpecifier = &route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &matcher.RegexMatcher{
-				EngineType: regexEngine,
+				EngineType: regexMatcher(node),
 				Regex:      m.Regex,
 			},
 		}
@@ -739,7 +742,17 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 	return out
 }
 
-func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher {
+func convertToExactEnvoyMatch(in []string) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, istioMatcher := range in {
+		res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: istioMatcher}})
+	}
+
+	return res
+}
+
+func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*matcher.StringMatcher {
 	res := make([]*matcher.StringMatcher, 0, len(in))
 
 	for _, istioMatcher := range in {
@@ -751,7 +764,7 @@ func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher 
 		case *networking.StringMatch_Regex:
 			res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					EngineType: regexEngine,
+					EngineType: regexMatcher(node),
 					Regex:      m.Regex,
 				},
 			},
@@ -764,7 +777,7 @@ func convertToEnvoyMatch(in []*networking.StringMatch) []*matcher.StringMatcher 
 }
 
 // translateCORSPolicy translates CORS policy
-func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.CorsPolicy {
 	if in == nil {
 		return nil
 	}
@@ -772,7 +785,9 @@ func translateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 	// CORS filter is enabled by default
 	out := route.CorsPolicy{}
 	if in.AllowOrigins != nil {
-		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins)
+		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins, node)
+	} else if in.AllowOrigin != nil {
+		out.AllowOriginStringMatch = convertToExactEnvoyMatch(in.AllowOrigin)
 	}
 
 	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
@@ -826,7 +841,7 @@ func BuildDefaultHTTPInboundRoute(node *model.Proxy, clusterName string, operati
 	notimeout := ptypes.DurationProto(0)
 
 	val := &route.Route{
-		Match: translateRouteMatch(nil),
+		Match: translateRouteMatch(nil, node),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -1069,33 +1084,28 @@ func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
 	return catchall && len(m.Headers) == 0 && len(m.QueryParams) == 0
 }
 
-// CombineVHostRoutes semi concatenates two Vhost's routes into a single route set.
+// CombineVHostRoutes semi concatenates Vhost's routes into a single route set.
 // Moves the catch all routes alone to the end, while retaining
 // the relative order of other routes in the concatenated route.
 // Assumes that the virtual services that generated first and second are ordered by
 // time.
-func CombineVHostRoutes(first []*route.Route, second []*route.Route) []*route.Route {
-	allroutes := make([]*route.Route, 0, len(first)+len(second))
+func CombineVHostRoutes(routeSets ...[]*route.Route) []*route.Route {
+	l := 0
+	for _, rs := range routeSets {
+		l += len(rs)
+	}
+	allroutes := make([]*route.Route, 0, l)
 	catchAllRoutes := make([]*route.Route, 0)
-
-	for _, f := range first {
-		if isCatchAllRoute(f) {
-			catchAllRoutes = append(catchAllRoutes, f)
-		} else {
-			allroutes = append(allroutes, f)
+	for _, routes := range routeSets {
+		for _, r := range routes {
+			if isCatchAllRoute(r) {
+				catchAllRoutes = append(catchAllRoutes, r)
+			} else {
+				allroutes = append(allroutes, r)
+			}
 		}
 	}
-
-	for _, s := range second {
-		if isCatchAllRoute(s) {
-			catchAllRoutes = append(catchAllRoutes, s)
-		} else {
-			allroutes = append(allroutes, s)
-		}
-	}
-
-	allroutes = append(allroutes, catchAllRoutes...)
-	return allroutes
+	return append(allroutes, catchAllRoutes...)
 }
 
 // isCatchAllRoute returns true if an Envoy route is a catchall route otherwise false.
@@ -1115,4 +1125,8 @@ func isCatchAllRoute(r *route.Route) bool {
 func traceOperation(host string, port int) string {
 	// Format : "%s:%d/*"
 	return host + ":" + strconv.Itoa(port) + "/*"
+}
+
+func regexMatcher(node *model.Proxy) *matcher.RegexMatcher_GoogleRe2 {
+	return regexEngine
 }

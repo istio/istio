@@ -7,18 +7,18 @@
     "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/all","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:15011","drainDuration":"5s","envoyAccessLogService":{"address":"accesslog-service:15000"},"envoyMetricsService":{"address":"metrics-service:15000","tlsSettings":{"caCertificates":"/etc/istio/ms/ca.pem","clientCertificate":"/etc/istio/ms/client.pem","mode":"MUTUAL","privateKey":"/etc/istio/ms/key.pem"}},"parentShutdownDuration":"6s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","tracing":{"zipkin":{"address":"localhost:6000"}}},"SDS":"true"}
   },
   "layered_runtime": {
-    "layers": [
-      {
-        "name": "deprecation",
-        "static_layer": {
-          "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
-        }
-      },
-      {
-        "admin_layer": {},
-        "name": "admin"
-      }
-    ]
+      "layers": [
+          {
+              "name": "deprecation",
+              "static_layer": {
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+              }
+          },
+          {
+              "name": "admin",
+              "admin_layer": {}
+          }
+      ]
   },
   "stats_config": {
     "use_all_default_tags": false,
@@ -209,12 +209,6 @@
           "prefix": "listener_manager"
           },
           {
-          "prefix": "http_mixer_filter"
-          },
-          {
-          "prefix": "tcp_mixer_filter"
-          },
-          {
           "prefix": "server"
           },
           {
@@ -339,6 +333,7 @@
           "name": "envoy.transport_sockets.tls",
           "typed_config": {
             "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+            "sni": "",
             "common_tls_context": {
               "alpn_protocols": [
                 "h2"
@@ -347,6 +342,8 @@
                 {
                   "name": "default",
                   "sds_config": {
+                    "resource_api_version": "V3",
+                    "initial_fetch_timeout": "0s",
                     "api_config_source": {
                       "api_type": "GRPC",
                       "transport_api_version": "V3",
@@ -408,7 +405,6 @@
       ,
       {
         "name": "zipkin",
-        
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
@@ -428,15 +424,11 @@
         }
       }
       
-      
       ,
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-      
-        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/istio/ms/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}]}}}},"tls_certificate_sds_secret_configs":[{"name":"file-cert:/etc/istio/ms/client.pem~/etc/istio/ms/key.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}]}}}]},"sni":"envoy_metrics_service"}},
-      
-      
+        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/istio/ms/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"file-cert:/etc/istio/ms/client.pem~/etc/istio/ms/key.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}]},"sni":"envoy_metrics_service"}},
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
@@ -461,8 +453,6 @@
       {
         "name": "envoy_accesslog_service",
         "type": "STRICT_DNS",
-      
-      
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
@@ -584,7 +574,6 @@
       }
     ]
   }
-  
   ,
   "tracing": {
     "http": {
@@ -600,13 +589,13 @@
     }
   }
   
-  
   ,
   "stats_sinks": [
     
     {
       "name": "envoy.metrics_service",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
         "grpc_service": {
           "envoy_grpc": {
             "cluster_name": "envoy_metrics_service"
@@ -618,7 +607,8 @@
     
     {
       "name": "envoy.statsd",
-      "config": {
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {
           "socket_address": {"address": "10.1.1.1", "port_value": 9125}
         }
@@ -631,7 +621,7 @@
   ,
   "cluster_manager": {
     "outlier_detection": {
-      "event_log_path": /dev/stdout
+      "event_log_path": "/dev/stdout"
     }
   }
   

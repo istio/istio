@@ -36,9 +36,9 @@ import (
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/filewatcher"
-
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
+	"istio.io/pkg/filewatcher"
 )
 
 var (
@@ -172,6 +172,7 @@ type fakeController struct {
 	*fake.Clientset
 	dFakeClient     *dfake.FakeDynamicClient
 	reconcileDoneCh chan struct{}
+	client          kube.Client
 }
 
 const (
@@ -181,7 +182,7 @@ const (
 )
 
 func createTestController(t *testing.T) *fakeController {
-	fakeClient := fake.NewSimpleClientset()
+	fakeClient := kube.NewFakeClient()
 	o := Options{
 		WatchedNamespace:  namespace,
 		ResyncPeriod:      time.Minute,
@@ -189,8 +190,6 @@ func createTestController(t *testing.T) *fakeController {
 		WebhookConfigName: istiod,
 		ServiceName:       istiod,
 	}
-
-	dfakeClient := dfake.NewSimpleDynamicClient(runtime.NewScheme())
 
 	caChanged := make(chan bool, 10)
 	changed := func(path string, added bool) {
@@ -206,8 +205,9 @@ func createTestController(t *testing.T) *fakeController {
 		caChangedCh:      caChanged,
 		injectedCABundle: caBundle0,
 		fakeWatcher:      fakeWatcher,
-		Clientset:        fakeClient,
-		dFakeClient:      dfakeClient,
+		client:           fakeClient,
+		Clientset:        fakeClient.Kube().(*fake.Clientset),
+		dFakeClient:      fakeClient.Dynamic().(*dfake.FakeDynamicClient),
 		reconcileDoneCh:  make(chan struct{}, 100),
 	}
 
@@ -231,14 +231,14 @@ func createTestController(t *testing.T) *fakeController {
 	}
 
 	var err error
-	fc.Controller, err = newController(o, fakeClient, dfakeClient, newFileWatcher, readFile, reconcileDone)
+	fc.Controller, err = newController(o, fakeClient, newFileWatcher, readFile, reconcileDone)
 	if err != nil {
 		t.Fatalf("failed to create test controller: %v", err)
 	}
+	fakeClient.RunAndWait(make(chan struct{}))
 
-	si := fc.Controller.sharedInformers
-	fc.endpointStore = si.Core().V1().Endpoints().Informer().GetStore()
-	fc.configStore = si.Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer().GetStore()
+	fc.endpointStore = fakeClient.KubeInformer().Core().V1().Endpoints().Informer().GetStore()
+	fc.configStore = fakeClient.KubeInformer().Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer().GetStore()
 
 	return fc
 }
@@ -257,7 +257,7 @@ func reconcileHelper(t *testing.T, c *fakeController) {
 }
 
 func TestGreenfield(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	c := createTestController(t)
 
 	// install adds the webhook config with fail open policy
@@ -299,7 +299,7 @@ func TestGreenfield(t *testing.T) {
 }
 
 func TestCABundleChange(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := NewWithT(t)
 	c := createTestController(t)
 
 	_, _ = c.ValidatingWebhookConfigurations().Create(context.TODO(), unpatchedWebhookConfig, kubeApiMeta.CreateOptions{})

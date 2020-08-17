@@ -21,16 +21,16 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	envoyAdmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	"github.com/gogo/protobuf/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/bootstrap"
 )
 
 const (
@@ -49,7 +49,6 @@ type ProxyConfig struct {
 	LogLevel            string
 	ComponentLogLevel   string
 	PilotSubjectAltName []string
-	MixerSubjectAltName []string
 	NodeIPs             []string
 	PodName             string
 	PodNamespace        string
@@ -60,6 +59,7 @@ type ProxyConfig struct {
 	OutlierLogPath      string
 	PilotCertProvider   string
 	ProvCert            string
+	Sidecar             bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -98,7 +98,8 @@ func (e *envoy) IsLive() bool {
 
 func (e *envoy) Drain() error {
 	adminPort := uint32(e.Config.ProxyAdminPort)
-	err := DrainListeners(adminPort)
+
+	err := DrainListeners(adminPort, e.Sidecar)
 	if err != nil {
 		log.Infof("failed draining listeners for Envoy on port %d: %v", adminPort, err)
 	}
@@ -116,8 +117,8 @@ func (e *envoy) args(fname string, epoch int, bootstrapConfig string) []string {
 		"--parent-shutdown-time-s", fmt.Sprint(int(convertDuration(e.Config.ParentShutdownDuration) / time.Second)),
 		"--service-cluster", e.Config.ServiceCluster,
 		"--service-node", e.Node,
-		"--max-obj-name-len", fmt.Sprint(e.Config.StatNameLength),
 		"--local-address-ip-version", proxyLocalAddressType,
+		"--bootstrap-version", "3",
 		"--log-format-prefix-with-location", "0",
 		// format is like `2020-04-07T16:52:30.471425Z     info    envoy config   ...message..
 		// this matches Istio log format
@@ -153,11 +154,11 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 		// there is a custom configuration. Don't write our own config - but keep watching the certs.
 		fname = e.Config.CustomConfigFile
 	} else {
+		discHost := strings.Split(e.Config.DiscoveryAddress, ":")[0]
 		out, err := bootstrap.New(bootstrap.Config{
 			Node:                e.Node,
 			Proxy:               &e.Config,
 			PilotSubjectAltName: e.PilotSubjectAltName,
-			MixerSubjectAltName: e.MixerSubjectAltName,
 			LocalEnv:            os.Environ(),
 			NodeIPs:             e.NodeIPs,
 			PodName:             e.PodName,
@@ -169,6 +170,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
+			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
 			log.Errora("Failed to generate bootstrap config: ", err)

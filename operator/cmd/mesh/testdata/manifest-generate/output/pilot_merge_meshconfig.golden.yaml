@@ -23,9 +23,7 @@ data:
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
-    disableMixerHttpReports: true
     enablePrometheusMerge: true
-    mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
     rootNamespace: istio-control

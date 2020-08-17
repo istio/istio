@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: {{.Values.operatorNamespace}}
-  name: istio-operator
+  name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 spec:
   replicas: 1
   selector:
@@ -20,6 +20,16 @@ spec:
           command:
           - operator
           - server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 1337
+            runAsUser: 1337
+            runAsNonRoot: true
           imagePullPolicy: IfNotPresent
           resources:
 {{ toYaml .Values.operator.resources | trim | indent 12 }}
@@ -36,4 +46,6 @@ spec:
               value: {{.Values.operatorNamespace | quote}}
             - name: WAIT_FOR_RESOURCES_TIMEOUT
               value: {{.Values.waitForResourcesTimeout | quote}}
+            - name: REVISION
+              value: {{.Values.revision | quote}}
 ---

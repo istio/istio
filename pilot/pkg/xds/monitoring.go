@@ -19,15 +19,12 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/pkg/monitoring"
 )
 
 var (
 	errTag     = monitoring.MustCreateLabel("err")
-	clusterTag = monitoring.MustCreateLabel("cluster")
 	nodeTag    = monitoring.MustCreateLabel("node")
 	typeTag    = monitoring.MustCreateLabel("type")
 	versionTag = monitoring.MustCreateLabel("version")
@@ -42,18 +39,6 @@ var (
 		"pilot_xds_eds_reject",
 		"Pilot rejected EDS.",
 		monitoring.WithLabels(nodeTag, errTag),
-	)
-
-	edsInstances = monitoring.NewGauge(
-		"pilot_xds_eds_instances",
-		"Instances for each cluster(grouped by locality), as of last push. Zero instances is an error.",
-		monitoring.WithLabels(clusterTag),
-	)
-
-	edsAllLocalityEndpoints = monitoring.NewGauge(
-		"pilot_xds_eds_all_locality_endpoints",
-		"Network endpoints for each cluster(across all localities), as of last push. Zero endpoints is an error.",
-		monitoring.WithLabels(clusterTag),
 	)
 
 	ldsReject = monitoring.NewGauge(
@@ -206,8 +191,6 @@ func init() {
 		edsReject,
 		ldsReject,
 		rdsReject,
-		edsInstances,
-		edsAllLocalityEndpoints,
 		xdsExpiredNonce,
 		totalXDSRejects,
 		monServices,

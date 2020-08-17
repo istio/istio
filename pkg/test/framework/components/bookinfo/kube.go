@@ -64,7 +64,7 @@ func deploy(ctx resource.Context, cfg Config) (undeployFunc func(), err error) {
 		}
 	}()
 
-	cluster := resource.ClusterOrDefault(nil, ctx.Environment())
+	cluster := ctx.Clusters().Default()
 
 	if err := ctx.Config(cluster).ApplyYAML(ns.Name(), string(by)); err != nil {
 		return nil, err

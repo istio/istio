@@ -22,7 +22,6 @@ import (
 	"github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -73,7 +72,7 @@ var updateConfigSet = []*model.Config{
 }
 
 func TestMonitorForChange(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
 
@@ -145,7 +144,7 @@ func TestMonitorForChange(t *testing.T) {
 }
 
 func TestMonitorForError(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	store := memory.Make(collection.SchemasFor(collections.IstioNetworkingV1Alpha3Gateways))
 

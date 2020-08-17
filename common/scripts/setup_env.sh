@@ -59,7 +59,7 @@ fi
 
 # Build image to use
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  export IMAGE_VERSION=master-2020-07-10T02-22-20
+  export IMAGE_VERSION=master-2020-08-12T13-43-22
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   export IMAGE_NAME=build-tools
@@ -69,7 +69,7 @@ export UID
 DOCKER_GID=$(grep '^docker:' /etc/group | cut -f3 -d:)
 export DOCKER_GID
 
-TIMEZONE=$(readlink $readlink_flags /etc/localtime | sed -e 's/^.*zoneinfo\///')
+TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///')
 export TIMEZONE
 
 export TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
@@ -145,7 +145,7 @@ fi
 
 KUBECONFIG=${KUBECONFIG:="$HOME/.kube/config"}
 parse_KUBECONFIG "${KUBECONFIG}"
-if [[ "$BUILD_WITH_CONTAINER" -eq "1" ]]; then
+if [[ "${BUILD_WITH_CONTAINER:-1}" -eq "1" ]]; then
   export KUBECONFIG="${container_kubeconfig%?}"
 fi
 

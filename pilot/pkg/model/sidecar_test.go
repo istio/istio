@@ -21,15 +21,13 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
-
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 var (
@@ -1407,10 +1405,10 @@ outboundTrafficPolicy:
 		},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ps := NewPushContext()
-			ps.Mesh = &test.meshConfig
+			ps.Mesh = &tests[i].meshConfig
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {

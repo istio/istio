@@ -21,15 +21,15 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/bookinfo"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
-	util "istio.io/istio/tests/integration/mixer"
+	util "istio.io/istio/tests/integration/telemetry"
 	util_prometheus "istio.io/istio/tests/integration/telemetry/stats/prometheus"
 )
 
@@ -121,10 +121,7 @@ func testsetup(ctx resource.Context) (err error) {
 	if _, err = bookinfo.Deploy(ctx, bookinfo.Config{Namespace: bookinfoNs, Cfg: bookinfo.BookinfoDB}); err != nil {
 		return err
 	}
-	ing, err = ingress.New(ctx, ingress.Config{Istio: ist})
-	if err != nil {
-		return err
-	}
+	ing = ist.IngressFor(ctx.Clusters().Default())
 	prom, err = prometheus.New(ctx, prometheus.Config{})
 	if err != nil {
 		return err

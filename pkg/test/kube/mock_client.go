@@ -33,10 +33,8 @@ import (
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pkg/kube"
+	"istio.io/pkg/version"
 )
 
 var _ kube.ExtendedClient = MockClient{}

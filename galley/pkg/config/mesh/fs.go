@@ -23,11 +23,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"istio.io/api/mesh/v1alpha1"
-
-	"istio.io/pkg/filewatcher"
-
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/event"
+	"istio.io/pkg/filewatcher"
 )
 
 // FsSource is a event.InMemorySource implementation that reads mesh from file.

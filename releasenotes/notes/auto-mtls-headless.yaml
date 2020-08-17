@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+- 24319
+releaseNotes:
+- |
+  **Fixed** an issue where headless services without sidecars were incorrectly sent mTLS rtaffic

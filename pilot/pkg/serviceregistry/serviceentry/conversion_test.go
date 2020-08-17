@@ -22,7 +22,6 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/test/util"
@@ -318,6 +317,28 @@ var udsLocal = &model.Config{
 	},
 }
 
+// ServiceEntry DNS with a selector
+var selectorDNS = &model.Config{
+	ConfigMeta: model.ConfigMeta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "selector",
+		Namespace:         "selector",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"selector.com"},
+		Ports: []*networking.Port{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "wle"},
+		},
+		Resolution: networking.ServiceEntry_DNS,
+	},
+}
+
 // ServiceEntry with a selector
 var selector = &model.Config{
 	ConfigMeta: model.ConfigMeta{
@@ -337,6 +358,28 @@ var selector = &model.Config{
 			Labels: map[string]string{"app": "wle"},
 		},
 		Resolution: networking.ServiceEntry_STATIC,
+	},
+}
+
+// DNS ServiceEntry with a selector
+var dnsSelector = &model.Config{
+	ConfigMeta: model.ConfigMeta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dns-selector",
+		Namespace:         "dns-selector",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.TLSMode: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"dns.selector.com"},
+		Ports: []*networking.Port{
+			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: map[string]string{"app": "dns-wle"},
+		},
+		Resolution: networking.ServiceEntry_DNS,
 	},
 }
 
@@ -596,6 +639,11 @@ func TestConvertInstances(t *testing.T) {
 			},
 		},
 		{
+			// service entry DNS with workload selector and no endpoints
+			externalSvc: selectorDNS,
+			out:         []*model.ServiceInstance{},
+		},
+		{
 			// service entry dns
 			externalSvc: httpDNS,
 			out: []*model.ServiceInstance{
@@ -634,7 +682,7 @@ func TestConvertInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(strings.Join(tt.externalSvc.Spec.(*networking.ServiceEntry).Hosts, "_"), func(t *testing.T) {
-			instances := convertInstances(*tt.externalSvc, nil)
+			instances := convertServiceEntryToInstances(*tt.externalSvc, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
@@ -644,7 +692,7 @@ func TestConvertInstances(t *testing.T) {
 	}
 }
 
-func TestConvertWorkloadInstances(t *testing.T) {
+func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 	labels := map[string]string{
 		"app": "wle",
 	}
@@ -699,10 +747,163 @@ func TestConvertWorkloadInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
 			services := convertServices(*tt.se)
-			instances := convertWorkloadInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry))
+			instances := convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry))
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
 			if err := compare(t, instances, tt.out); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
+	labels := map[string]string{
+		"app": "wle",
+	}
+
+	workloadInstanceTests := []struct {
+		name      string
+		namespace string
+		wle       model.Config
+		out       *model.WorkloadInstance
+	}{
+		{
+			name:      "simple",
+			namespace: "ns1",
+			wle: model.Config{Spec: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels:  labels,
+				Ports: map[string]uint32{
+					"http": 80,
+				},
+				ServiceAccount: "scooby",
+			}},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels:         labels,
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+		{
+			name:      "simple - tls mode disabled",
+			namespace: "ns1",
+			wle: model.Config{Spec: &networking.WorkloadEntry{
+				Address: "1.1.1.1",
+				Labels: map[string]string{
+					"security.istio.io/tlsMode": "disabled",
+				},
+				Ports: map[string]uint32{
+					"http": 80,
+				},
+				ServiceAccount: "scooby",
+			}},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"security.istio.io/tlsMode": "disabled",
+					},
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "disabled",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+		{
+			name:      "unix domain socket",
+			namespace: "ns1",
+			wle: model.Config{Spec: &networking.WorkloadEntry{
+				Address:        "unix://foo/bar",
+				ServiceAccount: "scooby",
+			}},
+			out: nil,
+		},
+		{
+			name:      "DNS address",
+			namespace: "ns1",
+			wle: model.Config{Spec: &networking.WorkloadEntry{
+				Address:        "scooby.com",
+				ServiceAccount: "scooby",
+			}},
+			out: nil,
+		},
+		{
+			name:      "metadata labels only",
+			namespace: "ns1",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Labels: labels,
+				},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels:         labels,
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+		{
+			name:      "labels merge",
+			namespace: "ns1",
+			wle: model.Config{
+				ConfigMeta: model.ConfigMeta{
+					Labels: map[string]string{
+						"my-label": "bar",
+					},
+				},
+				Spec: &networking.WorkloadEntry{
+					Address: "1.1.1.1",
+					Labels:  labels,
+					Ports: map[string]uint32{
+						"http": 80,
+					},
+					ServiceAccount: "scooby",
+				}},
+			out: &model.WorkloadInstance{
+				Namespace: "ns1",
+				Endpoint: &model.IstioEndpoint{
+					Labels: map[string]string{
+						"my-label": "bar",
+						"app":      "wle",
+					},
+					Address:        "1.1.1.1",
+					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
+					TLSMode:        "istio",
+				},
+				PortMap: map[string]uint32{
+					"http": 80,
+				},
+			},
+		},
+	}
+
+	for _, tt := range workloadInstanceTests {
+		t.Run(tt.name, func(t *testing.T) {
+			instance := convertWorkloadEntryToWorkloadInstance(tt.namespace, tt.wle)
+			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)
 			}
 		})
