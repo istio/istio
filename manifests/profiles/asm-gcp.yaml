@@ -10,6 +10,7 @@ spec:
       proxyMetadata:
         CA_PROVIDER: "GoogleCA"
         PLUGINS: "GoogleTokenExchange"
+        USE_TOKEN_FOR_CSR: "true"
     # Protocol detection timeout is not supported
     protocolDetectionTimeout: 0s
     # Locality load balancing is not supported
