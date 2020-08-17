@@ -206,9 +206,6 @@ debug and diagnose their Istio mesh.
 
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyConfig())
-
-	rootCmd.AddCommand(convertIngress())
-	rootCmd.AddCommand(dashboard())
 	rootCmd.AddCommand(Analyze())
 
 	rootCmd.AddCommand(install.NewVerifyCommand())
@@ -229,6 +226,17 @@ debug and diagnose their Istio mesh.
 	postInstallCmd.AddCommand(Webhook())
 	experimentalCmd.AddCommand(postInstallCmd)
 
+	proxyStatusCmd := statusCommand()
+	hideInheritedFlags(proxyStatusCmd, "namespace", "istioNamespace")
+
+	convertIngressCmd := convertIngress()
+	hideInheritedFlags(convertIngressCmd, "namespace", "istioNamespace")
+	rootCmd.AddCommand(convertIngressCmd)
+
+	dashboardCmd := dashboard()
+	hideInheritedFlags(dashboardCmd, "namespace", "istioNamespace")
+	rootCmd.AddCommand(dashboardCmd)
+
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(manifestCmd)
@@ -244,7 +252,6 @@ debug and diagnose their Istio mesh.
 
 	upgradeCmd := mesh.UpgradeCmd()
 	hideInheritedFlags(upgradeCmd, "namespace", "istioNamespace")
-	experimentalCmd.AddCommand(softGraduatedCmd(upgradeCmd))
 	rootCmd.AddCommand(upgradeCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
