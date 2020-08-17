@@ -39,7 +39,7 @@ type TrafficTestCase struct {
 	calls []TrafficCall
 
 	// Single call
-	call      EchoCall
+	call      func() (echoclient.ParsedResponses, error)
 	validator func(echoclient.ParsedResponses) error
 
 	// if enabled, we will assert the request fails, rather than the request succeeds
@@ -269,7 +269,7 @@ spec:
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("shifting-%d", split["b"]),
+				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster),
 				config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -306,7 +306,12 @@ spec:
 							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hits)
 						}
 						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
-						if err := responses.CheckReachedClusters(apps.all.Match(echo.Service(host)).Clusters()); err != nil {
+						destinations := apps.all.Match(echo.Service(host))
+						if host == nakedSvc {
+							// we'll only hit the clusters in the same network for a non-sidecar service
+							destinations = apps.all.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
+						}
+						if err := responses.CheckReachedClusters(destinations.Clusters()); err != nil {
 							return err
 						}
 						// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
@@ -479,7 +484,7 @@ spec:
 func serverFirstTestCases() []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	clients := apps.podA
-	destination := apps.podC
+	destination := apps.podC[0]
 	configs := []struct {
 		port    string
 		dest    string
@@ -519,7 +524,7 @@ func serverFirstTestCases() []TrafficTestCase {
 				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
 				call: func() (echoclient.ParsedResponses, error) {
 					return client.Call(echo.CallOptions{
-						Target:   destination[0],
+						Target:   destination,
 						PortName: c.port,
 						Scheme:   scheme.TCP,
 						// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
@@ -527,6 +532,7 @@ func serverFirstTestCases() []TrafficTestCase {
 					})
 				},
 				validator: func(responses echoclient.ParsedResponses) error {
+					var x = 1
 					return responses.CheckOK()
 				},
 				expectFailure: !c.success,
