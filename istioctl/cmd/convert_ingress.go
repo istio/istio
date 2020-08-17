@@ -76,7 +76,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer, client kubernetes.Int
 }
 
 func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error) {
-	out := make([]model.Config, 0)
+	out := make([]model.Config, 0, len(readers))
 	outIngresses := make([]*v1beta1.Ingress, 0)
 
 	for _, reader := range readers {

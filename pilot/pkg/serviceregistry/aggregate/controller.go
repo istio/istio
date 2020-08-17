@@ -373,7 +373,7 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 			out[sa] = struct{}{}
 		}
 	}
-	result := []string{}
+	result := make([]string, 0, len(out))
 	for k := range out {
 		result = append(result, k)
 	}
@@ -385,7 +385,7 @@ func (c *Controller) GetIstioServiceAccounts(svc *model.Service, ports []int) []
 		}
 	}
 	expanded := spiffe.ExpandWithTrustDomains(result, tds)
-	result = []string{}
+	result = make([]string, 0, len(expanded))
 	for k := range expanded {
 		result = append(result, k)
 	}
