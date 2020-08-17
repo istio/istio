@@ -1008,7 +1008,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			}
 		}
 	case networking.ClientTLSSettings_SIMPLE:
-		if tls.CredentialName != "" && opts.proxy.Type == model.Router {
+		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
@@ -1054,7 +1054,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		}
 
 	case networking.ClientTLSSettings_MUTUAL:
-		if tls.CredentialName != "" && opts.proxy.Type == model.Router {
+		if tls.CredentialName != "" {
 			tlsContext = &auth.UpstreamTlsContext{
 				CommonTlsContext: &auth.CommonTlsContext{},
 				Sni:              tls.Sni,
