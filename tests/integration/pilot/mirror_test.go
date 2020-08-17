@@ -55,7 +55,6 @@ type testCaseMirror struct {
 }
 
 type mirrorTestOptions struct {
-	t          *testing.T
 	cases      []testCaseMirror
 	mirrorHost string
 }
@@ -65,33 +64,30 @@ var (
 )
 
 func TestMirroring(t *testing.T) {
-	cases := []testCaseMirror{
-		{
-			name:       "mirror-percent-absent",
-			absent:     true,
-			percentage: 100.0,
-			threshold:  0.0,
+	runMirrorTest(t, mirrorTestOptions{
+		cases: []testCaseMirror{
+			{
+				name:       "mirror-percent-absent",
+				absent:     true,
+				percentage: 100.0,
+				threshold:  0.0,
+			},
+			{
+				name:       "mirror-50",
+				percentage: 50.0,
+				threshold:  10.0,
+			},
+			{
+				name:       "mirror-10",
+				percentage: 10.0,
+				threshold:  5.0,
+			},
+			{
+				name:       "mirror-0",
+				percentage: 0.0,
+				threshold:  0.0,
+			},
 		},
-		{
-			name:       "mirror-50",
-			percentage: 50.0,
-			threshold:  10.0,
-		},
-		{
-			name:       "mirror-10",
-			percentage: 10.0,
-			threshold:  5.0,
-		},
-		{
-			name:       "mirror-0",
-			percentage: 0.0,
-			threshold:  0.0,
-		},
-	}
-
-	runMirrorTest(mirrorTestOptions{
-		t:     t,
-		cases: cases,
 	})
 }
 
@@ -104,31 +100,28 @@ func TestMirroring(t *testing.T) {
 // Thus when "a" tries to mirror to the external service, it is actually connecting to "external" (which is not part of the
 // mesh because of the Sidecar), then we can inspect "external" logs to verify the requests were properly mirrored.
 func TestMirroringExternalService(t *testing.T) {
-	cases := []testCaseMirror{
-		{
-			name:                "mirror-external",
-			absent:              true,
-			percentage:          100.0,
-			threshold:           0.0,
-			expectedDestination: apps.external,
-		},
-	}
-
-	runMirrorTest(mirrorTestOptions{
-		t:          t,
-		cases:      cases,
+	runMirrorTest(t, mirrorTestOptions{
 		mirrorHost: apps.externalHost,
+		cases: []testCaseMirror{
+			{
+				name:                "mirror-external",
+				absent:              true,
+				percentage:          100.0,
+				threshold:           0.0,
+				expectedDestination: apps.external,
+			},
+		},
 	})
 }
 
-func runMirrorTest(options mirrorTestOptions) {
+func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 	framework.
-		NewTest(options.t).
+		NewTest(t).
 		Features("traffic.mirroring").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			for _, c := range options.cases {
-				options.t.Run(c.name, func(t *testing.T) {
+				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
 					mirrorHost := options.mirrorHost
 					if len(mirrorHost) == 0 {
 						mirrorHost = apps.podC.Config().Service
@@ -140,14 +133,16 @@ func runMirrorTest(options mirrorTestOptions) {
 						mirrorHost,
 					}
 
-					deployment := tmpl.EvaluateOrFail(t,
-						file.AsStringOrFail(t, "testdata/traffic-mirroring-template.yaml"), vsc)
-					ctx.Config().ApplyYAMLOrFail(t, apps.namespace.Name(), deployment)
-					defer ctx.Config().DeleteYAMLOrFail(t, apps.namespace.Name(), deployment)
+					deployment := tmpl.EvaluateOrFail(ctx,
+						file.AsStringOrFail(ctx, "testdata/traffic-mirroring-template.yaml"), vsc)
+					ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), deployment)
+					ctx.WhenDone(func() error {
+						return ctx.Config().DeleteYAML(apps.namespace.Name(), deployment)
+					})
 
 					for _, proto := range mirrorProtocols {
-						t.Run(string(proto), func(t *testing.T) {
-							retry.UntilSuccessOrFail(t, func() error {
+						ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
+							retry.UntilSuccessOrFail(ctx, func() error {
 								testID := util.RandomString(16)
 								if err := sendTrafficMirror(apps.podA, apps.podB, proto, testID); err != nil {
 									return err

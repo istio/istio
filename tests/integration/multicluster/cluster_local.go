@@ -15,51 +15,31 @@
 package multicluster
 
 import (
-	"fmt"
 	"testing"
 
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
 // ClusterLocalTest tests that traffic works within a local cluster while in a multicluster configuration
-// clusterLocalNS have been configured in meshConfig.serviceSettings to be clusterLocal.
-func ClusterLocalTest(t *testing.T, clusterLocalNS namespace.Instance, features ...features.Feature) {
+// ClusterLocalNS have been configured in meshConfig.serviceSettings to be clusterLocal.
+func ClusterLocalTest(t *testing.T, apps AppContext, features ...features.Feature) {
 	framework.NewTest(t).
 		Features(features...).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
-				clusters := ctx.Environment().Clusters()
-				for i := range clusters {
-					i := i
-					ctx.NewSubTest(fmt.Sprintf("cluster-%d cluster local", i)).
+				for _, c := range ctx.Clusters() {
+					c := c
+					ctx.NewSubTest(c.Name()).
 						Label(label.Multicluster).
-						RunParallel(func(ctx framework.TestContext) {
-							local := clusters[i]
-
-							// Deploy src only in local, but dst in all clusters. dst in remote clusters shouldn't be hit
-							srcName, dstName := fmt.Sprintf("src-%d", i), fmt.Sprintf("dst-%d", i)
-							var src, dst echo.Instance
-							builder := echoboot.NewBuilder(ctx).
-								With(&src, newEchoConfig(srcName, clusterLocalNS, local)).
-								With(&dst, newEchoConfig(dstName, clusterLocalNS, local))
-							for j, remoteCluster := range clusters {
-								if i == j {
-									continue
-								}
-								var ref echo.Instance
-								builder = builder.With(&ref, newEchoConfig(dstName, clusterLocalNS, remoteCluster))
-							}
-							builder.BuildOrFail(ctx)
-
-							results := callOrFail(ctx, src, dst)
-
-							// Ensure that all requests went to the local cluster.
-							results.CheckClusterOrFail(ctx, local.Name())
+						Run(func(ctx framework.TestContext) {
+							local := apps.LocalEchos.GetOrFail(ctx, echo.InCluster(c))
+							callOrFail(ctx, local, local, func(responses client.ParsedResponses) error {
+								return responses.CheckCluster(c.Name())
+							})
 						})
 				}
 			})

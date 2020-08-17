@@ -1,5 +1,4 @@
-# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=10c7cb28ed932972e65fa7ac4b739f90a9b35555`
-# The SHA should match what is in go.mod
+# Generated with `kustomize build "https://github.com/kubernetes-sigs/service-apis/config/crd?ref=56154e7bfde5ebf1a04f45be7abdf983a11c6a32`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -210,9 +209,7 @@ spec:
                       myfoo"
                     type: string
                 required:
-                - group
                 - name
-                - resource
                 type: object
             required:
             - controller
@@ -460,6 +457,25 @@ spec:
                         compatible with the application protocol specified in the
                         Protocol field. \n Support: Core"
                       properties:
+                        group:
+                          default: networking.x-k8s.io
+                          description: "Group is the group of the route resource to
+                            select. Omitting the value or specifying the empty string
+                            indicates the networking.x-k8s.io API group. For example,
+                            use the following to select an HTTPRoute: \n routes:   resource:
+                            httproutes \n Otherwise, if an alternative API group is
+                            desired, specify the desired group: \n routes:   group:
+                            acme.io   resource: fooroutes \n Support: Core"
+                          type: string
+                        resource:
+                          description: "Resource is the API resource name of the route
+                            resource to select. \n Resource MUST correspond to route
+                            resources that are compatible with the application protocol
+                            specified in the Listener's Protocol field. \n If an implementation
+                            does not support or recognize this resource type, it SHOULD
+                            raise a \"ConditionInvalidRoutes\" condition for the affected
+                            Listener. \n Support: Core"
+                          type: string
                         routeNamespaces:
                           default:
                             onlySameNamespace: true
@@ -584,11 +600,13 @@ spec:
                                 contains only "value". The requirements are ANDed.
                               type: object
                           type: object
+                      required:
+                      - resource
                       type: object
                     tls:
                       description: "TLS is the TLS configuration for the Listener.
                         This field is required if the Protocol field is \"HTTPS\"
-                        or \"TLS\". \n Support: Core"
+                        or \"TLS\" and ignored otherwise. \n Support: Core"
                       properties:
                         certificateRefs:
                           description: "CertificateRefs is a list of references to
@@ -634,9 +652,7 @@ spec:
                                   foos   name: myfoo"
                                 type: string
                             required:
-                            - group
                             - name
-                            - resource
                             type: object
                           type: array
                         minimumVersion:
@@ -889,9 +905,7 @@ spec:
                           foos   name: myfoo"
                         type: string
                     required:
-                    - group
                     - name
-                    - resource
                     type: object
                   hostnames:
                     description: "Hostnames defines a set of hostname that should
@@ -966,73 +980,102 @@ spec:
                                     \  resource: foos   name: myfoo"
                                   type: string
                               required:
-                              - group
                               - name
-                              - resource
                               type: object
                             forwardTo:
-                              description: ForwardTo sends requests to the referenced
-                                object.  The resource may be "services" (omit or use
-                                the empty string for the group), or an implementation
+                              description: "ForwardTo sends requests to the referenced
+                                object(s).  The resource may be \"services\" (omit
+                                or use the empty string for the group), or an implementation
                                 may support other resources (for example, resource
-                                "myroutetargets" in group "networking.acme.io"). Omitting
-                                or specifying the empty string for both the resource
-                                and group indicates that the resource is "services".  If
-                                the referent cannot be found, the "InvalidRoutes"
-                                status condition on any Gateway that includes the
-                                HTTPRoute will be true.
-                              properties:
-                                targetPort:
-                                  description: "TargetPort specifies the destination
-                                    port number to use for the TargetRef. If unspecified
-                                    and TargetRef is a Service object consisting of
-                                    a single port definition, that port will be used.
-                                    If unspecified and TargetRef is a Service object
-                                    consisting of multiple port definitions, an error
-                                    is surfaced in status. \n Support: Core"
-                                  format: int32
-                                  type: integer
-                                targetRef:
-                                  description: "TargetRef is an object reference to
-                                    forward matched requests to. \n Support: Core
-                                    (Kubernetes Services) Support: Implementation-specific
-                                    (Other resource types)"
-                                  properties:
-                                    group:
-                                      default: core
-                                      description: "Group is the group of the referent.
-                                        \ Omitting the value or specifying the empty
-                                        string indicates the core API group.  For
-                                        example, use the following to specify a service:
-                                        \n fooRef:   resource: services   name: myservice
-                                        \n Otherwise, if the core API group is not
-                                        desired, specify the desired group: \n fooRef:
-                                        \  group: acme.io   resource: foos   name:
-                                        myfoo"
-                                      type: string
-                                    name:
-                                      description: Name is the name of the referent.
-                                      type: string
-                                    resource:
-                                      default: services
-                                      description: "Resource is the API resource name
-                                        of the referent. Omitting the value or specifying
-                                        the empty string indicates the services resource.
-                                        For example, use the following to specify
-                                        a services resource: \n fooRef:   name: myservice
-                                        \n Otherwise, if the services resource is
-                                        not desired, specify the desired group: \n
-                                        fooRef:   group: acme.io   resource: foos
-                                        \  name: myfoo"
-                                      type: string
-                                  required:
-                                  - group
-                                  - name
-                                  - resource
-                                  type: object
-                              required:
-                              - targetRef
-                              type: object
+                                \"myroutetargets\" in group \"networking.acme.io\").
+                                Omitting or specifying the empty string for both the
+                                resource and group indicates that the resource is
+                                \"services\".  If the referent cannot be found, the
+                                \"InvalidRoutes\" status condition on any Gateway
+                                that includes the HTTPRoute will be true. \n Support:
+                                core"
+                              items:
+                                description: ForwardToTarget identifies a target object
+                                  within a known namespace.
+                                properties:
+                                  targetPort:
+                                    description: "TargetPort specifies the destination
+                                      port number to use for the TargetRef. If unspecified
+                                      and TargetRef is a Service object consisting
+                                      of a single port definition, that port will
+                                      be used. If unspecified and TargetRef is a Service
+                                      object consisting of multiple port definitions,
+                                      an error is surfaced in status. \n Support:
+                                      Core"
+                                    format: int32
+                                    type: integer
+                                  targetRef:
+                                    description: "TargetRef is an object reference
+                                      to forward matched requests to. The resource
+                                      may be \"services\" (omit or use the empty string
+                                      for the group), or an implementation may support
+                                      other resources (for example, resource \"myroutetargets\"
+                                      in group \"networking.acme.io\"). Omitting or
+                                      specifying the empty string for both the resource
+                                      and group indicates that the resource is \"services\".
+                                      \ If the referent cannot be found, the \"InvalidRoutes\"
+                                      status condition on any Gateway that includes
+                                      the HTTPRoute will be true. \n Support: Core
+                                      (Kubernetes Services) Support: Implementation-specific
+                                      (Other resource types)"
+                                    properties:
+                                      group:
+                                        default: core
+                                        description: "Group is the group of the referent.
+                                          \ Omitting the value or specifying the empty
+                                          string indicates the core API group.  For
+                                          example, use the following to specify a
+                                          service: \n fooRef:   resource: services
+                                          \  name: myservice \n Otherwise, if the
+                                          core API group is not desired, specify the
+                                          desired group: \n fooRef:   group: acme.io
+                                          \  resource: foos   name: myfoo"
+                                        type: string
+                                      name:
+                                        description: Name is the name of the referent.
+                                        type: string
+                                      resource:
+                                        default: services
+                                        description: "Resource is the API resource
+                                          name of the referent. Omitting the value
+                                          or specifying the empty string indicates
+                                          the services resource. For example, use
+                                          the following to specify a services resource:
+                                          \n fooRef:   name: myservice \n Otherwise,
+                                          if the services resource is not desired,
+                                          specify the desired group: \n fooRef:   group:
+                                          acme.io   resource: foos   name: myfoo"
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  weight:
+                                    default: 1
+                                    description: "Weight specifies the proportion
+                                      of traffic to be forwarded to a targetRef, computed
+                                      as weight/(sum of all weights in targetRefs).
+                                      Weight is not a percentage and the sum of weights
+                                      does not need to equal 100. The following example
+                                      (in yaml) sends 70% of traffic to service \"my-trafficsplit-sv1\"
+                                      and 30% of the traffic to service \"my-trafficsplit-sv2\":
+                                      \n   forwardTo:     - targetRef:         name:
+                                      my-trafficsplit-sv1         weight: 70     -
+                                      targetRef:         name: my-trafficsplit-sv2
+                                      \        weight: 30 \n If only one targetRef
+                                      is specified, 100% of the traffic is forwarded
+                                      to the targetRef. If unspecified, weight defaults
+                                      to 1. \n Support: Core"
+                                    format: int32
+                                    type: integer
+                                required:
+                                - targetRef
+                                type: object
+                              type: array
                           required:
                           - forwardTo
                           type: object
@@ -1079,9 +1122,7 @@ spec:
                                     \  resource: foos   name: myfoo"
                                   type: string
                               required:
-                              - group
                               - name
-                              - resource
                               type: object
                             headers:
                               description: "Headers related filters. \n Support: extended"
@@ -1155,9 +1196,7 @@ spec:
                                     \  resource: foos   name: myfoo"
                                   type: string
                               required:
-                              - group
                               - name
-                              - resource
                               type: object
                             headerMatchType:
                               description: "HeaderMatchType defines the semantics
@@ -1178,7 +1217,7 @@ spec:
                               description: "Path is the value of the HTTP path as
                                 interpreted via PathType. \n Default: \"/\""
                               type: string
-                            pathType:
+                            pathMatchType:
                               description: "PathType is defines the semantics of the
                                 `Path` matcher. \n Support: core (Exact, Prefix) Support:
                                 extended (RegularExpression) Support: custom (ImplementationSpecific)
@@ -1233,9 +1272,7 @@ spec:
                             \  resource: foos   name: myfoo"
                           type: string
                       required:
-                      - group
                       - name
-                      - resource
                       type: object
                     hostnames:
                       description: "Hostnames defines a set of hostname that should
@@ -1312,74 +1349,106 @@ spec:
                                       \  group: acme.io   resource: foos   name: myfoo"
                                     type: string
                                 required:
-                                - group
                                 - name
-                                - resource
                                 type: object
                               forwardTo:
-                                description: ForwardTo sends requests to the referenced
-                                  object.  The resource may be "services" (omit or
-                                  use the empty string for the group), or an implementation
+                                description: "ForwardTo sends requests to the referenced
+                                  object(s).  The resource may be \"services\" (omit
+                                  or use the empty string for the group), or an implementation
                                   may support other resources (for example, resource
-                                  "myroutetargets" in group "networking.acme.io").
+                                  \"myroutetargets\" in group \"networking.acme.io\").
                                   Omitting or specifying the empty string for both
                                   the resource and group indicates that the resource
-                                  is "services".  If the referent cannot be found,
-                                  the "InvalidRoutes" status condition on any Gateway
-                                  that includes the HTTPRoute will be true.
-                                properties:
-                                  targetPort:
-                                    description: "TargetPort specifies the destination
-                                      port number to use for the TargetRef. If unspecified
-                                      and TargetRef is a Service object consisting
-                                      of a single port definition, that port will
-                                      be used. If unspecified and TargetRef is a Service
-                                      object consisting of multiple port definitions,
-                                      an error is surfaced in status. \n Support:
-                                      Core"
-                                    format: int32
-                                    type: integer
-                                  targetRef:
-                                    description: "TargetRef is an object reference
-                                      to forward matched requests to. \n Support:
-                                      Core (Kubernetes Services) Support: Implementation-specific
-                                      (Other resource types)"
-                                    properties:
-                                      group:
-                                        default: core
-                                        description: "Group is the group of the referent.
-                                          \ Omitting the value or specifying the empty
-                                          string indicates the core API group.  For
-                                          example, use the following to specify a
-                                          service: \n fooRef:   resource: services
-                                          \  name: myservice \n Otherwise, if the
-                                          core API group is not desired, specify the
-                                          desired group: \n fooRef:   group: acme.io
-                                          \  resource: foos   name: myfoo"
-                                        type: string
-                                      name:
-                                        description: Name is the name of the referent.
-                                        type: string
-                                      resource:
-                                        default: services
-                                        description: "Resource is the API resource
-                                          name of the referent. Omitting the value
-                                          or specifying the empty string indicates
-                                          the services resource. For example, use
-                                          the following to specify a services resource:
-                                          \n fooRef:   name: myservice \n Otherwise,
-                                          if the services resource is not desired,
-                                          specify the desired group: \n fooRef:   group:
-                                          acme.io   resource: foos   name: myfoo"
-                                        type: string
-                                    required:
-                                    - group
-                                    - name
-                                    - resource
-                                    type: object
-                                required:
-                                - targetRef
-                                type: object
+                                  is \"services\".  If the referent cannot be found,
+                                  the \"InvalidRoutes\" status condition on any Gateway
+                                  that includes the HTTPRoute will be true. \n Support:
+                                  core"
+                                items:
+                                  description: ForwardToTarget identifies a target
+                                    object within a known namespace.
+                                  properties:
+                                    targetPort:
+                                      description: "TargetPort specifies the destination
+                                        port number to use for the TargetRef. If unspecified
+                                        and TargetRef is a Service object consisting
+                                        of a single port definition, that port will
+                                        be used. If unspecified and TargetRef is a
+                                        Service object consisting of multiple port
+                                        definitions, an error is surfaced in status.
+                                        \n Support: Core"
+                                      format: int32
+                                      type: integer
+                                    targetRef:
+                                      description: "TargetRef is an object reference
+                                        to forward matched requests to. The resource
+                                        may be \"services\" (omit or use the empty
+                                        string for the group), or an implementation
+                                        may support other resources (for example,
+                                        resource \"myroutetargets\" in group \"networking.acme.io\").
+                                        Omitting or specifying the empty string for
+                                        both the resource and group indicates that
+                                        the resource is \"services\".  If the referent
+                                        cannot be found, the \"InvalidRoutes\" status
+                                        condition on any Gateway that includes the
+                                        HTTPRoute will be true. \n Support: Core (Kubernetes
+                                        Services) Support: Implementation-specific
+                                        (Other resource types)"
+                                      properties:
+                                        group:
+                                          default: core
+                                          description: "Group is the group of the
+                                            referent.  Omitting the value or specifying
+                                            the empty string indicates the core API
+                                            group.  For example, use the following
+                                            to specify a service: \n fooRef:   resource:
+                                            services   name: myservice \n Otherwise,
+                                            if the core API group is not desired,
+                                            specify the desired group: \n fooRef:
+                                            \  group: acme.io   resource: foos   name:
+                                            myfoo"
+                                          type: string
+                                        name:
+                                          description: Name is the name of the referent.
+                                          type: string
+                                        resource:
+                                          default: services
+                                          description: "Resource is the API resource
+                                            name of the referent. Omitting the value
+                                            or specifying the empty string indicates
+                                            the services resource. For example, use
+                                            the following to specify a services resource:
+                                            \n fooRef:   name: myservice \n Otherwise,
+                                            if the services resource is not desired,
+                                            specify the desired group: \n fooRef:
+                                            \  group: acme.io   resource: foos   name:
+                                            myfoo"
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    weight:
+                                      default: 1
+                                      description: "Weight specifies the proportion
+                                        of traffic to be forwarded to a targetRef,
+                                        computed as weight/(sum of all weights in
+                                        targetRefs). Weight is not a percentage and
+                                        the sum of weights does not need to equal
+                                        100. The following example (in yaml) sends
+                                        70% of traffic to service \"my-trafficsplit-sv1\"
+                                        and 30% of the traffic to service \"my-trafficsplit-sv2\":
+                                        \n   forwardTo:     - targetRef:         name:
+                                        my-trafficsplit-sv1         weight: 70     -
+                                        targetRef:         name: my-trafficsplit-sv2
+                                        \        weight: 30 \n If only one targetRef
+                                        is specified, 100% of the traffic is forwarded
+                                        to the targetRef. If unspecified, weight defaults
+                                        to 1. \n Support: Core"
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - targetRef
+                                  type: object
+                                type: array
                             required:
                             - forwardTo
                             type: object
@@ -1426,9 +1495,7 @@ spec:
                                       \  group: acme.io   resource: foos   name: myfoo"
                                     type: string
                                 required:
-                                - group
                                 - name
-                                - resource
                                 type: object
                               headers:
                                 description: "Headers related filters. \n Support:
@@ -1503,9 +1570,7 @@ spec:
                                       \  group: acme.io   resource: foos   name: myfoo"
                                     type: string
                                 required:
-                                - group
                                 - name
-                                - resource
                                 type: object
                               headerMatchType:
                                 description: "HeaderMatchType defines the semantics
@@ -1526,7 +1591,7 @@ spec:
                                 description: "Path is the value of the HTTP path as
                                   interpreted via PathType. \n Default: \"/\""
                                 type: string
-                              pathType:
+                              pathMatchType:
                                 description: "PathType is defines the semantics of
                                   the `Path` matcher. \n Support: core (Exact, Prefix)
                                   Support: extended (RegularExpression) Support: custom
@@ -1582,8 +1647,8 @@ metadata:
 spec:
   group: networking.x-k8s.io
   names:
-    kind: TcpRoute
-    listKind: TcpRouteList
+    kind: TCPRoute
+    listKind: TCPRouteList
     plural: tcproutes
     singular: tcproute
   scope: Namespaced
@@ -1591,7 +1656,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: TcpRoute is the Schema for the tcproutes API
+        description: TCPRoute is the Schema for the tcproutes API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -1606,59 +1671,210 @@ spec:
           metadata:
             type: object
           spec:
-            description: TcpRouteSpec defines the desired state of TcpRoute
+            description: TCPRouteSpec defines the desired state of TCPRoute
+            properties:
+              rules:
+                description: Rules are a list of TCP matchers and actions.
+                items:
+                  description: TCPRouteRule is the configuration for a given rule.
+                  properties:
+                    action:
+                      description: Action defines what happens to the connection.
+                      properties:
+                        extensionRef:
+                          description: "ExtensionRef is an optional, implementation-specific
+                            extension to the \"action\" behavior.  The resource may
+                            be \"configmaps\" (use the empty string for the group)
+                            or an implementation-defined resource (for example, resource
+                            \"myrouteactions\" in group \"networking.acme.io\"). Omitting
+                            or specifying the empty string for both the resource and
+                            group indicates that the resource is \"configmaps\".  If
+                            the referent cannot be found, the \"InvalidRoutes\" status
+                            condition on any Gateway that includes the TCPRoute will
+                            be true. \n Support: custom"
+                          properties:
+                            group:
+                              default: core
+                              description: "Group is the group of the referent.  Omitting
+                                the value or specifying the empty string indicates
+                                the core API group.  For example, use the following
+                                to specify a configmaps: \n fooRef:   resource: configmaps
+                                \  name: myconfigmap \n Otherwise, if the core API
+                                group is not desired, specify the desired group: \n
+                                fooRef:   group: acme.io   resource: foos   name:
+                                myfoo"
+                              type: string
+                            name:
+                              description: Name is the name of the referent.
+                              type: string
+                            resource:
+                              default: configmaps
+                              description: "Resource is the API resource name of the
+                                referent. Omitting the value or specifying the empty
+                                string indicates the configmaps resource. For example,
+                                use the following to specify a configmaps resource:
+                                \n fooRef:   name: myconfigmap \n Otherwise, if the
+                                configmaps resource is not desired, specify the desired
+                                group: \n fooRef:   group: acme.io   resource: foos
+                                \  name: myfoo"
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        forwardTo:
+                          description: ForwardTo sends requests to the referenced
+                            object.  The resource may be "services" (omit or use the
+                            empty string for the group), or an implementation may
+                            support other resources (for example, resource "myroutetargets"
+                            in group "networking.acme.io"). Omitting or specifying
+                            the empty string for both the resource and group indicates
+                            that the resource is "services".  If the referent cannot
+                            be found, the "InvalidRoutes" status condition on any
+                            Gateway that includes the TCPRoute will be true.
+                          properties:
+                            targetPort:
+                              description: "TargetPort specifies the destination port
+                                number to use for the TargetRef. If unspecified and
+                                TargetRef is a Service object consisting of a single
+                                port definition, that port will be used. If unspecified
+                                and TargetRef is a Service object consisting of multiple
+                                port definitions, an error is surfaced in status.
+                                \n Support: Core"
+                              format: int32
+                              type: integer
+                            targetRef:
+                              description: "TargetRef is an object reference to forward
+                                matched requests to. The resource may be \"services\"
+                                (omit or use the empty string for the group), or an
+                                implementation may support other resources (for example,
+                                resource \"myroutetargets\" in group \"networking.acme.io\").
+                                Omitting or specifying the empty string for both the
+                                resource and group indicates that the resource is
+                                \"services\".  If the referent cannot be found, the
+                                \"InvalidRoutes\" status condition on any Gateway
+                                that includes the HTTPRoute will be true. \n Support:
+                                Core (Kubernetes Services) Support: Implementation-specific
+                                (Other resource types)"
+                              properties:
+                                group:
+                                  default: core
+                                  description: "Group is the group of the referent.
+                                    \ Omitting the value or specifying the empty string
+                                    indicates the core API group.  For example, use
+                                    the following to specify a service: \n fooRef:
+                                    \  resource: services   name: myservice \n Otherwise,
+                                    if the core API group is not desired, specify
+                                    the desired group: \n fooRef:   group: acme.io
+                                    \  resource: foos   name: myfoo"
+                                  type: string
+                                name:
+                                  description: Name is the name of the referent.
+                                  type: string
+                                resource:
+                                  default: services
+                                  description: "Resource is the API resource name
+                                    of the referent. Omitting the value or specifying
+                                    the empty string indicates the services resource.
+                                    For example, use the following to specify a services
+                                    resource: \n fooRef:   name: myservice \n Otherwise,
+                                    if the services resource is not desired, specify
+                                    the desired group: \n fooRef:   group: acme.io
+                                    \  resource: foos   name: myfoo"
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            weight:
+                              default: 1
+                              description: "Weight specifies the proportion of traffic
+                                to be forwarded to a targetRef, computed as weight/(sum
+                                of all weights in targetRefs). Weight is not a percentage
+                                and the sum of weights does not need to equal 100.
+                                The following example (in yaml) sends 70% of traffic
+                                to service \"my-trafficsplit-sv1\" and 30% of the
+                                traffic to service \"my-trafficsplit-sv2\": \n   forwardTo:
+                                \    - targetRef:         name: my-trafficsplit-sv1
+                                \        weight: 70     - targetRef:         name:
+                                my-trafficsplit-sv2         weight: 30 \n If only
+                                one targetRef is specified, 100% of the traffic is
+                                forwarded to the targetRef. If unspecified, weight
+                                defaults to 1. \n Support: Core"
+                              format: int32
+                              type: integer
+                          required:
+                          - targetRef
+                          type: object
+                      required:
+                      - forwardTo
+                      type: object
+                    match:
+                      description: Match defines which connections match this rule.
+                      properties:
+                        extensionRef:
+                          description: "ExtensionRef is an optional, implementation-specific
+                            extension to the \"match\" behavior.  The resource may
+                            be \"configmap\" (use the empty string for the group)
+                            or an implementation-defined resource (for example, resource
+                            \"myroutematchers\" in group \"networking.acme.io\").
+                            Omitting or specifying the empty string for both the resource
+                            and group indicates that the resource is \"configmaps\".
+                            \ If the referent cannot be found, the \"InvalidRoutes\"
+                            status condition on any Gateway that includes the TCPRoute
+                            will be true. \n Support: custom"
+                          properties:
+                            group:
+                              default: core
+                              description: "Group is the group of the referent.  Omitting
+                                the value or specifying the empty string indicates
+                                the core API group.  For example, use the following
+                                to specify a configmaps: \n fooRef:   resource: configmaps
+                                \  name: myconfigmap \n Otherwise, if the core API
+                                group is not desired, specify the desired group: \n
+                                fooRef:   group: acme.io   resource: foos   name:
+                                myfoo"
+                              type: string
+                            name:
+                              description: Name is the name of the referent.
+                              type: string
+                            resource:
+                              default: configmaps
+                              description: "Resource is the API resource name of the
+                                referent. Omitting the value or specifying the empty
+                                string indicates the configmaps resource. For example,
+                                use the following to specify a configmaps resource:
+                                \n fooRef:   name: myconfigmap \n Otherwise, if the
+                                configmaps resource is not desired, specify the desired
+                                group: \n fooRef:   group: acme.io   resource: foos
+                                \  name: myfoo"
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      type: object
+                  type: object
+                type: array
+            required:
+            - rules
             type: object
           status:
-            description: TcpRouteStatus defines the observed state of TcpRoute
-            type: object
-        type: object
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
-  creationTimestamp: null
-  name: trafficsplits.networking.x-k8s.io
-spec:
-  group: networking.x-k8s.io
-  names:
-    kind: TrafficSplit
-    listKind: TrafficSplitList
-    plural: trafficsplits
-    singular: trafficsplit
-  scope: Namespaced
-  versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: TrafficSplit is the Schema for the trafficsplits API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: TrafficSplitSpec defines the desired state of TrafficSplit
-            type: object
-          status:
-            description: TrafficSplitStatus defines the observed state of TrafficSplit
+            description: TCPRouteStatus defines the observed state of TCPRoute
+            properties:
+              gatewayRefs:
+                items:
+                  description: GatewayObjectReference identifies a Gateway object.
+                  properties:
+                    name:
+                      description: Name is the name of the referent.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the referent.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+            required:
+            - gatewayRefs
             type: object
         type: object
     served: true

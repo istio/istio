@@ -87,11 +87,7 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 	}
 	tcpRoute, err := c.cache.List(collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(), namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type TcpRoute: %v", err)
-	}
-	trafficSplit, err := c.cache.List(collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(), namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list type TrafficSplit: %v", err)
+		return nil, fmt.Errorf("failed to list type TCPRoute: %v", err)
 	}
 
 	nsl, err := c.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -107,7 +103,6 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		Gateway:      gateway,
 		HTTPRoute:    httpRoute,
 		TCPRoute:     tcpRoute,
-		TrafficSplit: trafficSplit,
 		Namespaces:   namespaces,
 		Domain:       c.domain,
 	}

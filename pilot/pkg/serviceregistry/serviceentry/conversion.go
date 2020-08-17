@@ -278,7 +278,7 @@ func convertEndpoint(service *model.Service, servicePort *networking.Port,
 }
 
 // convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
-// same as the ServiceEntry convertInstances.
+// same as the ServiceEntry convertServiceEntryToInstances.
 func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service, se *networking.ServiceEntry) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	for _, service := range services {
@@ -289,7 +289,7 @@ func convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, servi
 	return out
 }
 
-func convertInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
+func convertServiceEntryToInstances(cfg model.Config, services []*model.Service) []*model.ServiceInstance {
 	out := make([]*model.ServiceInstance, 0)
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	if services == nil {
@@ -367,8 +367,16 @@ func convertWorkloadInstanceToServiceInstance(workloadInstance *model.IstioEndpo
 
 // Convenience function to convert a workloadEntry into a ServiceInstance object encoding the endpoint (without service
 // port names) and the namespace - k8s will consume this service instance when selecting workload entries
-func convertWorkloadEntryToWorkloadInstance(namespace string,
-	we *networking.WorkloadEntry) *model.WorkloadInstance {
+func convertWorkloadEntryToWorkloadInstance(namespace string, cfg model.Config) *model.WorkloadInstance {
+	we := cfg.Spec.(*networking.WorkloadEntry)
+	// we will merge labels from metadata with spec, with precedence to the metadata
+	labels := map[string]string{}
+	for k, v := range we.Labels {
+		labels[k] = v
+	}
+	for k, v := range cfg.Labels {
+		labels[k] = v
+	}
 	addr := we.GetAddress()
 	if strings.HasPrefix(addr, model.UnixAddressPrefix) {
 		// k8s can't use uds for service objects
@@ -392,7 +400,7 @@ func convertWorkloadEntryToWorkloadInstance(namespace string,
 				Label: we.Locality,
 			},
 			LbWeight:       we.Weight,
-			Labels:         we.Labels,
+			Labels:         labels,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},

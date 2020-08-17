@@ -27,7 +27,6 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -75,7 +74,7 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	return &authn_filter.FilterConfig{
 		Policy: &authn_alpha.Policy{},
 		// we can always set this field, it's no-op if mTLS is not used.
-		SkipValidateTrustDomain: features.SkipValidateTrustDomain.Get(),
+		SkipValidateTrustDomain: true,
 	}
 }
 
@@ -182,10 +181,10 @@ func (a *v1beta1PolicyApplier) AuthNFilter(proxyType model.NodeType, port uint32
 }
 
 func (a *v1beta1PolicyApplier) InboundFilterChain(endpointPort uint32, sdsUdsPath string, node *model.Proxy,
-	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
+	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
 	effectiveMTLSMode := a.getMutualTLSModeForPort(endpointPort)
 	authnLog.Debugf("InboundFilterChain: build inbound filter change for %v:%d in %s mode", node.ID, endpointPort, effectiveMTLSMode)
-	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol)
+	return authn_utils.BuildInboundFilterChain(effectiveMTLSMode, sdsUdsPath, node, listenerProtocol, trustDomainAliases)
 }
 
 // NewPolicyApplier returns new applier for v1beta1 authentication policies.

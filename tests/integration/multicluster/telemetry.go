@@ -21,41 +21,34 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
 // TelemetryTest validates that source and destination labels are collected
 // for multicluster traffic.
-func TelemetryTest(t *testing.T, ns namespace.Instance, features ...features.Feature) {
+func TelemetryTest(t *testing.T, apps AppContext, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(features...).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("telemetry").
 				Run(func(ctx framework.TestContext) {
-					clusters := ctx.Environment().Clusters()
-					builder := echoboot.NewBuilder(ctx)
-					for _, cluster := range clusters {
-						svcName := fmt.Sprintf("echo-%d", cluster.Index())
-						builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))
-					}
-					echos := builder.BuildOrFail(ctx)
-
-					for _, src := range echos {
-						for _, dest := range echos {
+					for _, src := range ctx.Clusters() {
+						for _, dest := range ctx.Clusters() {
 							src, dest := src, dest
 							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
-								src.Config().Service,
+								src.Name(),
 								"http",
-								dest.Config().Service,
+								dest.Name(),
 								"http",
 								"/")
 
 							ctx.NewSubTest(subTestName).
 								RunParallel(func(ctx framework.TestContext) {
+									src := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(src))
+									dest := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(dest))
+
 									_ = callOrFail(ctx, src, dest)
 									validateClusterLabelsInStats(src, t)
 									validateClusterLabelsInStats(dest, t)
