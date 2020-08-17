@@ -88,13 +88,13 @@ func newProtocol(cfg Config) (protocol, error) {
 			if err != nil {
 				log.Errorf("Failed to parse client certificate: %v", err)
 			}
-			log.Infof("Using client certificate [%s] issued by %s", cert.SerialNumber, cert.Issuer)
+			log.Debugf("Using client certificate [%s] issued by %s", cert.SerialNumber, cert.Issuer)
 			for _, uri := range cert.URIs {
-				log.Infof("  URI SAN: %s", uri)
+				log.Debugf("  URI SAN: %s", uri)
 			}
 		}
 		getClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			log.Infof("Peer asking for client certificate")
+			log.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
 				x := &pkix.RDNSequence{}
 				if _, err := asn1.Unmarshal(ca, x); err != nil {
@@ -102,7 +102,7 @@ func newProtocol(cfg Config) (protocol, error) {
 				} else {
 					name := &pkix.Name{}
 					name.FillFromRDNSequence(x)
-					log.Infof("  AcceptableCA[%d]: %s", i, name)
+					log.Debugf("  AcceptableCA[%d]: %s", i, name)
 				}
 			}
 
@@ -140,7 +140,7 @@ func newProtocol(cfg Config) (protocol, error) {
 				},
 			}
 		} else if cfg.Request.Http2 {
-			transport := &http2.Transport{
+			proto.client.Transport = &http2.Transport{
 				// Golang doesn't have first class support for h2c, so we provide some workarounds
 				// See https://www.mailgun.com/blog/http-2-cleartext-h2c-client-example-go/
 				// So http2.Transport doesn't complain the URL scheme isn't 'https'
@@ -150,13 +150,6 @@ func newProtocol(cfg Config) (protocol, error) {
 					return net.Dial(network, addr)
 				},
 			}
-			if getClientCertificate != nil {
-				transport.TLSClientConfig = &tls.Config{
-					GetClientCertificate: getClientCertificate,
-					InsecureSkipVerify:   true,
-				}
-			}
-			proto.client.Transport = transport
 		}
 		return proto, nil
 	case scheme.GRPC:

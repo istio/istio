@@ -192,39 +192,36 @@ func TestTrustDomainValidation(t *testing.T) {
 						Key:      trustDomains[td].key,
 					}
 					retry.UntilSuccessOrFail(t, func() error {
-						// Repeat 5 times to make sure the response is stable.
-						for i := 0; i < 5; i++ {
-							var resp client2.ParsedResponses
-							var err error
-							if port == passThrough {
-								// Manually make the request for pass through port.
-								resp, err = workload(t, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
-									Url:   fmt.Sprintf("tcp://%s:9000", workload(t, server).Address()),
-									Count: 1,
-									Cert:  trustDomains[td].cert,
-									Key:   trustDomains[td].key,
-								})
-							} else {
-								resp, err = from.Call(opt)
+						var resp client2.ParsedResponses
+						var err error
+						if port == passThrough {
+							// Manually make the request for pass through port.
+							resp, err = workload(t, from).ForwardEcho(context.TODO(), &epb.ForwardEchoRequest{
+								Url:   fmt.Sprintf("tcp://%s:9000", workload(t, server).Address()),
+								Count: 1,
+								Cert:  trustDomains[td].cert,
+								Key:   trustDomains[td].key,
+							})
+						} else {
+							resp, err = from.Call(opt)
+						}
+						if allow {
+							if err != nil {
+								return fmt.Errorf("want allow but got error: %v", err)
+							} else if err := resp.CheckOK(); err != nil {
+								return fmt.Errorf("want allow but got %v: %v", resp, err)
 							}
-							if allow {
-								if err != nil {
-									return fmt.Errorf("want allow but got error: %v", err)
-								} else if err := resp.CheckOK(); err != nil {
-									return fmt.Errorf("want allow but got %v: %v", resp, err)
-								}
-							} else {
-								if err == nil {
-									return fmt.Errorf("want deny but got allow: %v", resp)
-								}
-								// Look up for the specific "tls: unknown certificate" error when trust domain validation failed.
-								if tlsErr := "tls: unknown certificate"; !strings.Contains(err.Error(), tlsErr) {
-									return fmt.Errorf("want error %q but got %v", tlsErr, err)
-								}
+						} else {
+							if err == nil {
+								return fmt.Errorf("want deny but got allow: %v", resp)
+							}
+							// Look up for the specific "tls: unknown certificate" error when trust domain validation failed.
+							if tlsErr := "tls: unknown certificate"; !strings.Contains(err.Error(), tlsErr) {
+								return fmt.Errorf("want error %q but got %v", tlsErr, err)
 							}
 						}
 						return nil
-					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second))
+					}, retry.Delay(250*time.Millisecond), retry.Timeout(30*time.Second), retry.Converge(5))
 				})
 			}
 
