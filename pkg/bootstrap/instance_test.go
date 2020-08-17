@@ -464,7 +464,7 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want [
 	sort.Strings(want)
 	sort.Strings(gotPatterns)
 	if !reflect.DeepEqual(want, gotPatterns) {
-		t.Fatalf("%s mismatch:\ngot: %s\nwant: %s", typ, gotPatterns, want)
+		t.Fatalf("%s mismatch:\ngot: %v\nwant: %v", typ, gotPatterns, want)
 	}
 }
 
