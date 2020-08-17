@@ -818,9 +818,21 @@ message TelemetryV2PrometheusConfig {
 
 // Conrols telemetry v2 stackdriver settings.
 message TelemetryV2StackDriverConfig {
+// Types of Access logs to export.
+  enum AccessLogging {
+    // No Logs.
+    NONE = 0;
+    // All logs including both success and error logs.
+    FULL = 1;
+    // All error logs. This is currently only available for outbound/client side
+    // logs. A request is classified as error when `status>=400 or
+    // response_flag != "-"`
+    ERRORS_ONLY = 2;
+  };
+
   google.protobuf.BoolValue enabled = 1;
 
-  google.protobuf.BoolValue logging = 2;
+  google.protobuf.BoolValue logging = 2 [deprecated=true];
 
   google.protobuf.BoolValue monitoring = 3;
 
@@ -829,6 +841,10 @@ message TelemetryV2StackDriverConfig {
   google.protobuf.BoolValue disableOutbound = 6;
 
   TypeMapStringInterface configOverride = 5;
+
+  AccessLogging outboundAccessLogging = 7;
+
+  AccessLogging inboundAccessLogging = 8;
 }
 
 // Conrols telemetry v2 access log policy filter settings.
