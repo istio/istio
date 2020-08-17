@@ -523,7 +523,6 @@ var _datasetNetworkingV1alpha3WorkloadgroupInvalidYaml = []byte(`apiVersion: net
 kind: WorkloadGroup
 metadata:
   name: reviews
-  namespace: istio-system
 spec:
   metadata:
     labels:
@@ -551,7 +550,6 @@ var _datasetNetworkingV1alpha3WorkloadgroupValidYaml = []byte(`apiVersion: netwo
 kind: WorkloadGroup
 metadata:
   name: reviews
-  namespace: istio-system
 spec:
   metadata:
     labels:
