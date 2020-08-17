@@ -45,9 +45,6 @@ const (
 	IstioMetaJSONPrefix = "ISTIO_METAJSON_"
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
-
-	// required stats are used by readiness checks.
-	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 )
 
 var (
