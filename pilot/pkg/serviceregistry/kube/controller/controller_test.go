@@ -391,7 +391,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 			svcNode.IPAddresses = []string{"128.0.0.1"}
 			svcNode.ID = "pod1.nsa"
 			svcNode.DNSDomain = "nsa.svc.cluster.local"
-			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa"}
+			svcNode.Metadata = &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID}
 			serviceInstances, err := controller.GetProxyServiceInstances(&svcNode)
 			if err != nil {
 				t.Fatalf("client encountered error during GetProxyServiceInstances(): %v", err)
