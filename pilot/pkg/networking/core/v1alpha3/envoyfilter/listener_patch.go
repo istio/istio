@@ -17,7 +17,6 @@ package envoyfilter
 import (
 	xdslistener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -320,7 +319,7 @@ func doNetworkFilterOperation(patchContext networking.EnvoyFilter_PatchContext,
 			}
 		}
 	}
-	if filter.Name == wellknown.HTTPConnectionManager {
+	if filter.Name == "envoy.http_connection_manager" {
 		doHTTPFilterListOperation(patchContext, patches, listener, fc, filter)
 	}
 }

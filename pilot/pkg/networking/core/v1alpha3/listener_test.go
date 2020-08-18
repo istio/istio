@@ -32,7 +32,6 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -983,7 +982,7 @@ func hasAlpnFilter(filters []*hcm.HttpFilter) bool {
 
 func hasGrpcStatusFilter(filters []*hcm.HttpFilter) bool {
 	for _, f := range filters {
-		if f.Name == wellknown.HTTPGRPCStats {
+		if f.Name == "envoy.filters.http.grpc_stats" {
 			return true
 		}
 	}
@@ -1915,7 +1914,7 @@ func verifyInboundEnvoyListenerNumber(t *testing.T, l *listener.Listener) {
 			t.Fatalf("expected %d http filters, found %d", 3, len(hf.Values))
 		}
 		envoyCors := hf.Values[0].GetStructValue().Fields["name"].GetStringValue()
-		if envoyCors != wellknown.CORS {
+		if envoyCors != "envoy.filters.http.cors" {
 			t.Fatalf("expected %q http filter, found %q", "envoy.cors", envoyCors)
 		}
 	}
@@ -2142,7 +2141,7 @@ func (p *fakePlugin) OnInboundFilterChains(in *plugin.InputParams) []istionetwor
 		{
 			ListenerFilters: []*listener.ListenerFilter{
 				{
-					Name: wellknown.TlsInspector,
+					Name: "envoy.listener.tls_inspector",
 				},
 			},
 		},
@@ -2180,7 +2179,7 @@ func (p *fakePlugin) OnInboundPassthroughFilterChains(in *plugin.InputParams) []
 			TLSContext: &tls.DownstreamTlsContext{},
 			ListenerFilters: []*listener.ListenerFilter{
 				{
-					Name: wellknown.TlsInspector,
+					Name: "envoy.listener.tls_inspector",
 				},
 			},
 		},
@@ -2204,7 +2203,7 @@ func isHTTPListener(listener *listener.Listener) bool {
 
 func isMysqlListener(listener *listener.Listener) bool {
 	if len(listener.FilterChains) > 0 && len(listener.FilterChains[0].Filters) > 0 {
-		return listener.FilterChains[0].Filters[0].Name == wellknown.MySQLProxy
+		return listener.FilterChains[0].Filters[0].Name == "envoy.filters.network.mysql_proxy"
 	}
 	return false
 }
@@ -2439,7 +2438,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	tcpProxyFilter := &listener.Filter{
-		Name:       wellknown.TCPProxy,
+		Name:       "envoy.tcp_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 
@@ -2449,7 +2448,7 @@ func TestMergeTCPFilterChains(t *testing.T) {
 	}
 
 	tcpProxyFilter2 := &listener.Filter{
-		Name:       wellknown.TCPProxy,
+		Name:       "envoy.tcp_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	}
 

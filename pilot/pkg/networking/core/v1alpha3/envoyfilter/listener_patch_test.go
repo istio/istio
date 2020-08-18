@@ -28,7 +28,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
@@ -260,7 +259,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Sni: "*.foo.com",
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      wellknown.HTTPConnectionManager,
+								Name:      "envoy.http_connection_manager",
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -281,7 +280,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      wellknown.HTTPConnectionManager,
+								Name:      "envoy.http_connection_manager",
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -302,7 +301,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      wellknown.HTTPConnectionManager,
+								Name:      "envoy.http_connection_manager",
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -324,7 +323,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      wellknown.HTTPConnectionManager,
+								Name:      "envoy.http_connection_manager",
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "envoy.fault"},
 							},
 						},
@@ -351,7 +350,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name:      wellknown.HTTPConnectionManager,
+								Name:      "envoy.http_connection_manager",
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{Name: "http-filter2"},
 							},
 						},
@@ -372,9 +371,9 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: wellknown.HTTPConnectionManager,
+								Name: "envoy.http_connection_manager",
 								SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{
-									Name: wellknown.Fault,
+									Name: "envoy.fault",
 								},
 							},
 						},
@@ -397,7 +396,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: wellknown.HTTPConnectionManager,
+								Name: "envoy.http_connection_manager",
 							},
 						},
 					},
@@ -426,7 +425,7 @@ func TestApplyListenerPatches(t *testing.T) {
 						PortNumber: 80,
 						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 							Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-								Name: wellknown.HTTPConnectionManager,
+								Name: "envoy.http_connection_manager",
 							},
 						},
 					},
@@ -601,11 +600,11 @@ func TestApplyListenerPatches(t *testing.T) {
 				{
 					Filters: []*listener.Filter{
 						{
-							Name: wellknown.HTTPConnectionManager,
+							Name: "envoy.http_connection_manager",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
+										{Name: "envoy.fault",
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
@@ -636,14 +635,14 @@ func TestApplyListenerPatches(t *testing.T) {
 				{
 					Filters: []*listener.Filter{
 						{
-							Name: wellknown.HTTPConnectionManager,
+							Name: "envoy.http_connection_manager",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									XffNumTrustedHops:            4,
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
+										{Name: "envoy.fault",
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
@@ -678,7 +677,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: wellknown.HTTPConnectionManager,
+							Name: "envoy.http_connection_manager",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
@@ -734,7 +733,7 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: wellknown.HTTPConnectionManager,
+							Name: "envoy.http_connection_manager",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
@@ -794,11 +793,11 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: wellknown.HTTPConnectionManager,
+							Name: "envoy.http_connection_manager",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
+										{Name: "envoy.fault",
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterInAny},
 										},
 										{Name: "http-filter2"},
@@ -835,14 +834,14 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 					Filters: []*listener.Filter{
 						{
-							Name: wellknown.HTTPConnectionManager,
+							Name: "envoy.http_connection_manager",
 							ConfigType: &listener.Filter_TypedConfig{
 								TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 									XffNumTrustedHops:            4,
 									MergeSlashes:                 true,
 									AlwaysSetRequestIdInResponse: true,
 									HttpFilters: []*http_conn.HttpFilter{
-										{Name: wellknown.Fault,
+										{Name: "envoy.fault",
 											ConfigType: &http_conn.HttpFilter_TypedConfig{TypedConfig: faultFilterOutAny},
 										},
 										{Name: "http-filter3"},
@@ -984,7 +983,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 			{
 				Filters: []*listener.Filter{
 					{
-						Name: wellknown.HTTPConnectionManager,
+						Name: "envoy.http_connection_manager",
 						ConfigType: &listener.Filter_TypedConfig{
 							TypedConfig: util.MessageToAny(&http_conn.HttpConnectionManager{
 								XffNumTrustedHops:            4,
@@ -992,7 +991,7 @@ func BenchmarkTelemetryV2Filters(b *testing.B) {
 								AlwaysSetRequestIdInResponse: true,
 								HttpFilters: []*http_conn.HttpFilter{
 									{Name: "http-filter3"},
-									{Name: wellknown.Router},
+									{Name: "envoy.router"},
 									{Name: "http-filter2"},
 								},
 							}),

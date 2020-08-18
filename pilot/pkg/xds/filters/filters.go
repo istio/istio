@@ -25,7 +25,6 @@ import (
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	alpn "istio.io/istio/pkg/envoy/config/filter/http/alpn/v2alpha1"
@@ -44,43 +43,43 @@ const (
 // This should not be used for filters that will be mutated
 var (
 	Cors = &hcm.HttpFilter{
-		Name: wellknown.CORS,
+		Name: "envoy.filters.http.cors",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&cors.Cors{}),
 		},
 	}
 	Fault = &hcm.HttpFilter{
-		Name: wellknown.Fault,
+		Name: "envoy.fault",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
 	Router = &hcm.HttpFilter{
-		Name: wellknown.Router,
+		Name: "envoy.router",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&router.Router{}),
 		},
 	}
 	GrpcWeb = &hcm.HttpFilter{
-		Name: wellknown.GRPCWeb,
+		Name: "envoy.grpc_web",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&grpcweb.GrpcWeb{}),
 		},
 	}
 	TLSInspector = &listener.ListenerFilter{
-		Name: wellknown.TlsInspector,
+		Name: "envoy.listener.tls_inspector",
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&tlsinspector.TlsInspector{}),
 		},
 	}
 	HTTPInspector = &listener.ListenerFilter{
-		Name: wellknown.HttpInspector,
+		Name: "envoy.listener.http_inspector",
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&httpinspector.HttpInspector{}),
 		},
 	}
 	OriginalDestination = &listener.ListenerFilter{
-		Name: wellknown.OriginalDestination,
+		Name: "envoy.listener.original_dst",
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: util.MessageToAny(&originaldst.OriginalDst{}),
 		},

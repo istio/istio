@@ -20,7 +20,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	golangproto "github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -90,7 +89,7 @@ func amendFilterChainMatchFromInboundListener(chain *listener.FilterChain, l *li
 		chain.Name = l.Name
 	}
 	for _, filter := range l.ListenerFilters {
-		if needTLS = needTLS || filter.Name == wellknown.TlsInspector; needTLS {
+		if needTLS = needTLS || filter.Name == "envoy.listener.tls_inspector"; needTLS {
 			break
 		}
 	}
@@ -379,7 +378,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 
 		setAccessLog(push, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
-			Name:       wellknown.TCPProxy,
+			Name:       "envoy.tcp_proxy",
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 		}
 
@@ -436,7 +435,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 				}
 			}
 			for _, filter := range chain.ListenerFilters {
-				if filter.Name == wellknown.TlsInspector {
+				if filter.Name == "envoy.listener.tls_inspector" {
 					needTLS = true
 					break
 				}
@@ -524,7 +523,7 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
 
 			filter := &listener.Filter{
-				Name:       wellknown.HTTPConnectionManager,
+				Name:       "envoy.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(connectionManager)},
 			}
 
@@ -577,7 +576,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	}
 	setAccessLog(push, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
-		Name:       wellknown.TCPProxy,
+		Name:       "envoy.tcp_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
 	})
 

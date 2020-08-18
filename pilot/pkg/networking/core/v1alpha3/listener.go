@@ -38,7 +38,6 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -391,7 +390,7 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	lmutex.Lock()
 	defer lmutex.Unlock()
 	cachedAccessLog = &accesslog.AccessLog{
-		Name:       wellknown.FileAccessLog,
+		Name:       "envoy.file_access_log",
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
 	return cachedAccessLog
@@ -414,7 +413,7 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 	fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 
 	return &accesslog.AccessLog{
-		Name:       wellknown.HTTPGRPCAccessLog,
+		Name:       "envoy.http_grpc_access_log",
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
 }
@@ -722,7 +721,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(no
 allChainsLabel:
 	for _, c := range allChains {
 		for _, lf := range c.ListenerFilters {
-			if lf.Name == wellknown.TlsInspector {
+			if lf.Name == "envoy.listener.tls_inspector" {
 				tlsInspectorEnabled = true
 				break allChainsLabel
 			}
@@ -1849,7 +1848,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 
 	if pluginParams.Port != nil && pluginParams.Port.Protocol.IsGRPC() {
 		filters = append(filters, &hcm.HttpFilter{
-			Name: wellknown.HTTPGRPCStats,
+			Name: "envoy.filters.http.grpc_stats",
 			ConfigType: &hcm.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
 					EmitFilterState: true,
@@ -2092,12 +2091,12 @@ func buildListener(opts buildListenerOpts) *listener.Listener {
 		}
 	}
 	if needTLSInspector || opts.needHTTPInspector {
-		listenerFiltersMap[wellknown.TlsInspector] = true
+		listenerFiltersMap["envoy.listener.tls_inspector"] = true
 		listenerFilters = append(listenerFilters, xdsfilters.TLSInspector)
 	}
 
 	if opts.needHTTPInspector {
-		listenerFiltersMap[wellknown.HttpInspector] = true
+		listenerFiltersMap["envoy.listener.http_inspector"] = true
 		listenerFilters = append(listenerFilters, xdsfilters.HTTPInspector)
 	}
 
@@ -2276,7 +2275,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			}
 
 			filter := &listener.Filter{
-				Name:       wellknown.ThriftProxy,
+				Name:       "envoy.filters.network.thrift_proxy",
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxies[i])},
 			}
 
@@ -2312,7 +2311,7 @@ func buildCompleteFilterChain(pluginParams *plugin.InputParams, mutable *istione
 			}
 			httpConnectionManagers[i] = buildHTTPConnectionManager(pluginParams, opt.httpOpts, chain.HTTP)
 			filter := &listener.Filter{
-				Name:       wellknown.HTTPConnectionManager,
+				Name:       "envoy.http_connection_manager",
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(httpConnectionManagers[i])},
 			}
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
@@ -2522,8 +2521,8 @@ func appendListenerFilters(filters []*listener.ListenerFilter) []*listener.Liste
 	hasHTTPInspector := false
 
 	for _, f := range filters {
-		hasTLSInspector = hasTLSInspector || f.Name == wellknown.TlsInspector
-		hasHTTPInspector = hasHTTPInspector || f.Name == wellknown.HttpInspector
+		hasTLSInspector = hasTLSInspector || f.Name == "envoy.listener.tls_inspector"
+		hasHTTPInspector = hasHTTPInspector || f.Name == "envoy.listener.http_inspector"
 	}
 
 	if !hasTLSInspector {
@@ -2559,7 +2558,7 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 		// 	2. without HTTP inspector
 		hasHTTPInspector := false
 		for _, lf := range l.ListenerFilters {
-			if lf.Name == wellknown.HttpInspector {
+			if lf.Name == "envoy.listener.http_inspector" {
 				hasHTTPInspector = true
 				break
 			}

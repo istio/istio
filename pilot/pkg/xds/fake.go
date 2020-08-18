@@ -26,7 +26,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_proxy_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -307,7 +306,7 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 	for _, l := range ll {
 		for _, fc := range l.FilterChains {
 			for _, filter := range fc.Filters {
-				if filter.Name == wellknown.HTTPConnectionManager {
+				if filter.Name == "envoy.http_connection_manager" {
 					filter.GetTypedConfig()
 					hcon := &hcm.HttpConnectionManager{}
 					if err := ptypes.UnmarshalAny(filter.GetTypedConfig(), hcon); err != nil {
@@ -343,7 +342,7 @@ func ExtractListener(name string, ll []*listener.Listener) *listener.Listener {
 
 func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy {
 	for _, fc := range fcs.Filters {
-		if fc.Name == wellknown.TCPProxy {
+		if fc.Name == "envoy.tcp_proxy" {
 			tcpProxy := &envoy_extensions_filters_network_tcp_proxy_v3.TcpProxy{}
 			if fc.GetTypedConfig() != nil {
 				if err := ptypes.UnmarshalAny(fc.GetTypedConfig(), tcpProxy); err != nil {

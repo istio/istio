@@ -22,7 +22,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 
@@ -223,7 +222,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			t.Fatalf("expect passthrough filter chain sets transport protocol to tls if transport socket is set")
 		}
 
-		if len(fc.Filters) == 2 && fc.Filters[1].Name == wellknown.TCPProxy &&
+		if len(fc.Filters) == 2 && fc.Filters[1].Name == "envoy.tcp_proxy" &&
 			fc.Name == VirtualInboundListenerName {
 			if fc.Filters[0].Name == fakePluginTCPFilter {
 				sawFakePluginFilter = true
@@ -254,7 +253,7 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 			}
 		}
 
-		if len(fc.Filters) == 1 && fc.Filters[0].Name == wellknown.HTTPConnectionManager &&
+		if len(fc.Filters) == 1 && fc.Filters[0].Name == "envoy.http_connection_manager" &&
 			fc.Name == virtualInboundCatchAllHTTPFilterChainName {
 			if fc.TransportSocket != nil && !reflect.DeepEqual(fc.FilterChainMatch.ApplicationProtocols, append(plaintextHTTPALPNs, mtlsHTTPALPNs...)) {
 				t.Fatalf("expect %v application protocols, found %v", append(plaintextHTTPALPNs, mtlsHTTPALPNs...), fc.FilterChainMatch.ApplicationProtocols)
@@ -290,11 +289,11 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 		t.Fatalf("expected %d listener filters, found %d", 3, len(l.ListenerFilters))
 	}
 
-	if l.ListenerFilters[0].Name != wellknown.OriginalDestination ||
-		l.ListenerFilters[1].Name != wellknown.TlsInspector ||
-		l.ListenerFilters[2].Name != wellknown.HttpInspector {
+	if l.ListenerFilters[0].Name != "envoy.listener.original_dst" ||
+		l.ListenerFilters[1].Name != "envoy.listener.tls_inspector" ||
+		l.ListenerFilters[2].Name != "envoy.listener.http_inspector" {
 		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
-			wellknown.OriginalDestination, wellknown.TlsInspector, wellknown.HttpInspector,
+			"envoy.listener.original_dst", "envoy.listener.tls_inspector", "envoy.listener.http_inspector",
 			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
 }

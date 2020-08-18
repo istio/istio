@@ -26,7 +26,6 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -81,7 +80,7 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, config *tcp.TcpProxy
 	setAccessLog(push, config)
 
 	tcpFilter := &listener.Filter{
-		Name:       wellknown.TCPProxy,
+		Name:       "envoy.tcp_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(config)},
 	}
 	return tcpFilter
@@ -205,7 +204,7 @@ func buildThriftFilter(statPrefix string) *listener.Filter {
 	}
 
 	out := &listener.Filter{
-		Name:       wellknown.ThriftProxy,
+		Name:       "envoy.filters.network.thrift_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxy)},
 	}
 
@@ -223,7 +222,7 @@ func buildMongoFilter(statPrefix string) *listener.Filter {
 	}
 
 	out := &listener.Filter{
-		Name:       wellknown.MongoProxy,
+		Name:       "envoy.mongo_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mongoProxy)},
 	}
 
@@ -263,7 +262,7 @@ func buildRedisFilter(statPrefix, clusterName string) *listener.Filter {
 	}
 
 	out := &listener.Filter{
-		Name:       wellknown.RedisProxy,
+		Name:       "envoy.redis_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(redisProxy)},
 	}
 
@@ -277,7 +276,7 @@ func buildMySQLFilter(statPrefix string) *listener.Filter {
 	}
 
 	out := &listener.Filter{
-		Name:       wellknown.MySQLProxy,
+		Name:       "envoy.filters.network.mysql_proxy",
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(mySQLProxy)},
 	}
 

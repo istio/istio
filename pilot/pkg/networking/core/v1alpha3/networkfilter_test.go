@@ -20,7 +20,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 
 	"github.com/golang/protobuf/ptypes"
 
@@ -31,8 +30,8 @@ import (
 
 func TestBuildRedisFilter(t *testing.T) {
 	redisFilter := buildRedisFilter("redis", "redis-cluster")
-	if redisFilter.Name != wellknown.RedisProxy {
-		t.Errorf("redis filter name is %s not %s", redisFilter.Name, wellknown.RedisProxy)
+	if redisFilter.Name != "envoy.redis_proxy" {
+		t.Errorf("redis filter name is %s not %s", redisFilter.Name, "envoy.redis_proxy")
 	}
 	if config, ok := redisFilter.ConfigType.(*listener.Filter_TypedConfig); ok {
 		redisProxy := redis.RedisProxy{}
