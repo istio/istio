@@ -131,12 +131,22 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("add and remove and add and markdone", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		fmt.Println("Before Enqueue")
 		p.Enqueue(proxies[0], &model.PushRequest{})
+		fmt.Println("Enqueued")
 		ExpectDequeue(t, p, proxies[0])
+		fmt.Println("Dequed")
 		p.Enqueue(proxies[0], &model.PushRequest{})
+		fmt.Println("Enqueued 1")
+
 		p.Enqueue(proxies[0], &model.PushRequest{})
+		fmt.Println("Enqueued 2")
 		p.MarkDone(proxies[0])
+		fmt.Println("Markdone 1")
+
 		ExpectDequeue(t, p, proxies[0])
+		fmt.Println("Deque 1")
+
 		ExpectTimeout(t, p)
 	})
 
