@@ -45,7 +45,7 @@ var (
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
    Port: tcp-server 9091/TCP targets pod port 16060
-   Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
+   Port: auto-tcp 9092/UnsupportedProtocol targets pod port 19091
    Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
@@ -66,6 +66,13 @@ var (
    No Traffic Policy
 9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 9091 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9091 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
+9092 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9093 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
 81 DestinationRule: a\..* for "a"
@@ -81,7 +88,7 @@ var (
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
    Port: tcp-server 9091/TCP targets pod port 16060
-   Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
+   Port: auto-tcp 9092/UnsupportedProtocol targets pod port 19091
    Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
@@ -102,6 +109,13 @@ var (
    No Traffic Policy
 9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 9091 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9091 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
+9092 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9093 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
 81 DestinationRule: a\..* for "a"
