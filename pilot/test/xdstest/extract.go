@@ -86,19 +86,28 @@ func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProx
 	return nil
 }
 
-func ExtractEndpoints(endpoints []*endpoint.ClusterLoadAssignment) map[string][]string {
+func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
-	for _, cla := range endpoints {
+	for _, cla := range cla {
 		if cla == nil {
 			continue
 		}
-		for _, ep := range cla.Endpoints {
-			for _, lb := range ep.LbEndpoints {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetSocketAddress().Address)
-				} else {
-					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetPipe().Path)
-				}
+		got[cla.ClusterName] = append(got[cla.ClusterName], ExtractEndpoints(cla)...)
+	}
+	return got
+}
+
+func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+	if cla == nil {
+		return nil
+	}
+	got := []string{}
+	for _, ep := range cla.Endpoints {
+		for _, lb := range ep.LbEndpoints {
+			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+				got = append(got, lb.GetEndpoint().Address.GetSocketAddress().Address)
+			} else {
+				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
 			}
 		}
 	}
@@ -119,7 +128,7 @@ func ExtractClusterEndpoints(clusters []*cluster.Cluster) map[string][]string {
 	for _, c := range clusters {
 		cla = append(cla, c.LoadAssignment)
 	}
-	return ExtractEndpoints(cla)
+	return ExtractLoadAssignments(cla)
 }
 
 func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {

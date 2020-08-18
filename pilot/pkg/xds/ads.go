@@ -713,6 +713,14 @@ func AdsPushAll(s *DiscoveryServer) {
 // Primary code path is from v1 discoveryService.clearCache(), which is added as a handler
 // to the model ConfigStorageCache and Controller.
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
+	// If we don't know what updated, cannot safely cache. Clear the whole cache
+	if len(req.ConfigsUpdated) == 0 {
+		s.cache.ClearAll()
+	} else {
+		// Otherwise, just clear the updated configs
+		s.cache.ClearHostnames(model.ConfigsOfKind(req.ConfigsUpdated, gvk.ServiceEntry))
+		s.cache.ClearDestinationRules(model.ConfigsOfKind(req.ConfigsUpdated, gvk.DestinationRule))
+	}
 	if !req.Full {
 		adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
 			version, model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry), s.adsClientCount())

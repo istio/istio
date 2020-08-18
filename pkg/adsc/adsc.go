@@ -67,6 +67,8 @@ type Config struct {
 	// Meta includes additional metadata for the node
 	Meta *pstruct.Struct
 
+	Locality *core.Locality
+
 	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
 	NodeType string
 
@@ -192,8 +194,9 @@ type ADSC struct {
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
 
-	sync   map[string]time.Time
-	syncCh chan string
+	sync     map[string]time.Time
+	syncCh   chan string
+	Locality *core.Locality
 }
 
 type ResponseHandler interface {
@@ -255,6 +258,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		opts.Workload = "test-1"
 	}
 	adsc.Metadata = opts.Meta
+	adsc.Locality = opts.Locality
 
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
@@ -524,16 +528,14 @@ func (a *ADSC) handleRecv() {
 		// This scheme also allows us to chunk large responses !
 
 		// TODO: add hook to inject nacks
-		if len(listeners) > 0 {
-			a.handleLDS(listeners)
-		}
-		if len(clusters) > 0 {
+		switch msg.TypeUrl {
+		case v3.ClusterType:
 			a.handleCDS(clusters)
-		}
-		if len(eds) > 0 {
+		case v3.EndpointType:
 			a.handleEDS(eds)
-		}
-		if len(routes) > 0 {
+		case v3.ListenerType:
+			a.handleLDS(listeners)
+		case v3.RouteType:
 			a.handleRDS(routes)
 		}
 
@@ -757,7 +759,8 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 
 func (a *ADSC) node() *core.Node {
 	n := &core.Node{
-		Id: a.nodeID,
+		Id:       a.nodeID,
+		Locality: a.Locality,
 	}
 	if a.Metadata == nil {
 		n.Metadata = &pstruct.Struct{

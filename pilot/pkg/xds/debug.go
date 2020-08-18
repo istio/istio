@@ -153,6 +153,7 @@ func (s *DiscoveryServer) InitDebug(mux *http.ServeMux, sctl *aggregate.Controll
 	s.addDebugHandler(mux, "/debug/registryz", "Debug support for registry", s.registryz)
 	s.addDebugHandler(mux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
 	s.addDebugHandler(mux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
+	s.addDebugHandler(mux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
 	s.addDebugHandler(mux, "/debug/configz", "Debug support for config", s.configz)
 	s.addDebugHandler(mux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
@@ -234,6 +235,22 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 	out, _ := json.MarshalIndent(s.EndpointShardsByService, " ", " ")
 	s.mutex.RUnlock()
 	_, _ = w.Write(out)
+}
+
+type debugCacheResponse struct {
+	Endpoints []string `json:"endpoints"`
+}
+
+func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
+	keys := s.cache.Keys()
+	sort.Strings(keys)
+	bytes, err := json.Marshal(debugCacheResponse{keys})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
+		return
+	}
+	_, _ = w.Write(bytes)
 }
 
 // Endpoint debugging
