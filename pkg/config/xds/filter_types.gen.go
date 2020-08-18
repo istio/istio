@@ -286,6 +286,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/service/tap/v4alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/service/trace/v2"
 	_ "github.com/envoyproxy/go-control-plane/envoy/service/trace/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/service/trace/v4alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v4alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v2"
