@@ -44,7 +44,9 @@ var (
    Port: http 80/HTTP targets pod port 18080
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
+   Port: tcp-server 9091/TCP targets pod port 16060
    Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
+   Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
 80 DestinationRule: a\..* for "a"
@@ -78,7 +80,9 @@ var (
    Port: http 80/HTTP targets pod port 18080
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
+   Port: tcp-server 9091/TCP targets pod port 16060
    Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
+   Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
 80 DestinationRule: a\..* for "a"

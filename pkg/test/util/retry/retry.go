@@ -124,10 +124,10 @@ func Do(fn RetriableFunc, options ...Option) (interface{}, error) {
 			}
 			if successes >= cfg.converge {
 				return result, err
-			} else {
-				// Skip delay
-				continue
 			}
+
+			// Skip delay if we have a success
+			continue
 		} else {
 			successes = 0
 		}
