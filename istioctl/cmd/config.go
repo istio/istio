@@ -44,7 +44,7 @@ var (
 func configCmd() *cobra.Command {
 	configCmd := &cobra.Command{
 		Use:   "config SUBCOMMAND",
-		Short: "Gonfigure istioctl defaults",
+		Short: "Configure istioctl defaults",
 		Args:  cobra.NoArgs,
 		Example: `
 # list configuration parameters
