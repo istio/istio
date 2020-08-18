@@ -48,6 +48,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	paStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
@@ -756,6 +757,38 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		"")
 	if err != nil {
 		return nil, err
+	}
+
+	// if prometheus merge is enabled, try extracting and replace standared prometheus annotations.
+	// TODO: This duplicates the enablePrometheusMerge function in webhook injection,
+	// and should be cleaned when merging these two code paths.
+	if enablePrometheusMerge(meshconfig, metadata.Annotations) {
+		scrape := paStatus.PrometheusScrapeConfiguration{
+			Scrape: metadata.Annotations["prometheus.io/scrape"],
+			Path:   metadata.Annotations["prometheus.io/path"],
+			Port:   metadata.Annotations["prometheus.io/port"],
+		}
+		empty := paStatus.PrometheusScrapeConfiguration{}
+		if scrape != empty {
+			by, err := json.Marshal(scrape)
+			if err != nil {
+				return nil, err
+			}
+			for _, c := range podSpec.Containers {
+				if c.Name == ProxyContainerName {
+					if c.Env == nil {
+						c.Env = make([]corev1.EnvVar, 0)
+					}
+					c.Env = append(c.Env, corev1.EnvVar{Name: paStatus.PrometheusScrapingConfig.Name, Value: string(by)})
+				}
+			}
+		}
+		if metadata.Annotations == nil {
+			metadata.Annotations = make(map[string]string)
+		}
+		metadata.Annotations["prometheus.io/port"] = strconv.Itoa(int(meshconfig.GetDefaultConfig().GetStatusPort()))
+		metadata.Annotations["prometheus.io/path"] = "/stats/prometheus"
+		metadata.Annotations["prometheus.io/scrape"] = "true"
 	}
 
 	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)

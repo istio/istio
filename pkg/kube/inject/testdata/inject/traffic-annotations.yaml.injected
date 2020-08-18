@@ -12,6 +12,9 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
         proxy.istio.io/config: |-
           discoveryAddress: foo:123
           concurrency: 0
