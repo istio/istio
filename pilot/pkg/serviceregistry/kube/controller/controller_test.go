@@ -125,10 +125,7 @@ func TestServices(t *testing.T) {
 
 			test.Eventually(t, "successfully created endpoints", func() bool {
 				ep := sds.InstancesByPort(svc, 80, nil)
-				if len(ep) == 2 {
-					return true
-				}
-				return false
+				return len(ep) == 2
 			})
 
 			ep := sds.InstancesByPort(svc, 80, nil)
