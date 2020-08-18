@@ -347,21 +347,10 @@ func getDefaultNamespace(kubeconfig string) string {
 	return context.Namespace
 }
 
-// softGraduatedCmd is used for commands that have graduated, but we still want the old invocation to work.
-func softGraduatedCmd(cmd *cobra.Command) *cobra.Command {
-	msg := fmt.Sprintf("(%s has graduated. Use `istioctl %s`)", cmd.Name(), cmd.Name())
-
-	newCmd := *cmd
-	newCmd.Short = fmt.Sprintf("%s %s", cmd.Short, msg)
-	newCmd.RunE = func(c *cobra.Command, args []string) error {
-		fmt.Fprintln(cmd.ErrOrStderr(), msg)
-		return cmd.RunE(c, args)
-	}
-
-	return &newCmd
-}
-
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated
+// Other alternative
+// for graduatedCmd see https://github.com/istio/istio/pull/26408
+// for softGraduatedCmd see https://github.com/istio/istio/pull/26563
 func seeExperimentalCmd(name string) *cobra.Command {
 	msg := fmt.Sprintf("(%s is experimental. Use `istioctl experimental %s`)", name, name)
 	return &cobra.Command{
