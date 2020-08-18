@@ -147,4 +147,4 @@ func (d DisabledCache) ClearHostnames(map[model.ConfigKey]struct{}) {}
 
 func (d DisabledCache) ClearAll() {}
 
-func (c DisabledCache) Keys() []string { return nil }
+func (d DisabledCache) Keys() []string { return nil }

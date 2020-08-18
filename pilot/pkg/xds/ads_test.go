@@ -1008,7 +1008,10 @@ func TestXdsCache(t *testing.T) {
 	assertEndpoints(ads, "1.2.3.4", "1.2.3.5")
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
 
-	if _, err := s.Store.Update(makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.6", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})); err != nil {
+	if _, err := s.Store.Update(makeEndpoint([]*networking.WorkloadEntry{
+		{Address: "1.2.3.6", Locality: "region/zone"},
+		{Address: "1.2.3.5", Locality: "notmatch"},
+	})); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ads.Wait(time.Second*5, v3.EndpointType); err != nil {
