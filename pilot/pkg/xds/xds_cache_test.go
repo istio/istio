@@ -50,7 +50,7 @@ func TestInMemoryCache(t *testing.T) {
 		if got, _ := c.Get(ep1); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearHostnames(map[model.ConfigKey]struct{}{model.ConfigKey{Name: "foo.com"}: {}})
+		c.ClearHostnames(map[model.ConfigKey]struct{}{{Name: "foo.com"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
@@ -67,7 +67,7 @@ func TestInMemoryCache(t *testing.T) {
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearHostnames(map[model.ConfigKey]struct{}{model.ConfigKey{Name: "foo.com"}: {}})
+		c.ClearHostnames(map[model.ConfigKey]struct{}{{Name: "foo.com"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
@@ -91,14 +91,14 @@ func TestInMemoryCache(t *testing.T) {
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearDestinationRules(map[model.ConfigKey]struct{}{model.ConfigKey{Name: "a", Namespace: "b"}: {}})
+		c.ClearDestinationRules(map[model.ConfigKey]struct{}{{Name: "a", Namespace: "b"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearDestinationRules(map[model.ConfigKey]struct{}{model.ConfigKey{Name: "b", Namespace: "b"}: {}})
+		c.ClearDestinationRules(map[model.ConfigKey]struct{}{{Name: "b", Namespace: "b"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
