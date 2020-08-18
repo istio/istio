@@ -563,7 +563,6 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return nil, "", fmt.Errorf("error encoded injection status: %v", err)
 	}
 	sic.HoldApplicationUntilProxyStarts, _, _ = unstructured.NestedBool(data.Values, "global", "proxy", "holdApplicationUntilProxyStarts")
-
 	return &sic, string(statusAnnotationValue), nil
 }
 
@@ -760,7 +759,9 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		return nil, err
 	}
 
-	//
+	// if prometheus merge is enabled, try extracting and replace standared prometheus annotations.
+	// TODO: This duplicates the enablePrometheusMerge function in webhook injection,
+	// and should be cleaned when merging these two code paths.
 	if enablePrometheusMerge(meshconfig, metadata.Annotations) {
 		scrape := paStatus.PrometheusScrapeConfiguration{
 			Scrape: metadata.Annotations["prometheus.io/scrape"],
