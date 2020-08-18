@@ -306,7 +306,7 @@ type EdsGenerator struct {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	resp := []*any.Any{}
+	var resp []*any.Any
 
 	var edsUpdatedServices map[string]struct{} = nil
 	if updates != nil {
@@ -336,6 +336,8 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
+	defer edsPushTime.Record(time.Since(pushStart).Seconds())
+
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	endpoints := 0
 	empty := 0
@@ -369,7 +371,6 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 
 	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
 	err := con.send(response)
-	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		recordSendError("EDS", con.ConID, edsSendErrPushes, err)
 		return err
