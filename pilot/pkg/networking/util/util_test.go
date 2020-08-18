@@ -23,7 +23,6 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -451,7 +450,7 @@ func TestIsHTTPFilterChain(t *testing.T) {
 	httpFilterChain := &listener.FilterChain{
 		Filters: []*listener.Filter{
 			{
-				Name: xdsutil.HTTPConnectionManager,
+				Name: "envoy.http_connection_manager",
 			},
 		},
 	}
@@ -459,7 +458,7 @@ func TestIsHTTPFilterChain(t *testing.T) {
 	tcpFilterChain := &listener.FilterChain{
 		Filters: []*listener.Filter{
 			{
-				Name: xdsutil.TCPProxy,
+				Name: "envoy.tcp_proxy",
 			},
 		},
 	}
