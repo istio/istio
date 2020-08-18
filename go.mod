@@ -45,7 +45,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.4
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
 	github.com/circonus-labs/circonusllhist v0.1.4 // indirect
-	github.com/cncf/udpa/go v0.0.0-20200313221541-5f7e5dd04533
+	github.com/cncf/udpa/go v0.0.0-20200629203442-efcf912fb354
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containernetworking/cni v0.7.0-alpha1
 	github.com/containernetworking/plugins v0.7.3
@@ -62,7 +62,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190630181448-f1e96bc0f4c5 // indirect
 	github.com/emicklei/go-restful v2.9.6+incompatible // indirect
-	github.com/envoyproxy/go-control-plane v0.9.6-0.20200623200256-ba7954ce7df4
+	github.com/envoyproxy/go-control-plane v0.9.7-0.20200817235408-be37fa30ce8a
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/color v1.7.0
 	github.com/fluent/fluent-logger-golang v1.3.0
