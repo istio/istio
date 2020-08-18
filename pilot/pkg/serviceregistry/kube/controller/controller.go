@@ -791,8 +791,10 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.ServiceInstance, error) {
+	if proxy.Metadata.ClusterID != c.clusterID {
+		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
+	}
 
-	out := make([]*model.ServiceInstance, 0)
 	if len(proxy.IPAddresses) > 0 {
 		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
 		// because multiple ips belong to the same pod
@@ -801,21 +803,23 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		pod := c.pods.getPodByIP(proxyIP)
 		if workload, f := c.workloadInstancesByIP[proxyIP]; f {
 			var err error
-			out, err = c.hydrateWorkloadInstance(workload)
+			out, err := c.hydrateWorkloadInstance(workload)
 			if err != nil {
 				log.Warnf("hydrateWorkloadInstance for %v failed: %v", proxy.ID, err)
 			}
+			return out, nil
 		} else if pod != nil {
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
 			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
+				out := make([]*model.ServiceInstance, 0)
 				for _, svc := range services {
 					out = append(out, c.getProxyServiceInstancesByPod(pod, svc, proxy)...)
 				}
 				return out, nil
 			}
 			// 2. Headless service without selector
-			out = c.endpoints.GetProxyServiceInstances(c, proxy)
+			return c.endpoints.GetProxyServiceInstances(c, proxy), nil
 		} else {
 			var err error
 			// 3. The pod is not present when this is called
@@ -823,20 +827,19 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			// metadata already. Because of this, we can still get most of the information we need.
 			// If we cannot accurately construct ServiceInstances from just the metadata, this will return an error and we can
 			// attempt to read the real pod.
-			out, err = c.getProxyServiceInstancesFromMetadata(proxy)
+			out, err := c.getProxyServiceInstancesFromMetadata(proxy)
 			if err != nil {
 				log.Warnf("getProxyServiceInstancesFromMetadata for %v failed: %v", proxy.ID, err)
 			}
+			return out, nil
 		}
 	}
-	if len(out) == 0 {
-		if c.metrics != nil {
-			c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
-		} else {
-			log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
-		}
+	if c.metrics != nil {
+		c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
+	} else {
+		log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 	}
-	return out, nil
+	return nil, nil
 }
 
 func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) ([]*model.ServiceInstance, error) {
