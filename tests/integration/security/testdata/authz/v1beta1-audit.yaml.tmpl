@@ -12,7 +12,22 @@ spec:
   - to:
     - operation:
         paths: ["/allow_audit"]
+---
 
+apiVersion: "security.istio.io/v1beta1"
+kind: AuthorizationPolicy
+metadata:
+  name: policy-b-allow
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      "app": "b"
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths: ["/allow_audit"]
 ---
 
 apiVersion: "security.istio.io/v1beta1"
@@ -29,7 +44,6 @@ spec:
   - to:
     - operation:
         paths: ["/deny_audit"]
-
 ---
 
 apiVersion: "security.istio.io/v1beta1"
@@ -46,7 +60,6 @@ spec:
   - to:
     - operation:
         paths: ["/deny_audit"]
-
 ---
 
 apiVersion: "security.istio.io/v1beta1"
@@ -62,21 +75,4 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/allow_audit"]
-
----
-
-apiVersion: "security.istio.io/v1beta1"
-kind: AuthorizationPolicy
-metadata:
-  name: policy-d-allow
-  namespace: "{{ .Namespace }}"
-spec:
-  selector:
-    matchLabels:
-      "app": "d"
-  action: ALLOW
-  rules:
-  - to:
-    - operation:
-        paths: ["/allow_audit"]
+        paths: ["/audit"]

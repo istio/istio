@@ -1084,7 +1084,7 @@ func TestAuthorization_Audit(t *testing.T) {
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
-				With(&c, util.EchoConfig("d", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
 				BuildOrFail(t)
 
 			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
@@ -1103,11 +1103,11 @@ func TestAuthorization_Audit(t *testing.T) {
 			}
 			cases := []rbacUtil.TestCase{
 				newTestCase(b, "/allow_audit", true),
-				newTestCase(b, "/other", true),
+				newTestCase(b, "/deny_audit", false),
 				newTestCase(c, "/allow_audit", true),
 				newTestCase(c, "/deny_audit", false),
 				newTestCase(d, "/allow_audit", true),
-				newTestCase(d, "/deny_audit", false),
+				newTestCase(d, "/other", true),
 			}
 
 			args := map[string]string{
