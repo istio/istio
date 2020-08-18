@@ -103,7 +103,8 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 	ctx = metadata.NewOutgoingContext(ctx, out)
 	resp, err := cl.client.CreateCertificate(ctx, req)
 	if err != nil {
-		googleCAClientLog.Errorf("Failed to create certificate: %v %v", err, req)
+		googleCAClientLog.Errorf("Failed to create certificate: %v", err)
+		googleCAClientLog.Debugf("Original request %v, resp %v", req, resp)
 		return nil, err
 	}
 

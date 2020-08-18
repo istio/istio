@@ -121,7 +121,7 @@ func (c *citadelClient) getTLSDialOption() (grpc.DialOption, error) {
 		if err != nil {
 			return nil, err
 		}
-		citadelClientLog.Warna("Citadel client using public DNS: ", c.caEndpoint)
+		citadelClientLog.Infoa("Citadel client using public DNS: ", c.caEndpoint)
 	} else {
 		certPool = x509.NewCertPool()
 		ok := certPool.AppendCertsFromPEM(c.caTLSRootCert)
