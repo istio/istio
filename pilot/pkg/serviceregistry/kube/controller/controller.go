@@ -797,13 +797,6 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 				log.Warnf("hydrateWorkloadInstance for %v failed: %v", proxy.ID, err)
 			}
 		} else if pod != nil {
-			// for split horizon EDS k8s multi cluster, in case there are pods of the same ip across clusters,
-			// which can happen when multi clusters using same pod cidr.
-			// As we have proxy Network meta, compare it with the network which endpoint belongs to,
-			// if they are not same, ignore the pod, because the pod is in another cluster.
-			if proxy.Metadata.Network != c.endpointNetwork(proxyIP) {
-				return out, nil
-			}
 			// 1. find proxy service by label selector, if not any, there may exist headless service without selector
 			// failover to 2
 			if services, err := getPodServices(c.serviceLister, pod); err == nil && len(services) > 0 {
