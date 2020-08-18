@@ -46,6 +46,7 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
+    name: istio-egressgateway
   telemetry:
     enabled: true
 addonComponents:	

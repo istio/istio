@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -175,7 +175,7 @@ func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string
 	}
 
 	// Merge user file and --set flags.
-	outYAML, err = util.OverlayYAML(outYAML, overlayYAML)
+	outYAML, err = util.OverlayIOP(outYAML, overlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
@@ -275,7 +275,7 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		if err != nil {
 			return "", err
 		}
-		ly, err = util.OverlayYAML(ly, string(b))
+		ly, err = util.OverlayIOP(ly, string(b))
 		if err != nil {
 			return "", err
 		}
