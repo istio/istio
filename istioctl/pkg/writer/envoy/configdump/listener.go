@@ -213,15 +213,14 @@ func retrieveListenerMatches(l *listener.Listener) []filterchain {
 		if match.DestinationPort != nil {
 			port = fmt.Sprintf(":%d", match.DestinationPort.GetValue())
 		}
-		if match.AddressSuffix != "" {
-			descrs = append(descrs, fmt.Sprintf("Addr: %s%s", match.AddressSuffix, port))
-		}
 		if len(match.PrefixRanges) > 0 {
 			pf := []string{}
 			for _, p := range match.PrefixRanges {
 				pf = append(pf, fmt.Sprintf("%s/%d", p.AddressPrefix, p.GetPrefixLen().GetValue()))
 			}
 			descrs = append(descrs, fmt.Sprintf("Addr: %s%s", strings.Join(pf, ","), port))
+		} else if port != "" {
+			descrs = append(descrs, fmt.Sprintf("Addr: *%s", port))
 		}
 		if len(descrs) == 0 {
 			descrs = []string{"ALL"}
@@ -238,7 +237,6 @@ func retrieveListenerMatches(l *listener.Listener) []filterchain {
 func getFilterType(filters []*listener.Filter) string {
 	for _, filter := range filters {
 		if filter.Name == HTTPListener {
-
 			httpProxy := &httpConn.HttpConnectionManager{}
 			// Allow Unmarshal to work even if Envoy and istioctl are different
 			filter.GetTypedConfig().TypeUrl = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
@@ -273,6 +271,9 @@ func getFilterType(filters []*listener.Filter) string {
 }
 
 func describeRouteConfig(route *route.RouteConfiguration) string {
+	if cluster := getMatchAllCluster(route); cluster != "" {
+		return cluster
+	}
 	vhosts := []string{}
 	for _, vh := range route.GetVirtualHosts() {
 		if describeDomains(vh) == "" {
@@ -282,6 +283,36 @@ func describeRouteConfig(route *route.RouteConfiguration) string {
 		}
 	}
 	return fmt.Sprintf("Inline Route: %s", strings.Join(vhosts, "; "))
+}
+
+// If this is a route that matches everything and forwards to a cluster, just report the cluster.
+func getMatchAllCluster(er *route.RouteConfiguration) string {
+	if len(er.GetVirtualHosts()) != 1 {
+		return ""
+	}
+	vh := er.GetVirtualHosts()[0]
+	if !reflect.DeepEqual(vh.Domains, []string{"*"}) {
+		return ""
+	}
+	if len(vh.GetRoutes()) != 1 {
+		return ""
+	}
+	r := vh.GetRoutes()[0]
+	if r.GetMatch().GetPrefix() != "/" {
+		return ""
+	}
+	a, ok := r.GetAction().(*route.Route_Route)
+	if !ok {
+		return ""
+	}
+	cl, ok := a.Route.ClusterSpecifier.(*route.RouteAction_Cluster)
+	if !ok {
+		return ""
+	}
+	if strings.Contains(cl.Cluster, "Cluster") {
+		return cl.Cluster
+	}
+	return fmt.Sprintf("Cluster: %s", cl.Cluster)
 }
 
 func describeDomains(vh *route.VirtualHost) string {
