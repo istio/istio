@@ -2,12 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: traffic
+  name: hello
 spec:
   replicas: 7
   selector:
     matchLabels:
-      app: traffic
+      app: hello
+      tier: backend
+      track: stable
   strategy: {}
   template:
     metadata:
@@ -16,24 +18,30 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
-        traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
-        traffic.sidecar.istio.io/includeInboundPorts: '*'
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
-        app: traffic
+        app: hello
         istio.io/rev: ""
         security.istio.io/tlsMode: istio
-        service.istio.io/canonical-name: traffic
+        service.istio.io/canonical-name: hello
         service.istio.io/canonical-revision: latest
+        tier: backend
+        track: stable
     spec:
       containers:
-      - image: fake.docker.io/google-samples/traffic-go-gke:1.0
-        name: traffic
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        livenessProbe:
+          httpGet:
+            path: /app-health/hello/livez
+            port: 15020
+        name: hello
         ports:
         - containerPort: 80
           name: http
+        readinessProbe:
+          httpGet:
+            path: /app-health/hello/readyz
+            port: 15020
         resources: {}
       - args:
         - proxy
@@ -41,7 +49,7 @@ spec:
         - --domain
         - $(POD_NAMESPACE).svc.cluster.local
         - --serviceCluster
-        - traffic.$(POD_NAMESPACE)
+        - hello.$(POD_NAMESPACE)
         - --proxyLogLevel=warning
         - --proxyComponentLogLevel=misc:error
         - --trust-domain=cluster.local
@@ -91,23 +99,20 @@ spec:
                 {"name":"http","containerPort":80}
             ]
         - name: ISTIO_META_APP_CONTAINERS
-          value: traffic
+          value: hello
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
-        - name: ISTIO_METAJSON_ANNOTATIONS
-          value: |
-            {"traffic.sidecar.istio.io/excludeInboundPorts":"4,5,6","traffic.sidecar.istio.io/excludeOutboundIPRanges":"10.96.0.2/24,10.96.0.3/24","traffic.sidecar.istio.io/includeInboundPorts":"*","traffic.sidecar.istio.io/includeOutboundIPRanges":"*"}
         - name: ISTIO_META_WORKLOAD_NAME
-          value: traffic
+          value: hello
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/traffic
+          value: kubernetes://apis/apps/v1/namespaces/default/deployments/hello
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: DNS_AGENT
         - name: ISTIO_KUBE_APP_PROBERS
-          value: '{}'
+          value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
@@ -164,11 +169,11 @@ spec:
         - -i
         - '*'
         - -x
-        - 10.96.0.2/24,10.96.0.3/24
+        - ""
         - -b
         - '*'
         - -d
-        - 15090,15021,4,5,6,15020
+        - 15090,15021,15020
         env:
         - name: DNS_AGENT
         image: gcr.io/istio-testing/proxyv2:latest

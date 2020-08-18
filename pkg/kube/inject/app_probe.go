@@ -119,52 +119,6 @@ func DumpAppProbers(podspec *corev1.PodSpec) string {
 	return string(b)
 }
 
-// rewriteAppHTTPProbes modifies the app probers in place for kube-inject.
-func rewriteAppHTTPProbe(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec, port int32) {
-
-	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
-		return
-	}
-	sidecar := FindSidecar(podSpec.Containers)
-	if sidecar == nil {
-		return
-	}
-
-	statusPort := int(port)
-	if v, f := annotations[annotation.SidecarStatusPort.Name]; f {
-		p, err := strconv.Atoi(v)
-		if err != nil {
-			log.Errorf("Invalid annotation %v=%v: %v", annotation.SidecarStatusPort, p, err)
-		}
-		statusPort = p
-	}
-	// Pilot agent statusPort is not defined, skip changing application http probe.
-	if statusPort == -1 {
-		return
-	}
-	if prober := DumpAppProbers(podSpec); prober != "" {
-		// We don't have to escape json encoding here when using golang libraries.
-		sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
-	}
-	// Now modify the container probers.
-	for _, c := range podSpec.Containers {
-		// Skip sidecar container.
-		if c.Name == ProxyContainerName {
-			continue
-		}
-		readyz, livez, startupz := status.FormatProberURL(c.Name)
-		if rp := convertAppProber(c.ReadinessProbe, readyz, statusPort); rp != nil {
-			*c.ReadinessProbe = *rp
-		}
-		if lp := convertAppProber(c.LivenessProbe, livez, statusPort); lp != nil {
-			*c.LivenessProbe = *lp
-		}
-		if sp := convertAppProber(c.StartupProbe, startupz, statusPort); sp != nil {
-			*c.StartupProbe = *sp
-		}
-	}
-}
-
 // createProbeRewritePatch generates the patch for webhook.
 func createProbeRewritePatch(annotations map[string]string, podSpec *corev1.PodSpec, spec *SidecarInjectionSpec, defaultPort int32) []rfc6902PatchOperation {
 	if !ShouldRewriteAppHTTPProbers(annotations, spec) {
