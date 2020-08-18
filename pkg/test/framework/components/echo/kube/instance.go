@@ -225,10 +225,11 @@ func getContainerPorts(ports []echo.Port) echoCommon.PortList {
 	for _, p := range ports {
 		// Add the port to the set of application ports.
 		cport := &echoCommon.Port{
-			Name:     p.Name,
-			Protocol: p.Protocol,
-			Port:     p.InstancePort,
-			TLS:      p.TLS,
+			Name:        p.Name,
+			Protocol:    p.Protocol,
+			Port:        p.InstancePort,
+			TLS:         p.TLS,
+			ServerFirst: p.ServerFirst,
 		}
 		containerPorts = append(containerPorts, cport)
 

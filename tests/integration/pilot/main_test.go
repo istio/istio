@@ -44,7 +44,9 @@ var (
 		{Name: "http", Protocol: protocol.HTTP, InstancePort: 18080},
 		{Name: "grpc", Protocol: protocol.GRPC, InstancePort: 17070},
 		{Name: "tcp", Protocol: protocol.TCP, InstancePort: 19090},
+		{Name: "tcp-server", Protocol: protocol.TCP, InstancePort: 16060, ServerFirst: true},
 		{Name: "auto-tcp", Protocol: protocol.TCP, InstancePort: 19091},
+		{Name: "auto-tcp-server", Protocol: protocol.TCP, InstancePort: 16061, ServerFirst: true},
 		{Name: "auto-http", Protocol: protocol.HTTP, InstancePort: 18081},
 		{Name: "auto-grpc", Protocol: protocol.GRPC, InstancePort: 17071},
 	}
