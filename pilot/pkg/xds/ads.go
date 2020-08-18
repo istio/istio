@@ -456,9 +456,9 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	con.ConID = connectionID(node.Id)
 	con.node = node
 
-	if features.EnableXDSAuthorization && con.Identities != nil {
+	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
-		if err := authorizeConnection(con); err != nil {
+		if err := checkConnectionIdentity(con); err != nil {
 			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
 			return fmt.Errorf("authorization failed: %v", err)
 		}
@@ -472,7 +472,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	return nil
 }
 
-func authorizeConnection(con *Connection) error {
+func checkConnectionIdentity(con *Connection) error {
 	for _, rawID := range con.Identities {
 		spiffeID, err := spiffe.ParseIdentity(rawID)
 		if err != nil {

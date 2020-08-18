@@ -308,8 +308,8 @@ var (
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
 
-	EnableXDSAuthorization = env.RegisterBoolVar(
-		"PILOT_ENABLE_XDS_AUTHORIZATION",
+	EnableXDSIdentityCheck = env.RegisterBoolVar(
+		"PILOT_ENABLE_XDS_IDENTITY_CHECK",
 		true,
 		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
 	).Get()

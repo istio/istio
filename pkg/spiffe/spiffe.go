@@ -34,7 +34,8 @@ import (
 const (
 	Scheme = "spiffe"
 
-	URIPrefix = Scheme + "://"
+	URIPrefix    = Scheme + "://"
+	URIPrefixLen = len(URIPrefix)
 
 	// The default SPIFFE URL value for trust domain
 	defaultTrustDomain = constants.DefaultKubernetesDomain
@@ -63,7 +64,7 @@ func ParseIdentity(s string) (Identity, error) {
 	if !strings.HasPrefix(s, URIPrefix) {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
 	}
-	split := strings.Split(s[9:], "/")
+	split := strings.Split(s[URIPrefixLen:], "/")
 	if len(split) != 5 {
 		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
 	}
