@@ -1079,27 +1079,20 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
-						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
-							for _, instance := range instances {
-								// Make sure each endpoint address is a valid address
-								// as service entries could have NONE resolution with label selectors for workload
-								// entries (which could technically have hostnames).
-								if net.ParseIP(instance.Endpoint.Address) == nil {
-									continue
-								}
-								// Skip build outbound listener to the node itself,
-								// as when app access itself by pod ip will not flow through this listener.
-								// Simultaneously, it will be duplicate with inbound listener.
-								if instance.Endpoint.Address == node.IPAddresses[0] {
-									continue
-								}
-								listenerOpts.bind = instance.Endpoint.Address
-								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
-									virtualServices, actualWildcard)
+						for _, instance := range push.InstancesByPort(service, servicePort.Port, nil) {
+							// Make sure each endpoint address is a valid address
+							// as service entries could have NONE resolution with label selectors for workload
+							// entries (which could technically have hostnames).
+							if net.ParseIP(instance.Endpoint.Address) == nil {
+								continue
 							}
-						} else {
-							// we can't do anything. Fallback to the usual way of constructing listeners
-							// for headless services that use 0.0.0.0:Port listener
+							// Skip build outbound listener to the node itself,
+							// as when app access itself by pod ip will not flow through this listener.
+							// Simultaneously, it will be duplicate with inbound listener.
+							if instance.Endpoint.Address == node.IPAddresses[0] {
+								continue
+							}
+							listenerOpts.bind = instance.Endpoint.Address
 							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 								virtualServices, actualWildcard)
 						}

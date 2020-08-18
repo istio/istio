@@ -459,8 +459,7 @@ func (s *ServiceEntryStore) getServices() []*model.Service {
 
 // InstancesByPort retrieves instances for a service on the given ports with labels that
 // match any of the supplied labels. All instances match an empty tag list.
-func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
-	labels labels.Collection) ([]*model.ServiceInstance, error) {
+func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {
 	s.maybeRefreshIndexes()
 
 	out := make([]*model.ServiceInstance, 0)
@@ -478,7 +477,7 @@ func (s *ServiceEntryStore) InstancesByPort(svc *model.Service, port int,
 		}
 	}
 
-	return out, nil
+	return out
 }
 
 // servicesWithEntry contains a ServiceEntry and associated model.Services
