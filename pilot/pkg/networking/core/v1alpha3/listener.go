@@ -51,6 +51,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1079,7 +1080,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
-						for _, instance := range push.InstancesByPort(service, servicePort.Port, nil) {
+						instances := push.InstancesByPort(service, servicePort.Port, nil)
+						if service.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) && len(instances) == 0 {
+							// A Kubernetes service with no endpoints means there are no endpoints at all, so don't bother sending.
+							// But a ServiceEntry with no endpoints is useful - we will just passthrough to the destination
+							// Fallback to the usual way of a wildcard listener.
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+								virtualServices, actualWildcard)
+							continue
+						}
+						for _, instance := range instances {
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).

@@ -47,6 +47,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
@@ -408,11 +409,15 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
 	services := []*model.Service{svc}
+	extSvc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
+	extSvc.Resolution = model.Passthrough
+	extSvc.Attributes.ServiceRegistry = serviceregistry.External
 
 	p := &fakePlugin{}
 	tests := []struct {
 		name                      string
 		instances                 []*model.ServiceInstance
+		services                  []*model.Service
 		numListenersOnServicePort int
 	}{
 		{
@@ -424,6 +429,7 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(services[0], "11.11.11.11"),
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
+			services:                  services,
 			numListenersOnServicePort: 3,
 		},
 		{
@@ -431,7 +437,14 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			instances: []*model.ServiceInstance{
 				buildServiceInstance(services[0], "example.com"),
 			},
+			services:                  services,
 			numListenersOnServicePort: 0,
+		},
+		{
+			name:                      "external service",
+			instances:                 []*model.ServiceInstance{},
+			services:                  []*model.Service{svc, extSvc},
+			numListenersOnServicePort: 1,
 		},
 	}
 	for _, tt := range tests {
