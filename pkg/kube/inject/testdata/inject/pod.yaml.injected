@@ -2,6 +2,9 @@ apiVersion: v1
 kind: Pod
 metadata:
   annotations:
+    prometheus.io/path: /stats/prometheus
+    prometheus.io/port: "15020"
+    prometheus.io/scrape: "true"
     sidecar.istio.io/interceptionMode: REDIRECT
     sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
     traffic.sidecar.istio.io/excludeInboundPorts: "15020"
