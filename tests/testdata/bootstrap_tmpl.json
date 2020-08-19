@@ -338,6 +338,27 @@
         "http2_protocol_options": {}
       },
       {
+        "name": "sds-grpc",
+        "type": "STATIC",
+        "http2_protocol_options": {},
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "load_assignment": {
+          "cluster_name": "sds-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "pipe": {
+                    "path": "./etc/istio/proxy/SDS"
+                  }
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {
       "name": "service1",
       "type": "STRICT_DNS",
       "connect_timeout": {

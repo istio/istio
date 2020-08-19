@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/test/xdstest"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -51,44 +50,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 		sdsPath string
 		result  *auth.DownstreamTlsContext
 	}{
-		{
-			name: "mesh SDS disabled, tls mode ISTIO_MUTUAL",
-			server: &networking.Server{
-				Hosts: []string{"httpbin.example.com"},
-				Tls: &networking.ServerTLSSettings{
-					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
-				},
-			},
-			result: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: constants.DefaultCertChain,
-								},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: constants.DefaultKey,
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-						ValidationContext: &auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: constants.DefaultRootCert,
-								},
-							},
-						},
-					},
-				},
-				RequireClientCertificate: proto.BoolTrue,
-			},
-		},
 		{
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
@@ -332,7 +293,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and subject names are specified, SDS configs are generated for fetching
+		{
+			// Credential name and subject names are specified, SDS configs are generated for fetching
 			// key/cert and root cert.
 			name: "credential name subject alternative name key and cert tls MUTUAL",
 			server: &networking.Server{
@@ -407,7 +369,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and VerifyCertificateSpki options are specified, SDS configs are generated for fetching
+		{
+			// Credential name and VerifyCertificateSpki options are specified, SDS configs are generated for fetching
 			// key/cert and root cert
 			name: "credential name verify spki key and cert tls MUTUAL",
 			server: &networking.Server{
@@ -480,7 +443,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and VerifyCertificateHash options are specified, SDS configs are generated for fetching
+		{
+			// Credential name and VerifyCertificateHash options are specified, SDS configs are generated for fetching
 			// key/cert and root cert
 			name: "credential name verify hash key and cert tls MUTUAL",
 			server: &networking.Server{
@@ -569,7 +533,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true})
+			ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{})
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}

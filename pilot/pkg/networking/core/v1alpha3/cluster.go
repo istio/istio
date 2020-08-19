@@ -936,7 +936,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 	case networking.ClientTLSSettings_DISABLE:
 		tlsContext = nil
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		// conditionallyConvertToIstioMtls populates ClientCertificate and PrivateKey for tls
+		// buildAutoMtlsSettings populates ClientCertificate and PrivateKey for tls.
 		// Following condition will never be true in case of ISTIO_MUTUAL and only exists for safeguard
 		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
 			err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
@@ -949,35 +949,14 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			Sni:              tls.Sni,
 		}
 
-		// TODO: cleanup required check out istio/istio/pull/24822 as SDS is enabled by default
-		if !node.Metadata.SdsEnabled {
-			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: certValidationContext,
-			}
-			tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-						},
-					},
-				},
-			}
-		} else {
-			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
+		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+			authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
 
-			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
-				},
-			}
+		tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+			CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+				DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+				ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
+			},
 		}
 
 		// Set default SNI of cluster name for istio_mutual if sni is not set.
@@ -1082,49 +1061,29 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			CommonTlsContext: &auth.CommonTlsContext{},
 			Sni:              tls.Sni,
 		}
-		// Fallback to file mount secret instead of SDS
-		if !node.Metadata.SdsEnabled {
-			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: certValidationContext,
-			}
-			tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-						},
-					},
+		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+		// which does not support rotation, we will serve them over SDS by reading the files.
+		res := model.SdsCertificateConfig{
+			CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+			PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+			CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+		}
+		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+			authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
+
+		// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
+		if res.GetRootResourceName() == "" {
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
+			tlsContext.Sni = tls.Sni
+		} else {
+			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
 				},
 			}
-		} else {
-			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-			// which does not support rotation, we will serve them over SDS by reading the files.
-			res := model.SdsCertificateConfig{
-				CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-				PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
-			}
-			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
-
-			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
-			if res.GetRootResourceName() == "" {
-				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
-				tlsContext.Sni = tls.Sni
-			} else {
-				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
-					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-						DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-						ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
-					},
-				}
-			}
 		}
+
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
 			tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
