@@ -210,24 +210,12 @@ func (c *Controller) GetService(hostname host.Name) (*model.Service, error) {
 
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(svc *model.Service, port int,
-	labels labels.Collection) ([]*model.ServiceInstance, error) {
-	var instances, tmpInstances []*model.ServiceInstance
-	var errs error
+func (c *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Collection) []*model.ServiceInstance {
+	var instances []*model.ServiceInstance
 	for _, r := range c.GetRegistries() {
-		var err error
-		tmpInstances, err = r.InstancesByPort(svc, port, labels)
-		if err != nil {
-			log.Warnf("get service %s instance from registry %s/%s failed: %v", svc.Hostname, r.Provider(), r.Cluster(), err)
-			errs = multierror.Append(errs, err)
-		} else if len(tmpInstances) > 0 {
-			instances = append(instances, tmpInstances...)
-		}
+		instances = append(instances, r.InstancesByPort(svc, port, labels)...)
 	}
-	if len(instances) > 0 {
-		errs = nil
-	}
-	return instances, errs
+	return instances
 }
 
 func nodeClusterID(node *model.Proxy) string {
