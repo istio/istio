@@ -576,20 +576,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.proxy, pushEv) {
-		if con.proxy.XdsResourceGenerator != nil {
-			// to verify if logic works on generator
-			adsLog.Infof("Skipping generator push to %v, no updates required", con.ConID)
-		} else {
-			adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
-		}
-
-		if s.StatusReporter != nil {
-			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
-			// inform distribution status reporter that this connection has been updated, because it effectively has
-			for _, distributionType := range AllEventTypes {
-				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushRequest.Push.Version)
-			}
-		}
+		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
 
@@ -627,25 +614,22 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		if err != nil {
 			return err
 		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushRequest.Push.Version)
 	}
+
 	if con.Watching(v3.ListenerType) && pushTypes[LDS] {
 		err := s.pushLds(con, pushRequest.Push, currentVersion)
 		if err != nil {
 			return err
 		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ListenerType, pushRequest.Push.Version)
 	}
+
 	if len(con.Routes()) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushRequest.Push, currentVersion)
 		if err != nil {
 			return err
 		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.RouteType, pushRequest.Push.Version)
 	}
+
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
 }

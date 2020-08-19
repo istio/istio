@@ -143,7 +143,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
-				response = cdsDiscoveryResponse(c, "")
+				response = cdsDiscoveryResponse(c, "", "")
 			}
 			logDebug(b, response)
 		})

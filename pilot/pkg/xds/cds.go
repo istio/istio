@@ -26,7 +26,7 @@ import (
 )
 
 // clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix string) *discovery.DiscoveryResponse {
+func cdsDiscoveryResponse(response []*cluster.Cluster, version, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
 		// All resources for CDS ought to be of the type Cluster
 		TypeUrl: v3.ClusterType,
@@ -35,7 +35,7 @@ func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix string) *disc
 		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
 		// responses. Pilot believes in eventual consistency and that at some point, Envoy
 		// will begin seeing results it deems to be good.
-		VersionInfo: versionInfo(),
+		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),
 	}
 
@@ -52,7 +52,7 @@ func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, vers
 
 	rawClusters := s.ConfigGenerator.BuildClusters(con.proxy, push)
 
-	response := cdsDiscoveryResponse(rawClusters, push.Version)
+	response := cdsDiscoveryResponse(rawClusters, version, push.Version)
 	err := con.send(response)
 	if err != nil {
 		recordSendError("CDS", con.ConID, cdsSendErrPushes, err)
