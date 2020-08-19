@@ -27,7 +27,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/spiffe"
@@ -47,7 +46,7 @@ func TestConstructSdsSecretConfigWithCustomUds(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: features.InitialFetchTimeout,
+					InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 					ResourceApiVersion:  core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
@@ -105,7 +104,7 @@ func TestConstructSdsSecretConfig(t *testing.T) {
 			expected: &auth.SdsSecretConfig{
 				Name: "spiffe://cluster.local/ns/bar/sa/foo",
 				SdsConfig: &core.ConfigSource{
-					InitialFetchTimeout: features.InitialFetchTimeout,
+					InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 					ResourceApiVersion:  core.ApiVersion_V3,
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
@@ -348,7 +347,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					{
 						Name: "file-cert:serverCertChain~serverKey",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -372,7 +371,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "file-root:servrRootCert",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -494,7 +493,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -530,7 +529,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -581,7 +580,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -608,7 +607,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -645,7 +644,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 					{
 						Name: "spiffe://cluster.local/ns/bar/sa/foo",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
@@ -674,7 +673,7 @@ func TestApplyCustomSDSToServerCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "spiffe://cluster.local/ns/bar/sa/foo-cacert",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
