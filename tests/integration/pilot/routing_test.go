@@ -333,17 +333,27 @@ func expectString(got, expected, help string) error {
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases() []TrafficTestCase {
+func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
+
+
 	cases := []TrafficTestCase{}
 	// TODO add VMs to clients when DNS works for VMs.
 	for _, clients := range []echo.Instances{apps.podA, apps.naked, apps.headless} {
 		for _, client := range clients {
-			for _, destinations := range []echo.Instances{
+
+			destinationSets := []echo.Instances{
 				apps.podA,
-				apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 				{apps.vmA},
 				apps.headless.Match(echo.InCluster(client.Config().Cluster)),
-			} {
+			}
+
+			if !ctx.Environment().IsMultinetwork() {
+				// TODO(landow) fix multinetwork issues with non-sidecar pods, for now only test this in single-network
+				// the filter below assumes we fix this by restricting cross-network for non-sidecars
+				apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName()))
+			}
+
+			for _, destinations := range destinationSets {
 				client := client
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
@@ -550,7 +560,7 @@ func TestTraffic(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
 			cases["virtualservice"] = virtualServiceCases()
-			cases["sniffing"] = protocolSniffingCases()
+			cases["sniffing"] = protocolSniffingCases(ctx)
 			cases["serverfirst"] = serverFirstTestCases()
 			cases["vm"] = vmTestCases(apps.vmA)
 			for n, tts := range cases {
