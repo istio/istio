@@ -570,6 +570,25 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			return true
 		}
 
+		// TODO: REMOVE THE SIDE-EFFECTS AND CLEANUP
+		// The rotate() code has the side-effect of calling CredFetcher - which in turn has the side-effect of creating
+		// a file with the token, used by Envoy for VMs that use GCP metadata server. So we must continue to call
+		// CredFetcher in this loop, and we can't change the code to run rotate() only when we know the token is about
+		// to expire (which is easy to determine from the token content or the request).
+		// This must be called even if certs are used for refresh/provisioning - or even if auth/mtls is disabled for this
+		// workload, since the side-effect JWT is used in unrelated stackdriver communication. Do not remove until that
+		// code is fixed.
+		if sc.configOptions.CredFetcher != nil {
+			// Refresh token through credential fetcher.
+			cacheLog.Debugf("%s getting a new token through credential fetcher", logPrefix)
+			t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
+			if err != nil {
+				cacheLog.Warnf("%s credential fetcher failed to get a new token, continue using the original token: %v", logPrefix, err)
+			} else {
+				secret.Token = t
+			}
+		}
+
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
@@ -580,16 +599,7 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 				defer wg.Done()
 				cacheLog.Debugf("%s use token to generate key/cert", logPrefix)
 				if !sc.useCertToRotate() {
-					if sc.configOptions.CredFetcher != nil {
-						// Refresh token through credential fetcher.
-						cacheLog.Debugf("%s getting a new token through credential fetcher", logPrefix)
-						t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
-						if err != nil {
-							cacheLog.Warnf("%s credential fetcher failed to get a new token, continue using the original token: %v", logPrefix, err)
-						} else {
-							secret.Token = t
-						}
-					} else {
+					if sc.configOptions.CredFetcher == nil {
 						tok, err := ioutil.ReadFile(sc.configOptions.JWTPath)
 						if err != nil {
 							cacheLog.Errorf("failed to get credential token: %v", err)
