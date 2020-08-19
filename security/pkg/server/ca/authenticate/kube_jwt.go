@@ -22,8 +22,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/istio/security/pkg/util"
-
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 	"istio.io/istio/security/pkg/util"
