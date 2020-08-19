@@ -423,16 +423,20 @@ func TestAuthZCheck(t *testing.T) {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			args := []string{"experimental", "authz", "check",
-				fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
-			regex := regexp.MustCompile(`noneSDS: default.*\[integ-test\]`)
+			args := []string{"experimental", "authz", "check", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
+			want := fmt.Sprintf(`Found 4 Rule(s) of AuthorizationPolicy (2 DENY rule(s), 2 ALLOW rule(s))
+- [ DENY] ns[%s]-policy[deny-policy]-rule[0]
+- [ DENY] ns[%s]-policy[deny-policy]-rule[1]
+- [ALLOW] _anonymous_match_nothing_
+- [ALLOW] ns[%s]-policy[allow-policy]-rule[0]
+`, apps.namespace.Name(), apps.namespace.Name(), apps.namespace.Name())
 
-			// Verify the output includes a policy "integ-test", which is the policy
+			// Verify the output matches the expected text, which is the policies
 			// loaded above from authz-a.yaml
 			retry.UntilSuccessOrFail(ctx, func() error {
 				output, _ := istioCtl.InvokeOrFail(t, args)
-				if !regex.MatchString(output) {
-					return fmt.Errorf("%v did not match %v", output, regex)
+				if want != output {
+					return fmt.Errorf("%v did not match %v", output, want)
 				}
 				return nil
 			}, retry.Timeout(time.Second*5))
