@@ -17,8 +17,9 @@ package authz
 import (
 	"fmt"
 	"io"
-	"sort"
+	"regexp"
 	"strings"
+	"text/tabwriter"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
@@ -34,6 +35,11 @@ import (
 
 const (
 	anonymousName = "_anonymous_match_nothing_"
+)
+
+var (
+	// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1].
+	re = regexp.MustCompile(`ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
 )
 
 type filterChain struct {
@@ -110,6 +116,16 @@ func parse(listener *listener.Listener) *parsedListener {
 	return parsed
 }
 
+func extractName(name string) (string, string) {
+	// parts[1] is the namespace, parts[2] is the policy name, parts[3] is the rule index.
+	parts := re.FindStringSubmatch(name)
+	if len(parts) != 4 {
+		log.Errorf("failed to parse policy name: %s", name)
+		return "", ""
+	}
+	return fmt.Sprintf("%s.%s", parts[2], parts[1]), parts[3]
+}
+
 // Print prints the AuthorizationPolicy in the listener.
 func Print(writer io.Writer, listener *listener.Listener) {
 	parsed := parse(listener)
@@ -117,52 +133,56 @@ func Print(writer io.Writer, listener *listener.Listener) {
 		return
 	}
 
-	policies := map[rbacpb.RBAC_Action]map[string]struct{}{}
+	actionToPolicy := map[rbacpb.RBAC_Action]map[string]struct{}{}
+	policyToRule := map[string]map[string]struct{}{}
+
+	addPolicy := func(action rbacpb.RBAC_Action, name string, rule string) {
+		if actionToPolicy[action] == nil {
+			actionToPolicy[action] = map[string]struct{}{}
+		}
+		if policyToRule[name] == nil {
+			policyToRule[name] = map[string]struct{}{}
+		}
+		actionToPolicy[action][name] = struct{}{}
+		policyToRule[name][rule] = struct{}{}
+	}
+
 	for _, fc := range parsed.filterChains {
 		for _, rbacHTTP := range fc.rbacHTTP {
 			action := rbacHTTP.GetRules().GetAction()
-			if policies[action] == nil {
-				policies[action] = map[string]struct{}{}
-			}
 			for name := range rbacHTTP.GetRules().GetPolicies() {
-				policies[action][name] = struct{}{}
+				nameOfPolicy, indexOfRule := extractName(name)
+				addPolicy(action, nameOfPolicy, indexOfRule)
 			}
 			if len(rbacHTTP.GetRules().GetPolicies()) == 0 {
-				policies[action][anonymousName] = struct{}{}
+				addPolicy(action, anonymousName, "0")
 			}
 		}
 		for _, rbacTCP := range fc.rbacTCP {
 			action := rbacTCP.GetRules().GetAction()
-			if policies[action] == nil {
-				policies[action] = map[string]struct{}{}
-			}
 			for name := range rbacTCP.GetRules().GetPolicies() {
-				policies[action][name] = struct{}{}
+				nameOfPolicy, indexOfRule := extractName(name)
+				addPolicy(action, nameOfPolicy, indexOfRule)
 			}
 			if len(rbacTCP.GetRules().GetPolicies()) == 0 {
-				policies[action][anonymousName] = struct{}{}
+				addPolicy(action, anonymousName, "0")
 			}
 		}
 	}
 
-	var actionBreakdown []string
-	var allPolicies []string
+	buf := strings.Builder{}
+	buf.WriteString("ACTION\tAuthorizationPolicy\tRULES\n")
 	for _, action := range []rbacpb.RBAC_Action{rbacpb.RBAC_DENY, rbacpb.RBAC_ALLOW, rbacpb.RBAC_LOG} {
-		if names, ok := policies[action]; ok {
-			actionBreakdown = append(actionBreakdown, fmt.Sprintf("%d %s rule(s)", len(names), action))
+		if names, ok := actionToPolicy[action]; ok {
 			for name := range names {
-				allPolicies = append(allPolicies, fmt.Sprintf("- [%5s] %s", action, name))
+				buf.WriteString(fmt.Sprintf("%s\t%s\t%d\n", action, name, len(policyToRule[name])))
 			}
 		}
 	}
-	buf := strings.Builder{}
-	total := len(allPolicies)
-	sort.Strings(allPolicies)
-	buf.WriteString(fmt.Sprintf("Found %d Rule(s) of AuthorizationPolicy", total))
-	if total > 0 {
-		buf.WriteString(fmt.Sprintf(" (%s)\n", strings.Join(actionBreakdown, ", ")))
-		buf.WriteString(strings.Join(allPolicies, "\n"))
+
+	w := new(tabwriter.Writer).Init(writer, 0, 8, 3, ' ', 0)
+	if _, err := fmt.Fprint(w, buf.String()); err != nil {
+		log.Errorf("failed to print output: %s", err)
 	}
-	buf.WriteString("\n")
-	fmt.Fprint(writer, buf.String())
+	_ = w.Flush()
 }

@@ -424,19 +424,20 @@ func TestAuthZCheck(t *testing.T) {
 			}
 
 			args := []string{"experimental", "authz", "check", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
-			want := fmt.Sprintf(`Found 4 Rule(s) of AuthorizationPolicy (2 DENY rule(s), 2 ALLOW rule(s))
-- [ DENY] ns[%s]-policy[deny-policy]-rule[0]
-- [ DENY] ns[%s]-policy[deny-policy]-rule[1]
-- [ALLOW] _anonymous_match_nothing_
-- [ALLOW] ns[%s]-policy[allow-policy]-rule[0]
-`, apps.namespace.Name(), apps.namespace.Name(), apps.namespace.Name())
+			wants := []*regexp.Regexp{
+				regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, apps.namespace.Name())),
+				regexp.MustCompile(`ALLOW\s+_anonymous_match_nothing_\s+1`),
+				regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, apps.namespace.Name())),
+			}
 
 			// Verify the output matches the expected text, which is the policies
 			// loaded above from authz-a.yaml
 			retry.UntilSuccessOrFail(ctx, func() error {
 				output, _ := istioCtl.InvokeOrFail(t, args)
-				if want != output {
-					return fmt.Errorf("%v did not match %v", output, want)
+				for _, want := range wants {
+					if !want.MatchString(output) {
+						return fmt.Errorf("%v did not match %v", output, want)
+					}
 				}
 				return nil
 			}, retry.Timeout(time.Second*5))
