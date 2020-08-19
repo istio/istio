@@ -79,6 +79,40 @@ func GetAud(token string) ([]string, error) {
 	return nil, err
 }
 
+type jwtPayload struct {
+	// Aud is JWT token audience - used to identify 3p tokens.
+	// It is empty for the default K8S tokens.
+	Aud []string `json:"aud"`
+}
+
+// IsK8SUnbound detects if the token is a K8S unbound token.
+// It is a regular JWT with no audience and expiration, which can
+// be exchanged with bound tokens with audience.
+//
+// This is used to determine if we check audience in the token.
+// Clients should not use unbound tokens except in cases where
+// bound tokens are not possible.
+func IsK8SUnbound(jwt string) bool {
+	jwtSplit := strings.Split(jwt, ".")
+	if len(jwtSplit) != 3 {
+		return false // unbound tokens are valid JWT
+	}
+	payload := jwtSplit[1]
+
+	payloadBytes, err := base64.RawStdEncoding.DecodeString(payload)
+	if err != nil {
+		return false // unbound tokens are valid JWT
+	}
+
+	structuredPayload := &jwtPayload{}
+	err = json.Unmarshal(payloadBytes, &structuredPayload)
+	if err != nil {
+		return false
+	}
+
+	return len(structuredPayload.Aud) == 0
+}
+
 func parseJwtClaims(token string) (map[string]interface{}, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
