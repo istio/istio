@@ -38,7 +38,7 @@ const bearerTokenPrefix = "Bearer "
 
 var (
 	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
-	gkeClusterURL     = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	envGkeClusterURL  = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
 type googleCAClient struct {
@@ -96,7 +96,8 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 	out = out.Copy()
 	out["authorization"] = []string{token}
 
-	if gkeClusterURL == "" && platform.IsGCP() {
+	gkeClusterURL := envGkeClusterURL
+	if envGkeClusterURL == "" && platform.IsGCP() {
 		gkeClusterURL = platform.NewGCP().Metadata()[platform.GCPClusterURL]
 	}
 	zone := parseZone(gkeClusterURL)
