@@ -796,7 +796,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 			}
 			return out, nil
 		} else if pod != nil {
-			if !c.controllerForProxy(proxy) {
+			if !c.isControllerForProxy(proxy) {
 				return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 			}
 
@@ -934,9 +934,9 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 	}
 }
 
-// controllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
+// isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
 // may not necessarily pass this check, but we still want to allow kube services to select workload instances.
-func (c *Controller) controllerForProxy(proxy *model.Proxy) bool {
+func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
 	return proxy.Metadata.ClusterID == c.clusterID
 }
 
@@ -948,7 +948,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		return nil, fmt.Errorf("no workload labels found")
 	}
 
-	if !c.controllerForProxy(proxy) {
+	if !c.isControllerForProxy(proxy) {
 		return nil, fmt.Errorf("proxy is in cluster %v, but controller is for cluster %v", proxy.Metadata.ClusterID, c.clusterID)
 	}
 
