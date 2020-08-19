@@ -48,7 +48,7 @@ func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix string) *disc
 
 func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	defer cdsPushTime.Record(time.Since(pushStart).Seconds())
+	defer func() { cdsPushTime.Record(time.Since(pushStart).Seconds()) }()
 
 	rawClusters := s.ConfigGenerator.BuildClusters(con.proxy, push)
 

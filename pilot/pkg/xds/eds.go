@@ -331,7 +331,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
-	defer edsPushTime.Record(time.Since(pushStart).Seconds())
+	defer func() { edsPushTime.Record(time.Since(pushStart).Seconds()) }()
 
 	resources := make([]*any.Any, 0)
 	endpoints := 0
