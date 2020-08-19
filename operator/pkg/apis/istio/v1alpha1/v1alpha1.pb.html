@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 59
+number_of_entries: 62
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -2693,15 +2693,6 @@ No
 No
 </td>
 </tr>
-<tr id="TelemetryV2StackDriverConfig-logging">
-<td><code>logging</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
 <tr id="TelemetryV2StackDriverConfig-monitoring">
 <td><code>monitoring</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
@@ -2732,6 +2723,33 @@ No
 <tr id="TelemetryV2StackDriverConfig-configOverride">
 <td><code>configOverride</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-outboundAccessLogging">
+<td><code>outboundAccessLogging</code></td>
+<td><code><a href="#TelemetryV2StackDriverConfig-AccessLogging">AccessLogging</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-inboundAccessLogging">
+<td><code>inboundAccessLogging</code></td>
+<td><code><a href="#TelemetryV2StackDriverConfig-AccessLogging">AccessLogging</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-logging" class="deprecated ">
+<td><code>logging</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 </td>
 <td>
@@ -3959,6 +3977,44 @@ No
 </tbody>
 </table>
 </section>
+<h2 id="TelemetryV2StackDriverConfig-AccessLogging">TelemetryV2StackDriverConfig.AccessLogging</h2>
+<section>
+<p>Types of Access logs to export.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>No Logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-FULL">
+<td><code>FULL</code></td>
+<td>
+<p>All logs including both success and error logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-ERRORS_ONLY">
+<td><code>ERRORS_ONLY</code></td>
+<td>
+<p>All error logs. This is currently only available for outbound/client side
+logs. A request is classified as error when <code>status&gt;=400 or
+response_flag != &quot;-&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="ingressControllerMode">ingressControllerMode</h2>
 <section>
 <p>Mode for the ingress controller.</p>
@@ -4103,6 +4159,82 @@ No
 <td><code>OFF</code></td>
 <td>
 <p>No ingress or sync.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2StackDriverConfig-AccessLogging">TelemetryV2StackDriverConfig.AccessLogging</h2>
+<section>
+<p>Types of Access logs to export.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>No Logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-FULL">
+<td><code>FULL</code></td>
+<td>
+<p>All logs including both success and error logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-ERRORS_ONLY">
+<td><code>ERRORS_ONLY</code></td>
+<td>
+<p>All error logs. This is currently only available for outbound/client side
+logs. A request is classified as error when <code>status&gt;=400 or
+response_flag != &quot;-&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2StackDriverConfig-AccessLogging">TelemetryV2StackDriverConfig.AccessLogging</h2>
+<section>
+<p>Types of Access logs to export.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>No Logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-FULL">
+<td><code>FULL</code></td>
+<td>
+<p>All logs including both success and error logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-ERRORS_ONLY">
+<td><code>ERRORS_ONLY</code></td>
+<td>
+<p>All error logs. This is currently only available for outbound/client side
+logs. A request is classified as error when <code>status&gt;=400 or
+response_flag != &quot;-&quot;</code></p>
 
 </td>
 </tr>

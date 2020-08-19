@@ -27,11 +27,11 @@ import (
 
 func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.proxy, push, con.Routes())
+	defer func() { rdsPushTime.Record(time.Since(pushStart).Seconds()) }()
 
+	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.proxy, push, con.Routes())
 	response := routeDiscoveryResponse(rawRoutes, version, push.Version)
 	err := con.send(response)
-	rdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		recordSendError("RDS", con.ConID, rdsSendErrPushes, err)
 		return err

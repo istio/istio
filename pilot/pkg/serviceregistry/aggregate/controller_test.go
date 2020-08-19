@@ -337,12 +337,9 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances, err := aggregateCtl.InstancesByPort(mock.HelloService,
+	instances := aggregateCtl.InstancesByPort(mock.HelloService,
 		80,
 		labels.Collection{})
-	if err != nil {
-		t.Fatalf("Instances() encountered unexpected error: %v", err)
-	}
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -356,49 +353,9 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances, err = aggregateCtl.InstancesByPort(mock.WorldService,
+	instances = aggregateCtl.InstancesByPort(mock.WorldService,
 		80,
 		labels.Collection{})
-	if err != nil {
-		t.Fatalf("Instances() encountered unexpected error: %v", err)
-	}
-	if len(instances) != 2 {
-		t.Fatal("Returned wrong number of instances from controller")
-	}
-	for _, instance := range instances {
-		if instance.Service.Hostname != mock.WorldService.Hostname {
-			t.Fatal("Returned instance's hostname does not match desired value")
-		}
-		if _, ok := instance.Service.Ports.Get(mock.PortHTTPName); !ok {
-			t.Fatal("Returned instance does not contain desired port")
-		}
-	}
-}
-
-func TestInstancesError(t *testing.T) {
-	aggregateCtl := buildMockController()
-
-	discovery1.InstancesError = errors.New("mock Instances() error")
-
-	// Get Instances from client with error
-	instances, err := aggregateCtl.InstancesByPort(mock.HelloService,
-		80,
-		labels.Collection{})
-	if err == nil {
-		t.Fatal("Aggregate controller should return error if one discovery client experiences " +
-			"error and no instances are found")
-	}
-	if len(instances) != 0 {
-		t.Fatal("Returned wrong number of instances from controller")
-	}
-
-	// Get Instances from client without error
-	instances, err = aggregateCtl.InstancesByPort(mock.WorldService,
-		80,
-		labels.Collection{})
-	if err != nil {
-		t.Fatalf("Instances() should not return error is instances are found: %v", err)
-	}
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}

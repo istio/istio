@@ -155,7 +155,6 @@ type ServiceDiscovery struct {
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
 	GetServiceError               error
-	InstancesError                error
 	GetProxyServiceInstancesError error
 }
 
@@ -181,17 +180,13 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, erro
 }
 
 // InstancesByPort implements discovery interface
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
-	labels labels.Collection) ([]*model.ServiceInstance, error) {
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int, labels labels.Collection) []*model.ServiceInstance {
 	if _, ok := sd.services[svc.Hostname]; !ok {
-		return nil, sd.InstancesError
+		return nil
 	}
 	out := make([]*model.ServiceInstance, 0)
 	if svc.External() {
-		return out, sd.InstancesError
+		return out
 	}
 	if port, ok := svc.Ports.GetByPort(num); ok {
 		for v := 0; v < sd.versions; v++ {
@@ -200,7 +195,7 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
 			}
 		}
 	}
-	return out, sd.InstancesError
+	return out
 }
 
 // GetProxyServiceInstances implements discovery interface

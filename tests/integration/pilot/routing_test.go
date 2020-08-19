@@ -28,8 +28,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-type EchoCall func() (echoclient.ParsedResponses, error)
-
 type TrafficTestCase struct {
 	name   string
 	config string
@@ -40,11 +38,15 @@ type TrafficTestCase struct {
 	// Single call
 	call      func() (echoclient.ParsedResponses, error)
 	validator func(echoclient.ParsedResponses) error
+
+	// if enabled, we will assert the request fails, rather than the request succeeds
+	expectFailure bool
 }
 
 type TrafficCall struct {
-	call      func() (echoclient.ParsedResponses, error)
-	validator func(echoclient.ParsedResponses) error
+	call          func() (echoclient.ParsedResponses, error)
+	validator     func(echoclient.ParsedResponses) error
+	expectFailure bool
 }
 
 func virtualServiceCases() []TrafficTestCase {
@@ -403,6 +405,92 @@ func vmTestCases(vm echo.Instance) []TrafficTestCase {
 	return cases
 }
 
+func destinationRule(app, mode string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: %s
+---
+`, app, app, mode)
+}
+
+func peerAuthentication(app, mode string) string {
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: %s
+spec:
+  selector:
+    matchLabels:
+      app: %s
+  mtls:
+    mode: %s
+---
+`, app, app, mode)
+}
+
+func serverFirstTestCases() []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	client := apps.podA
+	destination := apps.podC
+	configs := []struct {
+		port    string
+		dest    string
+		auth    string
+		success bool
+	}{
+		// TODO: All these cases *should* succeed (except the TLS mismatch cases) - but don't due to issues in our implementation
+
+		// For auto port, outbound request will be delayed by the protocol sniffer, regardless of configuration
+		{"auto-tcp-server", "DISABLE", "DISABLE", false},
+		{"auto-tcp-server", "DISABLE", "PERMISSIVE", false},
+		{"auto-tcp-server", "DISABLE", "STRICT", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "DISABLE", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "STRICT", false},
+
+		// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
+		// there is no server-first "upgrading" to client-first
+		{"tcp-server", "DISABLE", "DISABLE", false},
+		{"tcp-server", "DISABLE", "PERMISSIVE", false},
+
+		// Expected to fail, incompatible configuration
+		{"tcp-server", "DISABLE", "STRICT", false},
+		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", false},
+
+		// In these cases, we expect success
+		// On outbound, we have no sniffer involved
+		// On inbound, the request is TLS, so its not server first
+		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", true},
+		{"tcp-server", "ISTIO_MUTUAL", "STRICT", true},
+	}
+	for _, c := range configs {
+		cases = append(cases, TrafficTestCase{
+			name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
+			config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
+			call: func() (echoclient.ParsedResponses, error) {
+				return client.Call(echo.CallOptions{
+					Target:   destination,
+					PortName: c.port,
+					Scheme:   scheme.TCP,
+					// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
+					Timeout: time.Millisecond * 100,
+				})
+			},
+			validator: func(responses echoclient.ParsedResponses) error {
+				return responses.CheckOK()
+			},
+			expectFailure: !c.success,
+		})
+	}
+	return cases
+}
+
 func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
@@ -412,6 +500,7 @@ func TestTraffic(t *testing.T) {
 			cases := map[string][]TrafficTestCase{}
 			cases["virtualservice"] = virtualServiceCases()
 			cases["sniffing"] = protocolSniffingCases()
+			cases["serverfirst"] = serverFirstTestCases()
 			cases["vm"] = vmTestCases(apps.vmA)
 			for n, tts := range cases {
 				ctx.NewSubTest(n).Run(func(ctx framework.TestContext) {
@@ -435,22 +524,32 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
 			if tt.calls != nil {
 				ctx.Fatalf("defined calls and calls; may only define on or the other")
 			}
-			tt.calls = []TrafficCall{{tt.call, tt.validator}}
+			tt.calls = []TrafficCall{{tt.call, tt.validator, tt.expectFailure}}
 		}
 		for i, c := range tt.calls {
 			name := fmt.Sprintf("%s/%d", tt.name, i)
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := c.call()
-				if err != nil {
+				if !c.expectFailure && err != nil {
 					ctx.Logf("call for %v failed, retrying: %v", name, err)
 					return err
+				} else if c.expectFailure && err == nil {
+					e := fmt.Errorf("call for %v did not fail, retrying", name)
+					ctx.Log(e)
+					return e
 				}
-				if err := c.validator(r); err != nil {
+
+				err = c.validator(r)
+				if !c.expectFailure && err != nil {
 					ctx.Logf("validation for call for %v failed, retrying: %v", name, err)
 					return err
+				} else if c.expectFailure && err == nil {
+					e := fmt.Errorf("validation for %v did not fail, retrying", name)
+					ctx.Log(e)
+					return e
 				}
 				return nil
-			}, retry.Delay(time.Millisecond*100))
+			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10), retry.Converge(3))
 		}
 	})
 }
