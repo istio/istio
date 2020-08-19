@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
 	gcapb "istio.io/istio/security/proto/providers/google"
 	"istio.io/pkg/env"
@@ -37,7 +38,7 @@ const bearerTokenPrefix = "Bearer "
 
 var (
 	googleCAClientLog = log.RegisterScope("googleca", "Google CA client debugging", 0)
-	gkeClusterURL     = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
+	envGkeClusterURL  = env.RegisterStringVar("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 )
 
 type googleCAClient struct {
@@ -95,6 +96,10 @@ func (cl *googleCAClient) CSRSign(ctx context.Context, reqID string, csrPEM []by
 	out = out.Copy()
 	out["authorization"] = []string{token}
 
+	gkeClusterURL := envGkeClusterURL
+	if envGkeClusterURL == "" && platform.IsGCP() {
+		gkeClusterURL = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+	}
 	zone := parseZone(gkeClusterURL)
 	if zone != "" {
 		out["x-goog-request-params"] = []string{fmt.Sprintf("location=locations/%s", zone)}
