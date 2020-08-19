@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mtlscertplugincasecurenaming
+// cacustomroot creates cluster with custom plugin root CA (samples/cert/ca-cert.pem)
+// instead of using the auto-generated self-signed root CA.
+package cacustomroot
 
 import (
 	"testing"
@@ -21,35 +23,33 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/pilot"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
 	inst istio.Instance
-	p    pilot.Instance
 )
 
 func TestMain(m *testing.M) {
-	// This test verifies:
-	// - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
-	// - The plugin CA certs are correctly used in workload mTLS.
-	// - The CA certificate in the configmap of each namespace is as expected, which
-	//   is used for data plane to control plane TLS authentication.
-	// - Secure naming information is respected in the mTLS handshake.
 	framework.
 		NewSuite(m).
-		// k8s is required because the plugin CA key and certificate are stored in a k8s secret.
-
 		RequireSingleCluster().
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&inst, nil, cert.CreateCASecret)).
-		Setup(func(ctx resource.Context) (err error) {
-			if p, err = pilot.New(ctx, pilot.Config{}); err != nil {
-				return err
-			}
-			return nil
-		}).
+		Setup(istio.Setup(&inst, setupConfig, cert.CreateCASecret)).
 		Run()
+}
+
+func setupConfig(cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
+components:
+  ingressGateways:
+  - name: istio-ingressgateway
+    enabled: false
+values:
+  meshConfig:
+    trustDomainAliases: [some-other, trust-domain-foo]
+`
 }

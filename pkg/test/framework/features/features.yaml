@@ -58,6 +58,7 @@ features:
   security:
     peer:
       secure-naming:
+      trust-domain-validation:
     user:
     ingress:
       mtls:

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/env"
@@ -102,9 +103,14 @@ func CreateCASecret(ctx resource.Context) error {
 		},
 	}
 
-	_, err = cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{})
-	if err != nil {
-		return err
+	if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		if errors.IsAlreadyExists(err) {
+			if _, err := cluster.CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
 	// If there is a configmap storing the CA cert from a previous
