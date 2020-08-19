@@ -343,8 +343,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					{
 						Name: "file-cert:serverCertChain~serverKey",
 						SdsConfig: &core.ConfigSource{
-							InitialFetchTimeout: features.InitialFetchTimeout,
-							ResourceApiVersion:  core.ApiVersion_V3,
 							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 								ApiConfigSource: &core.ApiConfigSource{
 									ApiType:             core.ApiConfigSource_GRPC,
@@ -358,6 +356,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 									},
 								},
 							},
+							ResourceApiVersion: core.ApiVersion_V3,
 						},
 					},
 				},
@@ -367,8 +366,6 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 							Name: "file-root:servrRootCert",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
-								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
 										ApiType:             core.ApiConfigSource_GRPC,
@@ -382,6 +379,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 										},
 									},
 								},
+								ResourceApiVersion: core.ApiVersion_V3,
 							},
 						},
 					},
@@ -395,25 +393,49 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				Metadata: &model.NodeMetadata{},
 			},
 			expected: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/cert-chain.pem",
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:             core.ApiConfigSource_GRPC,
+									TransportApiVersion: core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
 							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/key.pem",
-							},
+							ResourceApiVersion:  core.ApiVersion_V3,
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 						},
 					},
 				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/root-cert.pem",
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion:  core.ApiVersion_V3,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 							},
 						},
 					},
@@ -421,7 +443,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata and SDS disabled",
+			name:       "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
 			sdsUdsPath: "/tmp/sdsuds.sock",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
@@ -431,25 +453,47 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 			},
 			expected: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom/path/to/cert-chain.pem",
+						Name: "file-cert:/custom/path/to/cert-chain.pem~/custom-key.pem",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:             core.ApiConfigSource_GRPC,
+									TransportApiVersion: core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
 							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom-key.pem",
-							},
+							ResourceApiVersion: core.ApiVersion_V3,
 						},
 					},
 				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/custom/path/to/root.pem",
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "file-root:/custom/path/to/root.pem",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:             core.ApiConfigSource_GRPC,
+										TransportApiVersion: core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
 							},
 						},
 					},
