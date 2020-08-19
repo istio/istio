@@ -45,6 +45,23 @@ func (c Clusters) GetOrDefault(cluster Cluster) Cluster {
 	return c.Default()
 }
 
+// Names returns the deduped list of names of the clusters.
+func (c Clusters) Names() []string {
+	dedup := map[string]struct{}{}
+	for _, cc := range c {
+		dedup[cc.Name()] = struct{}{}
+	}
+	var names []string
+	for n := range dedup {
+		names = append(names, n)
+	}
+	return names
+}
+
+func (c Clusters) String() string {
+	return fmt.Sprintf("%v", c.Names())
+}
+
 // Cluster in a multicluster environment.
 type Cluster interface {
 	fmt.Stringer
