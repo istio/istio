@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/dynamic/fake"
 
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/url"
 )
 
 type testcase struct {
@@ -142,7 +143,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
-				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + RequirementsURL + "\n",
+				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + url.DeploymentRequirements + "\n",
 			namespace: "default",
 		},
 		{
@@ -153,7 +154,7 @@ func TestAddToMesh(t *testing.T) {
 			expectedException: false,
 			k8sConfigs:        cannedK8sConfigs,
 			expectedOutput: "deployment details-v1.default updated successfully with Istio sidecar injected.\n" +
-				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + RequirementsURL + "\n",
+				"Next Step: Add related labels to the deployment to align with Istio's requirement: " + url.DeploymentRequirements + "\n",
 			namespace: "default",
 		},
 		{
