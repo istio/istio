@@ -377,6 +377,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 					{"grpc", scheme.GRPC},
 					{"auto-grpc", scheme.GRPC},
 				} {
+					call := call
 					cases = append(cases, TrafficTestCase{
 						name: fmt.Sprintf("%v %v %v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
 						call: func() (echoclient.ParsedResponses, error) {
