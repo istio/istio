@@ -40,7 +40,6 @@ func setupConfig(cfg *istio.Config) {
 	}
 	rootNamespace = cfg.SystemNamespace
 
-	cfg.ExposeIstiod = true
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:

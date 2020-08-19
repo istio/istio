@@ -124,21 +124,11 @@ func TestServices(t *testing.T) {
 			}
 
 			test.Eventually(t, "successfully created endpoints", func() bool {
-				ep, anotherErr := sds.InstancesByPort(svc, 80, nil)
-				if anotherErr != nil {
-					t.Fatalf("error gettings instance by port: %v", anotherErr)
-					return false
-				}
-				if len(ep) == 2 {
-					return true
-				}
-				return false
+				ep := sds.InstancesByPort(svc, 80, nil)
+				return len(ep) == 2
 			})
 
-			ep, err := sds.InstancesByPort(svc, 80, nil)
-			if err != nil {
-				t.Fatalf("GetInstancesByPort() encountered unexpected error: %v", err)
-			}
+			ep := sds.InstancesByPort(svc, 80, nil)
 			if len(ep) != 2 {
 				t.Fatalf("Invalid response for GetInstancesByPort %v", ep)
 			}
@@ -928,7 +918,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 			if err != nil || len(converted) != 1 {
 				t.Fatalf("failed to get services (%v): %v", converted, err)
 			}
-			instances, err := controller.InstancesByPort(converted[0], 1, labels.Collection{})
+			instances := controller.InstancesByPort(converted[0], 1, labels.Collection{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1037,10 +1027,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				if svcList[i].Resolution != exp.Resolution {
 					t.Fatalf("i=%v, Resolution=='%v', should be '%v'", i, svcList[i].Resolution, exp.Resolution)
 				}
-				instances, err := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, labels.Collection{})
-				if err != nil {
-					t.Fatalf("error getting instances by port: %s", err)
-				}
+				instances := controller.InstancesByPort(svcList[i], svcList[i].Ports[0].Port, labels.Collection{})
 				if len(instances) != 1 {
 					t.Fatalf("should be exactly 1 instance: len(instances) = %v", len(instances))
 				}
@@ -1060,10 +1047,7 @@ func TestController_ExternalNameService(t *testing.T) {
 				t.Fatalf("Should have 0 services at this point")
 			}
 			for _, exp := range expectedSvcList {
-				instances, err := controller.InstancesByPort(exp, exp.Ports[0].Port, labels.Collection{})
-				if err != nil {
-					t.Fatalf("error getting instances by port: %s", err)
-				}
+				instances := controller.InstancesByPort(exp, exp.Ports[0].Port, labels.Collection{})
 				if len(instances) != 0 {
 					t.Fatalf("should be exactly 0 instance: len(instances) = %v", len(instances))
 				}
@@ -1702,7 +1686,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	if err != nil || len(converted) != 1 {
 		t.Fatalf("failed to get services (%v): %v", converted, err)
 	}
-	instances, err := controller.InstancesByPort(converted[0], 8080, labels.Collection{{
+	instances := controller.InstancesByPort(converted[0], 8080, labels.Collection{{
 		"app": "prod-app",
 	}})
 	if err != nil {

@@ -306,6 +306,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 	adscConn, err := adsc.Dial("buffcon", "", &adsc.Config{
 		IP:        p.IPAddresses[0],
 		Meta:      p.Metadata.ToStruct(),
+		Locality:  p.Locality,
 		Namespace: p.ConfigNamespace,
 		Watch:     watch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {

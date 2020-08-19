@@ -19,14 +19,17 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/golang/protobuf/proto"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -965,4 +968,98 @@ func unmarshallRoute(value []byte) (*route.RouteConfiguration, error) {
 		return nil, err
 	}
 	return route, nil
+}
+
+func TestXdsCache(t *testing.T) {
+	makeEndpoint := func(addr []*networking.WorkloadEntry) model.Config {
+		return model.Config{
+			ConfigMeta: model.ConfigMeta{
+				Name:             "service",
+				Namespace:        "default",
+				GroupVersionKind: gvk.ServiceEntry,
+			},
+			Spec: &networking.ServiceEntry{
+				Hosts: []string{"foo.com"},
+				Ports: []*networking.Port{{
+					Number:   80,
+					Protocol: "HTTP",
+					Name:     "http",
+				}},
+				Resolution: networking.ServiceEntry_STATIC,
+				Endpoints:  addr,
+			},
+		}
+	}
+	assertEndpoints := func(a *adsc.ADSC, addr ...string) {
+		t.Helper()
+		got := sets.NewSet(xdstest.ExtractEndpoints(a.GetEndpoints()["outbound|80||foo.com"])...)
+		want := sets.NewSet(addr...)
+
+		if !got.Equals(want) {
+			t.Fatalf("invalid endpoints, got %v want %v", got, addr)
+		}
+	}
+
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Configs: []model.Config{makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.4", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})},
+	})
+	ads := s.Connect(&model.Proxy{Locality: &core.Locality{Region: "region"}}, nil, watchAll)
+
+	assertEndpoints(ads, "1.2.3.4", "1.2.3.5")
+	t.Logf("endpoints: %+v", ads.GetEndpoints())
+
+	if _, err := s.Store.Update(makeEndpoint([]*networking.WorkloadEntry{
+		{Address: "1.2.3.6", Locality: "region/zone"},
+		{Address: "1.2.3.5", Locality: "notmatch"},
+	})); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ads.Wait(time.Second*5, v3.EndpointType); err != nil {
+		t.Fatal(err)
+	}
+	assertEndpoints(ads, "1.2.3.6", "1.2.3.5")
+	t.Logf("endpoints: %+v", ads.GetEndpoints())
+
+	ads.WaitClear()
+	if _, err := s.Store.Create(model.Config{
+		ConfigMeta: model.ConfigMeta{
+			Name:             "service",
+			Namespace:        "default",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		Spec: &networking.DestinationRule{
+			Host: "foo.com",
+			TrafficPolicy: &networking.TrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{},
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ads.Wait(time.Second*5, v3.EndpointType); err != nil {
+		t.Fatal(err)
+	}
+	assertEndpoints(ads, "1.2.3.6", "1.2.3.5")
+	found := false
+	for _, ep := range ads.GetEndpoints()["outbound|80||foo.com"].Endpoints {
+		if ep.Priority == 1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("locality did not update")
+	}
+	t.Logf("endpoints: %+v", ads.GetEndpoints())
+	ads.WaitClear()
+
+	ep := makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.6", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})
+	ep.Spec.(*networking.ServiceEntry).Resolution = networking.ServiceEntry_DNS
+	if _, err := s.Store.Update(ep); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ads.Wait(time.Second*5, v3.EndpointType); err != nil {
+		t.Fatal(err)
+	}
+	assertEndpoints(ads)
+	t.Logf("endpoints: %+v", ads.GetEndpoints())
 }

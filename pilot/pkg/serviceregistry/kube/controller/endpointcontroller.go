@@ -36,8 +36,7 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	getInformer() cache.SharedIndexInformer
 	onEvent(curr interface{}, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
-		labelsList labels.Collection) ([]*model.ServiceInstance, error)
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint

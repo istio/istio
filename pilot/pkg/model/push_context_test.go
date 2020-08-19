@@ -973,7 +973,7 @@ func (l *localServiceDiscovery) GetService(hostname host.Name) (*Service, error)
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(svc *Service, servicePort int, labels labels.Collection) ([]*ServiceInstance, error) {
+func (l *localServiceDiscovery) InstancesByPort(svc *Service, servicePort int, labels labels.Collection) []*ServiceInstance {
 	panic("implement me")
 }
 
