@@ -105,6 +105,8 @@ func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetc
 	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
+		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
+		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
 			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
 	}
