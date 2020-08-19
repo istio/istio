@@ -102,7 +102,7 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 
 func (m *monitor) Close() error {
 	if m.monitoringServer == nil {
-		<- m.shutdown
+		<-m.shutdown
 		return nil
 	}
 	err := m.monitoringServer.Close()

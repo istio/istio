@@ -523,21 +523,20 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 			log.Warnf("Failed to listen on gRPC port %v", err)
 		}
 		s.GRPCListener = grpcListener
-	} else {
+	} else if s.GRPCListener == nil {
 		// This happens only if the GRPC port (15010) is disabled. We will multiplex
 		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-		if s.GRPCListener == nil {
-			log.Infoa("multplexing gRPC on http port ", s.HTTPListener.Addr())
-			m := cmux.New(s.HTTPListener)
-			s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
-			s.HTTPListener = m.Match(cmux.Any())
-			go func() {
-				err := m.Serve()
-				if err != nil {
-					log.Warnf("Failed to listen on multiplexed port %v", err)
-				}
-			}()
-		}
+		log.Infoa("multplexing gRPC on http port ", s.HTTPListener.Addr())
+		m := cmux.New(s.HTTPListener)
+		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTPListener = m.Match(cmux.Any())
+		go func() {
+			err := m.Serve()
+			if err != nil {
+				log.Warnf("Failed to listen on multiplexed port %v", err)
+			}
+		}()
+
 	}
 }
 
