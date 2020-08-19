@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"istio.io/istio/pkg/bootstrap/platform"
 
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
 	gcapb "istio.io/istio/security/proto/providers/google"
 	"istio.io/pkg/env"

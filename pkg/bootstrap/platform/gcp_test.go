@@ -260,7 +260,8 @@ func TestMetadataCache(t *testing.T) {
 			func() (string, error) { return "createdBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
-				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
+				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
+				GCPClusterURL: "https://container.googleapis.com/v1/projects/pid/locations/location/clusters/cluster"},
 		}, {
 			"should  ignore",
 			func() bool { return true },
@@ -274,7 +275,8 @@ func TestMetadataCache(t *testing.T) {
 			func() (string, error) { return "newCreatedBy", nil },
 			map[string]string{},
 			map[string]string{GCPProject: "pid", GCPProjectNumber: "npid", GCPLocation: "location", GCPCluster: "cluster", GCEInstance: "instanceName",
-				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy"},
+				GCEInstanceID: "instance", GCEInstanceTemplate: "instanceTemplate", GCEInstanceCreatedBy: "createdBy",
+				GCPClusterURL: "https://container.googleapis.com/v1/projects/pid/locations/location/clusters/cluster"},
 		},
 	}
 	gcpEnv := NewGCP()
