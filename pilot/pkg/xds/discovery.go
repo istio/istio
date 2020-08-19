@@ -414,7 +414,11 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			semaphore <- struct{}{}
 
 			// Get the next proxy to push. This will block if there are no updates required.
-			client, push := queue.Dequeue()
+			client, push, shuttingdown := queue.Dequeue()
+
+			if shuttingdown {
+				return
+			}
 			recordPushTriggers(push.Reason...)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
