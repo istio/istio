@@ -65,6 +65,10 @@ func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, names
 func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 	var filters []*httppb.HttpFilter
 
+	if auditConfig := build(b.auditPolicies, b.trustDomainBundle,
+		rbacpb.RBAC_LOG, false /* forTCP */, b.isIstioVersionGE15); auditConfig != nil {
+		filters = append(filters, createHTTPFilter(auditConfig))
+	}
 	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
 		rbacpb.RBAC_DENY, false /* forTCP */, b.isIstioVersionGE15); denyConfig != nil {
 		filters = append(filters, createHTTPFilter(denyConfig))
@@ -72,10 +76,6 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
 		rbacpb.RBAC_ALLOW, false /* forTCP */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createHTTPFilter(allowConfig))
-	}
-	if auditConfig := build(b.auditPolicies, b.trustDomainBundle,
-		rbacpb.RBAC_LOG, false /* forTCP */, b.isIstioVersionGE15); auditConfig != nil {
-		filters = append(filters, createHTTPFilter(auditConfig))
 	}
 
 	return filters
@@ -85,6 +85,10 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 func (b Builder) BuildTCP() []*tcppb.Filter {
 	var filters []*tcppb.Filter
 
+	if auditConfig := build(b.auditPolicies, b.trustDomainBundle,
+		rbacpb.RBAC_LOG, true /* forTCP */, b.isIstioVersionGE15); auditConfig != nil {
+		filters = append(filters, createTCPFilter(auditConfig))
+	}
 	if denyConfig := build(b.denyPolicies, b.trustDomainBundle,
 		rbacpb.RBAC_DENY, true /* forTCP */, b.isIstioVersionGE15); denyConfig != nil {
 		filters = append(filters, createTCPFilter(denyConfig))
@@ -92,10 +96,6 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 	if allowConfig := build(b.allowPolicies, b.trustDomainBundle,
 		rbacpb.RBAC_ALLOW, true /* forTCP */, b.isIstioVersionGE15); allowConfig != nil {
 		filters = append(filters, createTCPFilter(allowConfig))
-	}
-	if auditConfig := build(b.auditPolicies, b.trustDomainBundle,
-		rbacpb.RBAC_LOG, true /* forTCP */, b.isIstioVersionGE15); auditConfig != nil {
-		filters = append(filters, createTCPFilter(auditConfig))
 	}
 
 	return filters
