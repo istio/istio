@@ -30,8 +30,6 @@ const (
 	statLdsSuccess     = "listener_manager.lds.update_success"
 	statServerState    = "server.state"
 	statWorkersStarted = "listener_manager.workers_started"
-	readyStatsRegex    = "^(server.state|listener_manager.workers_started)"
-	updateStatsRegex   = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$"
 )
 
 type stat struct {
@@ -68,7 +66,7 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 		localHostAddr = "localhost"
 	}
 
-	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex))
+	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly", localHostAddr, adminPort))
 	if err != nil {
 		return nil, false, err
 	}
@@ -99,7 +97,7 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 		localHostAddr = "localhost"
 	}
 
-	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, updateStatsRegex))
+	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly", localHostAddr, adminPort))
 	if err != nil {
 		return nil, err
 	}
@@ -122,9 +120,22 @@ func parseStats(input *bytes.Buffer, stats []*stat) (err error) {
 	for input.Len() > 0 {
 		line, _ := input.ReadString('\n')
 		for _, stat := range stats {
+			if stat.found {
+				continue
+			}
 			if e := stat.processLine(line); e != nil {
 				err = multierror.Append(err, e)
 			}
+		}
+		allFound := true
+		for _, stat := range stats {
+			if !stat.found {
+				allFound = false
+				break
+			}
+		}
+		if allFound {
+			break
 		}
 	}
 	for _, stat := range stats {
