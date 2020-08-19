@@ -572,11 +572,11 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 
 		// TODO: REMOVE THE SIDE-EFFECTS AND CLEANUP
 		// The rotate() code has the side-effect of calling CredFetcher - which in turn has the side-effect of creating
-		// a file with the token, used by Envoy for VMs that use GCP metadata server. So we must continue to call
+		// a file with the token, used by Envoy for VMs. So we must continue to call
 		// CredFetcher in this loop, and we can't change the code to run rotate() only when we know the token is about
 		// to expire (which is easy to determine from the token content or the request).
-		// This must be called even if certs are used for refresh/provisioning - or even if auth/mtls is disabled for this
-		// workload, since the side-effect JWT is used in unrelated stackdriver communication. Do not remove until that
+		// This must be called even if certs are used for refresh/provisioning - or even if mtls is disabled for this
+		// workload, since the side-effect JWT is used in unrelated STS flow used by Envoy. Do not remove until that
 		// code is fixed.
 		if sc.configOptions.CredFetcher != nil {
 			// Refresh token through credential fetcher.
