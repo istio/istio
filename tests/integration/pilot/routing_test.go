@@ -283,7 +283,7 @@ spec:
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
-				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster),
+				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.Name()),
 				config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -321,12 +321,12 @@ spec:
 						}
 						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
 						destinations := apps.all.Match(echo.Service(host))
-						if host == nakedSvc {
-							// we'll only hit the clusters in the same network for a non-sidecar service
-							destinations = apps.all.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
+						if ctx.Environment().IsMultinetwork() && host == nakedSvc {
+							// TODO(#26517) remove this or change it to match same-network
+							destinations = echo.Instances{}
 						}
 						if err := responses.CheckReachedClusters(destinations.Clusters()); err != nil {
-							return err
+							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
 						}
 						// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
 					}
