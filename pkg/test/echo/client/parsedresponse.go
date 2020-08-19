@@ -16,7 +16,6 @@ package client
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/framework/resource"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
