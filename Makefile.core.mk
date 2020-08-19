@@ -432,7 +432,7 @@ BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
 racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
-	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -vet=off -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
