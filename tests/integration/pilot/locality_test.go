@@ -23,7 +23,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Masterminds/sprig"
+	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
