@@ -27,7 +27,7 @@ import (
 
 func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	defer ldsPushTime.Record(time.Since(pushStart).Seconds())
+	defer func() { ldsPushTime.Record(time.Since(pushStart).Seconds()) }()
 
 	rawListeners := s.ConfigGenerator.BuildListeners(con.proxy, push)
 	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
