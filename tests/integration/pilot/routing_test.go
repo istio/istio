@@ -313,19 +313,19 @@ spec:
 					}
 					errorThreshold := 10
 					for host, exp := range split {
-						hits := responses.Hits(func(r *echoclient.ParsedResponse) bool {
+						hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
 							return strings.HasPrefix(r.Hostname, host+"-")
 						})
-						if !almostEquals(hits, exp, errorThreshold) {
-							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hits)
+						if !almostEquals(len(hostResponses), exp, errorThreshold) {
+							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hostResponses)
 						}
 						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
-						destinations := apps.all.Match(echo.Service(host))
+						hostDestinations := apps.all.Match(echo.Service(host))
 						if ctx.Environment().IsMultinetwork() && host == nakedSvc {
 							// TODO(#26517) remove this or change it to match same-network
-							destinations = echo.Instances{}
+							hostDestinations = echo.Instances{}
 						}
-						if err := responses.CheckReachedClusters(destinations.Clusters()); err != nil {
+						if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
 							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
 						}
 						// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed

@@ -247,15 +247,15 @@ func (r ParsedResponses) Count(text string) int {
 	return count
 }
 
-// Hits returns the number of responess passing the given checker function.
-func (r ParsedResponses) Hits(f func(r *ParsedResponse) bool) int {
-	count := 0
-	for _, c := range r {
-		if f(c) {
-			count++
+// Match returns a subset of ParsedResponses that match the given predicate.
+func (r ParsedResponses) Match(f func(r *ParsedResponse) bool) ParsedResponses {
+	var matched []*ParsedResponse
+	for _, rr := range r {
+		if f(rr) {
+			matched = append(matched, rr)
 		}
 	}
-	return count
+	return matched
 }
 
 func (r ParsedResponses) String() string {
