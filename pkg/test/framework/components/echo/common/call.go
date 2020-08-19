@@ -81,6 +81,8 @@ func CallEcho(c *client.Instance, opts *echo.CallOptions, outboundPortSelector O
 		Http2:         opts.HTTP2,
 		Method:        opts.Method,
 		ServerFirst:   opts.Port.ServerFirst,
+		Cert:          opts.Cert,
+		Key:           opts.Key,
 	}
 
 	resp, err := c.ForwardEcho(context.Background(), req)
