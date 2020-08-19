@@ -16,7 +16,9 @@ package inject
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -25,30 +27,33 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 )
 
 var (
 	nullWarningHandler = func(_ string) {}
 )
 
-func TestIntoResourceFile(t *testing.T) {
-	cases := []struct {
-		in         string
-		want       string
-		setFlags   []string
-		inFilePath string
-		mesh       func(m *meshapi.MeshConfig)
-	}{
-		// "testdata/hello.yaml" is tested in http_test.go (with debug)
-		{
-			in:   "hello.yaml",
-			want: "hello.yaml.injected",
-		},
+// TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
+// test files and running through the two different code paths.
+func TestInjection(t *testing.T) {
+	type testCase struct {
+		in            string
+		want          string
+		setFlags      []string
+		inFilePath    string
+		mesh          func(m *meshapi.MeshConfig)
+		skipWebhook   bool
+		expectedError string
+	}
+	cases := []testCase{
 		// verify cni
 		{
 			in:   "hello.yaml",
@@ -59,39 +64,11 @@ func TestIntoResourceFile(t *testing.T) {
 			},
 		},
 		{
-			in:   "hello-mtls-not-ready.yaml",
-			want: "hello-mtls-not-ready.yaml.injected",
-		},
-		{
-			in:   "hello-namespace.yaml",
-			want: "hello-namespace.yaml.injected",
-		},
-		{
-			in:   "hello-proxy-override.yaml",
-			want: "hello-proxy-override.yaml.injected",
-		},
-		{
 			in:   "hello.yaml",
 			want: "hello-tproxy.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
 				m.DefaultConfig.InterceptionMode = meshapi.ProxyConfig_TPROXY
 			},
-		},
-		{
-			in:   "hello.yaml",
-			want: "hello-config-map-name.yaml.injected",
-		},
-		{
-			in:   "frontend.yaml",
-			want: "frontend.yaml.injected",
-		},
-		{
-			in:   "hello-service.yaml",
-			want: "hello-service.yaml.injected",
-		},
-		{
-			in:   "hello-multi.yaml",
-			want: "hello-multi.yaml.injected",
 		},
 		{
 			in:       "hello.yaml",
@@ -104,81 +81,9 @@ func TestIntoResourceFile(t *testing.T) {
 			setFlags: []string{"values.global.imagePullPolicy=Never"},
 		},
 		{
-			in:   "hello-ignore.yaml",
-			want: "hello-ignore.yaml.injected",
-		},
-		{
-			in:   "multi-init.yaml",
-			want: "multi-init.yaml.injected",
-		},
-		{
-			in:   "statefulset.yaml",
-			want: "statefulset.yaml.injected",
-		},
-		{
 			in:       "enable-core-dump.yaml",
 			want:     "enable-core-dump.yaml.injected",
 			setFlags: []string{"values.global.proxy.enableCoreDump=true"},
-		},
-		{
-			in:   "enable-core-dump-annotation.yaml",
-			want: "enable-core-dump-annotation.yaml.injected",
-		},
-		{
-			in:   "auth.yaml",
-			want: "auth.yaml.injected",
-		},
-		{
-			in:   "auth.non-default-service-account.yaml",
-			want: "auth.non-default-service-account.yaml.injected",
-		},
-		{
-			in:   "auth.yaml",
-			want: "auth.cert-dir.yaml.injected",
-		},
-		{
-			in:   "daemonset.yaml",
-			want: "daemonset.yaml.injected",
-		},
-		{
-			in:   "job.yaml",
-			want: "job.yaml.injected",
-		},
-		{
-			in:   "replicaset.yaml",
-			want: "replicaset.yaml.injected",
-		},
-		{
-			in:   "replicationcontroller.yaml",
-			want: "replicationcontroller.yaml.injected",
-		},
-		{
-			in:   "cronjob.yaml",
-			want: "cronjob.yaml.injected",
-		},
-		{
-			in:   "pod.yaml",
-			want: "pod.yaml.injected",
-		},
-		{
-			in:   "hello-host-network.yaml",
-			want: "hello-host-network.yaml.injected",
-		},
-		{
-			in:   "list.yaml",
-			want: "list.yaml.injected",
-		},
-		{
-			in:   "list-frontend.yaml",
-			want: "list-frontend.yaml.injected",
-		},
-		{
-			in:   "deploymentconfig.yaml",
-			want: "deploymentconfig.yaml.injected",
-		},
-		{
-			in:   "deploymentconfig-multi.yaml",
-			want: "deploymentconfig-multi.yaml.injected",
 		},
 		{
 			in:   "format-duration.yaml",
@@ -200,32 +105,6 @@ func TestIntoResourceFile(t *testing.T) {
 			},
 		},
 		{
-			// Verifies that empty include lists are applied properly from parameters.
-			in:   "traffic-params-empty-includes.yaml",
-			want: "traffic-params-empty-includes.yaml.injected",
-		},
-		{
-			// Verifies that annotation values are applied properly. This also tests that annotation values
-			// override params when specified.
-			in:   "traffic-annotations.yaml",
-			want: "traffic-annotations.yaml.injected",
-		},
-		{
-			// Verifies that the wildcard character "*" behaves properly when used in annotations.
-			in:   "traffic-annotations-wildcards.yaml",
-			want: "traffic-annotations-wildcards.yaml.injected",
-		},
-		{
-			// Verifies that the wildcard character "*" behaves properly when used in annotations.
-			in:   "traffic-annotations-empty-includes.yaml",
-			want: "traffic-annotations-empty-includes.yaml.injected",
-		},
-		{
-			// Verifies that pods can have multiple containers
-			in:   "multi-container.yaml",
-			want: "multi-container.yaml.injected",
-		},
-		{
 			// Verifies that the status params behave properly.
 			in:   "status_params.yaml",
 			want: "status_params.yaml.injected",
@@ -235,16 +114,6 @@ func TestIntoResourceFile(t *testing.T) {
 				`values.global.proxy.readinessPeriodSeconds=200`,
 				`values.global.proxy.readinessFailureThreshold=300`,
 			},
-		},
-		{
-			// Verifies that the status annotations override the params.
-			in:   "status_annotations.yaml",
-			want: "status_annotations.yaml.injected",
-		},
-		{
-			// Verifies that the status annotations override the params.
-			in:   "status_annotations_zeroport.yaml",
-			want: "status_annotations_zeroport.yaml.injected",
 		},
 		{
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
@@ -258,27 +127,22 @@ func TestIntoResourceFile(t *testing.T) {
 			},
 		},
 		{
-			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
-			in:   "kubevirtInterfaces_list.yaml",
-			want: "kubevirtInterfaces_list.yaml.injected",
-		},
-		{
 			// Verifies that global.imagePullSecrets are applied properly
 			in:         "hello.yaml",
 			want:       "hello-image-secrets-in-values.yaml.injected",
-			inFilePath: "hello-image-secrets-in-values-iop.yaml",
+			inFilePath: "hello-image-secrets-in-values.iop.yaml",
 		},
 		{
 			// Verifies that global.imagePullSecrets are appended properly
 			in:         "hello-image-pull-secret.yaml",
 			want:       "hello-multiple-image-secrets.yaml.injected",
-			inFilePath: "hello-image-secrets-in-values-iop.yaml",
+			inFilePath: "hello-image-secrets-in-values.iop.yaml",
 		},
 		{
 			// Verifies that global.podDNSSearchNamespaces are applied properly
 			in:         "hello.yaml",
 			want:       "hello-template-in-values.yaml.injected",
-			inFilePath: "hello-template-in-values-iop.yaml",
+			inFilePath: "hello-template-in-values.iop.yaml",
 		},
 		{
 			// Verifies that global.mountMtlsCerts is applied properly
@@ -321,192 +185,210 @@ func TestIntoResourceFile(t *testing.T) {
 				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
 			},
 		},
+		{
+			// A test with no pods is not relevant for webhook
+			in:          "hello-service.yaml",
+			want:        "hello-service.yaml.injected",
+			skipWebhook: true,
+		},
+		{
+			// Cronjob is tricky for webhook test since the spec is different. Since the real code will
+			// get a pod anyways, the test isn't too useful for webhook anyways.
+			in:          "cronjob.yaml",
+			want:        "cronjob.yaml.injected",
+			skipWebhook: true,
+		},
+		{
+			in:            "traffic-annotations-bad-includeipranges.yaml",
+			expectedError: "includeipranges",
+		},
+		{
+			in:            "traffic-annotations-bad-excludeipranges.yaml",
+			expectedError: "excludeipranges",
+		},
+		{
+			in:            "traffic-annotations-bad-includeinboundports.yaml",
+			expectedError: "includeinboundports",
+		},
+		{
+			in:            "traffic-annotations-bad-excludeinboundports.yaml",
+			expectedError: "excludeinboundports",
+		},
+		{
+			in:            "traffic-annotations-bad-excludeoutboundports.yaml",
+			expectedError: "excludeoutboundports",
+		},
+	}
+	// Keep track of tests we add options above
+	// We will search for all test files and skip these ones
+	alreadyTested := sets.NewSet()
+	for _, t := range cases {
+		if t.want != "" {
+			alreadyTested.Insert(t.want)
+		} else {
+			alreadyTested.Insert(t.in + ".injected")
+		}
+	}
+	files, err := ioutil.ReadDir("testdata/inject")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) < 3 {
+		t.Fatalf("Didn't find test files - something must have gone wrong")
+	}
+	// Automatically add any other test files in the folder. This ensures we don't
+	// forget to add to this list, that we don't have duplicates, etc
+	// Keep track of all golden files so we can ensure we don't have unused ones later
+	allOutputFiles := sets.NewSet()
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".injected") {
+			allOutputFiles.Insert(f.Name())
+		}
+		if strings.HasSuffix(f.Name(), ".iop.yaml") {
+			continue
+		}
+		if !strings.HasSuffix(f.Name(), ".yaml") {
+			continue
+		}
+		want := f.Name() + ".injected"
+		if alreadyTested.Contains(want) {
+			continue
+		}
+		cases = append(cases, testCase{in: f.Name(), want: want})
 	}
 
+	// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
+	defaultTemplate, defaultValues, defaultMesh := loadInjectionSettings(t, nil, "")
 	for i, c := range cases {
 		c := c
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
+		if c.expectedError != "" {
+			testName = fmt.Sprintf("[%02d] %s", i, c.in)
+		}
 		t.Run(testName, func(t *testing.T) {
 			t.Parallel()
-			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, c.setFlags, c.inFilePath)
-			if c.mesh != nil {
-				c.mesh(m)
+
+			mc, err := mesh.DeepCopyMeshConfig(defaultMesh)
+			if err != nil {
+				t.Fatal(err)
 			}
+			sidecarTemplate, valuesConfig := defaultTemplate, defaultValues
+			if c.setFlags != nil || c.inFilePath != "" {
+				sidecarTemplate, valuesConfig, mc = loadInjectionSettings(t, c.setFlags, c.inFilePath)
+			}
+			if c.mesh != nil {
+				c.mesh(mc)
+			}
+
 			inputFilePath := "testdata/inject/" + c.in
 			wantFilePath := "testdata/inject/" + c.want
 			in, err := os.Open(inputFilePath)
 			if err != nil {
 				t.Fatalf("Failed to open %q: %v", inputFilePath, err)
 			}
-			defer func() { _ = in.Close() }()
-			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got, nullWarningHandler); err != nil {
-				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
+			t.Cleanup(func() {
+				_ = in.Close()
+			})
+
+			// First we test kube-inject. This will run exactly what kube-inject does, and write output to the golden files
+			t.Run("kube-inject", func(t *testing.T) {
+				var got bytes.Buffer
+				if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", mc, in, &got, nullWarningHandler); err != nil {
+					if c.expectedError != "" {
+						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
+							t.Fatalf("expected error %q got %q", c.expectedError, err)
+						}
+						return
+					}
+					t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
+				}
+				if c.expectedError != "" {
+					t.Fatalf("expected error but got none")
+				}
+
+				// The version string is a maintenance pain for this test. Strip the version string before comparing.
+				gotBytes := util.StripVersion(got.Bytes())
+				wantBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+
+				util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
+			})
+
+			// Exit early if we don't need to test webhook. We can skip errors since its redundant
+			// and painful to test here.
+			if c.expectedError != "" || c.skipWebhook {
+				return
 			}
+			// Next run the webhook test. This one is a bit trickier as the webhook operates
+			// on Pods, but the inputs are Deployments/StatefulSets/etc. As a result, we need
+			// to convert these to pods, then run the injection This test will *not*
+			// overwrite golden files, as we do not have identical textual output as
+			// kube-inject. Instead, we just compare the desired/actual pod specs.
+			t.Run("webhook", func(t *testing.T) {
+				webhook := &Webhook{
+					Config:                 sidecarTemplate,
+					sidecarTemplateVersion: "unit-test-fake-version",
+					meshConfig:             mc,
+					valuesConfig:           valuesConfig,
+				}
+				// Split multi-part yaml documents. Input and output will have the same number of parts.
+				inputYAMLs := splitYamlFile(inputFilePath, t)
+				wantYAMLs := splitYamlFile(wantFilePath, t)
+				for i := 0; i < len(inputYAMLs); i++ {
+					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
+						// Convert the input YAML to a deployment.
+						inputYAML := inputYAMLs[i]
+						inputRaw, err := FromRawToObject(inputYAML)
+						if err != nil {
+							t.Fatal(err)
+						}
+						inputPod := objectToPod(t, inputRaw)
 
-			// The version string is a maintenance pain for this test. Strip the version string before comparing.
-			gotBytes := got.Bytes()
-			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
+						// Convert the wanted YAML to a deployment.
+						wantYAML := wantYAMLs[i]
+						wantRaw, err := FromRawToObject(wantYAML)
+						if err != nil {
+							t.Fatal(err)
+						}
+						wantPod := objectToPod(t, wantRaw)
 
-			wantBytes := util.StripVersion(wantedBytes)
-			gotBytes = util.StripVersion(gotBytes)
+						// Generate the patch.  At runtime, the webhook would actually generate the patch against the
+						// pod configuration. But since our input files are deployments, rather than actual pod instances,
+						// we have to apply the patch to the template portion of the deployment only.
+						templateJSON := convertToJSON(inputPod, t)
+						got := webhook.inject(&kube.AdmissionReview{
+							Request: &kube.AdmissionRequest{
+								Object: runtime.RawExtension{
+									Raw: templateJSON,
+								},
+								Namespace: jsonToUnstructured(inputYAML, t).GetNamespace(),
+							},
+						}, "")
 
-			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
+						// Apply the generated patch to the template.
+						if got.Patch != nil {
+							patch := prettyJSON(got.Patch, t)
+							patchedTemplateJSON := applyJSONPatch(templateJSON, patch, t)
+							if err := json.Unmarshal(patchedTemplateJSON, inputPod); err != nil {
+								t.Fatal(err)
+							}
+						}
 
-			if util.Refresh() {
-				util.RefreshGoldenFile(gotBytes, wantFilePath, t)
-			}
+						// normalize and compare the patched deployment with the one we expected.
+						if err := normalizeAndCompareDeployments(inputPod, wantPod, t); err != nil {
+							t.Fatal(err)
+						}
+					})
+				}
+			})
 		})
 	}
-}
 
-// TestRewriteAppProbe tests the feature for pilot agent to take over app health check traffic.
-func TestRewriteAppProbe(t *testing.T) {
-	cases := []struct {
-		in                  string
-		rewriteAppHTTPProbe bool
-		want                string
-	}{
-		{
-			in:                  "hello-probes.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "hello-probes.yaml.injected",
-		},
-		{
-			in:                  "hello-readiness.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "hello-readiness.yaml.injected",
-		},
-		{
-			in:                  "named_port.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "named_port.yaml.injected",
-		},
-		{
-			in:                  "one_container.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "one_container.yaml.injected",
-		},
-		{
-			in:                  "two_container.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "two_container.yaml.injected",
-		},
-		{
-			in:                  "ready_only.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "ready_only.yaml.injected",
-		},
-		{
-			in:                  "https-probes.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "https-probes.yaml.injected",
-		},
-		{
-			in:                  "hello-probes-with-flag-set-in-annotation.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "hello-probes-with-flag-set-in-annotation.yaml.injected",
-		},
-		{
-			in:                  "hello-probes-with-flag-unset-in-annotation.yaml",
-			rewriteAppHTTPProbe: false,
-			want:                "hello-probes-with-flag-unset-in-annotation.yaml.injected",
-		},
-		{
-			in:                  "ready_live.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "ready_live.yaml.injected",
-		},
-		{
-			in:                  "startup_only.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "startup_only.yaml.injected",
-		},
-		{
-			in:                  "startup_live.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "startup_live.yaml.injected",
-		},
-		{
-			in:                  "startup_ready_live.yaml",
-			rewriteAppHTTPProbe: true,
-			want:                "startup_ready_live.yaml.injected",
-		},
-		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
-		// No statusport, --statusPort 123.
-	}
-
-	for i, c := range cases {
-		testName := fmt.Sprintf("[%02d] %s", i, c.want)
-		t.Run(testName, func(t *testing.T) {
-			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, nil, "")
-			inputFilePath := "testdata/inject/app_probe/" + c.in
-			wantFilePath := "testdata/inject/app_probe/" + c.want
-			in, err := os.Open(inputFilePath)
-			if err != nil {
-				t.Fatalf("Failed to open %q: %v", inputFilePath, err)
-			}
-			defer func() { _ = in.Close() }()
-			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", m, in, &got, nullWarningHandler); err != nil {
-				t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
-			}
-
-			// The version string is a maintenance pain for this test. Strip the version string before comparing.
-			gotBytes := got.Bytes()
-			gotBytes = util.StripVersion(gotBytes)
-
-			wantedBytes := util.ReadGoldenFile(gotBytes, wantFilePath, t)
-			wantBytes := util.StripVersion(wantedBytes)
-
-			util.CompareBytes(gotBytes, wantBytes, wantFilePath, t)
-		})
-	}
-}
-
-func TestInvalidAnnotations(t *testing.T) {
-	cases := []struct {
-		annotation string
-		in         string
-	}{
-		{
-			annotation: "includeipranges",
-			in:         "traffic-annotations-bad-includeipranges.yaml",
-		},
-		{
-			annotation: "excludeipranges",
-			in:         "traffic-annotations-bad-excludeipranges.yaml",
-		},
-		{
-			annotation: "includeinboundports",
-			in:         "traffic-annotations-bad-includeinboundports.yaml",
-		},
-		{
-			annotation: "excludeinboundports",
-			in:         "traffic-annotations-bad-excludeinboundports.yaml",
-		},
-		{
-			annotation: "excludeoutboundports",
-			in:         "traffic-annotations-bad-excludeoutboundports.yaml",
-		},
-	}
-	m := mesh.DefaultMeshConfig()
+	// Make sure we don't have any stale test data leftover, as it can cause confusion.
 	for _, c := range cases {
-		t.Run(c.annotation, func(t *testing.T) {
-			sidecarTemplate, valuesConfig, _ := loadInjectionSettings(t, nil, "")
-			inputFilePath := "testdata/inject/" + c.in
-			in, err := os.Open(inputFilePath)
-			if err != nil {
-				t.Fatalf("Failed to open %q: %v", inputFilePath, err)
-			}
-			defer func() { _ = in.Close() }()
-			var got bytes.Buffer
-			if err = IntoResourceFile(sidecarTemplate.Template, valuesConfig, "", &m, in, &got, nullWarningHandler); err == nil {
-				t.Fatalf("expected error")
-			} else if !strings.Contains(strings.ToLower(err.Error()), c.annotation) {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		})
+		delete(allOutputFiles, c.want)
+	}
+	if len(allOutputFiles) != 0 {
+		t.Fatalf("stale golden files found: %v", allOutputFiles.UnsortedList())
 	}
 }
 

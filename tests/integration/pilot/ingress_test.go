@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -245,6 +246,7 @@ spec:
 				ctx.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {
 						resp, err := ingr.Call(tt.call)
+						// TODO check all clusters were hit
 						if err != nil {
 							return err
 						}

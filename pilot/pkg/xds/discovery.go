@@ -122,6 +122,9 @@ type DiscoveryServer struct {
 	serverReady bool
 
 	debounceOptions debounceOptions
+
+	// Cache for XDS resources
+	cache Cache
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -162,6 +165,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
+		cache: DisabledCache{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -170,6 +174,10 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	}
 
 	out.initGenerators()
+
+	if features.EnableEDSCaching {
+		out.cache = NewInMemoryCache()
+	}
 
 	return out
 }

@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -890,36 +891,50 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 				newTestCase(a, "/request-headers", nil, false),
 				newTestCase(b, "/request-headers", nil, false),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
 				newTestCase(a, "/source-ip-a", nil, true),
 				newTestCase(b, "/source-ip-a", nil, false),
 				newTestCase(a, "/source-ip-b", nil, false),
 				newTestCase(b, "/source-ip-b", nil, true),
+				newTestCase(a, "/source-ip-notValues-b", nil, true),
+				newTestCase(b, "/source-ip-notValues-b", nil, false),
 
 				newTestCase(a, "/source-namespace-a", nil, true),
 				newTestCase(b, "/source-namespace-a", nil, false),
 				newTestCase(a, "/source-namespace-b", nil, false),
 				newTestCase(b, "/source-namespace-b", nil, true),
+				newTestCase(a, "/source-namespace-notValues-b", nil, true),
+				newTestCase(b, "/source-namespace-notValues-b", nil, false),
 
 				newTestCase(a, "/source-principal-a", nil, true),
 				newTestCase(b, "/source-principal-a", nil, false),
 				newTestCase(a, "/source-principal-b", nil, false),
 				newTestCase(b, "/source-principal-b", nil, true),
+				newTestCase(a, "/source-principal-notValues-b", nil, true),
+				newTestCase(b, "/source-principal-notValues-b", nil, false),
 
 				newTestCase(a, "/destination-ip-good", nil, true),
 				newTestCase(b, "/destination-ip-good", nil, true),
 				newTestCase(a, "/destination-ip-bad", nil, false),
 				newTestCase(b, "/destination-ip-bad", nil, false),
+				newTestCase(a, "/destination-ip-notValues-a-or-b", nil, true),
+				newTestCase(a, "/destination-ip-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/destination-port-good", nil, true),
 				newTestCase(b, "/destination-port-good", nil, true),
 				newTestCase(a, "/destination-port-bad", nil, false),
 				newTestCase(b, "/destination-port-bad", nil, false),
+				newTestCase(a, "/destination-port-notValues-c", nil, false),
+				newTestCase(b, "/destination-port-notValues-c", nil, false),
 
 				newTestCase(a, "/connection-sni-good", nil, true),
 				newTestCase(b, "/connection-sni-good", nil, true),
 				newTestCase(a, "/connection-sni-bad", nil, false),
 				newTestCase(b, "/connection-sni-bad", nil, false),
+				newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
+				newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/other", nil, false),
 				newTestCase(b, "/other", nil, false),

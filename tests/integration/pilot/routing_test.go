@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +29,8 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-type EchoCall func() (echoclient.ParsedResponses, error)
+// callsPerCluster is used to ensure cross-cluster load balancing has a chance to work
+const callsPerCluster = 10
 
 type TrafficTestCase struct {
 	name   string
@@ -40,18 +42,25 @@ type TrafficTestCase struct {
 	// Single call
 	call      func() (echoclient.ParsedResponses, error)
 	validator func(echoclient.ParsedResponses) error
+
+	// if enabled, we will assert the request fails, rather than the request succeeds
+	expectFailure bool
 }
 
 type TrafficCall struct {
-	call      func() (echoclient.ParsedResponses, error)
-	validator func(echoclient.ParsedResponses) error
+	call          func() (echoclient.ParsedResponses, error)
+	validator     func(echoclient.ParsedResponses) error
+	expectFailure bool
 }
 
-func virtualServiceCases() []TrafficTestCase {
-	cases := []TrafficTestCase{
-		{
-			name: "added header",
-			config: `
+func virtualServiceCases(ctx framework.TestContext) []TrafficTestCase {
+	var cases []TrafficTestCase
+	callCount := callsPerCluster * len(apps.podB)
+	for _, podA := range apps.podA {
+		cases = append(cases,
+			TrafficTestCase{
+				name: "added header",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -67,16 +76,18 @@ spec:
       request:
         add:
           istio-custom-header: user-defined-value`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].RawResponse["Istio-Custom-Header"], "user-defined-value", "request header")
-			},
-		},
-		{
-			name: "redirect",
-			config: `
+			TrafficTestCase{
+				name: "redirect",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -96,16 +107,18 @@ spec:
     route:
     - destination:
         host: b`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Path: "/foo?key=value", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.URL, "/new/path?key=value", "URL")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].URL, "/new/path?key=value", "URL")
-			},
-		},
-		{
-			name: "rewrite uri",
-			config: `
+			TrafficTestCase{
+				name: "rewrite uri",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -122,16 +135,18 @@ spec:
     route:
     - destination:
         host: b`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo?key=value#hash"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Path: "/foo?key=value#hash", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.URL, "/new/path?key=value", "URL")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].URL, "/new/path?key=value", "URL")
-			},
-		},
-		{
-			name: "rewrite authority",
-			config: `
+			TrafficTestCase{
+				name: "rewrite authority",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -148,16 +163,18 @@ spec:
     route:
     - destination:
         host: b`,
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Path: "/foo"})
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Path: "/foo", Count: callCount})
+				},
+				validator: func(response echoclient.ParsedResponses) error {
+					return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+						return expectString(response.Host, "new-authority", "authority")
+					})
+				},
 			},
-			validator: func(response echoclient.ParsedResponses) error {
-				return expectString(response[0].Host, "new-authority", "authority")
-			},
-		},
-		{
-			name: "cors",
-			config: `
+			TrafficTestCase{
+				name: "cors",
+				config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -181,75 +198,94 @@ spec:
     - destination:
         host: b
 `,
-			calls: []TrafficCall{
+				calls: []TrafficCall{
+					{
+						// Preflight request
+						call: func() (echoclient.ParsedResponses, error) {
+							header := http.Header{}
+							header.Add("Origin", "cors.com")
+							header.Add("Access-Control-Request-Method", "DELETE")
+							return podA.Call(echo.CallOptions{
+								Target:   apps.podB[0],
+								PortName: "http",
+								Method:   "OPTIONS",
+								Headers:  header,
+								Count:    callCount,
+							})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return response.Check(func(_ int, response *echoclient.ParsedResponse) error {
+								if err := expectString(response.RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
+									return err
+								}
+								if err := expectString(response.RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
+									return err
+								}
+								if err := expectString(response.RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
+									return err
+								}
+								if err := expectString(response.RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
+									return err
+								}
+								return nil
+							})
+						},
+					},
+					{
+						// GET
+						call: func() (echoclient.ParsedResponses, error) {
+							header := http.Header{}
+							header.Add("Origin", "cors.com")
+							return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Headers: header, Count: callCount})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin")
+						},
+					},
+					{
+						// GET without matching origin
+						call: func() (echoclient.ParsedResponses, error) {
+							return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: callCount})
+						},
+						validator: func(response echoclient.ParsedResponses) error {
+							return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
+						},
+					}},
+			},
+		)
+
+		splits := []map[string]int{
+			{
+				podBSvc:  50,
+				vmASvc:   25,
+				nakedSvc: 25,
+			},
+			{
+				podBSvc:  80,
+				vmASvc:   10,
+				nakedSvc: 10,
+			},
+		}
+
+		if ctx.Environment().IsMultinetwork() {
+			// TODO(#26517) fix multinetwork with non-sidecar pods, for now just go to pods that support mTLS
+			splits = []map[string]int{
 				{
-					// Preflight request
-					call: func() (echoclient.ParsedResponses, error) {
-						header := http.Header{}
-						header.Add("Origin", "cors.com")
-						header.Add("Access-Control-Request-Method", "DELETE")
-						return apps.podA.Call(echo.CallOptions{
-							Target:   apps.podB,
-							PortName: "http",
-							Method:   "OPTIONS",
-							Headers:  header,
-						})
-					},
-					validator: func(response echoclient.ParsedResponses) error {
-						if err := expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "preflight CORS origin"); err != nil {
-							return err
-						}
-						if err := expectString(response[0].RawResponse["Access-Control-Allow-Methods"], "POST,GET", "preflight CORS method"); err != nil {
-							return err
-						}
-						if err := expectString(response[0].RawResponse["Access-Control-Allow-Headers"], "X-Foo-Bar,X-Foo-Baz", "preflight CORS headers"); err != nil {
-							return err
-						}
-						if err := expectString(response[0].RawResponse["Access-Control-Max-Age"], "86400", "preflight CORS max age"); err != nil {
-							return err
-						}
-						return nil
-					},
+					podBSvc: 60,
+					vmASvc:  40,
 				},
 				{
-					// GET
-					call: func() (echoclient.ParsedResponses, error) {
-						header := http.Header{}
-						header.Add("Origin", "cors.com")
-						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Headers: header})
-					},
-					validator: func(response echoclient.ParsedResponses) error {
-						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "cors.com", "GET CORS origin")
-					},
+					podBSvc: 80,
+					vmASvc:  20,
 				},
-				{
-					// GET without matching origin
-					call: func() (echoclient.ParsedResponses, error) {
-						return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http"})
-					},
-					validator: func(response echoclient.ParsedResponses) error {
-						return expectString(response[0].RawResponse["Access-Control-Allow-Origin"], "", "mismatched CORS origin")
-					},
-				}},
-		},
-	}
-	splits := []map[string]int{
-		{
-			"b":     50,
-			"vm-a":  25,
-			"naked": 25,
-		},
-		{
-			"b":     80,
-			"vm-a":  10,
-			"naked": 10,
-		},
-	}
-	for _, split := range splits {
-		split := split
-		cases = append(cases, TrafficTestCase{
-			name: fmt.Sprintf("shifting-%d", split["b"]),
-			config: fmt.Sprintf(`
+			}
+		}
+
+		for _, split := range splits {
+			split := split
+			cases = append(cases, TrafficTestCase{
+				name: fmt.Sprintf("shifting-%d from %s", split["b"], podA.Config().Cluster.Name()),
+				config: fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -268,34 +304,39 @@ spec:
     - destination:
         host: vm-a
       weight: %d
-`, split["b"], split["naked"], split["vm-a"]),
-			call: func() (echoclient.ParsedResponses, error) {
-				return apps.podA.Call(echo.CallOptions{Target: apps.podB, PortName: "http", Count: 100})
-			},
-			validator: func(responses echoclient.ParsedResponses) error {
-				if err := responses.CheckOK(); err != nil {
-					return err
-				}
-				hitCount := map[string]int{}
-				errorThreshold := 10
-				for _, r := range responses {
-					for _, h := range []string{"b", "naked", "vm-a"} {
-						if strings.HasPrefix(r.Hostname, h+"-") {
-							hitCount[h]++
-							break
+`, split[podBSvc], split[nakedSvc], split[vmASvc]),
+				call: func() (echoclient.ParsedResponses, error) {
+					return podA.Call(echo.CallOptions{Target: apps.podB[0], PortName: "http", Count: 100})
+				},
+				validator: func(responses echoclient.ParsedResponses) error {
+					if err := responses.CheckOK(); err != nil {
+						return err
+					}
+					errorThreshold := 10
+					for host, exp := range split {
+						hostResponses := responses.Match(func(r *echoclient.ParsedResponse) bool {
+							return strings.HasPrefix(r.Hostname, host+"-")
+						})
+						if !almostEquals(len(hostResponses), exp, errorThreshold) {
+							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hostResponses)
 						}
+						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
+						hostDestinations := apps.all.Match(echo.Service(host))
+						if ctx.Environment().IsMultinetwork() && host == nakedSvc {
+							// TODO(#26517) remove this or change it to match same-network
+							hostDestinations = echo.Instances{}
+						}
+						if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
+							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
+						}
+						// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
 					}
-				}
-
-				for _, h := range []string{"b", "naked", "vm-a"} {
-					if !almostEquals(hitCount[h], split[h], errorThreshold) {
-						return fmt.Errorf("expected %v calls to %q, got %v", split[h], h, hitCount[h])
-					}
-				}
-				return nil
-			},
-		})
+					return nil
+				},
+			})
+		}
 	}
+
 	return cases
 }
 
@@ -307,81 +348,107 @@ func expectString(got, expected, help string) error {
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases() []TrafficTestCase {
+func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
+
 	cases := []TrafficTestCase{}
-	for _, client := range []echo.Instance{apps.podA, apps.naked, apps.headless} {
-		for _, destination := range []echo.Instance{apps.podA, apps.naked, apps.vmA, apps.headless} {
-			client := client
-			destination := destination
-			if client == apps.naked && destination == apps.vmA {
-				// Need a sidecar to connect to VMs
-				continue
+	// TODO add VMs to clients when DNS works for VMs.
+	for _, clients := range []echo.Instances{apps.podA, apps.naked, apps.headless} {
+		for _, client := range clients {
+
+			destinationSets := []echo.Instances{
+				apps.podA,
+				{apps.vmA},
+				apps.headless.Match(echo.InCluster(client.Config().Cluster)),
 			}
-			for _, call := range []struct {
-				// The port we call
-				port string
-				// The actual type of traffic we send to the port
-				scheme scheme.Instance
-			}{
-				{"http", scheme.HTTP},
-				{"auto-http", scheme.HTTP},
-				{"tcp", scheme.TCP},
-				{"auto-tcp", scheme.TCP},
-				{"grpc", scheme.GRPC},
-				{"auto-grpc", scheme.GRPC},
-			} {
-				cases = append(cases, TrafficTestCase{
-					name: fmt.Sprintf("%v %v %v", call.port, client.Config().Service, destination.Config().Service),
-					call: func() (echoclient.ParsedResponses, error) {
-						return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme})
-					},
-					validator: func(responses echoclient.ParsedResponses) error {
-						return responses.CheckOK()
-					},
-				})
+
+			if !ctx.Environment().IsMultinetwork() {
+				// TODO(#26517) fix multinetwork with non-sidecar pods, for now only test this in single-network
+				// the filter below assumes we fix this by restricting cross-network for non-sidecars
+				destinationSets = append(destinationSets, apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())))
+			}
+
+			for _, destinations := range destinationSets {
+				client := client
+				destinations := destinations
+				// grabbing the 0th assumes all echos in destinations have the same service name
+				destination := destinations[0]
+				if apps.naked.Contains(client) && destination == apps.vmA {
+					// Need a sidecar to connect to VMs
+					continue
+				}
+
+				// so we can validate all clusters are hit
+				callCount := callsPerCluster * len(destinations)
+				for _, call := range []struct {
+					// The port we call
+					port string
+					// The actual type of traffic we send to the port
+					scheme scheme.Instance
+				}{
+					{"http", scheme.HTTP},
+					{"auto-http", scheme.HTTP},
+					{"tcp", scheme.TCP},
+					{"auto-tcp", scheme.TCP},
+					{"grpc", scheme.GRPC},
+					{"auto-grpc", scheme.GRPC},
+				} {
+					cases = append(cases, TrafficTestCase{
+						name: fmt.Sprintf("%v %v %v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
+						call: func() (echoclient.ParsedResponses, error) {
+							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount})
+						},
+						validator: func(responses echoclient.ParsedResponses) error {
+							return responses.CheckOK()
+						},
+					})
+				}
 			}
 		}
 	}
 	return cases
 }
 
+type vmCase struct {
+	name string
+	from echo.Instance
+	to   echo.Instances
+	host string
+}
+
 func vmTestCases(vm echo.Instance) []TrafficTestCase {
-	testCases := []struct {
-		name string
-		from echo.Instance
-		to   echo.Instance
-		host string
-	}{
-		{
-			name: "k8s to vm",
-			from: apps.podA,
-			to:   vm,
-		},
+	testCases := []vmCase{
 		// Keeping this around until we have a DNS implementation for VMs.
 		// {
 		// 	name: "dns: VM to k8s cluster IP service name.namespace host",
 		// 	from: vm,
 		// 	to:   apps.podA,
-		// 	host: apps.podA.Config().Service + "." + apps.namespace.Name(),
+		// 	host: podASvc + "." + apps.namespace.Name(),
 		// },
 		// {
 		// 	name: "dns: VM to k8s cluster IP service fqdn host",
 		// 	from: vm,
 		// 	to:   apps.podA,
-		// 	host: apps.podA.Config().FQDN(),
+		// 	host: apps.podA[0].Config().FQDN(),
 		// },
 		// {
 		// 	name: "dns: VM to k8s cluster IP service short name host",
 		// 	from: vm,
 		// 	to:   apps.podA,
-		// 	host: apps.podA.Config().Service,
+		// 	host: podASvc,
 		// },
 		// {
 		// 	name: "dns: VM to k8s headless service",
 		// 	from: vm,
 		// 	to:   apps.headless,
-		// 	host: apps.headless.Config().FQDN(),
+		// 	host: apps.headless[0].Config().FQDN(),
 		// },
+	}
+	for _, podA := range apps.podA {
+		testCases = append(testCases, vmCase{
+			name: "k8s to vm",
+			from: podA,
+			to:   echo.Instances{vm},
+		})
 	}
 	cases := []TrafficTestCase{}
 	for _, c := range testCases {
@@ -390,16 +457,112 @@ func vmTestCases(vm echo.Instance) []TrafficTestCase {
 			name: c.name,
 			call: func() (echoclient.ParsedResponses, error) {
 				return c.from.Call(echo.CallOptions{
-					Target:   c.to,
+					// assume that all echos in `to` only differ in which cluster they're deployed in
+					Target:   c.to[0],
 					PortName: "http",
 					Host:     c.host,
+					Count:    callsPerCluster * len(c.to),
 				})
 			},
 			validator: func(responses echoclient.ParsedResponses) error {
-				return responses.CheckOK()
+				if err := responses.CheckOK(); err != nil {
+					return err
+				}
+				// when vm -> k8s tests are enabled, they should reach all clusters
+				return responses.CheckReachedClusters(c.to.Clusters())
 			},
 		})
 	}
+	return cases
+}
+
+func destinationRule(app, mode string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: %s
+---
+`, app, app, mode)
+}
+
+func peerAuthentication(app, mode string) string {
+	return fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: %s
+spec:
+  selector:
+    matchLabels:
+      app: %s
+  mtls:
+    mode: %s
+---
+`, app, app, mode)
+}
+
+func serverFirstTestCases() []TrafficTestCase {
+	cases := []TrafficTestCase{}
+	clients := apps.podA
+	destination := apps.podC[0]
+	configs := []struct {
+		port    string
+		dest    string
+		auth    string
+		success bool
+	}{
+		// TODO: All these cases *should* succeed (except the TLS mismatch cases) - but don't due to issues in our implementation
+
+		// For auto port, outbound request will be delayed by the protocol sniffer, regardless of configuration
+		{"auto-tcp-server", "DISABLE", "DISABLE", false},
+		{"auto-tcp-server", "DISABLE", "PERMISSIVE", false},
+		{"auto-tcp-server", "DISABLE", "STRICT", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "DISABLE", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", false},
+		{"auto-tcp-server", "ISTIO_MUTUAL", "STRICT", false},
+
+		// These is broken because we will still enable inbound sniffing for the port. Since there is no tls,
+		// there is no server-first "upgrading" to client-first
+		{"tcp-server", "DISABLE", "DISABLE", false},
+		{"tcp-server", "DISABLE", "PERMISSIVE", false},
+
+		// Expected to fail, incompatible configuration
+		{"tcp-server", "DISABLE", "STRICT", false},
+		{"tcp-server", "ISTIO_MUTUAL", "DISABLE", false},
+
+		// In these cases, we expect success
+		// On outbound, we have no sniffer involved
+		// On inbound, the request is TLS, so its not server first
+		{"tcp-server", "ISTIO_MUTUAL", "PERMISSIVE", true},
+		{"tcp-server", "ISTIO_MUTUAL", "STRICT", true},
+	}
+	for _, client := range clients {
+		for _, c := range configs {
+			client, c := client, c
+			cases = append(cases, TrafficTestCase{
+				name:   fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
+				config: destinationRule(destination.Config().Service, c.dest) + peerAuthentication(destination.Config().Service, c.auth),
+				call: func() (echoclient.ParsedResponses, error) {
+					return client.Call(echo.CallOptions{
+						Target:   destination,
+						PortName: c.port,
+						Scheme:   scheme.TCP,
+						// Inbound timeout is 1s. We want to test this does not hit the listener filter timeout
+						Timeout: time.Millisecond * 100,
+					})
+				},
+				validator: func(responses echoclient.ParsedResponses) error {
+					return responses.CheckOK()
+				},
+				expectFailure: !c.success,
+			})
+		}
+	}
+
 	return cases
 }
 
@@ -407,11 +570,11 @@ func TestTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
-		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
-			cases["virtualservice"] = virtualServiceCases()
-			cases["sniffing"] = protocolSniffingCases()
+			cases["virtualservice"] = virtualServiceCases(ctx)
+			cases["sniffing"] = protocolSniffingCases(ctx)
+			cases["serverfirst"] = serverFirstTestCases()
 			cases["vm"] = vmTestCases(apps.vmA)
 			for n, tts := range cases {
 				ctx.NewSubTest(n).Run(func(ctx framework.TestContext) {
@@ -435,22 +598,32 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
 			if tt.calls != nil {
 				ctx.Fatalf("defined calls and calls; may only define on or the other")
 			}
-			tt.calls = []TrafficCall{{tt.call, tt.validator}}
+			tt.calls = []TrafficCall{{tt.call, tt.validator, tt.expectFailure}}
 		}
 		for i, c := range tt.calls {
 			name := fmt.Sprintf("%s/%d", tt.name, i)
 			retry.UntilSuccessOrFail(ctx, func() error {
 				r, err := c.call()
-				if err != nil {
+				if !c.expectFailure && err != nil {
 					ctx.Logf("call for %v failed, retrying: %v", name, err)
 					return err
+				} else if c.expectFailure && err == nil {
+					e := fmt.Errorf("call for %v did not fail, retrying", name)
+					ctx.Log(e)
+					return e
 				}
-				if err := c.validator(r); err != nil {
+
+				err = c.validator(r)
+				if !c.expectFailure && err != nil {
 					ctx.Logf("validation for call for %v failed, retrying: %v", name, err)
 					return err
+				} else if c.expectFailure && err == nil {
+					e := fmt.Errorf("validation for %v did not fail, retrying", name)
+					ctx.Log(e)
+					return e
 				}
 				return nil
-			}, retry.Delay(time.Millisecond*100))
+			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10), retry.Converge(3))
 		}
 	})
 }

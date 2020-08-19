@@ -27,7 +27,7 @@ import (
 
 func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, version string) error {
 	pushStart := time.Now()
-	defer rdsPushTime.Record(time.Since(pushStart).Seconds())
+	defer func() { rdsPushTime.Record(time.Since(pushStart).Seconds()) }()
 
 	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.proxy, push, con.Routes())
 	response := routeDiscoveryResponse(rawRoutes, version, push.Version)

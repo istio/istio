@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +21,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -51,7 +54,7 @@ type testCaseMirror struct {
 	absent              bool
 	percentage          float64
 	threshold           float64
-	expectedDestination echo.Instance
+	expectedDestination echo.Instances
 }
 
 type mirrorTestOptions struct {
@@ -118,13 +121,12 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 	framework.
 		NewTest(t).
 		Features("traffic.mirroring").
-		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			for _, c := range options.cases {
 				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
 					mirrorHost := options.mirrorHost
 					if len(mirrorHost) == 0 {
-						mirrorHost = apps.podC.Config().Service
+						mirrorHost = podCSvc
 					}
 					vsc := VirtualServiceMirrorConfig{
 						c.name,
@@ -140,19 +142,25 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 						return ctx.Config().DeleteYAML(apps.namespace.Name(), deployment)
 					})
 
-					for _, proto := range mirrorProtocols {
-						ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
-							retry.UntilSuccessOrFail(ctx, func() error {
-								testID := util.RandomString(16)
-								if err := sendTrafficMirror(apps.podA, apps.podB, proto, testID); err != nil {
-									return err
-								}
-								expected := c.expectedDestination
-								if expected == nil {
-									expected = apps.podC
-								}
-								return verifyTrafficMirror(apps.podB, expected, c, testID)
-							}, retry.Delay(time.Second))
+					for _, podA := range apps.podA {
+						podA := podA
+						ctx.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.Name())).Run(func(ctx framework.TestContext) {
+							for _, proto := range mirrorProtocols {
+								ctx.NewSubTest(string(proto)).Run(func(ctx framework.TestContext) {
+									retry.UntilSuccessOrFail(ctx, func() error {
+										testID := util.RandomString(16)
+										if err := sendTrafficMirror(podA, apps.podB[0], proto, testID); err != nil {
+											return err
+										}
+										expected := c.expectedDestination
+										if expected == nil {
+											expected = apps.podC
+										}
+
+										return verifyTrafficMirror(apps.podB, expected, c, testID)
+									}, retry.Delay(time.Second))
+								})
+							}
 						})
 					}
 				})
@@ -163,7 +171,7 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID string) error {
 	options := echo.CallOptions{
 		Target:   to,
-		Count:    50,
+		Count:    100,
 		PortName: strings.ToLower(string(proto)),
 	}
 	switch proto {
@@ -183,7 +191,7 @@ func sendTrafficMirror(from, to echo.Instance, proto protocol.Instance, testID s
 	return nil
 }
 
-func verifyTrafficMirror(dest, mirror echo.Instance, tc testCaseMirror, testID string) error {
+func verifyTrafficMirror(dest, mirror echo.Instances, tc testCaseMirror, testID string) error {
 	countB, err := logCount(dest, testID)
 	if err != nil {
 		return err
@@ -197,32 +205,55 @@ func verifyTrafficMirror(dest, mirror echo.Instance, tc testCaseMirror, testID s
 	actualPercent := (countC / countB) * 100
 	deltaFromExpected := math.Abs(actualPercent - tc.percentage)
 
+	var merr *multierror.Error
 	if tc.threshold-deltaFromExpected < 0 {
 		err := fmt.Errorf("unexpected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, testID: %s)",
 			tc.percentage, actualPercent, tc.threshold, testID)
 		log.Infof("%v", err)
-		return err
+		merr = multierror.Append(merr, err)
+	} else {
+		log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
+			tc.percentage, actualPercent, tc.threshold, testID)
 	}
 
-	log.Infof("Got expected mirror traffic. Expected %g%%, got %.1f%% (threshold: %g%%, , testID: %s)",
-		tc.percentage, actualPercent, tc.threshold, testID)
-	return nil
+	// TODO(landow) fix cross-network weighting issues
+	//if tc.percentage < 100 {
+	//	if len(countsB) < len(dest.Clusters()) {
+	//		merr = multierror.Append(merr, fmt.Errorf("expected original destination in all clusters to be reached, but got: %v", countsB))
+	//	}
+	//}
+	//if tc.percentage > 0 {
+	//	if len(countsC) < len(mirror.Clusters()) {
+	//		merr = multierror.Append(merr, fmt.Errorf("expected mirror destination in all clusters to be reached, but got: %v", countsC))
+	//	}
+	//}
+
+	return merr.ErrorOrNil()
 }
 
-func logCount(instance echo.Instance, testID string) (float64, error) {
-	workloads, err := instance.Workloads()
-	if err != nil {
-		return -1, fmt.Errorf("failed to get Subsets: %v", err)
-	}
-
-	var logs string
-	for _, w := range workloads {
-		l, err := w.Logs()
+func logCount(instances echo.Instances, testID string) (float64, error) {
+	counts := map[string]float64{}
+	for _, instance := range instances {
+		workloads, err := instance.Workloads()
 		if err != nil {
-			return -1, fmt.Errorf("failed getting logs: %v", err)
+			return -1, fmt.Errorf("failed to get Subsets: %v", err)
 		}
-		logs += l
+		var logs string
+		for _, w := range workloads {
+			l, err := w.Logs()
+			if err != nil {
+				return -1, fmt.Errorf("failed getting logs: %v", err)
+			}
+			logs += l
+		}
+		if c := float64(strings.Count(logs, testID)); c > 0 {
+			counts[instance.Config().Cluster.Name()] = c
+		}
 	}
-
-	return float64(strings.Count(logs, testID)), nil
+	var total float64
+	for _, c := range counts {
+		total += c
+	}
+	// TODO(landow) return counts for cross-cluster load balancing validation
+	return total, nil
 }

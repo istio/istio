@@ -142,11 +142,9 @@ func (configgen *ConfigGeneratorImpl) buildInlineDNSTable(node *model.Proxy, pus
 				svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				// TODO: this is used in two places now. Needs to be cached as part of the headless service
 				// object to avoid the costly lookup in the registry code
-				if instances, err := push.InstancesByPort(svc, svc.Ports[0].Port, nil); err == nil {
-					for _, instance := range instances {
-						// TODO: should we skip the node's own IP like we do in listener?
-						addressList = append(addressList, instance.Endpoint.Address)
-					}
+				for _, instance := range push.InstancesByPort(svc, svc.Ports[0].Port, nil) {
+					// TODO: should we skip the node's own IP like we do in listener?
+					addressList = append(addressList, instance.Endpoint.Address)
 				}
 			}
 

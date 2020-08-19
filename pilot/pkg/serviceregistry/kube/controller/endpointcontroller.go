@@ -36,8 +36,7 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	getInformer() cache.SharedIndexInformer
 	onEvent(curr interface{}, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
-		labelsList labels.Collection) ([]*model.ServiceInstance, error)
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
@@ -70,7 +69,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: map[model.ConfigKey]struct{}{{
 						Kind:      gvk.ServiceEntry,
-						Name:      svc.Name,
+						Name:      string(kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)),
 						Namespace: svc.Namespace,
 					}: {}},
 					Reason: []model.TriggerReason{model.EndpointUpdate},

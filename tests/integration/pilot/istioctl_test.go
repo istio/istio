@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/url"
 )
 
 var (
@@ -44,7 +46,9 @@ var (
    Port: http 80/HTTP targets pod port 18080
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
-   Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
+   Port: tcp-server 9091/TCP targets pod port 16060
+   Port: auto-tcp 9092/UnsupportedProtocol targets pod port 19091
+   Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
 80 DestinationRule: a\..* for "a"
@@ -64,6 +68,13 @@ var (
    No Traffic Policy
 9090 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
 9091 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9091 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
+9092 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9093 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
 81 DestinationRule: a\..* for "a"
@@ -78,7 +89,9 @@ var (
    Port: http 80/HTTP targets pod port 18080
    Port: grpc 7070/GRPC targets pod port 17070
    Port: tcp 9090/TCP targets pod port 19090
-   Port: auto-tcp 9091/UnsupportedProtocol targets pod port 19091
+   Port: tcp-server 9091/TCP targets pod port 16060
+   Port: auto-tcp 9092/UnsupportedProtocol targets pod port 19091
+   Port: auto-tcp-server 9093/UnsupportedProtocol targets pod port 16061
    Port: auto-http 81/UnsupportedProtocol targets pod port 18081
    Port: auto-grpc 7071/UnsupportedProtocol targets pod port 17071
 80 DestinationRule: a\..* for "a"
@@ -100,6 +113,13 @@ var (
 9091 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
+9091 RBAC policies: ns\[.*\]-policy\[integ-test\]-rule\[0\]
+9092 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
+9093 DestinationRule: a\..* for "a"
+   Matching subsets: v1
+   No Traffic Policy
 81 DestinationRule: a\..* for "a"
    Matching subsets: v1
    No Traffic Policy
@@ -109,8 +129,7 @@ var (
 `)
 
 	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
-Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/latest/docs/ops/deployment/requirements/
-`
+Next Step: Add related labels to the deployment to align with Istio's requirement: ` + url.DeploymentRequirements
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
@@ -183,7 +202,7 @@ func TestDescribe(t *testing.T) {
 			// run in parallel.
 			retry.UntilSuccessOrFail(ctx, func() error {
 				args := []string{"--namespace=dummy",
-					"x", "describe", "svc", fmt.Sprintf("%s.%s", apps.podA.Config().Service, apps.namespace.Name())}
+					"x", "describe", "svc", fmt.Sprintf("%s.%s", podASvc, apps.namespace.Name())}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
@@ -195,7 +214,7 @@ func TestDescribe(t *testing.T) {
 			}, retry.Timeout(time.Second*5))
 
 			retry.UntilSuccessOrFail(ctx, func() error {
-				podID, err := getPodID(apps.podA)
+				podID, err := getPodID(apps.podA[0])
 				if err != nil {
 					return fmt.Errorf("could not get Pod ID: %v", err)
 				}
@@ -273,7 +292,7 @@ func TestProxyConfig(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -350,7 +369,7 @@ func TestProxyStatus(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -400,7 +419,7 @@ func TestAuthZCheck(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}

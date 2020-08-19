@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,7 +59,6 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		RequireSingleCluster().
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
-			cfg.ExposeIstiod = true
 			cfg.Values["telemetry.enabled"] = "true"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
