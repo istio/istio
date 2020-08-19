@@ -36,9 +36,17 @@ type FakeXdsUpdater struct {
 	Events chan FakeXdsEvent
 }
 
-func (fx *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
+func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
+	var id string
+	if req != nil && len(req.ConfigsUpdated) > 0 {
+		for key := range req.ConfigsUpdated {
+			id = key.Name
+		}
+	}
 	select {
-	case fx.Events <- FakeXdsEvent{Type: "xds"}:
+	case fx.Events <- FakeXdsEvent{Type: "xds", ID: id}:
 	default:
 	}
 }
