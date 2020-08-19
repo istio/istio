@@ -270,12 +270,12 @@ spec:
 			// TODO(#26517) fix multinetwork with non-sidecar pods, for now just go to pods that support mTLS
 			splits = []map[string]int{
 				{
-					podBSvc:  60,
-					vmASvc:   40,
+					podBSvc: 60,
+					vmASvc:  40,
 				},
 				{
-					podBSvc:  80,
-					vmASvc:   20,
+					podBSvc: 80,
+					vmASvc:  20,
 				},
 			}
 		}
