@@ -182,9 +182,16 @@ func (r ParsedResponses) clusterDistribution() map[string]int {
 //     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
 func (r ParsedResponses) CheckReachedClusters(clusterNames []string) error {
 	hits := r.clusterDistribution()
+	exp := map[string]struct{}{}
 	for _, expCluster := range clusterNames {
+		exp[expCluster] = struct{}{}
 		if hits[expCluster] == 0 {
 			return fmt.Errorf("did not reach all of %v, got %v", clusterNames, hits)
+		}
+	}
+	for hitCluster := range hits {
+		if _, ok := exp[hitCluster]; !ok {
+			return fmt.Errorf("reached cluster not in %v, got %v", clusterNames, hits)
 		}
 	}
 	return nil
