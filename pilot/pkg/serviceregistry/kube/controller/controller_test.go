@@ -1444,8 +1444,12 @@ func TestEndpointUpdate(t *testing.T) {
 			// Create 1 endpoint that refers to a pod in the same namespace.
 			svc1Ips = append(svc1Ips, "128.0.0.2")
 			updateEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
-			if ev := fx.Wait("xds"); ev == nil {
+			ev := fx.Wait("xds")
+			if ev == nil {
 				t.Fatalf("Timeout xds push")
+			}
+			if ev.ID != string(kube.ServiceHostname("svc1", "nsa", controller.domainSuffix)) {
+				t.Errorf("Expect service %s updated, but got %s", kube.ServiceHostname("svc1", "nsa", controller.domainSuffix), ev.ID)
 			}
 		})
 	}
