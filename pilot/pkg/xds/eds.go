@@ -59,12 +59,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 
 				// This loses track of grouping (shards)
-				instances, err := registry.InstancesByPort(svc, port.Port, labels.Collection{})
-				if err != nil {
-					return err
-				}
-
-				for _, inst := range instances {
+				for _, inst := range registry.InstancesByPort(svc, port.Port, labels.Collection{}) {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}

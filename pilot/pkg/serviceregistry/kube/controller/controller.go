@@ -644,15 +644,14 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 }
 
 // InstancesByPort implements a service catalog operation
-func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
-	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
 	// First get k8s standard service instances and the workload entry instances
-	outInstances, err := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
+	outInstances := c.endpoints.InstancesByPort(c, svc, reqSvcPort, labelsList)
 	outInstances = append(outInstances, c.serviceInstancesFromWorkloadInstances(svc, reqSvcPort)...)
 
 	// return when instances found or an error occurs
-	if len(outInstances) > 0 || err != nil {
-		return outInstances, err
+	if len(outInstances) > 0 {
+		return outInstances
 	}
 
 	// Fall back to external name service since we did not find any instances of normal services
@@ -666,9 +665,9 @@ func (c *Controller) InstancesByPort(svc *model.Service, reqSvcPort int,
 				inScopeInstances = append(inScopeInstances, i)
 			}
 		}
-		return inScopeInstances, nil
+		return inScopeInstances
 	}
-	return nil, nil
+	return nil
 }
 
 func (c *Controller) serviceInstancesFromWorkloadInstances(svc *model.Service, reqSvcPort int) []*model.ServiceInstance {
@@ -863,7 +862,7 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) ([]*mod
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
+				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
 				if err != nil {
 					return nil, err
 				}
@@ -921,7 +920,7 @@ func (c *Controller) WorkloadInstanceHandler(si *model.WorkloadInstance, event m
 					continue
 				}
 				// Similar code as UpdateServiceShards in eds.go
-				instances, err := c.InstancesByPort(service, port.Port, labels.Collection{})
+				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
 				if err != nil {
 					log.Debugf("Failed to get endpoints for service %s on port %d, in response to workload instance: %v",
 						service.Hostname, port.Port, err)

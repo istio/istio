@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -240,11 +239,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		return nil
 	}
 
-	instances, err := cb.push.InstancesByPort(service, port, labels)
-	if err != nil {
-		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
-		return nil
-	}
+	instances := cb.push.InstancesByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
