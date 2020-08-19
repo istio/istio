@@ -32,14 +32,22 @@ if [ -z "${CERT_DIR}" ]; then
    echo '$CERT_DIR not set, defaulting to' $CERT_DIR
 fi
 
+SECRET_NAME=istio-ca-secret
+if ! kubectl -n "${ISTIO_NAMESPACE}" get secret "${SECRET_NAME}" > /dev/null ; then
+   SECRET_NAME=cacerts
+fi
+
+echo ""
+echo Getting Istiod root certificate from secret "${SECRET_NAME}" in "${ISTIO_NAMESPACE}"
 echo ""
 
-mkdir -p ${CERT_DIR}
-kubectl get secret istio-ca-secret -n ${ISTIO_NAMESPACE} -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > ${CERT_DIR}/k8s-root-cert.pem
-kubectl get secret istio-ca-secret -n ${ISTIO_NAMESPACE} -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > ${CERT_DIR}/k8s-root-key.pem
-openssl genrsa -out ${CERT_DIR}/ca-key.pem 4096
-set +o errexit
-cat > ${CERT_DIR}/workload.conf << EOF
+mkdir -p "${CERT_DIR}"
+kubectl -n "${ISTIO_NAMESPACE}" get secret "${SECRET_NAME}" -o "jsonpath={.data['ca-cert\.pem']}" | base64 -d > "${CERT_DIR}"/k8s-root-cert.pem
+kubectl -n "${ISTIO_NAMESPACE}" get secret "${SECRET_NAME}" -o "jsonpath={.data['ca-key\.pem']}" | base64 -d > "${CERT_DIR}"/k8s-root-key.pem
+
+openssl genrsa -out "${CERT_DIR}"/ca-key.pem 4096
+
+cat > "${CERT_DIR}"/workload.conf <<-EOF
 [ req ]
 encrypt_key = no
 prompt = no
@@ -56,30 +64,30 @@ keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth, clientAuth
 subjectAltName=@san
 [ san ]
-URI.1 = spiffe://cluster.local/ns/istioctl-itp/sa/default
-DNS.1 = spiffe://cluster.local/ns/istioctl-itp/sa/default
+URI.1 = spiffe://cluster.local/ns/istioctl/sa/default
+DNS.1 = spiffe://cluster.local/ns/istioctl/sa/default
 [ req_dn ]
 O = Istio
 CN = Workload
-L = istioctl-itp
+L = istioctl
 EOF
-set -o errexit
-openssl genrsa -out ${CERT_DIR}/key.pem 4096
-openssl req -new -config ${CERT_DIR}/workload.conf -key ${CERT_DIR}/key.pem -out ${CERT_DIR}/workload.csr
+
+openssl genrsa -out "${CERT_DIR}"/key.pem 4096
+openssl req -new -config "${CERT_DIR}"/workload.conf -key "${CERT_DIR}"/key.pem -out "${CERT_DIR}"/workload.csr
 openssl x509 -req -days 1 \
-  -CA ${CERT_DIR}/k8s-root-cert.pem  -CAkey ${CERT_DIR}/k8s-root-key.pem -CAcreateserial\
-  -extensions req_ext -extfile ${CERT_DIR}/workload.conf \
-  -in ${CERT_DIR}/workload.csr -out ${CERT_DIR}/workload-cert.pem
+  -CA "${CERT_DIR}"/k8s-root-cert.pem  -CAkey "${CERT_DIR}"/k8s-root-key.pem -CAcreateserial\
+  -extensions req_ext -extfile "${CERT_DIR}"/workload.conf \
+  -in "${CERT_DIR}"/workload.csr -out "${CERT_DIR}"/workload-cert.pem
 # Now give the files the name istioctl expects
-mv ${CERT_DIR}/workload-cert.pem ${CERT_DIR}/cert-chain.pem
-mv ${CERT_DIR}/k8s-root-cert.pem ${CERT_DIR}/root-cert.pem
+mv "${CERT_DIR}"/workload-cert.pem "${CERT_DIR}"/cert-chain.pem
+mv "${CERT_DIR}"/k8s-root-cert.pem "${CERT_DIR}"/root-cert.pem
 # Now remove the files that istioctl doesn't use
-rm ${CERT_DIR}/ca-key.pem ${CERT_DIR}/k8s-root-key.pem ${CERT_DIR}/*.srl ${CERT_DIR}/*.conf ${CERT_DIR}/*.csr
+rm "${CERT_DIR}"/ca-key.pem "${CERT_DIR}"/k8s-root-key.pem "${CERT_DIR}"/*.srl "${CERT_DIR}"/*.conf "${CERT_DIR}"/*.csr
 
 echo ""
 echo ""
 echo ""
 echo istioctl Certificates created!
-echo Use "'--cert-dir ${CERT_DIR}'"
+echo Use "'--cert-dir \"${CERT_DIR}\"'"
 echo For example,
-echo "  "  istioctl x version --xds-address localhost:15012 --authority istiod.istio-system.svc --cert-dir ${CERT_DIR}
+echo "  "  istioctl x version --xds-address localhost:15012 --authority istiod.istio-system.svc --cert-dir \"${CERT_DIR}\"
