@@ -363,7 +363,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 			if !ctx.Environment().IsMultinetwork() {
 				// TODO(#26517) fix multinetwork with non-sidecar pods, for now only test this in single-network
 				// the filter below assumes we fix this by restricting cross-network for non-sidecars
-				apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName()))
+				destinationSets = append(destinationSets, apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())))
 			}
 
 			for _, destinations := range destinationSets {
