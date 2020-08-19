@@ -179,19 +179,19 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "configTypes is empty",
 			proxy:       sidecar,
 			configTypes: nil,
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[Type]bool{EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "configTypes is empty",
 			proxy:       gateway,
 			configTypes: nil,
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[Type]bool{EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "sidecar updated for sidecar proxy",
 			proxy:       sidecar,
 			configTypes: []resource.GroupVersionKind{gvk.Sidecar},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[Type]bool{EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "sidecar updated for gateway proxy",
@@ -215,13 +215,13 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "unknown type updated",
 			proxy:       sidecar,
 			configTypes: []resource.GroupVersionKind{{Kind: "unknown"}},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[Type]bool{EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "unknown type updated",
 			proxy:       gateway,
 			configTypes: []resource.GroupVersionKind{},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect:      map[Type]bool{EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:  "gateway and virtualservice updated for gateway proxy",
@@ -235,7 +235,7 @@ func TestPushTypeFor(t *testing.T) {
 			proxy: sidecar,
 			configTypes: []resource.GroupVersionKind{gvk.DestinationRule,
 				gvk.VirtualService},
-			expect: map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
+			expect: map[Type]bool{EDS: true, LDS: true, RDS: true},
 		},
 		{
 			name:        "requestauthentication updated",
@@ -253,13 +253,13 @@ func TestPushTypeFor(t *testing.T) {
 			name:        "peerauthentication updated",
 			proxy:       sidecar,
 			configTypes: []resource.GroupVersionKind{gvk.PeerAuthentication},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true},
+			expect:      map[Type]bool{EDS: true, LDS: true},
 		},
 		{
 			name:        "peerauthentication updated",
 			proxy:       gateway,
 			configTypes: []resource.GroupVersionKind{gvk.PeerAuthentication},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true},
+			expect:      map[Type]bool{EDS: true, LDS: true},
 		},
 	}
 

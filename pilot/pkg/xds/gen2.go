@@ -129,6 +129,10 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 	// This is specific to each generator type.
 	cl := gen.Generate(con.proxy, push, w, updates)
 	if cl == nil {
+		// If we have nothing to send, report that we got an ACK for this version.
+		if s.StatusReporter != nil {
+			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, currentVersion)
+		}
 		return nil // No push needed.
 	}
 

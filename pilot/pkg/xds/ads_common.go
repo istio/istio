@@ -97,8 +97,7 @@ func ProxyNeedsPush(proxy *model.Proxy, pushEv *Event) bool {
 type Type int
 
 const (
-	CDS Type = iota
-	EDS
+	EDS Type = iota
 	LDS
 	RDS
 )
@@ -112,7 +111,6 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 	// If push scoping is not enabled, we push all xds
 	if len(pushRequest.ConfigsUpdated) == 0 {
 		out[EDS] = true
-		out[CDS] = true
 		out[LDS] = true
 		out[RDS] = true
 		return out
@@ -129,21 +127,17 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 			case gvk.Gateway:
 				// Do not push
 			case gvk.ServiceEntry:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case gvk.DestinationRule:
-				out[CDS] = true
 				out[EDS] = true
 				out[RDS] = true
 			case gvk.EnvoyFilter:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case gvk.Sidecar:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
@@ -151,17 +145,15 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 				gvk.RequestAuthentication:
 				out[LDS] = true
 			case gvk.PeerAuthentication:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 			default:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			}
 			// To return asap
-			if len(out) == 4 {
+			if len(out) == 3 {
 				return out
 			}
 		}
@@ -175,15 +167,12 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 				out[LDS] = true
 				out[RDS] = true
 			case gvk.ServiceEntry:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			case gvk.DestinationRule:
-				out[CDS] = true
 				out[EDS] = true
 			case gvk.EnvoyFilter:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
@@ -193,17 +182,15 @@ func PushTypeFor(proxy *model.Proxy, pushEv *Event) map[Type]bool {
 				gvk.RequestAuthentication:
 				out[LDS] = true
 			case gvk.PeerAuthentication:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 			default:
-				out[CDS] = true
 				out[EDS] = true
 				out[LDS] = true
 				out[RDS] = true
 			}
 			// To return asap
-			if len(out) == 4 {
+			if len(out) == 3 {
 				return out
 			}
 		}

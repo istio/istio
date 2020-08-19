@@ -174,10 +174,6 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 	}
 
 	switch discReq.TypeUrl {
-	case v3.ClusterType:
-		if err := s.handleCds(con, discReq); err != nil {
-			return err
-		}
 	case v3.ListenerType:
 		if err := s.handleLds(con, discReq); err != nil {
 			return err
@@ -298,20 +294,6 @@ func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.Discover
 	}
 	adsLog.Debugf("ADS:LDS: REQ %s", con.ConID)
 	err := s.pushLds(con, s.globalPushContext(), versionInfo())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *DiscoveryServer) handleCds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ClusterType) {
-		if !s.shouldRespond(con, cdsReject, discReq) {
-			return nil
-		}
-	}
-	adsLog.Infof("ADS:CDS: REQ %v version:%s", con.ConID, discReq.VersionInfo)
-	err := s.pushCds(con, s.globalPushContext(), versionInfo())
 	if err != nil {
 		return err
 	}
@@ -634,25 +616,14 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// 'LDSWatch', etc.
 	// Each Generator is responsible for determining if the push event requires a push -
 	// returning nil if the push is not needed.
-	if con.proxy.XdsResourceGenerator != nil {
-		for _, w := range con.proxy.WatchedResources {
-			err := s.pushGeneratorV2(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
-			if err != nil {
-				return err
-			}
+	for _, w := range con.proxy.WatchedResources {
+		err := s.pushGeneratorV2(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
+		if err != nil {
+			return err
 		}
 	}
 
 	pushTypes := PushTypeFor(con.proxy, pushEv)
-
-	if con.Watching(v3.ClusterType) && pushTypes[CDS] {
-		err := s.pushCds(con, pushRequest.Push, currentVersion)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ClusterType, pushRequest.Push.Version)
-	}
 
 	if len(con.Clusters()) > 0 && pushTypes[EDS] {
 		err := s.pushEds(pushRequest.Push, con, currentVersion, nil)
@@ -817,6 +788,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		errChan <- conn.stream.Send(res)
 		close(errChan)
 	}()
+
 	select {
 	case <-t.C:
 		// TODO: wait for ACK

@@ -15,53 +15,47 @@
 package xds
 
 import (
-	"time"
-
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
-// clusters aggregate a DiscoveryResponse for pushing.
-func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix string) *discovery.DiscoveryResponse {
-	out := &discovery.DiscoveryResponse{
-		// All resources for CDS ought to be of the type Cluster
-		TypeUrl: v3.ClusterType,
-
-		// Pilot does not really care for versioning. It always supplies what's currently
-		// available to it, irrespective of whether Envoy chooses to accept or reject CDS
-		// responses. Pilot believes in eventual consistency and that at some point, Envoy
-		// will begin seeing results it deems to be good.
-		VersionInfo: versionInfo(),
-		Nonce:       nonce(noncePrefix),
-	}
-
-	for _, c := range response {
-		out.Resources = append(out.Resources, util.MessageToAny(c))
-	}
-
-	return out
+type CdsGenerator struct {
+	Server *DiscoveryServer
 }
 
-func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, version string) error {
-	pushStart := time.Now()
-	defer func() { cdsPushTime.Record(time.Since(pushStart).Seconds()) }()
+var _ model.XdsResourceGenerator = &CdsGenerator{}
 
-	rawClusters := s.ConfigGenerator.BuildClusters(con.proxy, push)
+var cdsPushMaps = map[resource.GroupVersionKind]struct{}{
+	gvk.ServiceEntry:       {},
+	gvk.DestinationRule:    {},
+	gvk.EnvoyFilter:        {},
+	gvk.Sidecar:            {},
+	gvk.PeerAuthentication: {},
+}
 
-	response := cdsDiscoveryResponse(rawClusters, push.Version)
-	err := con.send(response)
-	if err != nil {
-		recordSendError("CDS", con.ConID, cdsSendErrPushes, err)
-		return err
+func cdsNeedsPush(updates model.XdsUpdates) bool {
+	// If none set, we will always push
+	if len(updates) == 0 {
+		return true
 	}
-	cdsPushes.Increment()
+	for config := range updates {
+		if _, f := cdsPushMaps[config.Kind]; f {
+			return true
+		}
+	}
+	return false
+}
 
-	// The response can't be easily read due to 'any' marshaling.
-	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
-		con.proxy.ID, len(rawClusters), len(push.Services(nil)), version)
-	return nil
+func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+	if !cdsNeedsPush(updates) {
+		return nil
+	}
+	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)
+	resources := model.Resources{}
+	for _, c := range rawClusters {
+		resources = append(resources, util.MessageToAny(c))
+	}
+	return resources
 }

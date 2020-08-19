@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
@@ -483,6 +484,8 @@ func (s *DiscoveryServer) initGenerators() {
 	}
 	s.Generators["api/"+TypeURLConnections] = s.InternalGen
 	s.Generators["event"] = s.InternalGen
+
+	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 }
 
 // shutdown shutsdown DiscoveryServer components.
