@@ -40,6 +40,7 @@ import (
 	operator_v1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/url"
 )
 
 var (
@@ -198,10 +199,10 @@ func installPreCheck(istioNamespaceFlag string, restClientGetter genericclioptio
 	err = c.checkMutatingWebhook()
 	if err != nil {
 		fmt.Fprintf(writer, "This Kubernetes cluster deployed without MutatingAdmissionWebhook support."+
-			"See https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#automatic-sidecar-injection\n")
+			"See "+url.SidecarInjection+"\n")
 	} else {
 		fmt.Fprintf(writer, "This Kubernetes cluster supports automatic sidecar injection."+
-			" To enable automatic sidecar injection see https://istio.io/docs/setup/kubernetes/additional-setup/sidecar-injection/#deploying-an-app\n")
+			" To enable automatic sidecar injection see "+url.SidecarDeployingApp+"\n")
 	}
 	fmt.Fprintf(writer, "\n")
 	fmt.Fprintf(writer, "-----------------------\n")

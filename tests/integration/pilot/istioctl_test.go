@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/url"
 )
 
 var (
@@ -127,8 +128,7 @@ var (
 `)
 
 	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
-Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/latest/docs/ops/deployment/requirements/
-`
+Next Step: Add related labels to the deployment to align with Istio's requirement: ` + url.DeploymentRequirements
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
