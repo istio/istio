@@ -267,6 +267,7 @@ spec:
 		}
 
 		if ctx.Environment().IsMultinetwork() {
+			// TODO(#26517) fix multinetwork with non-sidecar pods, for now just go to pods that support mTLS
 			splits = []map[string]int{
 				{
 					podBSvc:  60,
@@ -360,7 +361,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 			}
 
 			if !ctx.Environment().IsMultinetwork() {
-				// TODO(landow) fix multinetwork issues with non-sidecar pods, for now only test this in single-network
+				// TODO(#26517) fix multinetwork with non-sidecar pods, for now only test this in single-network
 				// the filter below assumes we fix this by restricting cross-network for non-sidecars
 				apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName()))
 			}
@@ -554,7 +555,6 @@ func serverFirstTestCases() []TrafficTestCase {
 					})
 				},
 				validator: func(responses echoclient.ParsedResponses) error {
-					var x = 1
 					return responses.CheckOK()
 				},
 				expectFailure: !c.success,
