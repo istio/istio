@@ -76,8 +76,6 @@ var (
 		plugin.Authz,
 		plugin.Health,
 	}
-
-	startupTime time.Time
 )
 
 const (
@@ -86,7 +84,6 @@ const (
 )
 
 func init() {
-	startupTime = time.Now()
 	// Disable gRPC tracing. It has performance impacts (See https://github.com/grpc/grpc-go/issues/695)
 	grpc.EnableTracing = false
 
