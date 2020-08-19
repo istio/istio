@@ -1081,10 +1081,15 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
 						instances := push.InstancesByPort(service, servicePort.Port, nil)
-						if service.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) && len(instances) == 0 {
-							// A Kubernetes service with no endpoints means there are no endpoints at all, so don't bother sending.
-							// But a ServiceEntry with no endpoints is useful - we will just passthrough to the destination
-							// Fallback to the usual way of a wildcard listener.
+						if service.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
+							// A Kubernetes service with no endpoints means there are no endpoints at
+							// all, so don't bother sending, as traffic will never work. If we did
+							// send a wildcard listener, we may get into a situation where a scale
+							// down leads to a listener conflict. Similarly, if we have a
+							// labelSelector on the Service, then this may have endpoints not yet
+							// selected or scaled down, so we skip these as well. This leaves us with
+							// only a plain ServiceEntry with resolution NONE. In this case, we will
+							// fallback to a wildcard listener.
 							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 								virtualServices, actualWildcard)
 							continue
