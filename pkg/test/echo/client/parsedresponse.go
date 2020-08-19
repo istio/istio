@@ -16,6 +16,7 @@ package client
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework/resource"
 	"regexp"
 	"strconv"
 	"strings"
@@ -180,18 +181,18 @@ func (r ParsedResponses) clusterDistribution() map[string]int {
 // CheckReachedClusters returns an error if there wasn't at least one response from each of the given clusters.
 // This can be used in combination with echo.Instances.Clusters(), for example:
 //     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
-func (r ParsedResponses) CheckReachedClusters(clusterNames []string) error {
+func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error {
 	hits := r.clusterDistribution()
 	exp := map[string]struct{}{}
-	for _, expCluster := range clusterNames {
-		exp[expCluster] = struct{}{}
-		if hits[expCluster] == 0 {
-			return fmt.Errorf("did not reach all of %v, got %v", clusterNames, hits)
+	for _, expCluster := range clusters {
+		exp[expCluster.Name()] = struct{}{}
+		if hits[expCluster.Name()] == 0 {
+			return fmt.Errorf("did not reach all of %v, got %v", clusters, hits)
 		}
 	}
 	for hitCluster := range hits {
 		if _, ok := exp[hitCluster]; !ok {
-			return fmt.Errorf("reached cluster not in %v, got %v", clusterNames, hits)
+			return fmt.Errorf("reached cluster not in %v, got %v", clusters, hits)
 		}
 	}
 	return nil

@@ -26,14 +26,14 @@ import (
 type Instances []Instance
 
 // Clusters returns a list of cluster names that the instances are deployed in
-func (i Instances) Clusters() []string {
-	clusters := map[string]struct{}{}
+func (i Instances) Clusters() resource.Clusters {
+	clusters := map[string]resource.Cluster{}
 	for _, instance := range i {
-		clusters[instance.Config().Cluster.Name()] = struct{}{}
+		clusters[instance.Config().Cluster.Name()] = instance.Config().Cluster
 	}
-	out := make([]string, 0, len(clusters))
-	for name := range clusters {
-		out = append(out, name)
+	out := make(resource.Clusters, 0, len(clusters))
+	for _, c := range clusters {
+		out = append(out, c)
 	}
 	return out
 }
