@@ -34,7 +34,6 @@ func GetAdditionVMImages() []string {
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
@@ -54,7 +53,8 @@ func TestVmOSPost(t *testing.T) {
 			b.BuildOrFail(ctx)
 
 			for i, image := range images {
-				ctx.NewSubTest(image).Run(func(ctx framework.TestContext) {
+				i, image := i, image
+				ctx.NewSubTest(image).RunParallel(func(ctx framework.TestContext) {
 					for _, tt := range vmTestCases(instances[i]) {
 						ExecuteTrafficTest(ctx, tt)
 					}
