@@ -52,7 +52,7 @@ type TrafficCall struct {
 	expectFailure bool
 }
 
-func virtualServiceCases() []TrafficTestCase {
+func virtualServiceCases(ctx framework.TestContext) []TrafficTestCase {
 	var cases []TrafficTestCase
 	callCount := callsPerCluster * len(apps.podB)
 	for _, podA := range apps.podA {
@@ -266,6 +266,19 @@ spec:
 			},
 		}
 
+		if ctx.Environment().IsMultinetwork() {
+			splits = []map[string]int{
+				{
+					podBSvc:  60,
+					vmASvc:   40,
+				},
+				{
+					podBSvc:  80,
+					vmASvc:   20,
+				},
+			}
+		}
+
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
@@ -334,7 +347,6 @@ func expectString(got, expected, help string) error {
 
 // Todo merge with security TestReachability code
 func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
-
 
 	cases := []TrafficTestCase{}
 	// TODO add VMs to clients when DNS works for VMs.
@@ -559,7 +571,7 @@ func TestTraffic(t *testing.T) {
 		Features("traffic.routing", "traffic.reachability", "traffic.shifting").
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
-			cases["virtualservice"] = virtualServiceCases()
+			cases["virtualservice"] = virtualServiceCases(ctx)
 			cases["sniffing"] = protocolSniffingCases(ctx)
 			cases["serverfirst"] = serverFirstTestCases()
 			cases["vm"] = vmTestCases(apps.vmA)
