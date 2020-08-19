@@ -44,6 +44,10 @@ message ForwardEchoRequest {
   string message = 6;
   // If true, requests will be sent using h2c prior knowledge
   bool http2 = 7;
+
+  // If non-empty, make the request with the corresponding cert and key.
+  string cert = 8;
+  string key = 9;
 }
 
 message ForwardEchoResponse {
