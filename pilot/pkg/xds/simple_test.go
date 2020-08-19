@@ -105,7 +105,8 @@ func startEnvoy(t *testing.T) {
 		"meta_json_str": fmt.Sprintf(`"BASE": "%s", ISTIO_VERSION: 1.5.0`, env.IstioSrc+"/tests/testdata/local"),
 	}
 
-	if err := testEnv.SetUp(); err != nil {
+	// nolint: staticcheck
+	if err := testEnv.SetUp(nil); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 

@@ -215,7 +215,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			if !c.chainedCNIPlugin {
 				// Standalone CNI plugin
 				parent := context.Background()
-				ctx1, cancel := context.WithTimeout(parent, 5*time.Second)
+				ctx1, cancel := context.WithTimeout(parent, 100*time.Millisecond)
 				defer cancel()
 				result, err := getCNIConfigFilepath(ctx1, cfg)
 				if err != nil {
@@ -262,7 +262,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				return
 			case err := <-errChan:
 				t.Fatal(err)
-			case <-time.After(5 * time.Second):
+			case <-time.After(100 * time.Millisecond):
 				if len(c.delayedConfName) > 0 {
 					// Delayed case
 					// Write delayed CNI config file
@@ -294,7 +294,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				}
 			case err := <-errChan:
 				t.Fatal(err)
-			case <-time.After(5 * time.Second):
+			case <-time.After(100 * time.Millisecond):
 				t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 			}
 		})
@@ -479,7 +479,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 					expectedFilepath = filepath.Join(tempDir, c.expectedConfName)
 				}
 
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 				defer cancel()
 				resultFilepath, err := createCNIConfigFile(ctx, &cfg, "")
 				if err != nil {
