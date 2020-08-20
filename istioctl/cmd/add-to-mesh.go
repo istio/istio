@@ -45,12 +45,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
-)
-
-const (
-	// RequirementsURL specifies deployment requirements for pod and services
-	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
 )
 
 var (
@@ -129,7 +125,7 @@ func deploymentMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See ` + RequirementsURL + `
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
 
@@ -184,7 +180,7 @@ func svcMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See ` + RequirementsURL + `
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh service' which does the reverse.
 
@@ -352,7 +348,7 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 		}
 		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
 			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
-			dep.Name, dep.Namespace, RequirementsURL)
+			dep.Name, dep.Namespace, url.DeploymentRequirements)
 	}
 	return errs
 }

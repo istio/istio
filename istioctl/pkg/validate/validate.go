@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
@@ -62,11 +63,6 @@ Example resource specifications include:
 		"version",
 	}
 	serviceProtocolUDP = "UDP"
-)
-
-const (
-	// RequirementsURL specifies deployment requirements for pod and services
-	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
 )
 
 type validator struct {
@@ -173,12 +169,12 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 			}
 			if p["name"] == nil {
 				errs = multierror.Append(errs, fmt.Errorf("service %q has an unnamed port. This is not recommended,"+
-					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
+					" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
 				continue
 			}
 			if servicePortPrefixed(p["name"].(string)) {
 				errs = multierror.Append(errs, fmt.Errorf("service %q port %q does not follow the Istio naming convention."+
-					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
+					" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
 			}
 		}
 	}
@@ -196,7 +192,7 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
 			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
-				" See "+RequirementsURL, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
+				" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
 }

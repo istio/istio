@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"time"
 
+	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/security"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -105,6 +106,8 @@ func (p Plugin) ExchangeToken(ctx context.Context, credFetcher security.CredFetc
 	body, _ := ioutil.ReadAll(resp.Body)
 	respData := &federatedTokenResponse{}
 	if err := json.Unmarshal(body, respData); err != nil {
+		// Normally the request should json - extremely hard to debug otherwise, not enough info in status/err
+		stsClientLog.Debugf("Unexpected unmarshal error, response was %s", string(body))
 		return "", time.Now(), resp.StatusCode, fmt.Errorf(
 			"failed to unmarshal response data. HTTP status: %s. Error: %v. Body size: %d", resp.Status, err, len(body))
 	}
@@ -125,7 +128,11 @@ func constructAudience(credFetcher security.CredFetcher, trustDomain string) str
 	// For GKE, we do not register IdentityProvider explicitly. The provider name
 	// is GKEClusterURL by default.
 	if provider == "" {
-		provider = GKEClusterURL
+		if GKEClusterURL != "" {
+			provider = GKEClusterURL
+		} else if platform.IsGCP() {
+			provider = platform.NewGCP().Metadata()[platform.GCPClusterURL]
+		}
 	}
 	return fmt.Sprintf("identitynamespace:%s:%s", trustDomain, provider)
 }

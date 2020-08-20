@@ -47,6 +47,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
@@ -407,12 +408,23 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
+	svc.Attributes.ServiceRegistry = string(serviceregistry.Kubernetes)
 	services := []*model.Service{svc}
+
+	extSvc := buildServiceWithPort("example1.com", 9999, protocol.TCP, tnow)
+	extSvc.Resolution = model.Passthrough
+	extSvc.Attributes.ServiceRegistry = serviceregistry.External
+
+	extSvcSelector := buildServiceWithPort("example2.com", 9999, protocol.TCP, tnow)
+	extSvcSelector.Resolution = model.Passthrough
+	extSvcSelector.Attributes.ServiceRegistry = serviceregistry.External
+	extSvcSelector.Attributes.LabelSelectors = map[string]string{"foo": "bar"}
 
 	p := &fakePlugin{}
 	tests := []struct {
 		name                      string
 		instances                 []*model.ServiceInstance
+		services                  []*model.Service
 		numListenersOnServicePort int
 	}{
 		{
@@ -424,22 +436,51 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(services[0], "11.11.11.11"),
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
+			services:                  []*model.Service{svc},
 			numListenersOnServicePort: 3,
+		},
+		{
+			name:                      "no listeners for empty services",
+			instances:                 []*model.ServiceInstance{},
+			services:                  []*model.Service{svc},
+			numListenersOnServicePort: 0,
 		},
 		{
 			name: "no listeners for DNS instance",
 			instances: []*model.ServiceInstance{
-				buildServiceInstance(services[0], "example.com"),
+				buildServiceInstance([]*model.Service{svc}[0], "example.com"),
 			},
+			services:                  services,
 			numListenersOnServicePort: 0,
+		},
+		{
+			name:                      "external service",
+			instances:                 []*model.ServiceInstance{},
+			services:                  []*model.Service{extSvc},
+			numListenersOnServicePort: 1,
+		},
+		{
+			name:                      "external service with selector",
+			instances:                 []*model.ServiceInstance{},
+			services:                  []*model.Service{extSvcSelector},
+			numListenersOnServicePort: 0,
+		},
+		{
+			name: "external service with selector and endpoints",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(extSvcSelector, "10.10.10.10"),
+				buildServiceInstance(extSvcSelector, "11.11.11.11"),
+			},
+			services:                  []*model.Service{extSvcSelector},
+			numListenersOnServicePort: 2,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configgen := NewConfigGenerator([]plugin.Plugin{p})
 
-			env := buildListenerEnv(services)
-			serviceDiscovery := memregistry.NewServiceDiscovery(services)
+			env := buildListenerEnv(tt.services)
+			serviceDiscovery := memregistry.NewServiceDiscovery(tt.services)
 			for _, i := range tt.instances {
 				serviceDiscovery.AddInstance(i.Service.Hostname, i)
 			}
@@ -453,15 +494,15 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.ServiceInstances = proxyInstances
 
 			listeners := configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
-			listenersToCheck := make([]*listener.Listener, 0)
+			listenersToCheck := make([]string, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
-					listenersToCheck = append(listenersToCheck, l)
+					listenersToCheck = append(listenersToCheck, l.Name)
 				}
 			}
 
 			if len(listenersToCheck) != tt.numListenersOnServicePort {
-				t.Errorf("Expected %d listeners on service port 9999, got %d", tt.numListenersOnServicePort, len(listenersToCheck))
+				t.Errorf("Expected %d listeners on service port 9999, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
 			}
 		})
 	}

@@ -168,12 +168,13 @@ metadata:
 spec:
   address: %s
   serviceAccount: %s
+  network: %q
   labels:
     app: %s
     version: %s
-`, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
+`, vmPod.Name, vmPod.Status.PodIP, serviceAccount, cfg.Cluster.NetworkName(), cfg.Service, vmPod.Labels["istio.io/test-vm-version"])
 			// Deploy the workload entry.
-			if err = ctx.Config(c.cluster).ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
+			if err = ctx.Config().ApplyYAML(cfg.Namespace.Name(), wle); err != nil {
 				return nil, fmt.Errorf("failed deploying workload entry: %v", err)
 			}
 		}
