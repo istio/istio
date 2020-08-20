@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package filter
 
 import (
 	"fmt"
@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+	config2 "istio.io/istio/tools/bug-report/pkg/config"
 )
 
 var (
@@ -235,7 +236,7 @@ include:
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
-			config := &BugReportConfig{}
+			config := &config2.BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
 			}
@@ -311,7 +312,7 @@ include:
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
-			config := &BugReportConfig{}
+			config := &config2.BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
 			}
@@ -453,7 +454,7 @@ exclude:
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
-			config := &BugReportConfig{}
+			config := &config2.BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
 			}

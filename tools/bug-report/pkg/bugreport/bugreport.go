@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package bugreport
 
 import (
 	"context"
@@ -25,7 +25,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/tools/bug-report/pkg/client"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+	config2 "istio.io/istio/tools/bug-report/pkg/config"
+	"istio.io/istio/tools/bug-report/pkg/filter"
+	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
 	"istio.io/pkg/version"
 )
 
@@ -71,10 +76,10 @@ var (
 	startTime, endTime, configFile string
 	included, excluded             []string
 	commandTimeout, since          time.Duration
-	gConfig                        = &BugReportConfig{}
+	gConfig                        = &config2.BugReportConfig{}
 )
 
-func addFlags(cmd *cobra.Command, args *BugReportConfig) {
+func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// k8s client config
 	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", kubeCaptureHelpKubeconfig)
 	cmd.PersistentFlags().StringVar(&args.Context, "context", "", kubeCaptureHelpContext)
@@ -135,7 +140,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 		return err
 	}
 
-	_, clientset, err := InitK8SRestClient(config.KubeConfigPath, config.Context)
+	_, clientset, err := client.InitK8SRestClient(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
@@ -145,20 +150,30 @@ func runBugReportCommand(_ *cobra.Command) error {
 	}
 
 	fmt.Printf("Cluster resource tree:\n\n%s\n\n", resources)
-	paths, err := GetMatchingPaths(config, resources)
+	paths, err := filter.GetMatchingPaths(config, resources)
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
-	// Download logs for containers in paths.
+	var errs util.Errors
+	for _, p := range paths {
+		cv := strings.Split(p, ".")
+		namespace, pod, container := cv[0], cv[2], cv[3]
+		containerLog, err := kubectlcmd.Logs(namespace, pod, container, true)
+		if err != nil {
+			errs = util.AppendErr(errs, err)
+			continue
+		}
+		fmt.Printf("%s\n\n", containerLog)
+	}
 
 	return nil
 }
 
-func parseConfig() (*BugReportConfig, error) {
-	config := &BugReportConfig{}
+func parseConfig() (*config2.BugReportConfig, error) {
+	config := &config2.BugReportConfig{}
 	if configFile != "" {
 		b, err := ioutil.ReadFile(configFile)
 		if err != nil {
@@ -172,24 +187,24 @@ func parseConfig() (*BugReportConfig, error) {
 		log.Fatal(err)
 	}
 	for _, s := range included {
-		ss := &SelectionSpec{}
+		ss := &config2.SelectionSpec{}
 		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
 		config.Include = append(config.Include, ss)
 	}
 	for _, s := range excluded {
-		ss := &SelectionSpec{}
+		ss := &config2.SelectionSpec{}
 		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		config.Include = append(config.Exclude, ss)
+		config.Exclude = append(config.Exclude, ss)
 	}
 
 	return config, nil
 }
 
-func parseTimes(config *BugReportConfig, startTime, endTime string) error {
+func parseTimes(config *config2.BugReportConfig, startTime, endTime string) error {
 	config.EndTime = time.Now()
 	if endTime != "" {
 		var err error

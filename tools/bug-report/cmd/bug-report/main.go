@@ -17,10 +17,12 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"istio.io/istio/tools/bug-report/pkg/bugreport"
 )
 
 func main() {
-	if err := GetRootCmd(os.Args[1:]).Execute(); err != nil {
+	if err := bugreport.GetRootCmd(os.Args[1:]).Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}

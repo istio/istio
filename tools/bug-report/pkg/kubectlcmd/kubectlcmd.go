@@ -88,7 +88,7 @@ func Run(subcmds []string, opts *Options) (string, string, error) {
 	cmdStr := strings.Join(args, " ")
 
 	if opts.DryRun {
-		log.Infof("dry run mode: would be running this cmd:\n%s\n", cmdStr)
+		log.Infof("dry run mode: would be running this cmd:\nkubectl %s\n", cmdStr)
 		return "", "", nil
 	}
 
