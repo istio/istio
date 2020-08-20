@@ -22,14 +22,14 @@ import (
 	"time"
 
 	"istio.io/istio/operator/pkg/util"
-	cluster "istio.io/istio/tools/bug-report/pkg"
+	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/pkg/log"
 )
 
 // GetMatchingPaths returns a slice of matching paths, given a cluster tree and config.
 // config is the capture configuration.
 // cluster is the structure representing the cluster resource hierarchy.
-func GetMatchingPaths(config *BugReportConfig, cluster *cluster.Resources) ([]string, error) {
+func GetMatchingPaths(config *BugReportConfig, cluster *cluster2.Resources) ([]string, error) {
 	paths, err := getMatchingPathsForSpec(config, cluster)
 	if err != nil {
 		return nil, err
@@ -78,12 +78,12 @@ func mergeMaps(a, b map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func getMatchingPathsForSpec(config *BugReportConfig, cluster *cluster.Resources) (map[string]struct{}, error) {
+func getMatchingPathsForSpec(config *BugReportConfig, cluster *cluster2.Resources) (map[string]struct{}, error) {
 	paths := make(map[string]struct{})
 	return getMatchingPathsForSpecImpl(config, cluster, cluster.Root, nil, paths)
 }
 
-func getMatchingPathsForSpecImpl(config *BugReportConfig, cluster *cluster.Resources, node map[string]interface{}, path util.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
+func getMatchingPathsForSpecImpl(config *BugReportConfig, cluster *cluster2.Resources, node map[string]interface{}, path util.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
 	for pe, n := range node {
 		np := append(path, pe)
 		if nn, ok := n.(map[string]interface{}); ok {
@@ -110,7 +110,7 @@ func getMatchingPathsForSpecImpl(config *BugReportConfig, cluster *cluster.Resou
 	return matchingPaths, nil
 }
 
-func matchesKubeCaptureConfig(config *BugReportConfig, cluster *cluster.Resources, namespace, deployment, pod, container string) bool {
+func matchesKubeCaptureConfig(config *BugReportConfig, cluster *cluster2.Resources, namespace, deployment, pod, container string) bool {
 	for _, sp := range config.Exclude {
 		if matchesSelectionSpec(sp, cluster, namespace, deployment, pod, container) {
 			return false
@@ -125,7 +125,7 @@ func matchesKubeCaptureConfig(config *BugReportConfig, cluster *cluster.Resource
 }
 
 // matchesSelectionSpec reports whether the given container path is selected by any SelectionSpec.
-func matchesSelectionSpec(sp *SelectionSpec, cluster *cluster.Resources, namespace, deployment, pod, container string) bool {
+func matchesSelectionSpec(sp *SelectionSpec, cluster *cluster2.Resources, namespace, deployment, pod, container string) bool {
 	// For inclusion, match all if nothing is set.
 	if !matchesGlobs(namespace, sp.Namespaces) {
 		return false

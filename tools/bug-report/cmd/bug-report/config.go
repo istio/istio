@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	cluster "istio.io/istio/tools/bug-report/pkg"
+	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 )
 
 // SelectionSpec is a spec for pods that will be Include in the capture
@@ -152,37 +152,37 @@ func parseToIncludeTypeMap(s string) (map[string]string, error) {
 }
 
 func (s *SelectionSpec) UnmarshalJSON(b []byte) error {
-	ft := []cluster.ResourceType{cluster.Namespace, cluster.Deployment, cluster.Pod, cluster.Label, cluster.Annotation, cluster.Container}
+	ft := []cluster2.ResourceType{cluster2.Namespace, cluster2.Deployment, cluster2.Pod, cluster2.Label, cluster2.Annotation, cluster2.Container}
 	str := strings.TrimPrefix(strings.TrimSuffix(string(b), `"`), `"`)
 	for i, f := range strings.Split(str, "/") {
 		var err error
 		switch ft[i] {
-		case cluster.Namespace:
+		case cluster2.Namespace:
 			s.Namespaces = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err
 			}
-		case cluster.Deployment:
+		case cluster2.Deployment:
 			s.Deployments = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err
 			}
-		case cluster.Pod:
+		case cluster2.Pod:
 			s.Pods = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err
 			}
-		case cluster.Label:
+		case cluster2.Label:
 			s.Labels, err = parseToIncludeTypeMap(f)
 			if err != nil {
 				return err
 			}
-		case cluster.Annotation:
+		case cluster2.Annotation:
 			s.Annotations, err = parseToIncludeTypeMap(f)
 			if err != nil {
 				return err
 			}
-		case cluster.Container:
+		case cluster2.Container:
 			s.Containers = parseToIncludeTypeSlice(f)
 			if err != nil {
 				return err

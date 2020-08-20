@@ -25,7 +25,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
-	cluster "istio.io/istio/tools/bug-report/pkg"
+	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/pkg/version"
 )
 
@@ -139,7 +139,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
-	resources, err := cluster.GetClusterResources(context.Background(), clientset)
+	resources, err := cluster2.GetClusterResources(context.Background(), clientset)
 	if err != nil {
 		return err
 	}

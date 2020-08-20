@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
-	cluster "istio.io/istio/tools/bug-report/pkg"
+	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 )
 
 var (
@@ -91,7 +91,7 @@ ns1.d2.p4:
 
 	ns1 = append(d1, d2...)
 
-	testClusterResources = &cluster.Resources{
+	testClusterResources = &cluster2.Resources{
 		Root:        make(map[string]interface{}),
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
