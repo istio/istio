@@ -17,7 +17,6 @@ package xds
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/api/label"
 	"path"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
