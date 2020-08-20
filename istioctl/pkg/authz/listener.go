@@ -80,37 +80,39 @@ func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error
 	return nil
 }
 
-func parse(listener *listener.Listener) *parsedListener {
+func parse(listeners []*listener.Listener) *parsedListener {
 	parsed := &parsedListener{}
-	for _, fc := range listener.FilterChains {
-		parsedFC := &filterChain{}
-		for _, filter := range fc.Filters {
-			switch filter.Name {
-			case wellknown.HTTPConnectionManager, "envoy.http_connection_manager":
-				if cm := getHTTPConnectionManager(filter); cm != nil {
-					for _, httpFilter := range cm.GetHttpFilters() {
-						switch httpFilter.GetName() {
-						case wellknown.HTTPRoleBasedAccessControl:
-							rbacHTTP := &rbac_http_filter.RBAC{}
-							if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
-								log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
-							} else {
-								parsedFC.rbacHTTP = append(parsedFC.rbacHTTP, rbacHTTP)
+	for _, listener := range listeners {
+		for _, fc := range listener.FilterChains {
+			parsedFC := &filterChain{}
+			for _, filter := range fc.Filters {
+				switch filter.Name {
+				case wellknown.HTTPConnectionManager, "envoy.http_connection_manager":
+					if cm := getHTTPConnectionManager(filter); cm != nil {
+						for _, httpFilter := range cm.GetHttpFilters() {
+							switch httpFilter.GetName() {
+							case wellknown.HTTPRoleBasedAccessControl:
+								rbacHTTP := &rbac_http_filter.RBAC{}
+								if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
+									log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
+								} else {
+									parsedFC.rbacHTTP = append(parsedFC.rbacHTTP, rbacHTTP)
+								}
 							}
 						}
 					}
-				}
-			case wellknown.RoleBasedAccessControl:
-				rbacTCP := &rbac_tcp_filter.RBAC{}
-				if err := getFilterConfig(filter, rbacTCP); err != nil {
-					log.Errorf("found RBAC network filter but failed to parse: %s", err)
-				} else {
-					parsedFC.rbacTCP = append(parsedFC.rbacTCP, rbacTCP)
+				case wellknown.RoleBasedAccessControl:
+					rbacTCP := &rbac_tcp_filter.RBAC{}
+					if err := getFilterConfig(filter, rbacTCP); err != nil {
+						log.Errorf("found RBAC network filter but failed to parse: %s", err)
+					} else {
+						parsedFC.rbacTCP = append(parsedFC.rbacTCP, rbacTCP)
+					}
 				}
 			}
-		}
 
-		parsed.filterChains = append(parsed.filterChains, parsedFC)
+			parsed.filterChains = append(parsed.filterChains, parsedFC)
+		}
 	}
 
 	return parsed
@@ -127,8 +129,8 @@ func extractName(name string) (string, string) {
 }
 
 // Print prints the AuthorizationPolicy in the listener.
-func Print(writer io.Writer, listener *listener.Listener) {
-	parsed := parse(listener)
+func Print(writer io.Writer, listeners []*listener.Listener) {
+	parsed := parse(listeners)
 	if parsed == nil {
 		return
 	}
