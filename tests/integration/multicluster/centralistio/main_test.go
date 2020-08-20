@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +48,6 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 
 			cfg.Values["global.centralIstiod"] = "true"
-			cfg.ExposeIstiod = true
 
 			// Set the control plane values on the config.
 			// For ingress, add port 15017 to the default list of ports.

@@ -165,6 +165,7 @@ func (h *grpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*proto.
 }
 
 func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
+	log.Infof("ForwardEcho[%s] request", req.Url)
 	instance, err := forwarder.New(forwarder.Config{
 		Request: req,
 		Dialer:  h.Dialer,
@@ -175,5 +176,7 @@ func (h *grpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoReq
 	}
 	defer instance.Close()
 
-	return instance.Run(ctx)
+	ret, err := instance.Run(ctx)
+	log.Infof("ForwardEcho[%s] response: %v and error %v", req.Url, ret.GetOutput(), err)
+	return ret, err
 }

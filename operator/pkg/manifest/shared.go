@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
@@ -411,7 +412,7 @@ func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
 	if jwtPolicy == util.FirstPartyJWT {
 		// nolint: lll
 		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
-			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
+			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
 	}
 	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }

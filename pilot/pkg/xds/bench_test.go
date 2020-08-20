@@ -22,15 +22,16 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Masterminds/sprig"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/Masterminds/sprig/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/env"
@@ -199,10 +200,10 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
+				loadAssignments := make([]*any.Any, 0)
 				for svc := 0; svc < tt.services; svc++ {
 					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
-					loadAssignments = append(loadAssignments, l)
+					loadAssignments = append(loadAssignments, util.MessageToAny(l))
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
 			}

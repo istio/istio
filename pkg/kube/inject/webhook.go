@@ -36,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -47,9 +48,10 @@ import (
 )
 
 var (
-	runtimeScheme = runtime.NewScheme()
-	codecs        = serializer.NewCodecFactory(runtimeScheme)
-	deserializer  = codecs.UniversalDeserializer()
+	runtimeScheme  = runtime.NewScheme()
+	codecs         = serializer.NewCodecFactory(runtimeScheme)
+	deserializer   = codecs.UniversalDeserializer()
+	jsonSerializer = kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, runtimeScheme, runtimeScheme, kjson.SerializerOptions{})
 )
 
 func init() {
@@ -667,6 +669,100 @@ func toAdmissionResponse(err error) *kube.AdmissionResponse {
 	return &kube.AdmissionResponse{Result: &metav1.Status{Message: err.Error()}}
 }
 
+type InjectionParameters struct {
+	pod                 *corev1.Pod
+	deployMeta          *metav1.ObjectMeta
+	typeMeta            *metav1.TypeMeta
+	template            string
+	version             string
+	meshConfig          *meshconfig.MeshConfig
+	valuesConfig        string
+	revision            string
+	clusterName         string
+	clusterNetwork      string
+	injectedAnnotations map[string]string
+}
+
+func getDeployMetaFromPod(pod *corev1.Pod) (*metav1.ObjectMeta, *metav1.TypeMeta) {
+	// try to capture more useful namespace/name info for deployments, etc.
+	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
+	deployMeta := pod.ObjectMeta.DeepCopy()
+	deployMeta.Namespace = pod.ObjectMeta.Namespace
+
+	typeMetadata := &metav1.TypeMeta{
+		Kind:       "Pod",
+		APIVersion: "v1",
+	}
+	if len(pod.GenerateName) > 0 {
+		// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
+		var controllerRef metav1.OwnerReference
+		controllerFound := false
+		for _, ref := range pod.GetOwnerReferences() {
+			if *ref.Controller {
+				controllerRef = ref
+				controllerFound = true
+				break
+			}
+		}
+		if controllerFound {
+			typeMetadata.APIVersion = controllerRef.APIVersion
+			typeMetadata.Kind = controllerRef.Kind
+
+			// heuristic for deployment detection
+			if typeMetadata.Kind == "ReplicaSet" && pod.Labels["pod-template-hash"] != "" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
+				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
+				deployMeta.Name = name
+				typeMetadata.Kind = "Deployment"
+			} else {
+				deployMeta.Name = controllerRef.Name
+			}
+		}
+	}
+
+	if deployMeta.Name == "" {
+		// if we haven't been able to extract a deployment name, then just give it the pod name
+		deployMeta.Name = pod.Name
+	}
+
+	return deployMeta, typeMetadata
+}
+
+func injectPod(req InjectionParameters) ([]byte, error) {
+	pod := req.pod
+
+	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
+	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
+	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+	var grp = int64(1337)
+	if pod.Spec.SecurityContext == nil {
+		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup: &grp,
+		}
+	} else {
+		pod.Spec.SecurityContext.FSGroup = &grp
+	}
+
+	spec, iStatus, err := InjectionData(req, req.typeMeta, req.deployMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
+
+	// Add all additional injected annotations
+	for k, v := range req.injectedAnnotations {
+		annotations[k] = v
+	}
+
+	patchBytes, err := createPatch(pod, injectionStatus(pod), req.revision, annotations, spec, req.deployMeta.Name, req.meshConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
+	return patchBytes, nil
+}
+
 func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {
 	req := ar.Request
 	var pod corev1.Pod
@@ -695,79 +791,34 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	var grp = int64(1337)
-	if pod.Spec.SecurityContext == nil {
-		pod.Spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
-		}
-	} else {
-		pod.Spec.SecurityContext.FSGroup = &grp
+	clusterName, clusterNetwork := "", ""
+	res := strings.Split(path, "/")
+	if len(res) >= 5 {
+		// if len is less than 5, not enough length for /cluster/X/net/Y
+		clusterName = res[len(res)-3]
+		clusterNetwork = res[len(res)-1]
+
+		log.Debugf("Updating cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
 	}
-
-	// try to capture more useful namespace/name info for deployments, etc.
-	// TODO(dougreid): expand to enable lookup of OWNERs recursively a la kubernetesenv
-	deployMeta := pod.ObjectMeta.DeepCopy()
-	deployMeta.Namespace = req.Namespace
-
-	typeMetadata := &metav1.TypeMeta{
-		Kind:       "Pod",
-		APIVersion: "v1",
+	deploy, typeMeta := getDeployMetaFromPod(&pod)
+	params := InjectionParameters{
+		pod:                 &pod,
+		deployMeta:          deploy,
+		typeMeta:            typeMeta,
+		template:            wh.Config.Template,
+		version:             wh.sidecarTemplateVersion,
+		meshConfig:          wh.meshConfig,
+		valuesConfig:        wh.valuesConfig,
+		revision:            wh.revision,
+		injectedAnnotations: wh.Config.InjectedAnnotations,
+		clusterName:         clusterName,
+		clusterNetwork:      clusterNetwork,
 	}
-
-	if len(pod.GenerateName) > 0 {
-		// if the pod name was generated (or is scheduled for generation), we can begin an investigation into the controlling reference for the pod.
-		var controllerRef metav1.OwnerReference
-		controllerFound := false
-		for _, ref := range pod.GetOwnerReferences() {
-			if *ref.Controller {
-				controllerRef = ref
-				controllerFound = true
-				break
-			}
-		}
-		if controllerFound {
-			typeMetadata.APIVersion = controllerRef.APIVersion
-			typeMetadata.Kind = controllerRef.Kind
-
-			// heuristic for deployment detection
-			if typeMetadata.Kind == "ReplicaSet" && strings.HasSuffix(controllerRef.Name, pod.Labels["pod-template-hash"]) {
-				name := strings.TrimSuffix(controllerRef.Name, "-"+pod.Labels["pod-template-hash"])
-				deployMeta.Name = name
-				typeMetadata.Kind = "Deployment"
-			} else {
-				deployMeta.Name = controllerRef.Name
-			}
-		}
-	}
-
-	if deployMeta.Name == "" {
-		// if we haven't been able to extract a deployment name, then just give it the pod name
-		deployMeta.Name = pod.Name
-	}
-
-	spec, iStatus, err := InjectionData(wh.Config.Template, wh.valuesConfig, wh.sidecarTemplateVersion, typeMetadata, deployMeta, &pod.Spec, &pod.ObjectMeta, wh.meshConfig, path) // nolint: lll
+	patchBytes, err := injectPod(params)
 	if err != nil {
-		handleError(fmt.Sprintf("Injection data: err=%v spec=%v\n", err, iStatus))
+		handleError(fmt.Sprintf("Pod injection failed: %v", err))
 		return toAdmissionResponse(err)
 	}
-
-	annotations := map[string]string{annotation.SidecarStatus.Name: iStatus}
-
-	// Add all additional injected annotations
-	for k, v := range wh.Config.InjectedAnnotations {
-		annotations[k] = v
-	}
-
-	patchBytes, err := createPatch(&pod, injectionStatus(&pod), wh.revision, annotations, spec, deployMeta.Name, wh.meshConfig)
-	if err != nil {
-		handleError(fmt.Sprintf("AdmissionResponse: err=%v spec=%v\n", err, spec))
-		return toAdmissionResponse(err)
-	}
-
-	log.Debugf("AdmissionResponse: patch=%v\n", string(patchBytes))
 
 	reviewResponse := kube.AdmissionResponse{
 		Allowed: true,

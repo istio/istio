@@ -875,10 +875,7 @@ func expectServiceInstances(t *testing.T, sd *ServiceEntryStore, cfg *model.Conf
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
 		for i, svc := range svcs {
-			instances, err := sd.InstancesByPort(svc, port, nil)
-			if err != nil {
-				return fmt.Errorf("instancesByPort() encountered unexpected error: %v", err)
-			}
+			instances := sd.InstancesByPort(svc, port, nil)
 			sortServiceInstances(instances)
 			sortServiceInstances(expected[i])
 			if err := compare(t, instances, expected[i]); err != nil {

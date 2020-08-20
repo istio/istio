@@ -155,7 +155,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			pushEv := &Event{configsUpdated: tt.configs}
+			pushEv := &Event{pushRequest: &model.PushRequest{ConfigsUpdated: tt.configs}}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
@@ -272,7 +272,7 @@ func TestPushTypeFor(t *testing.T) {
 					Namespace: "ns",
 				}] = struct{}{}
 			}
-			pushEv := &Event{configsUpdated: cfgs}
+			pushEv := &Event{pushRequest: &model.PushRequest{ConfigsUpdated: cfgs}}
 			out := PushTypeFor(tt.proxy, pushEv)
 			if !reflect.DeepEqual(out, tt.expect) {
 				t.Errorf("expected: %v, but got %v", tt.expect, out)

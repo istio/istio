@@ -225,11 +225,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
-
-				if cfg.ExposeIstiod {
-					if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
-						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
-					}
+				if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
+					return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 				}
 				return nil
 			})

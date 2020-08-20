@@ -28,7 +28,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/security/pkg/k8s/tokenreview"
+	"istio.io/istio/pkg/security"
 )
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
@@ -68,26 +68,6 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			expectedErrMsg: "target JWT extraction error: no bearer token exists in HTTP authorization header",
-		},
-		"Review error": {
-			token: "bearer-token",
-			metadata: metadata.MD{
-				"clusterid": []string{primaryCluster},
-				"authorization": []string{
-					"Basic callername",
-				},
-			},
-			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
-		},
-		"Wrong identity length": {
-			token: "bearer-token",
-			metadata: metadata.MD{
-				"clusterid": []string{primaryCluster},
-				"authorization": []string{
-					"Basic callername",
-				},
-			},
-			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
 		},
 		"token not authenticated": {
 			token: invlidToken,
@@ -144,7 +124,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			}
 			if tc.jwtPolicy == jwt.PolicyThirdParty {
-				tokenReview.Spec.Audiences = tokenreview.TokenAudiences
+				tokenReview.Spec.Audiences = security.TokenAudiences
 			}
 
 			tokenReview.Status.Audiences = []string{}

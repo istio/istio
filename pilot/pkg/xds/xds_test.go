@@ -193,7 +193,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		endpoints := xdstest.ExtractEndpoints(s.Endpoints(proxy))
+		endpoints := xdstest.ExtractLoadAssignments(s.Endpoints(proxy))
 		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
@@ -472,7 +472,7 @@ spec:
 					}
 
 					for _, tt := range tests {
-						eps := xdstest.ExtractEndpoints(s.Endpoints(tt.p))
+						eps := xdstest.ExtractLoadAssignments(s.Endpoints(tt.p))
 						for c, ip := range tt.expect {
 							t.Run(fmt.Sprintf("%s from %s", c, tt.p.ID), func(t *testing.T) {
 								assertListEqual(t, eps[c], []string{ip})

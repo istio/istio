@@ -192,22 +192,21 @@ func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, s
 	return kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix), svcName, slice.Namespace
 }
 
-func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
-	labelsList labels.Collection) ([]*model.ServiceInstance, error) {
+func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance {
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: svc.Attributes.Name}).AsSelectorPreValidated()
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(svc.Attributes.Namespace).List(esLabelSelector)
 	if err != nil {
 		log.Infof("get endpoints(%s, %s) => error %v", svc.Attributes.Name, svc.Attributes.Namespace, err)
-		return nil, nil
+		return nil
 	}
 	if len(slices) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	// Locate all ports in the actual service
 	svcPort, exists := svc.Ports.GetByPort(reqSvcPort)
 	if !exists {
-		return nil, nil
+		return nil
 	}
 
 	var out []*model.ServiceInstance
@@ -246,7 +245,7 @@ func (esc *endpointSliceController) InstancesByPort(c *Controller, svc *model.Se
 			}
 		}
 	}
-	return out, nil
+	return out
 }
 
 func (esc *endpointSliceController) newEndpointBuilder(pod *v1.Pod, endpoint discoveryv1alpha1.Endpoint) *EndpointBuilder {

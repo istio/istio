@@ -61,6 +61,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -112,8 +113,10 @@ type Server struct {
 
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
-	kubeRegistry   *kubecontroller.Controller
-	multicluster   *kubecontroller.Multicluster
+
+	// kubeRegistry is the service registry handling the primary cluster.
+	kubeRegistry *kubecontroller.Controller
+	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -126,12 +129,19 @@ type Server struct {
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
 
-	monitoringMux *http.ServeMux // debug, monitoring
-	// readinessMux listens on the httpAddr (8080). If a Gateway is used
-	// in front and https is off it is also multiplexing the rest of the
-	// features.
-	readinessMux *http.ServeMux // readiness.
-	httpsMux     *http.ServeMux // webhooks
+	// monitoringMux listens on monitoringAddr(:15014). 
+	// Currently runs prometheus monitoring and debug (if enabled).
+	monitoringMux *http.ServeMux
+
+	// httpMux listens on the httpAddr (8080).
+	// If a Gateway is used in front and https is off it is also multiplexing
+	// the rest of the features if their port is empty.
+	// Current runs readiness and debug (if enabled)
+	httpMux *http.ServeMux 
+
+	// httpsMux listens on the httpsAddr(15017), handling webhooks
+	// If the address os empty, the webhooks will be set on the default httpPort.
+	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
 	GRPCListener       net.Listener
@@ -183,7 +193,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		environment:     e,
 		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:     filewatcher.NewWatcher(),
-		readinessMux:    http.NewServeMux(),
+		httpMux:         http.NewServeMux(),
 		monitoringMux:   http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
 	}
@@ -202,6 +212,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	prometheus.EnableHandlingTimeHistogram()
 
+	// TODO: revert to watching k8s (and merge with the file)
 	s.initMeshConfiguration(args, s.fileWatcher)
 
 	// Apply the arguments to the configuration.
@@ -280,6 +291,20 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
+	}
+
+	// Notice that the order of authenticators matters, since at runtime
+	// authenticators are activated sequentially and the first successful attempt
+	// is used as the authentication result.
+	// The JWT authenticator requires the multicluster registry to be initialized, so we build this later
+	authenticators := []authenticate.Authenticator{
+		&authenticate.ClientCertAuthenticator{},
+		authenticate.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
+	}
+
+	caOpts.Authenticators = authenticators
+	if features.XDSAuth {
+		s.XDSServer.Authenticators = authenticators
 	}
 
 	s.initDNSServer(args)
@@ -450,10 +475,9 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 
 // initIstiodAdminServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
-	log.Info("initializing Istiod admin server")
 	s.httpServer = &http.Server{
 		Addr:    args.ServerOptions.HTTPAddr,
-		Handler: s.readinessMux,
+		Handler: s.httpMux,
 	}
 
 	// create http listener
@@ -462,9 +486,17 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		return err
 	}
 
+<<<<<<< HEAD
 	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
 	if shouldMultiplex {
 		s.monitoringMux = s.readinessMux
+=======
+	if args.ServerOptions.MonitoringAddr == "" {
+		s.monitoringMux = s.httpMux
+		log.Infoa("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
+	} else {
+		log.Info("initializing Istiod admin server")
+>>>>>>> upstream/master
 	}
 	// Debug Server.
 	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
@@ -476,14 +508,12 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 	}
 
 	// Monitoring Server.
-	if args.ServerOptions.MonitoringAddr != "" {
-		if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
-			return fmt.Errorf("error initializing monitor: %v", err)
-		}
+	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
+		return fmt.Errorf("error initializing monitor: %v", err)
 	}
 
 	// Readiness Handler.
-	s.readinessMux.HandleFunc("/ready", s.istiodReadyHandler)
+	s.httpMux.HandleFunc("/ready", s.istiodReadyHandler)
 
 	s.HTTPListener = listener
 	return nil
@@ -500,19 +530,17 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
-	if args.ServerOptions.GRPCAddr == "" {
-		return
-	}
-	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
-	if err != nil {
-		log.Warnf("Failed to listen on gRPC port %v", err)
-	}
-	s.GRPCListener = grpcListener
 
-	// This happens only if the GRPC port (15010) is disabled. We will multiplex
-	// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
-	if s.GRPCListener == nil {
-		log.Info("multplexing gRPC on http port")
+	if args.ServerOptions.GRPCAddr != "" {
+		grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
+		if err != nil {
+			log.Warnf("Failed to listen on gRPC port %v", err)
+		}
+		s.GRPCListener = grpcListener
+	} else if s.GRPCListener == nil {
+		// This happens only if the GRPC port (15010) is disabled. We will multiplex
+		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
+		log.Infoa("multplexing gRPC on http port ", s.HTTPListener.Addr())
 		m := cmux.New(s.HTTPListener)
 		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 		s.HTTPListener = m.Match(cmux.Any())
@@ -522,6 +550,7 @@ func (s *Server) initDiscoveryService(args *PilotArgs) {
 				log.Warnf("Failed to listen on multiplexed port %v", err)
 			}
 		}()
+
 	}
 }
 
@@ -631,7 +660,7 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
 	if args.ServerOptions.SecureGRPCAddr == "" {
-		log.Warnf("The secure discovery port is disabled")
+		log.Infoa("The secure discovery port is disabled, multiplexing on httpAddr ")
 		return nil
 	}
 

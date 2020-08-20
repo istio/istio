@@ -59,12 +59,7 @@ func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
 				}
 
 				// This loses track of grouping (shards)
-				instances, err := registry.InstancesByPort(svc, port.Port, labels.Collection{})
-				if err != nil {
-					return err
-				}
-
-				for _, inst := range instances {
+				for _, inst := range registry.InstancesByPort(svc, port.Port, labels.Collection{}) {
 					endpoints = append(endpoints, inst.Endpoint)
 				}
 			}
@@ -289,7 +284,7 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
-	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.destinationRule, b.port, b.subsetName)
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
@@ -306,7 +301,7 @@ type EdsGenerator struct {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	resp := []*any.Any{}
+	var resp []*any.Any
 
 	var edsUpdatedServices map[string]struct{} = nil
 	if updates != nil {
@@ -336,10 +331,14 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 // a client connects, for incremental updates and for full periodic updates.
 func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string, edsUpdatedServices map[string]struct{}) error {
 	pushStart := time.Now()
-	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
+	defer func() { edsPushTime.Record(time.Since(pushStart).Seconds()) }()
+
+	resources := make([]*any.Any, 0)
 	endpoints := 0
 	empty := 0
 
+	cached := 0
+	regenerated := 0
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range con.Clusters() {
@@ -352,24 +351,31 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, con.proxy, push)
-		l := s.generateEndpoints(builder)
-		if l == nil {
-			continue
-		}
+		if marshalledEndpoint, f := s.cache.Get(builder); f {
+			resources = append(resources, marshalledEndpoint)
+			cached++
+		} else {
+			l := s.generateEndpoints(builder)
+			if l == nil {
+				continue
+			}
+			regenerated++
 
-		for _, e := range l.Endpoints {
-			endpoints += len(e.LbEndpoints)
-		}
+			for _, e := range l.Endpoints {
+				endpoints += len(e.LbEndpoints)
+			}
 
-		if len(l.Endpoints) == 0 {
-			empty++
+			if len(l.Endpoints) == 0 {
+				empty++
+			}
+			resource := util.MessageToAny(l)
+			resources = append(resources, resource)
+			s.cache.Insert(builder, resource)
 		}
-		loadAssignments = append(loadAssignments, l)
 	}
 
-	response := endpointDiscoveryResponse(loadAssignments, version, push.Version)
+	response := endpointDiscoveryResponse(resources, version, push.Version)
 	err := con.send(response)
-	edsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		recordSendError("EDS", con.ConID, edsSendErrPushes, err)
 		return err
@@ -377,11 +383,11 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	edsPushes.Increment()
 
 	if edsUpdatedServices == nil {
-		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty)
+		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
+			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
 	} else {
-		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty)
+		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
+			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
 	}
 	return nil
 }
@@ -416,7 +422,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	return outlierDetectionEnabled, lbSettings
 }
 
-func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment, version, noncePrefix string) *discovery.DiscoveryResponse {
+func endpointDiscoveryResponse(loadAssignments []*any.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
 		TypeUrl: v3.EndpointType,
 		// Pilot does not really care for versioning. It always supplies what's currently
@@ -425,9 +431,7 @@ func endpointDiscoveryResponse(loadAssignments []*endpoint.ClusterLoadAssignment
 		// will begin seeing results it deems to be good.
 		VersionInfo: version,
 		Nonce:       nonce(noncePrefix),
-	}
-	for _, loadAssignment := range loadAssignments {
-		out.Resources = append(out.Resources, util.MessageToAny(loadAssignment))
+		Resources:   loadAssignments,
 	}
 
 	return out

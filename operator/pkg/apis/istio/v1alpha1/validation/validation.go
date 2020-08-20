@@ -112,6 +112,8 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
+		{"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
+			false},
 	}
 	for _, d := range deprecations {
 		// Grafana is a special case where its just an interface{}. A better fix would probably be defining
