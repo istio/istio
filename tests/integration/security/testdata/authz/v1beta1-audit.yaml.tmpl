@@ -11,7 +11,7 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/allow_audit"]
+        paths: ["/audit"]
 ---
 
 apiVersion: "security.istio.io/v1beta1"
@@ -27,7 +27,7 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/allow_audit"]
+        paths: ["/allow"]
 ---
 
 apiVersion: "security.istio.io/v1beta1"
@@ -43,7 +43,7 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/deny_audit"]
+        paths: ["/audit"]
 ---
 
 apiVersion: "security.istio.io/v1beta1"
@@ -59,7 +59,7 @@ spec:
   rules:
   - to:
     - operation:
-        paths: ["/deny_audit"]
+        paths: ["/deny"]
 ---
 
 apiVersion: "security.istio.io/v1beta1"

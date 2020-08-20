@@ -1070,7 +1070,7 @@ func TestAuthorization_Path(t *testing.T) {
 		})
 }
 
-// Test that the AUDIT action does not impact allowing or denying a request
+// TestAuthorization_Audit tests that the AUDIT action does not impact allowing or denying a request
 func TestAuthorization_Audit(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -1102,11 +1102,11 @@ func TestAuthorization_Audit(t *testing.T) {
 				}
 			}
 			cases := []rbacUtil.TestCase{
-				newTestCase(b, "/allow_audit", true),
-				newTestCase(b, "/deny_audit", false),
-				newTestCase(c, "/allow_audit", true),
-				newTestCase(c, "/deny_audit", false),
-				newTestCase(d, "/allow_audit", true),
+				newTestCase(b, "/allow", true),
+				newTestCase(b, "/audit", false),
+				newTestCase(c, "/audit", true),
+				newTestCase(c, "/deny", false),
+				newTestCase(d, "/audit", true),
 				newTestCase(d, "/other", true),
 			}
 
