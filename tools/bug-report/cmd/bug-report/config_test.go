@@ -56,7 +56,7 @@ uploadToGCS: true
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := &KubeCaptureConfig{
+	want := &BugReportConfig{
 		KubeConfigPath:   "a/b/c",
 		Context:          "d",
 		IstioNamespaces:  []string{"e1", "e2"},
@@ -119,7 +119,7 @@ uploadToGCS: true
 		UploadToGCS:       true,
 	}
 
-	got := &KubeCaptureConfig{}
+	got := &BugReportConfig{}
 	if err := yaml.Unmarshal([]byte(config), got); err != nil {
 		t.Fatal(err)
 	}

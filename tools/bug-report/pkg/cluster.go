@@ -15,8 +15,16 @@
 package cluster
 
 import (
+	"context"
+	"fmt"
+	"strings"
+
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+
+	"istio.io/pkg/log"
 )
 
 type ResourceType int
@@ -43,7 +51,95 @@ type Resources struct {
 }
 
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
-func GetClusterResources(*rest.Config, *kubernetes.Clientset) (*Resources, error) {
-	// TODO: implement
-	return nil, nil
+func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (*Resources, error) {
+	var errs []string
+	out := &Resources{
+		Labels:      make(map[string]map[string]string),
+		Annotations: make(map[string]map[string]string),
+	}
+	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, ns := range namespaces.Items {
+		pods, err := clientset.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		replicasets, err := clientset.AppsV1().ReplicaSets(ns.Name).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range pods.Items {
+			deployment, err := getOwnerDeployment(&p, replicasets.Items)
+			if err != nil {
+				errs = append(errs, err.Error())
+				continue
+			}
+			for _, c := range p.Spec.Containers {
+				out.insertContainer(ns.Name, deployment, p.Name, c.Name)
+			}
+			out.Labels[p.Name] = p.Labels
+			out.Annotations[p.Name] = p.Annotations
+		}
+	}
+	if len(errs) != 0 {
+		log.Warna(strings.Join(errs, "\n"))
+	}
+	return out, nil
+}
+
+func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) (string, error) {
+	for _, o := range pod.OwnerReferences {
+		if o.Kind == "ReplicaSet" {
+			for _, rs := range replicasets {
+				if rs.Name == o.Name {
+					for _, oo := range rs.OwnerReferences {
+						if oo.Kind == "Deployment" {
+							return oo.Name, nil
+						}
+					}
+
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("no owning Deployment found for pod %s", pod.Name)
+}
+
+func (r *Resources) insertContainer(namespace, deployment, pod, container string) {
+	if r.Root == nil {
+		r.Root = make(map[string]interface{})
+	}
+	if r.Root[namespace] == nil {
+		r.Root[namespace] = make(map[string]interface{})
+	}
+	d := r.Root[namespace].(map[string]interface{})
+	if d[deployment] == nil {
+		d[deployment] = make(map[string]interface{})
+	}
+	p := d[deployment].(map[string]interface{})
+	if p[pod] == nil {
+		p[pod] = make(map[string]interface{})
+	}
+	c := p[pod].(map[string]interface{})
+	c[container] = nil
+}
+
+func (r *Resources) String() string {
+	return resourcesStringImpl(r.Root, "")
+}
+
+func resourcesStringImpl(node interface{}, prefix string) string {
+	out := ""
+	if node == nil {
+		return ""
+	}
+	nv := node.(map[string]interface{})
+	for k, n := range nv {
+		out += prefix + k + "\n"
+		out += resourcesStringImpl(n, prefix+"  ")
+	}
+
+	return out
 }

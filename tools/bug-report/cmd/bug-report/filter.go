@@ -29,7 +29,7 @@ import (
 // GetMatchingPaths returns a slice of matching paths, given a cluster tree and config.
 // config is the capture configuration.
 // cluster is the structure representing the cluster resource hierarchy.
-func GetMatchingPaths(config *KubeCaptureConfig, cluster *cluster.Resources) ([]string, error) {
+func GetMatchingPaths(config *BugReportConfig, cluster *cluster.Resources) ([]string, error) {
 	paths, err := getMatchingPathsForSpec(config, cluster)
 	if err != nil {
 		return nil, err
@@ -78,12 +78,12 @@ func mergeMaps(a, b map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func getMatchingPathsForSpec(config *KubeCaptureConfig, cluster *cluster.Resources) (map[string]struct{}, error) {
+func getMatchingPathsForSpec(config *BugReportConfig, cluster *cluster.Resources) (map[string]struct{}, error) {
 	paths := make(map[string]struct{})
 	return getMatchingPathsForSpecImpl(config, cluster, cluster.Root, nil, paths)
 }
 
-func getMatchingPathsForSpecImpl(config *KubeCaptureConfig, cluster *cluster.Resources, node map[string]interface{}, path util.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
+func getMatchingPathsForSpecImpl(config *BugReportConfig, cluster *cluster.Resources, node map[string]interface{}, path util.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
 	for pe, n := range node {
 		np := append(path, pe)
 		if nn, ok := n.(map[string]interface{}); ok {
@@ -98,7 +98,7 @@ func getMatchingPathsForSpecImpl(config *KubeCaptureConfig, cluster *cluster.Res
 		// container name leaf
 		cn, ok := n.(string)
 		if !ok && n != nil {
-			return nil, fmt.Errorf("bad node type at path %s: got %T, expected string", np, cn)
+			return nil, fmt.Errorf("bad node type at path %s: got %T, expected string", n, cn)
 		}
 		if len(np) != 4 {
 			return nil, fmt.Errorf("unexpected leaf at path %s, expect leaf path to be namespace.deployment.pod.container", np)
@@ -110,7 +110,7 @@ func getMatchingPathsForSpecImpl(config *KubeCaptureConfig, cluster *cluster.Res
 	return matchingPaths, nil
 }
 
-func matchesKubeCaptureConfig(config *KubeCaptureConfig, cluster *cluster.Resources, namespace, deployment, pod, container string) bool {
+func matchesKubeCaptureConfig(config *BugReportConfig, cluster *cluster.Resources, namespace, deployment, pod, container string) bool {
 	for _, sp := range config.Exclude {
 		if matchesSelectionSpec(sp, cluster, namespace, deployment, pod, container) {
 			return false

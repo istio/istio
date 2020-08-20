@@ -71,9 +71,9 @@ type SelectionSpec struct {
 	Annotations map[string]string
 }
 
-// KubeCaptureConfig controls what is captured and Include in the kube-capture tool
+// BugReportConfig controls what is captured and Include in the kube-capture tool
 // archive.
-type KubeCaptureConfig struct {
+type BugReportConfig struct {
 	// KubeConfigPath is the path to kube config file.
 	KubeConfigPath string `json:"kubeConfigPath"`
 	// Context is the cluster Context in the kube config

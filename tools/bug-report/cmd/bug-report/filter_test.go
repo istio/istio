@@ -235,7 +235,7 @@ include:
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
-			config := &KubeCaptureConfig{}
+			config := &BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
 			}
@@ -311,7 +311,7 @@ include:
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
-			config := &KubeCaptureConfig{}
+			config := &BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
 			}
@@ -453,7 +453,7 @@ exclude:
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
-			config := &KubeCaptureConfig{}
+			config := &BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
 			}

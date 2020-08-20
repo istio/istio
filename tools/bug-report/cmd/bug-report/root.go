@@ -15,8 +15,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"os"
+	"log"
 	"strings"
 	"time"
 
@@ -30,7 +31,7 @@ const (
 	kubeCaptureDefaultMaxSizeMb = 500
 	kubeCaptureDefaultTimeout   = 30 * time.Minute
 	kubeCaptureDefaultInclude   = "*"
-	kubeCaptureDefaultExclude   = "kube-system,kube-public,istio-system"
+	kubeCaptureDefaultExclude   = "kube-system,kube-public"
 )
 
 var (
@@ -69,10 +70,10 @@ const (
 var (
 	startTime, endTime, included, excluded string
 	commandTimeout, since                  time.Duration
-	gConfig                                = &KubeCaptureConfig{}
+	gConfig                                = &BugReportConfig{}
 )
 
-func addFlags(cmd *cobra.Command, args *KubeCaptureConfig) {
+func addFlags(cmd *cobra.Command, args *BugReportConfig) {
 	// k8s client config
 	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", kubeCaptureHelpKubeconfig)
 	cmd.PersistentFlags().StringVar(&args.Context, "Context", "", kubeCaptureHelpContext)
@@ -109,13 +110,13 @@ func addFlags(cmd *cobra.Command, args *KubeCaptureConfig) {
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:          "kube-capture",
+		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
 		SilenceUsage: true,
 		Long: "This command selectively captures cluster information and logs into an archive to help " +
 			"diagnose problems. It optionally uploads the archive to a GCS bucket.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runKubeCaptureCommand(cmd, gConfig)
+			return runBugReportCommand(cmd)
 		},
 	}
 	rootCmd.SetArgs(args)
@@ -125,52 +126,77 @@ func GetRootCmd(args []string) *cobra.Command {
 	return rootCmd
 }
 
-func runKubeCaptureCommand(cmd *cobra.Command, config *KubeCaptureConfig) error {
-	parseTimes(gConfig, startTime, endTime)
-	//ValidateKubeCaptureConfig(gConfig)
-	rest, clientset, err := InitK8SRestClient(config.KubeConfigPath, config.Context)
-	if err != nil {
-		return fmt.Errorf("could not initialize k8s client: %s ", err)
-	}
-	resources, err := cluster.GetClusterResources(rest, clientset)
+func runBugReportCommand(_ *cobra.Command) error {
+	config, err := parseFlags()
 	if err != nil {
 		return err
 	}
 
+	_, clientset, err := InitK8SRestClient(config.KubeConfigPath, config.Context)
+	if err != nil {
+		return fmt.Errorf("could not initialize k8s client: %s ", err)
+	}
+	resources, err := cluster.GetClusterResources(context.Background(), clientset)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := GetMatchingPaths(config, resources)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Fetching logs for the following containers:\n\n%s", strings.Join(paths, "\n"))
+	fmt.Printf("Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	// Download logs for containers in paths.
 
 	return nil
 }
 
-func parseTimes(args *KubeCaptureConfig, startTime, endTime string) {
-	args.EndTime = time.Now()
+func parseFlags() (*BugReportConfig, error) {
+	config := &BugReportConfig{}
+	if err := parseTimes(config, startTime, endTime); err != nil {
+		log.Fatal(err)
+	}
+	ssi := &SelectionSpec{}
+	if err := ssi.UnmarshalJSON([]byte(included)); err != nil {
+		return nil, err
+	}
+	sse := &SelectionSpec{}
+	if err := sse.UnmarshalJSON([]byte(excluded)); err != nil {
+		return nil, err
+	}
+	config.Include = []*SelectionSpec{ssi}
+	config.Exclude = []*SelectionSpec{sse}
+
+	return config, nil
+}
+
+func parseTimes(config *BugReportConfig, startTime, endTime string) error {
+	config.EndTime = time.Now()
 	if endTime != "" {
 		var err error
-		args.EndTime, err = time.Parse(time.RFC3339, endTime)
+		config.EndTime, err = time.Parse(time.RFC3339, endTime)
 		if err != nil {
-			fmt.Printf("Bad format for end-time: %s, expect RFC3339 e.g. %s", endTime, time.RFC3339)
-			os.Exit(-1)
+			return fmt.Errorf("bad format for end-time: %s, expect RFC3339 e.g. %s", endTime, time.RFC3339)
 		}
 	}
-	if args.Since != 0 {
+	if config.Since != 0 {
 		if startTime != "" {
-			fmt.Println("Only one --start-time or --Since may be set.")
-			os.Exit(-1)
+			return fmt.Errorf("only one --start-time or --Since may be set")
 		}
-		args.StartTime = args.EndTime.Add(-1 * time.Duration(args.Since))
+		config.StartTime = config.EndTime.Add(-1 * time.Duration(config.Since))
 	} else {
 		var err error
-		args.StartTime, err = time.Parse(time.RFC3339, startTime)
-		if err != nil {
-			fmt.Printf("Bad format for start-time: %s, expect RFC3339 e.g. %s", startTime, time.RFC3339)
-			os.Exit(-1)
+		if startTime == "" {
+			config.StartTime = time.Time{}
+		} else {
+			config.StartTime, err = time.Parse(time.RFC3339, startTime)
+			if err != nil {
+				return fmt.Errorf("bad format for start-time: %s, expect RFC3339 e.g. %s", startTime, time.RFC3339)
+			}
 		}
 	}
+	return nil
 }
