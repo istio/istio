@@ -58,6 +58,15 @@ func (c Clusters) Names() []string {
 	return names
 }
 
+// ByNetwork returns a map of network name to a subset of clusters
+func (c Clusters) ByNetwork() map[string]Clusters {
+	out := map[string]Clusters{}
+	for _, cc := range c {
+		out[cc.NetworkName()] = append(out[cc.NetworkName()], cc)
+	}
+	return out
+}
+
 func (c Clusters) String() string {
 	return fmt.Sprintf("%v", c.Names())
 }
