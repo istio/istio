@@ -136,7 +136,7 @@ type Server struct {
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
 	// the rest of the features if their port is empty.
-	// Current runs readiness and debug (if enabled)
+	// Currently runs readiness and debug (if enabled)
 	httpMux *http.ServeMux
 
 	// httpsMux listens on the httpsAddr(15017), handling webhooks
