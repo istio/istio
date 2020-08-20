@@ -80,7 +80,7 @@ type EchoDeployments struct {
 	// Echo app to be used by tests, with no sidecar injected
 	naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
-	vmA echo.Instance
+	vmA echo.Instances
 
 	// Echo app to be used by tests, with no sidecar injected
 	external echo.Instances
@@ -222,14 +222,19 @@ values:
 					})
 
 			}
-			echos, err := builder.With(&apps.vmA, echo.Config{
-				Service:    vmASvc,
-				Namespace:  apps.namespace,
-				Ports:      echoPorts,
-				DeployAsVM: true,
-				Subsets:    []echo.SubsetConfig{{}},
-				Cluster:    ctx.Clusters().Default(),
-			}).Build()
+
+			for _, c := range ctx.Clusters().ByNetwork() {
+				builder.With(nil, echo.Config{
+					Service:    vmASvc,
+					Namespace:  apps.namespace,
+					Ports:      echoPorts,
+					DeployAsVM: true,
+					Subsets:    []echo.SubsetConfig{{}},
+					Cluster:    c[0],
+				})
+			}
+
+			echos, err := builder.Build()
 			if err != nil {
 				return err
 			}
@@ -240,6 +245,7 @@ values:
 			apps.headless = echos.Match(echo.Service(headlessSvc))
 			apps.naked = echos.Match(echo.Service(nakedSvc))
 			apps.external = echos.Match(echo.Service(externalSvc))
+			apps.vmA = echos.Match(echo.Service(vmASvc))
 
 			return nil
 		}).
