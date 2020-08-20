@@ -5,4 +5,4 @@ issue:
   - 26517
 releaseNotes:
   - |
-    **Fixed** Remove bad endpoints for non-injected workloads across networks.
+    **Fixed** Remove unreachable endpoints for non-injected workloads across networks.
