@@ -6,12 +6,18 @@ metadata:
   name: {{ $gateway.name | default "istio-egressgateway" }}
   namespace: {{ .Release.Namespace }}
   labels:
-{{ $gateway.labels | toYaml | indent 4 }}
+{{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-{{ $gateway.labels | toYaml | indent 6 }}
+{{ $gateway.labels | toYaml | trim | indent 6 }}
       release: {{ .Release.Name }}
+      service.istio.io/canonical-name: {{ $gateway.name | default "istio-egressgateway" }}
+      {{- if not (eq .Values.revision "") }}
+      service.istio.io/canonical-revision: {{ .Values.revision }}
+      {{- else}}
+      service.istio.io/canonical-revision: latest
+      {{- end }}
 {{- end }}
