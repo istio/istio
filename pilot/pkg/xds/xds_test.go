@@ -405,6 +405,7 @@ spec:
   location: MESH_INTERNAL
   endpoints:
   - address: 10.10.10.30
+    serviceAccount: svc-acc
     labels:
       app: se-pod
     network: network-1
