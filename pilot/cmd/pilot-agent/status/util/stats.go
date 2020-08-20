@@ -128,22 +128,9 @@ func parseStats(input *bytes.Buffer, stats []*stat) (err error) {
 	for input.Len() > 0 {
 		line, _ := input.ReadString('\n')
 		for _, stat := range stats {
-			if stat.found {
-				continue
-			}
 			if e := stat.processLine(line); e != nil {
 				err = multierror.Append(err, e)
 			}
-		}
-		allFound := true
-		for _, stat := range stats {
-			if !stat.found {
-				allFound = false
-				break
-			}
-		}
-		if allFound {
-			break
 		}
 	}
 	for _, stat := range stats {
