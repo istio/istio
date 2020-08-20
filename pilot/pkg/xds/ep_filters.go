@@ -67,6 +67,11 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 				}
 				lbEndpoints = append(lbEndpoints, clonedLbEp)
 			} else {
+				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
+					// dont allow cross-network endpoints for uninjected traffic
+					continue
+				}
+
 				// Remote network endpoint which can not be accessed directly from local network.
 				// Increase the weight counter
 				remoteEps[epNetwork]++
@@ -132,6 +137,16 @@ func istioMetadata(ep *endpoint.LbEndpoint, key string) string {
 		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields != nil &&
 		ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key] != nil {
 		return ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields[key].GetStringValue()
+	}
+	return ""
+}
+
+func envoytransportSocketMetadata(ep *endpoint.LbEndpoint, key string) string {
+	if ep.Metadata != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields != nil &&
+		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key] != nil {
+		return ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey].Fields[key].GetStringValue()
 	}
 	return ""
 }
