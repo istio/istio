@@ -338,6 +338,21 @@
         "http2_protocol_options": {}
       },
       {
+        "name": "sds-grpc",
+        "type": "STATIC",
+        "http2_protocol_options": {},
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {
+              "address": "127.0.0.1",
+              "port_value": {{.Ports.PilotGrpcPort}}
+            }
+          }
+        ],
+      },
+      {
       "name": "service1",
       "type": "STRICT_DNS",
       "connect_timeout": {
