@@ -424,15 +424,14 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # This is just an alias for racetest now
-test: racetest
+test: racetest ## Runs all unit tests
 
-TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
 # For now, keep a minimal subset. This can be expanded in the future.
 BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
-racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
-	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+racetest: $(JUNIT_REPORT)
+	go test ${GOBUILDFLAGS} ${T} -race ./... 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
@@ -443,7 +442,7 @@ report-benchtest:
 	prow/benchtest.sh report
 
 cni.install-test: docker.install-cni
-	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} ./cni/test/...
+	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} -tags=integ ./cni/test/...
 
 #-----------------------------------------------------------------------------
 # Target: clean

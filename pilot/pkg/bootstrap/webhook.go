@@ -33,7 +33,8 @@ const (
 func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	if s.kubeClient == nil || args.ServerOptions.HTTPSAddr == "" {
-		s.httpsMux = s.readinessMux
+		s.httpsMux = s.httpMux
+		log.Infoa("HTTPS port is disabled, multiplexing webhooks on the httpAddr ", args.ServerOptions.HTTPAddr)
 		return
 	}
 
