@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -31,6 +31,8 @@ import (
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/filter"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
+	"istio.io/istio/tools/bug-report/pkg/processlog"
+	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
 
@@ -149,24 +151,37 @@ func runBugReportCommand(_ *cobra.Command) error {
 		return err
 	}
 
-	fmt.Printf("Cluster resource tree:\n\n%s\n\n", resources)
+	log.Infof("Cluster resource tree:\n\n%s\n\n", resources)
 	paths, err := filter.GetMatchingPaths(config, resources)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	log.Infof("Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	var errs util.Errors
+	logs := make(map[string]string)
+	stats := make(map[string]*processlog.Stats)
+	importance := make(map[string]int)
+	lock := sync.RWMutex{}
 	for _, p := range paths {
-		cv := strings.Split(p, ".")
-		namespace, pod, container := cv[0], cv[2], cv[3]
-		containerLog, err := kubectlcmd.Logs(namespace, pod, container, true)
-		if err != nil {
-			errs = util.AppendErr(errs, err)
-			continue
-		}
-		fmt.Printf("%s\n\n", containerLog)
+		p := p
+		go func() {
+			cv := strings.Split(p, ".")
+			namespace, pod, container := cv[0], cv[2], cv[3]
+			clog, err := kubectlcmd.Logs(namespace, pod, container, config.DryRun)
+			if err != nil {
+				lock.Lock()
+				errs = util.AppendErr(errs, err)
+				lock.Unlock()
+				return
+			}
+			cstat := &processlog.Stats{}
+			clog, cstat, err = processlog.Process(config, clog)
+			lock.Lock()
+			logs[p], stats[p], importance[p] = clog, cstat, cstat.Importance()
+			lock.Unlock()
+		}()
 	}
 
 	return nil
@@ -184,7 +199,7 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		}
 	}
 	if err := parseTimes(config, startTime, endTime); err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
 	for _, s := range included {
 		ss := &config2.SelectionSpec{}

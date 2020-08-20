@@ -16,15 +16,13 @@ package filter
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"istio.io/istio/operator/pkg/util"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/config"
-	"istio.io/pkg/log"
+	"istio.io/istio/tools/bug-report/util/match"
 )
 
 // GetMatchingPaths returns a slice of matching paths, given a cluster tree and config.
@@ -42,30 +40,6 @@ func GetMatchingPaths(config *config.BugReportConfig, cluster *cluster2.Resource
 	sort.Strings(out)
 
 	return out, nil
-}
-
-// GetTimeRange returns the log lines that fall inside the start to end time range, inclusive.
-func GetTimeRange(log string, start, end time.Time) string {
-	var sb strings.Builder
-	include := false
-	for _, l := range strings.Split(log, "\n") {
-		// 2020-06-29T23:37:27.286034Z
-		lv := strings.Split(l, "\t")
-		if len(lv) > 0 {
-			if t, err := time.Parse(time.RFC3339Nano, lv[0]); err == nil {
-				include = false
-				if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
-					include = true
-				}
-			}
-		}
-		if include {
-			sb.WriteString(l)
-			sb.WriteString("\n")
-		}
-	}
-
-	return sb.String()
 }
 
 func mergeMaps(a, b map[string]struct{}) map[string]struct{} {
@@ -128,83 +102,34 @@ func matchesKubeCaptureConfig(config *config.BugReportConfig, cluster *cluster2.
 // matchesSelectionSpec reports whether the given container path is selected by any SelectionSpec.
 func matchesSelectionSpec(sp *config.SelectionSpec, cluster *cluster2.Resources, namespace, deployment, pod, container string) bool {
 	// For inclusion, match all if nothing is set.
-	if !matchesGlobs(namespace, sp.Namespaces) {
+	if !match.MatchesGlobs(namespace, sp.Namespaces) {
 		return false
 	}
 
-	if !matchesGlobs(deployment, sp.Deployments) {
+	if !match.MatchesGlobs(deployment, sp.Deployments) {
 		return false
 	}
 
-	if !matchesGlobs(pod, sp.Pods) && len(sp.Pods) != 0 {
+	if !match.MatchesGlobs(pod, sp.Pods) && len(sp.Pods) != 0 {
 		return false
 	}
 
-	if !matchesGlobs(container, sp.Containers) {
+	if !match.MatchesGlobs(container, sp.Containers) {
 		return false
 	}
 
-	if !matchesGlobs(container, sp.Containers) {
+	if !match.MatchesGlobs(container, sp.Containers) {
 		return false
 	}
 
 	key := strings.Join([]string{namespace, deployment, pod}, ".")
-	if !matchesMap(sp.Labels, cluster.Labels[key]) {
+	if !match.MatchesMap(sp.Labels, cluster.Labels[key]) {
 		return false
 	}
-	if !matchesMap(sp.Annotations, cluster.Annotations[key]) {
+	if !match.MatchesMap(sp.Annotations, cluster.Annotations[key]) {
 		return false
 	}
 	return true
-}
-
-func matchesMap(selection, cluster map[string]string) bool {
-	if len(selection) == 0 {
-		return true
-	}
-	if len(cluster) == 0 {
-		return false
-	}
-
-	for ks, vs := range selection {
-		vc, ok := cluster[ks]
-		if !ok {
-			return false
-		}
-		if !matchesGlob(vc, vs) {
-			return false
-		}
-	}
-	return true
-}
-
-func matchesGlobs(matchString string, patterns []string) bool {
-	if len(patterns) == 0 {
-		return true
-	}
-	if len(patterns) == 1 {
-		p := strings.TrimSpace(patterns[0])
-		if p == "" || p == "*" {
-			return true
-		}
-	}
-
-	for _, p := range patterns {
-		if matchesGlob(matchString, p) {
-			return true
-		}
-	}
-	return false
-}
-
-func matchesGlob(matchString, pattern string) bool {
-	match, err := filepath.Match(pattern, matchString)
-	if err != nil {
-		// Shouldn't be here as prior validation is assumed.
-		log.Errorf("Unexpected filepath error for %s match %s: %s", pattern, matchString, err)
-		return false
-	}
-	return match
 }
 
 func parseIncluded(included []*config.SelectionSpec) []*config.SelectionSpec {
