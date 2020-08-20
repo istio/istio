@@ -376,20 +376,6 @@ func TestMeshNetworking(t *testing.T) {
 						KubernetesObjects: k8sObjects,
 						ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: mtls-se-pod
-  namespace: pod
-spec:
-  host: se-pod.pod.svc.cluster.local
-  trafficPolicy:
-    tls:
-      mode: MUTUAL
-      clientCertificate: /etc/certs/myclientcert.pem
-      privateKey: /etc/certs/client_private_key.pem
-      caCertificates: /etc/certs/rootcacerts.pem
----
-apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: se-pod
