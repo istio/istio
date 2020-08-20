@@ -31,9 +31,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/tests/util"
 )
 
@@ -334,21 +332,6 @@ func TestEnvoy(t *testing.T) {
 		}
 		tearDown()
 	}()
-
-	arg := security.Options{
-		EnableWorkloadSDS: true,
-		RecycleInterval:   30 * time.Second,
-		GatewayUDSPath:    "",
-		WorkloadUDSPath:   "./etc/istio/proxy/SimpleSDS",
-		FileMountedCerts:  true,
-		UseLocalJWT:       false,
-	}
-
-	server, err := sds.NewServer(&arg, nil, nil)
-	defer server.Stop()
-	if err != nil {
-		t.Fatalf("failed to start grpc server for sds: %v", err)
-	}
 
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
