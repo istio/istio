@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -325,11 +326,13 @@ func testPorts(base int) []*model.Port {
 
 // Test XDS with real envoy.
 func TestEnvoy(t *testing.T) {
+	os.Setenv("FILE_MOUNTED_CERTS", "true")
 	_, tearDown := initLocalPilotTestEnv(t)
 	defer func() {
 		if testEnv != nil {
 			testEnv.TearDown()
 		}
+		os.Setenv("FILE_MOUNTED_CERTS", "")
 		tearDown()
 	}()
 	startEnvoy(t)
