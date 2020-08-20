@@ -267,20 +267,6 @@ spec:
 			},
 		}
 
-		if ctx.Environment().IsMultinetwork() {
-			// TODO(#26517) fix multinetwork with non-sidecar pods, for now just go to pods that support mTLS
-			splits = []map[string]int{
-				{
-					podBSvc: 60,
-					vmASvc:  40,
-				},
-				{
-					podBSvc: 80,
-					vmASvc:  20,
-				},
-			}
-		}
-
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
@@ -320,12 +306,14 @@ spec:
 						if !almostEquals(len(hostResponses), exp, errorThreshold) {
 							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hostResponses)
 						}
-						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
+
 						hostDestinations := apps.all.Match(echo.Service(host))
-						if ctx.Environment().IsMultinetwork() && host == nakedSvc {
-							// TODO(#26517) remove this or change it to match same-network
-							hostDestinations = echo.Instances{}
+						if host == nakedSvc {
+							// only expect to hit same-network clusters for nakedSvc
+							hostDestinations = apps.all.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
 						}
+
+						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
 						if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
 							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
 						}
@@ -357,14 +345,11 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 
 			destinationSets := []echo.Instances{
 				apps.podA,
-				{apps.vmA},
+				apps.vmA,
+				// only hit same network naked services
+				apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
+				// only hit same cluster headless services
 				apps.headless.Match(echo.InCluster(client.Config().Cluster)),
-			}
-
-			if !ctx.Environment().IsMultinetwork() {
-				// TODO(#26517) fix multinetwork with non-sidecar pods, for now only test this in single-network
-				// the filter below assumes we fix this by restricting cross-network for non-sidecars
-				destinationSets = append(destinationSets, apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())))
 			}
 
 			for _, destinations := range destinationSets {
@@ -372,7 +357,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
-				if apps.naked.Contains(client) && destination == apps.vmA {
+				if apps.naked.Contains(client) && apps.vmA.Contains(destination) {
 					// Need a sidecar to connect to VMs
 					continue
 				}
@@ -575,7 +560,9 @@ func TestTraffic(t *testing.T) {
 			cases["virtualservice"] = virtualServiceCases(ctx)
 			cases["sniffing"] = protocolSniffingCases(ctx)
 			cases["serverfirst"] = serverFirstTestCases()
-			cases["vm"] = vmTestCases(apps.vmA)
+			for _, vmA := range apps.vmA {
+				cases[fmt.Sprintf("vm-%s", vmA.Config().Cluster.Name())] = vmTestCases(vmA)
+			}
 			for n, tts := range cases {
 				ctx.NewSubTest(n).Run(func(ctx framework.TestContext) {
 					for _, tt := range tts {
