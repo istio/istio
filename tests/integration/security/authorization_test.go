@@ -50,6 +50,7 @@ func (i rootNS) Name() string {
 func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			// Create namespaces
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-mtls-ns1",
 				Inject: true,
@@ -59,6 +60,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 				Inject: true,
 			})
 
+			// Create services
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
@@ -69,17 +71,18 @@ func TestAuthorization_mTLS(t *testing.T) {
 			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
-						From: from,
+						From: from, // From service
 						Options: echo.CallOptions{
 							Target:   b,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     path,
+							Path:     path, // Requested path
 						},
 					},
 					ExpectAllowed: expectAllowed,
 				}
 			}
+			// a and c send requests to b
 			cases := []rbacUtil.TestCase{
 				newTestCase(a, "/principal-a", true),
 				newTestCase(a, "/namespace-2", false),
@@ -334,7 +337,7 @@ func TestAuthorization_Deny(t *testing.T) {
 		})
 }
 
-// TestAuthorization_Deny tests the authorization policy with negative match.
+// TestAuthorization_NegativeMatch tests the authorization policy with negative match.
 func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -1077,6 +1080,64 @@ func TestAuthorization_Path(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestAuthorization_Audit tests that the AUDIT action does not impact allowing or denying a request
+func TestAuthorization_Audit(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-audit",
+				Inject: true,
+			})
+
+			var a, b, c, d echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
+				BuildOrFail(t)
+
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(b, "/allow", true),
+				newTestCase(b, "/audit", false),
+				newTestCase(c, "/audit", true),
+				newTestCase(c, "/deny", false),
+				newTestCase(d, "/audit", true),
+				newTestCase(d, "/other", true),
+			}
+
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
+
+			policy := applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})
