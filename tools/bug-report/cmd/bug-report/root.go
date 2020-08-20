@@ -17,10 +17,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
 	cluster "istio.io/istio/tools/bug-report/pkg"
@@ -30,12 +32,12 @@ import (
 const (
 	kubeCaptureDefaultMaxSizeMb = 500
 	kubeCaptureDefaultTimeout   = 30 * time.Minute
-	kubeCaptureDefaultInclude   = "*"
-	kubeCaptureDefaultExclude   = "kube-system,kube-public"
 )
 
 var (
 	kubeCaptureDefaultIstioNamespaces = []string{"istio-system"}
+	kubeCaptureDefaultInclude         = []string{"*"}
+	kubeCaptureDefaultExclude         = []string{"kube-system,kube-public"}
 )
 
 const (
@@ -44,15 +46,13 @@ const (
 	kubeCaptureHelpFilename        = "Path to a file containing configuration in YAML format."
 	kubeCaptureHelpIstioNamespaces = "List of comma-separated namespaces where Istio control planes " +
 		"are installed."
-	kubeCaptureHelpDryRun = "Console output only, does not actually capture logs."
-	kubeCaptureHelpStrict = "Ensure that the include and exclude selection specs all match at least one " +
-		"cluster resource."
+	kubeCaptureHelpDryRun         = "Console output only, does not actually capture logs."
 	kubeCaptureHelpCommandTimeout = "Maximum amount of time to spend fetching logs. When timeout is reached " +
 		"only the logs captured so far are saved to the archive."
 	kubeCaptureHelpMaxArchiveSizeMb = "Maximum size of the compressed archive in Mb. Logs are prioritized" +
 		"according to importance heuristics."
-	kubeCaptureHelpIncluded = "Spec for which pods' proxy logs to include in the archive. See 'help' for examples."
-	kubeCaptureHelpExcluded = "Spec for which pods' proxy logs to exclude from the archive, after the include spec " +
+	kubeCaptureHelpInclude = "Spec for which pods' proxy logs to include in the archive. See 'help' for examples."
+	kubeCaptureHelpExclude = "Spec for which pods' proxy logs to exclude from the archive, after the include spec " +
 		"is processed. See 'help' for examples."
 	kubeCaptureHelpStartTime = "Start time for the range of log entries to include in the archive. " +
 		"Default is the infinite past. If set, Since must be unset."
@@ -68,19 +68,22 @@ const (
 )
 
 var (
-	startTime, endTime, included, excluded string
-	commandTimeout, since                  time.Duration
-	gConfig                                = &BugReportConfig{}
+	startTime, endTime, configFile string
+	included, excluded             []string
+	commandTimeout, since          time.Duration
+	gConfig                        = &BugReportConfig{}
 )
 
 func addFlags(cmd *cobra.Command, args *BugReportConfig) {
 	// k8s client config
 	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", kubeCaptureHelpKubeconfig)
-	cmd.PersistentFlags().StringVar(&args.Context, "Context", "", kubeCaptureHelpContext)
+	cmd.PersistentFlags().StringVar(&args.Context, "context", "", kubeCaptureHelpContext)
 
-	// dry run and validation
+	// input config
+	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "", kubeCaptureHelpFilename)
+
+	// dry run
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, kubeCaptureHelpDryRun)
-	cmd.PersistentFlags().BoolVar(&args.Strict, "Strict", false, kubeCaptureHelpStrict)
 
 	// istio namespaces
 	cmd.PersistentFlags().StringSliceVarP(&args.IstioNamespaces, "namespaces", "n", kubeCaptureDefaultIstioNamespaces, kubeCaptureHelpIstioNamespaces)
@@ -90,8 +93,8 @@ func addFlags(cmd *cobra.Command, args *BugReportConfig) {
 	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", kubeCaptureDefaultMaxSizeMb, kubeCaptureHelpMaxArchiveSizeMb)
 
 	// include / exclude specs
-	cmd.PersistentFlags().StringVarP(&included, "include", "i", kubeCaptureDefaultInclude, kubeCaptureHelpIncluded)
-	cmd.PersistentFlags().StringVarP(&excluded, "exclude", "e", kubeCaptureDefaultExclude, kubeCaptureHelpExcluded)
+	cmd.PersistentFlags().StringSliceVarP(&included, "include", "i", kubeCaptureDefaultInclude, kubeCaptureHelpInclude)
+	cmd.PersistentFlags().StringSliceVarP(&excluded, "exclude", "e", kubeCaptureDefaultExclude, kubeCaptureHelpExclude)
 
 	// log time ranges
 	cmd.PersistentFlags().StringVar(&startTime, "start-time", "", kubeCaptureHelpStartTime)
@@ -102,9 +105,9 @@ func addFlags(cmd *cobra.Command, args *BugReportConfig) {
 	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil, kubeCaptureHelpCriticalErrors)
 	cmd.PersistentFlags().StringSliceVar(&args.WhitelistedErrors, "whitelist-errs", nil, kubeCaptureHelpWhitelistedErrors)
 
-	// archive upload control
+	// archive and upload control
 	cmd.PersistentFlags().StringVar(&args.Context, "gcs-url", "", kubeCaptureHelpGCSURL)
-	cmd.PersistentFlags().BoolVar(&args.Strict, "upload", false, kubeCaptureHelpUploadToGCS)
+	cmd.PersistentFlags().BoolVar(&args.UploadToGCS, "upload", false, kubeCaptureHelpUploadToGCS)
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
@@ -127,7 +130,7 @@ func GetRootCmd(args []string) *cobra.Command {
 }
 
 func runBugReportCommand(_ *cobra.Command) error {
-	config, err := parseFlags()
+	config, err := parseConfig()
 	if err != nil {
 		return err
 	}
@@ -154,21 +157,34 @@ func runBugReportCommand(_ *cobra.Command) error {
 	return nil
 }
 
-func parseFlags() (*BugReportConfig, error) {
+func parseConfig() (*BugReportConfig, error) {
 	config := &BugReportConfig{}
+	if configFile != "" {
+		b, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+		if err := yaml.Unmarshal(b, config); err != nil {
+			return nil, err
+		}
+	}
 	if err := parseTimes(config, startTime, endTime); err != nil {
 		log.Fatal(err)
 	}
-	ssi := &SelectionSpec{}
-	if err := ssi.UnmarshalJSON([]byte(included)); err != nil {
-		return nil, err
+	for _, s := range included {
+		ss := &SelectionSpec{}
+		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
+			return nil, err
+		}
+		config.Include = append(config.Include, ss)
 	}
-	sse := &SelectionSpec{}
-	if err := sse.UnmarshalJSON([]byte(excluded)); err != nil {
-		return nil, err
+	for _, s := range excluded {
+		ss := &SelectionSpec{}
+		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
+			return nil, err
+		}
+		config.Include = append(config.Exclude, ss)
 	}
-	config.Include = []*SelectionSpec{ssi}
-	config.Exclude = []*SelectionSpec{sse}
 
 	return config, nil
 }

@@ -85,11 +85,6 @@ type BugReportConfig struct {
 
 	// DryRun controls whether logs are actually captured and saved.
 	DryRun bool `json:"dryRun"`
-	// Strict determines whether selection specs must match
-	// at least one resource in the cluster. Used to check for typos in
-	// cases where all selection names are expected to match at least
-	// one resource.
-	Strict bool `json:"strict"`
 
 	// CommandTimeout is the maximum amount of time running the command
 	// before giving up, even if not all logs are captured. Upon timeout,

@@ -31,7 +31,6 @@ istioNamespaces:
   - e1
   - e2
 dryRun: true
-strict: true
 commandTimeout: 5m
 maxArchiveSizeMb: 123
 included:
@@ -61,7 +60,6 @@ uploadToGCS: true
 		Context:          "d",
 		IstioNamespaces:  []string{"e1", "e2"},
 		DryRun:           true,
-		Strict:           true,
 		CommandTimeout:   Duration(5 * time.Minute),
 		MaxArchiveSizeMb: 123,
 		Include: []*SelectionSpec{
