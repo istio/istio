@@ -295,6 +295,9 @@ func TestGolden(t *testing.T) {
 		{
 			base: "tracing_tls",
 		},
+		{
+			base: "tracing_tls_custom_sni",
+		},
 	}
 
 	for _, c := range cases {

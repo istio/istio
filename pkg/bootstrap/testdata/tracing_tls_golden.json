@@ -369,7 +369,7 @@
       ,
       {
         "name": "zipkin",
-        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/zipkin/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}}},"sni":"tracer"}},
+        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/zipkin/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}}}}},
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
