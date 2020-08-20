@@ -524,20 +524,34 @@ a:
 `,
 		},
 		{
-			desc: "ExtendMoreThanOneLeafListEntry",
+			desc: "ExtendLeafListEntryLargeIndex",
 			baseYAML: `
 a:
   list:
     - v1
 `,
-			path:  `a.list.[3]`,
+			path:  `a.list.[999]`,
 			value: `v2`,
 			want: `
 a:
   list:
   - v1
-  - null
-  - null 
+  - v2
+`,
+		},
+		{
+			desc: "ExtendLeafListEntryNegativeIndex",
+			baseYAML: `
+a:
+  list:
+    - v1
+`,
+			path:  `a.list.[-1]`,
+			value: `v2`,
+			want: `
+a:
+  list:
+  - v1
   - v2
 `,
 		},
@@ -554,24 +568,6 @@ a:
 a:
   list:
   - name: foo
-  - name: bar
-`,
-		},
-		{
-			desc: "ExtendMoreThanOneLeafListEntry",
-			baseYAML: `
-a:
-  list:
-  - name: foo
-`,
-			path:  `a.list.[3].name`,
-			value: `bar`,
-			want: `
-a:
-  list:
-  - name: foo
-  - null
-  - null
   - name: bar
 `,
 		},
