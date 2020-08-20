@@ -37,84 +37,89 @@ import (
 )
 
 const (
-	kubeCaptureDefaultMaxSizeMb = 500
-	kubeCaptureDefaultTimeout   = 30 * time.Minute
+	bugReportDefaultMaxSizeMb = 500
+	bugReportDefaultTimeout   = 30 * time.Minute
+	bugReportDefaultTempDir   = "/tmp/bug-report"
 )
 
 var (
-	kubeCaptureDefaultIstioNamespaces = []string{"istio-system"}
-	kubeCaptureDefaultInclude         = []string{"*"}
-	kubeCaptureDefaultExclude         = []string{"kube-system,kube-public"}
+	bugReportDefaultIstioNamespaces = []string{"istio-system"}
+	bugReportDefaultInclude         = []string{"*"}
+	bugReportDefaultExclude         = []string{"kube-system,kube-public"}
 )
 
 const (
-	kubeCaptureHelpKubeconfig      = "Path to kube config."
-	kubeCaptureHelpContext         = "Name of the kubeconfig Context to use."
-	kubeCaptureHelpFilename        = "Path to a file containing configuration in YAML format."
-	kubeCaptureHelpIstioNamespaces = "List of comma-separated namespaces where Istio control planes " +
+	bugReportHelpKubeconfig      = "Path to kube config."
+	bugReportHelpContext         = "Name of the kubeconfig Context to use."
+	bugReportHelpFilename        = "Path to a file containing configuration in YAML format."
+	bugReportHelpIstioNamespaces = "List of comma-separated namespaces where Istio control planes " +
 		"are installed."
-	kubeCaptureHelpDryRun         = "Console output only, does not actually capture logs."
-	kubeCaptureHelpCommandTimeout = "Maximum amount of time to spend fetching logs. When timeout is reached " +
+	bugReportHelpDryRun         = "Console output only, does not actually capture logs."
+	bugReportHelpCommandTimeout = "Maximum amount of time to spend fetching logs. When timeout is reached " +
 		"only the logs captured so far are saved to the archive."
-	kubeCaptureHelpMaxArchiveSizeMb = "Maximum size of the compressed archive in Mb. Logs are prioritized" +
+	bugReportHelpMaxArchiveSizeMb = "Maximum size of the compressed archive in Mb. Logs are prioritized" +
 		"according to importance heuristics."
-	kubeCaptureHelpInclude = "Spec for which pods' proxy logs to include in the archive. See 'help' for examples."
-	kubeCaptureHelpExclude = "Spec for which pods' proxy logs to exclude from the archive, after the include spec " +
+	bugReportHelpInclude = "Spec for which pods' proxy logs to include in the archive. See 'help' for examples."
+	bugReportHelpExclude = "Spec for which pods' proxy logs to exclude from the archive, after the include spec " +
 		"is processed. See 'help' for examples."
-	kubeCaptureHelpStartTime = "Start time for the range of log entries to include in the archive. " +
+	bugReportHelpStartTime = "Start time for the range of log entries to include in the archive. " +
 		"Default is the infinite past. If set, Since must be unset."
-	kubeCaptureHelpEndTime = "End time for the range of log entries to include in the archive. Default is now."
-	kubeCaptureHelpSince   = "How far to go back in time from end-time for log entries to include in the archive. " +
+	bugReportHelpEndTime = "End time for the range of log entries to include in the archive. Default is now."
+	bugReportHelpSince   = "How far to go back in time from end-time for log entries to include in the archive. " +
 		"Default is infinity. If set, start-time must be unset."
-	kubeCaptureHelpCriticalErrors = "List of comma separated glob patters to match against log error strings. " +
+	bugReportHelpCriticalErrors = "List of comma separated glob patters to match against log error strings. " +
 		"If any pattern matches an error in the log, the logs is given the highest priority for archive inclusion."
-	kubeCaptureHelpWhitelistedErrors = "List of comma separated glob patters to match against log error strings. " +
+	bugReportHelpWhitelistedErrors = "List of comma separated glob patters to match against log error strings. " +
 		"Any error matching these patters is ignored when calculating the log importance heuristic."
-	kubeCaptureHelpGCSURL      = "URL of the GCS bucket where the archive is uploaded."
-	kubeCaptureHelpUploadToGCS = "Upload archive to GCS bucket. If gcs-url is unset, a new bucket is created."
+	bugReportHelpGCSURL      = "URL of the GCS bucket where the archive is uploaded."
+	bugReportHelpUploadToGCS = "Upload archive to GCS bucket. If gcs-url is unset, a new bucket is created."
+	bugReportHelpTempDir     = "Set a specific directory for temporary artifact storage."
 )
 
 var (
-	startTime, endTime, configFile string
-	included, excluded             []string
-	commandTimeout, since          time.Duration
-	gConfig                        = &config2.BugReportConfig{}
+	startTime, endTime, configFile, tempDir string
+	included, excluded                      []string
+	commandTimeout, since                   time.Duration
+	gConfig                                 = &config2.BugReportConfig{}
 )
 
 func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// k8s client config
-	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", kubeCaptureHelpKubeconfig)
-	cmd.PersistentFlags().StringVar(&args.Context, "context", "", kubeCaptureHelpContext)
+	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", bugReportHelpKubeconfig)
+	cmd.PersistentFlags().StringVar(&args.Context, "context", "", bugReportHelpContext)
 
 	// input config
-	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "", kubeCaptureHelpFilename)
+	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "", bugReportHelpFilename)
 
 	// dry run
-	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, kubeCaptureHelpDryRun)
+	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, bugReportHelpDryRun)
 
 	// istio namespaces
-	cmd.PersistentFlags().StringSliceVarP(&args.IstioNamespaces, "namespaces", "n", kubeCaptureDefaultIstioNamespaces, kubeCaptureHelpIstioNamespaces)
+	cmd.PersistentFlags().StringSliceVarP(&args.IstioNamespaces, "namespaces", "n", bugReportDefaultIstioNamespaces, bugReportHelpIstioNamespaces)
 
 	// timeouts and max sizes
-	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", kubeCaptureDefaultTimeout, kubeCaptureHelpCommandTimeout)
-	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", kubeCaptureDefaultMaxSizeMb, kubeCaptureHelpMaxArchiveSizeMb)
+	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout, bugReportHelpCommandTimeout)
+	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", bugReportDefaultMaxSizeMb, bugReportHelpMaxArchiveSizeMb)
 
 	// include / exclude specs
-	cmd.PersistentFlags().StringSliceVarP(&included, "include", "i", kubeCaptureDefaultInclude, kubeCaptureHelpInclude)
-	cmd.PersistentFlags().StringSliceVarP(&excluded, "exclude", "e", kubeCaptureDefaultExclude, kubeCaptureHelpExclude)
+	cmd.PersistentFlags().StringSliceVarP(&included, "include", "i", bugReportDefaultInclude, bugReportHelpInclude)
+	cmd.PersistentFlags().StringSliceVarP(&excluded, "exclude", "e", bugReportDefaultExclude, bugReportHelpExclude)
 
 	// log time ranges
-	cmd.PersistentFlags().StringVar(&startTime, "start-time", "", kubeCaptureHelpStartTime)
-	cmd.PersistentFlags().StringVar(&endTime, "end-time", "", kubeCaptureHelpEndTime)
-	cmd.PersistentFlags().DurationVar(&since, "duration", 0, kubeCaptureHelpSince)
+	cmd.PersistentFlags().StringVar(&startTime, "start-time", "", bugReportHelpStartTime)
+	cmd.PersistentFlags().StringVar(&endTime, "end-time", "", bugReportHelpEndTime)
+	cmd.PersistentFlags().DurationVar(&since, "duration", 0, bugReportHelpSince)
 
 	// log error control
-	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil, kubeCaptureHelpCriticalErrors)
-	cmd.PersistentFlags().StringSliceVar(&args.WhitelistedErrors, "whitelist-errs", nil, kubeCaptureHelpWhitelistedErrors)
+	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil, bugReportHelpCriticalErrors)
+	cmd.PersistentFlags().StringSliceVar(&args.WhitelistedErrors, "whitelist-errs", nil, bugReportHelpWhitelistedErrors)
 
 	// archive and upload control
-	cmd.PersistentFlags().StringVar(&args.Context, "gcs-url", "", kubeCaptureHelpGCSURL)
-	cmd.PersistentFlags().BoolVar(&args.UploadToGCS, "upload", false, kubeCaptureHelpUploadToGCS)
+	cmd.PersistentFlags().StringVar(&args.Context, "gcs-url", "", bugReportHelpGCSURL)
+	cmd.PersistentFlags().BoolVar(&args.UploadToGCS, "upload", false, bugReportHelpUploadToGCS)
+
+	// output/working dir
+	cmd.PersistentFlags().StringVar(&tempDir, "dir", bugReportDefaultTempDir, bugReportHelpTempDir)
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
