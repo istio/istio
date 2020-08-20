@@ -138,7 +138,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		// No TLS.
 		return nil
 	}
-	if len(sniName) > 0 {
+	if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 		tlsContext.Sni = sniName
 	}
 	return tlsContext
