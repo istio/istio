@@ -35,7 +35,7 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
-	lastProbeUpdateTime time.Time
+	lastUpdateTime      time.Time
 	atleastOnceReady    bool
 	readyError          error
 }
@@ -76,12 +76,12 @@ func (p *Probe) isEnvoyReady() error {
 	// Envoy is not ready at least once.  After Envoy is ready for the first time,
 	// we return cached value to avoid frequent executions of stats query till
 	// cached TTL is reached.
-	if !p.atleastOnceReady || time.Since(p.lastProbeUpdateTime) >= readinessTTL {
+	if !p.atleastOnceReady || time.Since(p.lastUpdateTime) >= readinessTTL {
 		p.readyError = checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
 		if p.readyError == nil && !p.atleastOnceReady {
 			p.atleastOnceReady = true
 		}
-		p.lastProbeUpdateTime = time.Now()
+		p.lastUpdateTime = time.Now()
 	}
 	return p.readyError
 }
