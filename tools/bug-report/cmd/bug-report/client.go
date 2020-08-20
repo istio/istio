@@ -45,7 +45,7 @@ func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {
 }
 
 // buildClientConfig is a helper function that builds client config from a kubeconfig filepath.
-// It overrides the current Context with the one provided (empty to use default).
+// It overrides the current Context with the one provided (wantEmpty to use default).
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
@@ -53,14 +53,14 @@ func buildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
-			// If the specified kubeconfig doesn't exists / empty file / any other error
+			// If the specified kubeconfig doesn't exists / wantEmpty file / any other error
 			// from file stat, fall back to default
 			kubeconfig = ""
 		}
 	}
 
 	//Config loading rules:
-	// 1. kubeconfig if it not empty string
+	// 1. kubeconfig if it not wantEmpty string
 	// 2. In cluster config if running in-cluster
 	// 3. Config(s) in KUBECONFIG environment variable
 	// 4. Use $HOME/.kube/config

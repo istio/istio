@@ -19,22 +19,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"istio.io/istio/operator/pkg/util"
 	cluster "istio.io/istio/tools/bug-report/pkg"
 	"istio.io/pkg/log"
 )
-
-func parseIncluded(included []*SelectionSpec) []*SelectionSpec {
-	if len(included) != 0 {
-		return included
-	}
-	return []*SelectionSpec{
-		{
-			Namespaces: []string{"*"},
-		},
-	}
-}
 
 // GetMatchingPaths returns a slice of matching paths, given a cluster tree and config.
 // config is the capture configuration.
@@ -51,6 +41,30 @@ func GetMatchingPaths(config *KubeCaptureConfig, cluster *cluster.Resources) ([]
 	sort.Strings(out)
 
 	return out, nil
+}
+
+// GetTimeRange returns the log lines that fall inside the start to end time range, inclusive.
+func GetTimeRange(log string, start, end time.Time) string {
+	var sb strings.Builder
+	include := false
+	for _, l := range strings.Split(log, "\n") {
+		// 2020-06-29T23:37:27.286034Z
+		lv := strings.Split(l, "\t")
+		if len(lv) > 0 {
+			if t, err := time.Parse(time.RFC3339Nano, lv[0]); err == nil {
+				include = false
+				if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
+					include = true
+				}
+			}
+		}
+		if include {
+			sb.WriteString(l)
+			sb.WriteString("\n")
+		}
+	}
+
+	return sb.String()
 }
 
 func mergeMaps(a, b map[string]struct{}) map[string]struct{} {
@@ -190,4 +204,15 @@ func matchesGlob(matchString, pattern string) bool {
 		return false
 	}
 	return match
+}
+
+func parseIncluded(included []*SelectionSpec) []*SelectionSpec {
+	if len(included) != 0 {
+		return included
+	}
+	return []*SelectionSpec{
+		{
+			Namespaces: []string{"*"},
+		},
+	}
 }
