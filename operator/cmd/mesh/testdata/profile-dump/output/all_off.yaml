@@ -38,8 +38,10 @@ spec:
           ports:
           - name: http2
             port: 80
+            targetPort: 8080
           - name: https
             port: 443
+            targetPort: 8443
           - name: tls
             port: 15443
             targetPort: 15443
@@ -84,6 +86,9 @@ spec:
           - name: https
             port: 443
             targetPort: 8443
+          - name: tcp-istiod
+            port: 15012
+            targetPort: 15012
           - name: tls
             port: 15443
             targetPort: 15443
@@ -153,13 +158,6 @@ spec:
       istio-ingressgateway:
         autoscaleEnabled: true
         env: {}
-        meshExpansionPorts:
-        - name: tcp-istiod
-          port: 15012
-          targetPort: 15012
-        - name: tcp-dns-tls
-          port: 853
-          targetPort: 8853
         name: istio-ingressgateway
         secretVolumes:
         - mountPath: /etc/istio/ingressgateway-certs
@@ -281,9 +279,11 @@ spec:
       enabled: true
       v2:
         enabled: true
-        metadataExchange: {}
+        metadataExchange:
+          wasmEnabled: false
         prometheus:
           enabled: true
+          wasmEnabled: false
         stackdriver:
           configOverride: {}
           enabled: false
