@@ -1067,14 +1067,19 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		cgi := NewConfigGenerator([]plugin.Plugin{})
-		tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
-			tc.server: pilot_model.GetSNIHostsForServer(tc.server),
-		}}
-		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "", tc.proxyConfig)
-		if !reflect.DeepEqual(tc.result, ret) {
-			t.Errorf("test case %s: expecting %+v but got %+v", tc.name, tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			cgi := NewConfigGenerator([]plugin.Plugin{})
+			tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
+				tc.server: pilot_model.GetSNIHostsForServer(tc.server),
+			}}
+			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "", tc.proxyConfig)
+			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
+				t.Errorf("got diff in tls context: %v", diff)
+			}
+			if !reflect.DeepEqual(tc.result, ret) {
+				t.Errorf("test case %s: expecting %+v but got %+v", tc.name, tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+			}
+		})
 	}
 }
 
