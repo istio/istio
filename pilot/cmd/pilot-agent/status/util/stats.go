@@ -22,6 +22,7 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"istio.io/pkg/env"
 )
 
 const (
@@ -35,8 +36,8 @@ const (
 	updateStatsRegex   = "^(cluster_manager\\.cds|listener_manager\\.lds)\\.(update_success|update_rejected)$"
 )
 
-const (
-	readinessTimeout = time.Second * 5 // Default readiness timeout.
+var (
+	readinessTimeout = env.RegisterDurationVar("ENVOY_READINESS_CHECK_TIMEOUT", time.Second*5, "").Get()
 )
 
 type stat struct {
