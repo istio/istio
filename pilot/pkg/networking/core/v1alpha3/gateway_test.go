@@ -1076,8 +1076,11 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff in tls context: %v", diff)
 			}
-			if !reflect.DeepEqual(tc.result, ret) {
-				t.Errorf("test case %s: expecting %+v but got %+v", tc.name, tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+			if !reflect.DeepEqual(tc.result.httpOpts, ret.httpOpts) {
+				t.Errorf("expecting httpopts %+v but got %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+			}
+			if !reflect.DeepEqual(tc.result.sniHosts, ret.sniHosts) {
+				t.Errorf("expecting snihosts %+v but got %+v", tc.result.sniHosts, ret.sniHosts)
 			}
 		})
 	}
