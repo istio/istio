@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-const (
+var (
 	// readinessTTL is the TTL for cached readiness values.
 	readinessTTL = 60 * time.Second
 )
