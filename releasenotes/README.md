@@ -20,6 +20,11 @@ area: traffic-management
 issue:
   - https://github.com/istio/istio/issues/23622
   - 23624
+
+docs:
+ - [usage] https://istio.io/latest/docs/tasks/traffic-management/request-routing/
+ - [reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/
+
 releaseNotes:
 - |
 *Fixed* an issue preventing the operator from recreating watched resources if they are deleted
@@ -51,6 +56,10 @@ This field describes the are of Istio that the note affects. Valid values includ
 ### Issue
 
 While many pull requests will only fix a single GitHub issue, some pull requests may fix multiple issues. Please list all fixed GitHub issues. Issues written as numbers only will be interpreted as being reported against the `istio/istio` repo, while issues recorded as URLs will be read as the supplied URLs.
+
+## docs
+
+The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues. 
 
 ### Release Notes
 
