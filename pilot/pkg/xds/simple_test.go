@@ -98,7 +98,7 @@ func startEnvoy(t *testing.T) {
 	testEnv.EnvoyTemplate = string(tmplB)
 	testEnv.Dir = env.IstioSrc
 	nodeID := sidecarID(app3Ip, "app3")
-	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeID}
+	testEnv.EnvoyParams = []string{"--service-cluster", "serviceCluster", "--service-node", nodeID, "-l", "debug"}
 	testEnv.EnvoyConfigOpt = map[string]interface{}{
 		"NodeID":  nodeID,
 		"BaseDir": env.IstioSrc + "/tests/testdata/local",
