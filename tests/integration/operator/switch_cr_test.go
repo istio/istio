@@ -389,7 +389,7 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 					return fmt.Errorf("failed to get expected MutatingWebhookConfiguration: %s from cluster", name)
 				}
 			case "CustomResourceDefinition":
-				if _, err := cs.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name,
+				if _, err := cs.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name)
 				}
