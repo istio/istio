@@ -138,6 +138,9 @@ func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperato
 	return CheckServicePorts(values, spec)
 }
 
+// CheckServicePorts validates Service ports. Specifically, this currently
+// asserts that all ports will bind to a port number greater than 1024 when not
+// running as root.
 func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) util.Errors {
 	var errs util.Errors
 	if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
@@ -166,6 +169,7 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 			continue
 		}
 		if tp < 1024 {
+			// nolint: lll
 			errs = util.AppendErr(errs, fmt.Errorf("port %v is invalid: targetPort is set to %v, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true", portnum, tp))
 		}
 	}
@@ -173,6 +177,7 @@ func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperat
 }
 
 func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
+	// nolint: lll
 	format := "port %v/%v in gateway %v invalid: targetPort is set to %d, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.%s.runAsRoot=true"
 	var errs util.Errors
 	for _, gw := range gw {

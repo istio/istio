@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
+// nolint: lll
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name     string
