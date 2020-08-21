@@ -2162,7 +2162,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
-				push:  push,
+				mesh:  push.Mesh,
 			}
 			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx, proxy)
 

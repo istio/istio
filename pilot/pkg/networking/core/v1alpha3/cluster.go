@@ -408,7 +408,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
+			applyConnectionPool(pluginParams.Push.Mesh, localCluster, connectionPool)
 			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
 		}
 	}
@@ -523,7 +523,7 @@ const (
 )
 
 type buildClusterOpts struct {
-	push            *model.PushContext
+	mesh            *meshconfig.MeshConfig
 	cluster         *cluster.Cluster
 	policy          *networking.TrafficPolicy
 	port            *model.Port
@@ -562,7 +562,7 @@ var h2UpgradeMap = map[upgradeTuple]bool{
 
 // applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
 func applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
-	if shouldH2Upgrade(opts.cluster.Name, opts.direction, opts.port, opts.push.Mesh, connectionPool) {
+	if shouldH2Upgrade(opts.cluster.Name, opts.direction, opts.port, opts.mesh, connectionPool) {
 		setH2Options(opts.cluster)
 	}
 }
@@ -616,12 +616,12 @@ func setH2Options(cluster *cluster.Cluster) {
 func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	applyH2Upgrade(opts, connectionPool)
-	applyConnectionPool(opts.push, opts.cluster, connectionPool)
+	applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.push.Mesh)
+	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
-		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
+		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
@@ -630,7 +630,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
+func applyConnectionPool(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
 	if settings == nil {
 		return
 	}
@@ -669,7 +669,7 @@ func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *
 			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 
-		applyTCPKeepalive(push, c, settings)
+		applyTCPKeepalive(mesh, c, settings)
 	}
 
 	c.CircuitBreakers = &cluster.CircuitBreakers{
@@ -682,9 +682,9 @@ func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *
 	}
 }
 
-func applyTCPKeepalive(push *model.PushContext, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
+func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
 	// Apply Keepalive config only if it is configured in mesh config or in destination rule.
-	if push.Mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
+	if mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
 
 		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
 		c.UpstreamConnectionOptions = &cluster.UpstreamConnectionOptions{
@@ -692,8 +692,8 @@ func applyTCPKeepalive(push *model.PushContext, c *cluster.Cluster, settings *ne
 		}
 
 		// Apply mesh wide TCP keepalive if available.
-		if push.Mesh.TcpKeepalive != nil {
-			setKeepAliveSettings(c, push.Mesh.TcpKeepalive)
+		if mesh.TcpKeepalive != nil {
+			setKeepAliveSettings(c, mesh.TcpKeepalive)
 		}
 
 		// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
