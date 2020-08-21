@@ -343,14 +343,20 @@
         "http2_protocol_options": {},
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        "hosts": [
-          {
-            "socket_address": {
-              "address": "127.0.0.1",
-              "port_value": {{.Ports.ExtraPort}}
-            }
-          }
-        ],
+        "load_assignment": {
+          "cluster_name": "sds-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "pipe": {
+                    "path": {{.SDSPath}}
+                  }
+                }
+              }
+            }]
+          }]
+        }
       },
       {
       "name": "service1",
