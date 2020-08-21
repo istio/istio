@@ -37,7 +37,7 @@ type Probe struct {
 	receivedFirstUpdate bool
 	lastUpdateTime      time.Time
 	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
-	// If after TTL, Envoy becomes unready, we will reset this flag so that we continuosly
+	// If after TTL, Envoy becomes unready, we will reset this flag so that we continuously
 	// check Envoy till it becomes ready.
 	atleastOnceReady bool
 	readyError       error
