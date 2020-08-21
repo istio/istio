@@ -9787,7 +9787,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "latest",
+        "tag": "1.7-dev",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -10925,11 +10925,11 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:1.7-dev
         name: istio-proxy
         ports:
-        - containerPort: 80
-        - containerPort: 443
+        - containerPort: 8080
+        - containerPort: 8443
         - containerPort: 15443
         - containerPort: 15090
           name: http-envoy-prom
@@ -11150,16 +11150,14 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:1.7-dev
         name: istio-proxy
         ports:
         - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15443
-        - containerPort: 15011
         - containerPort: 15012
-        - containerPort: 8060
         - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
@@ -11330,7 +11328,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: gcr.io/istio-testing/mixer:latest
+        image: gcr.io/istio-testing/mixer:1.7-dev
         livenessProbe:
           httpGet:
             path: /version
@@ -11391,7 +11389,7 @@ spec:
           value: istiod
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:1.7-dev
         name: istio-proxy
         ports:
         - containerPort: 15004
@@ -11526,7 +11524,7 @@ spec:
               fieldPath: metadata.namespace
         - name: GOMAXPROCS
           value: "6"
-        image: gcr.io/istio-testing/mixer:latest
+        image: gcr.io/istio-testing/mixer:1.7-dev
         livenessProbe:
           httpGet:
             path: /version
@@ -11591,7 +11589,7 @@ spec:
           value: istiod
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:1.7-dev
         name: istio-proxy
         ports:
         - containerPort: 15004
@@ -11835,7 +11833,7 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-        image: gcr.io/istio-testing/pilot:latest
+        image: gcr.io/istio-testing/pilot:1.7-dev
         name: discovery
         ports:
         - containerPort: 8080
@@ -11923,7 +11921,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: "docker.io/prom/prometheus:v2.18.1"
+          image: "docker.io/prom/prometheus:v2.19.2"
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -12223,8 +12221,10 @@ spec:
   ports:
   - name: http2
     port: 80
+    targetPort: 8080
   - name: https
     port: 443
+    targetPort: 8443
   - name: tls
     port: 15443
     targetPort: 15443

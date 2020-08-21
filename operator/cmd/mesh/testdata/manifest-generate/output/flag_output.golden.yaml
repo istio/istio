@@ -75,7 +75,7 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-        image: gcr.io/istio-testing/pilot:latest
+        image: gcr.io/istio-testing/pilot:1.7-dev
         name: discovery
         ports:
         - containerPort: 8080

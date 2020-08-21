@@ -131,16 +131,14 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:1.7-dev
         name: istio-proxy
         ports:
         - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15443
-        - containerPort: 15011
         - containerPort: 15012
-        - containerPort: 8060
         - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom

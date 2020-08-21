@@ -84,7 +84,7 @@ spec:
               fieldPath: metadata.namespace
         - name: GOMAXPROCS
           value: "6"
-        image: gcr.io/istio-testing/mixer:latest
+        image: gcr.io/istio-testing/mixer:1.7-dev
         livenessProbe:
           httpGet:
             path: /version
@@ -156,7 +156,7 @@ spec:
           value: istiod
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: gcr.io/istio-testing/proxyv2:1.7-dev
         name: istio-proxy
         ports:
         - containerPort: 15004
