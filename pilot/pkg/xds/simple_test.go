@@ -106,7 +106,7 @@ func startEnvoy(t *testing.T) {
 	}
 
 	// nolint: staticcheck
-	if err := testEnv.SetUp(nil); err != nil {
+	if err := testEnv.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)
 	}
 
