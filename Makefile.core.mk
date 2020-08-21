@@ -28,9 +28,6 @@ export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
 
-# cumulatively track the directories/files to delete after a clean
-DIRS_TO_CLEAN:=
-
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
 export GOPATH
@@ -43,11 +40,6 @@ GO ?= go
 
 GOARCH_LOCAL := $(TARGET_ARCH)
 GOOS_LOCAL := $(TARGET_OS)
-
-export ENABLE_COREDUMP ?= false
-
-# NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
-# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set-string istio-cni.tag=v0.1-dev-foo"
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -96,7 +88,6 @@ else
   export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
-export HELM=helm
 export ARTIFACTS ?= $(ISTIO_OUT)
 export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
@@ -181,9 +172,8 @@ endif
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH})
 
-GO_VERSION_REQUIRED:=1.10
-
-HUB?=istio
+# If the hub is not explicitly set, use default to istio.
+HUB ?=istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
@@ -283,15 +273,15 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
-# This target should be expanded upon as we add more Linux architectures: i.e. buld-arm64.
+# This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
 # Then a new build target can be created such as build-container-bin that builds these
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
 # There are two use cases here:
@@ -304,7 +294,7 @@ ifeq ($(BUILD_ALL),true)
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): $(ISTIO_OUT_LINUX)
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
 endif
 endef
 
@@ -367,10 +357,8 @@ gen-kustomize:
 #-----------------------------------------------------------------------------
 
 # gobuild script uses custom linker flag to set the variables.
-# Params: OUT VERSION_PKG SRC
 
 RELEASE_LDFLAGS='-extldflags -static -s -w'
-DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
 ${ISTIO_OUT}/release/istioctl-linux-amd64: depend
@@ -455,7 +443,7 @@ clean: ## Cleans all the intermediate files and folders previously generated.
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: push artifacts
+.PHONY: push
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk
