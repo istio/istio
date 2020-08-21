@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 )
@@ -142,6 +143,34 @@ func TestEnvoyNoServerStats(t *testing.T) {
 	err := probe.Check()
 
 	g.Expect(err).To(HaveOccurred())
+}
+
+func TestEnvoyReadinessCache(t *testing.T) {
+	readinessTTL = 1 * time.Second
+	g := NewWithT(t)
+
+	server := createAndStartServer(noServerStats)
+	probe := Probe{AdminPort: 1234}
+	err := probe.Check()
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	err = probe.Check()
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	server.Close()
+
+	server = createAndStartServer(liveServerStats)
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	server.Close()
+
+	time.Sleep(2 * time.Second)
+	server = createAndStartServer(noServerStats)
+	err = probe.Check()
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	server.Close()
 }
 
 func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
