@@ -5,6 +5,23 @@ Notes should be created as part of the pull request for any user facing changes.
 a release, the release notes utility will be run in order to generate a release notes file
 which will be reviewed by the release managers and documentation team.
 
+
+## When to Add Release Notes
+
+Release notes should be added for any user facing changes. These include:
+* CLI changes
+* API changes
+* Configuration schema change
+* Behavioral change
+* Change in non-functional attributes such as efficiency or availability, availability of a new platform
+* A warning about a deprecation
+* Fix of a previous Known Issue
+
+No release notes are required for changes to: 
+* Tests
+* Build Infrastructure
+* Fixes of bugs that have not been released. 
+
 ## Adding a Release Note
 
 To create a release note, create a new file in the [./notes](./notes) directory based on
@@ -27,7 +44,7 @@ docs:
 
 releaseNotes:
 - |
-*Fixed* an issue preventing the operator from recreating watched resources if they are deleted
+**Fixed** an issue preventing the operator from recreating watched resources if they are deleted
 
 upgradeNotes:
   - title: Change the readiness port of gateways
