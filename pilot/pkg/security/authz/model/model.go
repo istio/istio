@@ -157,10 +157,10 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 }
 
 // Generate generates the Envoy RBAC config from the model.
-func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
+func (m Model) Generate(forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Policy, error) {
 	var permissions []*rbacpb.Permission
 	for _, rl := range m.permissions {
-		permission, err := generatePermission(rl, forTCP, forDeny)
+		permission, err := generatePermission(rl, forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +172,7 @@ func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
 
 	var principals []*rbacpb.Principal
 	for _, rl := range m.principals {
-		principal, err := generatePrincipal(rl, forTCP, forDeny)
+		principal, err := generatePrincipal(rl, forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -188,10 +188,10 @@ func (m Model) Generate(forTCP, forDeny bool) (*rbacpb.Policy, error) {
 	}, nil
 }
 
-func generatePermission(rl ruleList, forTCP, forDeny bool) (*rbacpb.Permission, error) {
+func generatePermission(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Permission, error) {
 	var and []*rbacpb.Permission
 	for _, r := range rl.rules {
-		ret, err := r.permission(forTCP, forDeny)
+		ret, err := r.permission(forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -203,10 +203,10 @@ func generatePermission(rl ruleList, forTCP, forDeny bool) (*rbacpb.Permission, 
 	return permissionAnd(and), nil
 }
 
-func generatePrincipal(rl ruleList, forTCP, forDeny bool) (*rbacpb.Principal, error) {
+func generatePrincipal(rl ruleList, forTCP bool, action rbacpb.RBAC_Action) (*rbacpb.Principal, error) {
 	var and []*rbacpb.Principal
 	for _, r := range rl.rules {
-		ret, err := r.principal(forTCP, forDeny)
+		ret, err := r.principal(forTCP, action)
 		if err != nil {
 			return nil, err
 		}
@@ -218,12 +218,12 @@ func generatePrincipal(rl ruleList, forTCP, forDeny bool) (*rbacpb.Principal, er
 	return principalAnd(and), nil
 }
 
-func (r rule) permission(forTCP, forDeny bool) ([]*rbacpb.Permission, error) {
+func (r rule) permission(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Permission, error) {
 	var permissions []*rbacpb.Permission
 	var or []*rbacpb.Permission
 	for _, value := range r.values {
 		p, err := r.g.permission(r.key, value, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -237,7 +237,7 @@ func (r rule) permission(forTCP, forDeny bool) ([]*rbacpb.Permission, error) {
 	or = nil
 	for _, notValue := range r.notValues {
 		p, err := r.g.permission(r.key, notValue, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -250,12 +250,12 @@ func (r rule) permission(forTCP, forDeny bool) ([]*rbacpb.Permission, error) {
 	return permissions, nil
 }
 
-func (r rule) principal(forTCP, forDeny bool) ([]*rbacpb.Principal, error) {
+func (r rule) principal(forTCP bool, action rbacpb.RBAC_Action) ([]*rbacpb.Principal, error) {
 	var principals []*rbacpb.Principal
 	var or []*rbacpb.Principal
 	for _, value := range r.values {
 		p, err := r.g.principal(r.key, value, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -269,7 +269,7 @@ func (r rule) principal(forTCP, forDeny bool) ([]*rbacpb.Principal, error) {
 	or = nil
 	for _, notValue := range r.notValues {
 		p, err := r.g.principal(r.key, notValue, forTCP)
-		if err := r.checkError(forDeny, err); err != nil {
+		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}
 		if p != nil {
@@ -282,16 +282,16 @@ func (r rule) principal(forTCP, forDeny bool) ([]*rbacpb.Principal, error) {
 	return principals, nil
 }
 
-func (r rule) checkError(forDeny bool, err error) error {
-	if forDeny {
-		// Ignore the error for deny policy. This will make the current rule ignored and continue the generation of
-		// the next rule, effectively result in a wider deny policy (i.e. more likely to deny a request).
-		return nil
+func (r rule) checkError(action rbacpb.RBAC_Action, err error) error {
+	if action == rbacpb.RBAC_ALLOW {
+		// Return the error as-is for allow policy. This will make all rules in the current permission ignored, effectively
+		// result in a smaller allow policy (i.e. less likely to allow a request).
+		return err
 	}
 
-	// Return the error as-is for allow policy. This will make all rules in the current permission ignored, effectively
-	// result in a smaller allow policy (i.e. less likely to allow a request).
-	return err
+	// Ignore the error for a deny or audit policy. This will make the current rule ignored and continue the generation of
+	// the next rule, effectively resulting in a wider deny or audit policy (i.e. more likely to deny or audit a request).
+	return nil
 }
 
 func (p *ruleList) copy() ruleList {

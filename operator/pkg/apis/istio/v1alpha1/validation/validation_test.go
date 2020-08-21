@@ -27,14 +27,18 @@ import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1/validation"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/manifest"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/env"
 )
 
+// nolint: lll
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name     string
 		value    *v1alpha12.IstioOperatorSpec
+		values   string
+		errors   string
 		warnings string
 	}{
 		{
@@ -65,12 +69,142 @@ func TestValidateConfig(t *testing.T) {
 			},
 			warnings: `! values.global.localityLbSetting is deprecated; use meshConfig.localityLbSetting instead`,
 		},
+		{
+			name: "unset target port",
+			values: `
+components:
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+    - name: cluster-local-gateway
+      enabled: true
+      k8s:
+        service:
+          type: ClusterIP
+          ports:
+          - port: 15020
+            name: status-port
+          - port: 80
+            name: http2
+`,
+			errors: `port http2/80 in gateway cluster-local-gateway invalid: targetPort is set to 0, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+		},
+		{
+			name: "explicitly invalid target port",
+			values: `
+components:
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+    - name: cluster-local-gateway
+      enabled: true
+      k8s:
+        service:
+          type: ClusterIP
+          ports:
+          - port: 15020
+            name: status-port
+          - port: 80
+            name: http2
+            targetPort: 90
+`,
+			errors: `port http2/80 in gateway cluster-local-gateway invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+		},
+		{
+			name: "explicitly invalid target port for egress",
+			values: `
+components:
+  egressGateways:
+    - name: egress-gateway
+      enabled: true
+      k8s:
+        service:
+          type: ClusterIP
+          ports:
+          - port: 15020
+            name: status-port
+          - port: 80
+            name: http2
+            targetPort: 90
+`,
+			errors: `port http2/80 in gateway egress-gateway invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-egressgateway.runAsRoot=true`,
+		},
+		{
+			name: "low target port with root",
+			values: `
+components:
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+    - name: cluster-local-gateway
+      enabled: true
+      k8s:
+        service:
+          type: ClusterIP
+          ports:
+          - port: 15020
+            name: status-port
+          - port: 80
+            name: http2
+            targetPort: 90
+values:
+  gateways:
+    istio-ingressgateway:
+      runAsRoot: true
+`,
+			errors: ``,
+		},
+		{
+			name: "legacy values ports config empty targetPort",
+			values: `
+values:
+  gateways:
+    istio-ingressgateway:
+      ingressPorts:
+      - name: http
+        port: 80
+`,
+			errors: `port 80 is invalid: targetPort is set to 0, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+		},
+		{
+			name: "legacy values ports config explicit targetPort",
+			values: `
+values:
+  gateways:
+    istio-ingressgateway:
+      ingressPorts:
+      - name: http
+        port: 80
+        targetPort: 90
+`,
+			errors: `port 80 is invalid: targetPort is set to 90, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true`,
+		},
+		{
+			name: "legacy values ports valid",
+			values: `
+values:
+  gateways:
+    istio-ingressgateway:
+      ingressPorts:
+      - name: http
+        port: 80
+        targetPort: 8080
+`,
+			errors: ``,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err, warnings := validation.ValidateConfig(false, tt.value)
-			if err != nil {
-				t.Fatal(err)
+			iop := tt.value
+			if tt.values != "" {
+				iop = &v1alpha12.IstioOperatorSpec{}
+				if err := util.UnmarshalWithJSONPB(tt.values, iop, true); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err, warnings := validation.ValidateConfig(false, iop)
+			if tt.errors != err.String() {
+				t.Fatalf("expected errors: %q got %q", tt.errors, err.String())
 			}
 			if tt.warnings != warnings {
 				t.Fatalf("expected warnings: %q got %q", tt.warnings, warnings)

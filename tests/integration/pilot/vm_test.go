@@ -48,6 +48,7 @@ func TestVmOSPost(t *testing.T) {
 					DeployAsVM: true,
 					VMImage:    image,
 					Subsets:    []echo.SubsetConfig{{}},
+					Cluster:    ctx.Clusters().Default(),
 				})
 			}
 			b.BuildOrFail(ctx)
@@ -55,7 +56,7 @@ func TestVmOSPost(t *testing.T) {
 			for i, image := range images {
 				i, image := i, image
 				ctx.NewSubTest(image).RunParallel(func(ctx framework.TestContext) {
-					for _, tt := range vmTestCases(instances[i]) {
+					for _, tt := range vmTestCases(echo.Instances{instances[i]}) {
 						ExecuteTrafficTest(ctx, tt)
 					}
 				})
