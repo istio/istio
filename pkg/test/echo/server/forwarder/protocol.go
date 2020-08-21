@@ -93,6 +93,7 @@ func newProtocol(cfg Config) (protocol, error) {
 				log.Debugf("  URI SAN: %s", uri)
 			}
 		}
+		// nolint: unparam
 		getClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			log.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
