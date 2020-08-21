@@ -702,7 +702,7 @@ func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
 func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string, meshConfig *meshconfig.MeshConfig) {
 	t.Helper()
 	// add --set installPackagePath=<path to charts snapshot>
-	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir())
+	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir(), "profile=empty", "components.pilot.enabled=true")
 	var inFilenames []string
 	if inFilePath != "" {
 		inFilenames = []string{"testdata/inject/" + inFilePath}

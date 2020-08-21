@@ -616,7 +616,9 @@ func TestLDFlags(t *testing.T) {
 
 func runTestGroup(t *testing.T, tests testGroup) {
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.desc, func(t *testing.T) {
+			t.Parallel()
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")
 			outputSuffix := goldenFileSuffixHideChangesInReview
 			if tt.showOutputFileInPullRequest {
