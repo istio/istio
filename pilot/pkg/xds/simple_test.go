@@ -84,7 +84,17 @@ type FakeSdsServer struct {
 }
 
 func (fd *FakeSdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	return nil
+	reqChannel := make(chan *discovery.DiscoveryRequest, 1)
+	for {
+		// Block until a request is received.
+		select {
+		case _, ok := <-reqChannel:
+			if !ok {
+				// Remote side closed connection.
+				return fmt.Errorf("closing the connection")
+			}
+		}
+	}
 }
 
 func (fd *FakeSdsServer) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
