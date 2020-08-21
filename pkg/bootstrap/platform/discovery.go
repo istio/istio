@@ -20,7 +20,7 @@ import (
 )
 
 const defaultTimeout = 5 * time.Second
-const Platforms = 3
+const numPlatforms = 3
 
 // Discover attempts to discover the host platform, defaulting to
 // `Unknown` if a platform cannot be discovered.
@@ -31,11 +31,11 @@ func Discover() Environment {
 // DiscoverWithTimeout attempts to discover the host platform, defaulting to
 // `Unknown` after the provided timeout.
 func DiscoverWithTimeout(timeout time.Duration) Environment {
-	plat := make(chan Environment, Platforms) // sized to match number of platform goroutines
+	plat := make(chan Environment, numPlatforms) // sized to match number of platform goroutines
 	done := make(chan bool)
 
 	var wg sync.WaitGroup
-	wg.Add(Platforms) // check GCP, AWS, and Azure
+	wg.Add(numPlatforms) // check GCP, AWS, and Azure
 
 	go func() {
 		if IsGCP() {

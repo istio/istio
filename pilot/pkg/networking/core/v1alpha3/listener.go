@@ -42,6 +42,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -50,6 +51,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1078,27 +1080,34 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
-						if instances, err := push.InstancesByPort(service, servicePort.Port, nil); err == nil {
-							for _, instance := range instances {
-								// Make sure each endpoint address is a valid address
-								// as service entries could have NONE resolution with label selectors for workload
-								// entries (which could technically have hostnames).
-								if net.ParseIP(instance.Endpoint.Address) == nil {
-									continue
-								}
-								// Skip build outbound listener to the node itself,
-								// as when app access itself by pod ip will not flow through this listener.
-								// Simultaneously, it will be duplicate with inbound listener.
-								if instance.Endpoint.Address == node.IPAddresses[0] {
-									continue
-								}
-								listenerOpts.bind = instance.Endpoint.Address
-								configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
-									virtualServices, actualWildcard)
+						instances := push.InstancesByPort(service, servicePort.Port, nil)
+						if service.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
+							// A Kubernetes service with no endpoints means there are no endpoints at
+							// all, so don't bother sending, as traffic will never work. If we did
+							// send a wildcard listener, we may get into a situation where a scale
+							// down leads to a listener conflict. Similarly, if we have a
+							// labelSelector on the Service, then this may have endpoints not yet
+							// selected or scaled down, so we skip these as well. This leaves us with
+							// only a plain ServiceEntry with resolution NONE. In this case, we will
+							// fallback to a wildcard listener.
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+								virtualServices, actualWildcard)
+							continue
+						}
+						for _, instance := range instances {
+							// Make sure each endpoint address is a valid address
+							// as service entries could have NONE resolution with label selectors for workload
+							// entries (which could technically have hostnames).
+							if net.ParseIP(instance.Endpoint.Address) == nil {
+								continue
 							}
-						} else {
-							// we can't do anything. Fallback to the usual way of constructing listeners
-							// for headless services that use 0.0.0.0:Port listener
+							// Skip build outbound listener to the node itself,
+							// as when app access itself by pod ip will not flow through this listener.
+							// Simultaneously, it will be duplicate with inbound listener.
+							if instance.Endpoint.Address == node.IPAddresses[0] {
+								continue
+							}
+							listenerOpts.bind = instance.Endpoint.Address
 							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
 								virtualServices, actualWildcard)
 						}
@@ -1848,6 +1857,9 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 			ConfigType: &hcm.HttpFilter_TypedConfig{
 				TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
 					EmitFilterState: true,
+					PerMethodStatSpecifier: &grpcstats.FilterConfig_StatsForAllMethods{
+						StatsForAllMethods: &wrapperspb.BoolValue{Value: false},
+					},
 				}),
 			},
 		})

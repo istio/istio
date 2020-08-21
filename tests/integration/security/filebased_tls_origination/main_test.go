@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,8 +50,10 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
+    name: istio-egressgateway
   ingressGateways:
   - enabled: false
+    name: istio-ingressgateway
 values:
    gateways:
       istio-egressgateway:

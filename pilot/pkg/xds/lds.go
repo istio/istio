@@ -26,13 +26,12 @@ import (
 )
 
 func (s *DiscoveryServer) pushLds(con *Connection, push *model.PushContext, version string) error {
-	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawListeners := s.ConfigGenerator.BuildListeners(con.proxy, push)
+	defer func() { ldsPushTime.Record(time.Since(pushStart).Seconds()) }()
 
+	rawListeners := s.ConfigGenerator.BuildListeners(con.proxy, push)
 	response := ldsDiscoveryResponse(rawListeners, version, push.Version)
 	err := con.send(response)
-	ldsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		recordSendError("LDS", con.ConID, ldsSendErrPushes, err)
 		return err

@@ -43,9 +43,10 @@ import (
 // This test exercises round tripping of marshaling/unmarshaling of all of our CRDs, based on fuzzing
 // This approach is heavily adopted from Kubernetes own fuzzing of their resources.
 func TestRoundtripFuzzing(t *testing.T) {
-	fz := createFuzzer()
 	for _, r := range collections.Pilot.All() {
 		t.Run(r.VariableName(), func(t *testing.T) {
+			fz := createFuzzer()
+			t.Parallel()
 			gvk := r.Resource().GroupVersionKind()
 			kgvk := schema.GroupVersionKind{
 				Group:   gvk.Group,

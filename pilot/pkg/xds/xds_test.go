@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -193,7 +194,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		endpoints := xdstest.ExtractEndpoints(s.Endpoints(proxy))
+		endpoints := xdstest.ExtractLoadAssignments(s.Endpoints(proxy))
 		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
@@ -390,6 +391,7 @@ spec:
   location: MESH_INTERNAL
   endpoints:
   - address: 10.10.10.30
+    serviceAccount: svc-acc
     labels:
       app: se-pod
     network: network-1
@@ -472,7 +474,7 @@ spec:
 					}
 
 					for _, tt := range tests {
-						eps := xdstest.ExtractEndpoints(s.Endpoints(tt.p))
+						eps := xdstest.ExtractLoadAssignments(s.Endpoints(tt.p))
 						for c, ip := range tt.expect {
 							t.Run(fmt.Sprintf("%s from %s", c, tt.p.ID), func(t *testing.T) {
 								assertListEqual(t, eps[c], []string{ip})
@@ -584,8 +586,11 @@ type fakeServiceOpts struct {
 // If servicePorts is empty a default of http-80 will be used.
 func fakePodService(opts fakeServiceOpts) []runtime.Object {
 	baseMeta := metav1.ObjectMeta{
-		Name:      opts.name,
-		Labels:    labels.Instance{"app": opts.name},
+		Name: opts.name,
+		Labels: labels.Instance{
+			"app":         opts.name,
+			label.TLSMode: model.IstioMutualTLSModeLabel,
+		},
 		Namespace: opts.ns,
 	}
 	podMeta := baseMeta

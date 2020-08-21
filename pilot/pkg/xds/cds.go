@@ -47,13 +47,13 @@ func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix string) *disc
 }
 
 func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, version string) error {
-	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
+	defer func() { cdsPushTime.Record(time.Since(pushStart).Seconds()) }()
+
 	rawClusters := s.ConfigGenerator.BuildClusters(con.proxy, push)
 
 	response := cdsDiscoveryResponse(rawClusters, push.Version)
 	err := con.send(response)
-	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		recordSendError("CDS", con.ConID, cdsSendErrPushes, err)
 		return err

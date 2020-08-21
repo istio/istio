@@ -16,11 +16,13 @@ package cmd
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -32,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
+	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/pkg/log"
 )
@@ -111,6 +114,64 @@ func removeInjectedContainers(containers []corev1.Container, injectedContainerNa
 		}
 	}
 	return containers
+}
+
+func restoreAppProbes(containers []corev1.Container, probers map[string]*istioStatus.Prober) []corev1.Container {
+	re := regexp.MustCompile("/app-health/([a-z]+)/(readyz|livez|startupz)")
+	for name, prober := range probers {
+		matches := re.FindStringSubmatch(name)
+		if len(matches) == 0 {
+			continue
+		}
+		containerName := matches[1]
+		probeType := matches[2]
+		for i, c := range containers {
+			if c.Name == containerName {
+				container := c.DeepCopy()
+				switch probeType {
+				case "readyz":
+					container.ReadinessProbe = &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: prober.HTTPGet,
+						},
+						TimeoutSeconds: prober.TimeoutSeconds,
+					}
+				case "livez":
+					container.LivenessProbe = &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: prober.HTTPGet,
+						},
+						TimeoutSeconds: prober.TimeoutSeconds,
+					}
+				case "startupz":
+					container.StartupProbe = &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: prober.HTTPGet,
+						},
+						TimeoutSeconds: prober.TimeoutSeconds,
+					}
+				}
+				containers[i] = *container
+			}
+		}
+	}
+	return containers
+}
+
+func retrieveAppProbe(containers []corev1.Container) string {
+	for _, c := range containers {
+		if c.Name != proxyContainerName {
+			continue
+		}
+
+		for _, env := range c.Env {
+			if env.Name == istioStatus.KubeAppProberEnvName {
+				return env.Value
+			}
+		}
+	}
+
+	return ""
 }
 
 // removeInjectedVolumes removes the injected volumes if exists.
@@ -244,6 +305,17 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	}
 	if !sidecarInjected {
 		return out, nil
+	}
+
+	var appProbe istioStatus.KubeAppProbers
+	appProbeStr := retrieveAppProbe(podSpec.Containers)
+	if appProbeStr != "" {
+		if err := json.Unmarshal([]byte(appProbeStr), &appProbe); err != nil {
+			return nil, err
+		}
+	}
+	if appProbe != nil {
+		podSpec.Containers = restoreAppProbes(podSpec.Containers, appProbe)
 	}
 
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)

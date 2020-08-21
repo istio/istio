@@ -98,6 +98,11 @@ func TestKubeUninject(t *testing.T) {
 				"experimental kube-uninject -f testdata/uninject/enable-core-dump.yaml.injected", " "),
 			goldenFilename: "testdata/uninject/enable-core-dump.yaml",
 		},
+		{ // case 15: restore rewritten app probes
+			args: strings.Split(
+				"experimental kube-uninject -f testdata/uninject/deploymentconfig-app-probe.yaml.injected", " "),
+			goldenFilename: "testdata/uninject/deploymentconfig-app-probe.yaml",
+		},
 	}
 
 	for i, c := range cases {

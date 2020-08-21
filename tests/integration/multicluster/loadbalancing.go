@@ -18,10 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 )
@@ -37,39 +34,13 @@ func LoadbalancingTest(t *testing.T, apps AppContext, features ...features.Featu
 						src := src
 						ctx.NewSubTest(fmt.Sprintf("from %s", src.Config().Cluster.Name())).
 							Run(func(ctx framework.TestContext) {
-								EquallyDistributedOrFail(ctx, callOrFail(ctx, src, apps.LBEchos[0]), apps.LBEchos)
+								res := callOrFail(ctx, src, apps.LBEchos[0])
+								if err := res.CheckReachedClusters(apps.LBEchos.Clusters()); err != nil {
+									ctx.Fatal(err)
+								}
+								// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
 							})
 					}
 				})
 		})
-}
-
-// EquallyDistributedOrFail fails the test if responses aren't equally distributed across clusters for the given set of echos.
-func EquallyDistributedOrFail(ctx test.Failer, res client.ParsedResponses, echos echo.Instances) {
-	// verify we reached all instances by using ParsedResponse
-	clusterHits := map[string]int{}
-	for _, r := range res {
-		clusterHits[r.Cluster]++
-	}
-	// TODO(landow) this check can be removed if the other is uncommented
-	for _, inst := range echos {
-		hits := clusterHits[inst.Config().Cluster.Name()]
-		if hits < 1 {
-			ctx.Fatalf("expected requests to reach all clusters: %v", clusterHits)
-		}
-	}
-
-	// TODO(landow) check this when cross-network traffic weighting is fixed
-	//equal := true
-	//expected := len(res) / len(echos)
-	//for _, inst := range echos {
-	//	hits := clusterHits[inst.Config().Cluster.Name()]
-	//	if !almostEquals(hits, expected, expected/5) {
-	//		equal = false
-	//		break
-	//	}
-	//}
-	//if !equal {
-	//	ctx.Fatalf("requests were not equally distributed among clusters: %v", clusterHits)
-	//}
 }

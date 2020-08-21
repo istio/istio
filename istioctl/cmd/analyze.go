@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/env"
 )
 
@@ -52,7 +53,7 @@ const FileParseString = "Some files couldn't be parsed."
 func (f AnalyzerFoundIssuesError) Error() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Analyzers found issues when analyzing %s.\n", analyzeTargetAsString()))
-	sb.WriteString(fmt.Sprintf("See %s for more information about causes and resolutions.", diag.DocPrefix))
+	sb.WriteString(fmt.Sprintf("See %s for more information about causes and resolutions.", url.ConfigAnalysis))
 	return sb.String()
 }
 
