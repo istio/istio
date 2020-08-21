@@ -484,3 +484,8 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators["api/"+TypeURLConnections] = s.InternalGen
 	s.Generators["event"] = s.InternalGen
 }
+
+// shutdown shutsdown DiscoveryServer components.
+func (s *DiscoveryServer) Shutdown() {
+	s.pushQueue.ShutDown()
+}
