@@ -13,10 +13,4 @@ spec:
   selector:
     matchLabels:
 {{ $gateway.labels | toYaml | trim | indent 6 }}
-      service.istio.io/canonical-name: {{ $gateway.name | default "istio-ingressgateway" }}
-      {{- if not (eq .Values.revision "") }}
-      service.istio.io/canonical-revision: {{ .Values.revision }}
-      {{- else}}
-      service.istio.io/canonical-revision: latest
-      {{- end }}
 {{- end }}
