@@ -19,6 +19,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	thrift_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
+	dubbo_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/dubbo_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -37,6 +38,8 @@ const (
 	ListenerProtocolHTTP
 	// ListenerProtocolThrift is a Thrift listener.
 	ListenerProtocolThrift
+	// ListenerProtocolThrift is a Thrift listener.
+	ListenerProtocolDubbo
 	// ListenerProtocolAuto enables auto protocol detection
 	ListenerProtocolAuto
 )
@@ -71,6 +74,11 @@ func ModelProtocolToListenerProtocol(p protocol.Instance,
 			return ListenerProtocolThrift
 		}
 		return ListenerProtocolTCP
+	case protocol.Dubbo:
+		if features.EnableDubboFilter {
+			return ListenerProtocolDubbo
+		}
+		return ListenerProtocolTCP
 	case protocol.UDP:
 		return ListenerProtocolUnknown
 	case protocol.Unsupported:
@@ -102,6 +110,8 @@ type FilterChain struct {
 	HTTP []*http_conn.HttpFilter
 	// Thrift is the set of Thrift filters for this filter chain
 	Thrift []*thrift_proxy.ThriftFilter
+	// Dubbo is the set of Dubbo filters for this filter chain
+	Dubbo []*dubbo_proxy.DubboFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
 	// IsFallthrough indicates if the filter chain is fallthrough.

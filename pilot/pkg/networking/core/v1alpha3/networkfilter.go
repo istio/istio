@@ -26,6 +26,7 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
+	dubbo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/dubbo_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
@@ -170,6 +171,12 @@ func buildNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, stat
 		} else {
 			filterstack = append(filterstack, tcpFilter)
 		}
+	case protocol.Dubbo:
+		if features.EnableDubboFilter {
+			filterstack = append(filterstack, buildDubboFilter(statPrefix))
+		} else {
+			filterstack = append(filterstack, tcpFilter)
+		}
 	default:
 		filterstack = append(filterstack, tcpFilter)
 	}
@@ -206,6 +213,20 @@ func buildThriftFilter(statPrefix string) *listener.Filter {
 	out := &listener.Filter{
 		Name:       wellknown.ThriftProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(thriftProxy)},
+	}
+
+	return out
+}
+
+// buildDubboFilter builds an outbound Envoy Dubbo filter.
+func buildDubboFilter(statPrefix string) *listener.Filter {
+	dubboProxy := &dubbo.DubboProxy{
+		StatPrefix: statPrefix,
+	}
+
+	out := &listener.Filter{
+		Name:       "envoy.filters.network.dubbo_proxy", //TODO add dubbo proxy to go-control-plane wellknown API
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(dubboProxy)},
 	}
 
 	return out

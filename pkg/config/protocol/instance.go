@@ -37,6 +37,8 @@ const (
 	HTTPS Instance = "HTTPS"
 	// Thrift declares that the port carries Thrift traffic.
 	Thrift Instance = "Thrift"
+	// Dubbo declares that the port carries Dubbo traffic.
+	Dubbo Instance = "Dubbo"
 	// TCP declares the the port uses TCP.
 	// This is the default protocol for a service port.
 	TCP Instance = "TCP"
@@ -77,6 +79,8 @@ func Parse(s string) Instance {
 		return HTTPS
 	case "thrift":
 		return Thrift
+	case "dubbo":
+		return Dubbo
 	case "tls":
 		return TLS
 	case "mongo":
@@ -120,10 +124,20 @@ func (i Instance) IsThrift() bool {
 	}
 }
 
+// IsDubbo is true for protocols that use Dubbo as transport protocol
+func (i Instance) IsDubbo() bool {
+	switch i {
+	case Dubbo:
+		return true
+	default:
+		return false
+	}
+}
+
 // IsTCP is true for protocols that use TCP as transport protocol
 func (i Instance) IsTCP() bool {
 	switch i {
-	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Thrift:
+	case TCP, HTTPS, TLS, Mongo, Redis, MySQL, Thrift, Dubbo:
 		return true
 	default:
 		return false

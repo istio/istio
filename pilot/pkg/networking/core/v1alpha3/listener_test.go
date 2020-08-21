@@ -23,6 +23,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	dubbo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/dubbo_proxy/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
@@ -162,6 +163,8 @@ func TestInboundListenerConfig(t *testing.T) {
 
 	testInboundListenerConfigWithGrpc(t, getProxy(),
 		buildService("test1.com", wildcardIP, protocol.GRPC, tnow.Add(1*time.Second)))
+	testInboundListenerConfigWithDubbo(t, getProxy(),
+		buildService("test1.com", wildcardIP, protocol.Dubbo, tnow.Add(1*time.Second)))
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
@@ -880,6 +883,24 @@ func testInboundListenerConfigWithGrpc(t *testing.T, proxy *model.Proxy, service
 	}
 	if !hasGrpcStatusFilter(hcm.HttpFilters) {
 		t.Fatalf("gRPC status filter is expected for gRPC ports")
+	}
+}
+
+func testInboundListenerConfigWithDubbo(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
+	t.Helper()
+
+	defaultValue := features.EnableDubboFilter
+	features.EnableDubboFilter = true
+	defer func() { features.EnableDubboFilter = defaultValue }()
+
+	p := &fakePlugin{}
+	listeners := buildInboundListeners(t, p, proxy, nil, services...)
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+	dubboProxy := &dubbo.DubboProxy{}
+	if err := getFilterConfig(listeners[0].FilterChains[0].Filters[0], dubboProxy); err != nil {
+		t.Fatalf("failed to get dubbo proxy, config %v", dubboProxy)
 	}
 }
 
@@ -2604,6 +2625,42 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 	if !rateLimitApplied {
 		t.Error("No rate limit applied when one should have been")
 	}
+}
+
+func TestOutboundDubboListenerConfig(t *testing.T) {
+	defaultValue := features.EnableDubboFilter
+	features.EnableDubboFilter = true
+	defer func() { features.EnableDubboFilter = defaultValue }()
+
+	services := []*model.Service{
+		buildService("test.com", "10.75.02.09", protocol.Dubbo, tnow),
+	}
+
+	p := &fakePlugin{}
+
+	listeners := buildOutboundListeners(t, p, getProxy(), nil, nil, services...)
+
+	if len(listeners) != 1 {
+		t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+	}
+
+	if found, filterName := isDubboListener(listeners[0]); !found {
+		t.Fatalf("expected Dubbo listener, found %s", filterName)
+	}
+}
+
+func isDubboListener(listener *listener.Listener) (bool, string) {
+	if listener == nil {
+		return false, "no listener"
+	}
+
+	filterName := listener.FilterChains[0].Filters[0].Name
+
+	if filterName == "envoy.filters.network.dubbo_proxy" {
+		return true, filterName
+	}
+
+	return false, filterName
 }
 
 func TestFilterChainMatchEqual(t *testing.T) {

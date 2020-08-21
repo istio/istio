@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	dubbo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/dubbo_proxy/v3"
+
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -669,6 +671,25 @@ func (configgen *ConfigGeneratorImpl) buildSidecarThriftListenerOptsForPortOrUDS
 	return thriftOpts
 }
 
+func (configgen *ConfigGeneratorImpl) buildSidecarInboudDubboListenerOptsForPortOrUDS(pluginParams *plugin.InputParams) *dubboListenerOpts {
+	// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
+	// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
+	// We use the port name as the subset in the inbound cluster for differentiation. Its fine to use port
+	// names here because the inbound clusters are not referred to anywhere in the API, unlike the outbound
+	// clusters and these are static endpoint clusters used only for sidecar (proxy -> app)
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, pluginParams.ServiceInstance.ServicePort.Name,
+		pluginParams.ServiceInstance.Service.Hostname, int(pluginParams.ServiceInstance.Endpoint.EndpointPort))
+
+	dubboOpts := &dubboListenerOpts{
+		statPrefix:        clusterName,
+		protocolType:      dubbo.ProtocolType_Dubbo,
+		serializationType: dubbo.SerializationType_Hessian2,
+		routeConfig:       configgen.buildSidecarDubboRouteConfig(clusterName, string(pluginParams.ServiceInstance.Service.Hostname)),
+	}
+
+	return dubboOpts
+}
+
 // buildSidecarInboundListenerForPortOrUDS creates a single listener on the server-side (inbound)
 // for a given port or unix domain socket
 func (configgen *ConfigGeneratorImpl) buildSidecarInboundListenerForPortOrUDS(node *model.Proxy, listenerOpts buildListenerOpts,
@@ -748,6 +769,7 @@ allChainsLabel:
 	for id, chain := range allChains {
 		var httpOpts *httpListenerOpts
 		var thriftOpts *thriftListenerOpts
+		var dubboOpts *dubboListenerOpts
 		var tcpNetworkFilters []*listener.Filter
 		var filterChainMatch *listener.FilterChainMatch
 
@@ -765,6 +787,10 @@ allChainsLabel:
 		case istionetworking.ListenerProtocolThrift:
 			filterChainMatch = chain.FilterChainMatch
 			thriftOpts = configgen.buildSidecarThriftListenerOptsForPortOrUDS(pluginParams)
+
+		case istionetworking.ListenerProtocolDubbo:
+			filterChainMatch = chain.FilterChainMatch
+			dubboOpts = configgen.buildSidecarInboudDubboListenerOptsForPortOrUDS(pluginParams)
 
 		case istionetworking.ListenerProtocolTCP:
 			filterChainMatch = chain.FilterChainMatch
@@ -803,6 +829,7 @@ allChainsLabel:
 		listenerOpts.filterChainOpts = append(listenerOpts.filterChainOpts, &filterChainOpts{
 			httpOpts:        httpOpts,
 			thriftOpts:      thriftOpts,
+			dubboOpts:       dubboOpts,
 			networkFilters:  tcpNetworkFilters,
 			tlsContext:      chain.TLSContext,
 			match:           filterChainMatch,
@@ -1091,6 +1118,11 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 							servicePort.Protocol.IsThrift() {
 							listenerOpts.bind = service.GetServiceAddressForProxy(node)
 						}
+						// dubbo listener listens on the service VIP
+						if features.EnableDubboFilter &&
+							servicePort.Protocol.IsDubbo() {
+							listenerOpts.bind = service.GetServiceAddressForProxy(node)
+						}
 						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, listenerMap, virtualServices, actualWildcard)
 					}
 				}
@@ -1311,6 +1343,57 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForP
 	}}
 }
 
+func (configgen *ConfigGeneratorImpl) buildSidecarOutboundDubboListenerOptsForPortOrUDS(listenerMapKey *string,
+	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
+	listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
+	// first identify the bind if its not set. Then construct the key
+	// used to lookup the listener in the conflict map.
+	if len(listenerOpts.bind) == 0 {
+		listenerOpts.bind = actualWildcard
+	}
+
+	*listenerMapKey = listenerKey(listenerOpts.bind, listenerOpts.port.Port)
+
+	var exists bool
+
+	// Have we already generated a listener for this Port based on user
+	// specified listener ports? if so, we should not add any more Dubbo
+	// services to the port. The user could have specified a sidecar
+	// resource with one or more explicit ports and then added a catch
+	// all listener, implying add all other ports as usual. When we are
+	// iterating through the services for a catchAll egress listener,
+	// the caller would have set the locked bit for each listener Entry
+	// in the map.
+	//
+	// Check if this Dubbo listener conflicts with an existing TCP or
+	// HTTP listener. We could have listener conflicts occur on unix
+	// domain sockets, or on IP binds.
+	if *currentListenerEntry, exists = listenerMap[*listenerMapKey]; exists {
+		// NOTE: This is not a conflict. This is simply filtering the
+		// services for a given listener explicitly.
+		// When the user declares their own ports in Sidecar.egress
+		// with some specific services on those ports, we should not
+		// generate any more listeners on that port as the user does
+		// not want those listeners. Protocol sniffing is not needed.
+		if (*currentListenerEntry).locked {
+			return false, nil
+		}
+	}
+
+	// No conflicts. Add a Dubbo filter chain option to the listenerOpts
+	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", listenerOpts.service.Hostname, listenerOpts.port.Port)
+	dubboOpts := &dubboListenerOpts{
+		statPrefix:        clusterName,
+		protocolType:      dubbo.ProtocolType_Dubbo,
+		serializationType: dubbo.SerializationType_Hessian2,
+		routeConfig:       configgen.buildSidecarDubboRouteConfig(clusterName, string(listenerOpts.service.Hostname)),
+	}
+
+	return true, []*filterChainOpts{{
+		dubboOpts: dubboOpts,
+	}}
+}
+
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPortOrUDS(destinationCIDR *string, listenerMapKey *string,
 	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry,
 	virtualServices []model.Config, actualWildcard string) (bool, []*filterChainOpts) {
@@ -1509,6 +1592,24 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 				// We should not ever end up here, but log a line just in case.
 				log.Errorf(
 					"Protocol sniffing is not enabled for thrift, but there was a port collision. Debug info: Node: %v, ListenerEntry: %v",
+					node,
+					currentListenerEntry)
+			}
+
+			listenerOpts.filterChainOpts = opts
+
+		case istionetworking.ListenerProtocolDubbo:
+			// Hard code the service IP for outbound dubbo service listeners. We can't use RDS for Dubbo because RDS is designed only for HTTP now.
+			if ret, opts = configgen.buildSidecarOutboundDubboListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry,
+				&listenerOpts, listenerMap, actualWildcard); !ret {
+				return
+			}
+
+			// Protocol sniffing for dubbo is not supported.
+			if outboundSniffingEnabled && currentListenerEntry != nil {
+				// We should not ever end up here, but log a line just in case.
+				log.Errorf(
+					"Protocol sniffing doesn't support dubbo yet, but there was a port collision. Debug info: Node: %v, ListenerEntry: %v",
 					node,
 					currentListenerEntry)
 			}
@@ -1736,6 +1837,14 @@ type thriftListenerOpts struct {
 	routeConfig *thrift.RouteConfiguration
 }
 
+// dubboListenerOpts are options for a Dubbo listener
+type dubboListenerOpts struct {
+	statPrefix        string
+	protocolType      dubbo.ProtocolType
+	serializationType dubbo.SerializationType
+	routeConfig       *dubbo.RouteConfiguration
+}
+
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
 type filterChainOpts struct {
 	filterChainName  string
@@ -1745,6 +1854,7 @@ type filterChainOpts struct {
 	tlsContext       *auth.DownstreamTlsContext
 	httpOpts         *httpListenerOpts
 	thriftOpts       *thriftListenerOpts
+	dubboOpts        *dubboListenerOpts
 	match            *listener.FilterChainMatch
 	listenerFilters  []*listener.ListenerFilter
 	networkFilters   []*listener.Filter
@@ -2003,6 +2113,17 @@ func buildThriftProxy(thriftOpts *thriftListenerOpts) *thrift.ThriftProxy {
 	}
 }
 
+func buildDubboProxy(dubboOpts *dubboListenerOpts) *dubbo.DubboProxy {
+	return &dubbo.DubboProxy{
+		StatPrefix:        dubboOpts.statPrefix,
+		ProtocolType:      dubboOpts.protocolType,
+		SerializationType: dubboOpts.serializationType,
+		RouteConfig: []*dubbo.RouteConfiguration{
+			dubboOpts.routeConfig,
+		},
+	}
+}
+
 // buildListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.
 func buildListener(opts buildListenerOpts) *listener.Listener {
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
@@ -2154,6 +2275,7 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 
 	httpConnectionManagers := make([]*hcm.HttpConnectionManager, len(mutable.FilterChains))
 	thriftProxies := make([]*thrift.ThriftProxy, len(mutable.FilterChains))
+	dubboProxies := make([]*dubbo.DubboProxy, len(mutable.FilterChains))
 	for i := range mutable.FilterChains {
 		chain := mutable.FilterChains[i]
 		opt := opts.filterChainOpts[i]
@@ -2193,6 +2315,18 @@ func buildCompleteFilterChain(mutable *istionetworking.MutableObjects, opts buil
 			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
 			log.Debugf("attached Thrift filter with %d thrift_filter options to listener %q filter chain %d",
 				len(thriftProxies[i].ThriftFilters), mutable.Listener.Name, i)
+		} else if opt.dubboOpts != nil && features.EnableDubboFilter {
+			// Add the TCP filters first.. and then the Dubbo filter
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, chain.TCP...)
+
+			dubboProxies[i] = buildDubboProxy(opt.dubboOpts)
+			filter := &listener.Filter{
+				Name:       "envoy.filters.network.dubbo_proxy", //@Todo zhaohuabing add dubbo proxy to wellknow
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(dubboProxies[i])},
+			}
+			mutable.Listener.FilterChains[i].Filters = append(mutable.Listener.FilterChains[i].Filters, filter)
+			log.Debugf("attached Dubbo filter to listener %q filter chain %d",
+				mutable.Listener.Name, i)
 		} else if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
 			// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately

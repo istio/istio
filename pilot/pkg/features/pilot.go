@@ -142,6 +142,14 @@ var (
 		"EnableThriftFilter enables injection of `envoy.filters.network.thrift_proxy` in the filter chain.",
 	).Get()
 
+	// EnableDubboFilter enables injection of `envoy.filters.network.dubbo_proxy` in the filter chain.
+	// Pilot injects this outbound filter if the service port name is `dubbo`.
+	EnableDubboFilter = env.RegisterBoolVar(
+		"PILOT_ENABLE_DUBBO_FILTER",
+		false,
+		"EnableDubboFilter enables injection of `envoy.filters.network.dubbo_proxy` in the filter chain.",
+	).Get()
+
 	// SkipValidateTrustDomain tells the server proxy to not to check the peer's trust domain when
 	// mTLS is enabled in authentication policy.
 	SkipValidateTrustDomain = env.RegisterBoolVar(
