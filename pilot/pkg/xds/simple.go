@@ -14,14 +14,11 @@
 package xds
 
 import (
-	"context"
 	"net"
 	"sync"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -34,7 +31,6 @@ import (
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/mcp/status"
 	"istio.io/pkg/log"
 )
 
@@ -154,7 +150,6 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
 	s.DiscoveryServer.RegisterLegacyv2(gs)
-	sds.RegisterSecretDiscoveryServiceServer(gs, s)
 	reflection.Register(gs)
 	s.GRPCListener = lis
 	go func() {
@@ -164,18 +159,6 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 		}
 	}()
 	return nil
-}
-
-func (s *SimpleServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
-	return nil
-}
-
-func (s *SimpleServer) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
-	return status.Error(codes.Unimplemented, "DeltaSecrets not implemented")
-}
-
-func (s *SimpleServer) FetchSecrets(ctx context.Context, discReq *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
-	return nil, nil
 }
 
 // ProxyGen implements a proxy generator - any request is forwarded using the agent ADSC connection.

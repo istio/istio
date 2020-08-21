@@ -14,6 +14,7 @@
 package xds_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -21,18 +22,26 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/reflection"
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/mcp/status"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/tests/util"
+	"istio.io/pkg/log"
 )
 
 // This file contains common helpers and initialization for the local/unit tests
@@ -70,6 +79,42 @@ const (
 	gatewayIP = "10.3.0.1"
 	ingressIP = "10.3.0.2"
 )
+
+type FakeSdsServer struct {
+}
+
+func (fd *FakeSdsServer) StreamSecrets(stream sds.SecretDiscoveryService_StreamSecretsServer) error {
+	return nil
+}
+
+func (fd *FakeSdsServer) DeltaSecrets(stream sds.SecretDiscoveryService_DeltaSecretsServer) error {
+	return status.Error(codes.Unimplemented, "DeltaSecrets not implemented")
+}
+
+func (fd *FakeSdsServer) FetchSecrets(ctx context.Context, discReq *discovery.DiscoveryRequest) (*discovery.DiscoveryResponse, error) {
+	return nil, nil
+}
+
+func StartSdsServer(env *env.TestSetup) error {
+	lis, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return err
+	}
+	gs := grpc.NewServer()
+	s := &FakeSdsServer{}
+	sds.RegisterSecretDiscoveryServiceServer(gs, s)
+	reflection.Register(gs)
+	_, port, _ := net.SplitHostPort(lis.Addr().String())
+	iport, _ := strconv.Atoi(port)
+	testEnv.Ports().ExtraPort = uint16(iport)
+	go func() {
+		err = gs.Serve(lis)
+		if err != nil {
+			log.Infoa("Serve done ", err)
+		}
+	}()
+	return nil
+}
 
 // Common code for the xds testing.
 // The tests in this package use an in-process pilot using mock service registry and
@@ -333,6 +378,7 @@ func TestEnvoy(t *testing.T) {
 		tearDown()
 	}()
 
+	StartSdsServer(testEnv)
 	startEnvoy(t)
 	// Make sure tcp port is ready before starting the test.
 	env.WaitForPort(testEnv.Ports().TCPProxyPort)

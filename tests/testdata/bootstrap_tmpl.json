@@ -347,7 +347,7 @@
           {
             "socket_address": {
               "address": "127.0.0.1",
-              "port_value": {{.Ports.PilotGrpcPort}}
+              "port_value": {{.Ports.ExtraPort}}
             }
           }
         ],
