@@ -21,12 +21,12 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	alsconfig "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	dubbo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/dubbo_proxy/v3"
 	mongo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mongo_proxy/v3"
 	mysql "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/mysql_proxy/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
-	dubbo "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/dubbo_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
