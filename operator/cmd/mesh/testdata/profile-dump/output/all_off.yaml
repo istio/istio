@@ -38,8 +38,10 @@ spec:
           ports:
           - name: http2
             port: 80
+            targetPort: 8080
           - name: https
             port: 443
+            targetPort: 8443
           - name: tls
             port: 15443
             targetPort: 15443
@@ -213,15 +215,9 @@ spec:
         domain: ""
         env: {}
         meshExpansionPorts:
-        - name: tcp-pilot-grpc-tls
-          port: 15011
-          targetPort: 15011
         - name: tcp-istiod
           port: 15012
           targetPort: 15012
-        - name: tcp-citadel-grpc-tls
-          port: 8060
-          targetPort: 8060
         - name: tcp-dns-tls
           port: 853
           targetPort: 8853
@@ -346,7 +342,7 @@ spec:
       envSecrets: {}
       image:
         repository: grafana/grafana
-        tag: 7.0.3
+        tag: 7.0.5
       nodeSelector: {}
       persist: false
       podAntiAffinityLabelSelector: []
@@ -391,7 +387,7 @@ spec:
         private_key_file: /kiali-cert/key.pem
       service:
         annotations: {}
-      tag: v1.18
+      tag: v1.22
     mixer:
       adapters:
         kubernetesenv:
@@ -467,7 +463,7 @@ spec:
       scrapeInterval: 15s
       security:
         enabled: true
-      tag: v2.18.1
+      tag: v2.19.2
       tolerations: []
     sidecarInjectorWebhook:
       enableNamespacesByDefault: false
@@ -482,9 +478,11 @@ spec:
         enabled: false
       v2:
         enabled: true
-        metadataExchange: {}
+        metadataExchange:
+          wasmEnabled: false
         prometheus:
           enabled: true
+          wasmEnabled: false
         stackdriver:
           configOverride: {}
           enabled: false

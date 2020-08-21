@@ -10928,8 +10928,8 @@ spec:
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
-        - containerPort: 80
-        - containerPort: 443
+        - containerPort: 8080
+        - containerPort: 8443
         - containerPort: 15443
         - containerPort: 15090
           name: http-envoy-prom
@@ -11157,9 +11157,7 @@ spec:
         - containerPort: 8080
         - containerPort: 8443
         - containerPort: 15443
-        - containerPort: 15011
         - containerPort: 15012
-        - containerPort: 8060
         - containerPort: 8853
         - containerPort: 15090
           name: http-envoy-prom
@@ -11923,7 +11921,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: "docker.io/prom/prometheus:v2.18.1"
+          image: "docker.io/prom/prometheus:v2.19.2"
           args:
             - '--storage.tsdb.retention=6h'
             - '--config.file=/etc/prometheus/prometheus.yml'
@@ -12223,8 +12221,10 @@ spec:
   ports:
   - name: http2
     port: 80
+    targetPort: 8080
   - name: https
     port: 443
+    targetPort: 8443
   - name: tls
     port: 15443
     targetPort: 15443

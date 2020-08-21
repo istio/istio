@@ -166,8 +166,10 @@ spec:
           ports:
             - port: 80
               name: http2
+              targetPort: 8080
             - port: 443
               name: https
+              targetPort: 8443
             - port: 15443
               targetPort: 15443
               name: tls
@@ -334,9 +336,11 @@ spec:
         enabled: false
       v2:
         enabled: true
-        metadataExchange: {}
+        metadataExchange:
+          wasmEnabled: false
         prometheus:
           enabled: true
+          wasmEnabled: false
         stackdriver:
           enabled: false
           logging: false
@@ -416,18 +420,12 @@ spec:
         zvpn: {}
         env: {}
         meshExpansionPorts:
-          - port: 15011
-            targetPort: 15011
-            name: tcp-pilot-grpc-tls
-          - port: 15012
-            targetPort: 15012
-            name: tcp-istiod
-          - port: 8060
-            targetPort: 8060
-            name: tcp-citadel-grpc-tls
-          - port: 853
-            targetPort: 8853
-            name: tcp-dns-tls
+        - port: 15012
+          targetPort: 15012
+          name: tcp-istiod
+        - port: 853
+          targetPort: 8853
+          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs
@@ -446,7 +444,7 @@ spec:
 
     prometheus:
       hub: docker.io/prom
-      tag: v2.18.1
+      tag: v2.19.2
       retention: 6h
       scrapeInterval: 15s
       contextPath: /prometheus
@@ -462,7 +460,7 @@ spec:
     grafana:
       image:
         repository: grafana/grafana
-        tag: 7.0.3
+        tag: 7.0.5
       persist: false
       storageClassName: ""
       accessMode: ReadWriteMany
@@ -556,7 +554,7 @@ spec:
 
     kiali:
       hub: quay.io/kiali
-      tag: v1.18
+      tag: v1.22
       contextPath: /kiali
       nodeSelector: {}
       podAntiAffinityLabelSelector: []
