@@ -30,11 +30,11 @@ import (
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*endpoint.LocalityLbEndpoints) []*endpoint.LocalityLbEndpoints {
 	// calculate the multiples of weight.
 	// It is needed to normalize the LB Weight across different networks.
 	multiples := 1
-	for _, gateways := range push.NetworkGateways() {
+	for _, gateways := range b.push.NetworkGateways() {
 		if num := len(gateways); num > 0 {
 			multiples *= num
 		}
@@ -57,8 +57,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 			epNetwork := istioMetadata(lbEp, "network")
 			// This is a local endpoint or remote network endpoint
 			// but can be accessed directly from local network.
-			if epNetwork == proxyNetwork ||
-				len(push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
+			if epNetwork == b.network || len(b.push.NetworkGatewaysByNetwork(epNetwork)) == 0 {
 				// Clone the endpoint so subsequent updates to the shared cache of
 				// service endpoints doesn't overwrite endpoints already in-flight.
 				clonedLbEp := proto.Clone(lbEp).(*endpoint.LbEndpoint)
@@ -66,7 +65,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 					Value: uint32(multiples),
 				}
 				lbEndpoints = append(lbEndpoints, clonedLbEp)
-			} else {
+			} else if b.canViewNetwork(epNetwork) {
 				if tlsMode := envoytransportSocketMetadata(lbEp, "tlsMode"); tlsMode == model.DisabledTLSModeLabel {
 					// dont allow cross-network endpoints for uninjected traffic
 					continue
@@ -87,7 +86,7 @@ func EndpointsByNetworkFilter(push *model.PushContext, proxyNetwork string, endp
 		// we initiate mTLS automatically to this remote gateway. Split horizon to remote gateway cannot
 		// work with plaintext
 		for network, w := range remoteEps {
-			gateways := push.NetworkGatewaysByNetwork(network)
+			gateways := b.push.NetworkGatewaysByNetwork(network)
 
 			gatewayNum := len(gateways)
 			weight := w * uint32(multiples/gatewayNum)

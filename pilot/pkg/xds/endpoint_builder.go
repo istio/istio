@@ -33,6 +33,9 @@ type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
 	network         string
+	networkView     map[string]bool
+	proxyType       model.NodeType
+	routerMode      model.RouterMode
 	clusterID       string
 	locality        *core.Locality
 	destinationRule *config.Config
@@ -51,7 +54,10 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	return EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
+		networkView:     model.GetNetworkView(proxy),
 		clusterID:       proxy.Metadata.ClusterID,
+		proxyType:       proxy.Type,
+		routerMode:      proxy.GetRouterMode(),
 		locality:        proxy.Locality,
 		service:         svc,
 		destinationRule: push.DestinationRule(proxy, svc),
@@ -82,6 +88,10 @@ func (b EndpointBuilder) Key() string {
 	return strings.Join(params, "~")
 }
 
+func (b *EndpointBuilder) IsMultinetwork() bool {
+	return b.push.Networks != nil && len(b.push.Networks.Networks) > 0
+}
+
 func (b EndpointBuilder) Cacheable() bool {
 	// If service is not defined, we cannot do any caching as we will not have a way to
 	// invalidate the results.
@@ -98,6 +108,13 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
 	}
 	return configs
+}
+
+func (b *EndpointBuilder) canViewNetwork(network string) bool {
+	if b.networkView == nil {
+		return true
+	}
+	return b.networkView[network]
 }
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
