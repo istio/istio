@@ -38,18 +38,6 @@ const (
 	Container
 )
 
-// Cluster defines a tree of cluster resource names.
-type Resources struct {
-	// Root is the first level in the cluster resource hierarchy.
-	// Each level in the hierarchy is a map[string]interface{} to the next level.
-	// The levels are: namespaces/deployments/pods/containers.
-	Root map[string]interface{}
-	// Labels maps a pod name to a map of labels key-values.
-	Labels map[string]map[string]string
-	// Annotations maps a pod name to a map of annotation key-values.
-	Annotations map[string]map[string]string
-}
-
 // GetClusterResources returns cluster resources for the given REST config and k8s Clientset.
 func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (*Resources, error) {
 	var errs []string
@@ -81,6 +69,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 			}
 			out.Labels[p.Name] = p.Labels
 			out.Annotations[p.Name] = p.Annotations
+			out.Pod[p.Name] = &p
 		}
 	}
 	if len(errs) != 0 {
@@ -89,22 +78,18 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 	return out, nil
 }
 
-func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) (string, error) {
-	for _, o := range pod.OwnerReferences {
-		if o.Kind == "ReplicaSet" {
-			for _, rs := range replicasets {
-				if rs.Name == o.Name {
-					for _, oo := range rs.OwnerReferences {
-						if oo.Kind == "Deployment" {
-							return oo.Name, nil
-						}
-					}
-
-				}
-			}
-		}
-	}
-	return "", fmt.Errorf("no owning Deployment found for pod %s", pod.Name)
+// Resources defines a tree of cluster resource names.
+type Resources struct {
+	// Root is the first level in the cluster resource hierarchy.
+	// Each level in the hierarchy is a map[string]interface{} to the next level.
+	// The levels are: namespaces/deployments/pods/containers.
+	Root map[string]interface{}
+	// Labels maps a pod name to a map of labels key-values.
+	Labels map[string]map[string]string
+	// Annotations maps a pod name to a map of annotation key-values.
+	Annotations map[string]map[string]string
+	// Pod maps a pod name to its Pod info.
+	Pod map[string]*corev1.Pod
 }
 
 func (r *Resources) insertContainer(namespace, deployment, pod, container string) {
@@ -126,6 +111,15 @@ func (r *Resources) insertContainer(namespace, deployment, pod, container string
 	c[container] = nil
 }
 
+func (r *Resources) ContainerRestarts(pod, container string) int {
+	for _, cs := range r.Pod[pod].Status.ContainerStatuses {
+		if cs.Name == container {
+			return int(cs.RestartCount)
+		}
+	}
+	return 0
+}
+
 func (r *Resources) String() string {
 	return resourcesStringImpl(r.Root, "")
 }
@@ -142,4 +136,22 @@ func resourcesStringImpl(node interface{}, prefix string) string {
 	}
 
 	return out
+}
+
+func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) (string, error) {
+	for _, o := range pod.OwnerReferences {
+		if o.Kind == "ReplicaSet" {
+			for _, rs := range replicasets {
+				if rs.Name == o.Name {
+					for _, oo := range rs.OwnerReferences {
+						if oo.Kind == "Deployment" {
+							return oo.Name, nil
+						}
+					}
+
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("no owning Deployment found for pod %s", pod.Name)
 }

@@ -48,8 +48,12 @@ type Options struct {
 	ExtraArgs []string
 }
 
-func Logs(namespace, pod, container string, dryRun bool) (string, error) {
-	stdout, stderr, err := Run([]string{"logs"},
+func Logs(namespace, pod, container string, previous, dryRun bool) (string, error) {
+	cmdStr := []string{"logs"}
+	if previous {
+		cmdStr = append(cmdStr, "-p")
+	}
+	stdout, stderr, err := Run(cmdStr,
 		&Options{
 			Namespace: namespace,
 			ExtraArgs: []string{pod, container},
