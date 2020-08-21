@@ -181,7 +181,9 @@ func recordSendError(xdsType string, conID string, metric monitoring.Metric, err
 }
 
 func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
-	metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	if metric != nil {
+		metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	}
 	totalXDSRejects.Increment()
 }
 

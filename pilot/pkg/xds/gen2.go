@@ -16,13 +16,12 @@ package xds
 
 import (
 	"encoding/json"
-	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/env"
 	istioversion "istio.io/pkg/version"
 )
@@ -42,70 +41,6 @@ type IstioControlPlaneInstance struct {
 var (
 	controlPlane *corev3.ControlPlane
 )
-
-// handleReqAck checks if the message is an ack/nack and handles it, returning true.
-// If false, the request should be processed by calling the generator.
-func (s *DiscoveryServer) handleReqAck(con *Connection, discReq *discovery.DiscoveryRequest) (*model.WatchedResource, bool) {
-
-	// All NACKs should have ErrorDetail set !
-	// Relying on versionCode != sentVersionCode as nack is less reliable.
-
-	isAck := true
-
-	t := discReq.TypeUrl
-	con.proxy.Lock()
-	w := con.proxy.ActiveExperimental[t]
-	if w == nil {
-		w = &model.WatchedResource{
-			TypeUrl: t,
-		}
-		con.proxy.ActiveExperimental[t] = w
-		isAck = false // newly watched resource
-	}
-	con.proxy.Unlock()
-
-	if discReq.ErrorDetail != nil {
-		errCode := codes.Code(discReq.ErrorDetail.Code)
-		adsLog.Warnf("ADS: ACK ERROR %s %s:%s", con.ConID, errCode.String(), discReq.ErrorDetail.GetMessage())
-		if s.InternalGen != nil {
-			s.InternalGen.OnNack(con.proxy, discReq)
-		}
-		return w, true
-	}
-
-	if discReq.ResponseNonce == "" {
-		isAck = false // initial request
-	}
-	// This is an ACK response to a previous message - but it may refer to a response on a previous connection to
-	// a different XDS server instance.
-	nonceSent := w.NonceSent
-
-	// GRPC doesn't send version info in NACKs for RDS. Technically if nonce matches
-	// previous response, it is an ACK/NACK.
-	if nonceSent != "" && nonceSent == discReq.ResponseNonce {
-		adsLog.Debugf("ADS: ACK %s %s %s %v", con.ConID, discReq.VersionInfo, discReq.ResponseNonce,
-			time.Since(w.LastSent))
-		w.NonceAcked = discReq.ResponseNonce
-	}
-
-	if nonceSent != discReq.ResponseNonce {
-		adsLog.Debugf("ADS: Expired nonce received %s, sent %s, received %s",
-			con.ConID, nonceSent, discReq.ResponseNonce)
-		xdsExpiredNonce.Increment()
-		// This is an ACK for a resource sent on an older stream, or out of sync.
-		// Send a response back.
-		isAck = false
-	}
-
-	// Change in the set of watched resource - regardless of ack, send new data.
-	if !listEqualUnordered(w.ResourceNames, discReq.ResourceNames) {
-		isAck = false
-		w.ResourceNames = discReq.ResourceNames
-	}
-	w.LastRequest = discReq
-
-	return w, isAck
-}
 
 // ControlPlane identifies the instance and Istio version.
 func ControlPlane() *corev3.ControlPlane {
@@ -128,15 +63,14 @@ func init() {
 
 // handleCustomGenerator uses model.Generator to generate the response.
 func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.DiscoveryRequest) error {
-	w, isAck := s.handleReqAck(con, req)
-	if isAck {
+	if !s.shouldRespond(con, nil, req) {
 		return nil
 	}
 
 	push := s.globalPushContext()
 	resp := &discovery.DiscoveryResponse{
 		ControlPlane: ControlPlane(),
-		TypeUrl:      w.TypeUrl,
+		TypeUrl:      req.TypeUrl,
 		VersionInfo:  push.Version, // TODO: we can now generate per-type version !
 		Nonce:        nonce(push.Version),
 	}
@@ -147,10 +81,10 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 	// XdsResourceGenerator is the default generator for this connection. We want to allow
 	// some types to use custom generators - for example EDS.
 	g := con.proxy.XdsResourceGenerator
-	if cg, f := s.Generators[con.proxy.Metadata.Generator+"/"+w.TypeUrl]; f {
+	if cg, f := s.Generators[con.proxy.Metadata.Generator+"/"+req.TypeUrl]; f {
 		g = cg
 	}
-	if cg, f := s.Generators[w.TypeUrl]; f {
+	if cg, f := s.Generators[req.TypeUrl]; f {
 		g = cg
 	}
 	if g == nil {
@@ -161,7 +95,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 		return nil
 	}
 
-	cl := g.Generate(con.proxy, push, w, nil)
+	cl := g.Generate(con.proxy, push, con.Watched(req.TypeUrl), nil)
 	sz := 0
 	for _, rc := range cl {
 		resp.Resources = append(resp.Resources, rc)
@@ -174,11 +108,8 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 		return err
 	}
 	apiPushes.Increment()
-	w.LastSent = time.Now()
-	w.LastSize = sz // just resource size - doesn't include header and types
-	w.NonceSent = resp.Nonce
 
-	adsLog.Infof("Pushed %s to %s count=%d size=%d", w.TypeUrl, con.proxy.ID, len(cl), sz)
+	adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(req.TypeUrl), con.proxy.ID, len(cl))
 
 	return nil
 }
@@ -190,9 +121,13 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 // Will not be called if ProxyNeedsPush returns false - ie. if the update
 func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushContext,
 	currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
+	gen := s.Generators[w.TypeUrl]
+	if gen == nil {
+		return nil
+	}
 	// TODO: generators may send incremental changes if both sides agree on the protocol.
 	// This is specific to each generator type.
-	cl := con.proxy.XdsResourceGenerator.Generate(con.proxy, push, w, updates)
+	cl := gen.Generate(con.proxy, push, w, updates)
 	if cl == nil {
 		return nil // No push needed.
 	}
@@ -206,12 +141,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 		TypeUrl:     w.TypeUrl,
 		VersionInfo: currentVersion,
 		Nonce:       nonce(push.Version),
-	}
-
-	sz := 0
-	for _, rc := range cl {
-		resp.Resources = append(resp.Resources, rc)
-		sz += len(rc.Value)
+		Resources:   cl,
 	}
 
 	err := con.send(resp)
@@ -219,10 +149,6 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 		recordSendError("ADS", con.ConID, apiSendErrPushes, err)
 		return err
 	}
-	w.LastSent = time.Now()
-	w.LastSize = sz // just resource size - doesn't include header and types
-	w.NonceSent = resp.Nonce
-
-	adsLog.Infof("XDS: PUSH %s for node:%s resources:%d", w.TypeUrl, con.proxy.ID, len(cl))
+	adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl))
 	return nil
 }
