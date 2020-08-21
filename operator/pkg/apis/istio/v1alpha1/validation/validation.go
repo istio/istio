@@ -20,6 +20,8 @@ import (
 	"strings"
 	"unicode"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"istio.io/api/operator/v1alpha1"
 	valuesv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/tpath"
@@ -48,10 +50,7 @@ func ValidateConfig(failOnMissingValidation bool, iopls *v1alpha1.IstioOperatorS
 	}
 
 	validationErrors = util.AppendErrs(validationErrors, ValidateSubTypes(reflect.ValueOf(values).Elem(), failOnMissingValidation, values, iopls))
-	// TODO: change back to return err when have other validation cases, warning for automtls check only.
-	if err := validateFeatures(values, iopls).ToError(); err != nil {
-		warningMessage = fmt.Sprintf("feature validation warning: %v\n", err.Error())
-	}
+	validationErrors = util.AppendErrs(validationErrors, validateFeatures(values, iopls))
 	warningMessage += deprecatedSettingsMessage(iopls)
 	return validationErrors, warningMessage
 }
@@ -135,8 +134,72 @@ func deprecatedSettingsMessage(iop *v1alpha1.IstioOperatorSpec) string {
 }
 
 // validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.
-func validateFeatures(_ *valuesv1alpha1.Values, _ *v1alpha1.IstioOperatorSpec) util.Errors {
-	return nil
+func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) util.Errors {
+	return CheckServicePorts(values, spec)
+}
+
+// CheckServicePorts validates Service ports. Specifically, this currently
+// asserts that all ports will bind to a port number greater than 1024 when not
+// running as root.
+func CheckServicePorts(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) util.Errors {
+	var errs util.Errors
+	if !values.GetGateways().GetIstioIngressgateway().GetRunAsRoot().GetValue() {
+		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetIngressGateways(), "istio-ingressgateway"))
+	}
+	if !values.GetGateways().GetIstioEgressgateway().GetRunAsRoot().GetValue() {
+		errs = util.AppendErrs(errs, validateGateways(spec.GetComponents().GetEgressGateways(), "istio-egressgateway"))
+	}
+	for _, port := range values.GetGateways().GetIstioIngressgateway().GetIngressPorts() {
+		var tp int
+		if port["targetPort"] != nil {
+			t, ok := port["targetPort"].(float64)
+			if !ok {
+				continue
+			}
+			tp = int(t)
+		}
+
+		rport, ok := port["port"].(float64)
+		if !ok {
+			continue
+		}
+		portnum := int(rport)
+		if tp == 0 && portnum > 1024 {
+			// Target port defaults to port. If its >1024, it is safe.
+			continue
+		}
+		if tp < 1024 {
+			// nolint: lll
+			errs = util.AppendErr(errs, fmt.Errorf("port %v is invalid: targetPort is set to %v, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.istio-ingressgateway.runAsRoot=true", portnum, tp))
+		}
+	}
+	return errs
+}
+
+func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
+	// nolint: lll
+	format := "port %v/%v in gateway %v invalid: targetPort is set to %d, which requires root. Set targetPort to be greater than 1024 or configure values.gateways.%s.runAsRoot=true"
+	var errs util.Errors
+	for _, gw := range gw {
+		for _, p := range gw.GetK8S().GetService().GetPorts() {
+			tp := 0
+			if p.TargetPort != nil && p.TargetPort.Type == intstr.String {
+				// Do not validate named ports
+				continue
+			}
+			if p.TargetPort != nil && p.TargetPort.Type == intstr.Int {
+				tp = int(p.TargetPort.IntVal)
+			}
+			if tp == 0 && p.Port > 1024 {
+				// Target port defaults to port. If its >1024, it is safe.
+				continue
+			}
+			if tp < 1024 {
+				errs = util.AppendErr(errs, fmt.Errorf(format, p.Name, p.Port, gw.Name, tp, name))
+			}
+		}
+	}
+	return errs
 }
 
 func ValidateSubTypes(e reflect.Value, failOnMissingValidation bool, values *valuesv1alpha1.Values, iopls *v1alpha1.IstioOperatorSpec) util.Errors {
