@@ -95,9 +95,6 @@ type Config struct {
 	// Either the JWTPath or the certs must be present.
 	JWTPath string
 
-	// Plaintext forces no TLS, even if we have no certificates
-	Plaintext bool
-
 	// Token supplies bearer token
 	Token TokenReader
 
@@ -399,14 +396,14 @@ func (a *ADSC) Run() error {
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else if a.cfg.Plaintext {
-		opts = append(opts, grpc.WithInsecure())
-	} else {
+	} else if a.cfg.Token != nil {
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(
 			&tls.Config{
 				InsecureSkipVerify: a.cfg.InsecureSkipVerify,
 				ServerName:         a.cfg.XDSSAN,
 			})))
+	} else {
+		opts = append(opts, grpc.WithInsecure())
 	}
 	a.conn, err = grpc.Dial(a.url, opts...)
 	if err != nil {

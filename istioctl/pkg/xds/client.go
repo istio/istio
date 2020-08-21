@@ -34,7 +34,6 @@ func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControl
 		}.ToStruct(),
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		XDSSAN:             opts.XDSSAN,
-		Plaintext:          opts.Plaintext,
 		Token:              token,
 	})
 	if err != nil {
