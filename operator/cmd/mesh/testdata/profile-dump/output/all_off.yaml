@@ -188,7 +188,7 @@ spec:
       proxyMetadata: {}
     enablePrometheusMerge: true
   profile: default
-  tag: 1.7-dev
+  tag: latest
   values:
     base:
       enableCRDTemplates: false

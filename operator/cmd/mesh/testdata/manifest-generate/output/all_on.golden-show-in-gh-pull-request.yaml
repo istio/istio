@@ -9787,7 +9787,7 @@ data:
         "sts": {
           "servicePort": 0
         },
-        "tag": "1.7-dev",
+        "tag": "latest",
         "telemetryNamespace": "istio-system",
         "tracer": {
           "datadog": {
@@ -10925,7 +10925,7 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: gcr.io/istio-testing/proxyv2:1.7-dev
+        image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 8080
@@ -11150,7 +11150,7 @@ spec:
           value: sni-dnat
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
-        image: gcr.io/istio-testing/proxyv2:1.7-dev
+        image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
@@ -11328,7 +11328,7 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
-        image: gcr.io/istio-testing/mixer:1.7-dev
+        image: gcr.io/istio-testing/mixer:latest
         livenessProbe:
           httpGet:
             path: /version
@@ -11389,7 +11389,7 @@ spec:
           value: istiod
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
-        image: gcr.io/istio-testing/proxyv2:1.7-dev
+        image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 15004
@@ -11524,7 +11524,7 @@ spec:
               fieldPath: metadata.namespace
         - name: GOMAXPROCS
           value: "6"
-        image: gcr.io/istio-testing/mixer:1.7-dev
+        image: gcr.io/istio-testing/mixer:latest
         livenessProbe:
           httpGet:
             path: /version
@@ -11589,7 +11589,7 @@ spec:
           value: istiod
         - name: CA_ADDR
           value: istiod.istio-system.svc:15012
-        image: gcr.io/istio-testing/proxyv2:1.7-dev
+        image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 15004
@@ -11833,7 +11833,7 @@ spec:
           value: Kubernetes
         - name: CENTRAL_ISTIOD
           value: "false"
-        image: gcr.io/istio-testing/pilot:1.7-dev
+        image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
         - containerPort: 8080
