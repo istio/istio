@@ -267,20 +267,6 @@ spec:
 			},
 		}
 
-		if ctx.Environment().IsMultinetwork() {
-			// TODO(#26517) fix multinetwork with non-sidecar pods, for now just go to pods that support mTLS
-			splits = []map[string]int{
-				{
-					podBSvc: 60,
-					vmASvc:  40,
-				},
-				{
-					podBSvc: 80,
-					vmASvc:  20,
-				},
-			}
-		}
-
 		for _, split := range splits {
 			split := split
 			cases = append(cases, TrafficTestCase{
@@ -320,12 +306,14 @@ spec:
 						if !almostEquals(len(hostResponses), exp, errorThreshold) {
 							return fmt.Errorf("expected %v calls to %q, got %v", exp, host, hostResponses)
 						}
-						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
+
 						hostDestinations := apps.all.Match(echo.Service(host))
-						if ctx.Environment().IsMultinetwork() && host == nakedSvc {
-							// TODO(#26517) remove this or change it to match same-network
-							hostDestinations = echo.Instances{}
+						if host == nakedSvc {
+							// only expect to hit same-network clusters for nakedSvc
+							hostDestinations = apps.all.Match(echo.Service(host)).Match(echo.InNetwork(podA.Config().Cluster.NetworkName()))
 						}
+
+						// since we're changing where traffic goes, make sure we don't break cross-cluster load balancing
 						if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
 							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
 						}
@@ -357,14 +345,11 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 
 			destinationSets := []echo.Instances{
 				apps.podA,
-				{apps.vmA},
+				apps.vmA,
+				// only hit same network naked services
+				apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
+				// only hit same cluster headless services
 				apps.headless.Match(echo.InCluster(client.Config().Cluster)),
-			}
-
-			if !ctx.Environment().IsMultinetwork() {
-				// TODO(#26517) fix multinetwork with non-sidecar pods, for now only test this in single-network
-				// the filter below assumes we fix this by restricting cross-network for non-sidecars
-				destinationSets = append(destinationSets, apps.naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())))
 			}
 
 			for _, destinations := range destinationSets {
@@ -372,7 +357,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
-				if apps.naked.Contains(client) && destination == apps.vmA {
+				if apps.naked.Contains(client) && apps.vmA.Contains(destination) {
 					// Need a sidecar to connect to VMs
 					continue
 				}
@@ -415,46 +400,49 @@ type vmCase struct {
 	host string
 }
 
-func vmTestCases(vm echo.Instance) []TrafficTestCase {
-	testCases := []vmCase{
-		// Keeping this around until we have a DNS implementation for VMs.
-		// {
-		// 	name: "dns: VM to k8s cluster IP service name.namespace host",
-		// 	from: vm,
-		// 	to:   apps.podA,
-		// 	host: podASvc + "." + apps.namespace.Name(),
-		// },
-		// {
-		// 	name: "dns: VM to k8s cluster IP service fqdn host",
-		// 	from: vm,
-		// 	to:   apps.podA,
-		// 	host: apps.podA[0].Config().FQDN(),
-		// },
-		// {
-		// 	name: "dns: VM to k8s cluster IP service short name host",
-		// 	from: vm,
-		// 	to:   apps.podA,
-		// 	host: podASvc,
-		// },
-		// {
-		// 	name: "dns: VM to k8s headless service",
-		// 	from: vm,
-		// 	to:   apps.headless,
-		// 	host: apps.headless[0].Config().FQDN(),
-		// },
-	}
+func vmTestCases(vms echo.Instances) []TrafficTestCase {
+	var testCases []vmCase
+	// Keeping this around until we have a DNS implementation for VMs.
+	//for _, vm := range vms {
+	//	testCases = append(testCases,
+	//		vmCase{
+	//			name: "dns: VM to k8s cluster IP service name.namespace host",
+	//			from: vm,
+	//			to:   apps.podA,
+	//			host: podASvc + "." + apps.namespace.Name(),
+	//		},
+	//		vmCase{
+	//			name: "dns: VM to k8s cluster IP service fqdn host",
+	//			from: vm,
+	//			to:   apps.podA,
+	//			host: apps.podA[0].Config().FQDN(),
+	//		},
+	//		vmCase{
+	//			name: "dns: VM to k8s cluster IP service short name host",
+	//			from: vm,
+	//			to:   apps.podA,
+	//			host: podASvc,
+	//		},
+	//		vmCase{
+	//			name: "dns: VM to k8s headless service",
+	//			from: vm,
+	//			to:   apps.headless,
+	//			host: apps.headless[0].Config().FQDN(),
+	//		},
+	//	)
+	//}
 	for _, podA := range apps.podA {
 		testCases = append(testCases, vmCase{
 			name: "k8s to vm",
 			from: podA,
-			to:   echo.Instances{vm},
+			to:   vms,
 		})
 	}
 	cases := []TrafficTestCase{}
 	for _, c := range testCases {
 		c := c
 		cases = append(cases, TrafficTestCase{
-			name: c.name,
+			name: fmt.Sprintf("%s from %s", c.name, c.from.Config().Cluster.Name()),
 			call: func() (echoclient.ParsedResponses, error) {
 				return c.from.Call(echo.CallOptions{
 					// assume that all echos in `to` only differ in which cluster they're deployed in
