@@ -154,6 +154,7 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	err := probe.Check()
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	g.Expect(probe.readyError).To(BeNil())
 	err = probe.Check()
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeFalse())
@@ -163,13 +164,22 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	err = probe.Check()
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	g.Expect(probe.readyError).To(BeNil())
 	server.Close()
 
 	time.Sleep(2 * time.Second)
 	server = createAndStartServer(noServerStats)
 	err = probe.Check()
 	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	g.Expect(probe.readyError).NotTo(BeNil())
+	server.Close()
+
+	server = createAndStartServer(liveServerStats)
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	g.Expect(probe.readyError).To(BeNil())
 	server.Close()
 }
 

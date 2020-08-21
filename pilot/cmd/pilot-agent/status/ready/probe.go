@@ -36,8 +36,11 @@ type Probe struct {
 	AdminPort           uint16
 	receivedFirstUpdate bool
 	lastUpdateTime      time.Time
-	atleastOnceReady    bool
-	readyError          error
+	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
+	// If after TTL, Envoy becomes unready, we will reset this flag so that we continuosly
+	// check Envoy till it becomes ready.
+	atleastOnceReady bool
+	readyError       error
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -80,6 +83,10 @@ func (p *Probe) isEnvoyReady() error {
 		p.readyError = checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
 		if p.readyError == nil && !p.atleastOnceReady {
 			p.atleastOnceReady = true
+		}
+		// If readiness fails, we should keep checking.
+		if p.readyError != nil {
+			p.atleastOnceReady = false
 		}
 		p.lastUpdateTime = time.Now()
 	}
