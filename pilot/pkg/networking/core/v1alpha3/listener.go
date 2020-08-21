@@ -519,13 +519,13 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 			// by outbound routes.
 			// Traffic sent to our service VIP is redirected by remote
 			// services' kubeproxy to our specific endpoint IP.
-			port := instance.ServicePort
+			port := *instance.ServicePort
 			port.Port = int(endpoint.EndpointPort)
 			listenerOpts := buildListenerOpts{
 				push:       push,
 				proxy:      node,
 				bind:       bind,
-				port:       port,
+				port:       &port,
 				bindToPort: false,
 			}
 
@@ -606,7 +606,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarInboundListeners(
 	return listeners
 }
 
-func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy, pluginParams *plugin.InputParams, clusterName string) *httpListenerOpts {
+func (configgen *ConfigGeneratorImpl) buildSidecarInboundHTTPListenerOptsForPortOrUDS(node *model.Proxy,
+	pluginParams *plugin.InputParams, clusterName string) *httpListenerOpts {
 	if clusterName == "" {
 		// In case of unix domain sockets, the service port will be 0. So use the port name to distinguish the
 		// inbound listeners that a user specifies in Sidecar. Otherwise, all inbound clusters will be the same.
@@ -1166,7 +1167,8 @@ func (configgen *ConfigGeneratorImpl) buildHTTPProxy(node *model.Proxy,
 }
 
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
-	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
+	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
+	listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
@@ -1261,7 +1263,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPListenerOptsForPor
 }
 
 func (configgen *ConfigGeneratorImpl) buildSidecarOutboundThriftListenerOptsForPortOrUDS(listenerMapKey *string,
-	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts, listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
+	currentListenerEntry **outboundListenerEntry, listenerOpts *buildListenerOpts,
+	listenerMap map[string]*outboundListenerEntry, actualWildcard string) (bool, []*filterChainOpts) {
 	// first identify the bind if its not set. Then construct the key
 	// used to lookup the listener in the conflict map.
 	if len(listenerOpts.bind) == 0 { // no user specified bind. Use 0.0.0.0:Port
@@ -1445,7 +1448,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 	} else {
 		switch listenerProtocol {
 		case istionetworking.ListenerProtocolHTTP:
-			if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry, &listenerOpts, listenerMap, actualWildcard); !ret {
+			if ret, opts = configgen.buildSidecarOutboundHTTPListenerOptsForPortOrUDS(&listenerMapKey,
+				&currentListenerEntry, &listenerOpts, listenerMap, actualWildcard); !ret {
 				return
 			}
 
@@ -1495,7 +1499,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListenerForPortOrUDS(n
 		case istionetworking.ListenerProtocolThrift:
 			// Hard code the service IP for outbound thrift service listeners. HTTP services
 			// use RDS but the Thrift stack has no such dynamic configuration option.
-			if ret, opts = configgen.buildSidecarOutboundThriftListenerOptsForPortOrUDS(&listenerMapKey, &currentListenerEntry, &listenerOpts, listenerMap, actualWildcard); !ret {
+			if ret, opts = configgen.buildSidecarOutboundThriftListenerOptsForPortOrUDS(&listenerMapKey,
+				&currentListenerEntry, &listenerOpts, listenerMap, actualWildcard); !ret {
 				return
 			}
 

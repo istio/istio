@@ -362,15 +362,17 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
-	_, err := configStore.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			GroupVersionKind: gvk.DestinationRule,
-			Name:             "acme",
-		},
-		Spec: c.destRule,
-	})
-	if err != nil {
-		c.t.Fatal(err)
+	if c.destRule != nil {
+		_, err := configStore.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.DestinationRule,
+				Name:             "acme",
+			},
+			Spec: c.destRule,
+		})
+		if err != nil {
+			c.t.Fatal(err)
+		}
 	}
 	if c.peerAuthn != nil {
 		policyName := "default"
