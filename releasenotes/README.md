@@ -5,7 +5,6 @@ Notes should be created as part of the pull request for any user facing changes.
 a release, the release notes utility will be run in order to generate a release notes file
 which will be reviewed by the release managers and documentation team.
 
-
 ## When to Add Release Notes
 
 Release notes should be added for any user facing changes. These include:
@@ -17,10 +16,10 @@ Release notes should be added for any user facing changes. These include:
 * A warning about a deprecation
 * Fix of a previous Known Issue
 
-No release notes are required for changes to: 
+No release notes are required for changes to:
 * Tests
 * Build Infrastructure
-* Fixes of bugs that have not been released. 
+* Fixes of bugs that have not been released.
 
 ## Adding a Release Note
 
@@ -76,7 +75,7 @@ While many pull requests will only fix a single GitHub issue, some pull requests
 
 ## docs
 
-The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues. 
+The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues.
 
 ### Release Notes
 
