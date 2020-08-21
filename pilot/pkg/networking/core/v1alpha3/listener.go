@@ -51,6 +51,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1079,7 +1080,21 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
 						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
-						for _, instance := range push.InstancesByPort(service, servicePort.Port, nil) {
+						instances := push.InstancesByPort(service, servicePort.Port, nil)
+						if service.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
+							// A Kubernetes service with no endpoints means there are no endpoints at
+							// all, so don't bother sending, as traffic will never work. If we did
+							// send a wildcard listener, we may get into a situation where a scale
+							// down leads to a listener conflict. Similarly, if we have a
+							// labelSelector on the Service, then this may have endpoints not yet
+							// selected or scaled down, so we skip these as well. This leaves us with
+							// only a plain ServiceEntry with resolution NONE. In this case, we will
+							// fallback to a wildcard listener.
+							configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, pluginParams, listenerMap,
+								virtualServices, actualWildcard)
+							continue
+						}
+						for _, instance := range instances {
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).

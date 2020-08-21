@@ -64,6 +64,9 @@ spec:
             - port: 443
               targetPort: 8443
               name: https
+            - port: 15012
+              targetPort: 15012
+              name: tcp-istiod
             - port: 15443
               targetPort: 15443
               name: tls
@@ -102,8 +105,10 @@ spec:
           ports:
             - port: 80
               name: http2
+              targetPort: 8080
             - port: 443
               name: https
+              targetPort: 8443
             - port: 15443
               targetPort: 15443
               name: tls
@@ -251,8 +256,10 @@ spec:
       enabled: true
       v2:
         enabled: true
-        metadataExchange: {}
+        metadataExchange:
+          wasmEnabled: false
         prometheus:
+          wasmEnabled: false
           enabled: true
         stackdriver:
           enabled: false
@@ -285,13 +292,6 @@ spec:
         name: istio-ingressgateway
         zvpn: {}
         env: {}
-        meshExpansionPorts:
-        - port: 15012
-          targetPort: 15012
-          name: tcp-istiod
-        - port: 853
-          targetPort: 8853
-          name: tcp-dns-tls
         secretVolumes:
           - name: ingressgateway-certs
             secretName: istio-ingressgateway-certs

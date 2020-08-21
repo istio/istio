@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/url"
 )
 
 var (
@@ -127,8 +129,7 @@ var (
 `)
 
 	addToMeshPodAOutput = `deployment .* updated successfully with Istio sidecar injected.
-Next Step: Add related labels to the deployment to align with Istio's requirement: https://istio.io/latest/docs/ops/deployment/requirements/
-`
+Next Step: Add related labels to the deployment to align with Istio's requirement: ` + url.DeploymentRequirements
 	removeFromMeshPodAOutput = `deployment .* updated successfully with Istio sidecar un-injected.`
 )
 
@@ -201,7 +202,7 @@ func TestDescribe(t *testing.T) {
 			// run in parallel.
 			retry.UntilSuccessOrFail(ctx, func() error {
 				args := []string{"--namespace=dummy",
-					"x", "describe", "svc", fmt.Sprintf("%s.%s", apps.podA.Config().Service, apps.namespace.Name())}
+					"x", "describe", "svc", fmt.Sprintf("%s.%s", podASvc, apps.namespace.Name())}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
@@ -213,7 +214,7 @@ func TestDescribe(t *testing.T) {
 			}, retry.Timeout(time.Second*5))
 
 			retry.UntilSuccessOrFail(ctx, func() error {
-				podID, err := getPodID(apps.podA)
+				podID, err := getPodID(apps.podA[0])
 				if err != nil {
 					return fmt.Errorf("could not get Pod ID: %v", err)
 				}
@@ -291,7 +292,7 @@ func TestProxyConfig(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -368,7 +369,7 @@ func TestProxyStatus(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -418,21 +419,26 @@ func TestAuthZCheck(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
 
-			podID, err := getPodID(apps.podA)
+			podID, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			args := []string{"experimental", "authz", "check",
-				fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
-			regex := regexp.MustCompile(`noneSDS: default.*\[integ-test\]`)
+			args := []string{"experimental", "authz", "check", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
+			wants := []*regexp.Regexp{
+				regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, apps.namespace.Name())),
+				regexp.MustCompile(`ALLOW\s+_anonymous_match_nothing_\s+1`),
+				regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, apps.namespace.Name())),
+			}
 
-			// Verify the output includes a policy "integ-test", which is the policy
+			// Verify the output matches the expected text, which is the policies
 			// loaded above from authz-a.yaml
 			retry.UntilSuccessOrFail(ctx, func() error {
 				output, _ := istioCtl.InvokeOrFail(t, args)
-				if !regex.MatchString(output) {
-					return fmt.Errorf("%v did not match %v", output, regex)
+				for _, want := range wants {
+					if !want.MatchString(output) {
+						return fmt.Errorf("%v did not match %v", output, want)
+					}
 				}
 				return nil
 			}, retry.Timeout(time.Second*5))

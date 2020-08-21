@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mtlscertplugincasecurenaming
+package cacustomroot
 
 import (
 	"context"
@@ -95,19 +96,19 @@ spec:
 `
 )
 
-// TestMTLSCertPluginCASecureNaming verifies:
+// TestSecureNaming verifies:
 // - The certificate issued by CA to the sidecar is as expected and that strict mTLS works as expected.
 // - The plugin CA certs are correctly used in workload mTLS.
 // - The CA certificate in the configmap of each namespace is as expected, which
 //   is used for data plane to control plane TLS authentication.
 // - Secure naming information is respected in the mTLS handshake.
-func TestMTLSCertPluginCASecureNaming(t *testing.T) {
+func TestSecureNaming(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.secure-naming", "security.control-plane.plugin-cert").
 		Run(func(ctx framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 			testNamespace := namespace.NewOrFail(t, ctx, namespace.Config{
-				Prefix: "mtlscert-pluginca-securenaming",
+				Prefix: "secure-naming",
 				Inject: true,
 			})
 			namespace.ClaimOrFail(t, ctx, istioCfg.SystemNamespace)

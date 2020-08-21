@@ -137,3 +137,14 @@ func TestGetAud(t *testing.T) {
 		})
 	}
 }
+
+func Test3p(t *testing.T) {
+	for _, s := range []string{thirdPartyJwt, "InvalidToken"} {
+		if IsK8SUnbound(s) {
+			t.Error("Expecting bound token, detected unbound ", s)
+		}
+	}
+	if !IsK8SUnbound(firstPartyJwt) {
+		t.Error("Expecting unbound, detected bound ", firstPartyJwt)
+	}
+}

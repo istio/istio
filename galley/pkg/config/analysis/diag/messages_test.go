@@ -18,6 +18,8 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/url"
 )
 
 func TestMessages_Sort(t *testing.T) {
@@ -133,8 +135,8 @@ func TestMessages_SetRefDoc(t *testing.T) {
 		return msg.Unstructured(false)["documentation_url"].(string)
 	}
 
-	g.Expect(getDocURL(msgs[0])).To(Equal("https://istio.io/docs/reference/config/analysis/b1/?ref=istioctl-awesome"))
-	g.Expect(getDocURL(msgs[1])).To(Equal("https://istio.io/docs/reference/config/analysis/c1/?ref=istioctl-awesome"))
+	g.Expect(getDocURL(msgs[0])).To(Equal(url.ConfigAnalysis + "/b1/?ref=istioctl-awesome"))
+	g.Expect(getDocURL(msgs[1])).To(Equal(url.ConfigAnalysis + "/c1/?ref=istioctl-awesome"))
 }
 
 func TestMessages_Filter(t *testing.T) {

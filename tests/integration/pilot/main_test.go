@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,6 +53,16 @@ var (
 	}
 )
 
+const (
+	podASvc     = "a"
+	podBSvc     = "b"
+	podCSvc     = "c"
+	vmASvc      = "vm-a"
+	headlessSvc = "headless"
+	nakedSvc    = "naked"
+	externalSvc = "external"
+)
+
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	namespace namespace.Instance
@@ -59,22 +70,24 @@ type EchoDeployments struct {
 	externalNamespace namespace.Instance
 
 	// Standard echo app to be used by tests
-	podA echo.Instance
+	podA echo.Instances
 	// Standard echo app to be used by tests
-	podB echo.Instance
+	podB echo.Instances
 	// Standard echo app to be used by tests
-	podC echo.Instance
+	podC echo.Instances
 	// Headless echo app to be used by tests
-	headless echo.Instance
+	headless echo.Instances
 	// Echo app to be used by tests, with no sidecar injected
-	naked echo.Instance
-	// A virtual machine echo app
-	vmA echo.Instance
+	naked echo.Instances
+	// A virtual machine echo app (only deployed to one cluster)
+	vmA echo.Instances
 
 	// Echo app to be used by tests, with no sidecar injected
-	external echo.Instance
+	external echo.Instances
 	// Fake hostname of external service
 	externalHost string
+
+	all echo.Instances
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -146,72 +159,94 @@ values:
 				p.ServicePort = p.InstancePort
 				headlessPorts[i] = p
 			}
-			if _, err := echoboot.NewBuilder(ctx).
-				With(&apps.podA, echo.Config{
-					Service:   "a",
-					Namespace: apps.namespace,
-					Ports:     echoPorts,
-					Subsets:   []echo.SubsetConfig{{}},
-					Locality:  "region.zone.subzone",
-				}).
-				With(&apps.podB, echo.Config{
-					Service:   "b",
-					Namespace: apps.namespace,
-					Ports:     echoPorts,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&apps.podC, echo.Config{
-					Service:   "c",
-					Namespace: apps.namespace,
-					Ports:     echoPorts,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&apps.headless, echo.Config{
-					Service:   "headless",
-					Headless:  true,
-					Namespace: apps.namespace,
-					Ports:     headlessPorts,
-					Subsets:   []echo.SubsetConfig{{}},
-				}).
-				With(&apps.vmA, echo.Config{
-					Service:    "vm-a",
+			builder := echoboot.NewBuilder(ctx)
+			for _, c := range ctx.Environment().Clusters() {
+				builder.
+					With(nil, echo.Config{
+						Service:   podASvc,
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Locality:  "region.zone.subzone",
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
+						Service:   podBSvc,
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
+						Service:   podCSvc,
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
+						Service:   headlessSvc,
+						Headless:  true,
+						Namespace: apps.namespace,
+						Ports:     headlessPorts,
+						Subsets:   []echo.SubsetConfig{{}},
+						Cluster:   c,
+					}).
+					With(nil, echo.Config{
+						Service:   nakedSvc,
+						Namespace: apps.namespace,
+						Ports:     echoPorts,
+						Subsets: []echo.SubsetConfig{
+							{
+								Annotations: map[echo.Annotation]*echo.AnnotationValue{
+									echo.SidecarInject: {
+										Value: strconv.FormatBool(false)},
+								},
+							},
+						},
+						Cluster: c,
+					}).
+					With(nil, echo.Config{
+						Service:   externalSvc,
+						Namespace: apps.externalNamespace,
+						Ports:     echoPorts,
+						Subsets: []echo.SubsetConfig{
+							{
+								Annotations: map[echo.Annotation]*echo.AnnotationValue{
+									echo.SidecarInject: {
+										Value: strconv.FormatBool(false)},
+								},
+							},
+						},
+						Cluster: c,
+					})
+
+			}
+
+			for _, c := range ctx.Clusters().ByNetwork() {
+				builder.With(nil, echo.Config{
+					Service:    vmASvc,
 					Namespace:  apps.namespace,
 					Ports:      echoPorts,
 					DeployAsVM: true,
 					Subsets:    []echo.SubsetConfig{{}},
-				}).
-				With(&apps.naked, echo.Config{
-					Service:   "naked",
-					Namespace: apps.namespace,
-					Ports:     echoPorts,
-					Subsets: []echo.SubsetConfig{
-						{
-							Annotations: map[echo.Annotation]*echo.AnnotationValue{
-								echo.SidecarInject: {
-									Value: strconv.FormatBool(false)},
-							},
-						},
-					},
-				}).Build(); err != nil {
+					Cluster:    c[0],
+				})
+			}
+
+			echos, err := builder.Build()
+			if err != nil {
 				return err
 			}
-			if _, err := echoboot.NewBuilder(ctx).
-				With(&apps.external, echo.Config{
-					Service:   "external",
-					Namespace: apps.externalNamespace,
-					Ports:     echoPorts,
-					Subsets: []echo.SubsetConfig{
-						{
-							Annotations: map[echo.Annotation]*echo.AnnotationValue{
-								echo.SidecarInject: {
-									Value: strconv.FormatBool(false)},
-							},
-						},
-					},
-				}).
-				Build(); err != nil {
-				return err
-			}
+			apps.all = echos
+			apps.podA = echos.Match(echo.Service(podASvc))
+			apps.podB = echos.Match(echo.Service(podBSvc))
+			apps.podC = echos.Match(echo.Service(podCSvc))
+			apps.headless = echos.Match(echo.Service(headlessSvc))
+			apps.naked = echos.Match(echo.Service(nakedSvc))
+			apps.external = echos.Match(echo.Service(externalSvc))
+			apps.vmA = echos.Match(echo.Service(vmASvc))
+
 			return nil
 		}).
 		Setup(func(ctx resource.Context) (err error) {

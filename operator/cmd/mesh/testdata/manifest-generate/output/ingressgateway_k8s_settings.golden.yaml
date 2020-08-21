@@ -137,6 +137,7 @@ spec:
         - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
+        - containerPort: 15012
         - containerPort: 15443
         - containerPort: 15090
           name: http-envoy-prom
@@ -253,6 +254,9 @@ spec:
   - name: https
     port: 443
     targetPort: 8443
+  - name: tcp-istiod
+    port: 15012
+    targetPort: 15012
   - name: tls
     port: 15443
     targetPort: 15443
