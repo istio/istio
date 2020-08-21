@@ -42,6 +42,7 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
@@ -55,6 +56,12 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
 )
+
+// TokenReader gets a bearer token
+type TokenReader interface {
+	// Token gets a bearer token
+	Token() (string, error)
+}
 
 // Config for the ADS connection.
 type Config struct {
@@ -87,6 +94,12 @@ type Config struct {
 	// For getting the certificate, using same code as SDS server.
 	// Either the JWTPath or the certs must be present.
 	JWTPath string
+
+	// Plaintext forces no TLS, even if we have no certificates
+	Plaintext bool
+
+	// Token supplies bearer token
+	Token TokenReader
 
 	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
 	XDSSAN string
@@ -386,15 +399,31 @@ func (a *ADSC) Run() error {
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
+	} else if a.cfg.Plaintext {
 		opts = append(opts, grpc.WithInsecure())
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(
+			&tls.Config{
+				InsecureSkipVerify: a.cfg.InsecureSkipVerify,
+				ServerName:         a.cfg.XDSSAN,
+			})))
 	}
 	a.conn, err = grpc.Dial(a.url, opts...)
 	if err != nil {
 		return err
 	}
 	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
-	edsstr, err := xds.StreamAggregatedResources(context.Background())
+	ctx := context.Background()
+
+	if a.cfg.Token != nil {
+		token, err := a.cfg.Token.Token()
+		if err != nil {
+			return err
+		}
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", fmt.Sprintf("Bearer %s", token)))
+	}
+
+	edsstr, err := xds.StreamAggregatedResources(ctx)
 	if err != nil {
 		return err
 	}

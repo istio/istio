@@ -27,13 +27,15 @@ import (
 )
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
-func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControlPlaneOptions) (*xdsapi.DiscoveryResponse, error) {
+func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControlPlaneOptions, token adsc.TokenReader) (*xdsapi.DiscoveryResponse, error) {
 	adscConn, err := adsc.Dial(opts.Xds, opts.CertDir, &adsc.Config{
 		Meta: model.NodeMetadata{
 			Generator: "event",
 		}.ToStruct(),
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		XDSSAN:             opts.XDSSAN,
+		Plaintext:          opts.Plaintext,
+		Token:              token,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not dial: %w", err)

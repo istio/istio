@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -45,6 +46,12 @@ type CentralControlPlaneOptions struct {
 
 	// XDSSAN is the expected Subject Alternative Name of the XDS server
 	XDSSAN string
+
+	// Plaintext forces plain text communication (for talking to port 15010)
+	Plaintext bool
+
+	// JWTFile is a file to use to hold JWT tokens so we don't need to recreate them
+	JWTFile string
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
@@ -65,6 +72,10 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 		"XDS Subject Alternative Name (for example istiod.istio-system.svc)")
 	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure", viper.GetBool("INSECURE"),
 		"Skip server certificate and domain verification. (NOT SECURE!)")
+	cmd.PersistentFlags().BoolVar(&o.Plaintext, "plaintext", viper.GetBool("PLAINTEXT"),
+		"Use plain-text HTTP/2 when connecting to server (no TLS).")
+	cmd.PersistentFlags().StringVar(&o.JWTFile, "jwt-file", viper.GetString("JWT-FILE"),
+		"XDS Endpoint JWT (requires Kubernetes)")
 }
 
 // ValidateControlPlaneFlags checks arguments for valid values and combinations
@@ -72,5 +83,15 @@ func (o *CentralControlPlaneOptions) ValidateControlPlaneFlags() error {
 	if o.Xds != "" && o.XdsPodLabel != "" {
 		return fmt.Errorf("either --xds-address or --xds-label, not both")
 	}
+	if o.Plaintext && o.CertDir != "" {
+		return fmt.Errorf("either --plaintext or --cert-dir, not both")
+	}
 	return nil
+}
+
+// DefaultIstioctlJwtFile returns the default filename for Istio XDS access token caching
+func DefaultIstioctlJwtFile() string {
+	// Ignore errors; if the user has no home dir the default can be ""
+	fname, _ := homedir.Expand("~/.istioctl/istioctl.jwt")
+	return fname
 }
