@@ -212,8 +212,8 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
-	Active map[string]*WatchedResource
+	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
+	WatchedResources map[string]*WatchedResource
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
