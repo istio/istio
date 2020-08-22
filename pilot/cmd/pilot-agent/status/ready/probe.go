@@ -16,11 +16,17 @@ package ready
 
 import (
 	"fmt"
+	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/util"
 	"istio.io/istio/pilot/pkg/model"
+)
+
+var (
+	// readinessTTL is the TTL for cached readiness values.
+	readinessTTL = 60 * time.Second
 )
 
 // Probe for readiness.
@@ -29,6 +35,12 @@ type Probe struct {
 	NodeType            model.NodeType
 	AdminPort           uint16
 	receivedFirstUpdate bool
+	lastUpdateTime      time.Time
+	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
+	// If after TTL, Envoy becomes unready, we will reset this flag so that we continuously
+	// check Envoy till it becomes ready.
+	atleastOnceReady bool
+	readyError       error
 }
 
 // Check executes the probe and returns an error if the probe fails.
@@ -63,7 +75,27 @@ func (p *Probe) checkConfigStatus() error {
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.
 func (p *Probe) isEnvoyReady() error {
-	state, ws, err := util.GetReadinessStats(p.LocalHostAddr, p.AdminPort)
+	// Execute the stats query on Envoy if atleast readinessTTL has expired or
+	// Envoy is not ready at least once.  After Envoy is ready for the first time,
+	// we return cached value to avoid frequent executions of stats query till
+	// cached TTL is reached.
+	if !p.atleastOnceReady || time.Since(p.lastUpdateTime) >= readinessTTL {
+		p.readyError = checkEnvoyStats(p.LocalHostAddr, p.AdminPort)
+		if p.readyError == nil && !p.atleastOnceReady {
+			p.atleastOnceReady = true
+		}
+		// If readiness fails, we should keep checking.
+		if p.readyError != nil {
+			p.atleastOnceReady = false
+		}
+		p.lastUpdateTime = time.Now()
+	}
+	return p.readyError
+}
+
+// checkEnvoyStats actually executes the Stats Query on Envoy admin endpoint.
+func checkEnvoyStats(host string, port uint16) error {
+	state, ws, err := util.GetReadinessStats(host, port)
 	if err != nil {
 		return fmt.Errorf("failed to get readiness stats: %v", err)
 	}
