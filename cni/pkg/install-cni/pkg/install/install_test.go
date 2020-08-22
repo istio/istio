@@ -37,14 +37,14 @@ func TestCheckInstall(t *testing.T) {
 		cniConfigFilename string
 		cniConfName       string
 		chainedCNIPlugin  bool
-		existingConfFiles []string
+		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
 	}{
 		{
 			name:              "preempted config",
 			expectedFailure:   true,
-			cniConfigFilename: "list.conflist.golden",
+			cniConfigFilename: "list.conflist",
 			chainedCNIPlugin:  true,
-			existingConfFiles: []string{"bridge.conf", "list.conflist.golden"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist.golden": "list.conflist"},
 		},
 		{
 			name:              "intentional preempted config invalid",
@@ -52,14 +52,14 @@ func TestCheckInstall(t *testing.T) {
 			cniConfigFilename: "invalid-arr.conflist",
 			cniConfName:       "invalid-arr.conflist",
 			chainedCNIPlugin:  true,
-			existingConfFiles: []string{"bridge.conf", "invalid-arr.conflist"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "invalid-arr.conflist": "invalid-arr.conflist"},
 		},
 		{
 			name:              "intentional preempted config",
-			cniConfigFilename: "list.conflist.golden",
-			cniConfName:       "list.conflist.golden",
+			cniConfigFilename: "list.conflist",
+			cniConfName:       "list.conflist",
 			chainedCNIPlugin:  true,
-			existingConfFiles: []string{"bridge.conf", "list.conflist.golden"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist.golden": "list.conflist"},
 		},
 		{
 			name:              "CNI config file removed",
@@ -71,18 +71,24 @@ func TestCheckInstall(t *testing.T) {
 			expectedFailure:   true,
 			cniConfigFilename: "list.conflist",
 			chainedCNIPlugin:  true,
-			existingConfFiles: []string{"list.conflist"},
+			existingConfFiles: map[string]string{"list.conflist": "list.conflist"},
 		},
 		{
-			name:              "standalone istio-cni config not in CNI config file",
+			name:              "chained CNI plugin",
+			cniConfigFilename: "list.conflist",
+			chainedCNIPlugin:  true,
+			existingConfFiles: map[string]string{"list.conflist.golden": "list.conflist"},
+		},
+		{
+			name:              "standalone CNI plugin istio-cni config not in CNI config file",
 			expectedFailure:   true,
 			cniConfigFilename: "bridge.conf",
-			existingConfFiles: []string{"bridge.conf"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf"},
 		},
 		{
-			name:              "standalone istio-cni config",
+			name:              "standalone CNI plugin",
 			cniConfigFilename: "istio-cni.conf",
-			existingConfFiles: []string{"istio-cni.conf"},
+			existingConfFiles: map[string]string{"istio-cni.conf": "istio-cni.conf"},
 		},
 	}
 
@@ -100,7 +106,11 @@ func TestCheckInstall(t *testing.T) {
 			}()
 
 			// Create existing config files if specified in test case
-			util.CopyExistingConfFiles(t, tempDir, c.existingConfFiles...)
+			for srcFilename, targetFilename := range c.existingConfFiles {
+				if err := util.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
+					t.Fatal(err)
+				}
+			}
 
 			cfg := &config.Config{
 				MountedCNINetDir: tempDir,
@@ -180,7 +190,7 @@ func TestSleepCheckInstall(t *testing.T) {
 				}
 			}
 
-			// Copy an valid config file into tempDir
+			// Copy a valid config file into tempDir
 			if err = util.AtomicCopy(filepath.Join("testdata", c.validConfigFilename), tempDir, c.cniConfigFilename); err != nil {
 				t.Fatal(err)
 			}
