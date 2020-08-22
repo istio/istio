@@ -585,6 +585,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		if s.IstioDNSServer != nil {
 			s.IstioDNSServer.Close()
 		}
+
+		// Shutdown the DiscoveryServer.
+		s.XDSServer.Shutdown()
 	}()
 }
 
