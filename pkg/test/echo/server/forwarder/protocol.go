@@ -93,6 +93,7 @@ func newProtocol(cfg Config) (protocol, error) {
 				log.Debugf("  URI SAN: %s", uri)
 			}
 		}
+		// nolint: unparam
 		getClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			log.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
@@ -196,29 +197,25 @@ func newProtocol(cfg Config) (protocol, error) {
 			dialer: dialer,
 		}, nil
 	case scheme.TCP:
-		dialer := net.Dialer{
-			Timeout: timeout,
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
-		defer cancel()
-
-		address := rawURL[len(u.Scheme+"://"):]
-
-		var tcpConn net.Conn
-		var err error
-		if getClientCertificate == nil {
-			tcpConn, err = cfg.Dialer.TCP(dialer, ctx, address)
-		} else {
-			tcpConn, err = tls.Dial("tcp", address, &tls.Config{
-				GetClientCertificate: getClientCertificate,
-				InsecureSkipVerify:   true,
-			})
-		}
-		if err != nil {
-			return nil, err
-		}
 		return &tcpProtocol{
-			conn: tcpConn,
+			conn: func() (net.Conn, error) {
+				dialer := net.Dialer{
+					Timeout: timeout,
+				}
+				address := rawURL[len(u.Scheme+"://"):]
+
+				ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
+				defer cancel()
+
+				if getClientCertificate == nil {
+					return cfg.Dialer.TCP(dialer, ctx, address)
+				}
+				return tls.Dial("tcp", address, &tls.Config{
+					GetClientCertificate: getClientCertificate,
+					InsecureSkipVerify:   true,
+				})
+
+			},
 		}, nil
 	}
 

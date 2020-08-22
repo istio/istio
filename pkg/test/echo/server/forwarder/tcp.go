@@ -29,10 +29,18 @@ import (
 var _ protocol = &tcpProtocol{}
 
 type tcpProtocol struct {
-	conn net.Conn
+	// conn returns a new connection. This is not just a shared connection as we will
+	// not re-use the connection for multiple requests with TCP
+	conn func() (net.Conn, error)
 }
 
 func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
+	conn, err := c.conn()
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
 	var outBuffer bytes.Buffer
 	outBuffer.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
 
@@ -46,16 +54,16 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 
 	// Apply the deadline to the connection.
 	deadline, _ := ctx.Deadline()
-	if err := c.conn.SetWriteDeadline(deadline); err != nil {
+	if err := conn.SetWriteDeadline(deadline); err != nil {
 		return outBuffer.String(), err
 	}
-	if err := c.conn.SetReadDeadline(deadline); err != nil {
+	if err := conn.SetReadDeadline(deadline); err != nil {
 		return outBuffer.String(), err
 	}
 
 	// For server first protocol, we expect the server to send us the magic string first
 	if req.ServerFirst {
-		bytes, err := bufio.NewReader(c.conn).ReadBytes('\n')
+		bytes, err := bufio.NewReader(conn).ReadBytes('\n')
 		if err != nil {
 			return "", err
 		}
@@ -70,13 +78,12 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		message = req.Message
 	}
 
-	_, err := c.conn.Write([]byte(message + "\n"))
-	if err != nil {
+	if _, err := conn.Write([]byte(message + "\n")); err != nil {
 		return outBuffer.String(), err
 	}
 
 	buf := make([]byte, 1024+len(message))
-	n, err := bufio.NewReader(c.conn).Read(buf)
+	n, err := bufio.NewReader(conn).Read(buf)
 	if err != nil {
 		return outBuffer.String(), err
 	}
@@ -96,6 +103,5 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 }
 
 func (c *tcpProtocol) Close() error {
-	c.conn.Close()
 	return nil
 }
