@@ -31,7 +31,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
-	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	thrift_ratelimit "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/filters/ratelimit/v3"
 	thrift "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/thrift_proxy/v3"
@@ -42,7 +41,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1852,17 +1850,7 @@ func buildHTTPConnectionManager(pluginParams *plugin.InputParams, httpOpts *http
 	}
 
 	if pluginParams.Port != nil && pluginParams.Port.Protocol.IsGRPC() {
-		filters = append(filters, &hcm.HttpFilter{
-			Name: wellknown.HTTPGRPCStats,
-			ConfigType: &hcm.HttpFilter_TypedConfig{
-				TypedConfig: util.MessageToAny(&grpcstats.FilterConfig{
-					EmitFilterState: true,
-					PerMethodStatSpecifier: &grpcstats.FilterConfig_StatsForAllMethods{
-						StatsForAllMethods: &wrapperspb.BoolValue{Value: false},
-					},
-				}),
-			},
-		})
+		filters = append(filters, xdsfilters.GrpcStats)
 	}
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
