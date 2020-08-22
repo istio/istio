@@ -25,7 +25,7 @@ import (
 )
 
 func TestTimeRangeFilter(t *testing.T) {
-	testDataDir := filepath.Join(env.IstioSrc, "tools/bug-report/cmd/bug-report/testdata/")
+	testDataDir := filepath.Join(env.IstioSrc, "tools/bug-report/pkg/testdata/")
 	b := util.ReadFile(filepath.Join(testDataDir, "input/ingress.log"), t)
 	inLog := string(b)
 	tests := []struct {
