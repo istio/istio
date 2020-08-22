@@ -167,19 +167,6 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 		s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
 	}
 
-	var err error
-
-	// Based on node metadata a different generator was selected,
-	// use it instead of the default behavior.
-	if con.proxy.XdsResourceGenerator != nil {
-		// Endpoints are special - will use the optimized code path.
-		err = s.handleCustomGenerator(con, discReq)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
 	switch discReq.TypeUrl {
 	case v3.ClusterType:
 		if err := s.handleCds(con, discReq); err != nil {
@@ -200,7 +187,7 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 	default:
 		// Allow custom generators to work without 'generator' metadata.
 		// It would be an error/warn for normal XDS - so nothing to lose.
-		err = s.handleCustomGenerator(con, discReq)
+		err := s.handleCustomGenerator(con, discReq)
 		if err != nil {
 			return err
 		}
@@ -341,7 +328,7 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 	if !s.shouldRespond(con, rdsReject, discReq) {
 		return nil
 	}
-	con.proxy.Active[v3.RouteType].ResourceNames = discReq.ResourceNames
+
 	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes()))
 	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 	if err != nil {
@@ -371,7 +358,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	// This is first request - initialize typeUrl watches.
 	if request.ResponseNonce == "" {
 		con.proxy.Lock()
-		con.proxy.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl}
+		con.proxy.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
 		return true
 	}
@@ -387,7 +374,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	if previousInfo == nil {
 		adsLog.Debugf("ADS:%s: RECONNECT %s %s %s", stype, con.ConID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		con.proxy.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		con.proxy.Active[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames, LastRequest: request}
 		con.proxy.Unlock()
 		return true
 	}
@@ -407,6 +394,8 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	previousResources := con.proxy.Active[request.TypeUrl].ResourceNames
 	con.proxy.Active[request.TypeUrl].VersionAcked = request.VersionInfo
 	con.proxy.Active[request.TypeUrl].NonceAcked = request.ResponseNonce
+	con.proxy.Active[request.TypeUrl].ResourceNames = request.ResourceNames
+	con.proxy.Active[request.TypeUrl].LastRequest = request
 	con.proxy.Unlock()
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
@@ -450,7 +439,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	// Based on node metadata and version, we can associate a different generator.
 	// TODO: use a map of generators, so it's easily customizable and to avoid deps
 	proxy.Active = map[string]*model.WatchedResource{}
-	proxy.ActiveExperimental = map[string]*model.WatchedResource{}
 
 	if proxy.Metadata.Generator != "" {
 		proxy.XdsResourceGenerator = s.Generators[proxy.Metadata.Generator]
@@ -806,6 +794,10 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		return status.Errorf(codes.DeadlineExceeded, "timeout sending")
 	case err := <-errChan:
 		if err == nil {
+			sz := 0
+			for _, rc := range res.Resources {
+				sz += len(rc.Value)
+			}
 			conn.proxy.Lock()
 			if res.Nonce != "" {
 				if conn.proxy.Active[res.TypeUrl] == nil {
@@ -813,6 +805,8 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 				}
 				conn.proxy.Active[res.TypeUrl].NonceSent = res.Nonce
 				conn.proxy.Active[res.TypeUrl].VersionSent = res.VersionInfo
+				conn.proxy.Active[res.TypeUrl].LastSent = time.Now()
+				conn.proxy.Active[res.TypeUrl].LastSize = sz
 			}
 			conn.proxy.Unlock()
 		}
@@ -871,4 +865,14 @@ func (conn *Connection) Watching(typeUrl string) bool {
 		return true
 	}
 	return false
+}
+
+// nolint
+func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
+	conn.proxy.RLock()
+	defer conn.proxy.RUnlock()
+	if conn.proxy.Active != nil && conn.proxy.Active[typeUrl] != nil {
+		return conn.proxy.Active[typeUrl]
+	}
+	return nil
 }

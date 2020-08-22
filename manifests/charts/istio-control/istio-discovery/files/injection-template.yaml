@@ -235,7 +235,7 @@ template: |
     {{ end }}
     {{- if .DeploymentMeta.Name }}
     - name: ISTIO_META_WORKLOAD_NAME
-      value: {{ .DeploymentMeta.Name }}
+      value: "{{ .DeploymentMeta.Name }}"
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER

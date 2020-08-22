@@ -572,7 +572,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
 		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error port-forewarding into %s : %v", pod.Name, err))
+			errs = multierror.Append(errs, fmt.Errorf("error port-forwarding into %s : %v", pod.Name, err))
 			continue
 		}
 		if len(result) > 0 {
