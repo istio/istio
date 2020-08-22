@@ -103,7 +103,7 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	pending := []*Connection{}
 	for _, v := range s.adsClients {
 		v.proxy.RLock()
-		if v.proxy.ActiveExperimental[res.TypeUrl] != nil {
+		if v.proxy.Active[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
 		v.proxy.RUnlock()
