@@ -56,13 +56,32 @@ func Logs(namespace, pod, container string, previous, dryRun bool) (string, erro
 	stdout, stderr, err := Run(cmdStr,
 		&Options{
 			Namespace: namespace,
-			ExtraArgs: []string{pod, container},
+			ExtraArgs: []string{pod, "-c", container},
 			DryRun:    dryRun,
 		})
 	if err != nil {
 		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s\n\n", err, stderr, stdout)
 	}
 	return stdout, nil
+}
+
+func Exec(namespace, pod, container, command string, dryRun bool) (string, error) {
+	cmdStr := []string{"exec"}
+
+	stdout, stderr, err := Run(cmdStr,
+		&Options{
+			Namespace: namespace,
+			ExtraArgs: []string{pod, "-c", container, "--"},
+			DryRun:    dryRun,
+		})
+	if err != nil {
+		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s\n\n", err, stderr, stdout)
+	}
+	return stdout, nil
+}
+
+func Cat(namespace, pod, container, path string, dryRun bool) (string, error) {
+	return Exec(namespace, pod, container, `cat `+path, dryRun)
 }
 
 // Run runs the kubectl command by specifying subcommands in subcmds with opts.

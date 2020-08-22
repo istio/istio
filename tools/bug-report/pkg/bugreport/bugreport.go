@@ -24,9 +24,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/operator/pkg/util"
-	"istio.io/istio/tools/bug-report/pkg/client"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+	"istio.io/istio/tools/bug-report/pkg/config"
+	"istio.io/istio/tools/bug-report/pkg/content"
 	"istio.io/istio/tools/bug-report/pkg/filter"
+	"istio.io/istio/tools/bug-report/pkg/kubeclient"
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
 	"istio.io/istio/tools/bug-report/pkg/processlog"
 	"istio.io/pkg/log"
@@ -70,7 +72,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 		return err
 	}
 
-	_, clientset, err := client.InitK8SRestClient(config.KubeConfigPath, config.Context)
+	_, clientset, err := kubeclient.InitK8SRestClient(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
@@ -89,29 +91,55 @@ func runBugReportCommand(_ *cobra.Command) error {
 
 	var errs util.Errors
 	logs := make(map[string]string)
+	coreDumps := make(map[string][]string)
 	stats := make(map[string]*processlog.Stats)
 	importance := make(map[string]int)
 	lock := sync.RWMutex{}
+	var wg sync.WaitGroup
 	for _, p := range paths {
 		p := p
 		go func() {
+			wg.Add(1)
+			defer wg.Done()
 			cv := strings.Split(p, ".")
 			namespace, pod, container := cv[0], cv[2], cv[3]
-			previous := resources.ContainerRestarts(pod, container) > 0
-			clog, err := kubectlcmd.Logs(namespace, pod, container, previous, config.DryRun)
-			if err != nil {
+
+			go func() {
+				wg.Add(1)
+				defer wg.Done()
+				clog, cstat, imp, err := getLog(resources, config, namespace, pod, container)
 				lock.Lock()
+				logs[p], stats[p], importance[p] = clog, cstat, imp
 				errs = util.AppendErr(errs, err)
 				lock.Unlock()
-				return
-			}
-			cstat := &processlog.Stats{}
-			clog, cstat, err = processlog.Process(config, clog)
-			lock.Lock()
-			logs[p], stats[p], importance[p] = clog, cstat, cstat.Importance()
-			lock.Unlock()
+			}()
+
+			go func() {
+				wg.Add(1)
+				defer wg.Done()
+				cds, err := content.GetCoredumps(namespace, pod, container, config.DryRun)
+				lock.Lock()
+				coreDumps[p] = cds
+				errs = util.AppendErr(errs, err)
+				lock.Unlock()
+			}()
 		}()
 	}
+	wg.Wait()
 
-	return nil
+	return errs.ToError()
+}
+
+func getLog(resources *cluster2.Resources, config *config.BugReportConfig, namespace, pod, container string) (string, *processlog.Stats, int, error) {
+	previous := resources.ContainerRestarts(pod, container) > 0
+	clog, err := kubectlcmd.Logs(namespace, pod, container, previous, config.DryRun)
+	if err != nil {
+		return "", nil, 0, err
+	}
+	cstat := &processlog.Stats{}
+	clog, cstat, err = processlog.Process(config, clog)
+	if err != nil {
+		return "", nil, 0, err
+	}
+	return clog, cstat, cstat.Importance(), nil
 }

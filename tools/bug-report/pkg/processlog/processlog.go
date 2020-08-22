@@ -60,9 +60,16 @@ func Process(config *config.BugReportConfig, logStr string) (string, *Stats, err
 // getTimeRange returns the log lines that fall inside the start to end time range, inclusive.
 func getTimeRange(logStr string, start, end time.Time) string {
 	var sb strings.Builder
+	write := false
 	for _, l := range strings.Split(logStr, "\n") {
 		t, _, _, valid := processLogLine(l)
-		if valid && (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
+		if valid {
+			write = false
+			if (t.Equal(start) || t.After(start)) && (t.Equal(end) || t.Before(end)) {
+				write = true
+			}
+		}
+		if write {
 			sb.WriteString(l)
 			sb.WriteString("\n")
 		}

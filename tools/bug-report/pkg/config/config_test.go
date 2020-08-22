@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/google/go-cmp/cmp"
 	"github.com/kr/pretty"
 )
 
@@ -33,10 +34,10 @@ istioNamespaces:
 dryRun: true
 commandTimeout: 5m
 maxArchiveSizeMb: 123
-included:
-  - ns1,ns2/d1,d2/p1,p2/l1=lv1,l2=lv2/a1=av1,a2=av2,-a3=av3/c1,c2
+include:
+  - ns1,ns2/d1,d2/p1,p2/l1=lv1,l2=lv2/a1=av1,a2=av2/c1,c2
   - ns4,ns5/d4,d5/p4,p5/l4=lv4,l5=lv5/a4=av4,a5=av5/c4,c5
-excluded: 
+exclude: 
   - ns7,ns8/d7,d8/p7,p8/l7=lv7,l8=lv8/a7=av7,a8=av8/c7,c8
 startTime: 2002-10-02T10:00:00-05:00
 endTime: 2002-10-02T10:00:00-05:00
@@ -123,6 +124,6 @@ uploadToGCS: true
 	}
 
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got:\n%s\nwant:\n%s\n", pretty.Sprint(got), pretty.Sprint(want))
+		t.Errorf("got:\n%s\nwant:\n%s\n\ndiff (-got, +want):\n%s\n", pretty.Sprint(got), pretty.Sprint(want), cmp.Diff(got, want))
 	}
 }
