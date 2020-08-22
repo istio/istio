@@ -334,7 +334,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "initial request",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{},
+					WatchedResources: map[string]*model.WatchedResource{},
 				},
 			},
 			request: &discovery.DiscoveryRequest{
@@ -346,7 +346,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "ack",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
 							VersionSent: "v1",
 							NonceSent:   "nonce",
@@ -365,7 +365,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "nack",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
 							VersionSent: "v1",
 							NonceSent:   "nonce",
@@ -384,7 +384,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "reconnect",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{},
+					WatchedResources: map[string]*model.WatchedResource{},
 				},
 			},
 			request: &discovery.DiscoveryRequest{
@@ -398,7 +398,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "resources change",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
 							VersionSent:   "v1",
 							NonceSent:     "nonce",
@@ -419,7 +419,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "ack with same resources",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
 							VersionSent:   "v1",
 							NonceSent:     "nonce",
@@ -447,8 +447,8 @@ func TestShouldRespond(t *testing.T) {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {
-				if tt.connection.proxy.Active[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
-					tt.connection.proxy.Active[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
+				if tt.connection.proxy.WatchedResources[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
+					tt.connection.proxy.WatchedResources[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
 					t.Fatalf("Version & Nonce not updated properly")
 				}
 			}
