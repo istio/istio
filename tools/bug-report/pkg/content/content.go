@@ -24,12 +24,47 @@ const (
 	coredumpDir = "/var/lib/istio"
 )
 
+// GetK8sResources returns all k8s cluster resources.
 func GetK8sResources(dryRun bool) (string, error) {
 	return kubectlcmd.RunCmd("get --all-namespaces "+
 		"all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events "+
 		"-o yaml", "", dryRun)
 }
 
+// GetSecrets returns all k8s secrets. If full is set, the secret contents are also returned.
+func GetSecrets(full, dryRun bool) (string, error) {
+	cmdStr := "get secrets --all-namespaces"
+	if full {
+		cmdStr += " -o yaml"
+	}
+	return kubectlcmd.RunCmd(cmdStr, "", dryRun)
+}
+
+// GetCRs returns CR contents for all CRDs in the cluster.
+func GetCRs(dryRun bool) (string, error) {
+	crds, err := getCRDList(dryRun)
+	if err != nil {
+		return "", err
+	}
+	return kubectlcmd.RunCmd("get --all-namespaces "+strings.Join(crds, ",")+" -o yaml", "", dryRun)
+}
+
+// GetClusterInfo returns the cluster info.
+func GetClusterInfo(dryRun bool) (string, error) {
+	return kubectlcmd.RunCmd("cluster-info dump", "", dryRun)
+}
+
+// GetDescribePods returns describe pods for istioNamespace.
+func GetDescribePods(istioNamespace string, dryRun bool) (string, error) {
+	return kubectlcmd.RunCmd("describe pods", istioNamespace, dryRun)
+}
+
+// GetEvents returns events for all namespaces.
+func GetEvents(dryRun bool) (string, error) {
+	return kubectlcmd.RunCmd("get events --all-namespaces -o wide", "", dryRun)
+}
+
+// GetCoredumps returns coredumps for the given namespace/pod/container.
 func GetCoredumps(namespace, pod, container string, dryRun bool) ([]string, error) {
 	cds, err := getCoredumpList(namespace, pod, container, dryRun)
 	if err != nil {
@@ -53,4 +88,16 @@ func getCoredumpList(namespace, pod, container string, dryRun bool) ([]string, e
 		return nil, err
 	}
 	return strings.Split(out, "\n"), nil
+}
+
+func getCRDList(dryRun bool) ([]string, error) {
+	crdStr, err := kubectlcmd.RunCmd("get customresourcedefinitions --no-headers", "", dryRun)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, crd := range strings.Split(crdStr, "\n") {
+		out = append(out, strings.Split(crd, " ")[0])
+	}
+	return out, nil
 }
