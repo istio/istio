@@ -72,7 +72,7 @@ func Exec(namespace, pod, container, command string, dryRun bool) (string, error
 	return Run(cmdStr,
 		&Options{
 			Namespace: namespace,
-			ExtraArgs: []string{pod, "-c", container, "--", command},
+			ExtraArgs: []string{"-i", "-t", pod, "-c", container, "--", command},
 			DryRun:    dryRun,
 		})
 }

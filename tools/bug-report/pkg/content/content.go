@@ -24,6 +24,16 @@ const (
 	coredumpDir = "/var/lib/istio"
 )
 
+var (
+	istiodURLs = []string{
+		"debug/configz",
+		"debug/endpointz",
+		"debug/adsz",
+		"debug/authenticationz",
+		"metrics",
+	}
+)
+
 // GetK8sResources returns all k8s cluster resources.
 func GetK8sResources(dryRun bool) (string, error) {
 	return kubectlcmd.RunCmd("get --all-namespaces "+
@@ -62,6 +72,21 @@ func GetDescribePods(istioNamespace string, dryRun bool) (string, error) {
 // GetEvents returns events for all namespaces.
 func GetEvents(dryRun bool) (string, error) {
 	return kubectlcmd.RunCmd("get events --all-namespaces -o wide", "", dryRun)
+}
+
+// GetIstiodInfo returns internal Istiod debug info.
+func GetIstiodInfo(namespace, pod string, dryRun bool) (string, error) {
+	var sb strings.Builder
+	for _, url := range istiodURLs {
+		out, err := kubectlcmd.Exec(namespace, pod, "istio-proxy", `curl "http://localhost:8080/`+url, dryRun)
+		if err != nil {
+			return "", err
+		}
+		sb.WriteString("============== " + url + " ==============\n\n")
+		sb.WriteString(out)
+		sb.WriteString("\n")
+	}
+	return sb.String(), nil
 }
 
 // GetCoredumps returns coredumps for the given namespace/pod/container.
