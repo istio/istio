@@ -64,6 +64,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
+	defer queue.ShutDown()
 
 	proxies := createProxies(5)
 
@@ -113,6 +114,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
+	defer queue.ShutDown()
 
 	proxies := createProxies(5)
 
