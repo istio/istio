@@ -57,7 +57,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
 	opts := buildClusterOpts{
-		push:        cb.push,
+		mesh:        cb.push.Mesh,
 		cluster:     c,
 		policy:      destinationRule.TrafficPolicy,
 		port:        port,
@@ -217,7 +217,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
-		push:            cb.push,
+		mesh:            cb.push.Mesh,
 		cluster:         c,
 		policy:          cb.defaultTrafficPolicy(discoveryType),
 		port:            port,
@@ -353,7 +353,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
-	applyConnectionPool(cb.push, cluster, passthroughSettings)
+	applyConnectionPool(cb.push.Mesh, cluster, passthroughSettings)
 	return cluster
 }
 
