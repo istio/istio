@@ -266,18 +266,18 @@ func TestProxyQueue(t *testing.T) {
 		mu := sync.RWMutex{}
 		go func() {
 			for {
-				con, info, _ := p.Dequeue()
-				if con != nil && info != nil {
-
-					for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, gvk.ServiceEntry) {
-						mu.Lock()
-						delete(expected, key(con, eds))
-						mu.Unlock()
-					}
-					p.MarkDone(con)
-					if len(expected) == 0 {
-						done <- struct{}{}
-					}
+				con, info, shuttingdown := p.Dequeue()
+				if shuttingdown {
+					return
+				}
+				for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, gvk.ServiceEntry) {
+					mu.Lock()
+					delete(expected, key(con, eds))
+					mu.Unlock()
+				}
+				p.MarkDone(con)
+				if len(expected) == 0 {
+					done <- struct{}{}
 				}
 			}
 		}()
