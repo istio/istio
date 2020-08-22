@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"istio.io/istio/tools/bug-report/pkg/config"
-	"istio.io/istio/tools/bug-report/util/match"
+	"istio.io/istio/tools/bug-report/pkg/util/match"
 )
 
 const (

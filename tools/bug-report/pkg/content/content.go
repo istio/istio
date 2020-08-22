@@ -24,6 +24,12 @@ const (
 	coredumpDir = "/var/lib/istio"
 )
 
+func GetK8sResources(dryRun bool) (string, error) {
+	return kubectlcmd.RunCmd("get --all-namespaces "+
+		"all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events "+
+		"-o yaml", "", dryRun)
+}
+
 func GetCoredumps(namespace, pod, container string, dryRun bool) ([]string, error) {
 	cds, err := getCoredumpList(namespace, pod, container, dryRun)
 	if err != nil {

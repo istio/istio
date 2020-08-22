@@ -48,44 +48,51 @@ type Options struct {
 	ExtraArgs []string
 }
 
+// Logs returns the logs for the given namespace/pod/container.
 func Logs(namespace, pod, container string, previous, dryRun bool) (string, error) {
 	cmdStr := []string{"logs"}
 	if previous {
 		cmdStr = append(cmdStr, "-p")
 	}
-	stdout, stderr, err := Run(cmdStr,
+	stdout, err := Run(cmdStr,
 		&Options{
 			Namespace: namespace,
 			ExtraArgs: []string{pod, "-c", container},
 			DryRun:    dryRun,
 		})
 	if err != nil {
-		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s\n\n", err, stderr, stdout)
+		return "", err
 	}
 	return stdout, nil
 }
 
+// Exec runs exec for the given command in the given namespace/pod/container.
 func Exec(namespace, pod, container, command string, dryRun bool) (string, error) {
 	cmdStr := []string{"exec"}
-
-	stdout, stderr, err := Run(cmdStr,
+	return Run(cmdStr,
 		&Options{
 			Namespace: namespace,
-			ExtraArgs: []string{pod, "-c", container, "--"},
+			ExtraArgs: []string{pod, "-c", container, "--", command},
 			DryRun:    dryRun,
 		})
-	if err != nil {
-		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s\n\n", err, stderr, stdout)
-	}
-	return stdout, nil
 }
 
+// Cat runs the cat command for the given path in the given namespace/pod/container.
 func Cat(namespace, pod, container, path string, dryRun bool) (string, error) {
 	return Exec(namespace, pod, container, `cat `+path, dryRun)
 }
 
+// RunCmd runs the given command in kubectl, adding -n namespace if namespace is not empty.
+func RunCmd(command, namespace string, dryRun bool) (string, error) {
+	return Run(strings.Split(command, " "),
+		&Options{
+			Namespace: namespace,
+			DryRun:    dryRun,
+		})
+}
+
 // Run runs the kubectl command by specifying subcommands in subcmds with opts.
-func Run(subcmds []string, opts *Options) (string, string, error) {
+func Run(subcmds []string, opts *Options) (string, error) {
 	args := subcmds
 	if opts.Kubeconfig != "" {
 		args = append(args, "--kubeconfig", opts.Kubeconfig)
@@ -110,16 +117,14 @@ func Run(subcmds []string, opts *Options) (string, string, error) {
 
 	if opts.DryRun {
 		log.Infof("dry run mode: would be running this cmd:\nkubectl %s\n", cmdStr)
-		return "", "", nil
+		return "", nil
 	}
 
 	log.Infof("running command: %s", cmdStr)
-	err := cmd.Run()
-	csError := util.ConsolidateLog(stderr.String())
-
-	if err != nil {
-		return stdout.String(), csError, fmt.Errorf("error running Run: %s", err)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s\n\n",
+			err, util.ConsolidateLog(stderr.String()), stdout.String())
 	}
 
-	return stdout.String(), csError, nil
+	return stdout.String(), nil
 }

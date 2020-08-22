@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/config"
-	"istio.io/istio/tools/bug-report/util/match"
+	"istio.io/istio/tools/bug-report/pkg/util/match"
 )
 
 // GetMatchingPaths returns a slice of matching paths, given a cluster tree and config.
