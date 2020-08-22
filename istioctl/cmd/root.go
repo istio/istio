@@ -122,7 +122,7 @@ func ConfigAndEnvProcessing() error {
 func init() {
 	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	viper.SetDefault("xds-port", 15012)
-	viper.SetDefault("jwt-file", clioptions.DefaultIstioctlJwtFile())
+	viper.SetDefault("token-file", clioptions.DefaultIstioctlTokenFile)
 }
 
 // GetRootCmd returns the root of the cobra command-tree.

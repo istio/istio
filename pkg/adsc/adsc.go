@@ -42,7 +42,6 @@ import (
 	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
 
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
@@ -56,12 +55,6 @@ import (
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
 )
-
-// TokenReader gets a bearer token
-type TokenReader interface {
-	// Token gets a bearer token
-	Token() (string, error)
-}
 
 // Config for the ADS connection.
 type Config struct {
@@ -94,9 +87,6 @@ type Config struct {
 	// For getting the certificate, using same code as SDS server.
 	// Either the JWTPath or the certs must be present.
 	JWTPath string
-
-	// Token supplies bearer token
-	Token TokenReader
 
 	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
 	XDSSAN string
@@ -396,13 +386,8 @@ func (a *ADSC) Run() error {
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else if a.cfg.Token != nil {
-		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(
-			&tls.Config{
-				InsecureSkipVerify: a.cfg.InsecureSkipVerify,
-				ServerName:         a.cfg.XDSSAN,
-			})))
-	} else {
+	} else if len(opts) == 0 {
+		// Only disable transport security if the user didn't supply custom dial options
 		opts = append(opts, grpc.WithInsecure())
 	}
 	a.conn, err = grpc.Dial(a.url, opts...)
@@ -410,17 +395,7 @@ func (a *ADSC) Run() error {
 		return err
 	}
 	xds := discovery.NewAggregatedDiscoveryServiceClient(a.conn)
-	ctx := context.Background()
-
-	if a.cfg.Token != nil {
-		token, err := a.cfg.Token.Token()
-		if err != nil {
-			return err
-		}
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("Authorization", fmt.Sprintf("Bearer %s", token)))
-	}
-
-	edsstr, err := xds.StreamAggregatedResources(ctx)
+	edsstr, err := xds.StreamAggregatedResources(context.Background())
 	if err != nil {
 		return err
 	}

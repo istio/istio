@@ -16,6 +16,7 @@ package clioptions
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
@@ -50,9 +51,14 @@ type CentralControlPlaneOptions struct {
 	// Plaintext forces plain text communication (for talking to port 15010)
 	Plaintext bool
 
-	// JWTFile is a file to use to hold JWT tokens so we don't need to recreate them
-	JWTFile string
+	// TokenFile is a file to use to hold JWT tokens so we don't need to recreate them
+	TokenFile string
 }
+
+const (
+	// DefaultIstioctlTokenFile is where istioctl caches Istio bearer tokens if the --token-file arg is not used
+	DefaultIstioctlTokenFile = "$HOME/.istioctl/istioctl-token.json"
+)
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
 // (Currently just --endpoint)
@@ -74,8 +80,8 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 		"Skip server certificate and domain verification. (NOT SECURE!)")
 	cmd.PersistentFlags().BoolVar(&o.Plaintext, "plaintext", viper.GetBool("PLAINTEXT"),
 		"Use plain-text HTTP/2 when connecting to server (no TLS).")
-	cmd.PersistentFlags().StringVar(&o.JWTFile, "jwt-file", viper.GetString("JWT-FILE"),
-		"XDS Endpoint JWT (requires Kubernetes)")
+	cmd.PersistentFlags().StringVar(&o.TokenFile, "token-file", expandFile(viper.GetString("TOKEN-FILE")),
+		"JSON file containing XDS Endpoint bearer token (requires Kubernetes)")
 }
 
 // ValidateControlPlaneFlags checks arguments for valid values and combinations
@@ -89,9 +95,12 @@ func (o *CentralControlPlaneOptions) ValidateControlPlaneFlags() error {
 	return nil
 }
 
-// DefaultIstioctlJwtFile returns the default filename for Istio XDS access token caching
-func DefaultIstioctlJwtFile() string {
+// expandFile returns a filename, with $HOME and ~ expanded to the user's home directory
+func expandFile(fname string) string {
+	if strings.HasPrefix(fname, "$HOME/") {
+		fname = "~" + fname[5:]
+	}
 	// Ignore errors; if the user has no home dir the default can be ""
-	fname, _ := homedir.Expand("~/.istioctl/istioctl.jwt")
-	return fname
+	expandedName, _ := homedir.Expand(fname)
+	return expandedName
 }

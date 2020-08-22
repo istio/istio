@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/grpc"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
@@ -27,14 +28,14 @@ import (
 )
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
-func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControlPlaneOptions, token adsc.TokenReader) (*xdsapi.DiscoveryResponse, error) {
+func GetXdsResponse(dr *xdsapi.DiscoveryRequest, opts *clioptions.CentralControlPlaneOptions, grpcOpts []grpc.DialOption) (*xdsapi.DiscoveryResponse, error) {
 	adscConn, err := adsc.Dial(opts.Xds, opts.CertDir, &adsc.Config{
 		Meta: model.NodeMetadata{
 			Generator: "event",
 		}.ToStruct(),
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		XDSSAN:             opts.XDSSAN,
-		Token:              token,
+		GrpcOpts:           grpcOpts,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not dial: %w", err)

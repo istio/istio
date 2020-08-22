@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/pkg/env"
 )
@@ -37,6 +38,7 @@ var (
 		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "The istioctl --cert-dir override"),
 		"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "The istioctl --insecure override"),
 		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "The istioctl should use experimental subcommand variants"),
+		"token-file":          env.RegisterStringVar("ISTIOCTL_TOKEN_FILE", clioptions.DefaultIstioctlTokenFile, "The istioctl --token-file override"),
 		"plaintext":           env.RegisterBoolVar("ISTIOCTL_PLAINTEXT", false, "The istioctl --plaintext override"),
 	}
 )
