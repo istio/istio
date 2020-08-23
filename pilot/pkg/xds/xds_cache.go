@@ -24,48 +24,59 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 )
 
-type CacheKey interface {
+// CacheEntry interface defines functions that should be implemented by
+// resources that can be cached.
+type CacheEntry interface {
+	// Key is the key to be used in cache.
 	Key() string
+	// DependentConfigs is config items that this cache key is dependent on.
+	// Whenever these configs change, we should invalidate this cache entry.
 	DependentConfigs() []model.ConfigKey
+	// Cacheable indicates whether this entry is valid for cache. For example
+	// for EDS to be cacheable, the Endpoint should have corresponding service.
 	Cacheable() bool
 }
 
-// Cache interface defines a store for caching XDS responses
-// Note this is currently only for EDS, and will need some modifications to support other types
-// All operations are thread safe
+// Cache interface defines a store for caching XDS responses.
+// All operations are thread safe.
 type Cache interface {
-	Add(key CacheKey, value *any.Any)
-	Get(key CacheKey) (*any.Any, bool)
+	// Add adds the given CacheEntry with the value to the cache.
+	Add(entry CacheEntry, value *any.Any)
+	// Get retrieves the cached value if it exists. The boolean indicates
+	// whether the entry exists in the cache.
+	Get(entry CacheEntry) (*any.Any, bool)
+	// Clear removes the cache entries that are dependent on the configs passed.
 	Clear(map[model.ConfigKey]struct{})
+	// ClearAll clears the entire cache.
 	ClearAll()
 	// Keys returns all currently configured keys. This is for testing/debug only
 	Keys() []string
 }
 
+// inMemoryCache is a simple implementation of Cache that uses in memory map.
 type inMemoryCache struct {
 	store       map[string]*any.Any
 	configIndex map[model.ConfigKey]sets.Set
 	mu          sync.RWMutex
 }
 
-var _ Cache = &inMemoryCache{}
-
-func NewInMemoryCache() Cache {
+// New returns an instance of a cache.
+func New() Cache {
 	return &inMemoryCache{
 		store:       map[string]*any.Any{},
 		configIndex: map[model.ConfigKey]sets.Set{},
 	}
 }
 
-func (c *inMemoryCache) Add(key CacheKey, value *any.Any) {
-	if !key.Cacheable() {
+func (c *inMemoryCache) Add(entry CacheEntry, value *any.Any) {
+	if !entry.Cacheable() {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	k := key.Key()
+	k := entry.Key()
 	c.store[k] = value
-	for _, config := range key.DependentConfigs() {
+	for _, config := range entry.DependentConfigs() {
 		if c.configIndex[config] == nil {
 			c.configIndex[config] = sets.NewSet()
 		}
@@ -73,13 +84,13 @@ func (c *inMemoryCache) Add(key CacheKey, value *any.Any) {
 	}
 }
 
-func (c *inMemoryCache) Get(key CacheKey) (*any.Any, bool) {
-	if !key.Cacheable() {
+func (c *inMemoryCache) Get(entry CacheEntry) (*any.Any, bool) {
+	if !entry.Cacheable() {
 		return nil, false
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	k, f := c.store[key.Key()]
+	k, f := c.store[entry.Key()]
 	return k, f
 }
 
@@ -118,9 +129,9 @@ type DisabledCache struct{}
 
 var _ Cache = &DisabledCache{}
 
-func (d DisabledCache) Add(key CacheKey, value *any.Any) {}
+func (d DisabledCache) Add(key CacheEntry, value *any.Any) {}
 
-func (d DisabledCache) Get(CacheKey) (*any.Any, bool) {
+func (d DisabledCache) Get(CacheEntry) (*any.Any, bool) {
 	return nil, false
 }
 
