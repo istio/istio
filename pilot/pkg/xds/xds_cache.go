@@ -21,91 +21,84 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/istio/pkg/config/host"
 )
 
-// Cache interface defines a store for caching XDS responses
-// Note this is currently only for EDS, and will need some modifications to support other types
-// All operations are thread safe
+// CacheEntry interface defines functions that should be implemented by
+// resources that can be cached.
+type CacheEntry interface {
+	// Key is the key to be used in cache.
+	Key() string
+	// DependentConfigs is config items that this cache key is dependent on.
+	// Whenever these configs change, we should invalidate this cache entry.
+	DependentConfigs() []model.ConfigKey
+	// Cacheable indicates whether this entry is valid for cache. For example
+	// for EDS to be cacheable, the Endpoint should have corresponding service.
+	Cacheable() bool
+}
+
+// Cache interface defines a store for caching XDS responses.
+// All operations are thread safe.
 type Cache interface {
-	Insert(key EndpointBuilder, value *any.Any)
-	Get(key EndpointBuilder) (*any.Any, bool)
-	ClearDestinationRules(map[model.ConfigKey]struct{})
-	ClearHostnames(map[model.ConfigKey]struct{})
+	// Add adds the given CacheEntry with the value to the cache.
+	Add(entry CacheEntry, value *any.Any)
+	// Get retrieves the cached value if it exists. The boolean indicates
+	// whether the entry exists in the cache.
+	Get(entry CacheEntry) (*any.Any, bool)
+	// Clear removes the cache entries that are dependent on the configs passed.
+	Clear(map[model.ConfigKey]struct{})
+	// ClearAll clears the entire cache.
 	ClearAll()
 	// Keys returns all currently configured keys. This is for testing/debug only
 	Keys() []string
 }
 
+// inMemoryCache is a simple implementation of Cache that uses in memory map.
 type inMemoryCache struct {
-	store                map[string]*any.Any
-	hostIndex            map[host.Name]sets.Set
-	destinationRuleIndex map[string]sets.Set
-	mu                   sync.RWMutex
+	store       map[string]*any.Any
+	configIndex map[model.ConfigKey]sets.Set
+	mu          sync.RWMutex
 }
 
-var _ Cache = &inMemoryCache{}
-
-func NewInMemoryCache() Cache {
+// New returns an instance of a cache.
+func New() Cache {
 	return &inMemoryCache{
-		store:                map[string]*any.Any{},
-		hostIndex:            map[host.Name]sets.Set{},
-		destinationRuleIndex: map[string]sets.Set{},
+		store:       map[string]*any.Any{},
+		configIndex: map[model.ConfigKey]sets.Set{},
 	}
 }
 
-func (c *inMemoryCache) Insert(key EndpointBuilder, value *any.Any) {
-	// If service is not defined, we cannot do any caching as we will not have a way to invalidate the results
-	// Service being nil means the EDS will be empty anyways, so not much lost here
-	if key.service == nil {
+func (c *inMemoryCache) Add(entry CacheEntry, value *any.Any) {
+	if !entry.Cacheable() {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	k := key.Key()
+	k := entry.Key()
 	c.store[k] = value
-	if c.hostIndex[key.service.Hostname] == nil {
-		c.hostIndex[key.service.Hostname] = sets.NewSet()
-	}
-	c.hostIndex[key.service.Hostname].Insert(k)
-	if dr := key.destinationRule; dr != nil {
-		dkey := dr.Name + "/" + dr.Namespace
-		if c.destinationRuleIndex[dkey] == nil {
-			c.destinationRuleIndex[dkey] = sets.NewSet()
+	for _, config := range entry.DependentConfigs() {
+		if c.configIndex[config] == nil {
+			c.configIndex[config] = sets.NewSet()
 		}
-		c.destinationRuleIndex[dkey].Insert(k)
+		c.configIndex[config].Insert(k)
 	}
 }
 
-func (c *inMemoryCache) Get(key EndpointBuilder) (*any.Any, bool) {
-	if key.service == nil {
+func (c *inMemoryCache) Get(entry CacheEntry) (*any.Any, bool) {
+	if !entry.Cacheable() {
 		return nil, false
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	k, f := c.store[key.Key()]
+	k, f := c.store[entry.Key()]
 	return k, f
 }
 
-func (c *inMemoryCache) ClearHostnames(hostsUpdated map[model.ConfigKey]struct{}) {
+func (c *inMemoryCache) Clear(configs map[model.ConfigKey]struct{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for h := range hostsUpdated {
-		referenced := c.hostIndex[host.Name(h.Name)]
-		delete(c.hostIndex, host.Name(h.Name))
-		for keys := range referenced {
-			delete(c.store, keys)
-		}
-	}
-}
-
-func (c *inMemoryCache) ClearDestinationRules(destinationRulesUpdate map[model.ConfigKey]struct{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for d := range destinationRulesUpdate {
-		key := d.Name + "/" + d.Namespace
-		referenced := c.destinationRuleIndex[key]
-		delete(c.destinationRuleIndex, key)
+	for ckey := range configs {
+		referenced := c.configIndex[ckey]
+		delete(c.configIndex, ckey)
 		for keys := range referenced {
 			delete(c.store, keys)
 		}
@@ -116,8 +109,7 @@ func (c *inMemoryCache) ClearAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.store = map[string]*any.Any{}
-	c.hostIndex = map[host.Name]sets.Set{}
-	c.destinationRuleIndex = map[string]sets.Set{}
+	c.configIndex = map[model.ConfigKey]sets.Set{}
 }
 
 func (c *inMemoryCache) Keys() []string {
@@ -135,15 +127,13 @@ type DisabledCache struct{}
 
 var _ Cache = &DisabledCache{}
 
-func (d DisabledCache) Insert(EndpointBuilder, *any.Any) {}
+func (d DisabledCache) Add(key CacheEntry, value *any.Any) {}
 
-func (d DisabledCache) Get(EndpointBuilder) (*any.Any, bool) {
+func (d DisabledCache) Get(CacheEntry) (*any.Any, bool) {
 	return nil, false
 }
 
-func (d DisabledCache) ClearDestinationRules(map[model.ConfigKey]struct{}) {}
-
-func (d DisabledCache) ClearHostnames(map[model.ConfigKey]struct{}) {}
+func (d DisabledCache) Clear(configsUpdated map[model.ConfigKey]struct{}) {}
 
 func (d DisabledCache) ClearAll() {}
 

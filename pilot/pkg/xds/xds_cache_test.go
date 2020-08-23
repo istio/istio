@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 var (
@@ -38,28 +39,28 @@ func TestInMemoryCache(t *testing.T) {
 		service:     &model.Service{Hostname: "foo.com"},
 	}
 	t.Run("simple", func(t *testing.T) {
-		c := NewInMemoryCache()
-		c.Insert(ep1, any1)
+		c := New()
+		c.Add(ep1, any1)
 		if !reflect.DeepEqual(c.Keys(), []string{ep1.Key()}) {
 			t.Fatalf("unexpected keys: %v, want %v", c.Keys(), ep1.Key())
 		}
 		if got, _ := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
-		c.Insert(ep1, any2)
+		c.Add(ep1, any2)
 		if got, _ := c.Get(ep1); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearHostnames(map[model.ConfigKey]struct{}{{Name: "foo.com"}: {}})
+		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "foo.com"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 	})
 
 	t.Run("multiple hostnames", func(t *testing.T) {
-		c := NewInMemoryCache()
-		c.Insert(ep1, any1)
-		c.Insert(ep2, any2)
+		c := New()
+		c.Add(ep1, any1)
+		c.Add(ep2, any2)
 
 		if got, _ := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
@@ -67,7 +68,7 @@ func TestInMemoryCache(t *testing.T) {
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearHostnames(map[model.ConfigKey]struct{}{{Name: "foo.com"}: {}})
+		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.ServiceEntry, Name: "foo.com"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
@@ -77,13 +78,13 @@ func TestInMemoryCache(t *testing.T) {
 	})
 
 	t.Run("multiple destinationRules", func(t *testing.T) {
-		c := NewInMemoryCache()
+		c := New()
 		ep1 := ep1
 		ep1.destinationRule = &model.Config{ConfigMeta: model.ConfigMeta{Name: "a", Namespace: "b"}}
 		ep2 := ep2
 		ep2.destinationRule = &model.Config{ConfigMeta: model.ConfigMeta{Name: "b", Namespace: "b"}}
-		c.Insert(ep1, any1)
-		c.Insert(ep2, any2)
+		c.Add(ep1, any1)
+		c.Add(ep2, any2)
 
 		if got, _ := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
@@ -91,14 +92,14 @@ func TestInMemoryCache(t *testing.T) {
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearDestinationRules(map[model.ConfigKey]struct{}{{Name: "a", Namespace: "b"}: {}})
+		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "a", Namespace: "b"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
 		if got, _ := c.Get(ep2); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
-		c.ClearDestinationRules(map[model.ConfigKey]struct{}{{Name: "b", Namespace: "b"}: {}})
+		c.Clear(map[model.ConfigKey]struct{}{{Kind: gvk.DestinationRule, Name: "b", Namespace: "b"}: {}})
 		if _, f := c.Get(ep1); f {
 			t.Fatalf("unexpected result, found key when not expected: %v", c.Keys())
 		}
@@ -108,9 +109,9 @@ func TestInMemoryCache(t *testing.T) {
 	})
 
 	t.Run("clear all", func(t *testing.T) {
-		c := NewInMemoryCache()
-		c.Insert(ep1, any1)
-		c.Insert(ep2, any2)
+		c := New()
+		c.Add(ep1, any1)
+		c.Add(ep2, any2)
 
 		c.ClearAll()
 		if len(c.Keys()) != 0 {
