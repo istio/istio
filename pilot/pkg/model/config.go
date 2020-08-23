@@ -419,6 +419,14 @@ func (store *istioConfigStore) AuthorizationPolicies(namespace string) []Config 
 func (c Config) DeepCopy() Config {
 	var clone Config
 	clone.ConfigMeta = c.ConfigMeta
+	clone.Labels = make(map[string]string)
+	clone.Annotations = make(map[string]string)
+	for k, v := range c.Labels {
+		clone.Labels[k] = v
+	}
+	for k, v := range c.Annotations {
+		clone.Annotations[k] = v
+	}
 	clone.Spec = proto.Clone(c.Spec)
 	return clone
 }
