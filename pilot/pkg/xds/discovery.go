@@ -176,7 +176,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	out.initGenerators()
 
 	if features.EnableEDSCaching {
-		out.cache = NewInMemoryCache()
+		out.cache = New()
 	}
 
 	return out
