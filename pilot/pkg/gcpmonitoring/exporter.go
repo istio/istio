@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
-	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -43,10 +42,7 @@ var (
 	trustDomain  = ""
 	podName      = ""
 	podNamespace = ""
-
-	// env vars that are used to set labels/monitored resource of control plane metrics, which are added by ASM profile.
-	// `ASM_CONTROL_PLANE` prefix is added to avoid collision with env var from OSS code base.
-	meshIDVar = env.RegisterStringVar("ASM_CONTROL_PLANE_MESH_ID", "", "mesh id, specified by GCP installation profile.")
+	meshUID      = ""
 )
 
 // ASMExporter is a stats exporter used for ASM control plane metrics.
@@ -72,6 +68,11 @@ func SetPodNamespace(pn string) {
 	podNamespace = pn
 }
 
+// SetMeshUID sets UID of the mesh that this control plane runs in.
+func SetMeshUID(uid string) {
+	meshUID = uid
+}
+
 // NewASMExporter creates an ASM opencensus exporter.
 func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 	if !enableSDVar.Get() {
@@ -81,7 +82,7 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 		}, nil
 	}
 	labels := &stackdriver.Labels{}
-	labels.Set("mesh_uid", meshIDVar.Get(), "ID for Mesh")
+	labels.Set("mesh_uid", meshUID, "ID for Mesh")
 	labels.Set("revision", version.Info.Version, "Control plane revision")
 	gcpMetadata := platform.NewGCP().Metadata()
 	clientOptions := []option.ClientOption{}

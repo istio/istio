@@ -30,8 +30,9 @@ import (
 )
 
 var (
-	successTestTag = tag.MustNewKey("success")
-	typeTestTag    = tag.MustNewKey("type")
+	successTestTag  = tag.MustNewKey("success")
+	typeTestTag     = tag.MustNewKey("type")
+	proxyVersionTag = tag.MustNewKey("proxy_version")
 )
 
 func TestGCPMonitoringPilotXDSMetrics(t *testing.T) {
@@ -80,8 +81,8 @@ func TestGCPMonitoringPilotXDSMetrics(t *testing.T) {
 		{"rdsReject", rdsReject, true, 0, "rejected_config_count", &view.Row{
 			Tags: []tag.Tag{{Key: typeTestTag, Value: "RDS"}}, Data: &view.SumData{1.0}}},
 
-		{"xdsClients", xdsClients, false, 10, "proxy_clients", &view.Row{
-			Tags: []tag.Tag{}, Data: &view.LastValueData{Value: 10.0}}},
+		{"xdsClients", xdsClients.With(versionTag.Value("test-version")), false, 10, "proxy_clients", &view.Row{
+			Tags: []tag.Tag{{Key: proxyVersionTag, Value: "test-version"}}, Data: &view.LastValueData{Value: 10.0}}},
 
 		{"proxiesConvergeDelay", proxiesConvergeDelay, false, 0.4, "config_convergence_latencies", &view.Row{
 			Tags: []tag.Tag{},

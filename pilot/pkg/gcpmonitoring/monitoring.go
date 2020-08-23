@@ -24,9 +24,10 @@ import (
 )
 
 var (
-	operationKey = tag.MustNewKey("operation")
-	successKey   = tag.MustNewKey("success")
-	typeKey      = tag.MustNewKey("type")
+	operationKey    = tag.MustNewKey("operation")
+	successKey      = tag.MustNewKey("success")
+	proxyVersionKey = tag.MustNewKey("proxy_version")
+	typeKey         = tag.MustNewKey("type")
 
 	enableSDVar = env.RegisterBoolVar("ENABLE_STACKDRIVER_MONITORING", false,
 		"controls whether to enable control plane stackdriver monitoring, specifiec by GCP profile")
@@ -83,6 +84,7 @@ var (
 		Measure:     proxyClientsMeasure,
 		Description: "Number of proxies connected to this instance",
 		Aggregation: view.LastValue(),
+		TagKeys:     []tag.Key{proxyVersionKey},
 	}
 	sidecarInjectionView = &view.View{
 		Name:        "sidecar_injection_count",

@@ -29,6 +29,7 @@ var (
 	typeHookTag     = tag.MustNewKey("type")
 	eventHookTag    = tag.MustNewKey("event")
 	resourceHookTag = tag.MustNewKey("resource")
+	versionHookTag  = tag.MustNewKey("version")
 
 	pilotK8sCfgEvents            = "pilot_k8s_cfg_events"
 	pilotK8sRegEvents            = "pilot_k8s_reg_events"
@@ -177,8 +178,20 @@ func onPilotConfigConvergence(_ *stats.Float64Measure, _ []tag.Mutator, value fl
 	stats.Record(context.Background(), configConvergenceMeasuare.M(value))
 }
 
-func onPilotXDS(_ *stats.Float64Measure, _ []tag.Mutator, value float64) {
-	stats.Record(context.Background(), proxyClientsMeasure.M(int64(value)))
+func onPilotXDS(_ *stats.Float64Measure, tags []tag.Mutator, value float64) {
+	tm := getOriginalTagMap(tags)
+	if tm == nil {
+		return
+	}
+	res, found := tm.Value(versionHookTag)
+	if !found {
+		return
+	}
+	ctx, err := tag.New(context.Background(), tag.Insert(proxyVersionKey, res))
+	if err != nil {
+		return
+	}
+	stats.Record(ctx, proxyClientsMeasure.M(int64(value)))
 }
 
 func onSidecarInjection(f *stats.Float64Measure, _ []tag.Mutator, value float64) {
