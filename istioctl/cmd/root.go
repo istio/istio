@@ -26,7 +26,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/multicluster"
 	"istio.io/istio/istioctl/pkg/validate"
@@ -122,7 +121,6 @@ func ConfigAndEnvProcessing() error {
 func init() {
 	viper.SetDefault("istioNamespace", controller.IstioNamespace)
 	viper.SetDefault("xds-port", 15012)
-	viper.SetDefault("token-file", clioptions.DefaultIstioctlTokenFile)
 }
 
 // GetRootCmd returns the root of the cobra command-tree.

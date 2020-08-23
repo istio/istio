@@ -164,7 +164,7 @@ func xdsRemoteVersionWrapper(opts *clioptions.ControlPlaneOptions, centralOpts *
 		if err != nil {
 			return nil, err
 		}
-		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, kubeClient, os.Stderr)
+		xdsResponse, err := multixds.RequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace, kubeClient)
 		if err != nil {
 			return nil, err
 		}

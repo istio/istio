@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -35,11 +34,11 @@ import (
 // Deprecated This method makes multiple responses appear to come from a single control plane;
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
 // nolint: lll
-func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient, userWriter io.Writer) (*xdsapi.DiscoveryResponse, error) {
+func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (*xdsapi.DiscoveryResponse, error) {
 
 	// If Central Istiod case, just call it
 	if centralOpts.Xds != "" {
-		dialOpts, err := xds.DialOptions(centralOpts, kubeClient, userWriter)
+		dialOpts, err := xds.DialOptions(centralOpts, kubeClient)
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +46,7 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 	}
 
 	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
-	responses, err := queryEachShard(true, dr, istioNamespace, kubeClient, centralOpts, userWriter)
+	responses, err := queryEachShard(true, dr, istioNamespace, kubeClient, centralOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +54,7 @@ func RequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.C
 }
 
 // nolint: lll
-func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts *clioptions.CentralControlPlaneOptions, userWriter io.Writer) ([]*xdsapi.DiscoveryResponse, error) {
+func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string, kubeClient kube.ExtendedClient, centralOpts *clioptions.CentralControlPlaneOptions) ([]*xdsapi.DiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "app=istiod"
@@ -72,6 +71,15 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 	}
 
 	responses := []*xdsapi.DiscoveryResponse{}
+	xdsOpts := clioptions.CentralControlPlaneOptions{
+		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
+		CertDir: centralOpts.CertDir,
+		Timeout: centralOpts.Timeout,
+	}
+	dialOpts, err := xds.DialOptions(&xdsOpts, kubeClient)
+	if err != nil {
+		return nil, err
+	}
 	for _, pod := range pods {
 		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, centralOpts.XdsPodPort)
 		if err != nil {
@@ -82,16 +90,7 @@ func queryEachShard(all bool, dr *xdsapi.DiscoveryRequest, istioNamespace string
 			return nil, err
 		}
 		defer fw.Close()
-		xdsOpts := clioptions.CentralControlPlaneOptions{
-			Xds:     fw.Address(),
-			XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
-			CertDir: centralOpts.CertDir,
-			Timeout: centralOpts.Timeout,
-		}
-		dialOpts, err := xds.DialOptions(&xdsOpts, kubeClient, userWriter)
-		if err != nil {
-			return nil, err
-		}
+		xdsOpts.Xds = fw.Address()
 		response, err := xds.GetXdsResponse(dr, &xdsOpts, dialOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
@@ -130,23 +129,23 @@ func makeSan(istioNamespace, revision string) string {
 
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // nolint: lll
-func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient, userWriter io.Writer) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return multiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, kubeClient, userWriter)
+func AllRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	return multiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, kubeClient)
 }
 
 // FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
 // stopping after the first response that returns any resources.
 // nolint: lll
-func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient, userWriter io.Writer) (map[string]*xdsapi.DiscoveryResponse, error) {
-	return multiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, kubeClient, userWriter)
+func FirstRequestAndProcessXds(dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
+	return multiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, kubeClient)
 }
 
 // nolint: lll
-func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient, userWriter io.Writer) (map[string]*xdsapi.DiscoveryResponse, error) {
+func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpts *clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.ExtendedClient) (map[string]*xdsapi.DiscoveryResponse, error) {
 
 	// If Central Istiod case, just call it
 	if centralOpts.Xds != "" {
-		dialOpts, err := xds.DialOptions(centralOpts, kubeClient, userWriter)
+		dialOpts, err := xds.DialOptions(centralOpts, kubeClient)
 		if err != nil {
 			return nil, err
 		}
@@ -160,7 +159,7 @@ func multiRequestAndProcessXds(all bool, dr *xdsapi.DiscoveryRequest, centralOpt
 	}
 
 	// Self-administered case.  Find all Istiods in revision using K8s, port-forward and call each in turn
-	responses, err := queryEachShard(all, dr, istioNamespace, kubeClient, centralOpts, userWriter)
+	responses, err := queryEachShard(all, dr, istioNamespace, kubeClient, centralOpts)
 	if err != nil {
 		return nil, err
 	}

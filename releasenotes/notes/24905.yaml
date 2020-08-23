@@ -7,7 +7,4 @@ issue:
 releaseNotes:
 - |
   **Added** `istioctl experimental version` and `proxy-status` now use token security.
-  If a token is needed, istioctl will create one with a one-hour lifetime and save
-  it to $HOME/.istioctl/istioctl-token.json.
   A new option, `--plaintext`, has been created for testing without tokens.
-  A new option, `--token-file`, has been created to override the token storage location.
