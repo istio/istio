@@ -706,8 +706,7 @@ func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 		s.cache.ClearAll()
 	} else {
 		// Otherwise, just clear the updated configs
-		s.cache.ClearHostnames(model.ConfigsOfKind(req.ConfigsUpdated, gvk.ServiceEntry))
-		s.cache.ClearDestinationRules(model.ConfigsOfKind(req.ConfigsUpdated, gvk.DestinationRule))
+		s.cache.Clear(req.ConfigsUpdated)
 	}
 	if !req.Full {
 		adsLog.Infof("XDS:EDSInc Pushing:%s Services:%v ConnectedEndpoints:%d",
