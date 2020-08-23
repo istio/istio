@@ -15,7 +15,6 @@
 package xds
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/any"
@@ -97,7 +96,6 @@ func (c *inMemoryCache) Get(entry CacheEntry) (*any.Any, bool) {
 func (c *inMemoryCache) Clear(configs map[model.ConfigKey]struct{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	fmt.Println(configs)
 	for ckey := range configs {
 		referenced := c.configIndex[ckey]
 		delete(c.configIndex, ckey)
