@@ -129,13 +129,15 @@ type Server struct {
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
 
-	// monitoringMux listens on monitoringAddr(:15014). Currently runs prometheus monitoring and debug.
-	monitoringMux *http.ServeMux // debug, monitoring
+	// monitoringMux listens on monitoringAddr(:15014).
+	// Currently runs prometheus monitoring and debug (if enabled).
+	monitoringMux *http.ServeMux
 
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
 	// the rest of the features if their port is empty.
-	httpMux *http.ServeMux // readiness.
+	// Currently runs readiness and debug (if enabled)
+	httpMux *http.ServeMux
 
 	// httpsMux listens on the httpsAddr(15017), handling webhooks
 	// If the address os empty, the webhooks will be set on the default httpPort.
@@ -484,14 +486,23 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		return err
 	}
 
-	if args.ServerOptions.MonitoringAddr == "" {
+	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
+
+	if shouldMultiplex {
 		s.monitoringMux = s.httpMux
 		log.Infoa("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
 	} else {
 		log.Info("initializing Istiod admin server")
 	}
+
 	// Debug Server.
 	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+
+	// Debug handlers are currently added on monitoring mux and readiness mux.
+	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
+	if !shouldMultiplex {
+		s.XDSServer.AddDebugHandlers(s.httpMux, args.ServerOptions.EnableProfiling, wh)
+	}
 
 	// Monitoring Server.
 	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
