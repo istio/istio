@@ -159,7 +159,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 
 	err := con.send(resp)
 	if err != nil {
-		recordSendError("ADS", con.ConID, apiSendErrPushes, err)
+		recordSendError(w.TypeUrl, con.ConID, err)
 		return err
 	}
 	adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl))

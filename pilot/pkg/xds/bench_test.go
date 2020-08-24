@@ -118,15 +118,14 @@ func BenchmarkRouteGeneration(b *testing.B) {
 				b.Fatal("Got no route names!")
 			}
 			b.ResetTimer()
-			var response *discovery.DiscoveryResponse
+			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext(), routeNames)
-				if len(r) == 0 {
+				c := s.Discovery.Generators[v32.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
+				if len(c) == 0 {
 					b.Fatal("Got no routes!")
 				}
-				response = routeDiscoveryResponse(r, "", "")
 			}
-			logDebug(b, response.GetResources())
+			logDebug(b, c)
 		})
 	}
 }

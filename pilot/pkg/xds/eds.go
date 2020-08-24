@@ -377,7 +377,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 	response := endpointDiscoveryResponse(resources, version, push.Version)
 	err := con.send(response)
 	if err != nil {
-		recordSendError("EDS", con.ConID, edsSendErrPushes, err)
+		recordSendError(v3.EndpointType, con.ConID, err)
 		return err
 	}
 	edsPushes.Increment()

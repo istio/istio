@@ -173,10 +173,6 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 	}
 
 	switch discReq.TypeUrl {
-	case v3.RouteType:
-		if err := s.handleRds(con, discReq); err != nil {
-			return err
-		}
 	case v3.EndpointType:
 		if err := s.handleEds(con, discReq); err != nil {
 			return err
@@ -288,19 +284,6 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 	con.proxy.WatchedResources[v3.EndpointType].ResourceNames = discReq.ResourceNames
 	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
 	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, discReq) {
-		return nil
-	}
-
-	adsLog.Debugf("ADS:RDS: REQ %s routes:%d", con.ConID, len(con.Routes()))
-	err := s.pushRoute(con, s.globalPushContext(), versionInfo())
 	if err != nil {
 		return err
 	}
@@ -614,14 +597,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	} else if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushRequest.Push.Version)
 	}
-	if len(con.Routes()) > 0 && pushTypes[RDS] {
-		err := s.pushRoute(con, pushRequest.Push, currentVersion)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.RouteType, pushRequest.Push.Version)
-	}
+
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
 }

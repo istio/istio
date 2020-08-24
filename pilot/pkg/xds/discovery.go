@@ -487,6 +487,7 @@ func (s *DiscoveryServer) initGenerators() {
 
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
+	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 }
 
 // shutdown shutsdown DiscoveryServer components.
