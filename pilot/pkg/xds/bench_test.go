@@ -155,15 +155,14 @@ func BenchmarkListenerGeneration(b *testing.B) {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			b.ResetTimer()
-			var response *discovery.DiscoveryResponse
+			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
-				if len(l) == 0 {
+				c := s.Discovery.Generators[v32.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
+				if len(c) == 0 {
 					b.Fatal("Got no listeners!")
 				}
-				response = ldsDiscoveryResponse(l, "", "")
 			}
-			logDebug(b, response.GetResources())
+			logDebug(b, c)
 		})
 	}
 }

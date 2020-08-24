@@ -174,10 +174,6 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 	}
 
 	switch discReq.TypeUrl {
-	case v3.ListenerType:
-		if err := s.handleLds(con, discReq); err != nil {
-			return err
-		}
 	case v3.RouteType:
 		if err := s.handleRds(con, discReq); err != nil {
 			return err
@@ -284,20 +280,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 		}
 	}
-}
-
-func (s *DiscoveryServer) handleLds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if con.Watching(v3.ListenerType) {
-		if !s.shouldRespond(con, ldsReject, discReq) {
-			return nil
-		}
-	}
-	adsLog.Debugf("ADS:LDS: REQ %s", con.ConID)
-	err := s.pushLds(con, s.globalPushContext(), versionInfo())
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.DiscoveryRequest) error {
@@ -632,14 +614,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		}
 	} else if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushRequest.Push.Version)
-	}
-	if con.Watching(v3.ListenerType) && pushTypes[LDS] {
-		err := s.pushLds(con, pushRequest.Push, currentVersion)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ListenerType, pushRequest.Push.Version)
 	}
 	if len(con.Routes()) > 0 && pushTypes[RDS] {
 		err := s.pushRoute(con, pushRequest.Push, currentVersion)
