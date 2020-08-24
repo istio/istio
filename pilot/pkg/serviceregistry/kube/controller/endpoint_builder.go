@@ -15,15 +15,16 @@
 package controller
 
 import (
-	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/pkg/log"
-	v1 "k8s.io/api/core/v1"
 	"net"
+
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/pkg/log"
 )
 
 // A stateful IstioEndpoint builder with metadata used to build IstioEndpoint
