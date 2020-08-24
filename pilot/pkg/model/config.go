@@ -127,14 +127,24 @@ type ConfigMeta struct {
 	CreationTimestamp time.Time `json:"creationTimestamp,omitempty"`
 }
 
-// Config is a configuration unit consisting of the type of configuration, the
-// key identifier that is unique per type, and the content represented as a
-// protobuf message.
+// Override of the ProtoMessage such that gogo can be rmeoved
+type Message interface {
+	Reset()
+	String() string
+	ProtoMessage()
+}
+
+// Config is a configuration unit consisting of the google.golang.org/protobtufype of configuration, the
+// key identifier that is unique per type, and the content represented as a protobuf message.
 type Config struct {
 	ConfigMeta
+	Spec Message
+}
 
-	// Spec holds the configuration object as a gogo protobuf message
-	Spec proto.Message
+// This isn't called typically so no panic occurs. Instead Marhsal and Unmarshal are called. I should
+// test these interface methods.
+func (c Config) ProtoMessage() {
+	panic("test of panic")
 }
 
 // ConfigStore describes a set of platform agnostic APIs that must be supported
