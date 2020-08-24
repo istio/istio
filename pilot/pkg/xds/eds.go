@@ -370,7 +370,7 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 			}
 			resource := util.MessageToAny(l)
 			resources = append(resources, resource)
-			s.cache.Insert(builder, resource)
+			s.cache.Add(builder, resource)
 		}
 	}
 

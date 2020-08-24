@@ -25,24 +25,17 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-// to prevent Dequeue routine leak
-func unblockDequeue(q *PushQueue) {
-	con := &Connection{}
-	q.Enqueue(con, &model.PushRequest{})
-}
-
 // Helper function to remove an item or timeout and return nil if there are no pending pushes
 func getWithTimeout(p *PushQueue) *Connection {
 	done := make(chan *Connection, 1)
 	go func() {
-		con, _ := p.Dequeue()
+		con, _, _ := p.Dequeue()
 		done <- con
 	}()
 	select {
 	case ret := <-done:
 		return ret
 	case <-time.After(time.Millisecond * 500):
-		unblockDequeue(p)
 		return nil
 	}
 }
@@ -58,7 +51,6 @@ func ExpectTimeout(t *testing.T, p *PushQueue) {
 	case <-done:
 		t.Fatalf("Expected timeout")
 	case <-time.After(time.Millisecond * 500):
-		unblockDequeue(p)
 	}
 }
 
@@ -66,7 +58,7 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 	t.Helper()
 	result := make(chan *Connection, 1)
 	go func() {
-		con, _ := p.Dequeue()
+		con, _, _ := p.Dequeue()
 		result <- con
 	}()
 	select {
@@ -75,7 +67,6 @@ func ExpectDequeue(t *testing.T, p *PushQueue, expected *Connection) {
 			t.Fatalf("Expected proxy %v, got %v", expected, got)
 		}
 	case <-time.After(time.Millisecond * 500):
-		unblockDequeue(p)
 		t.Fatalf("Timed out")
 	}
 }
@@ -89,6 +80,7 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("simple add and remove", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		p.Enqueue(proxies[1], &model.PushRequest{})
 
@@ -99,6 +91,8 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("remove too many", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		p.Enqueue(proxies[0], &model.PushRequest{})
 
 		ExpectDequeue(t, p, proxies[0])
@@ -108,6 +102,8 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("add multiple times", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		p.Enqueue(proxies[1], &model.PushRequest{})
 		p.Enqueue(proxies[0], &model.PushRequest{})
@@ -120,6 +116,8 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("add and remove and markdone", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		ExpectDequeue(t, p, proxies[0])
 		p.MarkDone(proxies[0])
@@ -131,11 +129,14 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("add and remove and add and markdone", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		ExpectDequeue(t, p, proxies[0])
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		p.Enqueue(proxies[0], &model.PushRequest{})
 		p.MarkDone(proxies[0])
+
 		ExpectDequeue(t, p, proxies[0])
 		ExpectTimeout(t, p)
 	})
@@ -143,6 +144,8 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("remove should block", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
@@ -157,6 +160,8 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("should merge model.PushRequest", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		firstTime := time.Now()
 		p.Enqueue(proxies[0], &model.PushRequest{
 			Full: false,
@@ -176,7 +181,7 @@ func TestProxyQueue(t *testing.T) {
 			}: {}},
 			Start: firstTime.Add(time.Second),
 		})
-		_, info := p.Dequeue()
+		_, info, _ := p.Dequeue()
 
 		if info.Start != firstTime {
 			t.Errorf("Expected start time to be %v, got %v", firstTime, info.Start)
@@ -201,6 +206,8 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("two removes, one should block one should return", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		wg := &sync.WaitGroup{}
 		wg.Add(2)
 		respChannel := make(chan *Connection, 2)
@@ -231,6 +238,8 @@ func TestProxyQueue(t *testing.T) {
 	t.Run("concurrent", func(t *testing.T) {
 		t.Parallel()
 		p := NewPushQueue()
+		defer p.ShutDown()
+
 		key := func(p *Connection, eds string) string { return fmt.Sprintf("%s~%s", p.ConID, eds) }
 
 		// We will trigger many pushes for eds services to each proxy. In the end we will expect
@@ -257,7 +266,10 @@ func TestProxyQueue(t *testing.T) {
 		mu := sync.RWMutex{}
 		go func() {
 			for {
-				con, info := p.Dequeue()
+				con, info, shuttingdown := p.Dequeue()
+				if shuttingdown {
+					return
+				}
 				for eds := range model.ConfigNamesOfKind(info.ConfigsUpdated, gvk.ServiceEntry) {
 					mu.Lock()
 					delete(expected, key(con, eds))

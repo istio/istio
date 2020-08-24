@@ -141,7 +141,7 @@ istioctl analyze -L
 				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 
 			// Check for suppressions and add them to our SourceAnalyzer
-			var suppressions []snapshotter.AnalysisSuppression
+			suppressions := make([]snapshotter.AnalysisSuppression, 0, len(suppress))
 			for _, s := range suppress {
 				parts := strings.Split(s, "=")
 				if len(parts) != 2 {

@@ -60,6 +60,19 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 			expectedFailure: true,
 		},
 		{
+			// Only .conf and .conflist files are detectable
+			name:            "undetectable file",
+			dir:             tempDir,
+			expectedFailure: true,
+			inFilename:      "undetectable.file",
+			fileContents: `
+{
+	"cniVersion": "0.3.1",
+	"name": "istio-cni",
+	"type": "istio-cni"
+}`,
+		},
+		{
 			name:            "empty file",
 			dir:             tempDir,
 			expectedFailure: true,
@@ -200,7 +213,11 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 			}()
 
 			// Create existing config files if specified in test case
-			util.CopyExistingConfFiles(t, tempDir, c.existingConfFiles...)
+			for _, filename := range c.existingConfFiles {
+				if err := util.AtomicCopy(filepath.Join("testdata", filepath.Base(filename)), tempDir, filepath.Base(filename)); err != nil {
+					t.Fatal(err)
+				}
+			}
 
 			cfg := pluginConfig{
 				mountedCNINetDir: tempDir,
@@ -341,7 +358,7 @@ func TestInsertCNIConfig(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			istioConf := testutils.ReadFile(filepath.Join("testdata", c.newConfFilename), t)
-			existingConfFilepath := "testdata/" + c.existingConfFilename
+			existingConfFilepath := filepath.Join("testdata", c.existingConfFilename)
 			existingConf := testutils.ReadFile(existingConfFilepath, t)
 
 			output, err := insertCNIConfig(istioConf, existingConf)
@@ -384,14 +401,14 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		specifiedConfName string
 		expectedConfName  string
 		goldenConfName    string
-		existingConfFiles []string
+		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
 	}{
 		{
 			name:              "unspecified existing CNI config file (existing .conf to conflist)",
 			chainedCNIPlugin:  true,
 			expectedConfName:  "bridge.conflist",
 			goldenConfName:    "bridge.conf.golden",
-			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:             "unspecified CNI config file never created",
@@ -403,7 +420,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName: "list.conflist",
 			expectedConfName:  "list.conflist",
 			goldenConfName:    "list.conflist.golden",
-			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:              "specified existing CNI config file (specified .conf to .conflist)",
@@ -411,7 +428,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName: "list.conf",
 			expectedConfName:  "list.conflist",
 			goldenConfName:    "list.conflist.golden",
-			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:              "specified existing CNI config file (existing .conf to .conflist)",
@@ -419,13 +436,21 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			specifiedConfName: "bridge.conflist",
 			expectedConfName:  "bridge.conflist",
 			goldenConfName:    "bridge.conf.golden",
-			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:              "specified CNI config file never created",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "never-created.conf",
-			existingConfFiles: []string{"bridge.conf", "list.conflist"},
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+		},
+		{
+			name:              "specified CNI config file undetectable",
+			chainedCNIPlugin:  true,
+			specifiedConfName: "undetectable.file",
+			expectedConfName:  "undetectable.file",
+			goldenConfName:    "list.conflist.golden",
+			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "undetectable.file"},
 		},
 		{
 			name:             "standalone CNI plugin unspecified CNI config file",
@@ -470,7 +495,11 @@ func TestCreateCNIConfigFile(t *testing.T) {
 				}()
 
 				// Create existing config files if specified in test case
-				util.CopyExistingConfFiles(t, tempDir, c.existingConfFiles...)
+				for srcFilename, targetFilename := range c.existingConfFiles {
+					if err := util.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
+						t.Fatal(err)
+					}
+				}
 
 				cfg.MountedCNINetDir = tempDir
 
