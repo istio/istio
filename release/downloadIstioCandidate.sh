@@ -15,24 +15,21 @@
 # limitations under the License.
 
 #
-# Early version of a downloader/installer for Istio
-#
 # This file will be fetched as: curl -L https://git.io/getLatestIstio | sh -
 # so it should be pure bourne shell, not bash (and not reference other scripts)
 #
 # The script fetches the latest Istio release candidate and untars it.
-# It's derived from ../downloadIstio.sh which is for stable releases but lets
-# users do curl -L https://git.io/getLatestIstio | ISTIO_VERSION=0.3.6 sh -
-# for instance to change the version fetched.
+# You can pass variables on the command line to download a specific version
+# or to override the processor architecture. For example, to download
+# Istio 1.6.8 for the x86_64 architecture,
+# run curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.6.8 TARGET_ARCH=x86_64 sh -.
 
-# This is the latest release candidate (matches ../istio.VERSION after basic
-# sanity checks)
 
+# Determines the operating system.
 OS="$(uname)"
 if [ "x${OS}" = "xDarwin" ] ; then
   OSEXT="osx"
 else
-  # TODO we should check more/complain if not likely to work, etc...
   OSEXT="linux"
 fi
 
@@ -78,25 +75,23 @@ NAME="istio-$ISTIO_VERSION"
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
 
-printf "Downloading %s from %s ..." "$NAME" "$URL"
-if ! curl -fsLO "$URL"
-then
-  printf "Failed.\n\nTrying with TARGET_ARCH. Downloading %s from %s ...\n" "$NAME" "$ARCH_URL"
-  if ! curl -fsLO "$ARCH_URL"
-  then
-    printf "\n\n"
-    printf "Unable to download Istio %s at this moment!\n" "$ISTIO_VERSION"
-    printf "Please verify the version you are trying to download.\n\n"
-    exit
-  else
-    filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
-    tar -xzf "${filename}"
-    rm "${filename}"
-  fi
-else
+if [ "${OS}" = "Linux" ] ; then
+  printf "\nDownloading %s from %s ...\n" "$NAME" "$ARCH_URL"
+  curl -fsLO "$ARCH_URL"
+  filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+  tar -xzf "${filename}"
+  rm "${filename}"
+elif [ "x${OS}" = "xDarwin" ] ; then
+  printf "\nDownloading %s from %s ..." "$NAME" "$URL"
+  curl -fsLO "$URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
   tar -xzf "${filename}"
   rm "${filename}"
+else
+  printf "\n\n"
+  printf "Unable to download Istio %s at this moment!\n" "$ISTIO_VERSION"
+  printf "Please verify the version you are trying to download.\n\n"
+  exit
 fi
 
 printf ""
