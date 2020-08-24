@@ -16,6 +16,7 @@ package xds
 
 import (
 	"encoding/json"
+	"time"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -63,7 +64,7 @@ func init() {
 
 // handleCustomGenerator uses model.Generator to generate the response.
 func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, nil, req) {
+	if !s.shouldRespond(con, req) {
 		return nil
 	}
 
@@ -95,7 +96,12 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 		return nil
 	}
 
+	t0 := time.Now()
 	cl := g.Generate(con.proxy, push, con.Watched(req.TypeUrl), nil)
+	if cl == nil {
+		return nil
+	}
+	recordPushTime(req.TypeUrl, time.Since(t0))
 	sz := 0
 	for _, rc := range cl {
 		resp.Resources = append(resp.Resources, rc)
@@ -104,7 +110,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 
 	err := con.send(resp)
 	if err != nil {
-		recordSendError("ADS", con.ConID, apiSendErrPushes, err)
+		recordSendError(req.TypeUrl, con.ConID, err)
 		return err
 	}
 	apiPushes.Increment()
@@ -127,6 +133,8 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 	}
 	// TODO: generators may send incremental changes if both sides agree on the protocol.
 	// This is specific to each generator type.
+
+	t0 := time.Now()
 	cl := gen.Generate(con.proxy, push, w, updates)
 	if cl == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
@@ -135,6 +143,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 		}
 		return nil // No push needed.
 	}
+	recordPushTime(w.TypeUrl, time.Since(t0))
 
 	// TODO: add a 'version' to the result of generator. If set, use it to determine if the result
 	// changed - in many cases it will not change, so we can skip the push. Also the version will

@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
 	istiolog "istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 var (
@@ -283,7 +282,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 }
 
 func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, edsReject, discReq) {
+	if !s.shouldRespond(con, discReq) {
 		return nil
 	}
 	con.proxy.WatchedResources[v3.EndpointType].ResourceNames = discReq.ResourceNames
@@ -296,7 +295,7 @@ func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.Discover
 }
 
 func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, rdsReject, discReq) {
+	if !s.shouldRespond(con, discReq) {
 		return nil
 	}
 
@@ -310,7 +309,7 @@ func (s *DiscoveryServer) handleRds(con *Connection, discReq *discovery.Discover
 
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring.Metric, request *discovery.DiscoveryRequest) bool {
+func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is errorneous.
@@ -319,7 +318,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, rejectMetric monitoring
 	if request.ErrorDetail != nil {
 		errCode := codes.Code(request.ErrorDetail.Code)
 		adsLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.ConID, errCode.String(), request.ErrorDetail.GetMessage())
-		incrementXDSRejects(rejectMetric, con.proxy.ID, errCode.String())
+		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
 		if s.InternalGen != nil {
 			s.InternalGen.OnNack(con.proxy, request)
 		}
