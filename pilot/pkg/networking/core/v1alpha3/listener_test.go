@@ -807,11 +807,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 		}
 
 		verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[1], model.TrafficDirectionOutbound, false)
-		if len(listeners[0].ListenerFilters) != 2 ||
-			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
-			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
-		}
+		verifyListenerFilters(t, listeners[0].ListenerFilters)
 
 		if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
 			t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
@@ -835,11 +831,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 		http := getHTTPFilterChain(t, listeners[0])
 
 		verifyHTTPFilterChainMatch(t, http, model.TrafficDirectionOutbound, false)
-		if len(listeners[0].ListenerFilters) != 2 ||
-			listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
-			listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
-		}
+		verifyListenerFilters(t, listeners[0].ListenerFilters)
 
 		if !listeners[0].ContinueOnListenerFiltersTimeout || listeners[0].ListenerFiltersTimeout == nil {
 			t.Fatalf("exptected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
@@ -853,7 +845,7 @@ func getTCPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChain
 	t.Helper()
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
-			if f.Name == "envoy.tcp_proxy" {
+			if f.Name == wellknown.TCPProxy {
 				return fc
 			}
 		}
@@ -866,7 +858,7 @@ func getHTTPFilterChain(t *testing.T, l *listener.Listener) *listener.FilterChai
 	t.Helper()
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
-			if f.Name == "envoy.http_connection_manager" {
+			if f.Name == wellknown.HTTPConnectionManager {
 				return fc
 			}
 		}
@@ -968,6 +960,17 @@ func testInboundListenerConfigWithoutService(t *testing.T, proxy *model.Proxy) {
 	}
 }
 
+func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
+	t.Helper()
+	if len(lfilters) != 2 {
+		t.Fatalf("expected %d listener filter, found %d", 2, len(lfilters))
+	}
+	if lfilters[0].Name != wellknown.TlsInspector ||
+		lfilters[1].Name != wellknown.HttpInspector {
+		t.Fatalf("expected listener filters not found, got %v", lfilters)
+	}
+}
+
 func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain, direction model.TrafficDirection, isTLS bool) {
 	t.Helper()
 	if isTLS {
@@ -1032,11 +1035,11 @@ func hasGrpcStatusFilter(filters []*hcm.HttpFilter) bool {
 }
 
 func isHTTPFilterChain(fc *listener.FilterChain) bool {
-	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.http_connection_manager"
+	return len(fc.Filters) > 0 && fc.Filters[0].Name == wellknown.HTTPConnectionManager
 }
 
 func isTCPFilterChain(fc *listener.FilterChain) bool {
-	return len(fc.Filters) > 0 && fc.Filters[0].Name == "envoy.tcp_proxy"
+	return len(fc.Filters) > 0 && fc.Filters[0].Name == wellknown.TCPProxy
 }
 
 func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Service) {
@@ -1105,12 +1108,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		}
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound, false)
-
-		if len(l.ListenerFilters) != 2 ||
-			l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
-			l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
-			t.Fatalf("expected %d listener filter, found %d", 2, len(l.ListenerFilters))
-		}
+		verifyListenerFilters(t, l.ListenerFilters)
 	}
 
 	if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
@@ -1142,11 +1140,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	}
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[1], model.TrafficDirectionOutbound, false)
-	if len(l.ListenerFilters) != 2 ||
-		l.ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
-		l.ListenerFilters[1].Name != "envoy.listener.http_inspector" {
-		t.Fatalf("expected %d listener filter, found %d", 2, len(l.ListenerFilters))
-	}
+	verifyListenerFilters(t, l.ListenerFilters)
 }
 
 func testInboundListenerConfigWithHTTP10Proxy(t *testing.T, proxy *model.Proxy, services ...*model.Service) {
@@ -1838,7 +1832,7 @@ func TestHttpProxyListener_Tracing(t *testing.T) {
 
 func verifyHTTPConnectionManagerFilter(t *testing.T, f *listener.Filter, expected *hcm.HttpConnectionManager_Tracing, name string) {
 	t.Helper()
-	if f.Name == "envoy.http_connection_manager" {
+	if f.Name == wellknown.HTTPConnectionManager {
 		cmgr := &hcm.HttpConnectionManager{}
 		err := getFilterConfig(f, cmgr)
 		if err != nil {
@@ -1867,11 +1861,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 	verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0], model.TrafficDirectionOutbound, false)
 	verifyPassThroughTCPFilterChain(t, listeners[0].FilterChains[1])
 
-	if len(listeners[0].ListenerFilters) != 2 ||
-		listeners[0].ListenerFilters[0].Name != "envoy.listener.tls_inspector" ||
-		listeners[0].ListenerFilters[1].Name != "envoy.listener.http_inspector" {
-		t.Fatalf("expected %d listener filter, found %d", 2, len(listeners[0].ListenerFilters))
-	}
+	verifyListenerFilters(t, listeners[0].ListenerFilters)
 }
 
 func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
@@ -2008,7 +1998,7 @@ func verifyInboundHTTP10(t *testing.T, http10Expected bool, l *listener.Listener
 	t.Helper()
 	for _, fc := range l.FilterChains {
 		for _, f := range fc.Filters {
-			if f.Name == "envoy.http_connection_manager" {
+			if f.Name == wellknown.HTTPConnectionManager {
 				cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 				httpProtocolOptionsField := cfg.Fields["http_protocol_options"]
 				if http10Expected && httpProtocolOptionsField == nil {
@@ -2236,7 +2226,7 @@ func isHTTPListener(listener *listener.Listener) bool {
 	}
 
 	for _, fc := range listener.FilterChains {
-		if fc.Filters[0].Name == "envoy.http_connection_manager" {
+		if fc.Filters[0].Name == wellknown.HTTPConnectionManager {
 			return true
 		}
 	}
