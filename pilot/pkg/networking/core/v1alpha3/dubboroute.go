@@ -29,7 +29,7 @@ var (
 func (configgen *ConfigGeneratorImpl) buildSidecarDubboRouteConfig(clusterName string, interfaceName string) *dubbo.RouteConfiguration {
 	return &dubbo.RouteConfiguration{
 		Name:      clusterName,
-		Interface: interfaceName,
+		Interface: interfaceName, // To make this work, Dubbo Interface should have been registered to the Istio service registry as a service
 		Routes: []*dubbo.Route{
 			defaultDubboRoute(clusterName),
 		},
@@ -44,7 +44,7 @@ func defaultDubboRoute(clusterName string) *dubbo.Route {
 					MatchPattern: &matcher.StringMatcher_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
 							EngineType: regexEngine,
-							Regex:      "*",
+							Regex:      ".*",
 						},
 					},
 				},
