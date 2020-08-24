@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/model"
@@ -356,13 +357,6 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 		// used.
 		caClient, err = gca.NewGoogleCAClient(sa.secOpts.CAEndpoint, true)
 		sa.secOpts.PluginNames = []string{"GoogleTokenExchange"}
-		gcpInfo := tokenmanager.GetGCPProjectInfo()
-		if stsclient.GKEClusterURL == "" && gcpInfo.Number != "" {
-			stsclient.GKEClusterURL = gcpInfo.GKEClusterURL()
-		}
-		if stsclient.GKEClusterURL == "" {
-			log.Fatalf("Failed to start, GoogleCA requires GKE_CLUSTER_URL to be set")
-		}
 		sa.secOpts.TokenExchangers = []security.TokenExchanger{stsclient.NewPlugin()}
 	} else {
 		var rootCert []byte
