@@ -136,7 +136,7 @@ func TestValidateChainingVirtualService(t *testing.T) {
 					}},
 				}},
 			},
-			valid: false,
+			valid: true,
 		},
 	}
 
