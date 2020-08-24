@@ -21,11 +21,9 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 )
 
 func TestValidateChainingVirtualService(t *testing.T) {
-	features.EnableVirtualServiceDelegate = true
 	testCases := []struct {
 		name  string
 		in    proto.Message
