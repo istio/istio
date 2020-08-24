@@ -137,7 +137,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter) error {
 	if err != nil {
 		return err
 	}
-	filteredRoutes := protio.MessageSlice{}
+	filteredRoutes := make(protio.MessageSlice, 0, len(routes))
 	for _, route := range routes {
 		if filter.Verify(route) {
 			filteredRoutes = append(filteredRoutes, route)

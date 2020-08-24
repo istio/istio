@@ -734,7 +734,7 @@ func (s *DiscoveryServer) startPush(req *model.PushRequest) {
 	s.adsClientsMutex.RLock()
 
 	// Create a temp map to avoid locking the add/remove
-	pending := []*Connection{}
+	pending := make([]*Connection, 0, len(s.adsClients))
 	for _, v := range s.adsClients {
 		pending = append(pending, v)
 	}
