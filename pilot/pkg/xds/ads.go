@@ -558,6 +558,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
+		eventTypes := []EventType{v3.ClusterType, v3.ListenerType, v3.RouteType}
 		edsUpdatedServices := model.ConfigNamesOfKind(pushRequest.ConfigsUpdated, gvk.ServiceEntry)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
@@ -565,7 +566,11 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			if err := s.pushEds(pushRequest.Push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
+		} else {
+			eventTypes = append(eventTypes, v3.EndpointType)
 		}
+		// registerEvent notifies the implementer of an xDS ACK for no push ops
+		registerEvent(s.StatusReporter, con.ConID, eventTypes, pushRequest.Push.Version)
 		return nil
 	}
 
@@ -597,7 +602,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			}
 		}
 	}
-
+	eventTypes := make([]EventType, 0, len(AllEventTypes))
 	pushTypes := PushTypeFor(con.proxy, pushEv)
 
 	if con.Watching(v3.ClusterType) && pushTypes[CDS] {
@@ -605,8 +610,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		if err != nil {
 			return err
 		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.ClusterType, pushRequest.Push.Version)
+	} else {
+		eventTypes = append(eventTypes, v3.ClusterType)
 	}
 
 	if len(con.Clusters()) > 0 && pushTypes[EDS] {
@@ -614,6 +619,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		eventTypes = append(eventTypes, v3.EndpointType)
 	}
 
 	if con.Watching(v3.ListenerType) && pushTypes[LDS] {
@@ -621,6 +628,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		eventTypes = append(eventTypes, v3.ListenerType)
 	}
 
 	if len(con.Routes()) > 0 && pushTypes[RDS] {
@@ -628,10 +637,22 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		eventTypes = append(eventTypes, v3.RouteType)
 	}
-
+	// registerEvent notifies the implementer of an xDS ACK for no push ops
+	registerEvent(s.StatusReporter, con.ConID, eventTypes, pushRequest.Push.Version)
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
+}
+
+func registerEvent(statusReporter DistributionStatusCache, conID string, types []EventType, nonce string) {
+	if statusReporter == nil {
+		return
+	}
+	for _, event := range types {
+		statusReporter.RegisterEvent(conID, event, nonce)
+	}
 }
 
 func (s *DiscoveryServer) adsClientCount() int {
