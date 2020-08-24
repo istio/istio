@@ -93,7 +93,7 @@ func (c *ConfigWriter) PrintClusterDump(filter ClusterFilter) error {
 	if err != nil {
 		return err
 	}
-	filteredClusters := protio.MessageSlice{}
+	filteredClusters := make(protio.MessageSlice, 0, len(clusters))
 	for _, cluster := range clusters {
 		if filter.Verify(cluster) {
 			filteredClusters = append(filteredClusters, cluster)
