@@ -566,13 +566,32 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
 	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, workloadName)
-	patch = append(patch, addLabels(pod.Labels, map[string]string{
+	patchLabels := map[string]string{
 		label.TLSMode:                                model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
 		label.IstioRev:                               revision,
-		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
+		model.IstioCanonicalServiceRevisionLabelName: canonicalRev,
+	}
+	if network := topologyValues(sic); network != "" {
+		// only added if if not already set
+		patchLabels[label.IstioNetwork] = network
+	}
+	patch = append(patch, addLabels(pod.Labels, patchLabels)...)
 
 	return json.Marshal(patch)
+}
+
+// topologyValues will find the value of ISTIO_META_NETWORK in the spec or return a zero-value
+func topologyValues(sic *SidecarInjectionSpec) string {
+	// TODO should we just return the values used to populate the template from InjectionData?
+	for _, c := range sic.Containers {
+		for _, e := range c.Env {
+			if e.Name == "ISTIO_META_NETWORK" {
+				return e.Value
+			}
+		}
+	}
+	return ""
 }
 
 func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {

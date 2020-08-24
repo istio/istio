@@ -1020,6 +1020,12 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 		for tp, svcPort := range tps {
 			// consider multiple IP scenarios
 			for _, ip := range proxy.IPAddresses {
+				var network string
+				if proxy.Metadata.Network != "" {
+					network = proxy.Metadata.Network
+				} else {
+					network = c.endpointNetwork(ip)
+				}
 				// Construct the ServiceInstance
 				out = append(out, &model.ServiceInstance{
 					Service:     modelService,
@@ -1031,7 +1037,7 @@ func (c *Controller) getProxyServiceInstancesFromMetadata(proxy *model.Proxy) ([
 						// Kubernetes service will only have a single instance of labels, and we return early if there are no labels.
 						Labels:         proxy.Metadata.Labels,
 						ServiceAccount: svcAccount,
-						Network:        c.endpointNetwork(ip),
+						Network:        network,
 						Locality: model.Locality{
 							Label:     util.LocalityToString(proxy.Locality),
 							ClusterID: c.clusterID,

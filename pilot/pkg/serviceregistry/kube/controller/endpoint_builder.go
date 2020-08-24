@@ -17,6 +17,7 @@ package controller
 import (
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/labels"
@@ -64,6 +65,13 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		return nil
 	}
 
+	var network string
+	if nw, ok := b.labels[label.IstioNetwork]; ok {
+		network = nw
+	} else {
+		network = b.controller.endpointNetwork(endpointAddress)
+	}
+
 	return &model.IstioEndpoint{
 		Labels:          b.labels,
 		UID:             b.uid,
@@ -73,6 +81,6 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		Address:         endpointAddress,
 		EndpointPort:    uint32(endpointPort),
 		ServicePortName: svcPortName,
-		Network:         b.controller.endpointNetwork(endpointAddress),
+		Network:         network,
 	}
 }

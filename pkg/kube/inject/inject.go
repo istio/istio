@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"istio.io/api/label"
 	"net"
 	"os"
 	"path"
@@ -52,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/jsonmap"
 	"istio.io/pkg/log"
 )
 
@@ -461,7 +463,7 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 		return nil, "", err
 	}
 
-	values := map[string]interface{}{}
+	values := jsonmap.Map{}
 	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
 		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
 		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
@@ -474,6 +476,29 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 			return nil, "", merr
 		}
 	}
+
+	cluster := values.Map("global").Map("multiCluster").String("clusterName")
+	network := values.Map("global").String("network")
+	// params may be set from webhook URL
+	if params.clusterName != "" {
+		cluster = params.clusterName
+	}
+	if params.clusterName != "" {
+		network = params.clusterNetwork
+	}
+	// explicit label takes highest precedence
+	if n, ok := metadata.Labels[label.IstioNetwork]; ok {
+		network = n
+	}
+
+	// use network in values for template
+	if cluster != "" {
+		values.Ensure("global").Ensure("multiCluster")["clusterName"] = cluster
+	}
+	if network != "" {
+		values.Ensure("global")["network"] = network
+	}
+
 	data := SidecarTemplateData{
 		TypeMeta:       typeMetadata,
 		DeploymentMeta: deploymentMetadata,
@@ -542,9 +567,6 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 
 	// set sidecar --concurrency
 	applyConcurrency(sic.Containers)
-
-	// overwrite cluster name and network if needed
-	overwriteClusterInfo(sic.Containers, params)
 
 	status := &SidecarInjectionStatus{Version: params.version}
 	for _, c := range sic.InitContainers {
