@@ -36,6 +36,7 @@ const (
 	GCPProject           = "gcp_project"
 	GCPProjectNumber     = "gcp_project_number"
 	GCPCluster           = "gcp_gke_cluster_name"
+	GCPClusterURL        = "gcp_gke_cluster_url"
 	GCPLocation          = "gcp_location"
 	GCEInstance          = "gcp_gce_instance"
 	GCEInstanceID        = "gcp_gce_instance_id"
@@ -81,6 +82,23 @@ var (
 			return "", err
 		}
 		return cb, nil
+	}
+
+	constructGKEClusterURL = func(md map[string]string) (string, error) {
+		projectID, found := md[GCPProject]
+		if !found {
+			return "", fmt.Errorf("error constructing GKE cluster url: %s not found in GCP Metadata", GCPProject)
+		}
+		clusterLocation, found := md[GCPLocation]
+		if !found {
+			return "", fmt.Errorf("error constructing GKE cluster url: %s not found in GCP Metadata", GCPLocation)
+		}
+		clusterName, found := md[GCPCluster]
+		if !found {
+			return "", fmt.Errorf("error constructing GKE cluster url: %s not found in GCP Metadata", GCPCluster)
+		}
+		return fmt.Sprintf("https://container.googleapis.com/v1/projects/%s/locations/%s/clusters/%s",
+			projectID, clusterLocation, clusterName), nil
 	}
 )
 
@@ -156,6 +174,9 @@ func (e *gcpEnv) Metadata() map[string]string {
 	}
 	if cb, err := createdByFn(); err == nil {
 		md[GCEInstanceCreatedBy] = cb
+	}
+	if clusterURL, err := constructGKEClusterURL(md); err == nil {
+		md[GCPClusterURL] = clusterURL
 	}
 	e.metadata = md
 	return md
