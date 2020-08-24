@@ -151,10 +151,6 @@ func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cl
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	inputParams := &plugin.InputParams{
-		Push: cb.push,
-		Node: cb.proxy,
-	}
 	networkView := model.GetNetworkView(cb.proxy)
 
 	var services []*model.Service
@@ -168,9 +164,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) 
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			inputParams.Service = service
-			inputParams.Port = port
-
 			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
@@ -189,18 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) 
 			clusters = append(clusters, defaultCluster)
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
-			// call plugins for subset clusters.
-			for _, subsetCluster := range subsetClusters {
-				for _, p := range configgen.Plugins {
-					p.OnOutboundCluster(inputParams, subsetCluster)
-				}
-			}
 			clusters = append(clusters, subsetClusters...)
-
-			// call plugins for the default cluster.
-			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(inputParams, defaultCluster)
-			}
 		}
 	}
 
@@ -289,11 +271,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				pluginParams := &plugin.InputParams{
 					Node:            cb.proxy,
 					ServiceInstance: instance,
-					Port:            instance.ServicePort,
 					Push:            cb.push,
-					Bind:            actualLocalHost,
 				}
-				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams, actualLocalHost)
 				clusters = append(clusters, localCluster)
 				have[instance.ServicePort] = true
 			}
@@ -341,11 +321,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			pluginParams := &plugin.InputParams{
 				Node:            cb.proxy,
 				ServiceInstance: instance,
-				Port:            listenPort,
 				Push:            cb.push,
-				Bind:            endpointAddress,
 			}
-			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams, endpointAddress)
 			clusters = append(clusters, localCluster)
 		}
 	}
@@ -377,12 +355,12 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams, bind string) *cluster.Cluster {
 	cb := NewClusterBuilder(pluginParams.Node, pluginParams.Push)
 	instance := pluginParams.ServiceInstance
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
-	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.EndpointPort)
+	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, nil, false)
 	// If stat name is configured, build the alt statname.
@@ -391,10 +369,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
 	setUpstreamProtocol(pluginParams.Node, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
-	// call plugins
-	for _, p := range configgen.Plugins {
-		p.OnInboundCluster(pluginParams, localCluster)
-	}
 
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
