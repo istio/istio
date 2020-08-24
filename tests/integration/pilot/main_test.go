@@ -61,6 +61,7 @@ const (
 	headlessSvc = "headless"
 	nakedSvc    = "naked"
 	externalSvc = "external"
+	localSvc    = "local"
 )
 
 type EchoDeployments struct {
@@ -68,6 +69,8 @@ type EchoDeployments struct {
 	namespace namespace.Instance
 	// Namespace where external echo app will be deployed
 	externalNamespace namespace.Instance
+	// Namespace that only accepts cluster-local traffic
+	clusterLocalNS namespace.Instance
 
 	// Standard echo app to be used by tests
 	podA echo.Instances
@@ -81,6 +84,8 @@ type EchoDeployments struct {
 	naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
 	vmA echo.Instances
+	// Restricted echo app that can only be reached from within the same cluster
+	local echo.Instances
 
 	// Echo app to be used by tests, with no sidecar injected
 	external echo.Instances
@@ -97,6 +102,12 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(func(ctx resource.Context) (err error) {
+			if len(ctx.Clusters()) > 0 {
+				apps.clusterLocalNS, err = namespace.New(ctx, namespace.Config{Prefix: "cluster-local", Inject: true})
+				if err != nil {
+					return err
+				}
+			}
 			crd, err := ioutil.ReadFile("testdata/service-apis-crd.yaml")
 			if err != nil {
 				return err
@@ -106,7 +117,11 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
-			cfg.ControlPlaneValues = `
+			clusterLocalNS := "cluster-local"
+			if apps.clusterLocalNS != nil {
+				clusterLocalNS = apps.clusterLocalNS.Name()
+			}
+			cfg.ControlPlaneValues = fmt.Sprintf(`
 # Add TCP port, not in the default install
 components:
   ingressGateways:
@@ -135,7 +150,13 @@ components:
 values:
   pilot:
     env:
-      PILOT_ENABLED_SERVICE_APIS: "true"`
+      PILOT_ENABLED_SERVICE_APIS: "true"
+  meshConfig:
+    serviceSettings: 
+      - settings:
+          clusterLocal: true
+        hosts:
+          - "*.%s.svc.cluster.local"`, clusterLocalNS)
 		})).
 		Setup(func(ctx resource.Context) error {
 			var err error
@@ -159,6 +180,8 @@ values:
 				p.ServicePort = p.InstancePort
 				headlessPorts[i] = p
 			}
+
+			// Most services in all clusters
 			builder := echoboot.NewBuilder(ctx)
 			for _, c := range ctx.Environment().Clusters() {
 				builder.
@@ -220,9 +243,20 @@ values:
 						},
 						Cluster: c,
 					})
-
+				// only bother with setup for cluster-local test if we're actually in multicluster mode.
+				if len(ctx.Clusters()) > 1 {
+					builder.
+						With(nil, echo.Config{
+							Service:   localSvc,
+							Namespace: apps.clusterLocalNS,
+							Ports:     echoPorts,
+							Subsets:   []echo.SubsetConfig{{}},
+							Cluster:   c,
+						})
+				}
 			}
 
+			// VMs in one cluster per-network
 			for _, c := range ctx.Clusters().ByNetwork() {
 				builder.With(nil, echo.Config{
 					Service:    vmASvc,
@@ -246,12 +280,12 @@ values:
 			apps.naked = echos.Match(echo.Service(nakedSvc))
 			apps.external = echos.Match(echo.Service(externalSvc))
 			apps.vmA = echos.Match(echo.Service(vmASvc))
+			apps.local = echos.Match(echo.Service(localSvc))
 
 			return nil
 		}).
 		Setup(func(ctx resource.Context) (err error) {
 			ingr = i.IngressFor(ctx.Clusters().Default())
-
 			apps.externalHost = "fake.example.com"
 			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), fmt.Sprintf(`
 apiVersion: networking.istio.io/v1alpha3

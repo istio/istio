@@ -465,6 +465,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		"-f", iopFile,
 		"--set", "values.global.imagePullPolicy=" + s.PullPolicy,
 		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
+		"--set", "values.global.multiCluster.clusterName=" + cluster.Name(),
 	}
 	// Include all user-specified values.
 	for k, v := range cfg.Values {
@@ -472,10 +473,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 	}
 
 	if c.environment.IsMulticluster() {
-		// Set the clusterName for the local cluster.
-		// This MUST match the clusterName in the remote secret for this cluster.
-		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-
 		if networkName := cluster.NetworkName(); networkName != "" {
 			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
 				"--set", "values.global.network="+networkName)

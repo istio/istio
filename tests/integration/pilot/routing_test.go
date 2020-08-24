@@ -317,7 +317,6 @@ spec:
 						if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
 							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
 						}
-						// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
 					}
 					return nil
 				},
@@ -383,7 +382,23 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount, Timeout: time.Second * 5})
 						},
 						validator: func(responses echoclient.ParsedResponses) error {
-							return responses.CheckOK()
+							if err := responses.CheckOK(); err != nil {
+								return err
+							}
+							if err := responses.CheckReachedClusters(destinations.Clusters()); err != nil {
+								return err
+							}
+							// TODO(landow) uncomment assertion when #26729 is merged
+							// expect same network traffic to have very equal distribution (20% error)
+							//srcNetwork := client.Config().Cluster.NetworkName()
+							//intraNetworkClusters := ctx.Clusters().ByNetwork()[srcNetwork]
+							//intraNetworkRes := responses.Match(func(r *echoclient.ParsedResponse) bool {
+							//	return srcNetwork == ctx.Clusters().GetByName(r.Cluster).NetworkName()
+							//})
+							//if err := intraNetworkRes.CheckEqualClusterTraffic(intraNetworkClusters, 20); err != nil {
+							//	return fmt.Errorf("uneven intra-network traffic")
+							//}
+							return nil
 						},
 					})
 				}
