@@ -12,40 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package model
 
 import (
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/any"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/sets"
 )
 
-// CacheEntry interface defines functions that should be implemented by
+// XdsCacheEntry interface defines functions that should be implemented by
 // resources that can be cached.
-type CacheEntry interface {
+type XdsCacheEntry interface {
 	// Key is the key to be used in cache.
 	Key() string
 	// DependentConfigs is config items that this cache key is dependent on.
 	// Whenever these configs change, we should invalidate this cache entry.
-	DependentConfigs() []model.ConfigKey
+	DependentConfigs() []ConfigKey
 	// Cacheable indicates whether this entry is valid for cache. For example
 	// for EDS to be cacheable, the Endpoint should have corresponding service.
 	Cacheable() bool
 }
 
-// Cache interface defines a store for caching XDS responses.
+// XdsCache interface defines a store for caching XDS responses.
 // All operations are thread safe.
-type Cache interface {
-	// Add adds the given CacheEntry with the value to the cache.
-	Add(entry CacheEntry, value *any.Any)
+type XdsCache interface {
+	// Add adds the given XdsCacheEntry with the value to the cache.
+	Add(entry XdsCacheEntry, value *any.Any)
 	// Get retrieves the cached value if it exists. The boolean indicates
 	// whether the entry exists in the cache.
-	Get(entry CacheEntry) (*any.Any, bool)
+	Get(entry XdsCacheEntry) (*any.Any, bool)
 	// Clear removes the cache entries that are dependent on the configs passed.
-	Clear(map[model.ConfigKey]struct{})
+	Clear(map[ConfigKey]struct{})
 	// ClearAll clears the entire cache.
 	ClearAll()
 	// Keys returns all currently configured keys. This is for testing/debug only
@@ -55,19 +54,19 @@ type Cache interface {
 // inMemoryCache is a simple implementation of Cache that uses in memory map.
 type inMemoryCache struct {
 	store       map[string]*any.Any
-	configIndex map[model.ConfigKey]sets.Set
+	configIndex map[ConfigKey]sets.Set
 	mu          sync.RWMutex
 }
 
 // New returns an instance of a cache.
-func New() Cache {
+func NewXdsCache() XdsCache {
 	return &inMemoryCache{
 		store:       map[string]*any.Any{},
-		configIndex: map[model.ConfigKey]sets.Set{},
+		configIndex: map[ConfigKey]sets.Set{},
 	}
 }
 
-func (c *inMemoryCache) Add(entry CacheEntry, value *any.Any) {
+func (c *inMemoryCache) Add(entry XdsCacheEntry, value *any.Any) {
 	if !entry.Cacheable() {
 		return
 	}
@@ -83,7 +82,7 @@ func (c *inMemoryCache) Add(entry CacheEntry, value *any.Any) {
 	}
 }
 
-func (c *inMemoryCache) Get(entry CacheEntry) (*any.Any, bool) {
+func (c *inMemoryCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
 	if !entry.Cacheable() {
 		return nil, false
 	}
@@ -93,7 +92,7 @@ func (c *inMemoryCache) Get(entry CacheEntry) (*any.Any, bool) {
 	return k, f
 }
 
-func (c *inMemoryCache) Clear(configs map[model.ConfigKey]struct{}) {
+func (c *inMemoryCache) Clear(configs map[ConfigKey]struct{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for ckey := range configs {
@@ -109,7 +108,7 @@ func (c *inMemoryCache) ClearAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.store = map[string]*any.Any{}
-	c.configIndex = map[model.ConfigKey]sets.Set{}
+	c.configIndex = map[ConfigKey]sets.Set{}
 }
 
 func (c *inMemoryCache) Keys() []string {
@@ -125,15 +124,15 @@ func (c *inMemoryCache) Keys() []string {
 // DisabledCache is a cache that is always empty
 type DisabledCache struct{}
 
-var _ Cache = &DisabledCache{}
+var _ XdsCache = &DisabledCache{}
 
-func (d DisabledCache) Add(key CacheEntry, value *any.Any) {}
+func (d DisabledCache) Add(key XdsCacheEntry, value *any.Any) {}
 
-func (d DisabledCache) Get(CacheEntry) (*any.Any, bool) {
+func (d DisabledCache) Get(XdsCacheEntry) (*any.Any, bool) {
 	return nil, false
 }
 
-func (d DisabledCache) Clear(configsUpdated map[model.ConfigKey]struct{}) {}
+func (d DisabledCache) Clear(configsUpdated map[ConfigKey]struct{}) {}
 
 func (d DisabledCache) ClearAll() {}
 
