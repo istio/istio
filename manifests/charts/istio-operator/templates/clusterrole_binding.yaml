@@ -4,7 +4,7 @@ metadata:
   name: istio-operator
 subjects:
 - kind: ServiceAccount
-  name: istio-operator
+  name: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{.Values.operatorNamespace}}
 roleRef:
   kind: ClusterRole
