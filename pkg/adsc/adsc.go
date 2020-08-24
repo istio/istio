@@ -91,6 +91,10 @@ type Config struct {
 	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
 	XDSSAN string
 
+	// XDSRootCAFile explicitly set the root CA to be used for the XDS connection.
+	// Mirrors Envoy file.
+	XDSRootCAFile string
+
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
 
@@ -292,10 +296,12 @@ func getPrivateIPIfAvailable() net.IP {
 
 func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	var clientCert tls.Certificate
+	var clientCerts []tls.Certificate
 	var serverCABytes []byte
 	var err error
 	var certName string
 
+	// If we need MTLS - CertDir or Secrets provider is set.
 	if a.cfg.Secrets != nil {
 		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
 		if err != nil {
@@ -313,21 +319,28 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if a.cfg.CertDir != "" {
+		certName = a.cfg.CertDir + "/cert-chain.pem"
+		clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")
+		if err != nil {
+			return nil, err
+		}
+		clientCerts = []tls.Certificate{clientCert}
+	}
+
+	// Load the root CAs
+	if a.cfg.XDSRootCAFile != "" {
+		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
+	} else if a.cfg.Secrets != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.Secrets.GenerateSecret(context.Background(), "agent",
-			cache.RootCertReqResourceName, string(tok))
+			cache.RootCertReqResourceName, "")
 		if err != nil {
 			return nil, err
 		}
 
 		serverCABytes = rootCA.RootCert
-	} else {
-		certName = a.cfg.CertDir + "/cert-chain.pem"
-		clientCert, err = tls.LoadX509KeyPair(certName,
-			a.cfg.CertDir+"/key.pem")
-		if err != nil {
-			return nil, err
-		}
+	} else if a.cfg.CertDir != "" {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.CertDir + "/root-cert.pem")
 		if err != nil {
 			return nil, err
@@ -355,15 +368,18 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	if a.cfg.XDSSAN != "" {
 		shost = a.cfg.XDSSAN
 	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
+
+	tc := &tls.Config{
+		Certificates: clientCerts,
 		RootCAs:      serverCAs,
 		ServerName:   shost,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			return nil
 		},
 		InsecureSkipVerify: a.cfg.InsecureSkipVerify,
-	}, nil
+	}
+
+	return tc, nil
 }
 
 // Close the stream.
