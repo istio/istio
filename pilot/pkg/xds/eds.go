@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -294,6 +295,21 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	}
 	return l
 }
+
+// Legacy v2 generator. Used only for gRPC
+type EdsV2Generator struct {
+	Generator *EdsGenerator
+}
+
+func (e *EdsV2Generator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+	results := e.Generator.Generate(proxy, push, w, updates)
+	for _, i := range results {
+		i.TypeUrl = v2.EndpointType
+	}
+	return results
+}
+
+var _ model.XdsResourceGenerator = &EdsV2Generator{}
 
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
 // storage in DiscoveryServer.

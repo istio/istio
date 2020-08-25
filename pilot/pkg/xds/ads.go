@@ -507,6 +507,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	currentVersion := versionInfo()
 	// TODO: update the service deps based on NetworkScope
 	if !pushRequest.Full {
+		if !ProxyNeedsPush(con.proxy, pushEv) {
+			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
+			return nil
+		}
+		if con.proxy.WatchedResources[v3.EndpointType] == nil {
+			return nil
+		}
 		// TODO allow partial updates to types other than EDS
 		return s.pushGeneratorV2(con, pushRequest.Push, currentVersion, con.proxy.WatchedResources[v3.EndpointType], pushRequest.ConfigsUpdated)
 	}

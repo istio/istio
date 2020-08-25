@@ -474,8 +474,14 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 
 // initGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) initGenerators() {
+	edsGen := &EdsGenerator{Server: s}
+	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
+	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
+	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
+	s.Generators[v3.EndpointType] = edsGen
+
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &EdsGenerator{Server: s}
+	epGen := &EdsV2Generator{edsGen}
 	s.Generators["grpc/"+v2.EndpointType] = epGen
 	s.Generators["api"] = &apigen.APIGenerator{}
 	s.Generators["api/"+v2.EndpointType] = epGen
@@ -484,11 +490,6 @@ func (s *DiscoveryServer) initGenerators() {
 	}
 	s.Generators["api/"+TypeURLConnections] = s.InternalGen
 	s.Generators["event"] = s.InternalGen
-
-	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
-	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
-	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
-	s.Generators[v3.EndpointType] = &EdsGenerator{Server: s}
 }
 
 // shutdown shutsdown DiscoveryServer components.
