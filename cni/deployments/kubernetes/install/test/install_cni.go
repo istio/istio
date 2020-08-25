@@ -29,6 +29,7 @@ import (
 	"github.com/coreos/etcd/pkg/fileutil"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -142,7 +143,7 @@ func rmCNIConfig(cniConfigFilepath string, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = util.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 		t.Fatal(err)
 	}
 }

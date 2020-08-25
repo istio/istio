@@ -30,6 +30,7 @@ import (
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
 )
 
@@ -148,7 +149,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		}
 	}
 
-	if err = util.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+	if err = file.AtomicWrite(cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 		return "", err
 	}
 

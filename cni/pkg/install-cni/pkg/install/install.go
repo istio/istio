@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
 )
 
@@ -107,7 +108,7 @@ func (in *Installer) Cleanup() error {
 			if err != nil {
 				return err
 			}
-			if err = util.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
+			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0644)); err != nil {
 				return err
 			}
 		} else {

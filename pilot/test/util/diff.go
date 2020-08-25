@@ -16,16 +16,15 @@ package util
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/pmezard/go-difflib/difflib"
 
+	"istio.io/istio/pkg/file"
 	"istio.io/pkg/env"
 )
 
@@ -113,37 +112,10 @@ func StripVersion(yaml []byte) []byte {
 func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
-		// nolint: gocritic
-		if err := AtomicWrite(goldenFile, content, 0644); err != nil {
+		if err := file.AtomicWrite(goldenFile, content, os.FileMode(0644)); err != nil {
 			t.Errorf(err.Error())
 		}
 	}
-}
-
-// Write atomically by writing to a temporary file in the same directory then renaming
-func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
-	tmpFile, err := ioutil.TempFile(filepath.Dir(path), filepath.Base(path)+".tmp.")
-	if err != nil {
-		return
-	}
-
-	if err = os.Chmod(tmpFile.Name(), mode); err != nil {
-		return
-	}
-
-	_, err = tmpFile.Write(data)
-	if err != nil {
-		if closeErr := tmpFile.Close(); closeErr != nil {
-			err = fmt.Errorf("%v: %v", err, closeErr.Error())
-		}
-		return
-	}
-	if err = tmpFile.Close(); err != nil {
-		return
-	}
-
-	err = os.Rename(tmpFile.Name(), path)
-	return
 }
 
 // ReadFile reads the content of the given file or fails the test if an error is encountered.

@@ -26,8 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
 	testutils "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/file"
 )
 
 func TestGetDefaultCNINetwork(t *testing.T) {
@@ -214,7 +214,7 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 
 			// Create existing config files if specified in test case
 			for _, filename := range c.existingConfFiles {
-				if err := util.AtomicCopy(filepath.Join("testdata", filepath.Base(filename)), tempDir, filepath.Base(filename)); err != nil {
+				if err := file.AtomicCopy(filepath.Join("testdata", filepath.Base(filename)), tempDir, filepath.Base(filename)); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -496,7 +496,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 
 				// Create existing config files if specified in test case
 				for srcFilename, targetFilename := range c.existingConfFiles {
-					if err := util.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
+					if err := file.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
 						t.Fatal(err)
 					}
 				}

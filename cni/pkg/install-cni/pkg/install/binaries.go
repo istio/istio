@@ -22,7 +22,7 @@ import (
 	"github.com/coreos/etcd/pkg/fileutil"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
 )
 
@@ -43,8 +43,8 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 			return err
 		}
 
-		for _, file := range files {
-			filename := file.Name()
+		for _, f := range files {
+			filename := f.Name()
 			if skipBinariesSet[filename] {
 				log.Infof("%s is in SKIP_CNI_BINARIES, skipping.", filename)
 				continue
@@ -57,7 +57,7 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 			}
 
 			srcFilepath := filepath.Join(srcDir, filename)
-			err := util.AtomicCopy(srcFilepath, targetDir, filename)
+			err := file.AtomicCopy(srcFilepath, targetDir, filename)
 			if err != nil {
 				return err
 			}
