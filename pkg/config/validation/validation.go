@@ -26,9 +26,9 @@ import (
 	"time"
 
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/protobuf/proto"
+	types "google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
-	"istio.io/istio/pkg/config/xds"
 	"istio.io/pkg/log"
 )
 
@@ -51,8 +50,10 @@ const (
 	connectTimeoutMax = time.Second * 30
 	connectTimeoutMin = time.Millisecond
 
-	drainTimeMax          = time.Hour
-	parentShutdownTimeMax = time.Hour
+	drainTimeMax = 1.0
+	//	types.GetSeconds() * 60 * 60
+	parentShutdownTimeMax = 1.0
+	//types.GetSeconds() * 60 * 60
 
 	// UnixAddressPrefix is the prefix used to indicate an address is for a Unix Domain socket. It is used in
 	// ServiceEntry.Endpoint.Address message.
@@ -109,6 +110,15 @@ var (
 
 // Validate defines a validation func for an API proto.
 type ValidateFunc func(name, namespace string, config proto.Message) error
+
+// ValidateDuration checks that a proto duration is well-formed
+func ValidateDuration(pd *types.Duration) error {
+	duration := pd.AsDuration()
+	if time.Duration.Milliseconds(duration) > 1 {
+		return errors.New("duration must be greater than 1ms")
+	}
+	return nil
+}
 
 // IsValidateFunc indicates whether there is a validation function with the given name.
 func IsValidateFunc(name string) bool {
@@ -410,7 +420,7 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 
 		errs = appendErrors(errs,
 			ValidateWildcardDomain(rule.Host),
-			validateTrafficPolicy(rule.TrafficPolicy))
+			validateTrafficPolicy(*rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
@@ -590,10 +600,11 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 					}
 				}
 			}
+			// (sdake) UNCLEAR WHAT THIS CALL DOES
 			// ensure that the struct is valid
-			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
-				errs = appendErrors(errs, err)
-			}
+			//if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
+			//	errs = appendErrors(errs, err)
+			//}
 		}
 
 		return
@@ -847,34 +858,27 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 	return
 }
 
-func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
-	if policy == nil {
-		return nil
-	}
+func validateTrafficPolicy(policy networking.TrafficPolicy) error {
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
 		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
-	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
+	return appendErrors(validateOutlierDetection(*policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
 		validateTLS(policy.Tls), validatePortTrafficPolicies(policy.PortLevelSettings))
 }
 
-func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
-	if outlier == nil {
-		return
-	}
-
+func validateOutlierDetection(outlier networking.OutlierDetection) (errs error) {
 	if outlier.BaseEjectionTime != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(outlier.BaseEjectionTime))
+		errs = appendErrors(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
 	if outlier.ConsecutiveErrors != 0 {
 		scope.Warnf("outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead")
 	}
 	if outlier.Interval != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(outlier.Interval))
+		errs = appendErrors(errs, ValidateDuration(outlier.Interval))
 	}
 	errs = appendErrors(errs, ValidatePercent(outlier.MaxEjectionPercent), ValidatePercent(outlier.MinHealthPercent))
 
@@ -903,7 +907,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 			errs = appendErrors(errs, fmt.Errorf("max retries must be non-negative"))
 		}
 		if httpSettings.IdleTimeout != nil {
-			errs = appendErrors(errs, ValidateDurationGogo(httpSettings.IdleTimeout))
+			errs = appendErrors(errs, ValidateDuration(httpSettings.IdleTimeout))
 		}
 	}
 
@@ -912,7 +916,7 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 			errs = appendErrors(errs, fmt.Errorf("max connections must be non-negative"))
 		}
 		if tcp.ConnectTimeout != nil {
-			errs = appendErrors(errs, ValidateDurationGogo(tcp.ConnectTimeout))
+			errs = appendErrors(errs, ValidateDuration(tcp.ConnectTimeout))
 		}
 	}
 
@@ -976,7 +980,7 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
 		labels.Instance(subset.Labels).Validate(),
-		validateTrafficPolicy(subset.TrafficPolicy))
+		validateTrafficPolicy(*subset.TrafficPolicy))
 }
 
 func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
@@ -992,7 +996,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 			t.LoadBalancer == nil && t.Tls == nil {
 			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
 		} else {
-			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
+			errs = appendErrors(errs, validateOutlierDetection(*t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
 				validateLoadBalancer(t.LoadBalancer),
 				validateTLS(t.Tls))
@@ -1024,53 +1028,6 @@ func ValidateProxyAddress(hostAddr string) error {
 	return nil
 }
 
-// ValidateDurationGogo checks that a gogo proto duration is well-formed
-func ValidateDurationGogo(pd *types.Duration) error {
-	dur, err := types.DurationFromProto(pd)
-	if err != nil {
-		return err
-	}
-	if dur < time.Millisecond {
-		return errors.New("duration must be greater than 1ms")
-	}
-	if dur%time.Millisecond != 0 {
-		return errors.New("only durations to ms precision are supported")
-	}
-	return nil
-}
-
-// ValidateDuration checks that a proto duration is well-formed
-func ValidateDuration(pd *types.Duration) error {
-	dur, err := types.DurationFromProto(pd)
-	if err != nil {
-		return err
-	}
-	if dur < time.Millisecond {
-		return errors.New("duration must be greater than 1ms")
-	}
-	if dur%time.Millisecond != 0 {
-		return errors.New("only durations to ms precision are supported")
-	}
-	return nil
-}
-
-// ValidateGogoDuration validates the variant of duration.
-func ValidateGogoDuration(in *types.Duration) error {
-	return ValidateDuration(&types.Duration{
-		Seconds: in.Seconds,
-		Nanos:   in.Nanos,
-	})
-}
-
-// ValidateDurationRange verifies range is in specified duration
-func ValidateDurationRange(dur, min, max time.Duration) error {
-	if dur > max || dur < min {
-		return fmt.Errorf("time %v must be >%v and <%v", dur.String(), min.String(), max.String())
-	}
-
-	return nil
-}
-
 // ValidateParentAndDrain checks that parent and drain durations are valid
 func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
@@ -1083,32 +1040,32 @@ func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs err
 		return
 	}
 
-	drainDuration, _ := types.DurationFromProto(drainTime)
-	parentShutdownDuration, _ := types.DurationFromProto(parentShutdown)
+	drainDuration := drainTime.GetSeconds()
+	parentShutdownDuration := parentShutdown.GetSeconds()
 
-	if drainDuration%time.Second != 0 {
+	if drainDuration < 1.0 {
 		errs = multierror.Append(errs,
 			errors.New("drain time only supports durations to seconds precision"))
 	}
-	if parentShutdownDuration%time.Second != 0 {
+	if parentShutdownDuration < 1.0 {
 		errs = multierror.Append(errs,
 			errors.New("parent shutdown time only supports durations to seconds precision"))
 	}
 	if parentShutdownDuration <= drainDuration {
 		errs = multierror.Append(errs,
 			fmt.Errorf("parent shutdown time %v must be greater than drain time %v",
-				parentShutdownDuration.String(), drainDuration.String()))
+				parentShutdownDuration, drainDuration))
 	}
 
 	if drainDuration > drainTimeMax {
 		errs = multierror.Append(errs,
-			fmt.Errorf("drain time %v must be <%v", drainDuration.String(), drainTimeMax.String()))
+			fmt.Errorf("drain time %v must be <%v", drainDuration, drainTimeMax))
 	}
 
 	if parentShutdownDuration > parentShutdownTimeMax {
 		errs = multierror.Append(errs,
 			fmt.Errorf("parent shutdown time %v must be <%v",
-				parentShutdownDuration.String(), parentShutdownTimeMax.String()))
+				parentShutdownDuration, parentShutdownTimeMax))
 	}
 
 	return
@@ -1146,22 +1103,23 @@ func ValidateConnectTimeout(timeout *types.Duration) error {
 		return err
 	}
 
-	timeoutDuration, _ := types.DurationFromProto(timeout)
-	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
-	return err
+	// timeoutDuration := types.Duration(*timeout)
+	// TODO(sdake) dovoer
+	//	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
+	//	return err
+	return nil
 }
 
 // ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
 func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
-	dur, err := types.DurationFromProto(timeout)
-	if err != nil {
-		return err
-	}
+	// dur := types.Duration(*timeout)
 	// 0s is a valid value if trying to disable protocol detection timeout
-	if dur == time.Second*0 {
-		return nil
-	}
-	if dur%time.Millisecond != 0 {
+	// SDAKE (TODO)
+	//	if dur == 0.0 {
+	//		return nil
+	//	}
+
+	if timeout.GetNanos() != 0 {
 		return errors.New("only durations to ms precision are supported")
 	}
 
@@ -1790,7 +1748,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
 	errs = appendErrors(errs, validateHTTPRouteDestinations(http.Route))
 	if http.Timeout != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
+		errs = appendErrors(errs, ValidateDuration(http.Timeout))
 	}
 
 	return
@@ -1919,7 +1877,7 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	if policy.MaxAge != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(policy.MaxAge))
+		errs = appendErrors(errs, ValidateDuration(policy.MaxAge))
 		if policy.MaxAge.Nanos > 0 {
 			errs = multierror.Append(errs, errors.New("max_age duration is accurate only to seconds precision"))
 		}
@@ -2003,9 +1961,9 @@ func validateHTTPFaultInjectionDelay(delay *networking.HTTPFaultInjection_Delay)
 
 	switch v := delay.HttpDelayType.(type) {
 	case *networking.HTTPFaultInjection_Delay_FixedDelay:
-		errs = appendErrors(errs, ValidateDurationGogo(v.FixedDelay))
+		errs = appendErrors(errs, ValidateDuration(v.FixedDelay))
 	case *networking.HTTPFaultInjection_Delay_ExponentialDelay:
-		errs = appendErrors(errs, ValidateDurationGogo(v.ExponentialDelay))
+		errs = appendErrors(errs, ValidateDuration(v.ExponentialDelay))
 		errs = multierror.Append(errs, fmt.Errorf("exponentialDelay not supported yet"))
 	}
 
@@ -2068,7 +2026,7 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	}
 
 	if retries.PerTryTimeout != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(retries.PerTryTimeout))
+		errs = appendErrors(errs, ValidateDuration(retries.PerTryTimeout))
 	}
 	if retries.RetryOn != "" {
 		retryOnPolicies := strings.Split(retries.RetryOn, ",")

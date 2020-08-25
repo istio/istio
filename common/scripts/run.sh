@@ -48,6 +48,7 @@ export REPO_ROOT=/work
     -e IN_BUILD_CONTAINER=1 \
     -e TZ="${TIMEZONE:-$TZ}" \
     --mount "type=bind,source=${PWD},destination=/work,consistency=cached" \
+    --mount "type=bind,source=${PWD}/../api,destination=/api,consistency=cached" \
     --mount "type=volume,source=go,destination=/go,consistency=cached" \
     --mount "type=volume,source=gocache,destination=/gocache,consistency=cached" \
     --mount "type=volume,source=cache,destination=/home/.cache,consistency=cached" \

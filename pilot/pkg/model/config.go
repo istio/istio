@@ -22,7 +22,7 @@ import (
 	"time"
 
 	udpa "github.com/cncf/udpa/go/udpa/type/v1"
-	"github.com/gogo/protobuf/proto"
+//	"github.com/gogo/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/host"

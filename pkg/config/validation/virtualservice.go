@@ -165,7 +165,7 @@ func validateChainingHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	errs = appendErrors(errs, validateHTTPRewrite(http.Rewrite))
 	errs = appendErrors(errs, validateHTTPRouteDestinations(http.Route))
 	if http.Timeout != nil {
-		errs = appendErrors(errs, ValidateDurationGogo(http.Timeout))
+		errs = appendErrors(errs, ValidateDuration(http.Timeout))
 	}
 
 	return
