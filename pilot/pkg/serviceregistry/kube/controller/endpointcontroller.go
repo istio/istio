@@ -71,7 +71,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: map[model.ConfigKey]struct{}{{
 						Kind:      gvk.ServiceEntry,
-						Name:      svc.Name,
+						Name:      string(kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)),
 						Namespace: svc.Namespace,
 					}: {}},
 					Reason: []model.TriggerReason{model.EndpointUpdate},
