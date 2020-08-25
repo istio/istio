@@ -20,11 +20,11 @@ import (
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"istio.io/pkg/env"
+	istioversion "istio.io/pkg/version"
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/pkg/env"
-	istioversion "istio.io/pkg/version"
 )
 
 // gen2 provides experimental support for extended generation mechanism.

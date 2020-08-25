@@ -527,13 +527,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	if !ProxyNeedsPush(con.proxy, pushEv) {
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 
-		if s.StatusReporter != nil {
-			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
-			// inform distribution status reporter that this connection has been updated, because it effectively has
-			for _, distributionType := range AllEventTypes {
-				s.StatusReporter.RegisterEvent(con.ConID, distributionType, pushRequest.Push.Version)
-			}
-		}
+		reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, nil)
 		return nil
 	}
 
@@ -547,9 +541,26 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return err
 		}
 	}
+	// Report all events for unwatched resources. Watched resources will be reported in pushGenerator or on ack.
+	reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, con.proxy.WatchedResources)
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
+}
+
+func reportAllEvents(s DistributionStatusCache, id, version string, ignored map[string]*model.WatchedResource) {
+	if s == nil {
+		return
+	}
+	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
+	// inform distribution status reporter that this connection has been updated, because it effectively has
+	for _, distributionType := range AllEventTypes {
+		if _, f := ignored[distributionType]; f {
+			// Skip this type
+			continue
+		}
+		s.RegisterEvent(id, distributionType, version)
+	}
 }
 
 func (s *DiscoveryServer) adsClientCount() int {
