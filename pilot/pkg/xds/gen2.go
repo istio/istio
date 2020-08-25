@@ -20,11 +20,11 @@ import (
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"istio.io/pkg/env"
-	istioversion "istio.io/pkg/version"
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/pkg/env"
+	istioversion "istio.io/pkg/version"
 )
 
 // gen2 provides experimental support for extended generation mechanism.
@@ -124,7 +124,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 
 // Called for config updates.
 // Will not be called if ProxyNeedsPush returns false - ie. if the update
-func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushContext,
+func (s *DiscoveryServer) pushGenerator(con *Connection, push *model.PushContext,
 	currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
 	gen := s.Generators[w.TypeUrl]
 	if gen == nil {

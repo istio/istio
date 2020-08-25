@@ -515,7 +515,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return nil
 		}
 		// TODO allow partial updates to types other than EDS
-		return s.pushGeneratorV2(con, pushRequest.Push, currentVersion, con.proxy.WatchedResources[v3.EndpointType], pushRequest.ConfigsUpdated)
+		return s.pushGenerator(con, pushRequest.Push, currentVersion, con.proxy.WatchedResources[v3.EndpointType], pushRequest.ConfigsUpdated)
 	}
 
 	// Update Proxy with current information.
@@ -536,7 +536,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// Send pushes to all generators
 	//E ach Generator is responsible for determining if the push event requires a push
 	for _, w := range con.proxy.WatchedResources {
-		err := s.pushGeneratorV2(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
+		err := s.pushGenerator(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
 		if err != nil {
 			return err
 		}
