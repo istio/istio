@@ -75,18 +75,36 @@ NAME="istio-$ISTIO_VERSION"
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
 
-if [ "${OS}" = "Linux" ] ; then
+with_arch() {
   printf "\nDownloading %s from %s ...\n" "$NAME" "$ARCH_URL"
   curl -fsLO "$ARCH_URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
   tar -xzf "${filename}"
   rm "${filename}"
-elif [ "x${OS}" = "xDarwin" ] ; then
+}
+
+without_arch() {
   printf "\nDownloading %s from %s ..." "$NAME" "$URL"
   curl -fsLO "$URL"
   filename="istio-${ISTIO_VERSION}-${OSEXT}.tar.gz"
   tar -xzf "${filename}"
   rm "${filename}"
+}
+
+# Istio 1.6 and above support arch
+ARCH_SUPPORTED=$(echo "$ISTIO_VERSION" | awk  '{ ARCH_SUPPORTED=substr($0, 1, 3); print ARCH_SUPPORTED; }' )
+# Istio 1.5 and below do not have arch support
+ARCH_UNSUPPORTED="1.5"
+
+if [ "${OS}" = "Linux" ] ; then
+  # This checks if 1.6 <= 1.5 or 1.4 <= 1.5
+  if [ "$(expr "${ARCH_SUPPORTED}" \<= "${ARCH_UNSUPPORTED}")" -eq 1 ]; then
+    without_arch
+  else
+    with_arch
+  fi
+elif [ "x${OS}" = "xDarwin" ] ; then
+  without_arch
 else
   printf "\n\n"
   printf "Unable to download Istio %s at this moment!\n" "$ISTIO_VERSION"
