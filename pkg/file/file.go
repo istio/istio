@@ -30,7 +30,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 		return
 	}
 	defer func() {
-		if Exist(tmpFile.Name()) {
+		if Exists(tmpFile.Name()) {
 			if rmErr := os.Remove(tmpFile.Name()); rmErr != nil {
 				if err != nil {
 					err = errors.Wrap(err, rmErr.Error())
@@ -60,7 +60,23 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 	return
 }
 
-func Exist(name string) bool {
+func Exists(name string) bool {
 	_, err := os.Stat(name)
 	return err == nil
+}
+
+const (
+	// PrivateFileMode grants owner to read/write a file.
+	PrivateFileMode = 0600
+)
+
+// IsDirWriteable checks if dir is writable by writing and removing a file
+// to dir. It returns nil if dir is writable.
+// Inspired by etcd fileutil.
+func IsDirWriteable(dir string) error {
+	f := filepath.Join(dir, ".touch")
+	if err := ioutil.WriteFile(f, []byte(""), PrivateFileMode); err != nil {
+		return err
+	}
+	return os.Remove(f)
 }

@@ -39,7 +39,6 @@ require (
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containernetworking/cni v0.7.0-alpha1
 	github.com/containernetworking/plugins v0.7.3
-	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/davecgh/go-spew v1.1.1

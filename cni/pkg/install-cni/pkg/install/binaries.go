@@ -19,8 +19,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/coreos/etcd/pkg/fileutil"
-
 	"istio.io/istio/cni/pkg/install-cni/pkg/constants"
 	"istio.io/istio/pkg/file"
 	"istio.io/pkg/log"
@@ -33,7 +31,7 @@ func copyBinaries(updateBinaries bool, skipBinaries []string) error {
 	skipBinariesSet := arrToSet(skipBinaries)
 
 	for _, targetDir := range targetDirs {
-		if fileutil.IsDirWriteable(targetDir) != nil {
+		if file.IsDirWriteable(targetDir) != nil {
 			log.Infof("Directory %s is not writable, skipping.", targetDir)
 			continue
 		}
