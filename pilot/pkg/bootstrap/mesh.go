@@ -17,18 +17,16 @@ package bootstrap
 import (
 	"encoding/json"
 
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
-
-	"istio.io/istio/pkg/config/mesh"
 )
 
 // initMeshConfiguration creates the mesh in the pilotConfig from the input arguments.
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
-	log.Info("initializing mesh configuration")
+	log.Infoa("initializing mesh configuration ", args.MeshConfigFile)
 	defer func() {
 		if s.environment.Watcher != nil {
 			meshdump, _ := gogoprotomarshal.ToJSONWithIndent(s.environment.Mesh(), "    ")

@@ -17,13 +17,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/gomega"
 
-	"github.com/gogo/protobuf/proto"
-
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/galley/pkg/config/analysis/testing/fixtures"
 	"istio.io/istio/pkg/config/resource"
@@ -153,6 +151,7 @@ type fakeOrigin struct{}
 func (fakeOrigin) FriendlyName() string          { return "myFriendlyName" }
 func (fakeOrigin) Namespace() resource.Namespace { return "myNamespace" }
 func (fakeOrigin) Reference() resource.Reference { return fakeReference{} }
+func (fakeOrigin) FieldMap() map[string]int      { return make(map[string]int) }
 
 type fakeReference struct{}
 

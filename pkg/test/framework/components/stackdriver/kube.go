@@ -169,16 +169,24 @@ func (c *kubeComponent) ListLogEntries() ([]*loggingpb.LogEntry, error) {
 		// Remove fields that do not need verification
 		l.Timestamp = nil
 		l.Severity = ltype.LogSeverity_DEFAULT
-		l.HttpRequest.ResponseSize = 0
-		l.HttpRequest.RequestSize = 0
-		l.HttpRequest.ServerIp = ""
-		l.HttpRequest.RemoteIp = ""
-		l.HttpRequest.Latency = nil
+		if l.HttpRequest != nil {
+			l.HttpRequest.ResponseSize = 0
+			l.HttpRequest.RequestSize = 0
+			l.HttpRequest.ServerIp = ""
+			l.HttpRequest.RemoteIp = ""
+			l.HttpRequest.Latency = nil
+		}
 		delete(l.Labels, "request_id")
 		delete(l.Labels, "source_name")
+		delete(l.Labels, "destination_ip")
 		delete(l.Labels, "destination_name")
 		delete(l.Labels, "connection_id")
 		delete(l.Labels, "upstream_host")
+		delete(l.Labels, "connection_state")
+		delete(l.Labels, "source_ip")
+		delete(l.Labels, "source_port")
+		delete(l.Labels, "total_sent_bytes")
+		delete(l.Labels, "total_received_bytes")
 		ret = append(ret, l)
 	}
 	return ret, nil

@@ -19,12 +19,12 @@ import (
 	"os"
 	"testing"
 
-	"istio.io/istio/pilot/test/util"
-
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"istio.io/istio/pilot/test/util"
 )
 
 func TestConvertIngress(t *testing.T) {

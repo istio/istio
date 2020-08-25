@@ -19,10 +19,8 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/pkg/monitoring"
 )
 
 var (
@@ -183,7 +181,9 @@ func recordSendError(xdsType string, conID string, metric monitoring.Metric, err
 }
 
 func incrementXDSRejects(metric monitoring.Metric, node, errCode string) {
-	metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	if metric != nil {
+		metric.With(nodeTag.Value(node), errTag.Value(errCode)).Increment()
+	}
 	totalXDSRejects.Increment()
 }
 

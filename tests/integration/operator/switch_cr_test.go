@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,8 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	api "istio.io/api/operator/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/protocol"
@@ -49,6 +48,7 @@ import (
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -379,17 +379,17 @@ func compareInClusterAndGeneratedResources(t *testing.T, istioCtl istioctl.Insta
 					return fmt.Errorf("failed to get expected configMap: %s from cluster", name)
 				}
 			case "ValidatingWebhookConfiguration":
-				if _, err := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.TODO(),
+				if _, err := cs.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(context.TODO(),
 					name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected ValidatingWebhookConfiguration: %s from cluster", name)
 				}
 			case "MutatingWebhookConfiguration":
-				if _, err := cs.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(),
+				if _, err := cs.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(context.TODO(),
 					name, kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected MutatingWebhookConfiguration: %s from cluster", name)
 				}
 			case "CustomResourceDefinition":
-				if _, err := cs.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name,
+				if _, err := cs.Ext().ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), name,
 					kubeApiMeta.GetOptions{}); err != nil {
 					return fmt.Errorf("failed to get expected CustomResourceDefinition: %s from cluster", name)
 				}

@@ -35,17 +35,11 @@ if [[ -z "${IGNORE_DIRTY_TREE}" ]] && ! git diff-index --quiet HEAD --; then
   tree_status="Modified"
 fi
 
-# security wanted VERSION='unknown'
-VERSION="${BUILD_GIT_REVISION}"
-if [[ -n ${ISTIO_VERSION} ]]; then
-  VERSION="${ISTIO_VERSION}"
-fi
-
 GIT_DESCRIBE_TAG=$(git describe --tags)
 HUB=${HUB:-"docker.io/istio"}
 
 # used by common/scripts/gobuild.sh
-echo "istio.io/pkg/version.buildVersion=${VERSION}"
+echo "istio.io/pkg/version.buildVersion=${VERSION:-$BUILD_GIT_REVISION}"
 echo "istio.io/pkg/version.buildGitRevision=${BUILD_GIT_REVISION}"
 echo "istio.io/pkg/version.buildStatus=${tree_status}"
 echo "istio.io/pkg/version.buildTag=${GIT_DESCRIBE_TAG}"

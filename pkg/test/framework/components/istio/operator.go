@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	kubeApiCore "k8s.io/api/core/v1"
@@ -36,12 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
-
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -153,11 +151,11 @@ func (i *operatorComponent) Close() (err error) {
 	return
 }
 
-func (i *operatorComponent) Dump() {
+func (i *operatorComponent) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
 
 	for _, cluster := range i.environment.KubeClusters {
-		d, err := i.ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
+		d, err := ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
 		if err != nil {
 			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
@@ -227,14 +225,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
-
-				if cfg.ExposeIstiod {
-					if err := patchIngressPorts(cfg, cluster); err != nil {
-						return fmt.Errorf("failed patching ingress ports for cluster %s: %v", cluster.Name(), err)
-					}
-					if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
-						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
-					}
+				if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
+					return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 				}
 				return nil
 			})
@@ -490,15 +482,12 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 
 		if !c.environment.IsControlPlaneCluster(cluster) {
-			installSettings = append(installSettings, "--set", "profile=remote")
 			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {
 				return err
 			}
 			installSettings = append(installSettings,
-				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
-				// Use the local Istiod for CA
-				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
+				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
 
 			if isCentralIstio(c.environment, cfg) {
 				installSettings = append(installSettings,
@@ -521,32 +510,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 	}
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
-}
-
-func patchIngressPorts(cfg Config, cluster resource.Cluster) error {
-	patchOptions := kubeApiMeta.PatchOptions{
-		FieldManager: "istio-ci",
-		TypeMeta: kubeApiMeta.TypeMeta{
-			Kind:       "Service",
-			APIVersion: "v1",
-		},
-	}
-	contents := `
-apiVersion: v1
-kind: Service
-spec:
-  ports:
-  - name: tcp-istiod
-    port: 15012
-    protocol: TCP
-    targetPort: 15012
-  - name: tcp-webhook
-    port: 15017
-    protocol: TCP
-    targetPort: 15017`
-	_, err := cluster.CoreV1().Services(cfg.SystemNamespace).Patch(
-		context.TODO(), "istio-ingressgateway", types.ApplyPatchType, []byte(contents), patchOptions)
-	return err
 }
 
 func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
@@ -622,7 +585,7 @@ func waitForControlPlane(ctx resource.Context, dumper resource.Dumper, cluster r
 	if !cfg.SkipWaitForValidationWebhook {
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		if err := waitForValidationWebhook(ctx, cluster, cfg); err != nil {
-			dumper.Dump()
+			dumper.Dump(ctx)
 			return err
 		}
 	}

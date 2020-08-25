@@ -57,12 +57,10 @@ import (
 	serviceapisfake "sigs.k8s.io/service-apis/pkg/client/clientset/versioned/fake"
 	serviceapisinformer "sigs.k8s.io/service-apis/pkg/client/informers/externalversions"
 
+	"istio.io/api/label"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	istioinformer "istio.io/client-go/pkg/informers/externalversions"
-
-	"istio.io/api/label"
-
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -479,11 +477,11 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return nil, err
 	}
 	if len(istiods) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
+		return nil, errors.New("unable to find any Istiod instances")
 	}
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 8080).DoRaw(ctx)
+		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -574,7 +572,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
 		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error port-forewarding into %s : %v", pod.Name, err))
+			errs = multierror.Append(errs, fmt.Errorf("error port-forwarding into %s : %v", pod.Name, err))
 			continue
 		}
 		if len(result) > 0 {

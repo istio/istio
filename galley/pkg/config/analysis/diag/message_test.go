@@ -18,9 +18,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"istio.io/istio/pkg/config/resource"
-
 	. "github.com/onsi/gomega"
+
+	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/url"
 )
 
 func TestMessage_String(t *testing.T) {
@@ -58,7 +59,7 @@ func TestMessageWithDocRef(t *testing.T) {
 	mt := NewMessageType(Error, "IST0042", "Cheese type not found: %q")
 	m := NewMessage(mt, nil, "Feta")
 	m.DocRef = "test-ref"
-	g.Expect(m.Unstructured(false)["documentation_url"]).To(Equal("https://istio.io/docs/reference/config/analysis/ist0042/?ref=test-ref"))
+	g.Expect(m.Unstructured(false)["documentation_url"]).To(Equal(url.ConfigAnalysis + "/ist0042/?ref=test-ref"))
 }
 
 func TestMessage_JSON(t *testing.T) {
@@ -67,6 +68,17 @@ func TestMessage_JSON(t *testing.T) {
 	m := NewMessage(mt, &resource.Instance{Origin: testOrigin{name: "toppings/cheese", ref: testReference{"path/to/file"}}}, "Feta")
 
 	j, _ := json.Marshal(&m)
-	g.Expect(string(j)).To(Equal(`{"code":"IST0042","documentation_url":"https://istio.io/docs/reference/config/analysis/ist0042/"` +
+	g.Expect(string(j)).To(Equal(`{"code":"IST0042","documentation_url":"` + url.ConfigAnalysis + `/ist0042/"` +
 		`,"level":"Error","message":"Cheese type not found: \"Feta\"","origin":"toppings/cheese","reference":"path/to/file"}`))
+}
+
+func TestMessage_ReplaceLine(t *testing.T) {
+	testCases := []string{"test.yaml", "test.yaml:1", "test.yaml:10", "test.yaml: 10", "test", "test:10", "123:10", "123"}
+	result := make([]string, 0)
+	g := NewGomegaWithT(t)
+	m := &Message{Line: 321}
+	for _, v := range testCases {
+		result = append(result, m.ReplaceLine(v))
+	}
+	g.Expect(result).To(Equal([]string{"test.yaml", "test.yaml:321", "test.yaml:321", "test.yaml:321", "test", "test:321", "123:321", "123"}))
 }

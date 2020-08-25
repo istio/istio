@@ -23,7 +23,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	mock_config "istio.io/istio/pilot/test/mock"
@@ -408,6 +407,8 @@ func TestDeepCopy(t *testing.T) {
 			Name:              "name1",
 			Namespace:         "zzz",
 			CreationTimestamp: time.Now(),
+			Labels:            map[string]string{"app": "test-app"},
+			Annotations:       map[string]string{"policy.istio.io/checkRetries": "3"},
 		},
 		Spec: &networking.Gateway{},
 	}
@@ -419,6 +420,13 @@ func TestDeepCopy(t *testing.T) {
 		cfg.Name == copied.Name &&
 		cfg.CreationTimestamp == copied.CreationTimestamp) {
 		t.Fatalf("cloned config is not identical")
+	}
+
+	copied.Labels["app"] = "cloned-app"
+	copied.Annotations["policy.istio.io/checkRetries"] = "0"
+	if cfg.Labels["app"] == copied.Labels["app"] ||
+		cfg.Annotations["policy.istio.io/checkRetries"] == copied.Annotations["policy.istio.io/checkRetries"] {
+		t.Fatalf("Did not deep copy labels and annotations")
 	}
 
 	// change the copied gateway to see if the original config is not effected

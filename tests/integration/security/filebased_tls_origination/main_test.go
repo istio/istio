@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,11 +18,10 @@ package filebasedtlsorigination
 import (
 	"testing"
 
-	"istio.io/istio/tests/integration/security/util/cert"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
@@ -50,8 +50,10 @@ func setupConfig(cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: true
+    name: istio-egressgateway
   ingressGateways:
   - enabled: false
+    name: istio-ingressgateway
 values:
    gateways:
       istio-egressgateway:

@@ -1,15 +1,25 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
- name: integ-test
+  name: allow-policy
 spec:
- rules:
- - from:
-   - source:
-       principals: ["cluster.local/ns/default/sa/sleep"]
-   to:
-   - operation:
-       methods: ["GET"]
-   when:
-   - key: request.headers[version]
-     values: ["v1", "v2"]
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        methods: ["*"]
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-policy
+spec:
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        methods: ["*"]
+  - to:
+    - operation:
+        methods: ["*"]
+---

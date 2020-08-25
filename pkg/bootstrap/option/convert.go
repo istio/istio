@@ -31,11 +31,10 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networkingAPI "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
+	"istio.io/pkg/log"
 )
 
 //TransportSocket wraps UpstreamTLSContext
@@ -139,7 +138,7 @@ func tlsContextConvert(tls *networkingAPI.ClientTLSSettings, sniName string, met
 		// No TLS.
 		return nil
 	}
-	if len(sniName) > 0 {
+	if len(tls.Sni) == 0 && tls.Mode == networkingAPI.ClientTLSSettings_ISTIO_MUTUAL {
 		tlsContext.Sni = sniName
 	}
 	return tlsContext

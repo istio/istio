@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -42,8 +43,11 @@ var (
 	headerVal   string
 	headers     string
 	msg         string
+	method      string
 	http2       bool
 	serverFirst bool
+	clientCert  string
+	clientKey   string
 
 	caFile string
 
@@ -120,10 +124,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&caFile, "ca", "/cert.crt", "CA root cert file")
 	rootCmd.PersistentFlags().StringVar(&msg, "msg", "HelloWorld",
 		"message to send (for websockets)")
+	rootCmd.PersistentFlags().StringVar(&method, "method", "", "method to use (for HTTP)")
 	rootCmd.PersistentFlags().BoolVar(&http2, "http2", false,
 		"send http requests as HTTP with prior knowledge")
 	rootCmd.PersistentFlags().BoolVar(&serverFirst, "server-first", false,
 		"Treat as a server first protocol; do not send request until magic string is received")
+	rootCmd.PersistentFlags().StringVar(&clientCert, "client-cert", "", "client certificate file to use for request")
+	rootCmd.PersistentFlags().StringVar(&clientKey, "client-key", "", "client certificate key file to use for request")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -139,6 +146,7 @@ func getRequest() (*proto.ForwardEchoRequest, error) {
 		Message:       msg,
 		Http2:         http2,
 		ServerFirst:   serverFirst,
+		Method:        method,
 	}
 
 	// Old http add header - deprecated
@@ -164,6 +172,19 @@ func getRequest() (*proto.ForwardEchoRequest, error) {
 				Value: parts[1],
 			})
 		}
+	}
+
+	if clientCert != "" && clientKey != "" {
+		certData, err := ioutil.ReadFile(clientCert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		}
+		request.Cert = string(certData)
+		keyData, err := ioutil.ReadFile(clientKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate key: %v", err)
+		}
+		request.Key = string(keyData)
 	}
 	return request, nil
 }

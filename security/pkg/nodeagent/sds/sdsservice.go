@@ -27,13 +27,8 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
-	"istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/security"
-	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
@@ -41,7 +36,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/log"
 )
 
@@ -494,6 +492,12 @@ func clearStaledClients() {
 
 // NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
+// TODO: this method may have a race condition and a very confusing logic,
+// it may work if the push channel somehow prevents other secret rotations
+// happening in other go-routines from replacing the per-connection fields
+// while pushChannel happens. This may lead to lost secret rotations for
+// gateway. With SDS moving to istiod - it will no longer be an issue, may
+// be too risky to change this code.
 func NotifyProxy(connKey cache.ConnKey, secret *security.SecretItem) error {
 	conIDresourceNamePrefix := sdsLogPrefix(connKey.ResourceName)
 	sdsClientsMutex.Lock()

@@ -24,10 +24,10 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	"github.com/hashicorp/go-multierror"
+	yamlv3 "gopkg.in/yaml.v3"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/galley/pkg/config/source/inmemory"
@@ -303,10 +303,64 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return kubeResource{}, err
 	}
 
+	// Build flat map for analyzers if the line JSON object exists, if the YAML text is ill-formed, this will be nil
+	fieldMap := make(map[string]int)
+
+	// yamlv3.Node contains information like line number of the node, which will be used with its name to construct the field map
+	yamlChunkNode := yamlv3.Node{}
+	err = yamlv3.Unmarshal(yamlChunk, &yamlChunkNode)
+	if err == nil && len(yamlChunkNode.Content) == 1 {
+
+		// Get the Node that contains all the YAML chunk information
+		yamlNode := yamlChunkNode.Content[0]
+
+		BuildFieldPathMap(yamlNode, lineNum, "", fieldMap)
+	}
+
 	pos := rt.Position{Filename: name, Line: lineNum}
 	return kubeResource{
 		schema:   schema,
 		sha:      sha1.Sum(yamlChunk),
-		resource: rt.ToResource(objMeta, schema, item, &pos),
+		resource: rt.ToResource(objMeta, schema, item, &pos, fieldMap),
 	}, nil
+}
+
+// BuildFieldPathMap builds the flat map for each field of the YAML resource
+func BuildFieldPathMap(yamlNode *yamlv3.Node, startLineNum int, curPath string, fieldPathMap map[string]int) {
+	// If no content in the node, terminate the DFS search
+	if len(yamlNode.Content) == 0 {
+		return
+	}
+
+	nodeContent := yamlNode.Content
+	// Iterate content by a step of 2, because in the content array the value is in the key's next index position
+	for i := 0; i < len(nodeContent)-1; i += 2 {
+		// Two condition, i + 1 positions have no content, which means they have the format like "key: value", then build the map
+		// Or i + 1 has contents, which means "key:\n  value...", then perform one more DFS search
+		keyNode := nodeContent[i]
+		valueNode := nodeContent[i+1]
+		pathKeyForMap := fmt.Sprintf("%s.%s", curPath, keyNode.Value)
+
+		switch {
+		case valueNode.Kind == yamlv3.ScalarNode:
+			// Can build map because the value node has no content anymore
+			// minus one because startLineNum starts at line 1, and yamlv3.Node.line also starts at line 1
+			fieldPathMap[fmt.Sprintf("{%s}", pathKeyForMap)] = valueNode.Line + startLineNum - 1
+
+		case valueNode.Kind == yamlv3.MappingNode:
+			BuildFieldPathMap(valueNode, startLineNum, pathKeyForMap, fieldPathMap)
+
+		case valueNode.Kind == yamlv3.SequenceNode:
+			for j, node := range valueNode.Content {
+				pathWithIndex := fmt.Sprintf("%s[%d]", pathKeyForMap, j)
+
+				// Array with values or array with maps
+				if node.Kind == yamlv3.ScalarNode {
+					fieldPathMap[fmt.Sprintf("{%s}", pathWithIndex)] = node.Line + startLineNum - 1
+				} else {
+					BuildFieldPathMap(node, startLineNum, pathWithIndex, fieldPathMap)
+				}
+			}
+		}
+	}
 }

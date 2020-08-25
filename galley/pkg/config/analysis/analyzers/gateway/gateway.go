@@ -15,12 +15,14 @@
 package gateway
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -96,7 +98,14 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 	// Report if we found no pods matching this gateway's selector
 	if gwSelectorMatches == 0 {
-		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String()))
+		m := msg.NewReferencedResourceNotFound(r, "selector", gwSelector.String())
+
+		label := util.ExtractLabelFromSelectorString(gwSelector.String())
+		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
+			m.Line = line
+		}
+
+		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 		return
 	}
 
@@ -105,7 +114,14 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		if server.Port != nil {
 			_, ok := servicePorts[server.Port.Number]
 			if !ok {
-				c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number)))
+				m := msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number))
+
+				label := util.ExtractLabelFromSelectorString(gwSelector.String())
+				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
+					m.Line = line
+				}
+
+				c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
 			}
 		}
 	}

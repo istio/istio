@@ -22,20 +22,20 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Masterminds/sprig"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/Masterminds/sprig/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-
-	"istio.io/pkg/env"
+	"github.com/golang/protobuf/ptypes/any"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // ConfigInput defines inputs passed to the test config templates
@@ -86,6 +86,9 @@ var testCases = []ConfigInput{
 
 func disableLogging() {
 	for _, s := range log.Scopes() {
+		if s.Name() == benchmarkScope.Name() {
+			continue
+		}
 		s.SetOutputLevel(log.NoneLevel)
 	}
 }
@@ -97,7 +100,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 			s, proxy := setupTest(b, tt)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				initPushContext(s.Env, proxy)
+				initPushContext(s.Env(), proxy)
 			}
 		})
 	}
@@ -105,20 +108,19 @@ func BenchmarkInitPushContext(b *testing.B) {
 
 func BenchmarkRouteGeneration(b *testing.B) {
 	disableLogging()
-
 	for _, tt := range testCases {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
-			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext)
-			routeNames := ExtractRoutesFromListeners(l)
+			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
+			routeNames := xdstest.ExtractRoutesFromListeners(l)
 			if len(routeNames) == 0 {
 				b.Fatal("Got no route names!")
 			}
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext, routeNames)
+				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext(), routeNames)
 				if len(r) == 0 {
 					b.Fatal("Got no routes!")
 				}
@@ -137,7 +139,7 @@ func BenchmarkClusterGeneration(b *testing.B) {
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				c := s.Discovery.ConfigGenerator.BuildClusters(proxy, s.PushContext)
+				c := s.Discovery.ConfigGenerator.BuildClusters(proxy, s.PushContext())
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
@@ -156,7 +158,7 @@ func BenchmarkListenerGeneration(b *testing.B) {
 			b.ResetTimer()
 			var response *discovery.DiscoveryResponse
 			for n := 0; n < b.N; n++ {
-				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext)
+				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
 				if len(l) == 0 {
 					b.Fatal("Got no listeners!")
 				}
@@ -198,10 +200,10 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
+				loadAssignments := make([]*any.Any, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.Discovery.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
-					loadAssignments = append(loadAssignments, l)
+					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
+					loadAssignments = append(loadAssignments, util.MessageToAny(l))
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
 			}
@@ -280,7 +282,7 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
 
 func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
 	s, proxy := setupTest(t, config)
-	initPushContext(s.Env, proxy)
+	initPushContext(s.Env(), proxy)
 	return s, proxy
 }
 
@@ -293,6 +295,8 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 
 var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")
 
+var benchmarkScope = log.RegisterScope("benchmark", "", 0)
+
 // Add additional debug info for a test
 func logDebug(b *testing.B, m *discovery.DiscoveryResponse) {
 	b.Helper()
@@ -304,7 +308,7 @@ func logDebug(b *testing.B, m *discovery.DiscoveryResponse) {
 			b.Fatal(err)
 		}
 		// Cannot use b.Logf, it truncates
-		log.Infof("Generated: %s", s)
+		benchmarkScope.Infof("Generated: %s", s)
 	}
 	bytes, err := proto.Marshal(m)
 	if err != nil {

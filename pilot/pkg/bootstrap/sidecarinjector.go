@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/webhooks"
+	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )
 
@@ -30,10 +31,15 @@ const (
 	webhookName = "sidecar-injector.istio.io"
 )
 
+var (
+	injectionEnabled = env.RegisterBoolVar("INJECT_ENABLED", true, "Enable mutating webhook handler.")
+)
+
 func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
+	// currently the constant: "./var/lib/istio/inject"
 	injectPath := args.InjectionOptions.InjectionDirectory
-	if injectPath == "" {
-		log.Infof("Skipping sidecar injector, injection path is missing")
+	if injectPath == "" || !injectionEnabled.Get() {
+		log.Infof("Skipping sidecar injector, injection path is missing or disabled.")
 		return nil, nil
 	}
 

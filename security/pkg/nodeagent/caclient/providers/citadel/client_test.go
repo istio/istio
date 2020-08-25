@@ -26,9 +26,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"istio.io/istio/pkg/test/util/retry"
-
 	pb "istio.io/api/security/v1alpha1"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (

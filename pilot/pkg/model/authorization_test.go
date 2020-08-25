@@ -24,13 +24,12 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
-	"istio.io/pkg/ledger"
-
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/ledger"
 )
 
 func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
@@ -64,6 +63,9 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
+	auditPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	auditPolicy.Action = authpb.AuthorizationPolicy_AUDIT
+
 	cases := []struct {
 		name           string
 		ns             string
@@ -71,6 +73,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		configs        []Config
 		wantDeny       []AuthorizationPolicy
 		wantAllow      []AuthorizationPolicy
+		wantAudit      []AuthorizationPolicy
 	}{
 		{
 			name:      "no policies",
@@ -115,6 +118,20 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
+			name: "one audit policy",
+			ns:   "bar",
+			configs: []Config{
+				newConfig("authz-1", "bar", auditPolicy),
+			},
+			wantAudit: []AuthorizationPolicy{
+				{
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      auditPolicy,
+				},
+			},
+		},
+		{
 			name: "two policies",
 			ns:   "bar",
 			configs: []Config{
@@ -136,11 +153,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
-			name: "mixing allow and deny policies",
+			name: "mixing allow, deny, and audit policies",
 			ns:   "bar",
 			configs: []Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", denyPolicy),
+				newConfig("authz-3", "bar", auditPolicy),
+				newConfig("authz-4", "bar", auditPolicy),
 			},
 			wantDeny: []AuthorizationPolicy{
 				{
@@ -154,6 +173,18 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					Name:      "authz-1",
 					Namespace: "bar",
 					Spec:      policy,
+				},
+			},
+			wantAudit: []AuthorizationPolicy{
+				{
+					Name:      "authz-3",
+					Namespace: "bar",
+					Spec:      auditPolicy,
+				},
+				{
+					Name:      "authz-4",
+					Namespace: "bar",
+					Spec:      auditPolicy,
 				},
 			},
 		},
@@ -272,13 +303,16 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs, t)
 
-			gotDeny, gotAllow := authzPolicies.ListAuthorizationPolicies(
+			gotDeny, gotAllow, gotAudit := authzPolicies.ListAuthorizationPolicies(
 				tc.ns, []labels.Instance{tc.workloadLabels})
 			if !reflect.DeepEqual(tc.wantAllow, gotAllow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, gotAllow)
 			}
 			if !reflect.DeepEqual(tc.wantDeny, gotDeny) {
 				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, gotDeny)
+			}
+			if !reflect.DeepEqual(tc.wantAudit, gotAudit) {
+				t.Errorf("wantAudit:%v\n but got: %v\n", tc.wantAudit, gotAudit)
 			}
 		})
 	}

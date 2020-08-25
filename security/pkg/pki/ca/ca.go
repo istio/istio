@@ -27,14 +27,12 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/security/pkg/cmd"
-
-	"istio.io/pkg/log"
-	"istio.io/pkg/probe"
-
 	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
+	"istio.io/pkg/probe"
 )
 
 const (

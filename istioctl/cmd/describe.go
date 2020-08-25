@@ -32,17 +32,14 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
-	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	"istio.io/pkg/log"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_labels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -58,6 +55,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
 )
 
 type myProtoValue struct {
@@ -114,7 +112,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return err
 			}
 
-			matchingServices := []v1.Service{}
+			matchingServices := make([]v1.Service, 0, len(svcs.Items))
 			for _, svc := range svcs.Items {
 				if len(svc.Spec.Selector) > 0 {
 					svcSelector := k8s_labels.SelectorFromSet(svc.Spec.Selector)
@@ -222,8 +220,8 @@ func extendFQDN(host string) string {
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
 func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []k8s_labels.Set) ([]string, []string) {
-	matchingSubsets := []string{}
-	nonmatchingSubsets := []string{}
+	matchingSubsets := make([]string, 0, len(subsets))
+	nonmatchingSubsets := make([]string, 0, len(subsets))
 	for _, subset := range subsets {
 		subsetSelector := k8s_labels.SelectorFromSet(subset.Labels)
 		if matchesAnyPod(subsetSelector, podsLabels) {

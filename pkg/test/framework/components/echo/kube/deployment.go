@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"text/template"
 
-	"github.com/Masterminds/sprig"
+	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -118,6 +118,9 @@ spec:
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
+{{- if $p.ServerFirst }}
+          - --server-first={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -128,6 +131,9 @@ spec:
           - "{{ $p.Port }}"
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
+{{- end }}
+{{- if $p.ServerFirst }}
+          - --server-first={{ $p.Port }}
 {{- end }}
 {{- end }}
           - --version
@@ -248,7 +254,7 @@ spec:
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
           # Capture all DNS traffic in the VM and forward to Envoy
-          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
+          # sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
 
           # Setup the namespace
@@ -269,6 +275,9 @@ spec:
              --port \
 {{- end }}
              "{{ $p.Port }}" \
+{{- if $p.ServerFirst }}
+             --server-first={{ $p.Port }} \
+{{- end }}
 {{- end }}
         env:
         {{- range $name, $value := $.Environment }}

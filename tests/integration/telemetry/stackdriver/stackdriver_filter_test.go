@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,10 +93,10 @@ func TestStackdriverMonitoring(t *testing.T) {
 				if err := sendTraffic(t); err != nil {
 					return fmt.Errorf("could not generate traffic: %v", err)
 				}
-				if err := validateMetrics(t); err != nil {
+				if err := validateMetrics(t, serverRequestCount, clientRequestCount); err != nil {
 					return err
 				}
-				if err := validateLogs(t); err != nil {
+				if err := validateLogs(t, serverLogEntry); err != nil {
 					return err
 				}
 				if err := validateTraces(t); err != nil {
@@ -125,6 +126,13 @@ func setupConfig(cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 meshConfig:
   enableTracing: true
+values:
+  telemetry:
+    v2:
+      stackdriver:
+        configOverride:
+          meshEdgesReportingDuration: "5s"
+          enable_mesh_edges_reporting: true
 `
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
@@ -132,7 +140,6 @@ meshConfig:
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
-	cfg.Values["telemetry.v2.stackdriver.configOverride"] = `{"enable_mesh_edges_reporting": true,"meshEdgesReportingDuration":"5s"}`
 }
 
 func testSetup(ctx resource.Context) (err error) {
@@ -193,6 +200,12 @@ func testSetup(ctx resource.Context) (err error) {
 					// We use a port > 1024 to not require root
 					InstancePort: 8888,
 				},
+				{
+					Name:     "tcp",
+					Protocol: protocol.TCP,
+					// We use a port > 1024 to not require root
+					InstancePort: 9000,
+				},
 			},
 			Subsets: []echo.SubsetConfig{
 				{
@@ -234,14 +247,14 @@ func sendTraffic(t *testing.T) error {
 	return err
 }
 
-func validateMetrics(t *testing.T) error {
+func validateMetrics(t *testing.T, serverReqCount, clientReqCount string) error {
 	t.Helper()
 
 	var wantClient, wantServer monitoring.TimeSeries
-	if err := unmarshalFromTemplateFile(serverRequestCount, &wantServer); err != nil {
+	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer); err != nil {
 		return fmt.Errorf("metrics: error generating wanted server request: %v", err)
 	}
-	if err := unmarshalFromTemplateFile(clientRequestCount, &wantClient); err != nil {
+	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient); err != nil {
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
@@ -267,11 +280,11 @@ func validateMetrics(t *testing.T) error {
 	return nil
 }
 
-func validateLogs(t *testing.T) error {
+func validateLogs(t *testing.T, srvLogEntry string) error {
 	t.Helper()
 
 	var wantLog loggingpb.LogEntry
-	if err := unmarshalFromTemplateFile(serverLogEntry, &wantLog); err != nil {
+	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
 	// Traverse all log entries received and compare with expected server log entry.
@@ -284,6 +297,7 @@ func validateLogs(t *testing.T) error {
 			return nil
 		}
 	}
+
 	return errors.New("logs: did not get expected log entry")
 }
 

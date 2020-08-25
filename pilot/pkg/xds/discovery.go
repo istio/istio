@@ -25,18 +25,17 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
-	"istio.io/istio/pilot/pkg/networking/apigen"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core"
+	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
 var (
@@ -88,10 +87,6 @@ type DiscoveryServer struct {
 
 	concurrentPushLimit chan struct{}
 
-	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
-	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
-	DebugConfigs bool
-
 	// mutex protecting global structs updated or read by ADS service, including ConfigsUpdated and
 	// shards.
 	mutex sync.RWMutex
@@ -127,6 +122,9 @@ type DiscoveryServer struct {
 	serverReady bool
 
 	debounceOptions debounceOptions
+
+	// Cache for XDS resources
+	cache model.XdsCache
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -159,7 +157,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
 		pushChannel:             make(chan *model.PushRequest, 10),
 		pushQueue:               NewPushQueue(),
-		DebugConfigs:            features.DebugConfigs,
 		debugHandlers:           map[string]string{},
 		adsClients:              map[string]*Connection{},
 		serverReady:             false,
@@ -168,17 +165,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-	}
-
-	if features.XDSAuth {
-		// This is equivalent with the mTLS authentication for workload-to-workload.
-		// The GRPC server is configured in bootstrap.initSecureDiscoveryService, using the root
-		// certificate as 'ClientCAs'. To accept additional signers for client identities - add them
-		// there, will be used for CA signing as well.
-		out.Authenticators = append(out.Authenticators, &authenticate.ClientCertAuthenticator{})
-
-		// TODO: we may want to support JWT/OIDC auth as well - using the same list of auth as
-		// CA. Will require additional refactoring - probably best for 1.7.
+		cache: model.DisabledCache{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -187,6 +174,10 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	}
 
 	out.initGenerators()
+
+	if features.EnableEDSCaching {
+		out.cache = model.NewXdsCache()
+	}
 
 	return out
 }
@@ -285,21 +276,11 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
-	push := model.NewPushContext()
-	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
-		adsLog.Errorf("XDS: Failed to update services: %v", err)
-		// We can't push if we can't read the data - stick with previous version.
-		pushContextErrors.Increment()
+
+	push, err := s.initPushContext(req, oldPushContext)
+	if err != nil {
 		return
 	}
-
-	if err := s.UpdateServiceShards(push); err != nil {
-		return
-	}
-
-	s.updateMutex.Lock()
-	s.Env.PushContext = push
-	s.updateMutex.Unlock()
 
 	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Load(), 10)
 	versionNum.Inc()
@@ -433,24 +414,24 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			semaphore <- struct{}{}
 
 			// Get the next proxy to push. This will block if there are no updates required.
-			client, info := queue.Dequeue()
-			recordPushTriggers(info.Reason...)
+			client, push, shuttingdown := queue.Dequeue()
+
+			if shuttingdown {
+				return
+			}
+			recordPushTriggers(push.Reason...)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)
 				<-semaphore
 			}
 
-			proxiesQueueTime.Record(time.Since(info.Start).Seconds())
+			proxiesQueueTime.Record(time.Since(push.Start).Seconds())
 
 			go func() {
 				pushEv := &Event{
-					full:           info.Full,
-					push:           info.Push,
-					done:           doneFunc,
-					start:          info.Start,
-					configsUpdated: info.ConfigsUpdated,
-					noncePrefix:    info.Push.Version,
+					pushRequest: push,
+					done:        doneFunc,
 				}
 
 				select {
@@ -463,6 +444,27 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			}()
 		}
 	}
+}
+
+// initPushContext creates a global push context and stores it on the environment.
+func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext) (*model.PushContext, error) {
+	push := model.NewPushContext()
+	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
+		adsLog.Errorf("XDS: Failed to update services: %v", err)
+		// We can't push if we can't read the data - stick with previous version.
+		pushContextErrors.Increment()
+		return nil, err
+	}
+
+	if err := s.UpdateServiceShards(push); err != nil {
+		return nil, err
+	}
+
+	s.updateMutex.Lock()
+	s.Env.PushContext = push
+	s.updateMutex.Unlock()
+
+	return push, nil
 }
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
@@ -481,4 +483,9 @@ func (s *DiscoveryServer) initGenerators() {
 	}
 	s.Generators["api/"+TypeURLConnections] = s.InternalGen
 	s.Generators["event"] = s.InternalGen
+}
+
+// shutdown shutsdown DiscoveryServer components.
+func (s *DiscoveryServer) Shutdown() {
+	s.pushQueue.ShutDown()
 }

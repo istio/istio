@@ -26,7 +26,6 @@ import (
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -47,10 +46,10 @@ type kubeNamespace struct {
 	ctx  resource.Context
 }
 
-func (n *kubeNamespace) Dump() {
+func (n *kubeNamespace) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Namespace %s State...", n.name)
 
-	d, err := n.ctx.CreateTmpDirectory(n.name + "-state")
+	d, err := ctx.CreateTmpDirectory(n.name + "-state")
 	if err != nil {
 		scopes.Framework.Errorf("Unable to create directory for dumping %s contents: %v", n.name, err)
 		return

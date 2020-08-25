@@ -29,18 +29,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"istio.io/istio/pkg/security"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
+	"github.com/google/uuid"
 
 	pilotmodel "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/mcp/status"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 	"istio.io/istio/security/pkg/util"
-
-	"github.com/google/uuid"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -68,9 +67,6 @@ const (
 	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
-	// identityTemplate is the format template of identity in the CSR request.
-	identityTemplate = "spiffe://%s/ns/%s/sa/%s"
-
 	// firstRetryBackOffInMilliSec is the initial backoff time interval when hitting
 	// non-retryable error in CSR request or while there is an error in reading file mounts.
 	firstRetryBackOffInMilliSec = 50
@@ -79,10 +75,6 @@ const (
 	// unblock the secret watch main thread in case those child threads got stuck due to any reason.
 	notifySecretRetrievalTimeout = 30 * time.Second
 )
-
-type k8sJwtPayload struct {
-	Sub string `json:"sub"`
-}
 
 // SecretManager defines secrets management interface which is used by SDS.
 type SecretManager interface {
@@ -578,33 +570,44 @@ func (sc *SecretCache) rotate(updateRootFlag bool) {
 			return true
 		}
 
+		// TODO: REMOVE THE SIDE-EFFECTS AND CLEANUP
+		// The rotate() code has the side-effect of calling CredFetcher - which in turn has the side-effect of creating
+		// a file with the token, used by Envoy for VMs. So we must continue to call
+		// CredFetcher in this loop, and we can't change the code to run rotate() only when we know the token is about
+		// to expire (which is easy to determine from the token content or the request).
+		// This must be called even if certs are used for refresh/provisioning - or even if mtls is disabled for this
+		// workload, since the side-effect JWT is used in unrelated STS flow used by Envoy. Do not remove until that
+		// code is fixed.
+		if sc.configOptions.CredFetcher != nil {
+			// Refresh token through credential fetcher.
+			cacheLog.Debugf("%s getting a new token through credential fetcher", logPrefix)
+			t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
+			if err != nil {
+				cacheLog.Warnf("%s credential fetcher failed to get a new token, continue using the original token: %v", logPrefix, err)
+			} else {
+				secret.Token = t
+			}
+		}
+
 		// Re-generate secret if it's expired.
 		if sc.shouldRotate(&secret) {
 			atomic.AddUint64(&sc.secretChangedCount, 1)
-			// Send the notification to close the stream if token is expired, so that client could re-connect with a new token.
-			if sc.isTokenExpired(&secret) && !sc.useCertToRotate() {
-				cacheLog.Debugf("%s token expired", logPrefix)
-				if sc.configOptions.CredFetcher != nil {
-					cacheLog.Infof("%s getting a new token through credential fetcher", logPrefix)
-					t, err := sc.configOptions.CredFetcher.GetPlatformCredential()
-					if err != nil {
-						cacheLog.Errorf("failed to get credential token: %v", err)
-						sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-						return true
-					}
-					secret.Token = t
-				} else {
-					// TODO(myidpt): Optimization needed. When using local JWT, server should directly push the new secret instead of
-					// requiring the client to send another SDS request.
-					sc.callbackWithTimeout(connKey, nil /*nil indicates close the streaming connection to proxy*/)
-					return true
-				}
-			}
 
+			// TODO: not clear why a wg is used, and then a wait - instead of just running the code. Cleanup ?
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				cacheLog.Debugf("%s use token to generate key/cert", logPrefix)
+				if !sc.useCertToRotate() {
+					if sc.configOptions.CredFetcher == nil {
+						tok, err := ioutil.ReadFile(sc.configOptions.JWTPath)
+						if err != nil {
+							cacheLog.Errorf("failed to get credential token: %v", err)
+						} else {
+							secret.Token = string(tok)
+						}
+					}
+				}
 
 				// If token is still valid, re-generated the secret and push change to proxy.
 				// Most likely this code path may not necessary, since TTL of cert is much longer than token.
@@ -843,22 +846,7 @@ func (sc *SecretCache) generateSecret(ctx context.Context, token string, connKey
 		return nil, err
 	}
 
-	// If token is jwt format, construct host name from jwt with format like spiffe://cluster.local/ns/foo/sa/sleep
-	// otherwise just use sdsrequest.resourceName as csr host name.
-	csrHostName := connKey.ResourceName
-	// TODO (liminw): This is probably not needed. CA is using claims in the credential to decide the identity in the certificate,
-	// instead of using host name in CSR. We can clean it up later.
-	if sc.configOptions.CredFetcher == nil {
-		csrHostName, err = constructCSRHostName(sc.configOptions.TrustDomain, token)
-		if err != nil {
-			cacheLog.Warnf("%s failed to extract host name from jwt: %v, fallback to SDS request"+
-				" resource name: %s", logPrefix, err, connKey.ResourceName)
-			csrHostName = connKey.ResourceName
-		}
-	}
-	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName)
 	options := pkiutil.CertOptions{
-		Host:       csrHostName,
 		RSAKeySize: keySize,
 		PKCS8Key:   sc.configOptions.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(sc.configOptions.ECCSigAlg),
@@ -942,8 +930,8 @@ func (sc *SecretCache) shouldRotate(secret *security.SecretItem) bool {
 func (sc *SecretCache) isTokenExpired(secret *security.SecretItem) bool {
 	// Skip check if the token should not be parsed in proxy.
 	// Parsing token may not always be possible because token may not be a JWT.
-	// If ParseToken is false, we should assume token is valid and leave token validation to CA.
-	if !sc.configOptions.ParseToken {
+	// If SkipParseToken is true, we should assume token is valid and leave token validation to CA.
+	if sc.configOptions.SkipParseToken {
 		return false
 	}
 

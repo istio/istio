@@ -47,16 +47,13 @@ func cdsDiscoveryResponse(response []*cluster.Cluster, noncePrefix string) *disc
 }
 
 func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, version string) error {
-	// TODO: Modify interface to take services, and config instead of making library query registry
 	pushStart := time.Now()
-	rawClusters := s.ConfigGenerator.BuildClusters(con.node, push)
+	defer func() { cdsPushTime.Record(time.Since(pushStart).Seconds()) }()
 
-	if s.DebugConfigs {
-		con.XdsClusters = rawClusters
-	}
+	rawClusters := s.ConfigGenerator.BuildClusters(con.proxy, push)
+
 	response := cdsDiscoveryResponse(rawClusters, push.Version)
 	err := con.send(response)
-	cdsPushTime.Record(time.Since(pushStart).Seconds())
 	if err != nil {
 		recordSendError("CDS", con.ConID, cdsSendErrPushes, err)
 		return err
@@ -65,6 +62,6 @@ func (s *DiscoveryServer) pushCds(con *Connection, push *model.PushContext, vers
 
 	// The response can't be easily read due to 'any' marshaling.
 	adsLog.Infof("CDS: PUSH for node:%s clusters:%d services:%d version:%s",
-		con.node.ID, len(rawClusters), len(push.Services(nil)), version)
+		con.proxy.ID, len(rawClusters), len(push.Services(nil)), version)
 	return nil
 }

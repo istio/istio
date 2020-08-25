@@ -17,11 +17,10 @@ package features
 import (
 	"time"
 
-	"istio.io/istio/pkg/jwt"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 
+	"istio.io/istio/pkg/jwt"
 	"istio.io/pkg/env"
 )
 
@@ -51,11 +50,6 @@ var (
 		4*1024*1024,
 		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()
-
-	// DebugConfigs controls saving snapshots of configs for /debug/adsz.
-	// Defaults to false, can be enabled with PILOT_DEBUG_ADSZ_CONFIG=1
-	// For larger clusters it can increase memory use and GC - useful for small tests.
-	DebugConfigs = env.RegisterBoolVar("PILOT_DEBUG_ADSZ_CONFIG", false, "").Get()
 
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	FilterGatewayClusterConfig = env.RegisterBoolVar("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false, "").Get()
@@ -308,8 +302,17 @@ var (
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
 		"If this is set to false, will not create CA server in istiod.").Get()
 
+	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
+		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
+
+	EnableXDSIdentityCheck = env.RegisterBoolVar(
+		"PILOT_ENABLE_XDS_IDENTITY_CHECK",
+		true,
+		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
+	).Get()
 
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
@@ -328,4 +331,7 @@ var (
 			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
 			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
 			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
+
+	EnableEDSCaching = env.RegisterBoolVar("PILOT_ENABLE_EDS_CACHE", true,
+		"If true, Pilot will cache EDS responses.").Get()
 )

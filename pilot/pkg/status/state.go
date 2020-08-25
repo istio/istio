@@ -16,29 +16,27 @@ package status
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
-
-	"k8s.io/apimachinery/pkg/labels"
-
-	"github.com/ghodss/yaml"
+	"github.com/gogo/protobuf/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
 
-	"istio.io/pkg/log"
-
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("status",
@@ -223,45 +221,45 @@ func (c *DistributionController) removeStaleReporters(staleReporters []string) {
 	}
 }
 
-func GetTypedStatus(in interface{}) (out IstioStatus, err error) {
+func GetTypedStatus(in interface{}) (out v1alpha1.IstioStatus, err error) {
 	var statusBytes []byte
-	if statusBytes, err = yaml.Marshal(in); err == nil {
-		err = yaml.Unmarshal(statusBytes, &out)
+	if statusBytes, err = json.Marshal(in); err == nil {
+		err = json.Unmarshal(statusBytes, &out)
 	}
 	return
 }
 
-func boolToConditionStatus(b bool) v1beta1.ConditionStatus {
+func boolToConditionStatus(b bool) string {
 	if b {
-		return metav1.ConditionTrue
+		return "True"
 	}
-	return metav1.ConditionFalse
+	return "False"
 }
 
-func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *IstioStatus) {
+func ReconcileStatuses(current map[string]interface{}, desired Progress, clock clock.Clock) (bool, *v1alpha1.IstioStatus) {
 	needsReconcile := false
 	currentStatus, err := GetTypedStatus(current["status"])
-	desiredCondition := IstioCondition{
-		Type:               Reconciled,
+	desiredCondition := v1alpha1.IstioCondition{
+		Type:               "Reconciled",
 		Status:             boolToConditionStatus(desired.AckedInstances == desired.TotalInstances),
-		LastProbeTime:      metav1.NewTime(clock.Now()),
-		LastTransitionTime: metav1.NewTime(clock.Now()),
+		LastProbeTime:      types.TimestampNow(),
+		LastTransitionTime: types.TimestampNow(),
 		Message:            fmt.Sprintf("%d/%d proxies up to date.", desired.AckedInstances, desired.TotalInstances),
 	}
 	if err != nil {
 		// the status field is in an unexpected state.
 		scope.Warn("Encountered unexpected status content.  Overwriting status.")
 		scope.Debugf("Encountered unexpected status content.  Overwriting status: %v", current["status"])
-		currentStatus = IstioStatus{
-			Conditions: []IstioCondition{desiredCondition},
+		currentStatus = v1alpha1.IstioStatus{
+			Conditions: []*v1alpha1.IstioCondition{&desiredCondition},
 		}
 		return true, &currentStatus
 	}
-	var currentCondition *IstioCondition
+	var currentCondition *v1alpha1.IstioCondition
 	conditionIndex := -1
 	for i, c := range currentStatus.Conditions {
-		if c.Type == Reconciled {
-			currentCondition = &currentStatus.Conditions[i]
+		if c.Type == "Reconciled" {
+			currentCondition = currentStatus.Conditions[i]
 			conditionIndex = i
 		}
 	}
@@ -271,9 +269,9 @@ func ReconcileStatuses(current map[string]interface{}, desired Progress, clock c
 		needsReconcile = true
 	}
 	if conditionIndex > -1 {
-		currentStatus.Conditions[conditionIndex] = desiredCondition
+		currentStatus.Conditions[conditionIndex] = &desiredCondition
 	} else {
-		currentStatus.Conditions = append(currentStatus.Conditions, desiredCondition)
+		currentStatus.Conditions = append(currentStatus.Conditions, &desiredCondition)
 	}
 	return needsReconcile, &currentStatus
 }

@@ -22,13 +22,13 @@ import (
 	"strings"
 	"time"
 
+	kubeCore "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-
-	kubeCore "k8s.io/api/core/v1"
 )
 
 const (
@@ -127,9 +127,6 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
-
-	// Expose istiod through ingress, for example for multicluster or VM setups
-	ExposeIstiod bool
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {

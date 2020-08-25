@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/networking/plugin"
 )
 
@@ -32,6 +31,6 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 // Called when mesh config is changed.
-func (configgen *ConfigGeneratorImpl) MeshConfigChanged(mesh *meshconfig.MeshConfig) {
-	resetCachedListenerConfig(mesh)
+func (configgen *ConfigGeneratorImpl) MeshConfigChanged(_ *meshconfig.MeshConfig) {
+	resetCachedListenerConfig()
 }
