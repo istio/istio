@@ -535,7 +535,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	//E ach Generator is responsible for determining if the push event requires a push
-	for _, w := range con.proxy.WatchedResources {
+	for _, w := range getPushResources(con.proxy.WatchedResources) {
 		err := s.pushGenerator(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
 		if err != nil {
 			return err
@@ -546,6 +546,33 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
+}
+
+// PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
+// order after the types listed here
+var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+var KnownPushOrder = map[string]struct{}{
+	v3.ClusterType:  {},
+	v3.EndpointType: {},
+	v3.ListenerType: {},
+	v3.RouteType:    {},
+}
+
+func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+	wr := make([]*model.WatchedResource, 0, len(resources))
+	// first add all known types, in order
+	for _, tp := range PushOrder {
+		if w, f := resources[tp]; f {
+			wr = append(wr, w)
+		}
+	}
+	// Then add any undeclared types
+	for tp, w := range resources {
+		if _, f := KnownPushOrder[tp]; !f {
+			wr = append(wr, w)
+		}
+	}
+	return wr
 }
 
 func reportAllEvents(s DistributionStatusCache, id, version string, ignored map[string]*model.WatchedResource) {
