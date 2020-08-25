@@ -574,13 +574,9 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		return nil
 	}
 
-	eventTypes := make([]EventType, 0, len(AllEventTypes))
-	// registerEvent notifies the implementer of an xDS ACK for no push ops
-	defer registerEvent(s.StatusReporter, con.ConID, eventTypes, pushRequest.Push.Version)
-
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.proxy, pushEv) {
-		eventTypes = append(eventTypes, AllEventTypes...)
+		registerEvent(s.StatusReporter, con.ConID, AllEventTypes, pushRequest.Push.Version)
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
@@ -589,6 +585,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// check version, suppress if changed.
 	currentVersion := versionInfo()
+	eventTypes := make([]EventType, 0, len(AllEventTypes))
 
 	// When using Generator, the generic WatchedResource is used instead of the individual
 	// 'LDSWatch', etc.
@@ -639,7 +636,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	} else {
 		eventTypes = append(eventTypes, v3.RouteType)
 	}
-
+	// registerEvent notifies the implementer of an xDS ACK for no push ops
+	registerEvent(s.StatusReporter, con.ConID, eventTypes, pushRequest.Push.Version)
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
 }
