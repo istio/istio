@@ -113,6 +113,7 @@ func StripVersion(yaml []byte) []byte {
 func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 	if Refresh() {
 		t.Logf("Refreshing golden file %s", goldenFile)
+		// nolint: gocritic
 		if err := AtomicWrite(goldenFile, content, 0644); err != nil {
 			t.Errorf(err.Error())
 		}
@@ -121,7 +122,7 @@ func RefreshGoldenFile(content []byte, goldenFile string, t *testing.T) {
 
 // Write atomically by writing to a temporary file in the same directory then renaming
 func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
-	tmpFile, err := ioutil.TempFile("", filepath.Base(path)+".tmp.")
+	tmpFile, err := ioutil.TempFile(filepath.Dir(path), filepath.Base(path)+".tmp.")
 	if err != nil {
 		return
 	}
