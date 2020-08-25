@@ -591,8 +591,8 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 					}
 				}
 			}
-			// (sdake) UNCLEAR WHAT THIS CALL DOES
 			// ensure that the struct is valid
+			// TODO(sdake) have to wait until pkg/*/xds is ported
 			//if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value); err != nil {
 			//	errs = appendErrors(errs, err)
 			//}
@@ -1028,6 +1028,16 @@ func ValidateDuration(pd *types.Duration) error {
 	return nil
 }
 
+// ValidateDurationRange verifies range is in specified duration
+func ValidateDurationRange(pd *types.Duration, min, max time.Duration) error {
+	dur := pd.AsDuration()
+	if dur > max || dur < min {
+		return fmt.Errorf("time %v must be >%v and <%v", dur.String(), min.String(), max.String())
+	}
+
+	return nil
+}
+
 // ValidateParentAndDrain checks that parent and drain durations are valid
 func ValidateParentAndDrain(drainTime, parentShutdown *types.Duration) (errs error) {
 	if err := ValidateDuration(drainTime); err != nil {
@@ -1103,21 +1113,17 @@ func ValidateConnectTimeout(timeout *types.Duration) error {
 		return err
 	}
 
-	// timeoutDuration := types.Duration(*timeout)
-	// TODO(sdake) dovoer
-	//	err := ValidateDurationRange(timeoutDuration, connectTimeoutMin, connectTimeoutMax)
-	//	return err
-	return nil
+	err := ValidateDurationRange(timeout, connectTimeoutMin, connectTimeoutMax)
+	return err
 }
 
 // ValidateProtocolDetectionTimeout validates the envoy protocol detection timeout
 func ValidateProtocolDetectionTimeout(timeout *types.Duration) error {
-	// dur := types.Duration(*timeout)
+	dur := timeout.AsDuration()
 	// 0s is a valid value if trying to disable protocol detection timeout
-	// SDAKE (TODO)
-	//	if dur == 0.0 {
-	//		return nil
-	//	}
+	if dur == 0.0 {
+		return nil
+	}
 
 	if timeout.GetNanos() != 0 {
 		return errors.New("only durations to ms precision are supported")

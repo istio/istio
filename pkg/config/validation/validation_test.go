@@ -20,10 +20,11 @@ import (
 	"time"
 
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -188,11 +189,11 @@ func TestValidateDuration(t *testing.T) {
 		},
 	}
 
-	//	for _, check := range checks {
-	//	if got := ValidateDuration(check.duration); (got == nil) != check.isValid {
-	//	t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
-	//		}
-	//}
+	for _, check := range checks {
+		if got := ValidateDuration(check.duration); (got == nil) != check.isValid {
+			t.Errorf("Failed: got valid=%t but wanted valid=%t: %v for %v", got == nil, check.isValid, got, check.duration)
+		}
+	}
 }
 
 func TestValidateParentAndDrain(t *testing.T) {
@@ -1465,7 +1466,7 @@ func TestValidateHTTPRetry(t *testing.T) {
 		}, valid: false},
 		{name: "invalid, retryRemoteLocalities configured but attempts set to zero", in: &networking.HTTPRetry{
 			Attempts:              0,
-			RetryRemoteLocalities: &types.BoolValue{Value: false},
+			RetryRemoteLocalities: &wrapperspb.BoolValue{Value: false},
 		}, valid: false},
 	}
 
@@ -1879,7 +1880,7 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: true},
 		{name: "invalid mirror percent", route: &networking.HTTPRoute{
-			MirrorPercent: &types.UInt32Value{Value: 101},
+			MirrorPercent: &wrapperspb.UInt32Value{Value: 101},
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
 			}},
@@ -2442,7 +2443,7 @@ func TestValidateConnectionPool(t *testing.T) {
 
 		{name: "invalid connection pool, bad connect timeout", in: networking.ConnectionPoolSettings{
 			Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-				ConnectTimeout: durationpb.New(time.Second*2 + time.Nanosecond*5),
+				ConnectTimeout: durationpb.New(time.Second*2 + time.Nanosecond*5)}},
 			valid: false},
 
 		{name: "invalid connection pool, bad max pending requests", in: networking.ConnectionPoolSettings{
@@ -2462,7 +2463,8 @@ func TestValidateConnectionPool(t *testing.T) {
 			valid: false},
 
 		{name: "invalid connection pool, bad idle timeout", in: networking.ConnectionPoolSettings{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: durationpb.New(time.Second*30 + time.Nanonsecond*5)}},
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{
+				IdleTimeout: durationpb.New(time.Second*30 + time.Nanosecond*5)}},
 			valid: false},
 	}
 
@@ -2475,7 +2477,7 @@ func TestValidateConnectionPool(t *testing.T) {
 }
 
 func TestValidateLoadBalancer(t *testing.T) {
-	duration := durationpb.New(time.Seconds(time.Hour/time.Second))
+	duration := durationpb.New(time.Hour / time.Second)
 	cases := []struct {
 		name  string
 		in    networking.LoadBalancerSettings
@@ -2495,7 +2497,7 @@ func TestValidateLoadBalancer(t *testing.T) {
 					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
 						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
 							Name: "test",
-							Ttl:  &duration,
+							Ttl:  duration,
 						},
 					},
 				},
@@ -2523,7 +2525,7 @@ func TestValidateLoadBalancer(t *testing.T) {
 					MinimumRingSize: 1024,
 					HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
 						HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
-							Ttl: &duration,
+							Ttl: duration,
 						},
 					},
 				},
@@ -2553,11 +2555,11 @@ func TestValidateOutlierDetection(t *testing.T) {
 		}, valid: true},
 
 		{name: "invalid outlier detection, bad interval", in: networking.OutlierDetection{
-			Interval: durationpb.New(time.Second * 2 + time.Nanosecond * 5),
+			Interval: durationpb.New(time.Second*2 + time.Nanosecond*5)},
 			valid: false},
 
 		{name: "invalid outlier detection, bad base ejection time", in: networking.OutlierDetection{
-			BaseEjectionTime: durationpb.New(time.Second * 2 + time.Nanosecond*5),
+			BaseEjectionTime: durationpb.New(time.Second*2 + time.Nanosecond*5)},
 			valid: false},
 
 		{name: "invalid outlier detection, bad max ejection percent", in: networking.OutlierDetection{
@@ -2794,10 +2796,10 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"name": {
-									Kind: &types.Value_BoolValue{BoolValue: false},
+									Kind: &structpb.Value_BoolValue{BoolValue: false},
 								},
 							},
 						},
@@ -2816,10 +2818,10 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_ADD,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"lb_policy": {
-									Kind: &types.Value_StringValue{StringValue: "RING_HASH"},
+									Kind: &structpb.Value_StringValue{StringValue: "RING_HASH"},
 								},
 							},
 						},
@@ -2838,13 +2840,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_BEFORE,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"typed_config": {
-									Kind: &types.Value_StructValue{StructValue: &types.Struct{
-										Fields: map[string]*types.Value{
+									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+										Fields: map[string]*structpb.Value{
 											"@type": {
-												Kind: &types.Value_StringValue{
+												Kind: &structpb.Value_StringValue{
 													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
 												},
 											},
@@ -2868,13 +2870,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 					Patch: &networking.EnvoyFilter_Patch{
 						Operation: networking.EnvoyFilter_Patch_INSERT_FIRST,
-						Value: &types.Struct{
-							Fields: map[string]*types.Value{
+						Value: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
 								"typed_config": {
-									Kind: &types.Value_StructValue{StructValue: &types.Struct{
-										Fields: map[string]*types.Value{
+									Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{
+										Fields: map[string]*structpb.Value{
 											"@type": {
-												Kind: &types.Value_StringValue{
+												Kind: &structpb.Value_StringValue{
 													StringValue: "type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz",
 												},
 											},
