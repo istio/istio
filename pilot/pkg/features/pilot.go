@@ -328,4 +328,8 @@ var (
 
 	EnableEDSCaching = env.RegisterBoolVar("PILOT_ENABLE_EDS_CACHE", true,
 		"If true, Pilot will cache EDS responses.").Get()
+
+	AllowMetadataCertsInMutual = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL", false,
+		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
+			"This is only enabled for migration and will be removed soon.").Get()
 )

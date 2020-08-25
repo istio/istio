@@ -923,6 +923,8 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 			Sni:              tls.Sni,
 		}
 
+		var metadataCerts bool
+
 		// TODO: cleanup required check out istio/istio/pull/24822 as SDS is enabled by default
 		if !node.Metadata.SdsEnabled {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{
@@ -943,13 +945,22 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				},
 			}
 		} else {
+			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+			// which does not support rotation, we will serve them over SDS by reading the files.
+			fileSDS := model.SdsCertificateConfig{
+				CertificatePath:   tls.ClientCertificate,
+				PrivateKeyPath:    tls.PrivateKey,
+				CaCertificatePath: tls.CaCertificates,
+			}
+			metadataCerts = fileSDS.IsRootCertificate() && fileSDS.IsKeyCertificate()
+
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(authn_model.SDSDefaultResourceName))
+				authn_model.ConstructSdsSecretConfig(model.GetOrDefault(fileSDS.GetResourceName(), authn_model.SDSDefaultResourceName)))
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(authn_model.SDSRootResourceName),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(fileSDS.GetRootResourceName(), authn_model.SDSRootResourceName)),
 				},
 			}
 		}
@@ -963,13 +974,18 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		// We add `istio-peer-exchange` to the list of alpn strings.
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		if c.Http2ProtocolOptions != nil {
-			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-			// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
-			// metadataexchange is enabled.
-			if features.EnableTCPMetadataExchange {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
+			if metadataCerts {
+				// This is HTTP/2 cluster, advertise it with ALPN.
+				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 			} else {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
+				// Enable sending `istio-peer-exchange`	ALPN in ALPN list if TCP
+				// metadataexchange is enabled.
+				if features.EnableTCPMetadataExchange {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
+				} else {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
+				}
 			}
 		} else {
 			// This is in-mesh cluster, advertise it with ALPN.
@@ -1010,7 +1026,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		}
 
 		// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up SdsSecretConfig
-		if res.GetRootResourceName() == "" {
+		if !res.IsRootCertificate() {
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
 			tlsContext.Sni = tls.Sni
 		} else {
@@ -1076,20 +1092,29 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				},
 			}
 		} else {
-			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-			// which does not support rotation, we will serve them over SDS by reading the files.
-			res := model.SdsCertificateConfig{
-				CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
-				PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
-				CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+			var res model.SdsCertificateConfig
+			if features.AllowMetadataCertsInMutual {
+				// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+				// which does not support rotation, we will serve them over SDS by reading the files.
+				// This is only enabled for temporary migration.
+				res = model.SdsCertificateConfig{
+					CertificatePath:   model.GetOrDefault(proxy.Metadata.TLSClientCertChain, tls.ClientCertificate),
+					PrivateKeyPath:    model.GetOrDefault(proxy.Metadata.TLSClientKey, tls.PrivateKey),
+					CaCertificatePath: model.GetOrDefault(proxy.Metadata.TLSClientRootCert, tls.CaCertificates),
+				}
+			} else {
+				res = model.SdsCertificateConfig{
+					CertificatePath:   tls.ClientCertificate,
+					PrivateKeyPath:    tls.PrivateKey,
+					CaCertificatePath: tls.CaCertificates,
+				}
 			}
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
 				authn_model.ConstructSdsSecretConfig(res.GetResourceName()))
 
 			// If tls.CaCertificate or CaCertificate in Metadata isn't configured don't set up RootSdsSecretConfig
-			if res.GetRootResourceName() == "" {
+			if !res.IsRootCertificate() {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_ValidationContext{}
-				tlsContext.Sni = tls.Sni
 			} else {
 				tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
@@ -1098,6 +1123,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 					},
 				}
 			}
+			tlsContext.Sni = tls.Sni
 		}
 		if c.Http2ProtocolOptions != nil {
 			// This is HTTP/2 cluster, advertise it with ALPN.
