@@ -172,20 +172,7 @@ func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, co
 		s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
 	}
 
-	switch discReq.TypeUrl {
-	case v3.EndpointType:
-		if err := s.handleEds(con, discReq); err != nil {
-			return err
-		}
-	default:
-		// Allow custom generators to work without 'generator' metadata.
-		// It would be an error/warn for normal XDS - so nothing to lose.
-		err := s.handleCustomGenerator(con, discReq)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.handleCustomGenerator(con, discReq)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -275,19 +262,6 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 			}
 		}
 	}
-}
-
-func (s *DiscoveryServer) handleEds(con *Connection, discReq *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, discReq) {
-		return nil
-	}
-	con.proxy.WatchedResources[v3.EndpointType].ResourceNames = discReq.ResourceNames
-	adsLog.Debugf("ADS:EDS: REQ %s clusters:%d", con.ConID, len(con.Clusters()))
-	err := s.pushEds(s.globalPushContext(), con, versionInfo(), nil)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // shouldRespond determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
@@ -530,21 +504,11 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 // for large configs. The method will hold a lock on con.pushMutex.
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
+	currentVersion := versionInfo()
 	// TODO: update the service deps based on NetworkScope
 	if !pushRequest.Full {
-		if !ProxyNeedsPush(con.proxy, pushEv) {
-			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
-			return nil
-		}
-		edsUpdatedServices := model.ConfigNamesOfKind(pushRequest.ConfigsUpdated, gvk.ServiceEntry)
-		// Push only EDS. This is indexed already - push immediately
-		// (may need a throttle)
-		if len(con.Clusters()) > 0 && len(edsUpdatedServices) > 0 {
-			if err := s.pushEds(pushRequest.Push, con, versionInfo(), edsUpdatedServices); err != nil {
-				return err
-			}
-		}
-		return nil
+		// TODO allow partial updates to types other than EDS
+		return s.pushGeneratorV2(con, pushRequest.Push, currentVersion, con.proxy.WatchedResources[v3.EndpointType], pushRequest.ConfigsUpdated)
 	}
 
 	// Update Proxy with current information.
@@ -554,12 +518,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.proxy, pushEv) {
-		if con.proxy.XdsResourceGenerator != nil {
-			// to verify if logic works on generator
-			adsLog.Infof("Skipping generator push to %v, no updates required", con.ConID)
-		} else {
-			adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
-		}
+		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 
 		if s.StatusReporter != nil {
 			// this version of the config will never be distributed to this envoy because it is not a relevant diff.
@@ -573,29 +532,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	adsLog.Infof("Pushing %v", con.ConID)
 
-	// check version, suppress if changed.
-	currentVersion := versionInfo()
-
-	// When using Generator, the generic WatchedResource is used instead of the individual
-	// 'LDSWatch', etc.
-	// Each Generator is responsible for determining if the push event requires a push -
-	// returning nil if the push is not needed.
+	// Send pushes to all generators
+	//E ach Generator is responsible for determining if the push event requires a push
 	for _, w := range con.proxy.WatchedResources {
 		err := s.pushGeneratorV2(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
 		if err != nil {
 			return err
 		}
-	}
-
-	pushTypes := PushTypeFor(con.proxy, pushEv)
-
-	if len(con.Clusters()) > 0 && pushTypes[EDS] {
-		err := s.pushEds(pushRequest.Push, con, currentVersion, nil)
-		if err != nil {
-			return err
-		}
-	} else if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, v3.EndpointType, pushRequest.Push.Version)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // UpdateServiceShards will list the endpoints and create the shards.
@@ -300,31 +301,75 @@ type EdsGenerator struct {
 	Server *DiscoveryServer
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	var resp []*any.Any
+var _ model.XdsResourceGenerator = &EdsGenerator{}
 
-	var edsUpdatedServices map[string]struct{} = nil
-	if updates != nil {
-		edsUpdatedServices = model.ConfigNamesOfKind(updates, gvk.ServiceEntry)
+var edsPushMaps = map[resource.GroupVersionKind]struct{}{
+	gvk.ServiceEntry:       {},
+	gvk.DestinationRule:    {},
+	gvk.EnvoyFilter:        {},
+	gvk.Sidecar:            {},
+	gvk.PeerAuthentication: {},
+}
+
+func edsNeedsPush(updates model.XdsUpdates) bool {
+	// If none set, we will always push
+	if len(updates) == 0 {
+		return true
 	}
+	for config := range updates {
+		if _, f := edsPushMaps[config.Kind]; f {
+			return true
+		}
+	}
+	return false
+}
+
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+	if !edsNeedsPush(updates) {
+		return nil
+	}
+	edsUpdatedServices := model.ConfigNamesOfKind(updates, gvk.ServiceEntry)
+	resources := make([]*any.Any, 0)
+	endpoints := 0
+	empty := 0
+
+	cached := 0
+	regenerated := 0
 	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
 	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range w.ResourceNames {
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-		if _, f := edsUpdatedServices[string(hostname)]; f {
-			continue
+		if len(edsUpdatedServices) != 0 {
+			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
+			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
+				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
+				continue
+			}
 		}
-		epb := NewEndpointBuilder(clusterName, proxy, push)
-		l := eds.Server.generateEndpoints(epb)
-		if l == nil {
-			continue
-		}
-		msg := util.MessageToAny(l)
-		msg.TypeUrl = w.TypeUrl
-		resp = append(resp, msg)
-	}
+		builder := NewEndpointBuilder(clusterName, proxy, push)
+		if marshalledEndpoint, f := eds.Server.cache.Get(builder); f {
+			resources = append(resources, marshalledEndpoint)
+			cached++
+		} else {
+			l := eds.Server.generateEndpoints(builder)
+			if l == nil {
+				continue
+			}
+			regenerated++
 
-	return resp
+			for _, e := range l.Endpoints {
+				endpoints += len(e.LbEndpoints)
+			}
+
+			if len(l.Endpoints) == 0 {
+				empty++
+			}
+			resource := util.MessageToAny(l)
+			resources = append(resources, resource)
+			eds.Server.cache.Add(builder, resource)
+		}
+	}
+	return resources
 }
 
 // pushEds is pushing EDS updates for a single connection. Called the first time
