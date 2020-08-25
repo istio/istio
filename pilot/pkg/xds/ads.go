@@ -534,7 +534,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return nil
 		}
 		// TODO allow partial updates to types other than EDS
-		return s.pushGenerator(con, pushRequest.Push, s.Generators[v3.EndpointType], currentVersion, con.proxy.WatchedResources[v3.EndpointType], pushRequest.ConfigsUpdated)
+		return s.pushGenerator(con, pushRequest.Push, s.Generators[v3.EndpointType],
+			currentVersion, con.Watched(v3.EndpointType), pushRequest.ConfigsUpdated)
 	}
 
 	// Update Proxy with current information.

@@ -62,6 +62,10 @@ func init() {
 	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
 }
 
+var SkipLogTypes = map[string]struct{}{
+	v3.EndpointType: {},
+}
+
 // Called for config updates.
 // Will not be called if ProxyNeedsPush returns false - ie. if the update
 func (s *DiscoveryServer) pushGenerator(con *Connection, push *model.PushContext,
@@ -100,6 +104,10 @@ func (s *DiscoveryServer) pushGenerator(con *Connection, push *model.PushContext
 		recordSendError(w.TypeUrl, con.ConID, err)
 		return err
 	}
-	adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl))
+
+	// Some types handle logs inside Generate, skip them here
+	if _, f := SkipLogTypes[w.TypeUrl]; !f {
+		adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(w.TypeUrl), con.proxy.ID, len(cl))
+	}
 	return nil
 }

@@ -345,7 +345,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	}
 	edsUpdatedServices := model.ConfigNamesOfKind(updates, gvk.ServiceEntry)
 	resources := make([]*any.Any, 0)
-	endpoints := 0
 	empty := 0
 
 	cached := 0
@@ -372,10 +371,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 			regenerated++
 
-			for _, e := range l.Endpoints {
-				endpoints += len(e.LbEndpoints)
-			}
-
 			if len(l.Endpoints) == 0 {
 				empty++
 			}
@@ -383,6 +378,13 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			resources = append(resources, resource)
 			eds.Server.cache.Add(builder, resource)
 		}
+	}
+	if len(edsUpdatedServices) == 0 {
+		adsLog.Infof("EDS: PUSH for node:%s resources:%d empty:%v cached:%v/%v",
+			proxy.ID, len(resources), empty, cached, cached+regenerated)
+	} else {
+		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d empty:%v cached:%v/%v",
+			proxy.ID, len(resources), empty, cached, cached+regenerated)
 	}
 	return resources
 }
