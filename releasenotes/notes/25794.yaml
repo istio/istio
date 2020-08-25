@@ -8,4 +8,4 @@ releaseNotes:
 - |
   **Added** Update Istio Workload and Istio Service dashboards to improve loading time.
 - |
-  **Added** parameterise grafana dashboard 's with datasource
+  **Added** parameterise Grafana dashboards with datasource

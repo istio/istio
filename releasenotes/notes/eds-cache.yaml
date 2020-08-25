@@ -3,5 +3,5 @@ kind: feature
 area: networking
 releaseNotes:
 - |
-  *Added* experimental caching for endpoints, to support large scale clusters. This feature is disabled by default and can
+  **Added** experimental caching for endpoints, to support large scale clusters. This feature is disabled by default and can
   be enabled by setting the `PILOT_ENABLE_EDS_CACHE` environment variable in Istiod.

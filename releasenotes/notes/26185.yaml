@@ -5,6 +5,6 @@ area: security
 
 releaseNotes:
 - |
-  Add support for client side Envoy secure naming config when trust domain alias is used.
+  **Added** support for client side Envoy secure naming config when trust domain alias is used.
   Fix the multi cluster service discovery client SAN generation: takes all endpoints' service accounts
   into account, rather than the first found service registry.
