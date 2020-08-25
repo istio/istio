@@ -1613,7 +1613,7 @@ func TestHasConflict(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "sourceNamespace mismatch",
+			name: "root has less gateways than delegate",
 			root: &networking.HTTPMatchRequest{
 				Gateways: []string{"ingress-gateway"},
 			},

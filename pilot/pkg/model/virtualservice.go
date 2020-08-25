@@ -387,14 +387,14 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 		return true
 	}
 
-	// sourceLabels
+	// sourceLabels should not conflict, root should have superset of sourceLabels.
 	for key, leafValue := range leaf.SourceLabels {
 		if v, ok := root.SourceLabels[key]; ok && v != leafValue {
 			return true
 		}
 	}
 
-	// gateways
+	// gateways should not conflict, root should have superset of gateways.
 	if len(root.Gateways) > 0 && len(leaf.Gateways) > 0 {
 		if len(root.Gateways) < len(leaf.Gateways) {
 			return true
