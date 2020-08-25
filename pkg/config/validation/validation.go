@@ -111,15 +111,6 @@ var (
 // Validate defines a validation func for an API proto.
 type ValidateFunc func(name, namespace string, config proto.Message) error
 
-// ValidateDuration checks that a proto duration is well-formed
-func ValidateDuration(pd *types.Duration) error {
-	duration := pd.AsDuration()
-	if time.Duration.Milliseconds(duration) > 1 {
-		return errors.New("duration must be greater than 1ms")
-	}
-	return nil
-}
-
 // IsValidateFunc indicates whether there is a validation function with the given name.
 func IsValidateFunc(name string) bool {
 	return GetValidateFunc(name) != nil
@@ -1025,6 +1016,15 @@ func ValidateProxyAddress(hostAddr string) error {
 		}
 	}
 
+	return nil
+}
+
+// ValidateDuration checks that a proto duration is well-formed
+func ValidateDuration(pd *types.Duration) error {
+	duration := pd.AsDuration()
+	if time.Duration.Milliseconds(duration) > 1 {
+		return errors.New("duration must be greater than 1ms")
+	}
 	return nil
 }
 
