@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1303,6 +1304,64 @@ func TestEnablePrometheusAggregation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := enablePrometheusMerge(tt.mesh, tt.anno); got != tt.want {
 				t.Errorf("enablePrometheusMerge() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseInjectEnvs(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want map[string]string
+	}{
+		{
+			name: "empty",
+			in:   "/",
+			want: map[string]string{},
+		},
+		{
+			name: "no-kv",
+			in:   "/inject",
+			want: map[string]string{},
+		},
+		{
+			name: "no-kv-with-tail",
+			in:   "/inject/",
+			want: map[string]string{},
+		},
+		{
+			name: "one-kv",
+			in:   "/inject/cluster/cluster1",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1"},
+		},
+		{
+			name: "two-kv",
+			in:   "/inject/cluster/cluster1/net/network1/",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "ISTIO_META_NETWORK": "network1"},
+		},
+		{
+			name: "not-predefined-kv",
+			in:   "/inject/cluster/cluster1/custom_env/foo",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "CUSTOM_ENV": "foo"},
+		},
+		{
+			name: "one-key-without-value",
+			in:   "/inject/cluster",
+			want: map[string]string{},
+		},
+		{
+			name: "key-without-value",
+			in:   "/inject/cluster/cluster1/network",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := parseInjectEnvs(tc.in)
+			if !reflect.DeepEqual(actual, tc.want) {
+				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
 			}
 		})
 	}
