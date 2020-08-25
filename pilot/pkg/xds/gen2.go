@@ -72,7 +72,7 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 	resp := &discovery.DiscoveryResponse{
 		ControlPlane: ControlPlane(),
 		TypeUrl:      req.TypeUrl,
-		VersionInfo:  push.Version, // TODO: we can now generate per-type version !
+		VersionInfo:  versionInfo(),
 		Nonce:        nonce(push.Version),
 	}
 	if push.Version == "" { // Usually in tests.
@@ -138,7 +138,7 @@ func (s *DiscoveryServer) pushGeneratorV2(con *Connection, push *model.PushConte
 	if cl == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
-			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, currentVersion)
+			s.StatusReporter.RegisterEvent(con.ConID, w.TypeUrl, push.Version)
 		}
 		return nil // No push needed.
 	}
