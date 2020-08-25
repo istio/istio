@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 26224
+releaseNotes: |
+  *Added* Trust Domain Validation by default rejecting requests in sidecars if the request is not from same trust domain
+  or if it's not in the TrustDomainAliases specified in the MeshConfig.
