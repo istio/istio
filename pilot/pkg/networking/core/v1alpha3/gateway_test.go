@@ -207,7 +207,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -250,7 +250,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -362,7 +362,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -391,7 +391,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.GatewaySdsUdsPath,
+															TargetUri:  model.CredentialNameSDSUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -435,7 +435,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -464,7 +464,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.GatewaySdsUdsPath,
+															TargetUri:  model.CredentialNameSDSUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -508,7 +508,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -537,7 +537,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.GatewaySdsUdsPath,
+															TargetUri:  model.CredentialNameSDSUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
