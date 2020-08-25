@@ -20,7 +20,6 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -318,12 +317,13 @@ type EdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &EdsGenerator{}
 
-var edsPushMaps = map[resource.GroupVersionKind]struct{}{
-	gvk.ServiceEntry:       {},
-	gvk.DestinationRule:    {},
-	gvk.EnvoyFilter:        {},
-	gvk.Sidecar:            {},
-	gvk.PeerAuthentication: {},
+// Map of all configs that do not impact EDS
+var skippedEdsConfigs = map[resource.GroupVersionKind]struct{}{
+	gvk.Gateway:               {},
+	gvk.VirtualService:        {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
@@ -332,7 +332,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	for config := range updates {
-		if _, f := edsPushMaps[config.Kind]; f {
+		if _, f := skippedEdsConfigs[config.Kind]; !f {
 			return true
 		}
 	}

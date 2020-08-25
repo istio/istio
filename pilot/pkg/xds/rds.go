@@ -27,13 +27,13 @@ type RdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
-var rdsPushMaps = map[resource.GroupVersionKind]struct{}{
-	gvk.VirtualService:  {},
-	gvk.ServiceEntry:    {},
-	gvk.DestinationRule: {},
-	gvk.Sidecar:         {},
-	gvk.Gateway:         {},
-	gvk.EnvoyFilter:     {},
+// Map of all configs that do not impact RDS
+var skippedRdsConfigs = map[resource.GroupVersionKind]struct{}{
+	gvk.WorkloadEntry:         {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
+	gvk.PeerAuthentication:    {},
 }
 
 func rdsNeedsPush(updates model.XdsUpdates) bool {
@@ -42,7 +42,7 @@ func rdsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	for config := range updates {
-		if _, f := rdsPushMaps[config.Kind]; f {
+		if _, f := skippedRdsConfigs[config.Kind]; !f {
 			return true
 		}
 	}

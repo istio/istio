@@ -27,12 +27,15 @@ type CdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &CdsGenerator{}
 
-var cdsPushMaps = map[resource.GroupVersionKind]struct{}{
-	gvk.ServiceEntry:       {},
-	gvk.DestinationRule:    {},
-	gvk.EnvoyFilter:        {},
-	gvk.Sidecar:            {},
-	gvk.PeerAuthentication: {},
+// Map of all configs that do not impact CDS
+var skippedCdsConfigs = map[resource.GroupVersionKind]struct{}{
+	// TODO: investigate if this is correct when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is set
+	gvk.Gateway:               {},
+	gvk.VirtualService:        {},
+	gvk.WorkloadEntry:         {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
 }
 
 func cdsNeedsPush(updates model.XdsUpdates) bool {
@@ -41,7 +44,7 @@ func cdsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	for config := range updates {
-		if _, f := cdsPushMaps[config.Kind]; f {
+		if _, f := skippedCdsConfigs[config.Kind]; !f {
 			return true
 		}
 	}

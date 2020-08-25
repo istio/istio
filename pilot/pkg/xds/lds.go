@@ -27,14 +27,10 @@ type LdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
-var ldsPushMaps = map[resource.GroupVersionKind]struct{}{
-	gvk.VirtualService:        {},
-	gvk.ServiceEntry:          {},
-	gvk.Gateway:               {},
-	gvk.Sidecar:               {},
-	gvk.RequestAuthentication: {},
-	gvk.EnvoyFilter:           {},
-	gvk.PeerAuthentication:    {},
+// Map of all configs that do not impact LDS
+var skippedLdsConfigs = map[resource.GroupVersionKind]struct{}{
+	gvk.DestinationRule: {},
+	gvk.WorkloadGroup:   {},
 }
 
 func ldsNeedsPush(updates model.XdsUpdates) bool {
@@ -43,7 +39,7 @@ func ldsNeedsPush(updates model.XdsUpdates) bool {
 		return true
 	}
 	for config := range updates {
-		if _, f := ldsPushMaps[config.Kind]; f {
+		if _, f := skippedLdsConfigs[config.Kind]; !f {
 			return true
 		}
 	}
