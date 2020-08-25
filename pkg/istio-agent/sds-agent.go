@@ -135,6 +135,9 @@ type AgentConfig struct {
 
 	// Grpc dial options. Used for testing
 	GrpcOptions []grpc.DialOption
+
+	// Namespace to connect as
+	Namespace string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -246,7 +249,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	}
 
 	// Start the XDS client and proxy.
-	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
+	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets, podNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("xds proxy: %v", err)
 	}
