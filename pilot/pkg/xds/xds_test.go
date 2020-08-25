@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -391,6 +392,7 @@ spec:
   location: MESH_INTERNAL
   endpoints:
   - address: 10.10.10.30
+    serviceAccount: svc-acc
     labels:
       app: se-pod
     network: network-1
@@ -585,8 +587,11 @@ type fakeServiceOpts struct {
 // If servicePorts is empty a default of http-80 will be used.
 func fakePodService(opts fakeServiceOpts) []runtime.Object {
 	baseMeta := metav1.ObjectMeta{
-		Name:      opts.name,
-		Labels:    labels.Instance{"app": opts.name},
+		Name: opts.name,
+		Labels: labels.Instance{
+			"app":         opts.name,
+			label.TLSMode: model.IstioMutualTLSModeLabel,
+		},
 		Namespace: opts.ns,
 	}
 	podMeta := baseMeta
