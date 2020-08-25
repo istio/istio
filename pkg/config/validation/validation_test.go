@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
@@ -3155,7 +3156,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "Envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
+		}, error: "Envoy filter: subfilter match requires filter match with envoy.filters.network.http_connection_manager"},
 		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -3165,7 +3166,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 							Listener: &networking.EnvoyFilter_ListenerMatch{
 								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name:      "envoy.http_connection_manager",
+										Name:      wellknown.HTTPConnectionManager,
 										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},

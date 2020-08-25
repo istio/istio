@@ -26,6 +26,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes"
 
 	protio "istio.io/istio/istioctl/pkg/util/proto"
@@ -35,10 +36,10 @@ import (
 
 const (
 	// HTTPListener identifies a listener as being of HTTP type by the presence of an HTTP connection manager filter
-	HTTPListener = "envoy.http_connection_manager"
+	HTTPListener = wellknown.HTTPConnectionManager
 
 	// TCPListener identifies a listener as being of TCP type by the presence of TCP proxy filter
-	TCPListener = "envoy.tcp_proxy"
+	TCPListener = wellknown.TCPProxy
 )
 
 // ListenerFilter is used to pass filter information into listener based config writer print functions
