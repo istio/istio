@@ -420,7 +420,7 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 
 		errs = appendErrors(errs,
 			ValidateWildcardDomain(rule.Host),
-			validateTrafficPolicy(*rule.TrafficPolicy))
+			validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
@@ -858,19 +858,19 @@ func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs
 	return
 }
 
-func validateTrafficPolicy(policy networking.TrafficPolicy) error {
+func validateTrafficPolicy(policy *networking.TrafficPolicy) error {
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
 		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil {
 		return fmt.Errorf("traffic policy must have at least one field")
 	}
 
-	return appendErrors(validateOutlierDetection(*policy.OutlierDetection),
+	return appendErrors(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer),
 		validateTLS(policy.Tls), validatePortTrafficPolicies(policy.PortLevelSettings))
 }
 
-func validateOutlierDetection(outlier networking.OutlierDetection) (errs error) {
+func validateOutlierDetection(outlier *networking.OutlierDetection) (errs error) {
 	if outlier.BaseEjectionTime != nil {
 		errs = appendErrors(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
@@ -980,7 +980,7 @@ func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 func validateSubset(subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
 		labels.Instance(subset.Labels).Validate(),
-		validateTrafficPolicy(*subset.TrafficPolicy))
+		validateTrafficPolicy(subset.TrafficPolicy))
 }
 
 func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
@@ -996,7 +996,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 			t.LoadBalancer == nil && t.Tls == nil {
 			errs = appendErrors(errs, fmt.Errorf("port traffic policy must have at least one field"))
 		} else {
-			errs = appendErrors(errs, validateOutlierDetection(*t.OutlierDetection),
+			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
 				validateLoadBalancer(t.LoadBalancer),
 				validateTLS(t.Tls))
