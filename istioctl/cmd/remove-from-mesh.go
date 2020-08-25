@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	v1 "k8s.io/api/core/v1"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
@@ -201,7 +200,13 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, dep *appsv1.Depl
 		}
 	}
 	// If pod template container init-proxy remove Volumes InitContainers
-	removeSidecarPodTemplate(podSpec)
+	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
+	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
+	podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
+	removeDNSConfig(podSpec.DNSConfig)
 	res.Spec.Template.Spec = *podSpec
 	// If we are in an auto-inject namespace, removing the sidecar isn't enough, we
 	// must prevent injection
@@ -269,15 +274,4 @@ func removeServiceOnVMFromMesh(dynamicClient dynamic.Interface, client kubernete
 	}
 	fmt.Fprintf(writer, "Service Entry %q has been deleted for external service %q\n", resourceName(svcName), svcName)
 	return nil
-}
-
-//removeSidecarPodTemplate
-func removeSidecarPodTemplate(podSpec *v1.PodSpec) {
-	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
-	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
-	podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
-	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
-	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
-	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
-	removeDNSConfig(podSpec.DNSConfig)
 }
