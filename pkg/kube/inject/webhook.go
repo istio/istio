@@ -48,10 +48,14 @@ import (
 )
 
 var (
-	runtimeScheme  = runtime.NewScheme()
-	codecs         = serializer.NewCodecFactory(runtimeScheme)
-	deserializer   = codecs.UniversalDeserializer()
-	jsonSerializer = kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, runtimeScheme, runtimeScheme, kjson.SerializerOptions{})
+	runtimeScheme     = runtime.NewScheme()
+	codecs            = serializer.NewCodecFactory(runtimeScheme)
+	deserializer      = codecs.UniversalDeserializer()
+	jsonSerializer    = kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, runtimeScheme, runtimeScheme, kjson.SerializerOptions{})
+	URLParameterToEnv = map[string]string{
+		"cluster": "ISTIO_META_CLUSTER_ID",
+		"net":     "ISTIO_META_NETWORK",
+	}
 )
 
 func init() {
@@ -678,8 +682,7 @@ type InjectionParameters struct {
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
-	clusterName         string
-	clusterNetwork      string
+	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
 }
 
@@ -791,15 +794,6 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	clusterName, clusterNetwork := "", ""
-	res := strings.Split(path, "/")
-	if len(res) >= 5 {
-		// if len is less than 5, not enough length for /cluster/X/net/Y
-		clusterName = res[len(res)-3]
-		clusterNetwork = res[len(res)-1]
-
-		log.Debugf("Updating cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
-	}
 	deploy, typeMeta := getDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
@@ -811,8 +805,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
-		clusterName:         clusterName,
-		clusterNetwork:      clusterNetwork,
+		proxyEnvs:           parseInjectEnvs(path),
 	}
 	patchBytes, err := injectPod(params)
 	if err != nil {
@@ -897,6 +890,33 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("Could not write response: %v", err)
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+// parseInjectEnvs parse new envs from inject url path
+// follow format: /inject/k1/v1/k2/v2, any kv order works
+// eg. "/inject/cluster/cluster1", "/inject/net/network1/cluster/cluster1"
+func parseInjectEnvs(path string) map[string]string {
+	path = strings.TrimSuffix(path, "/")
+	res := strings.Split(path, "/")
+	newEnvs := make(map[string]string)
+
+	for i := 2; i < len(res); i += 2 { // skip '/inject'
+		k := res[i]
+		if i == len(res)-1 { // ignore the last key without value
+			log.Warnf("Odd number of inject env entries, ignore the last key %s\n", k)
+			break
+		}
+
+		env, found := URLParameterToEnv[k]
+		if !found {
+			env = strings.ToUpper(k) // if not found, use the custom env directly
+		}
+		if env != "" {
+			newEnvs[env] = res[i+1]
+		}
+	}
+
+	return newEnvs
 }
 
 func handleError(message string) {
