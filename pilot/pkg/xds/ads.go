@@ -167,12 +167,31 @@ func (s *DiscoveryServer) receive(con *Connection, reqChannel chan *discovery.Di
 // processRequest is handling one request. This is currently called from the 'main' thread, which also
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
-func (s *DiscoveryServer) processRequest(discReq *discovery.DiscoveryRequest, con *Connection) error {
+func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *Connection) error {
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ConID, discReq.TypeUrl, discReq.ResponseNonce)
+		s.StatusReporter.RegisterEvent(con.ConID, req.TypeUrl, req.ResponseNonce)
 	}
 
-	return s.handleCustomGenerator(con, discReq)
+	if !s.shouldRespond(con, req) {
+		return nil
+	}
+
+	push := s.globalPushContext()
+
+	// XdsResourceGenerator is the default generator for this connection. We want to allow
+	// some types to use custom generators - for example EDS.
+	g := con.proxy.XdsResourceGenerator
+	if cg, f := s.Generators[con.proxy.Metadata.Generator+"/"+req.TypeUrl]; f {
+		g = cg
+	}
+	if cg, f := s.Generators[req.TypeUrl]; f {
+		g = cg
+	}
+	if g == nil {
+		g = s.Generators["api"] // default to MCS generators - any type supported by store
+	}
+
+	return s.pushGenerator(con, push, g, versionInfo(), con.Watched(req.TypeUrl), nil)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -515,7 +534,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return nil
 		}
 		// TODO allow partial updates to types other than EDS
-		return s.pushGenerator(con, pushRequest.Push, currentVersion, con.proxy.WatchedResources[v3.EndpointType], pushRequest.ConfigsUpdated)
+		return s.pushGenerator(con, pushRequest.Push, s.Generators[v3.EndpointType], currentVersion, con.proxy.WatchedResources[v3.EndpointType], pushRequest.ConfigsUpdated)
 	}
 
 	// Update Proxy with current information.
@@ -536,7 +555,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	// Send pushes to all generators
 	//E ach Generator is responsible for determining if the push event requires a push
 	for _, w := range getPushResources(con.proxy.WatchedResources) {
-		err := s.pushGenerator(con, pushRequest.Push, currentVersion, w, pushRequest.ConfigsUpdated)
+		err := s.pushGenerator(con, pushRequest.Push, s.Generators[w.TypeUrl], currentVersion, w, pushRequest.ConfigsUpdated)
 		if err != nil {
 			return err
 		}

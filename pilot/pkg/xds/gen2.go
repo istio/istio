@@ -62,71 +62,10 @@ func init() {
 	controlPlane = &corev3.ControlPlane{Identifier: string(byVersion)}
 }
 
-// handleCustomGenerator uses model.Generator to generate the response.
-func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.DiscoveryRequest) error {
-	if !s.shouldRespond(con, req) {
-		return nil
-	}
-
-	push := s.globalPushContext()
-	resp := &discovery.DiscoveryResponse{
-		ControlPlane: ControlPlane(),
-		TypeUrl:      req.TypeUrl,
-		VersionInfo:  versionInfo(),
-		Nonce:        nonce(push.Version),
-	}
-	if push.Version == "" { // Usually in tests.
-		resp.VersionInfo = resp.Nonce
-	}
-
-	// XdsResourceGenerator is the default generator for this connection. We want to allow
-	// some types to use custom generators - for example EDS.
-	g := con.proxy.XdsResourceGenerator
-	if cg, f := s.Generators[con.proxy.Metadata.Generator+"/"+req.TypeUrl]; f {
-		g = cg
-	}
-	if cg, f := s.Generators[req.TypeUrl]; f {
-		g = cg
-	}
-	if g == nil {
-		g = s.Generators["api"] // default to MCS generators - any type supported by store
-	}
-
-	if g == nil {
-		return nil
-	}
-
-	t0 := time.Now()
-	cl := g.Generate(con.proxy, push, con.Watched(req.TypeUrl), nil)
-	if cl == nil {
-		return nil
-	}
-	recordPushTime(req.TypeUrl, time.Since(t0))
-	sz := 0
-	for _, rc := range cl {
-		resp.Resources = append(resp.Resources, rc)
-		sz += len(rc.Value)
-	}
-
-	err := con.send(resp)
-	if err != nil {
-		recordSendError(req.TypeUrl, con.ConID, err)
-		return err
-	}
-
-	adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(req.TypeUrl), con.proxy.ID, len(cl))
-
-	return nil
-}
-
-// TODO: verify that ProxyNeedsPush works correctly for Generator - ie. Sidecar visibility
-// is respected for arbitrary resource types.
-
 // Called for config updates.
 // Will not be called if ProxyNeedsPush returns false - ie. if the update
 func (s *DiscoveryServer) pushGenerator(con *Connection, push *model.PushContext,
-	currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
-	gen := s.Generators[w.TypeUrl]
+	gen model.XdsResourceGenerator, currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
 	if gen == nil {
 		return nil
 	}
