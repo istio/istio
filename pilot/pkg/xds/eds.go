@@ -15,13 +15,12 @@
 package xds
 
 import (
-	"time"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
 
 	networkingapi "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/model"
 	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
@@ -386,71 +385,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 		}
 	}
 	return resources
-}
-
-// pushEds is pushing EDS updates for a single connection. Called the first time
-// a client connects, for incremental updates and for full periodic updates.
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string, edsUpdatedServices map[string]struct{}) error {
-	pushStart := time.Now()
-	defer func() { edsPushTime.Record(time.Since(pushStart).Seconds()) }()
-
-	resources := make([]*any.Any, 0)
-	endpoints := 0
-	empty := 0
-
-	cached := 0
-	regenerated := 0
-	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
-	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
-	for _, clusterName := range con.Clusters() {
-		if edsUpdatedServices != nil {
-			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
-				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
-				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
-				continue
-			}
-		}
-		builder := NewEndpointBuilder(clusterName, con.proxy, push)
-		if marshalledEndpoint, f := s.cache.Get(builder); f {
-			resources = append(resources, marshalledEndpoint)
-			cached++
-		} else {
-			l := s.generateEndpoints(builder)
-			if l == nil {
-				continue
-			}
-			regenerated++
-
-			for _, e := range l.Endpoints {
-				endpoints += len(e.LbEndpoints)
-			}
-
-			if len(l.Endpoints) == 0 {
-				empty++
-			}
-			resource := util.MessageToAny(l)
-			resources = append(resources, resource)
-			s.cache.Add(builder, resource)
-		}
-	}
-
-	response := endpointDiscoveryResponse(resources, version, push.Version)
-	err := con.send(response)
-	if err != nil {
-		recordSendError(v3.EndpointType, con.ConID, err)
-		return err
-	}
-	edsPushes.Increment()
-
-	if edsUpdatedServices == nil {
-		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
-	} else {
-		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
-	}
-	return nil
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

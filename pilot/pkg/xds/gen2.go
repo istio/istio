@@ -113,7 +113,6 @@ func (s *DiscoveryServer) handleCustomGenerator(con *Connection, req *discovery.
 		recordSendError(req.TypeUrl, con.ConID, err)
 		return err
 	}
-	apiPushes.Increment()
 
 	adsLog.Infof("%s: PUSH for node:%s resources:%d", v3.GetShortType(req.TypeUrl), con.proxy.ID, len(cl))
 
