@@ -558,7 +558,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			adsLog.Debugf("Skipping EDS push to %v, no updates required", con.ConID)
 			return nil
 		}
-		eventTypes := []EventType{v3.ClusterType, v3.ListenerType, v3.RouteType}
 		edsUpdatedServices := model.ConfigNamesOfKind(pushRequest.ConfigsUpdated, gvk.ServiceEntry)
 		// Push only EDS. This is indexed already - push immediately
 		// (may need a throttle)
@@ -566,11 +565,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			if err := s.pushEds(pushRequest.Push, con, versionInfo(), edsUpdatedServices); err != nil {
 				return err
 			}
-		} else {
-			eventTypes = append(eventTypes, v3.EndpointType)
 		}
-		// registerEvent notifies the implementer of an xDS ACK for no push ops
-		registerEvent(s.StatusReporter, con.ConID, eventTypes, pushRequest.Push.Version)
 		return nil
 	}
 
@@ -585,7 +580,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// This depends on SidecarScope updates, so it should be called after SetSidecarScope.
 	if !ProxyNeedsPush(con.proxy, pushEv) {
-		eventTypes = AllEventTypes
+		eventTypes = append(eventTypes, AllEventTypes...)
 		adsLog.Debugf("Skipping push to %v, no updates required", con.ConID)
 		return nil
 	}
