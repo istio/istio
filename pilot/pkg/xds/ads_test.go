@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	istioagent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/tests/util"
 )
 
@@ -75,7 +76,7 @@ func TestAgent(t *testing.T) {
 	defer tearDown()
 
 	// TODO: when authz is implemented, verify labels are checked.
-	cert, key, err := bs.CA.GenKeyCert([]string{"spiffe://cluster.local/fake.test"}, 1*time.Hour)
+	cert, key, err := bs.CA.GenKeyCert([]string{spiffe.Identity{"cluster.local", "test", "sa"}.String()}, 1*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,9 +125,12 @@ func TestAgent(t *testing.T) {
 		}
 		defer ldsr.Close()
 
-		_, err = ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		r, err := ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
 			t.Fatal(err)
+		}
+		if len(r.Resources) == 0 {
+			t.Fatalf("Got no resources")
 		}
 	})
 
