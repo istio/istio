@@ -27,7 +27,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 replace github.com/evanphx/json-patch => github.com/evanphx/json-patch v0.0.0-20190815234213-e83c0a1c26c8
 
 require (
-	cloud.google.com/go v0.61.0
+	cloud.google.com/go v0.63.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
 	fortio.org/fortio v1.6.3
 	github.com/Masterminds/sprig/v3 v3.1.0
@@ -46,7 +46,6 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
-	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/envoyproxy/go-control-plane v0.9.7-0.20200811182123-112a4904c4b0
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/color v1.9.0
@@ -70,11 +69,10 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.0.3
 	github.com/mattn/go-isatty v0.0.12
-	github.com/mholt/archiver v3.1.1+incompatible
+	github.com/mholt/archiver/v3 v3.3.0
 	github.com/miekg/dns v1.1.30
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/nwaples/rardecode v1.1.0 // indirect
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/opentracing/opentracing-go v1.2.0
@@ -92,10 +90,8 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
-	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yl2chen/cidranger v1.0.0
 	go.opencensus.io v0.22.4
 	go.uber.org/atomic v1.6.0
@@ -106,9 +102,9 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	google.golang.org/genproto v0.0.0-20200722002428-88e341933a54
+	google.golang.org/genproto v0.0.0-20200806141610-86f49bd18e98
 	google.golang.org/grpc v1.31.0
-	google.golang.org/grpc/examples v0.0.0-20200818224027-0f73133e3aa3 // indirect
+	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
 	gopkg.in/square/go-jose.v2 v2.5.1
