@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 26938
+releaseNotes:
+- |
+  **Fixed** remove-from-mesh does not remove the init containers when using Istio CNI
