@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -50,6 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -220,6 +222,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
+
+	s.initSDSServer()
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -419,6 +423,34 @@ func (s *Server) Start(stop <-chan struct{}) error {
 // This should be called before exiting.
 func (s *Server) WaitUntilCompletion() {
 	s.requiredTerminations.Wait()
+}
+
+// initSDSServer starts the SDS server
+func (s *Server) initSDSServer() {
+	if features.EnableSDSServer && s.kubeClient != nil {
+		if !features.EnableXDSIdentityCheck {
+			// Make sure we have security
+			log.Warnf("skipping Kubernetes credential reader, which was enabled by ISTIOD_ENABLE_SDS_SERVER. " +
+				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
+		} else {
+			log.Infof("initializing Kubernetes credential reader")
+			sc := kubesecrets.NewSecretsController(s.kubeClient.KubeInformer().Core().V1().Secrets())
+			sc.AddEventHandler(func(name, namespace string) {
+				s.XDSServer.ConfigUpdate(&model.PushRequest{
+					Full: false,
+					ConfigsUpdated: map[model.ConfigKey]struct{}{
+						{
+							Kind:      gvk.Secret,
+							Name:      name,
+							Namespace: namespace,
+						}: {},
+					},
+					Reason: []model.TriggerReason{model.SecretTrigger},
+				})
+			})
+			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+		}
+	}
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
