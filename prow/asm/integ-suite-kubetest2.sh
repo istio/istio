@@ -35,6 +35,7 @@ set -u
 # Print commands
 set -x
 
+# shellcheck source=prow/asm/lib.sh
 source "${WD}/lib.sh"
 
 echo "Installing kubetest2..."

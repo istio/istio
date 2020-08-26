@@ -57,7 +57,8 @@ spec:
           enabled: false
         stackdriver:
           enabled: true
-          logging: true
+          inboundAccessLogging: "FULL"
+          outboundAccessLogging: "ERRORS_ONLY"
           topology: true
     sidecarInjectorWebhook:
       rewriteAppHTTPProbe: true
