@@ -15,10 +15,12 @@
 package bugreport
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 
@@ -65,7 +67,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().StringSliceVar(&args.WhitelistedErrors, "whitelist-errs", nil, bugReportHelpWhitelistedErrors)
 
 	// archive and upload control
-	cmd.PersistentFlags().StringVar(&args.Context, "gcs-url", "", bugReportHelpGCSURL)
+	cmd.PersistentFlags().StringVar(&args.GCSURL, "gcs-url", "", bugReportHelpGCSURL)
 	cmd.PersistentFlags().BoolVar(&args.UploadToGCS, "upload", false, bugReportHelpUploadToGCS)
 
 	// output/working dir
@@ -73,17 +75,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {
-	config := &config2.BugReportConfig{}
-	if configFile != "" {
-		b, err := ioutil.ReadFile(configFile)
-		if err != nil {
-			return nil, err
-		}
-		if err := yaml.Unmarshal(b, config); err != nil {
-			return nil, err
-		}
-	}
-	if err := parseTimes(config, startTime, endTime); err != nil {
+	if err := parseTimes(gConfig, startTime, endTime); err != nil {
 		log.Fatal(err.Error())
 	}
 	for _, s := range included {
@@ -91,17 +83,32 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		config.Include = append(config.Include, ss)
+		gConfig.Include = append(gConfig.Include, ss)
 	}
 	for _, s := range excluded {
 		ss := &config2.SelectionSpec{}
 		if err := ss.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		config.Exclude = append(config.Exclude, ss)
+		gConfig.Exclude = append(gConfig.Exclude, ss)
 	}
 
-	return config, nil
+	fileConfig := &config2.BugReportConfig{}
+	if configFile != "" {
+		b, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+		if err := yaml.Unmarshal(b, fileConfig); err != nil {
+			return nil, err
+		}
+		gConfig, err = overlayConfig(gConfig, fileConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return gConfig, nil
 }
 
 func parseTimes(config *config2.BugReportConfig, startTime, endTime string) error {
@@ -130,4 +137,24 @@ func parseTimes(config *config2.BugReportConfig, startTime, endTime string) erro
 		}
 	}
 	return nil
+}
+
+func overlayConfig(base, overlay *config2.BugReportConfig) (*config2.BugReportConfig, error) {
+	bj, err := json.Marshal(base)
+	if err != nil {
+		return nil, err
+	}
+	oj, err := json.Marshal(base)
+	if err != nil {
+		return nil, err
+	}
+
+	mj, err := jsonpatch.MergePatch(bj, oj)
+	if err != nil {
+		return nil, fmt.Errorf("json merge error (%s) for base object: \n%s\n override object: \n%s", err, bj, oj)
+	}
+
+	out := &config2.BugReportConfig{}
+	err = json.Unmarshal(mj, out)
+	return out, err
 }

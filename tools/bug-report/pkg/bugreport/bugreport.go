@@ -43,7 +43,7 @@ const (
 
 var (
 	bugReportDefaultIstioNamespaces = []string{"istio-system"}
-	bugReportDefaultInclude         = []string{"*"}
+	bugReportDefaultInclude         = []string{""}
 	bugReportDefaultExclude         = []string{"kube-system,kube-public"}
 )
 
@@ -98,15 +98,16 @@ func runBugReportCommand(_ *cobra.Command) error {
 	var wg sync.WaitGroup
 	for _, p := range paths {
 		p := p
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
+			var wg2 sync.WaitGroup
 			cv := strings.Split(p, ".")
 			namespace, pod, container := cv[0], cv[2], cv[3]
 
+			wg2.Add(1)
 			go func() {
-				wg.Add(1)
-				defer wg.Done()
+				defer wg2.Done()
 				clog, cstat, imp, err := getLog(resources, config, namespace, pod, container)
 				lock.Lock()
 				logs[p], stats[p], importance[p] = clog, cstat, imp
@@ -114,15 +115,32 @@ func runBugReportCommand(_ *cobra.Command) error {
 				lock.Unlock()
 			}()
 
-			go func() {
-				wg.Add(1)
-				defer wg.Done()
-				cds, err := content.GetCoredumps(namespace, pod, container, config.DryRun)
-				lock.Lock()
-				coreDumps[p] = cds
-				errs = util.AppendErr(errs, err)
-				lock.Unlock()
-			}()
+			if container == "istio-proxy" {
+				wg2.Add(1)
+				go func() {
+					defer wg2.Done()
+					cds, err := content.GetCoredumps(namespace, pod, container, config.DryRun)
+					lock.Lock()
+					coreDumps[p] = cds
+					errs = util.AppendErr(errs, err)
+					lock.Unlock()
+				}()
+			}
+
+			if strings.HasPrefix(pod, "istiod-") {
+				wg2.Add(1)
+				go func() {
+					defer wg2.Done()
+					info, err := content.GetIstiodInfo(namespace, pod, config.DryRun)
+					lock.Lock()
+					errs = util.AppendErr(errs, err)
+					lock.Unlock()
+					fmt.Println(info)
+				}()
+			}
+
+			wg2.Wait()
+			fmt.Println("wg2 all done")
 		}()
 	}
 	wg.Wait()
@@ -131,6 +149,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 }
 
 func getLog(resources *cluster2.Resources, config *config.BugReportConfig, namespace, pod, container string) (string, *processlog.Stats, int, error) {
+	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	previous := resources.ContainerRestarts(pod, container) > 0
 	clog, err := kubectlcmd.Logs(namespace, pod, container, previous, config.DryRun)
 	if err != nil {

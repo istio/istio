@@ -44,6 +44,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 	out := &Resources{
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
+		Pod:         make(map[string]*corev1.Pod),
 	}
 	namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -78,7 +79,7 @@ func GetEvents(dryRun bool) (string, error) {
 func GetIstiodInfo(namespace, pod string, dryRun bool) (string, error) {
 	var sb strings.Builder
 	for _, url := range istiodURLs {
-		out, err := kubectlcmd.Exec(namespace, pod, "istio-proxy", `curl "http://localhost:8080/`+url, dryRun)
+		out, err := kubectlcmd.Exec(namespace, pod, "discovery", `curl "http://localhost:8080/`+url+`"`, dryRun)
 		if err != nil {
 			return "", err
 		}
@@ -91,12 +92,14 @@ func GetIstiodInfo(namespace, pod string, dryRun bool) (string, error) {
 
 // GetCoredumps returns coredumps for the given namespace/pod/container.
 func GetCoredumps(namespace, pod, container string, dryRun bool) ([]string, error) {
+	log.Infof("Getting coredumps for %s/%s/%s...", namespace, pod, container)
 	cds, err := getCoredumpList(namespace, pod, container, dryRun)
 	if err != nil {
 		return nil, err
 	}
 
 	var out []string
+	log.Infof("%s/%s/%s has %d coredumps", namespace, pod, container, len(cds))
 	for _, cd := range cds {
 		outStr, err := kubectlcmd.Cat(namespace, pod, container, cd, dryRun)
 		if err != nil {

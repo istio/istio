@@ -75,55 +75,55 @@ type SelectionSpec struct {
 // archive.
 type BugReportConfig struct {
 	// KubeConfigPath is the path to kube config file.
-	KubeConfigPath string `json:"kubeConfigPath"`
+	KubeConfigPath string `json:"kubeConfigPath,omitempty"`
 	// Context is the cluster Context in the kube config
-	Context string `json:"context"`
+	Context string `json:"context,omitempty"`
 
 	// IstioNamespaces is the list of namespaces where istio control planes
 	// are installed.
-	IstioNamespaces []string `json:"istioNamespaces"`
+	IstioNamespaces []string `json:"istioNamespaces,omitempty"`
 
 	// DryRun controls whether logs are actually captured and saved.
-	DryRun bool `json:"dryRun"`
+	DryRun bool `json:"dryRun,omitempty"`
 
 	// CommandTimeout is the maximum amount of time running the command
 	// before giving up, even if not all logs are captured. Upon timeout,
 	// the command creates an archive with only the logs captured so far.
-	CommandTimeout Duration `json:"commandTimeout"`
+	CommandTimeout Duration `json:"commandTimeout,omitempty"`
 	// MaxArchiveSizeMb is the maximum size of the archive in Mb. When
 	// the maximum size is reached, logs are selectively discarded based
 	// on importance metrics.
-	MaxArchiveSizeMb int32 `json:"maxArchiveSizeMb"`
+	MaxArchiveSizeMb int32 `json:"maxArchiveSizeMb,omitempty"`
 
 	// Include is a list of SelectionSpec entries for resources to include.
-	Include []*SelectionSpec `json:"include"`
+	Include []*SelectionSpec `json:"include,omitempty"`
 	// Exclude is a list of SelectionSpec entries for resources t0 exclude.
-	Exclude []*SelectionSpec `json:"exclude"`
+	Exclude []*SelectionSpec `json:"exclude,omitempty"`
 
 	// StartTime is the start time the the log capture time range.
 	// If set, Since must be unset.
-	StartTime time.Time `json:"startTime"`
+	StartTime time.Time `json:"startTime,omitempty"`
 	// EndTime is the end time the the log capture time range.
 	// Default is now.
-	EndTime time.Time `json:"endTime"`
+	EndTime time.Time `json:"endTime,omitempty"`
 	// Since defines the start time the the log capture time range.
 	// StartTime is set to EndTime - Since.
 	// If set, StartTime must be unset.
-	Since Duration `json:"since"`
+	Since Duration `json:"since,omitempty"`
 
 	// CriticalErrors is a list of glob pattern matches for errors that,
 	// if found in a log, set the highest priority for the log to ensure
 	// that it is Include in the capture archive.
-	CriticalErrors []string `json:"criticalErrors"`
+	CriticalErrors []string `json:"criticalErrors,omitempty"`
 	// WhitelistedErrors are glob error patterns which are ignored when
 	// calculating the error heuristic for a log.
-	WhitelistedErrors []string `json:"whitelistedErrors"`
+	WhitelistedErrors []string `json:"whitelistedErrors,omitempty"`
 
 	// GCSURL is an URL to the GCS bucket where the archive is uploaded.
-	GCSURL string `json:"gcsURL"`
+	GCSURL string `json:"gcsURL,omitempty"`
 	// UploadToGCS uploads the archive to a GCS bucket. If no bucket
 	// address is given, it creates one.
-	UploadToGCS bool `json:"uploadToGCS"`
+	UploadToGCS bool `json:"uploadToGCS,omitempty"`
 }
 
 func parseToIncludeTypeSlice(s string) []string {
