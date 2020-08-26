@@ -110,7 +110,7 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 		return err
 	}
 
-	verifiedListeners := []*listener.Listener{}
+	verifiedListeners := make([]*listener.Listener, 0, len(listeners))
 	for _, l := range listeners {
 		if filter.Verify(l) {
 			verifiedListeners = append(verifiedListeners, l)
@@ -179,8 +179,9 @@ var (
 )
 
 func retrieveListenerMatches(l *listener.Listener) []filterchain {
-	resp := []filterchain{}
-	for _, filterChain := range l.GetFilterChains() {
+	fChains := l.GetFilterChains()
+	resp := make([]filterchain, 0, len(fChains))
+	for _, filterChain := range fChains {
 		match := filterChain.FilterChainMatch
 		if match == nil {
 			match = &listener.FilterChainMatch{}
@@ -323,7 +324,7 @@ func describeDomains(vh *route.VirtualHost) string {
 }
 
 func describeRoutes(vh *route.VirtualHost) string {
-	routes := []string{}
+	routes := make([]string, 0, len(vh.GetRoutes()))
 	for _, route := range vh.GetRoutes() {
 		routes = append(routes, describeMatch(route.GetMatch()))
 	}

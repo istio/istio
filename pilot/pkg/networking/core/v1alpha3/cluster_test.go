@@ -362,15 +362,17 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
-	_, err := configStore.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
-			GroupVersionKind: gvk.DestinationRule,
-			Name:             "acme",
-		},
-		Spec: c.destRule,
-	})
-	if err != nil {
-		c.t.Fatal(err)
+	if c.destRule != nil {
+		_, err := configStore.Create(model.Config{
+			ConfigMeta: model.ConfigMeta{
+				GroupVersionKind: gvk.DestinationRule,
+				Name:             "acme",
+			},
+			Spec: c.destRule,
+		})
+		if err != nil {
+			c.t.Fatal(err)
+		}
 	}
 	if c.peerAuthn != nil {
 		policyName := "default"
@@ -2200,7 +2202,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 					Http2ProtocolOptions: test.http2ProtocolOptions,
 				},
 				proxy: proxy,
-				push:  push,
+				mesh:  push.Mesh,
 			}
 			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx, proxy)
 
@@ -2819,7 +2821,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.GatewaySdsUdsPath,
+																TargetUri:  authn_model.CredentialNameSDSUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},
@@ -2877,7 +2879,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.GatewaySdsUdsPath,
+																TargetUri:  authn_model.CredentialNameSDSUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},
@@ -2934,7 +2936,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.GatewaySdsUdsPath,
+															TargetUri:  authn_model.CredentialNameSDSUdsPath,
 															StatPrefix: authn_model.SDSStatPrefix,
 														},
 													},
@@ -2963,7 +2965,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.GatewaySdsUdsPath,
+																TargetUri:  authn_model.CredentialNameSDSUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},
@@ -3019,7 +3021,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  authn_model.GatewaySdsUdsPath,
+															TargetUri:  authn_model.CredentialNameSDSUdsPath,
 															StatPrefix: authn_model.SDSStatPrefix,
 														},
 													},
@@ -3046,7 +3048,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 													{
 														TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 															GoogleGrpc: &core.GrpcService_GoogleGrpc{
-																TargetUri:  authn_model.GatewaySdsUdsPath,
+																TargetUri:  authn_model.CredentialNameSDSUdsPath,
 																StatPrefix: authn_model.SDSStatPrefix,
 															},
 														},

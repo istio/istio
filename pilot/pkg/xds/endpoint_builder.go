@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type EndpointBuilder struct {
@@ -68,6 +69,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 	return b.destinationRule.Spec.(*networkingapi.DestinationRule)
 }
 
+// CacheKey Functions
 func (b EndpointBuilder) Key() string {
 	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality)}
 	if b.destinationRule != nil {
@@ -77,6 +79,24 @@ func (b EndpointBuilder) Key() string {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
 	return strings.Join(params, "~")
+}
+
+func (b EndpointBuilder) Cacheable() bool {
+	// If service is not defined, we cannot do any caching as we will not have a way to
+	// invalidate the results.
+	// Service being nil means the EDS will be empty anyways, so not much lost here.
+	return b.service != nil
+}
+
+func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
+	configs := []model.ConfigKey{}
+	if b.destinationRule != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
+	}
+	if b.service != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
+	}
+	return configs
 }
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.

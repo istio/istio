@@ -103,7 +103,7 @@ func (s *DiscoveryServer) PushAll(res *discovery.DiscoveryResponse) {
 	pending := []*Connection{}
 	for _, v := range s.adsClients {
 		v.proxy.RLock()
-		if v.proxy.ActiveExperimental[res.TypeUrl] != nil {
+		if v.proxy.WatchedResources[res.TypeUrl] != nil {
 			pending = append(pending, v)
 		}
 		v.proxy.RUnlock()
@@ -209,7 +209,7 @@ func (sg *InternalGen) debugSyncz() []*any.Any {
 			xdsConfigs := []*status.PerXdsConfig{}
 			for _, stype := range stypes {
 				pxc := &status.PerXdsConfig{}
-				if watchedResource, ok := con.proxy.Active[stype]; ok {
+				if watchedResource, ok := con.proxy.WatchedResources[stype]; ok {
 					pxc.Status = debugSyncStatus(watchedResource)
 				} else {
 					pxc.Status = status.ConfigStatus_NOT_SENT

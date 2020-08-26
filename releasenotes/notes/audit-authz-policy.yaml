@@ -1,8 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: security
-issue: 
+issue:
   - 25591
 releaseNotes:
   - |
-    **Added** aciton 'AUDIT' to Authorization Policy that can be used to determine which requests should be audited. 
+    **Added** action 'AUDIT' to Authorization Policy that can be used to determine which requests should be audited.

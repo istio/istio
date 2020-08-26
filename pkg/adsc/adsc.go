@@ -719,7 +719,7 @@ func (a *ADSC) Save(base string) error {
 
 func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 
-	cn := []string{}
+	cn := make([]string, 0, len(ll))
 	cdsSize := 0
 	edscds := map[string]*cluster.Cluster{}
 	cds := map[string]*cluster.Cluster{}

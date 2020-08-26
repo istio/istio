@@ -23,6 +23,7 @@ import (
 	model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/spiffe"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
@@ -300,5 +301,62 @@ func BenchmarkListEquals(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		listEqualUnordered(l, equal)
 		listEqualUnordered(l, notEqual)
+	}
+}
+
+func TestCheckConnectionIdentity(t *testing.T) {
+	cases := []struct {
+		name      string
+		identity  []string
+		sa        string
+		namespace string
+		success   bool
+	}{
+		{
+			name:      "single match",
+			identity:  []string{spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String()},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   true,
+		},
+		{
+			name: "second match",
+			identity: []string{
+				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
+				spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String(),
+			},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   true,
+		},
+		{
+			name: "no match namespace",
+			identity: []string{
+				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
+			},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   false,
+		},
+		{
+			name: "no match service account",
+			identity: []string{
+				spiffe.Identity{"cluster.local", "namespace", "bad"}.String(),
+			},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			con := &Connection{
+				proxy:      &model.Proxy{ConfigNamespace: tt.namespace, Metadata: &model.NodeMetadata{ServiceAccount: tt.sa}},
+				Identities: tt.identity,
+			}
+			if err := checkConnectionIdentity(con); (err == nil) != tt.success {
+				t.Fatalf("expected success=%v, got err=%v", tt.success, err)
+			}
+		})
 	}
 }

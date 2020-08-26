@@ -100,7 +100,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 			s, proxy := setupTest(b, tt)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				initPushContext(s.Env, proxy)
+				initPushContext(s.Env(), proxy)
 			}
 		})
 	}
@@ -281,7 +281,7 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
 
 func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
 	s, proxy := setupTest(t, config)
-	initPushContext(s.Env, proxy)
+	initPushContext(s.Env(), proxy)
 	return s, proxy
 }
 

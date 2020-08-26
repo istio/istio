@@ -151,10 +151,6 @@ func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cl
 
 func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	inputParams := &plugin.InputParams{
-		Push: cb.push,
-		Node: cb.proxy,
-	}
 	networkView := model.GetNetworkView(cb.proxy)
 
 	var services []*model.Service
@@ -168,9 +164,6 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) 
 			if port.Protocol == protocol.UDP {
 				continue
 			}
-			inputParams.Service = service
-			inputParams.Port = port
-
 			lbEndpoints := cb.buildLocalityLbEndpoints(networkView, service, port.Port, nil)
 
 			// create default cluster
@@ -189,18 +182,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder) 
 			clusters = append(clusters, defaultCluster)
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port, networkView)
 
-			// call plugins for subset clusters.
-			for _, subsetCluster := range subsetClusters {
-				for _, p := range configgen.Plugins {
-					p.OnOutboundCluster(inputParams, subsetCluster)
-				}
-			}
 			clusters = append(clusters, subsetClusters...)
-
-			// call plugins for the default cluster.
-			for _, p := range configgen.Plugins {
-				p.OnOutboundCluster(inputParams, defaultCluster)
-			}
 		}
 	}
 
@@ -289,11 +271,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 				pluginParams := &plugin.InputParams{
 					Node:            cb.proxy,
 					ServiceInstance: instance,
-					Port:            instance.ServicePort,
 					Push:            cb.push,
-					Bind:            actualLocalHost,
 				}
-				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams, actualLocalHost)
 				clusters = append(clusters, localCluster)
 				have[instance.ServicePort] = true
 			}
@@ -341,11 +321,9 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			pluginParams := &plugin.InputParams{
 				Node:            cb.proxy,
 				ServiceInstance: instance,
-				Port:            listenPort,
 				Push:            cb.push,
-				Bind:            endpointAddress,
 			}
-			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams)
+			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams, endpointAddress)
 			clusters = append(clusters, localCluster)
 		}
 	}
@@ -377,12 +355,12 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams) *cluster.Cluster {
+func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams, bind string) *cluster.Cluster {
 	cb := NewClusterBuilder(pluginParams.Node, pluginParams.Push)
 	instance := pluginParams.ServiceInstance
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
 		instance.Service.Hostname, instance.ServicePort.Port)
-	localityLbEndpoints := buildInboundLocalityLbEndpoints(pluginParams.Bind, instance.Endpoint.EndpointPort)
+	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
 	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
 		model.TrafficDirectionInbound, nil, false)
 	// If stat name is configured, build the alt statname.
@@ -391,10 +369,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
 	}
 	setUpstreamProtocol(pluginParams.Node, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
-	// call plugins
-	for _, p := range configgen.Plugins {
-		p.OnInboundCluster(pluginParams, localCluster)
-	}
 
 	// When users specify circuit breakers, they need to be set on the receiver end
 	// (server side) as well as client side, so that the server has enough capacity
@@ -408,7 +382,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginPara
 			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			applyConnectionPool(pluginParams.Push, localCluster, connectionPool)
+			applyConnectionPool(pluginParams.Push.Mesh, localCluster, connectionPool)
 			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
 		}
 	}
@@ -523,7 +497,7 @@ const (
 )
 
 type buildClusterOpts struct {
-	push            *model.PushContext
+	mesh            *meshconfig.MeshConfig
 	cluster         *cluster.Cluster
 	policy          *networking.TrafficPolicy
 	port            *model.Port
@@ -562,7 +536,7 @@ var h2UpgradeMap = map[upgradeTuple]bool{
 
 // applyH2Upgrade function will upgrade outbound cluster to http2 if specified by configuration.
 func applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
-	if shouldH2Upgrade(opts.cluster.Name, opts.direction, opts.port, opts.push.Mesh, connectionPool) {
+	if shouldH2Upgrade(opts.cluster.Name, opts.direction, opts.port, opts.mesh, connectionPool) {
 		setH2Options(opts.cluster)
 	}
 }
@@ -616,12 +590,12 @@ func setH2Options(cluster *cluster.Cluster) {
 func applyTrafficPolicy(opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
 	applyH2Upgrade(opts, connectionPool)
-	applyConnectionPool(opts.push, opts.cluster, connectionPool)
+	applyConnectionPool(opts.mesh, opts.cluster, connectionPool)
 	applyOutlierDetection(opts.cluster, outlierDetection)
-	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.push.Mesh)
+	applyLoadBalancer(opts.cluster, loadBalancer, opts.port, opts.proxy, opts.mesh)
 
 	if opts.clusterMode != SniDnatClusterMode && opts.direction != model.TrafficDirectionInbound {
-		autoMTLSEnabled := opts.push.Mesh.GetEnableAutoMtls().Value
+		autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
@@ -630,7 +604,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
+func applyConnectionPool(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
 	if settings == nil {
 		return
 	}
@@ -669,7 +643,7 @@ func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *
 			threshold.MaxConnections = &wrappers.UInt32Value{Value: uint32(settings.Tcp.MaxConnections)}
 		}
 
-		applyTCPKeepalive(push, c, settings)
+		applyTCPKeepalive(mesh, c, settings)
 	}
 
 	c.CircuitBreakers = &cluster.CircuitBreakers{
@@ -682,9 +656,9 @@ func applyConnectionPool(push *model.PushContext, c *cluster.Cluster, settings *
 	}
 }
 
-func applyTCPKeepalive(push *model.PushContext, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
+func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, settings *networking.ConnectionPoolSettings) {
 	// Apply Keepalive config only if it is configured in mesh config or in destination rule.
-	if push.Mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
+	if mesh.TcpKeepalive != nil || settings.Tcp.TcpKeepalive != nil {
 
 		// Start with empty tcp_keepalive, which would set SO_KEEPALIVE on the socket with OS default values.
 		c.UpstreamConnectionOptions = &cluster.UpstreamConnectionOptions{
@@ -692,8 +666,8 @@ func applyTCPKeepalive(push *model.PushContext, c *cluster.Cluster, settings *ne
 		}
 
 		// Apply mesh wide TCP keepalive if available.
-		if push.Mesh.TcpKeepalive != nil {
-			setKeepAliveSettings(c, push.Mesh.TcpKeepalive)
+		if mesh.TcpKeepalive != nil {
+			setKeepAliveSettings(c, mesh.TcpKeepalive)
 		}
 
 		// Apply/Override individual attributes with DestinationRule TCP keepalive if set.
@@ -996,7 +970,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
-			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.GatewaySdsUdsPath)
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
 
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 cluster, advertise it with ALPN.
@@ -1042,7 +1016,7 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 
 			// If  credential name is specified at Destination Rule config and originating node is egress gateway, create
 			// SDS config for egress gateway to fetch key/cert at gateway agent.
-			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, authn_model.GatewaySdsUdsPath)
+			authn_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls)
 
 			if c.Http2ProtocolOptions != nil {
 				// This is HTTP/2 cluster, advertise it with ALPN.

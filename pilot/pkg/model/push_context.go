@@ -1555,7 +1555,7 @@ func (ps *PushContext) initMeshNetworks() {
 		}
 
 		registryNames := getNetworkRegistries(networkConf)
-		gateways := []*Gateway{}
+		gateways := make([]*Gateway, 0, len(gws))
 
 		for _, gw := range gws {
 			gateways = append(gateways, getGatewayAddresses(gw, registryNames, ps.ServiceDiscovery)...)
@@ -1571,7 +1571,7 @@ func (ps *PushContext) initMeshNetworks() {
 func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 	// Create the default list of cluster-local hosts.
 	domainSuffix := e.GetDomainSuffix()
-	defaultClusterLocalHosts := make([]host.Name, 0, len(defaultClusterLocalNamespaces))
+	defaultClusterLocalHosts := make([]host.Name, 0)
 	for _, n := range defaultClusterLocalNamespaces {
 		defaultClusterLocalHosts = append(defaultClusterLocalHosts, host.Name("*."+n+".svc."+domainSuffix))
 	}
@@ -1617,7 +1617,7 @@ func (ps *PushContext) initClusterLocalHosts(e *Environment) {
 }
 
 func getNetworkRegistries(network *meshconfig.Network) []string {
-	var registryNames []string
+	registryNames := make([]string, 0, len(network.Endpoints))
 	for _, eps := range network.Endpoints {
 		if eps != nil && len(eps.GetFromRegistry()) > 0 {
 			registryNames = append(registryNames, eps.GetFromRegistry())

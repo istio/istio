@@ -19,8 +19,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+
+	"istio.io/pkg/env"
 )
 
 const (
@@ -30,8 +33,12 @@ const (
 	statLdsSuccess     = "listener_manager.lds.update_success"
 	statServerState    = "server.state"
 	statWorkersStarted = "listener_manager.workers_started"
-	readyStatsRegex    = "^(server.state|listener_manager.workers_started)"
-	updateStatsRegex   = "^(cluster_manager.cds|listener_manager.lds).(update_success|update_rejected)$"
+	readyStatsRegex    = "^(server\\.state|listener_manager\\.workers_started)"
+	updateStatsRegex   = "^(cluster_manager\\.cds|listener_manager\\.lds)\\.(update_success|update_rejected)$"
+)
+
+var (
+	readinessTimeout = env.RegisterDurationVar("ENVOY_READINESS_CHECK_TIMEOUT", time.Second*5, "").Get()
 )
 
 type stat struct {
@@ -68,7 +75,8 @@ func GetReadinessStats(localHostAddr string, adminPort uint16) (*uint64, bool, e
 		localHostAddr = "localhost"
 	}
 
-	stats, err := doHTTPGet(fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex))
+	readinessURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=%s", localHostAddr, adminPort, readyStatsRegex)
+	stats, err := doHTTPGetWithTimeout(readinessURL, readinessTimeout)
 	if err != nil {
 		return nil, false, err
 	}

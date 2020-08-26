@@ -114,13 +114,16 @@ func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
 	return got
 }
 
-func ExtractCluster(name string, cc []*cluster.Cluster) *cluster.Cluster {
+func ExtractClusters(cc []*cluster.Cluster) map[string]*cluster.Cluster {
+	res := map[string]*cluster.Cluster{}
 	for _, c := range cc {
-		if c.Name == name {
-			return c
-		}
+		res[c.Name] = c
 	}
-	return nil
+	return res
+}
+
+func ExtractCluster(name string, cc []*cluster.Cluster) *cluster.Cluster {
+	return ExtractClusters(cc)[name]
 }
 
 func ExtractClusterEndpoints(clusters []*cluster.Cluster) map[string][]string {

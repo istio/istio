@@ -212,13 +212,8 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest short type.
-	Active map[string]*WatchedResource
-
-	// ActiveExperimental contains the list of watched resources for the proxy, keyed by the canonical DiscoveryRequest type.
-	// Note that the key may not be equal to the proper TypeUrl. For example, Envoy types like Cluster will share a single
-	// key for multiple versions.
-	ActiveExperimental map[string]*WatchedResource
+	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
+	WatchedResources map[string]*WatchedResource
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.

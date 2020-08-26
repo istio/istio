@@ -15,7 +15,6 @@
 package utils
 
 import (
-	"strings"
 	"testing"
 	"time"
 
@@ -31,10 +30,6 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	protovalue "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/spiffe"
-)
-
-const (
-	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
 )
 
 func TestBuildInboundFilterChain(t *testing.T) {
@@ -220,13 +215,5 @@ func TestBuildInboundFilterChain(t *testing.T) {
 				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}
 		})
-	}
-}
-
-func TestGetPilotSAN(t *testing.T) {
-	spiffe.SetTrustDomain("cluster.local")
-	pilotSANs := GetSAN("istio-system", PilotSvcAccName)
-	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
-		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}
 }
