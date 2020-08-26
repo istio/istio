@@ -26,9 +26,6 @@ RUN if [ "$VM_IMAGE_NAME" = "debian" ] && [ "$VM_IMAGE_VERSION" = "10" ]; then \
     update-alternatives --set iptables /usr/sbin/iptables-legacy && \
     update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy; fi
 
-# Sudoers used to allow tcpdump and other debug utilities.
-RUN echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
-
 # Add a user that will run the application. This allows running as this user and capture iptables
 RUN useradd -m --uid 1338 application && \
     echo "application ALL=NOPASSWD: ALL" >> /etc/sudoers
@@ -40,6 +37,9 @@ COPY certs/default/*                  /var/run/secrets/istio/
 # Install the sidecar components
 COPY istio-sidecar.deb  /tmp/istio-sidecar.deb
 RUN dpkg -i /tmp/istio-sidecar.deb && rm /tmp/istio-sidecar.deb
+
+# Sudoers used to allow tcpdump and other debug utilities.
+RUN echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 # Install the Echo application
 COPY echo-start.sh /usr/local/bin/echo-start.sh
