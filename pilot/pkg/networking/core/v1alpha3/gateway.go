@@ -571,6 +571,9 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 	}
 
 	virtualServices := push.VirtualServicesForGateway(node, gateway)
+	if len(virtualServices) == 0 {
+		log.Warnf("no virtual service bound to gateway: %v", gateway)
+	}
 	for _, v := range virtualServices {
 		vsvc := v.Spec.(*networking.VirtualService)
 		// We have two cases here:
