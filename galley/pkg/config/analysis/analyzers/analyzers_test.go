@@ -398,7 +398,6 @@ var testGrid = []testCase{
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService almost-duplicate-tcp-match"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService duplicate-tcp-match"},
 
-			{msg.VirtualServiceUnreachableRule, "VirtualService tls-routing-nomatch.none"},
 			{msg.VirtualServiceUnreachableRule, "VirtualService tls-routing.none"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing-almostmatch.none"},
 			{msg.VirtualServiceIneffectiveMatch, "VirtualService tls-routing.none"},

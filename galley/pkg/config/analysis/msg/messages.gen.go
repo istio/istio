@@ -131,11 +131,11 @@ var (
 
 	// VirtualServiceUnreachableRule defines a diag.MessageType for message "VirtualServiceUnreachableRule".
 	// Description: A VirtualService rule will never be used because a previous rule uses the same match.
-	VirtualServiceUnreachableRule = diag.NewMessageType(diag.Warning, "IST0130", "VirtualService rule %d not used (%s).")
+	VirtualServiceUnreachableRule = diag.NewMessageType(diag.Warning, "IST0130", "VirtualService rule %v not used (%s).")
 
 	// VirtualServiceIneffectiveMatch defines a diag.MessageType for message "VirtualServiceIneffectiveMatch".
 	// Description: A VirtualService rule match duplicates a match in a previous rule.
-	VirtualServiceIneffectiveMatch = diag.NewMessageType(diag.Info, "IST0131", "VirtualService rule %d match %d is not used (duplicates a match in rule %d).")
+	VirtualServiceIneffectiveMatch = diag.NewMessageType(diag.Info, "IST0131", "VirtualService rule %v match %v is not used (duplicates a match in rule %v).")
 )
 
 // All returns a list of all known message types.
@@ -478,7 +478,7 @@ func NewNoServerCertificateVerificationPortLevel(r *resource.Instance, destinati
 }
 
 // NewVirtualServiceUnreachableRule returns a new diag.Message based on VirtualServiceUnreachableRule.
-func NewVirtualServiceUnreachableRule(r *resource.Instance, ruleno int, reason string) diag.Message {
+func NewVirtualServiceUnreachableRule(r *resource.Instance, ruleno string, reason string) diag.Message {
 	return diag.NewMessage(
 		VirtualServiceUnreachableRule,
 		r,
@@ -488,7 +488,7 @@ func NewVirtualServiceUnreachableRule(r *resource.Instance, ruleno int, reason s
 }
 
 // NewVirtualServiceIneffectiveMatch returns a new diag.Message based on VirtualServiceIneffectiveMatch.
-func NewVirtualServiceIneffectiveMatch(r *resource.Instance, ruleno int, matchno int, dupno int) diag.Message {
+func NewVirtualServiceIneffectiveMatch(r *resource.Instance, ruleno string, matchno string, dupno string) diag.Message {
 	return diag.NewMessage(
 		VirtualServiceIneffectiveMatch,
 		r,

@@ -30,13 +30,16 @@ spec:
   hosts:
   - sample.baz.svc.cluster.local
   http:
-  - match:
-    - uri:
+  - name: send /api/v1/products to sample.foo
+    match:
+    - name: prefix /api/v1/products
+      uri:
         prefix: /api/v1/products
     route:
     - destination:
         host: sample.foo.svc.cluster.local
-  - match:
+  - name: send /api/v1/products to sample.bar
+    match:
     - uri:
         prefix: /api/v1/products
     route:
@@ -58,10 +61,13 @@ spec:
     route:
     - destination:
         host: sample.foo.svc.cluster.local
-  - match:
-    - uri:
+  - name: send /api/v1/products and /potato to sample.bar
+    match:
+    - name: prefix /api/v1/products
+      uri:
         prefix: /api/v1/products
-    - uri:
+    - name: prefix /potato
+      uri:
         prefix: /potato
     route:
     - destination:
@@ -175,44 +181,26 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: tls-routing-nomatch
-  namespace: none
-spec:
-  hosts:
-  - www1.googleapis.com
-  - api1.facebook.com
-  tls:
-  - route:
-    - destination:
-        host: www1.googleapis.com
-  - route:
-    - destination:
-        host: api1.facebook.com
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
   name: tls-routing-almostmatch
   namespace: none
 spec:
   hosts:
-  - www1.googleapis.com
-  - api1.facebook.com
+  - www1.example.com
   tls:
   - match:
     - port: 2443
       sniHosts:
-      - www1.googleapis.com
+      - www1.example.com
     route:
     - destination:
         host: www1.googleapis.com
   - match:
     - port: 2443
       sniHosts:
-      - www1.googleapis.com
+      - www1.example.com
     - port: 8443
       sniHosts:
-      - www1.googleapis.com
+      - www1.example.com
     route:
     - destination:
         host: api1.facebook.com
