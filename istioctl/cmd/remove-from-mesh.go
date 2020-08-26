@@ -16,11 +16,12 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	istioStatus "istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/log"
 )
@@ -200,6 +202,17 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 				continue
 			}
 		}
+
+		var appProbe istioStatus.KubeAppProbers
+		appProbeStr := retrieveAppProbe(podSpec.Containers)
+		if appProbeStr != "" {
+			err := json.Unmarshal([]byte(appProbeStr), &appProbe)
+			errs = multierror.Append(errs, err)
+		}
+		if appProbe != nil {
+			podSpec.Containers = restoreAppProbes(podSpec.Containers, appProbe)
+		}
+
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
 		podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
@@ -220,9 +233,10 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		}
 		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dep.Name,
-				Namespace: dep.Namespace,
-				UID:       dep.UID,
+				Name:            dep.Name,
+				Namespace:       dep.Namespace,
+				UID:             dep.UID,
+				OwnerReferences: dep.OwnerReferences,
 			},
 		}
 		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {

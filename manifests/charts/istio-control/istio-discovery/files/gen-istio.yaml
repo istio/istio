@@ -35,6 +35,7 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
+      meshId: cluster.local
       proxyMetadata:
         DNS_AGENT: ""
       tracing:
@@ -443,7 +444,7 @@ data:
         {{ end }}
         {{- if .DeploymentMeta.Name }}
         - name: ISTIO_META_WORKLOAD_NAME
-          value: {{ .DeploymentMeta.Name }}
+          value: "{{ .DeploymentMeta.Name }}"
         {{ end }}
         {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
         - name: ISTIO_META_OWNER

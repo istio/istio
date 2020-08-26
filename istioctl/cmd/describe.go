@@ -112,7 +112,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return err
 			}
 
-			matchingServices := []v1.Service{}
+			matchingServices := make([]v1.Service, 0, len(svcs.Items))
 			for _, svc := range svcs.Items {
 				if len(svc.Spec.Selector) > 0 {
 					svcSelector := k8s_labels.SelectorFromSet(svc.Spec.Selector)
@@ -220,8 +220,8 @@ func extendFQDN(host string) string {
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
 func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []k8s_labels.Set) ([]string, []string) {
-	matchingSubsets := []string{}
-	nonmatchingSubsets := []string{}
+	matchingSubsets := make([]string, 0, len(subsets))
+	nonmatchingSubsets := make([]string, 0, len(subsets))
 	for _, subset := range subsets {
 		subsetSelector := k8s_labels.SelectorFromSet(subset.Labels)
 		if matchesAnyPod(subsetSelector, podsLabels) {

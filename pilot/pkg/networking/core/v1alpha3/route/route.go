@@ -742,6 +742,16 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	return out
 }
 
+func convertToExactEnvoyMatch(in []string) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, istioMatcher := range in {
+		res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: istioMatcher}})
+	}
+
+	return res
+}
+
 func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*matcher.StringMatcher {
 	res := make([]*matcher.StringMatcher, 0, len(in))
 
@@ -776,6 +786,8 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	out := route.CorsPolicy{}
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins, node)
+	} else if in.AllowOrigin != nil {
+		out.AllowOriginStringMatch = convertToExactEnvoyMatch(in.AllowOrigin)
 	}
 
 	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{

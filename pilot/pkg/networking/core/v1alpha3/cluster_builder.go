@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -58,7 +57,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 	destinationRule := castDestinationRuleOrDefault(destRule)
 
 	opts := buildClusterOpts{
-		push:        cb.push,
+		mesh:        cb.push.Mesh,
 		cluster:     c,
 		policy:      destinationRule.TrafficPolicy,
 		port:        port,
@@ -218,7 +217,7 @@ func (cb *ClusterBuilder) buildDefaultCluster(name string, discoveryType cluster
 	// For inbound clusters, the default traffic policy is used. For outbound clusters, the default traffic policy
 	// will be applied, which would be overridden by traffic policy specified in destination rule, if any.
 	opts := buildClusterOpts{
-		push:            cb.push,
+		mesh:            cb.push.Mesh,
 		cluster:         c,
 		policy:          cb.defaultTrafficPolicy(discoveryType),
 		port:            port,
@@ -240,11 +239,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		return nil
 	}
 
-	instances, err := cb.push.InstancesByPort(service, port, labels)
-	if err != nil {
-		log.Errorf("failed to retrieve instances for %s: %v", service.Hostname, err)
-		return nil
-	}
+	instances := cb.push.InstancesByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -358,7 +353,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		ProtocolSelection:    cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 	}
 	passthroughSettings := &networking.ConnectionPoolSettings{}
-	applyConnectionPool(cb.push, cluster, passthroughSettings)
+	applyConnectionPool(cb.push.Mesh, cluster, passthroughSettings)
 	return cluster
 }
 

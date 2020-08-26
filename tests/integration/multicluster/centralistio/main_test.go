@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,16 +21,14 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
 var (
-	ist                              istio.Instance
-	clusterLocalNS, mcReachabilityNS namespace.Instance
-	controlPlaneValues               string
+	ist    istio.Instance
+	appCtx multicluster.AppContext
 )
 
 func TestMain(m *testing.M) {
@@ -37,7 +36,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.Multicluster, label.Flaky).
 		RequireMinClusters(2).
-		Setup(multicluster.Setup(&controlPlaneValues, &clusterLocalNS, &mcReachabilityNS)).
+		Setup(multicluster.Setup(&appCtx)).
 		Setup(kube.Setup(func(s *kube.Settings) {
 			// Make CentralIstiod run on first cluster, all others are remotes which use centralIstiod's pilot
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
@@ -49,11 +48,10 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 
 			cfg.Values["global.centralIstiod"] = "true"
-			cfg.ExposeIstiod = true
 
 			// Set the control plane values on the config.
 			// For ingress, add port 15017 to the default list of ports.
-			cfg.ControlPlaneValues = controlPlaneValues + `
+			cfg.ControlPlaneValues = appCtx.ControlPlaneValues + `
   global:
     centralIstiod: true
 components:
@@ -96,13 +94,18 @@ values:
   global:
     centralIstiod: true`
 		})).
+		Setup(multicluster.SetupApps(&appCtx)).
 		Run()
 }
 
 func TestMulticlusterReachability(t *testing.T) {
-	multicluster.ReachabilityTest(t, mcReachabilityNS, "installation.multicluster.central-istiod")
+	multicluster.ReachabilityTest(t, appCtx, "installation.multicluster.central-istiod")
+}
+
+func TestCrossClusterLoadbalancing(t *testing.T) {
+	multicluster.LoadbalancingTest(t, appCtx, "installation.multicluster.central-istiod")
 }
 
 func TestClusterLocalService(t *testing.T) {
-	multicluster.ClusterLocalTest(t, clusterLocalNS, "installation.multicluster.central-istiod")
+	multicluster.ClusterLocalTest(t, appCtx, "installation.multicluster.central-istiod")
 }

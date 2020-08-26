@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/monitoring"
 )
 
 func createProxies(n int) []*Connection {
@@ -64,6 +63,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
+	defer queue.ShutDown()
 
 	proxies := createProxies(5)
 
@@ -113,6 +113,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 
 	semaphore := make(chan struct{}, 2)
 	queue := NewPushQueue()
+	defer queue.ShutDown()
 
 	proxies := createProxies(5)
 
@@ -334,7 +335,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "initial request",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{},
+					WatchedResources: map[string]*model.WatchedResource{},
 				},
 			},
 			request: &discovery.DiscoveryRequest{
@@ -346,7 +347,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "ack",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
 							VersionSent: "v1",
 							NonceSent:   "nonce",
@@ -365,7 +366,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "nack",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.ClusterType: {
 							VersionSent: "v1",
 							NonceSent:   "nonce",
@@ -384,7 +385,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "reconnect",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{},
+					WatchedResources: map[string]*model.WatchedResource{},
 				},
 			},
 			request: &discovery.DiscoveryRequest{
@@ -398,7 +399,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "resources change",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
 							VersionSent:   "v1",
 							NonceSent:     "nonce",
@@ -419,7 +420,7 @@ func TestShouldRespond(t *testing.T) {
 			name: "ack with same resources",
 			connection: &Connection{
 				proxy: &model.Proxy{
-					Active: map[string]*model.WatchedResource{
+					WatchedResources: map[string]*model.WatchedResource{
 						v3.EndpointType: {
 							VersionSent:   "v1",
 							NonceSent:     "nonce",
@@ -438,17 +439,15 @@ func TestShouldRespond(t *testing.T) {
 		},
 	}
 
-	metric := monitoring.NewSum("test", "test reject metric")
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewFakeDiscoveryServer(t, FakeOptions{})
-			if response := s.Discovery.shouldRespond(tt.connection, metric, tt.request); response != tt.response {
+			if response := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {
-				if tt.connection.proxy.Active[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
-					tt.connection.proxy.Active[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
+				if tt.connection.proxy.WatchedResources[tt.request.TypeUrl].VersionAcked != tt.request.VersionInfo &&
+					tt.connection.proxy.WatchedResources[tt.request.TypeUrl].NonceAcked != tt.request.ResponseNonce {
 					t.Fatalf("Version & Nonce not updated properly")
 				}
 			}

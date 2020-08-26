@@ -15,6 +15,8 @@
 package xds
 
 import (
+	"strings"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -23,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type EndpointBuilder struct {
@@ -31,7 +34,7 @@ type EndpointBuilder struct {
 	network         string
 	clusterID       string
 	locality        *core.Locality
-	destinationRule *networkingapi.DestinationRule
+	destinationRule *model.Config
 	service         *model.Service
 
 	// These fields are provided for convenience only
@@ -44,24 +47,56 @@ type EndpointBuilder struct {
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
-	var destRule *networkingapi.DestinationRule
-	dr := push.DestinationRule(proxy, svc)
-	if dr != nil {
-		destRule = dr.Spec.(*networkingapi.DestinationRule)
-	}
 	return EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
-		destinationRule: destRule,
+		destinationRule: push.DestinationRule(proxy, svc),
 
 		push:       push,
 		subsetName: subsetName,
 		hostname:   hostname,
 		port:       port,
 	}
+}
+
+func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
+	if b.destinationRule == nil {
+		return nil
+	}
+	return b.destinationRule.Spec.(*networkingapi.DestinationRule)
+}
+
+// CacheKey Functions
+func (b EndpointBuilder) Key() string {
+	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality)}
+	if b.destinationRule != nil {
+		params = append(params, b.destinationRule.Name+"/"+b.destinationRule.Namespace)
+	}
+	if b.service != nil {
+		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
+	}
+	return strings.Join(params, "~")
+}
+
+func (b EndpointBuilder) Cacheable() bool {
+	// If service is not defined, we cannot do any caching as we will not have a way to
+	// invalidate the results.
+	// Service being nil means the EDS will be empty anyways, so not much lost here.
+	return b.service != nil
+}
+
+func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
+	configs := []model.ConfigKey{}
+	if b.destinationRule != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.DestinationRule, Name: b.destinationRule.Name, Namespace: b.destinationRule.Namespace})
+	}
+	if b.service != nil {
+		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
+	}
+	return configs
 }
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
@@ -72,7 +107,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	localityEpMap := make(map[string]*endpoint.LocalityLbEndpoints)
 
 	// get the subset labels
-	epLabels := getSubSetLabels(b.destinationRule, b.subsetName)
+	epLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.

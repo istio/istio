@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +34,6 @@ func GetAdditionVMImages() []string {
 func TestVmOSPost(t *testing.T) {
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
 		Features("traffic.reachability").
 		Label(label.Postsubmit).
 		Run(func(ctx framework.TestContext) {
@@ -48,13 +48,15 @@ func TestVmOSPost(t *testing.T) {
 					DeployAsVM: true,
 					VMImage:    image,
 					Subsets:    []echo.SubsetConfig{{}},
+					Cluster:    ctx.Clusters().Default(),
 				})
 			}
 			b.BuildOrFail(ctx)
 
 			for i, image := range images {
-				ctx.NewSubTest(image).Run(func(ctx framework.TestContext) {
-					for _, tt := range vmTestCases(instances[i]) {
+				i, image := i, image
+				ctx.NewSubTest(image).RunParallel(func(ctx framework.TestContext) {
+					for _, tt := range vmTestCases(echo.Instances{instances[i]}) {
 						ExecuteTrafficTest(ctx, tt)
 					}
 				})

@@ -44,6 +44,26 @@ spec:
       values: ["foo"]
 ---
 
+# Each of the following authorization policy uses a different condition on the given path.
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-request-headers-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/request-headers-notValues-bar"]
+    when:
+    - key: request.headers[x-foo]
+      notValues: ["bar"]
+---
+
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -66,6 +86,24 @@ spec:
     when:
     - key: source.ip
       values: ["{{ .IpB }}"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-source-ip-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/source-ip-notValues-b"]
+    when:
+    - key: source.ip
+      notValues: ["{{ .IpB }}"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -95,6 +133,24 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: condition-source-namespace-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/source-namespace-notValues-b"]
+    when:
+    - key: source.namespace
+      notValues: ["{{ .NamespaceB }}"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: condition-source-principal
   namespace: "{{ .NamespaceC }}"
 spec:
@@ -114,6 +170,24 @@ spec:
     when:
     - key: source.principal
       values: ["cluster.local/ns/{{ .NamespaceB }}/sa/b"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-source-principal-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/source-principal-notValues-b"]
+    when:
+    - key: source.principal
+      notValues: ["cluster.local/ns/{{ .NamespaceB }}/sa/b"]
 ---
 
 apiVersion: security.istio.io/v1beta1
@@ -143,6 +217,30 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: condition-destination-ip-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/destination-ip-notValues-a-or-b"]
+    when:
+    - key: destination.ip
+      notValues: ["{{ .IpA }}", "{{ .IpB }}"]
+  - to:
+    - operation:
+        paths: ["/destination-ip-notValues-a-or-b-or-c"]
+    when:
+    - key: destination.ip
+      notValues: ["{{ .IpA }}", "{{ .IpB }}", "{{ .IpC }}"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: condition-destination-port
   namespace: "{{ .NamespaceC }}"
 spec:
@@ -167,6 +265,24 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: condition-destination-port-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/destination-port-notValues-c"]
+    when:
+    - key: destination.port
+      notValues: ["{{ .PortC }}"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: condition-connection-sni
   namespace: "{{ .NamespaceC }}"
 spec:
@@ -186,4 +302,28 @@ spec:
     when:
     - key: connection.sni
       values: ["never-matched"]
+---
+
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: condition-connection-sni-notvalues
+  namespace: "{{ .NamespaceC }}"
+spec:
+  selector:
+    matchLabels:
+      app: c
+  rules:
+  - to:
+    - operation:
+        paths: ["/connection-sni-notValues-a-or-b"]
+    when:
+    - key: connection.sni
+      notValues: ["*.a.{{ .NamespaceA }}.svc.cluster.local", "*.b.{{ .NamespaceB }}.svc.cluster.local"]
+  - to:
+    - operation:
+        paths: ["/connection-sni-notValues-a-or-b-or-c"]
+    when:
+    - key: connection.sni
+      notValues: ["*.a.{{ .NamespaceA }}.svc.cluster.local", "*.b.{{ .NamespaceB }}.svc.cluster.local", "*.c.{{ .NamespaceC }}.svc.cluster.local"]
 ---

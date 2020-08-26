@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
@@ -34,6 +35,7 @@ var (
 	statusCodeFieldRegex     = regexp.MustCompile(string(response.StatusCodeField) + "=(.*)")
 	hostFieldRegex           = regexp.MustCompile(string(response.HostField) + "=(.*)")
 	hostnameFieldRegex       = regexp.MustCompile(string(response.HostnameField) + "=(.*)")
+	responseHeaderFieldRegex = regexp.MustCompile(string(response.ResponseHeader) + "=(.*)")
 	URLFieldRegex            = regexp.MustCompile(string(response.URLField) + "=(.*)")
 	ClusterFieldRegex        = regexp.MustCompile(string(response.ClusterField) + "=(.*)")
 )
@@ -168,6 +170,57 @@ func (r ParsedResponses) CheckPortOrFail(t test.Failer, expected int) ParsedResp
 	return r
 }
 
+func (r ParsedResponses) clusterDistribution() map[string]int {
+	hits := map[string]int{}
+	for _, rr := range r {
+		hits[rr.Cluster]++
+	}
+	return hits
+}
+
+// CheckReachedClusters returns an error if there wasn't at least one response from each of the given clusters.
+// This can be used in combination with echo.Instances.Clusters(), for example:
+//     echoA[0].CallOrFail(t, ...).CheckReachedClusters(echoB.Clusters())
+func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error {
+	hits := r.clusterDistribution()
+	exp := map[string]struct{}{}
+	for _, expCluster := range clusters {
+		exp[expCluster.Name()] = struct{}{}
+		if hits[expCluster.Name()] == 0 {
+			return fmt.Errorf("did not reach all of %v, got %v", clusters, hits)
+		}
+	}
+	for hitCluster := range hits {
+		if _, ok := exp[hitCluster]; !ok {
+			return fmt.Errorf("reached cluster not in %v, got %v", clusters, hits)
+		}
+	}
+	return nil
+}
+
+// CheckEqualClusterTraffic checks that traffic was equally distributed across clusters, with some error (20%).
+// If there were 100 requests and 5 clusters we'd expect 20±4 responses to come from each cluster,
+// This method does not validate that all clusters were hit, instead use CheckReachedClusters in combindation with this.
+func (r ParsedResponses) CheckEqualClusterTraffic() error {
+	clusterHits := r.clusterDistribution()
+	expected := len(r) / len(clusterHits)
+	for _, hits := range clusterHits {
+		if !almostEquals(hits, expected, expected/5) {
+			return fmt.Errorf("requests were not equally distributed across clusters: %v", clusterHits)
+		}
+	}
+	return nil
+}
+
+func almostEquals(a, b, precision int) bool {
+	upper := a + precision
+	lower := a - precision
+	if b < lower || b > upper {
+		return false
+	}
+	return true
+}
+
 func (r ParsedResponses) CheckCluster(expected string) error {
 	return r.Check(func(i int, response *ParsedResponse) error {
 		if response.Cluster != expected {
@@ -192,6 +245,17 @@ func (r ParsedResponses) Count(text string) int {
 		count += c.Count(text)
 	}
 	return count
+}
+
+// Match returns a subset of ParsedResponses that match the given predicate.
+func (r ParsedResponses) Match(f func(r *ParsedResponse) bool) ParsedResponses {
+	var matched []*ParsedResponse
+	for _, rr := range r {
+		if f(rr) {
+			matched = append(matched, rr)
+		}
+	}
+	return matched
 }
 
 func (r ParsedResponses) String() string {
@@ -256,6 +320,16 @@ func parseResponse(output string) *ParsedResponse {
 	}
 
 	out.RawResponse = map[string]string{}
+
+	matches := responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
+	for _, kv := range matches {
+		sl := strings.Split(kv[1], ":")
+		if len(sl) != 2 {
+			continue
+		}
+		out.RawResponse[sl[0]] = sl[1]
+	}
+
 	for _, l := range strings.Split(output, "\n") {
 		prefixSplit := strings.Split(l, "body] ")
 		if len(prefixSplit) != 2 {

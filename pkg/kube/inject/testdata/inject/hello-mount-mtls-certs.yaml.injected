@@ -14,16 +14,17 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: REDIRECT
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-certs"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeInboundPorts: "80"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: hello
         istio.io/rev: ""
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
+        service.istio.io/canonical-revision: latest
         tier: backend
         track: stable
     spec:

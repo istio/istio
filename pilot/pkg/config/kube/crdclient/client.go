@@ -28,7 +28,7 @@ import (
 	"fmt"
 	"time"
 
-	apiextensionv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -111,10 +111,12 @@ func (cl *Client) RegisterEventHandler(kind resource.GroupVersionKind, handler f
 
 // Start the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
+	t0 := time.Now()
 	scope.Infoa("Starting Pilot K8S CRD controller")
 
 	go func() {
 		cache.WaitForCacheSync(stop, cl.HasSynced)
+		scope.Infoa("Pilot K8S CRD controller synced ", time.Since(t0))
 		cl.queue.Run(stop)
 	}()
 
@@ -280,10 +282,10 @@ func (cl *Client) objectInRevision(o *model.Config) bool {
 func knownCRDs(crdClient apiextensionsclient.Interface) map[string]struct{} {
 	delay := time.Second
 	maxDelay := time.Minute
-	var res *apiextensionv1.CustomResourceDefinitionList
+	var res *v1beta1.CustomResourceDefinitionList
 	for {
 		var err error
-		res, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
+		res, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{})
 		if err == nil {
 			break
 		}

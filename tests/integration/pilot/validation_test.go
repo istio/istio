@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -101,31 +102,33 @@ func TestValidation(t *testing.T) {
 					})
 
 					applyFiles := ctx.WriteYAMLOrFail(ctx, "apply", ym)
-					err = ctx.Clusters().Default().ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
+					dryRunErr := ctx.Clusters().Default().ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
 
 					switch {
-					case err != nil && d.isValid():
-						if denied(err) {
-							ctx.Fatalf("got unexpected for valid config: %v", err)
+					case dryRunErr != nil && d.isValid():
+						if denied(dryRunErr) {
+							ctx.Fatalf("got unexpected for valid config: %v", dryRunErr)
 						} else {
-							ctx.Fatalf("got unexpected unknown error for valid config: %v", err)
+							ctx.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
 						}
-					case err == nil && !d.isValid():
+					case dryRunErr == nil && !d.isValid():
 						ctx.Fatalf("got unexpected success for invalid config")
-					case err != nil && !d.isValid():
-						if !denied(err) {
-							ctx.Fatalf("config request denied for wrong reason: %v", err)
+					case dryRunErr != nil && !d.isValid():
+						if !denied(dryRunErr) {
+							ctx.Fatalf("config request denied for wrong reason: %v", dryRunErr)
 						}
 					}
 
 					wetRunErr := ctx.Clusters().Default().ApplyYAMLFiles(ns.Name(), applyFiles...)
-					defer func() { _ = ctx.Clusters().Default().DeleteYAMLFiles(ns.Name(), applyFiles...) }()
+					ctx.WhenDone(func() error {
+						return ctx.Clusters().Default().DeleteYAMLFiles(ns.Name(), applyFiles...)
+					})
 
-					if err != nil && wetRunErr == nil {
-						ctx.Fatalf("dry run returned no errors, but wet run returned: %v", wetRunErr)
+					if dryRunErr != nil && wetRunErr == nil {
+						ctx.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
 					}
-					if err == nil && wetRunErr != nil {
-						ctx.Fatalf("wet run returned no errors, but dry run returned: %v", err)
+					if dryRunErr == nil && wetRunErr != nil {
+						ctx.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
 					}
 				})
 			}
@@ -141,7 +144,7 @@ var ignoredCRDs = []string{
 	"/v1/Secret",
 	"/v1/Service",
 	"/v1/ConfigMap",
-	"apiextensions.k8s.io/v1/CustomResourceDefinition",
+	"apiextensions.k8s.io/v1beta1/CustomResourceDefinition",
 	"apps/v1/Deployment",
 	"extensions/v1beta1/Ingress",
 }
@@ -179,8 +182,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"networking.x-k8s.io/v1alpha1/Gateway",
 				"networking.x-k8s.io/v1alpha1/GatewayClass",
 				"networking.x-k8s.io/v1alpha1/HTTPRoute",
-				"networking.x-k8s.io/v1alpha1/TcpRoute",
-				"networking.x-k8s.io/v1alpha1/TrafficSplit",
+				"networking.x-k8s.io/v1alpha1/TCPRoute",
 			} {
 				delete(recognized, gvk)
 			}

@@ -428,7 +428,7 @@
       {
         "name": "envoy_metrics_service",
         "type": "STRICT_DNS",
-        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/istio/ms/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"file-cert:/etc/istio/ms/client.pem~/etc/istio/ms/key.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}]},"sni":"envoy_metrics_service"}},
+        "transport_socket": {"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"alpn_protocols":["h2"],"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/istio/ms/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}},"tls_certificate_sds_secret_configs":[{"name":"file-cert:/etc/istio/ms/client.pem~/etc/istio/ms/key.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"transport_api_version":"V3"},"resource_api_version":"V3"}}]}}},
         "respect_dns_ttl": true,
         "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
@@ -486,7 +486,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -512,7 +512,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -535,7 +535,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -561,7 +561,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -577,7 +577,7 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.zipkin",
+      "name": "envoy.tracers.zipkin",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
         "collector_cluster": "zipkin",
@@ -593,7 +593,7 @@
   "stats_sinks": [
     
     {
-      "name": "envoy.metrics_service",
+      "name": "envoy.stat_sinks.metrics_service",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
         "grpc_service": {
@@ -606,7 +606,7 @@
     
     
     {
-      "name": "envoy.statsd",
+      "name": "envoy.stat_sinks.statsd",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {

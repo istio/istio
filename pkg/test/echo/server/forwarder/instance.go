@@ -53,6 +53,8 @@ type Instance struct {
 	qps         int
 	header      http.Header
 	message     string
+	// Method for the request. Only valid for HTTP
+	method string
 }
 
 // New creates a new forwarder Instance.
@@ -68,6 +70,7 @@ func New(cfg Config) (*Instance, error) {
 		p:           p,
 		url:         cfg.Request.Url,
 		serverFirst: cfg.Request.ServerFirst,
+		method:      cfg.Request.Method,
 		timeout:     common.GetTimeout(cfg.Request),
 		count:       common.GetCount(cfg.Request),
 		qps:         int(cfg.Request.Qps),
@@ -97,6 +100,7 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 			Header:      i.header,
 			Timeout:     i.timeout,
 			ServerFirst: i.serverFirst,
+			Method:      i.method,
 		}
 
 		if throttle != nil {
