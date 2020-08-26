@@ -237,12 +237,6 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(dashboardCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(dashboardCmd)
 
-	proxyStatusCmd := statusCommand()
-	hideInheritedFlags(proxyStatusCmd, "istioNamespace")
-
-	versionCmd := newVersionCommand()
-	hideInheritedFlags(versionCmd, "namespace", "istioNamespace")
-
 	manifestCmd := mesh.ManifestCmd(loggingOptions)
 	hideInheritedFlags(manifestCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(manifestCmd)
