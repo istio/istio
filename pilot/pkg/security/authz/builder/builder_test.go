@@ -130,7 +130,8 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), !tc.isVersion14)
+			option := Option{false, !tc.isVersion14, false}
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
@@ -166,7 +167,8 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), true)
+			option := Option{true, true, false}
+			g := New(tc.tdBundle, httpbin, "foo", yamlPolicy(t, basePath+tc.input), option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
