@@ -480,23 +480,25 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 	cluster := values.Map("global").Map("multiCluster").String("clusterName")
 	network := values.Map("global").String("network")
 	// params may be set from webhook URL
-	if params.clusterName != "" {
-		cluster = params.clusterName
+	if params.proxyEnvs["ISTIO_META_CLUSTER"] != "" {
+		cluster = params.proxyEnvs["ISTIO_META_CLUSTER_ID"]
 	}
-	if params.clusterName != "" {
-		network = params.clusterNetwork
+	if params.proxyEnvs["ISTIO_META_NETWORK"] != "" {
+		network = params.proxyEnvs["ISTIO_META_NETWORK"]
 	}
 	// explicit label takes highest precedence
 	if n, ok := metadata.Labels[label.IstioNetwork]; ok {
 		network = n
 	}
 
-	// use network in values for template
+	// use network in values for template, and proxy env variables
 	if cluster != "" {
 		values.Ensure("global").Ensure("multiCluster")["clusterName"] = cluster
+		params.proxyEnvs["ISTIO_META_CLUSTER_ID"] = cluster
 	}
 	if network != "" {
 		values.Ensure("global")["network"] = network
+		params.proxyEnvs["ISTIO_META_NETWORK"] = network
 	}
 
 	data := SidecarTemplateData{
@@ -567,6 +569,7 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 
 	// set sidecar --concurrency
 	applyConcurrency(sic.Containers)
+	overwriteClusterInfo(sic.Containers, params)
 
 	status := &SidecarInjectionStatus{Version: params.version}
 	for _, c := range sic.InitContainers {
