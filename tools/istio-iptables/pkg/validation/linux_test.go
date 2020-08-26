@@ -17,27 +17,12 @@ package validation
 import (
 	"encoding/binary"
 	"testing"
-	"unsafe"
 )
-
-const intWidth int = int(unsafe.Sizeof(0))
-
-var byteOrder binary.ByteOrder
-
-// Inspired by etcd cpuutil
-func init() {
-	i := int(0x1)
-	if v := (*[intWidth]byte)(unsafe.Pointer(&i)); v[0] == 0 {
-		byteOrder = binary.BigEndian
-	} else {
-		byteOrder = binary.LittleEndian
-	}
-}
 
 func TestNtohs(t *testing.T) {
 	hostValue := ntohs(0xbeef)
 	expectValue := 0xbeef
-	if byteOrder == binary.LittleEndian {
+	if nativeByteOrder == binary.LittleEndian {
 		expectValue = 0xefbe
 	}
 	if hostValue != uint16(expectValue) {
