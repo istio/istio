@@ -38,19 +38,15 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	authn_beta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -451,19 +447,6 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 			g.Expect(c.ConnectTimeout).To(Equal(ptypes.DurationProto(time.Duration(10000000001))))
 		})
 	}
-}
-
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig meshconfig.MeshConfig, configStore model.IstioConfigStore) *model.Environment {
-	env := &model.Environment{
-		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&meshConfig),
-	}
-
-	env.PushContext = model.NewPushContext()
-	_ = env.PushContext.InitContext(env, nil, nil)
-
-	return env
 }
 
 func withClusterLocalHosts(m meshconfig.MeshConfig, hosts ...string) meshconfig.MeshConfig { // nolint:interfacer
@@ -1125,20 +1108,21 @@ func TestSidecarLocalityLB(t *testing.T) {
 		},
 	}
 
-	c := xdstest.ExtractCluster("outbound|8080||*.example.org", buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
-		locality: &core.Locality{
-			Region:  "region1",
-			Zone:    "zone1",
-			SubZone: "subzone1",
-		}, mesh: testMesh,
-		destRule: &networking.DestinationRule{
-			Host: "*.example.org",
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
-					MinHealthPercent: 10,
+	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
+		buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			}, mesh: testMesh,
+			destRule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{
+						MinHealthPercent: 10,
+					},
 				},
-			},
-		}}))
+			}}))
 
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
@@ -1165,20 +1149,21 @@ func TestSidecarLocalityLB(t *testing.T) {
 	// Distribute locality loadbalancing setting
 	testMesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{}
 
-	c = xdstest.ExtractCluster("outbound|8080||*.example.org", buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
-		locality: &core.Locality{
-			Region:  "region1",
-			Zone:    "zone1",
-			SubZone: "subzone1",
-		}, mesh: testMesh,
-		destRule: &networking.DestinationRule{
-			Host: "*.example.org",
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
-					MinHealthPercent: 10,
+	c = xdstest.ExtractCluster("outbound|8080||*.example.org",
+		buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+			locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			}, mesh: testMesh,
+			destRule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{
+						MinHealthPercent: 10,
+					},
 				},
-			},
-		}}))
+			}}))
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
@@ -1455,82 +1440,7 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	g.Expect(c.EdsClusterConfig).To(BeNil())
 }
 
-func TestBuildClustersDefaultCircuitBreakerThresholds(t *testing.T) {
-	g := NewWithT(t)
-
-	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-	proxy := &model.Proxy{Metadata: &model.NodeMetadata{}}
-
-	clusters := configgen.BuildClusters(proxy, env.PushContext)
-	g.Expect(len(clusters)).ShouldNot(Equal(0))
-	xdstest.ValidateClusters(t, clusters)
-	for _, c := range clusters {
-		if c.Name != "BlackHoleCluster" {
-			g.Expect(c.CircuitBreakers).NotTo(BeNil())
-			g.Expect(c.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
-		}
-	}
-}
-
-func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
-	g := NewWithT(t)
-
-	configgen := NewConfigGenerator([]plugin.Plugin{})
-	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
-	proxy := &model.Proxy{
-		Metadata:     &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{},
-	}
-
-	servicePort := &model.Port{
-		Name:     "default",
-		Port:     80,
-		Protocol: protocol.HTTP,
-	}
-
-	service := &model.Service{
-		Hostname:    host.Name("backend.default.svc.cluster.local"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
-		Ports:       model.PortList{servicePort},
-		Resolution:  model.Passthrough,
-	}
-
-	instances := []*model.ServiceInstance{
-		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.1",
-				EndpointPort: 10001,
-			},
-		},
-	}
-	cb := NewClusterBuilder(proxy, env.PushContext)
-	clusters := configgen.buildInboundClusters(cb, instances, clusterPatcher{})
-	xdstest.ValidateClusters(t, clusters)
-	g.Expect(len(clusters)).ShouldNot(Equal(0))
-
-	for _, c := range clusters {
-		g.Expect(c.CircuitBreakers).NotTo(BeNil())
-		g.Expect(c.CircuitBreakers.Thresholds[0]).To(Equal(getDefaultCircuitBreakerThresholds()))
-	}
-}
-
 func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
-	g := NewWithT(t)
-
-	proxy := &model.Proxy{
-		Metadata:     &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{},
-	}
-
 	servicePort := &model.Port{
 		Name:     "default",
 		Port:     80,
@@ -1550,23 +1460,32 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.1",
+				Address:      "1.1.1.1",
 				EndpointPort: 10001,
 			},
 		},
+	}
+	inboundFilter := func(c *cluster.Cluster) bool {
+		return strings.HasPrefix(c.Name, "inbound|")
 	}
 
 	cases := []struct {
 		name     string
-		newEnv   func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
+		filter   func(c *cluster.Cluster) bool
 		destRule *networking.DestinationRule
 		expected *cluster.CircuitBreakers_Thresholds
 	}{
 		{
-			name: "port-level policy matched",
-			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
-				return newTestEnvironment(sd, testMesh, cs)
+			name: "defaults",
+			filter: func(c *cluster.Cluster) bool {
+				return strings.HasPrefix(c.Name, "inbound|") || strings.HasPrefix(c.Name, "outbound|")
 			},
+			destRule: nil,
+			expected: getDefaultCircuitBreakerThresholds(),
+		},
+		{
+			name:   "port-level policy matched",
+			filter: inboundFilter,
 			destRule: &networking.DestinationRule{
 				Host: "backend.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -1597,10 +1516,8 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			},
 		},
 		{
-			name: "port-level policy not matched",
-			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
-				return newTestEnvironment(sd, testMesh, cs)
-			},
+			name:   "port-level policy not matched",
+			filter: inboundFilter,
 			destRule: &networking.DestinationRule{
 				Host: "backend.default.svc.cluster.local",
 				TrafficPolicy: &networking.TrafficPolicy{
@@ -1634,44 +1551,39 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-
-			configgen := NewConfigGenerator([]plugin.Plugin{})
-			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-
-			configStore := model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
-			configStore.Create(model.Config{
-				ConfigMeta: model.ConfigMeta{
-					GroupVersionKind: gvk.DestinationRule,
-					Name:             "acme",
-				},
-				Spec: c.destRule,
+			g := NewWithT(t)
+			cfgs := []model.Config{}
+			if c.destRule != nil {
+				cfgs = append(cfgs, model.Config{
+					ConfigMeta: model.ConfigMeta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "default",
+					},
+					Spec: c.destRule,
+				})
+			}
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:  []*model.Service{service},
+				Instances: instances,
+				Configs:   cfgs,
 			})
-
-			env := c.newEnv(serviceDiscovery, configStore)
-			cb := NewClusterBuilder(proxy, env.PushContext)
-			clusters := configgen.buildInboundClusters(cb, instances, clusterPatcher{})
-			g.Expect(len(clusters)).ShouldNot(Equal(0))
+			clusters := cg.Clusters(cg.SetupProxy(nil))
 			xdstest.ValidateClusters(t, clusters)
+			if c.filter != nil {
+				clusters = xdstest.FilterClusters(clusters, c.filter)
+			}
+			g.Expect(len(clusters)).ShouldNot(Equal(0))
 
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-				if cluster.Name == "inbound|80|default|backend.default.svc.cluster.local" {
-					g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
-				}
+				g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
 			}
 		})
 	}
 }
 
 func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
-	g := NewWithT(t)
-
-	configgen := NewConfigGenerator([]plugin.Plugin{})
-
-	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-
-	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
-
 	servicePort := &model.Port{
 		Name:     "redis-port",
 		Port:     6379,
@@ -1685,56 +1597,59 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 		Resolution:  model.Passthrough,
 	}
 
-	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
-
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
-	clusters := configgen.BuildClusters(proxy, env.PushContext)
-	xdstest.ValidateClusters(t, clusters)
-	g.Expect(len(clusters)).ShouldNot(Equal(0))
-
-	c := xdstest.ExtractCluster("outbound|6379||redis.com", clusters)
-	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_ROUND_ROBIN))
-}
-
-func TestRedisProtocolClusterAtGateway(t *testing.T) {
-	g := NewWithT(t)
-
-	configgen := NewConfigGenerator([]plugin.Plugin{})
-
-	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-
-	proxy := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{}}
-
-	servicePort := &model.Port{
-		Name:     "redis-port",
-		Port:     6379,
-		Protocol: protocol.Redis,
+	cases := []struct {
+		name          string
+		redisEnabled  bool
+		resolution    model.Resolution
+		lbType        cluster.Cluster_LbPolicy
+		discoveryType cluster.Cluster_DiscoveryType
+	}{
+		{
+			name:          "redis disabled",
+			redisEnabled:  false,
+			resolution:    model.ClientSideLB,
+			lbType:        cluster.Cluster_ROUND_ROBIN,
+			discoveryType: cluster.Cluster_EDS,
+		},
+		{
+			name:          "redis disabled passthrough",
+			redisEnabled:  false,
+			resolution:    model.Passthrough,
+			lbType:        cluster.Cluster_ROUND_ROBIN,
+			discoveryType: cluster.Cluster_EDS,
+		},
+		{
+			name:          "redis enabled",
+			redisEnabled:  true,
+			resolution:    model.ClientSideLB,
+			lbType:        cluster.Cluster_MAGLEV,
+			discoveryType: cluster.Cluster_EDS,
+		},
+		{
+			name:          "redis enabled passthrough",
+			redisEnabled:  true,
+			resolution:    model.Passthrough,
+			lbType:        cluster.Cluster_MAGLEV,
+			discoveryType: cluster.Cluster_EDS,
+		},
 	}
-	service := &model.Service{
-		Hostname:    host.Name("redis.com"),
-		Address:     "1.1.1.1",
-		ClusterVIPs: make(map[string]string),
-		Ports:       model.PortList{servicePort},
-		Resolution:  model.ClientSideLB,
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			if tt.redisEnabled {
+				defaultValue := features.EnableRedisFilter
+				features.EnableRedisFilter = true
+				defer func() { features.EnableRedisFilter = defaultValue }()
+			}
+			cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{service}})
+			clusters := cg.Clusters(cg.SetupProxy(&model.Proxy{Type: model.Router}))
+			xdstest.ValidateClusters(t, clusters)
+
+			c := xdstest.ExtractCluster("outbound|6379||redis.com", clusters)
+			g.Expect(c.LbPolicy).To(Equal(tt.lbType))
+			g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: tt.discoveryType}))
+		})
 	}
-
-	// enable redis filter to true
-	defaultValue := features.EnableRedisFilter
-	features.EnableRedisFilter = true
-	defer func() { features.EnableRedisFilter = defaultValue }()
-
-	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
-
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
-	clusters := configgen.BuildClusters(proxy, env.PushContext)
-	xdstest.ValidateClusters(t, clusters)
-	g.Expect(len(clusters)).ShouldNot(Equal(0))
-
-	c := xdstest.ExtractCluster("outbound|6379||redis.com", clusters)
-	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_EDS}))
-	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_MAGLEV))
 }
 
 func TestAutoMTLSClusterSubsets(t *testing.T) {
@@ -3089,10 +3004,9 @@ func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	g := NewWithT(t)
 
-	cfg := NewConfigGenerator([]plugin.Plugin{})
 	service := &model.Service{
 		Hostname:    host.Name("static.test"),
-		Address:     "1.1.1.1",
+		Address:     "1.1.1.2",
 		ClusterVIPs: make(map[string]string),
 		Ports: []*model.Port{
 			{
@@ -3107,24 +3021,14 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 			Namespace: TestServiceNamespace,
 		},
 	}
-
-	serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
-
-	configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-	proxy := &model.Proxy{
-		Type:      model.SidecarProxy,
-		DNSDomain: "com",
-		Metadata: &model.NodeMetadata{
-			ClusterID: "some-cluster-id",
-		},
-	}
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-	proxy.SetSidecarScope(env.PushContext)
-	clusters := cfg.BuildClusters(proxy, env.PushContext)
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{service},
+	})
+	clusters := cg.Clusters(cg.SetupProxy(nil))
 	xdstest.ValidateClusters(t, clusters)
 
 	// Expect to ignore STRICT_DNS cluster without endpoints.
-	g.Expect(len(clusters)).To(Equal(2))
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"}))
 }
 
 func TestShouldH2Upgrade(t *testing.T) {
@@ -3241,14 +3145,14 @@ func TestEnvoyFilterPatching(t *testing.T) {
 	}{
 		{
 			"no config",
-			[]string{"outbound|8080||static.test", "BlackHoleCluster", "PassthroughCluster"},
+			[]string{"outbound|8080||static.test", "BlackHoleCluster", "PassthroughCluster", "InboundPassthroughClusterIpv4"},
 			nil,
 			model.SidecarProxy,
 			service,
 		},
 		{
 			"add cluster",
-			[]string{"outbound|8080||static.test", "BlackHoleCluster", "PassthroughCluster", "new-cluster1"},
+			[]string{"outbound|8080||static.test", "BlackHoleCluster", "PassthroughCluster", "InboundPassthroughClusterIpv4", "new-cluster1"},
 			[]*networking.EnvoyFilter{{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
 					ApplyTo: networking.EnvoyFilter_CLUSTER,
@@ -3266,7 +3170,7 @@ func TestEnvoyFilterPatching(t *testing.T) {
 		},
 		{
 			"remove cluster",
-			[]string{"outbound|8080||static.test", "PassthroughCluster"},
+			[]string{"outbound|8080||static.test", "PassthroughCluster", "InboundPassthroughClusterIpv4"},
 			[]*networking.EnvoyFilter{{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
 					ApplyTo: networking.EnvoyFilter_CLUSTER,
@@ -3289,28 +3193,19 @@ func TestEnvoyFilterPatching(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+			cfgs := []model.Config{}
 			for i, c := range tt.efs {
-				if _, err := configStore.Create(model.Config{
+				cfgs = append(cfgs, model.Config{
 					ConfigMeta: model.ConfigMeta{
 						GroupVersionKind: gvk.EnvoyFilter,
 						Name:             fmt.Sprint(i),
 						Namespace:        "default",
 					},
 					Spec: c,
-				}); err != nil {
-					t.Fatal(err)
-				}
+				})
 			}
-			proxy := &model.Proxy{
-				Type:            model.SidecarProxy,
-				Metadata:        &model.NodeMetadata{},
-				ConfigNamespace: "default",
-			}
-			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{tt.svc})
-			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-			proxy.SetSidecarScope(env.PushContext)
-			clusters := NewConfigGenerator([]plugin.Plugin{}).BuildClusters(proxy, env.PushContext)
+			cg := NewConfigGenTest(t, TestOptions{Configs: cfgs, Services: []*model.Service{tt.svc}})
+			clusters := cg.Clusters(cg.SetupProxy(nil))
 			clusterNames := xdstest.MapKeys(xdstest.ExtractClusters(clusters))
 			sort.Strings(tt.want)
 			if !cmp.Equal(clusterNames, tt.want) {
