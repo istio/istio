@@ -947,20 +947,20 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 		} else {
 			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 			// which does not support rotation, we will serve them over SDS by reading the files.
-			fileSDS := model.SdsCertificateConfig{
+			metadataSDS := model.SdsCertificateConfig{
 				CertificatePath:   tls.ClientCertificate,
 				PrivateKeyPath:    tls.PrivateKey,
 				CaCertificatePath: tls.CaCertificates,
 			}
-			metadataCerts = fileSDS.IsRootCertificate() && fileSDS.IsKeyCertificate()
+			metadataCerts = metadataSDS.IsRootCertificate() && metadataSDS.IsKeyCertificate()
 
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				authn_model.ConstructSdsSecretConfig(model.GetOrDefault(fileSDS.GetResourceName(), authn_model.SDSDefaultResourceName)))
+				authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetResourceName(), authn_model.SDSDefaultResourceName)))
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(fileSDS.GetRootResourceName(), authn_model.SDSRootResourceName)),
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetRootResourceName(), authn_model.SDSRootResourceName)),
 				},
 			}
 		}
@@ -988,13 +988,15 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 				}
 			}
 		} else {
-			// This is in-mesh cluster, advertise it with ALPN.
-			// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
-			// metadataexchange is enabled.
-			if features.EnableTCPMetadataExchange {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
-			} else {
-				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
+			if !metadataCerts {
+				// This is in-mesh cluster, advertise it with ALPN.
+				// Also, Enable sending `istio-peer-exchange` ALPN in ALPN list if TCP
+				// metadataexchange is enabled.
+				if features.EnableTCPMetadataExchange {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
+				} else {
+					tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
+				}
 			}
 		}
 	case networking.ClientTLSSettings_SIMPLE:

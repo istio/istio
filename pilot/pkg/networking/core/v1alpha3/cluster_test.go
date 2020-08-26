@@ -2462,7 +2462,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
-			name: "tls mode ISTIO_MUTUAL, with node metadata sdsEnabled true",
+			name: "tls mode ISTIO_MUTUAL with metadata certs",
 			opts: &buildClusterOpts{
 				cluster: &cluster.Cluster{
 					Name: "test-cluster",
@@ -2473,8 +2473,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				ClientCertificate: clientCert,
-				PrivateKey:        clientKey,
+				ClientCertificate: metadataClientCert,
+				PrivateKey:        metadataClientKey,
+				CaCertificates:    metadataRootCert,
 				SubjectAltNames:   []string{"SAN"},
 				Sni:               "some-sni.com",
 			},
@@ -2495,7 +2496,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 					CommonTlsContext: &tls.CommonTlsContext{
 						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 							{
-								Name: authn_model.SDSDefaultResourceName,
+								Name: "file-cert:/path/to/metadata/cert~/path/to/metadata/key",
 								SdsConfig: &core.ConfigSource{
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
@@ -2510,8 +2511,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 											},
 										},
 									},
-									ResourceApiVersion:  core.ApiVersion_V3,
-									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ResourceApiVersion: core.ApiVersion_V3,
 								},
 							},
 						},
@@ -2519,7 +2519,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
 								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
-									Name: authn_model.SDSRootResourceName,
+									Name: "file-root:/path/to/metadata/root-cert",
 									SdsConfig: &core.ConfigSource{
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
@@ -2534,13 +2534,97 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 												},
 											},
 										},
-										ResourceApiVersion:  core.ApiVersion_V3,
-										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										ResourceApiVersion: core.ApiVersion_V3,
 									},
 								},
 							},
 						},
-						AlpnProtocols: util.ALPNInMeshWithMxc,
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "tls mode ISTIO_MUTUAL with metadata certs and H2",
+			opts: &buildClusterOpts{
+				cluster: &cluster.Cluster{
+					Name:                 "test-cluster",
+					Http2ProtocolOptions: &core.Http2ProtocolOptions{},
+				},
+				proxy: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
+				ClientCertificate: metadataClientCert,
+				PrivateKey:        metadataClientKey,
+				CaCertificates:    metadataRootCert,
+				SubjectAltNames:   []string{"SAN"},
+				Sni:               "some-sni.com",
+			},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					SdsEnabled: true,
+				},
+			},
+			certValidationContext: &tls.CertificateValidationContext{
+				TrustedCa: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: rootCert,
+					},
+				},
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
+							{
+								Name: "file-cert:/path/to/metadata/cert~/path/to/metadata/key",
+								SdsConfig: &core.ConfigSource{
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+													},
+												},
+											},
+										},
+									},
+									ResourceApiVersion: core.ApiVersion_V3,
+								},
+							},
+						},
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"})},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name: "file-root:/path/to/metadata/root-cert",
+									SdsConfig: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+														},
+													},
+												},
+											},
+										},
+										ResourceApiVersion: core.ApiVersion_V3,
+									},
+								},
+							},
+						},
+						AlpnProtocols: util.ALPNH2Only,
 					},
 					Sni: "some-sni.com",
 				},
