@@ -166,7 +166,7 @@ func recordSendError(xdsType string, conID string, err error) {
 	isError := s.Code() != codes.Unavailable && s.Code() != codes.Canceled
 	if !ok || isError {
 		adsLog.Warnf("%s: Send failure %s: %v", xdsType, conID, err)
-		// TODO use a single metric with a type tasg
+		// TODO use a single metric with a type tag
 		switch xdsType {
 		case v3.ListenerType:
 			ldsSendErrPushes.Increment()

@@ -188,10 +188,11 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 		g = cg
 	}
 	if g == nil {
-		g = s.Generators["api"] // default to MCS generators - any type supported by store
+		// TODO move this to just directly using the resource TypeUrl
+		g = s.Generators["api"] // default to "MCP" generators - any type supported by store
 	}
 
-	return s.pushGenerator(con, push, g, versionInfo(), con.Watched(req.TypeUrl), nil)
+	return s.pushXds(con, push, g, versionInfo(), con.Watched(req.TypeUrl), nil)
 }
 
 // StreamAggregatedResources implements the ADS interface.
@@ -534,7 +535,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return nil
 		}
 		// TODO allow partial updates to types other than EDS
-		return s.pushGenerator(con, pushRequest.Push, s.Generators[v3.EndpointType],
+		return s.pushXds(con, pushRequest.Push, s.Generators[v3.EndpointType],
 			currentVersion, con.Watched(v3.EndpointType), pushRequest.ConfigsUpdated)
 	}
 
@@ -554,14 +555,14 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	adsLog.Infof("Pushing %v", con.ConID)
 
 	// Send pushes to all generators
-	//E ach Generator is responsible for determining if the push event requires a push
+	// Each Generator is responsible for determining if the push event requires a push
 	for _, w := range getPushResources(con.proxy.WatchedResources) {
-		err := s.pushGenerator(con, pushRequest.Push, s.Generators[w.TypeUrl], currentVersion, w, pushRequest.ConfigsUpdated)
+		err := s.pushXds(con, pushRequest.Push, s.Generators[w.TypeUrl], currentVersion, w, pushRequest.ConfigsUpdated)
 		if err != nil {
 			return err
 		}
 	}
-	// Report all events for unwatched resources. Watched resources will be reported in pushGenerator or on ack.
+	// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
 	reportAllEvents(s.StatusReporter, con.ConID, pushRequest.Push.Version, con.proxy.WatchedResources)
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())

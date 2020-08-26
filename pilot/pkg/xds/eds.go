@@ -349,8 +349,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 
 	cached := 0
 	regenerated := 0
-	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
-	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
 	for _, clusterName := range w.ResourceNames {
 		if len(edsUpdatedServices) != 0 {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)

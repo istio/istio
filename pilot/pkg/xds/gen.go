@@ -66,17 +66,18 @@ var SkipLogTypes = map[string]struct{}{
 	v3.EndpointType: {},
 }
 
-// Called for config updates.
-// Will not be called if ProxyNeedsPush returns false - ie. if the update
-func (s *DiscoveryServer) pushGenerator(con *Connection, push *model.PushContext,
+// Push an XDS resource for the given connection. Configuration will be generated
+// based on the passed in generator. Based on the updates field, generators may
+// choose to send partial or even no response if there are no changes.
+func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 	gen model.XdsResourceGenerator, currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
 	if gen == nil {
 		return nil
 	}
-	// TODO: generators may send incremental changes if both sides agree on the protocol.
-	// This is specific to each generator type.
 
 	t0 := time.Now()
+	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
+
 	cl := gen.Generate(con.proxy, push, w, updates)
 	if cl == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
@@ -85,12 +86,6 @@ func (s *DiscoveryServer) pushGenerator(con *Connection, push *model.PushContext
 		}
 		return nil // No push needed.
 	}
-	recordPushTime(w.TypeUrl, time.Since(t0))
-
-	// TODO: add a 'version' to the result of generator. If set, use it to determine if the result
-	// changed - in many cases it will not change, so we can skip the push. Also the version will
-	// become dependent of the specific resource - for example in case of API it'll be the largest
-	// version of the requested type.
 
 	resp := &discovery.DiscoveryResponse{
 		TypeUrl:     w.TypeUrl,
