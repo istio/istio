@@ -178,6 +178,9 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	if p.Type == "" {
 		p.Type = model.SidecarProxy
 	}
+	if p.ConfigNamespace == "" {
+		p.ConfigNamespace = "default"
+	}
 	if p.ID == "" {
 		p.ID = "app.test"
 	}
