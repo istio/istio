@@ -54,7 +54,7 @@ function boskos_acquire() {
 
   # Send a heartbeat in the background to keep the lease while using the resource.
   boskos_cmd heartbeat --resource "${resource}" > /dev/null 2> /dev/null &
-  echo "$( jq -r .name <<<"${resource}" )"
+  jq -r .name <<<"${resource}"
 }
 
 # Release a leased boskos resource.
