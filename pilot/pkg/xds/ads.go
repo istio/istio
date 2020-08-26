@@ -16,6 +16,7 @@ package xds
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"sync/atomic"
@@ -28,10 +29,12 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/spiffe"
 	istiolog "istio.io/pkg/log"
 	"istio.io/pkg/monitoring"
 )
@@ -58,6 +61,9 @@ type DiscoveryStream interface {
 type Connection struct {
 	// PeerAddr is the address of the client, from network layer.
 	PeerAddr string
+
+	// Defines associated identities for the connection
+	Identities []string
 
 	// Time of connection, for debugging
 	Connect time.Time
@@ -234,6 +240,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 	}
 
 	con := newConnection(peerAddr, stream)
+	con.Identities = ids
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
 	// when the connection is no longer used. Closing the channel can cause subtle race conditions
@@ -449,12 +456,37 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	con.ConID = connectionID(node.Id)
 	con.node = node
 
+	if features.EnableXDSIdentityCheck && con.Identities != nil {
+		// TODO: allow locking down, rejecting unauthenticated requests.
+		if err := checkConnectionIdentity(con); err != nil {
+			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
+			return fmt.Errorf("authorization failed: %v", err)
+		}
+	}
+
 	s.addCon(con.ConID, con)
 
 	if s.InternalGen != nil {
 		s.InternalGen.OnConnect(con)
 	}
 	return nil
+}
+
+func checkConnectionIdentity(con *Connection) error {
+	for _, rawID := range con.Identities {
+		spiffeID, err := spiffe.ParseIdentity(rawID)
+		if err != nil {
+			continue
+		}
+		if con.proxy.ConfigNamespace != "" && spiffeID.Namespace != con.proxy.ConfigNamespace {
+			continue
+		}
+		if con.proxy.Metadata.ServiceAccount != "" && spiffeID.ServiceAccount != con.proxy.Metadata.ServiceAccount {
+			continue
+		}
+		return nil
+	}
+	return fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
 }
 
 func connectionID(node string) string {
