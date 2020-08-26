@@ -103,8 +103,8 @@ func CreateCASecret(ctx resource.Context) error {
 		},
 	}
 
-	err = kubeAccessor.CreateSecret(systemNs.Name(), secret)
-	if err != nil {
+	_ = kubeAccessor.DeleteSecret(systemNs.Name(), name)
+	if err := kubeAccessor.CreateSecret(systemNs.Name(), secret); err != nil {
 		return err
 	}
 

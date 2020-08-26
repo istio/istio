@@ -41,6 +41,9 @@ message ForwardEchoRequest {
   string url = 4;
   repeated Header headers = 5;
   string message = 6;
+  // If non-empty, make the request with the corresponding cert and key.
+  string cert = 7;
+  string key = 8;
 }
 
 message ForwardEchoResponse {

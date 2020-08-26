@@ -19,6 +19,9 @@ package forwarder
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
 	"net"
 	"net/http"
@@ -26,12 +29,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"google.golang.org/grpc/credentials"
 
 	"google.golang.org/grpc"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
+	"istio.io/pkg/log"
 )
 
 type request struct {
@@ -69,13 +74,48 @@ func newProtocol(cfg Config) (protocol, error) {
 	timeout := common.GetTimeout(cfg.Request)
 	headers := common.GetHeaders(cfg.Request)
 
+	var getClientCertificate func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	if cfg.Request.Cert != "" && cfg.Request.Key != "" {
+		cert, err := tls.X509KeyPair([]byte(cfg.Request.Cert), []byte(cfg.Request.Key))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse x509 key pair: %v", err)
+		}
+
+		for _, c := range cert.Certificate {
+			cert, err := x509.ParseCertificate(c)
+			if err != nil {
+				log.Errorf("Failed to parse client certificate: %v", err)
+			}
+			log.Debugf("Using client certificate [%s] issued by %s", cert.SerialNumber, cert.Issuer)
+			for _, uri := range cert.URIs {
+				log.Debugf("  URI SAN: %s", uri)
+			}
+		}
+		getClientCertificate = func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			log.Debugf("Peer asking for client certificate")
+			for i, ca := range info.AcceptableCAs {
+				x := &pkix.RDNSequence{}
+				if _, err := asn1.Unmarshal(ca, x); err != nil {
+					log.Errorf("Failed to decode AcceptableCA[%d]: %v", i, err)
+				} else {
+					name := &pkix.Name{}
+					name.FillFromRDNSequence(x)
+					log.Debugf("  AcceptableCA[%d]: %s", i, name)
+				}
+			}
+
+			return &cert, nil
+		}
+	}
+
 	switch scheme.Instance(u.Scheme) {
 	case scheme.HTTP, scheme.HTTPS:
 		return &httpProtocol{
 			client: &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
+						GetClientCertificate: getClientCertificate,
+						InsecureSkipVerify:   true,
 					},
 					DialContext: httpDialContext,
 				},
@@ -89,6 +129,13 @@ func newProtocol(cfg Config) (protocol, error) {
 
 		// transport security
 		security := grpc.WithInsecure()
+		if getClientCertificate != nil {
+			security = grpc.WithTransportCredentials(credentials.NewTLS(
+				&tls.Config{
+					GetClientCertificate: getClientCertificate,
+					InsecureSkipVerify:   true,
+				}))
+		}
 
 		// Strip off the scheme from the address.
 		address := rawURL[len(u.Scheme+"://"):]
@@ -111,7 +158,8 @@ func newProtocol(cfg Config) (protocol, error) {
 	case scheme.WebSocket:
 		dialer := &websocket.Dialer{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				GetClientCertificate: getClientCertificate,
+				InsecureSkipVerify:   true,
 			},
 			NetDial:          wsDialContext,
 			HandshakeTimeout: timeout,
@@ -127,7 +175,17 @@ func newProtocol(cfg Config) (protocol, error) {
 		defer cancel()
 
 		address := rawURL[len(u.Scheme+"://"):]
-		tcpConn, err := cfg.Dialer.TCP(dialer, ctx, address)
+
+		var tcpConn net.Conn
+		var err error
+		if getClientCertificate == nil {
+			tcpConn, err = cfg.Dialer.TCP(dialer, ctx, address)
+		} else {
+			tcpConn, err = tls.Dial("tcp", address, &tls.Config{
+				GetClientCertificate: getClientCertificate,
+				InsecureSkipVerify:   true,
+			})
+		}
 		if err != nil {
 			return nil, err
 		}
