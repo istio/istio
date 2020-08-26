@@ -115,7 +115,7 @@ func (sa *Agent) Close() {
 // If 'RequireCerts' is set, will attempt to get certificates. Will then attempt to connect to
 // the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the
 // local XDS proxy and return.
-func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager) error {
+func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager, namespace string) error {
 	if sa.cfg.LocalXDSAddr == "" {
 		return nil
 	}
@@ -134,6 +134,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 		ResponseHandler: sa.proxyGen,
 		XDSRootCAFile:   sa.FindRootCAForXDS(),
 		GrpcOpts:        sa.cfg.GrpcOptions,
+		Namespace:       namespace,
 	}
 
 	// Set Secrets and JWTPath if the default ControlPlaneAuthPolicy is MUTUAL_TLS

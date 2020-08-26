@@ -39,7 +39,7 @@ func TestInMemoryCache(t *testing.T) {
 		service:     &model.Service{Hostname: "foo.com"},
 	}
 	t.Run("simple", func(t *testing.T) {
-		c := New()
+		c := model.NewXdsCache()
 		c.Add(ep1, any1)
 		if !reflect.DeepEqual(c.Keys(), []string{ep1.Key()}) {
 			t.Fatalf("unexpected keys: %v, want %v", c.Keys(), ep1.Key())
@@ -58,7 +58,7 @@ func TestInMemoryCache(t *testing.T) {
 	})
 
 	t.Run("multiple hostnames", func(t *testing.T) {
-		c := New()
+		c := model.NewXdsCache()
 		c.Add(ep1, any1)
 		c.Add(ep2, any2)
 
@@ -78,7 +78,7 @@ func TestInMemoryCache(t *testing.T) {
 	})
 
 	t.Run("multiple destinationRules", func(t *testing.T) {
-		c := New()
+		c := model.NewXdsCache()
 		ep1 := ep1
 		ep1.destinationRule = &model.Config{ConfigMeta: model.ConfigMeta{Name: "a", Namespace: "b"}}
 		ep2 := ep2
@@ -109,7 +109,7 @@ func TestInMemoryCache(t *testing.T) {
 	})
 
 	t.Run("clear all", func(t *testing.T) {
-		c := New()
+		c := model.NewXdsCache()
 		c.Add(ep1, any1)
 		c.Add(ep2, any2)
 

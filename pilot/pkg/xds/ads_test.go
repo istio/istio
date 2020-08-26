@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	istioagent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/tests/util"
 )
 
@@ -75,7 +76,7 @@ func TestAgent(t *testing.T) {
 	defer tearDown()
 
 	// TODO: when authz is implemented, verify labels are checked.
-	cert, key, err := bs.CA.GenKeyCert([]string{"spiffe://cluster.local/fake.test"}, 1*time.Hour)
+	cert, key, err := bs.CA.GenKeyCert([]string{spiffe.Identity{"cluster.local", "test", "sa"}.String()}, 1*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,9 +125,12 @@ func TestAgent(t *testing.T) {
 		}
 		defer ldsr.Close()
 
-		_, err = ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
+		r, err := ldsr.WaitVersion(5*time.Second, collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(), "")
 		if err != nil {
 			t.Fatal(err)
+		}
+		if len(r.Resources) == 0 {
+			t.Fatalf("Got no resources")
 		}
 	})
 
@@ -429,7 +433,7 @@ func TestAdsPushScoping(t *testing.T) {
 	}
 
 	addVirtualService := func(i int, hosts ...string) {
-		if _, err := s.Store.Create(model.Config{
+		if _, err := s.Store().Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
 				GroupVersionKind: gvk.VirtualService,
 				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
@@ -447,10 +451,10 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 	}
 	removeVirtualService := func(i int) {
-		s.Store.Delete(gvk.VirtualService, fmt.Sprintf("vs%d", i), model.IstioDefaultConfigNamespace)
+		s.Store().Delete(gvk.VirtualService, fmt.Sprintf("vs%d", i), model.IstioDefaultConfigNamespace)
 	}
 	addDestinationRule := func(i int, host string) {
-		if _, err := s.Store.Create(model.Config{
+		if _, err := s.Store().Create(model.Config{
 			ConfigMeta: model.ConfigMeta{
 				GroupVersionKind: gvk.DestinationRule,
 				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
@@ -463,7 +467,7 @@ func TestAdsPushScoping(t *testing.T) {
 		}
 	}
 	removeDestinationRule := func(i int) {
-		s.Store.Delete(gvk.DestinationRule, fmt.Sprintf("dr%d", i), model.IstioDefaultConfigNamespace)
+		s.Store().Delete(gvk.DestinationRule, fmt.Sprintf("dr%d", i), model.IstioDefaultConfigNamespace)
 	}
 
 	sc := &networking.Sidecar{
@@ -473,7 +477,7 @@ func TestAdsPushScoping(t *testing.T) {
 			},
 		},
 	}
-	if _, err := s.Store.Create(model.Config{
+	if _, err := s.Store().Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
 			GroupVersionKind: gvk.Sidecar,
 			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace},
@@ -1008,7 +1012,7 @@ func TestXdsCache(t *testing.T) {
 	assertEndpoints(ads, "1.2.3.4", "1.2.3.5")
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
 
-	if _, err := s.Store.Update(makeEndpoint([]*networking.WorkloadEntry{
+	if _, err := s.Store().Update(makeEndpoint([]*networking.WorkloadEntry{
 		{Address: "1.2.3.6", Locality: "region/zone"},
 		{Address: "1.2.3.5", Locality: "notmatch"},
 	})); err != nil {
@@ -1021,7 +1025,7 @@ func TestXdsCache(t *testing.T) {
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
 
 	ads.WaitClear()
-	if _, err := s.Store.Create(model.Config{
+	if _, err := s.Store().Create(model.Config{
 		ConfigMeta: model.ConfigMeta{
 			Name:             "service",
 			Namespace:        "default",
@@ -1054,7 +1058,7 @@ func TestXdsCache(t *testing.T) {
 
 	ep := makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.6", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})
 	ep.Spec.(*networking.ServiceEntry).Resolution = networking.ServiceEntry_DNS
-	if _, err := s.Store.Update(ep); err != nil {
+	if _, err := s.Store().Update(ep); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ads.Wait(time.Second*5, v3.EndpointType); err != nil {

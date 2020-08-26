@@ -25,7 +25,6 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -103,13 +102,4 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		}
 	}
 	return nil
-}
-
-// GetSAN returns the SAN used for passed in identity for mTLS.
-func GetSAN(ns string, identity string) string {
-
-	if ns != "" {
-		return spiffe.MustGenSpiffeURI(ns, identity)
-	}
-	return spiffe.GenCustomSpiffe(identity)
 }

@@ -113,8 +113,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	// Warn users if they use `istioctl install` without any config args.
-	if len(iArgs.inFilenames) == 0 && len(iArgs.set) == 0 && !rootArgs.dryRun && !iArgs.skipConfirmation {
-		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+	if !rootArgs.dryRun && !iArgs.skipConfirmation {
+		if !confirm("This will install the Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
 		}

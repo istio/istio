@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -364,36 +365,6 @@ func TestMustGenSpiffeURI(t *testing.T) {
 	}
 }
 
-func TestGenCustomSpiffe(t *testing.T) {
-	oldTrustDomain := GetTrustDomain()
-	defer SetTrustDomain(oldTrustDomain)
-
-	testCases := []struct {
-		trustDomain string
-		identity    string
-		expectedURI string
-	}{
-		{
-			identity:    "foo",
-			trustDomain: "mesh.com",
-			expectedURI: "spiffe://mesh.com/foo",
-		},
-		{
-			//identity is empty
-			trustDomain: "mesh.com",
-			expectedURI: "",
-		},
-	}
-	for id, tc := range testCases {
-		SetTrustDomain(tc.trustDomain)
-		got := GenCustomSpiffe(tc.identity)
-
-		if got != tc.expectedURI {
-			t.Errorf("Test id: %v , unexpected subject name, want %v, got %v", id, tc.expectedURI, got)
-		}
-	}
-}
-
 // The test starts one or two local servers and tests RetrieveSpiffeBundleRootCerts is able to correctly retrieve the
 // SPIFFE bundles.
 func TestRetrieveSpiffeBundleRootCertsFromStringInput(t *testing.T) {
@@ -673,13 +644,13 @@ func TestExpandWithTrustDomains(t *testing.T) {
 	}{
 		{
 			name:      "Basic",
-			spiffeURI: []string{"spiffe://cluster.local/ns/def/na/def"},
+			spiffeURI: []string{"spiffe://cluster.local/ns/def/sa/def"},
 			trustDomains: []string{
 				"foo",
 			},
 			want: map[string]struct{}{
-				"spiffe://cluster.local/ns/def/na/def": {},
-				"spiffe://foo/ns/def/na/def":           {},
+				"spiffe://cluster.local/ns/def/sa/def": {},
+				"spiffe://foo/ns/def/sa/def":           {},
 			},
 		},
 		{
@@ -696,35 +667,35 @@ func TestExpandWithTrustDomains(t *testing.T) {
 		},
 		{
 			name:         "EmptyTrustDomains",
-			spiffeURI:    []string{"spiffe://cluster.local/ns/def/na/def"},
+			spiffeURI:    []string{"spiffe://cluster.local/ns/def/sa/def"},
 			trustDomains: []string{},
 			want: map[string]struct{}{
-				"spiffe://cluster.local/ns/def/na/def": {},
+				"spiffe://cluster.local/ns/def/sa/def": {},
 			},
 		},
 		{
 			name:      "WithOriginalTrustDomain",
-			spiffeURI: []string{"spiffe://cluster.local/ns/def/na/def"},
+			spiffeURI: []string{"spiffe://cluster.local/ns/def/sa/def"},
 			trustDomains: []string{
 				"foo",
 				"cluster.local",
 			},
 			want: map[string]struct{}{
-				"spiffe://cluster.local/ns/def/na/def": {},
-				"spiffe://foo/ns/def/na/def":           {},
+				"spiffe://cluster.local/ns/def/sa/def": {},
+				"spiffe://foo/ns/def/sa/def":           {},
 			},
 		},
 		{
 			name:      "TwoIentities",
-			spiffeURI: []string{"spiffe://cluster.local/ns/def/na/def", "spiffe://cluster.local/ns/a/na/a"},
+			spiffeURI: []string{"spiffe://cluster.local/ns/def/sa/def", "spiffe://cluster.local/ns/a/sa/a"},
 			trustDomains: []string{
 				"foo",
 			},
 			want: map[string]struct{}{
-				"spiffe://cluster.local/ns/def/na/def": {},
-				"spiffe://foo/ns/def/na/def":           {},
-				"spiffe://cluster.local/ns/a/na/a":     {},
-				"spiffe://foo/ns/a/na/a":               {},
+				"spiffe://cluster.local/ns/def/sa/def": {},
+				"spiffe://foo/ns/def/sa/def":           {},
+				"spiffe://cluster.local/ns/a/sa/a":     {},
+				"spiffe://foo/ns/a/sa/a":               {},
 			},
 		},
 		{
@@ -735,7 +706,6 @@ func TestExpandWithTrustDomains(t *testing.T) {
 			},
 			want: map[string]struct{}{
 				"spiffe://cluster.local/custom-suffix": {},
-				"spiffe://foo/custom-suffix":           {},
 			},
 		},
 	}
@@ -744,6 +714,77 @@ func TestExpandWithTrustDomains(t *testing.T) {
 			got := ExpandWithTrustDomains(tc.spiffeURI, tc.trustDomains)
 			if diff := cmp.Diff(got, tc.want); diff != "" {
 				t.Errorf("unexpected expanded results: %v", diff)
+			}
+		})
+	}
+}
+
+func TestIdentity(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected *Identity
+	}{
+		{
+			"spiffe://td/ns/ns/sa/sa",
+			&Identity{
+				TrustDomain:    "td",
+				Namespace:      "ns",
+				ServiceAccount: "sa",
+			},
+		},
+		{
+			"spiffe://td.with.dots/ns/ns.with.dots/sa/sa.with.dots",
+			&Identity{
+				TrustDomain:    "td.with.dots",
+				Namespace:      "ns.with.dots",
+				ServiceAccount: "sa.with.dots",
+			},
+		},
+		{
+			// Empty ns and sa
+			"spiffe://td/ns//sa/",
+			&Identity{TrustDomain: "td", Namespace: "", ServiceAccount: ""},
+		},
+		{
+			// Missing spiffe prefix
+			"td/ns/ns/sa/sa",
+			nil,
+		},
+		{
+			// Missing SA
+			"spiffe://td/ns/ns/sa",
+			nil,
+		},
+		{
+			// Trailing /
+			"spiffe://td/ns/ns/sa/sa/",
+			nil,
+		},
+		{
+			// wrong separator /
+			"spiffe://td/ns/ns/foobar/sa/",
+			nil,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := ParseIdentity(tt.input)
+			if tt.expected == nil {
+				if err == nil {
+					t.Fatalf("expected error, got %#v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, *tt.expected) {
+				t.Fatalf("expected %#v, got %#v", *tt.expected, got)
+			}
+
+			roundTrip := got.String()
+			if roundTrip != tt.input {
+				t.Fatalf("round trip failed, expected %q got %q", tt.input, roundTrip)
 			}
 		})
 	}

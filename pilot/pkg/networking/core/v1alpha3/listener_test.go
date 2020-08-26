@@ -418,7 +418,6 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	extSvcSelector.Attributes.ServiceRegistry = serviceregistry.External
 	extSvcSelector.Attributes.LabelSelectors = map[string]string{"foo": "bar"}
 
-	p := &fakePlugin{}
 	tests := []struct {
 		name                      string
 		instances                 []*model.ServiceInstance
@@ -475,23 +474,16 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			configgen := NewConfigGenerator([]plugin.Plugin{p})
-
-			env := buildListenerEnv(tt.services)
-			serviceDiscovery := memregistry.NewServiceDiscovery(tt.services)
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: tt.services,
+			})
 			for _, i := range tt.instances {
-				serviceDiscovery.AddInstance(i.Service.Hostname, i)
-			}
-			env.ServiceDiscovery = serviceDiscovery
-			if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
-				t.Errorf("Failed to initialize push context: %v", err)
+				cg.MemRegistry.AddInstance(i.Service.Hostname, i)
 			}
 
-			proxy := getProxy()
-			proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-			proxy.ServiceInstances = proxyInstances
+			proxy := cg.SetupProxy(nil)
 
-			listeners := configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
+			listeners := cg.ConfigGen.buildSidecarOutboundListeners(proxy, cg.env.PushContext)
 			listenersToCheck := make([]string, 0)
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
@@ -595,8 +587,9 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Name:      "sidecar-with-http-proxy",
-			Namespace: "default",
+			Name:             "sidecar-with-http-proxy",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -1044,8 +1037,9 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -1250,8 +1244,9 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -1300,8 +1295,9 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -1343,8 +1339,9 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 	p := &fakePlugin{}
 	sidecarConfig := &model.Config{
 		ConfigMeta: model.ConfigMeta{
-			Name:      "foo",
-			Namespace: "not-default",
+			Name:             "foo",
+			Namespace:        "not-default",
+			GroupVersionKind: gvk.Sidecar,
 		},
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
@@ -2073,28 +2070,12 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 func buildOutboundListeners(t *testing.T, p plugin.Plugin, proxy *model.Proxy, sidecarConfig *model.Config,
 	virtualService *model.Config, services ...*model.Service) []*listener.Listener {
 	t.Helper()
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
-
-	var env model.Environment
-	if virtualService != nil {
-		env = buildListenerEnvWithVirtualServices(services, []*model.Config{virtualService})
-	} else {
-		env = buildListenerEnv(services)
-	}
-
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
-		return nil
-	}
-
-	proxy.IstioVersion = model.ParseIstioVersion(proxy.Metadata.IstioVersion)
-	if sidecarConfig == nil {
-		proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(env.PushContext, "not-default")
-	} else {
-		proxy.SidecarScope = model.ConvertToSidecarScope(env.PushContext, sidecarConfig, sidecarConfig.Namespace)
-	}
-	proxy.ServiceInstances = proxyInstances
-
-	listeners := configgen.buildSidecarOutboundListeners(proxy, env.PushContext)
+	cg := NewConfigGenTest(t, TestOptions{
+		Services:       services,
+		ConfigPointers: []*model.Config{sidecarConfig, virtualService},
+		Plugins:        []plugin.Plugin{p},
+	})
+	listeners := cg.ConfigGen.buildSidecarOutboundListeners(cg.SetupProxy(proxy), cg.env.PushContext)
 	xdstest.ValidateListeners(t, listeners)
 	return listeners
 }
