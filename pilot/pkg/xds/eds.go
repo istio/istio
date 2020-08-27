@@ -343,14 +343,17 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil
 	}
-	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+	var edsUpdatedServices map[string]struct{}
+	if !req.Full {
+		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
+	}
 	resources := make([]*any.Any, 0)
 	empty := 0
 
 	cached := 0
 	regenerated := 0
 	for _, clusterName := range w.ResourceNames {
-		if len(edsUpdatedServices) != 0 {
+		if edsUpdatedServices != nil {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
