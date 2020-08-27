@@ -88,7 +88,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 		return err
 	}
 
-	_, clientset, err := kubeclient.InitK8SRestClient(config.KubeConfigPath, config.Context)
+	_, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}

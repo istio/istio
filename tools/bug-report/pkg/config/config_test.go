@@ -28,9 +28,7 @@ func TestUnmarshalKubeCaptureConfig(t *testing.T) {
 	config := `
 kubeConfigPath: a/b/c
 context: d
-istioNamespaces:
-  - e1
-  - e2
+istioNamespace: e1
 dryRun: true
 commandTimeout: 5m
 maxArchiveSizeMb: 123
@@ -45,7 +43,7 @@ since: 1m
 criticalErrors:
   - e1
   - e2
-whitelistedErrors:
+ignoredErrors:
   - e3
   - e4
 gcsURL: f
@@ -59,7 +57,7 @@ uploadToGCS: true
 	want := &BugReportConfig{
 		KubeConfigPath:   "a/b/c",
 		Context:          "d",
-		IstioNamespaces:  []string{"e1", "e2"},
+		IstioNamespace:   "e1",
 		DryRun:           true,
 		CommandTimeout:   Duration(5 * time.Minute),
 		MaxArchiveSizeMb: 123,
@@ -109,13 +107,13 @@ uploadToGCS: true
 				},
 			},
 		},
-		StartTime:         wantTime,
-		EndTime:           wantTime,
-		Since:             Duration(time.Minute),
-		CriticalErrors:    []string{"e1", "e2"},
-		WhitelistedErrors: []string{"e3", "e4"},
-		GCSURL:            "f",
-		UploadToGCS:       true,
+		StartTime:      wantTime,
+		EndTime:        wantTime,
+		Since:          Duration(time.Minute),
+		CriticalErrors: []string{"e1", "e2"},
+		IgnoredErrors:  []string{"e3", "e4"},
+		GCSURL:         "f",
+		UploadToGCS:    true,
 	}
 
 	got := &BugReportConfig{}

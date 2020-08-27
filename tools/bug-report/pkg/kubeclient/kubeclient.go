@@ -23,9 +23,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// InitK8SRestClient creates a rest.Config qne Clientset from the given kubeconfig path and Context.
-func InitK8SRestClient(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
-
+// New creates a rest.Config qne Clientset from the given kubeconfig path and Context.
+func New(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
 	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
 	if err != nil {
 		return nil, nil, err

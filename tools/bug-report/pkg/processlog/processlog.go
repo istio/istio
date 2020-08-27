@@ -88,7 +88,7 @@ func getStats(config *config.BugReportConfig, logStr string) (*Stats, error) {
 		}
 		switch level {
 		case levelFatal, levelError, levelWarn:
-			if match.MatchesGlobs(text, config.WhitelistedErrors) {
+			if match.MatchesGlobs(text, config.IgnoredErrors) {
 				continue
 			}
 			switch level {

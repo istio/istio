@@ -35,7 +35,7 @@ const (
 		"Default is infinity. If set, start-time must be unset."
 	bugReportHelpCriticalErrors = "List of comma separated glob patters to match against log error strings. " +
 		"If any pattern matches an error in the log, the logs is given the highest priority for archive inclusion."
-	bugReportHelpWhitelistedErrors = "List of comma separated glob patters to match against log error strings. " +
+	bugReportHelpIgnoredErrors = "List of comma separated glob patters to match against log error strings. " +
 		"Any error matching these patters is ignored when calculating the log importance heuristic."
 	bugReportHelpGCSURL      = "URL of the GCS bucket where the archive is uploaded."
 	bugReportHelpUploadToGCS = "Upload archive to GCS bucket. If gcs-url is unset, a new bucket is created."

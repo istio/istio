@@ -64,7 +64,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 
 	// log error control
 	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil, bugReportHelpCriticalErrors)
-	cmd.PersistentFlags().StringSliceVar(&args.WhitelistedErrors, "whitelist-errs", nil, bugReportHelpWhitelistedErrors)
+	cmd.PersistentFlags().StringSliceVar(&args.IgnoredErrors, "whitelist-errs", nil, bugReportHelpIgnoredErrors)
 
 	// archive and upload control
 	cmd.PersistentFlags().StringVar(&args.GCSURL, "gcs-url", "", bugReportHelpGCSURL)

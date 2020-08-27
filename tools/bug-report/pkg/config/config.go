@@ -114,9 +114,9 @@ type BugReportConfig struct {
 	// if found in a log, set the highest priority for the log to ensure
 	// that it is Include in the capture archive.
 	CriticalErrors []string `json:"criticalErrors,omitempty"`
-	// WhitelistedErrors are glob error patterns which are ignored when
+	// IgnoredErrors are glob error patterns which are ignored when
 	// calculating the error heuristic for a log.
-	WhitelistedErrors []string `json:"whitelistedErrors,omitempty"`
+	IgnoredErrors []string `json:"ignoredErrors,omitempty"`
 
 	// GCSURL is an URL to the GCS bucket where the archive is uploaded.
 	GCSURL string `json:"gcsURL,omitempty"`
