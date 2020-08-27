@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -137,10 +138,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 }
 
 func TestCommonHttpProtocolOptions(t *testing.T) {
-	g := NewWithT(t)
-
 	cases := []struct {
-		direction                  model.TrafficDirection
 		clusterIndex               int
 		useDownStreamProtocol      bool
 		sniffingEnabledForInbound  bool
@@ -149,7 +147,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		clusters                   int
 	}{
 		{
-			direction:                  model.TrafficDirectionOutbound,
 			clusterIndex:               0,
 			useDownStreamProtocol:      false,
 			sniffingEnabledForInbound:  false,
@@ -157,7 +154,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			proxyType:                  model.SidecarProxy,
 			clusters:                   8,
 		}, {
-			direction:                  model.TrafficDirectionInbound,
 			clusterIndex:               4,
 			useDownStreamProtocol:      false,
 			sniffingEnabledForInbound:  false,
@@ -165,7 +161,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			proxyType:                  model.SidecarProxy,
 			clusters:                   8,
 		}, {
-			direction:                  model.TrafficDirectionOutbound,
 			clusterIndex:               1,
 			useDownStreamProtocol:      true,
 			sniffingEnabledForInbound:  false,
@@ -174,7 +169,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusters:                   8,
 		},
 		{
-			direction:                  model.TrafficDirectionInbound,
 			clusterIndex:               5,
 			useDownStreamProtocol:      true,
 			sniffingEnabledForInbound:  true,
@@ -183,7 +177,6 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			clusters:                   8,
 		},
 		{
-			direction:                  model.TrafficDirectionInbound,
 			clusterIndex:               0,
 			useDownStreamProtocol:      true,
 			sniffingEnabledForInbound:  true,
@@ -204,12 +197,9 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		features.EnableProtocolSniffingForInbound = tc.sniffingEnabledForInbound
 		defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 
-		settingsName := "default"
-		if settings != nil {
-			settingsName = "override"
-		}
-		testName := fmt.Sprintf("%s-%s", tc.direction, settingsName)
+		testName := fmt.Sprintf("%v-%d", tc.proxyType, tc.clusterIndex)
 		t.Run(testName, func(t *testing.T) {
+			g := NewWithT(t)
 			clusters := buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: tc.proxyType, mesh: testMesh,
 				destRule: &networking.DestinationRule{
 					Host: "*.example.org",
@@ -1565,7 +1555,7 @@ func TestBuildInboundClustersDefaultCircuitBreakerThresholds(t *testing.T) {
 		},
 	}
 	cb := NewClusterBuilder(proxy, env.PushContext)
-	clusters := configgen.buildInboundClusters(cb, instances)
+	clusters := configgen.buildInboundClusters(cb, instances, clusterPatcher{})
 	xdstest.ValidateClusters(t, clusters)
 	g.Expect(len(clusters)).ShouldNot(Equal(0))
 
@@ -1701,7 +1691,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 
 			env := c.newEnv(serviceDiscovery, configStore)
 			cb := NewClusterBuilder(proxy, env.PushContext)
-			clusters := configgen.buildInboundClusters(cb, instances)
+			clusters := configgen.buildInboundClusters(cb, instances, clusterPatcher{})
 			g.Expect(len(clusters)).ShouldNot(Equal(0))
 			xdstest.ValidateClusters(t, clusters)
 
@@ -3626,4 +3616,106 @@ func TestShouldH2Upgrade(t *testing.T) {
 		})
 	}
 
+}
+
+func TestEnvoyFilterPatching(t *testing.T) {
+	service := &model.Service{
+		Hostname: host.Name("static.test"),
+		Address:  "1.1.1.1",
+		Ports: []*model.Port{
+			{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+		Resolution: model.Passthrough,
+	}
+
+	cases := []struct {
+		name  string
+		want  []string
+		efs   []*networking.EnvoyFilter
+		proxy model.NodeType
+		svc   *model.Service
+	}{
+		{
+			"no config",
+			[]string{"outbound|8080||static.test", "BlackHoleCluster", "PassthroughCluster"},
+			nil,
+			model.SidecarProxy,
+			service,
+		},
+		{
+			"add cluster",
+			[]string{"outbound|8080||static.test", "BlackHoleCluster", "PassthroughCluster", "new-cluster1"},
+			[]*networking.EnvoyFilter{{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value:     buildPatchStruct(`{"name":"new-cluster1"}`),
+					},
+				}},
+			}},
+			model.SidecarProxy,
+			service,
+		},
+		{
+			"remove cluster",
+			[]string{"outbound|8080||static.test", "PassthroughCluster"},
+			[]*networking.EnvoyFilter{{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{
+								Name: "BlackHoleCluster",
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				}},
+			}},
+			model.SidecarProxy,
+			service,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+			for i, c := range tt.efs {
+				if _, err := configStore.Create(model.Config{
+					ConfigMeta: model.ConfigMeta{
+						GroupVersionKind: gvk.EnvoyFilter,
+						Name:             fmt.Sprint(i),
+						Namespace:        "default",
+					},
+					Spec: c,
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			proxy := &model.Proxy{
+				Type:            model.SidecarProxy,
+				Metadata:        &model.NodeMetadata{},
+				ConfigNamespace: "default",
+			}
+			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{tt.svc})
+			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
+			proxy.SetSidecarScope(env.PushContext)
+			clusters := NewConfigGenerator([]plugin.Plugin{}).BuildClusters(proxy, env.PushContext)
+			clusterNames := xdstest.MapKeys(xdstest.ExtractClusters(clusters))
+			sort.Strings(tt.want)
+			if !cmp.Equal(clusterNames, tt.want) {
+				t.Fatalf("want %v got %v", tt.want, clusterNames)
+			}
+		})
+	}
 }
