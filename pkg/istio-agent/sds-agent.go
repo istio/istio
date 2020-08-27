@@ -140,9 +140,13 @@ type AgentConfig struct {
 	// Namespace to connect as
 	Namespace string
 
-	// Location of the root CA for the XDS connection. Used for setting platform certs or
+	// XDSRootCerts is the location of the root CA for the XDS connection. Used for setting platform certs or
 	// using custom roots.
 	XDSRootCerts string
+
+	// CARootCerts of the location of the root CA for the CA connection. Used for setting platform certs or
+	// using custom roots.
+	CARootCerts string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -310,12 +314,8 @@ func (sa *Agent) FindRootCAForXDS() string {
 // Find the root CA to use when connecting to the CA (Istiod or external).
 //
 func (sa *Agent) FindRootCAForCA() string {
-	ca := sa.secOpts.CAEndpoint
-	if ca == "" {
-		ca = sa.proxyConfig.DiscoveryAddress
-	}
-	if strings.HasSuffix(ca, ":443") {
-		return "/etc/ssl/certs/ca-certificates.crt"
+	if sa.cfg.CARootCerts != "" {
+		return sa.cfg.CARootCerts
 	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident.
 		// API is alpha.

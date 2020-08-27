@@ -103,6 +103,10 @@ var (
 	xdsRootCA = env.RegisterStringVar("XDS_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the XDS connection.").Get()
 
+	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed CA servers.
+	caRootCA = env.RegisterStringVar("CA_ROOT_CA", "",
+		"Explicitly set the root CA to expect for the CA connection.").Get()
+
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
@@ -303,6 +307,7 @@ var (
 
 			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
+				CARootCerts: caRootCA,
 			}, secOpts)
 
 			var pilotSAN []string
