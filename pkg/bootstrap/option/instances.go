@@ -117,6 +117,14 @@ func DisableReportCalls(value bool) Instance {
 	return newOptionOrSkipIfZero("DisableReportCalls", strVal)
 }
 
+func ProxyViaAgent(value bool) Instance {
+	strVal := ""
+	if value {
+		strVal = "enable"
+	}
+	return newOptionOrSkipIfZero("ProxyViaAgent", strVal)
+}
+
 func OutlierLogPath(value string) Instance {
 	return newOptionOrSkipIfZero("outlier_log_path", value)
 }

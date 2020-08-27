@@ -60,6 +60,7 @@ type ProxyConfig struct {
 	PilotCertProvider   string
 	ProvCert            string
 	Sidecar             bool
+	ProxyViaAgent       bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -167,6 +168,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			STSPort:             e.STSPort,
 			ControlPlaneAuth:    e.ControlPlaneAuth,
 			DisableReportCalls:  e.DisableReportCalls,
+			ProxyViaAgent:       e.ProxyViaAgent,
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,

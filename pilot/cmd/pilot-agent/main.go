@@ -143,6 +143,9 @@ var (
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
+	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", true,
+		"If enabled, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option"+
+			"will be removed once the feature is stabilized.").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -380,6 +383,7 @@ var (
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
 				Sidecar:             role.Type == model.SidecarProxy,
+				ProxyViaAgent:       proxyXDSViaAgent,
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)

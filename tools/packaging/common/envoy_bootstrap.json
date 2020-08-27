@@ -221,24 +221,102 @@
       },
       {
         "name": "xds-grpc",
-        "type": "STATIC",
+        {{- if eq .config.ProxyViaAgent 0 }}
+        "type": "STRICT_DNS",
+        "respect_dns_ttl": true,
+        "dns_lookup_family": "{{ .dns_lookup_family }}",
+        {{- else }}
+        "type" : "STATIC",
+        {{- end }}
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
+        {{- if eq .config.ProxyViaAgent 0 }}
+        {{- if eq .config.ControlPlaneAuthPolicy 1 }}
+        "transport_socket": {
+          "name": "envoy.transport_sockets.tls",
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext",
+            "sni": "{{ .discovery_host }}",
+            "common_tls_context": {
+              "alpn_protocols": [
+                "h2"
+              ],
+              "tls_certificate_sds_secret_configs": [
+                {
+                  "name": "default",
+                  "sds_config": {
+                    "resource_api_version": "V3",
+                    "initial_fetch_timeout": "0s",
+                    "api_config_source": {
+                      "api_type": "GRPC",
+                      "transport_api_version": "V3",
+                      "grpc_services": [
+                        {
+                          "envoy_grpc": { "cluster_name": "sds-grpc" }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "validation_context": {
+                "trusted_ca": {
+                  {{- if .provisioned_cert }}
+                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
+                  {{- else if eq .pilot_cert_provider "kubernetes" }}
+                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+                  {{- else if eq .pilot_cert_provider "istiod" }}
+                  "filename": "./var/run/secrets/istio/root-cert.pem"
+                  {{- end }}
+                },
+                "match_subject_alt_names": {{ .pilot_SAN }}
+              }
+            }
+          }
+        },
+        {{- end }}
+        {{- end }}
         "load_assignment": {
           "cluster_name": "xds-grpc",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
+                  {{- if eq .config.ProxyViaAgent 0 }}
+                  "socket_address": {{ .pilot_grpc_address }}
+                  {{- else }}
                   "pipe": {
                     "path": "./etc/istio/proxy/XDS"
                   }
+                  {{- end }}
                 }
               }
             }]
           }]
         },
-        "http2_protocol_options": {}
+        "circuit_breakers": {
+          "thresholds": [
+            {
+              "priority": "DEFAULT",
+              "max_connections": 100000,
+              "max_pending_requests": 100000,
+              "max_requests": 100000
+            },
+            {
+              "priority": "HIGH",
+              "max_connections": 100000,
+              "max_pending_requests": 100000,
+              "max_requests": 100000
+            }
+          ]
+        },
+        "upstream_connection_options": {
+          "tcp_keepalive": {
+            "keepalive_time": 300
+          }
+        },
+        "max_requests_per_connection": 1,
+        "http2_protocol_options": { }
       }
       {{ if .zipkin }}
       ,
