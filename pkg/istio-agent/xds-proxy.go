@@ -96,7 +96,9 @@ func (sa *Agent) StartXdsProxy() (*XdsProxy, error) {
 			proxy.Responses <- resp
 		}
 	}()
-	go grpcs.Serve(l)
+	go func() {
+		_ = grpcs.Serve(l)
+	}()
 	return proxy, nil
 }
 
