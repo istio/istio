@@ -39,7 +39,7 @@ func outputPath(workDir string, cluster resource.Cluster, pod kubeApiCore.Pod, n
 	if err := os.MkdirAll(dir, os.ModeDir|0700); err != nil {
 		scopes.Framework.Warnf("failed creating directory: %s", dir)
 	}
-	return path.Join(dir, fmt.Sprintf("%s-%s_%s", pod.Name, pod.Namespace, name))
+	return path.Join(dir, fmt.Sprintf("%s_%s", pod.Name, name))
 }
 
 // DumpPods runs each dumper with all the pods in the given namespace.
