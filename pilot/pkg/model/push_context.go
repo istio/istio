@@ -206,7 +206,13 @@ type XDSUpdater interface {
 // PushRequest defines a request to push to proxies
 // It is used to send updates to the config update debouncer and pass to the PushQueue.
 type PushRequest struct {
-	// Full determines whether a full push is required or not. If set to false, only endpoints will be sent.
+	// Full determines whether a full push is required or not. If false, an incremental update will be sent.
+	// Incremental pushes:
+	// * Do not recompute the push context
+	// * Do not recompute proxy state (such as ServiceInstances)
+	// * Are not reported in standard metrics such as push time
+	// As a result, configuration updates should never be incremental. Generally, only EDS will set this, but
+	// in the future SDS will as well.
 	Full bool
 
 	// ConfigsUpdated keeps track of configs that have changed.

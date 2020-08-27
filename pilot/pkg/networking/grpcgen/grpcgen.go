@@ -65,7 +65,7 @@ const (
 type GrpcConfigGenerator struct {
 }
 
-func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
 	switch w.TypeUrl {
 	case ListenerType:
 		return g.BuildListeners(proxy, push, w.ResourceNames)
