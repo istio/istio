@@ -15,6 +15,7 @@ Release notes should be added for any user facing changes. These include:
 * Change in non-functional attributes such as efficiency or availability, availability of a new platform
 * A warning about a deprecation
 * Fix of a previous Known Issue
+* Promoting features
 
 No release notes are required for changes to:
 * Tests
@@ -79,7 +80,7 @@ The `docs` field should be used to list related documentation. These will be tur
 
 ### Release Notes
 
-These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `**Action**`. Acceptable actions are: `**Added**`, `**Deprecated**`, `**Enabled**`, `**Fixed**`, `**Optimized**`, `**Improved**`, `**Removed**`, and `**Upgraded**`.
+These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `**Action**`. Acceptable actions are: `**Added**`, `**Deprecated**`, `**Enabled**`, `**Fixed**`, `**Optimized**`, `**Improved**`, `**Removed**`, **Promoted**, and `**Upgraded**`.
 
 ### Upgrade Notes
 
