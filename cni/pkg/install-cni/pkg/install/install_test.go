@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"istio.io/istio/cni/pkg/install-cni/pkg/config"
-	"istio.io/istio/cni/pkg/install-cni/pkg/util"
+	"istio.io/istio/pkg/file"
 )
 
 func TestCheckInstall(t *testing.T) {
@@ -107,7 +107,7 @@ func TestCheckInstall(t *testing.T) {
 
 			// Create existing config files if specified in test case
 			for srcFilename, targetFilename := range c.existingConfFiles {
-				if err := util.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
+				if err := file.AtomicCopy(filepath.Join("testdata", srcFilename), tempDir, targetFilename); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -173,7 +173,7 @@ func TestSleepCheckInstall(t *testing.T) {
 
 			if len(c.invalidConfigFilename) > 0 {
 				// Copy an invalid config file into tempDir
-				if err = util.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
+				if err = file.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -191,7 +191,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 
 			// Copy a valid config file into tempDir
-			if err = util.AtomicCopy(filepath.Join("testdata", c.validConfigFilename), tempDir, c.cniConfigFilename); err != nil {
+			if err = file.AtomicCopy(filepath.Join("testdata", c.validConfigFilename), tempDir, c.cniConfigFilename); err != nil {
 				t.Fatal(err)
 			}
 
@@ -234,7 +234,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Remove Istio CNI's config
 			t.Log("Expecting an invalid configuration log:")
 			if len(c.invalidConfigFilename) > 0 {
-				if err = util.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
+				if err = file.AtomicCopy(filepath.Join("testdata", c.invalidConfigFilename), tempDir, c.cniConfigFilename); err != nil {
 					t.Fatal(err)
 				}
 			} else {
