@@ -133,6 +133,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 		XDSSAN:          discHost,
 		ResponseHandler: sa.proxyGen,
 		XDSRootCAFile:   sa.FindRootCAForXDS(),
+		RootCert:        sa.RootCert,
 		GrpcOpts:        sa.cfg.GrpcOptions,
 		Namespace:       namespace,
 	}

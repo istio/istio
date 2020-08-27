@@ -95,6 +95,10 @@ type Config struct {
 	// Mirrors Envoy file.
 	XDSRootCAFile string
 
+	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
+	// XDSRootCAFile
+	RootCert []byte
+
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
 
@@ -329,7 +333,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	}
 
 	// Load the root CAs
-	if a.cfg.XDSRootCAFile != "" {
+	if a.cfg.RootCert != nil {
+		serverCABytes = a.cfg.RootCert
+	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = ioutil.ReadFile(a.cfg.XDSRootCAFile)
 	} else if a.cfg.Secrets != nil {
 		// This is a bit crazy - we could just use the file
