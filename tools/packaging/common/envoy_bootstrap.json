@@ -221,7 +221,7 @@
       },
       {
         "name": "xds-grpc",
-        {{- if eq .config.ProxyViaAgent 0 }}
+        {{- if eq .ProxyViaAgent 0 }}
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
@@ -230,7 +230,7 @@
         {{- end }}
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
-        {{- if eq .config.ProxyViaAgent 0 }}
+        {{- if eq .ProxyViaAgent 0 }}
         {{- if eq .config.ControlPlaneAuthPolicy 1 }}
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
@@ -282,7 +282,7 @@
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
-                  {{- if eq .config.ProxyViaAgent 0 }}
+                  {{- if eq .ProxyViaAgent 0 }}
                   "socket_address": {{ .pilot_grpc_address }}
                   {{- else }}
                   "pipe": {
