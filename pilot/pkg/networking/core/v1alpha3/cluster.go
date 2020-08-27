@@ -39,7 +39,6 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/util/sets"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/util/gogo"
@@ -442,9 +441,9 @@ func buildAutoMtlsSettings(
 func buildIstioMutualTLS(serviceAccounts []string, sni string, proxy *model.Proxy) *networking.ClientTLSSettings {
 	return &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    model.GetOrDefault(proxy.Metadata.TLSClientRootCert, constants.DefaultRootCert),
-		ClientCertificate: model.GetOrDefault(proxy.Metadata.TLSClientCertChain, constants.DefaultCertChain),
-		PrivateKey:        model.GetOrDefault(proxy.Metadata.TLSClientKey, constants.DefaultKey),
+		CaCertificates:    proxy.Metadata.TLSClientRootCert,
+		ClientCertificate: proxy.Metadata.TLSClientCertChain,
+		PrivateKey:        proxy.Metadata.TLSClientKey,
 		SubjectAltNames:   serviceAccounts,
 		Sni:               sni,
 	}
@@ -888,13 +887,6 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 	case networking.ClientTLSSettings_DISABLE:
 		tlsContext = nil
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		// conditionallyConvertToIstioMtls populates ClientCertificate and PrivateKey for tls
-		// Following condition will never be true in case of ISTIO_MUTUAL and only exists for safeguard
-		if tls.ClientCertificate == "" || tls.PrivateKey == "" {
-			err := fmt.Errorf("failed to apply tls setting for %s: client certificate and private key must not be empty",
-				c.Name)
-			return nil, err
-		}
 
 		tlsContext = &auth.UpstreamTlsContext{
 			CommonTlsContext: &auth.CommonTlsContext{},
@@ -937,8 +929,9 @@ func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.Clie
 
 			tlsContext.CommonTlsContext.ValidationContextType = &auth.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-					DefaultValidationContext:         &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
-					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetRootResourceName(), authn_model.SDSRootResourceName)),
+					DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(tls.SubjectAltNames)},
+					ValidationContextSdsSecretConfig: authn_model.ConstructSdsSecretConfig(model.GetOrDefault(metadataSDS.GetRootResourceName(),
+						authn_model.SDSRootResourceName)),
 				},
 			}
 		}

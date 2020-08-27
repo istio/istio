@@ -823,14 +823,11 @@ func TestClusterMetadata(t *testing.T) {
 	g.Expect(foundSNISubset).To(Equal(true))
 }
 
-func TestConditionallyConvertToIstioMtls(t *testing.T) {
+func TestBuildAutoMtlsSettings(t *testing.T) {
 	tlsSettings := &networking.ClientTLSSettings{
-		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-		CaCertificates:    constants.DefaultRootCert,
-		ClientCertificate: constants.DefaultCertChain,
-		PrivateKey:        constants.DefaultKey,
-		SubjectAltNames:   []string{"custom.foo.com"},
-		Sni:               "custom.foo.com",
+		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
 	}
 	tests := []struct {
 		name                 string
@@ -870,12 +867,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			false, false, model.MTLSUnknown, cluster.Cluster_EDS,
 			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
-				Sni:               "foo.com",
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
+				Sni:             "foo.com",
 			},
 			userSupplied,
 		},
@@ -908,12 +902,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSStrict, cluster.Cluster_EDS,
 			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
-				Sni:               "foo.com",
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
+				Sni:             "foo.com",
 			},
 			autoDetected,
 		},
@@ -925,12 +916,9 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			&model.Proxy{Metadata: &model.NodeMetadata{}},
 			true, false, model.MTLSPermissive, cluster.Cluster_EDS,
 			&networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				CaCertificates:    constants.DefaultRootCert,
-				ClientCertificate: constants.DefaultCertChain,
-				PrivateKey:        constants.DefaultKey,
-				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
-				Sni:               "foo.com",
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
+				Sni:             "foo.com",
 			},
 			autoDetected,
 		},
@@ -991,7 +979,7 @@ func TestConditionallyConvertToIstioMtls(t *testing.T) {
 			gotTLS, gotCtxType := buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.proxy,
 				tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.clusterDiscoveryType)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
-				t.Errorf("cluster TLS does not match exppected result want %#v, got %#v", tt.want, gotTLS)
+				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
 			if gotCtxType != tt.wantCtxType {
 				t.Errorf("cluster TLS context type does not match expected result want %#v, got %#v", tt.wantCtxType, gotTLS)
@@ -1937,13 +1925,18 @@ func TestApplyLoadBalancer(t *testing.T) {
 }
 
 func TestApplyUpstreamTLSSettings(t *testing.T) {
-	tlsSettings := &networking.ClientTLSSettings{
+	istioMutualTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
 		CaCertificates:    constants.DefaultRootCert,
 		ClientCertificate: constants.DefaultCertChain,
 		PrivateKey:        constants.DefaultKey,
 		SubjectAltNames:   []string{"custom.foo.com"},
 		Sni:               "custom.foo.com",
+	}
+	istioMutualTLSSettings := &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+		SubjectAltNames: []string{"custom.foo.com"},
+		Sni:             "custom.foo.com",
 	}
 	mutualTLSSettingsWithCerts := &networking.ClientTLSSettings{
 		Mode:              networking.ClientTLSSettings_MUTUAL,
@@ -1986,10 +1979,37 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			expectTransportSocketMatch: false,
 		},
 		{
+			name:                       "user specified with istio_mutual metadata certs tls",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        istioMutualTLSSettingsWithCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); len(got) != 0 {
+					t.Fatalf("expected empty alpn list got %v", got)
+				}
+			},
+		},
+		{
+			name:                       "user specified with istio_mutual metadata certs tls with h2",
+			mtlsCtx:                    userSupplied,
+			discoveryType:              cluster.Cluster_EDS,
+			tls:                        istioMutualTLSSettingsWithCerts,
+			expectTransportSocket:      true,
+			expectTransportSocketMatch: false,
+			http2ProtocolOptions:       http2ProtocolOptions,
+			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
+				if got := ctx.CommonTlsContext.GetAlpnProtocols(); !reflect.DeepEqual(got, util.ALPNH2Only) {
+					t.Fatalf("expected alpn list %v; got %v", util.ALPNH2Only, got)
+				}
+			},
+		},
+		{
 			name:                       "user specified with istio_mutual tls",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
-			tls:                        tlsSettings,
+			tls:                        istioMutualTLSSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
@@ -2002,7 +2022,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			name:                       "user specified with istio_mutual tls with h2",
 			mtlsCtx:                    userSupplied,
 			discoveryType:              cluster.Cluster_EDS,
-			tls:                        tlsSettings,
+			tls:                        istioMutualTLSSettings,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 			http2ProtocolOptions:       http2ProtocolOptions,
@@ -2106,7 +2126,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_EDS,
-			tls:                        tlsSettings,
+			tls:                        istioMutualTLSSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
 			validateTLSContext: func(t *testing.T, ctx *tls.UpstreamTlsContext) {
@@ -2119,7 +2139,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			name:                       "auto detect with tls and h2 options",
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_EDS,
-			tls:                        tlsSettings,
+			tls:                        istioMutualTLSSettings,
 			expectTransportSocket:      false,
 			expectTransportSocketMatch: true,
 			http2ProtocolOptions:       http2ProtocolOptions,
@@ -2133,7 +2153,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 			name:                       "auto detect with tls",
 			mtlsCtx:                    autoDetected,
 			discoveryType:              cluster.Cluster_ORIGINAL_DST,
-			tls:                        tlsSettings,
+			tls:                        istioMutualTLSSettingsWithCerts,
 			expectTransportSocket:      true,
 			expectTransportSocketMatch: false,
 		},
@@ -2224,44 +2244,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node:                  &model.Proxy{},
 			certValidationContext: &tls.CertificateValidationContext{},
 			result:                expectedResult{nil, nil},
-		},
-		{
-			name: "tls mode ISTIO_MUTUAL, with no client certificate",
-			opts: &buildClusterOpts{
-				cluster: &cluster.Cluster{
-					Name: "test-cluster",
-				},
-			},
-			tls: &networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				ClientCertificate: "",
-				PrivateKey:        "some-fake-key",
-			},
-			node:                  &model.Proxy{},
-			certValidationContext: &tls.CertificateValidationContext{},
-			result: expectedResult{
-				nil,
-				fmt.Errorf("client cert must be provided"),
-			},
-		},
-		{
-			name: "tls mode ISTIO_MUTUAL, with no client key",
-			opts: &buildClusterOpts{
-				cluster: &cluster.Cluster{
-					Name: "test-cluster",
-				},
-			},
-			tls: &networking.ClientTLSSettings{
-				Mode:              networking.ClientTLSSettings_ISTIO_MUTUAL,
-				ClientCertificate: "some-fake-cert",
-				PrivateKey:        "",
-			},
-			node:                  &model.Proxy{},
-			certValidationContext: &tls.CertificateValidationContext{},
-			result: expectedResult{
-				nil,
-				fmt.Errorf("client key must be provided"),
-			},
 		},
 		{
 			name: "tls mode ISTIO_MUTUAL, node metadata sdsEnabled false",
