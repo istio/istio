@@ -101,7 +101,7 @@ func DumpPodState(c resource.Cluster, workDir string, namespace string, pods ...
 
 // DumpPodEvents dumps the pod events for either the provided pods or all pods in the namespace if none are provided.
 func DumpPodEvents(c resource.Cluster, workDir, namespace string, pods ...kubeApiCore.Pod) {
-	pods = podsOrFetch(a, pods, namespace)
+	pods = podsOrFetch(c, pods, namespace)
 
 	marshaler := jsonpb.Marshaler{
 		Indent: "  ",
@@ -139,13 +139,13 @@ func DumpPodEvents(c resource.Cluster, workDir, namespace string, pods ...kubeAp
 // DumpPodLogs will dump logs from each container in each of the provided pods
 // or all pods in the namespace if none are provided.
 func DumpPodLogs(c resource.Cluster, workDir, namespace string, pods ...kubeApiCore.Pod) {
-	pods = podsOrFetch(a, pods, namespace)
+	pods = podsOrFetch(c, pods, namespace)
 
 	for _, pod := range pods {
 		isVM := checkIfVM(pod)
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
-			l, err := a.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, false /* previousLog */)
+			l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, false /* previousLog */)
 			if err != nil {
 				scopes.Framework.Errorf("Unable to get logs for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
 				continue
@@ -167,7 +167,7 @@ func DumpPodLogs(c resource.Cluster, workDir, namespace string, pods ...kubeApiC
 					scopes.Framework.Errorf("Unable to get envoy err log for pod: %s/%s", pod.Namespace, pod.Name)
 				}
 
-				if stdout, stderr, err := a.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.log"); err == nil {
+				if stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat /var/log/istio/istio.log"); err == nil {
 					fname := outputPath(workDir, c, pod, fmt.Sprintf("%s.envoy.log", container.Name))
 					if err = ioutil.WriteFile(fname, []byte(stdout+stderr), os.ModePerm); err != nil {
 						scopes.Framework.Errorf("Unable to write envoy log for pod/container: %s/%s/%s", pod.Namespace, pod.Name, container.Name)
