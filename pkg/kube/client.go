@@ -479,17 +479,23 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	if len(istiods) == 0 {
 		return nil, errors.New("unable to find any Istiod instances")
 	}
+	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
 		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
-			return nil, err
+			err = multierror.Append(errs, err)
+			continue
 		}
 		if len(res) > 0 {
 			result[istiod.Name] = res
 		}
 	}
-	return result, err
+	// If any Discovery servers responded, treat as a success
+	if len(result) > 0 {
+		return result, nil
+	}
+	return nil, errs
 }
 
 func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
