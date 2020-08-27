@@ -307,7 +307,7 @@ var (
 
 			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
-				CARootCerts: caRootCA,
+				CARootCerts:  caRootCA,
 			}, secOpts)
 
 			var pilotSAN []string
