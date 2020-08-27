@@ -106,7 +106,7 @@ func TestAgent(t *testing.T) {
 		// TODO: add a test for cert-based config.
 		// TODO: add a test for JWT-based ( using some mock OIDC in Istiod)
 		sa.WorkloadSecrets = creds
-		//sa.RootCert = creds.RootCert
+		sa.RootCert = creds.RootCert
 		_, err = sa.Start(true, "test")
 		if err != nil {
 			t.Fatal(err)
