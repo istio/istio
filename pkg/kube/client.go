@@ -484,7 +484,8 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	for _, istiod := range istiods {
 		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
-			err = multierror.Append(errs, err)
+			fmt.Fprintf(os.Stderr, "Problem forwarding to %s.%s: %v; skipping.", istiod.Name, istiod.Namespace, err)
+			errs = multierror.Append(errs, err)
 			continue
 		}
 		if len(res) > 0 {
