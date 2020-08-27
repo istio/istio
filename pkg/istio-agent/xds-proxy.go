@@ -37,7 +37,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-func (a *Agent) StartXdsProxy() (*XdsProxy, error) {
+func (sa *Agent) StartXdsProxy() (*XdsProxy, error) {
 	l, err := setUpUds("./etc/istio/proxy/XDS")
 	if err != nil {
 		return nil, err
@@ -56,11 +56,11 @@ func (a *Agent) StartXdsProxy() (*XdsProxy, error) {
 	// provisioned cert or istiod or k8s
 	config := &tls.Config{
 		InsecureSkipVerify: true,
-		ServerName:         a.proxyConfig.DiscoveryAddress,
+		ServerName:         sa.proxyConfig.DiscoveryAddress,
 		MinVersion:         tls.VersionTLS12,
 	}
 
-	log.Infof("connecting to %v", a.proxyConfig.DiscoveryAddress)
+	log.Infof("connecting to %v", sa.proxyConfig.DiscoveryAddress)
 	dialOptions := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(config)),
 		grpc.WithConnectParams(grpc.ConnectParams{
@@ -76,7 +76,7 @@ func (a *Agent) StartXdsProxy() (*XdsProxy, error) {
 		time.Second * 300,
 	}}))
 
-	conn, err := grpc.Dial(a.proxyConfig.DiscoveryAddress, dialOptions...)
+	conn, err := grpc.Dial(sa.proxyConfig.DiscoveryAddress, dialOptions...)
 	if err != nil {
 		return nil, err
 	}
