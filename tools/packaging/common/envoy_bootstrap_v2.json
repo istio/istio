@@ -281,6 +281,7 @@
               "validation_context_sds_secret_config":{
                 "name":"ROOTCA",
                 "sds_config":{
+                  "initial_fetch_timeout": "0s",
                   "api_config_source":{
                     "api_type":"GRPC",
                     "grpc_services":[
