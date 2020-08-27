@@ -3,20 +3,22 @@ package server
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/test/echo/client"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
+	"istio.io/pkg/log"
 )
 
 const (
 	version = "v2"
 	cluster = "cluster-1"
+	msg = "Hello world!"
 )
 
 var testCases = map[string]struct {
@@ -29,6 +31,9 @@ var testCases = map[string]struct {
 }
 
 func TestEcho(t *testing.T) {
+	for _, s := range log.Scopes() {
+		s.SetOutputLevel(log.WarnLevel)
+	}
 	dialer := common.Dialer{}.FillInDefaults()
 	for name, tt := range testCases {
 		tt := tt
@@ -63,6 +68,7 @@ func TestEcho(t *testing.T) {
 					TimeoutMicros: common.DurationToMicros(5 * time.Second),
 					Url:           fmt.Sprintf("%s://127.0.0.1:%d", tt.proto, ep.GetConfig().Port.Port),
 					ServerFirst:   tt.serverFirst,
+					Message:       msg,
 				},
 				Dialer: dialer,
 			})
@@ -77,6 +83,17 @@ func TestEcho(t *testing.T) {
 			}
 			parsedRes := client.ParseForwardedResponse(res)
 			if err := parsedRes.CheckOK(); err != nil {
+				t.Error(err)
+			}
+			if err := parsedRes.CheckCluster(cluster); err != nil {
+				t.Error(err)
+			}
+			if err := parsedRes.Check(func(i int, response *client.ParsedResponse) error {
+				if response.Count(fmt.Sprintf("body] %s", msg)) != 1 {
+					return fmt.Errorf("did not find %q in res %d", msg, i)
+				}
+				return nil
+			}); err != nil {
 				t.Error(err)
 			}
 
