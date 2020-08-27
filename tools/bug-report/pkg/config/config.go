@@ -85,6 +85,9 @@ type BugReportConfig struct {
 	// DryRun controls whether logs are actually captured and saved.
 	DryRun bool `json:"dryRun,omitempty"`
 
+	// FullSecrets controls whether secret contents are included.
+	FullSecrets bool `json:"fullSecrets,omitempty"`
+
 	// CommandTimeout is the maximum amount of time running the command
 	// before giving up, even if not all logs are captured. Upon timeout,
 	// the command creates an archive with only the logs captured so far.

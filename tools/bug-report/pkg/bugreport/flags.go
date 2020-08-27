@@ -46,6 +46,9 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// dry run
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, bugReportHelpDryRun)
 
+	// full secrets
+	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false, bugReportHelpFullSecrets)
+
 	// istio namespaces
 	cmd.PersistentFlags().StringVarP(&args.IstioNamespace, "istio-namespace", "n", bugReportDefaultIstioNamespace, bugReportHelpIstioNamespace)
 

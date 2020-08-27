@@ -30,6 +30,7 @@ kubeConfigPath: a/b/c
 context: d
 istioNamespace: e1
 dryRun: true
+fullSecrets: true
 commandTimeout: 5m
 maxArchiveSizeMb: 123
 include:
@@ -59,6 +60,7 @@ uploadToGCS: true
 		Context:          "d",
 		IstioNamespace:   "e1",
 		DryRun:           true,
+		FullSecrets:      true,
 		CommandTimeout:   Duration(5 * time.Minute),
 		MaxArchiveSizeMb: 123,
 		Include: []*SelectionSpec{

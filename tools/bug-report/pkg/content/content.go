@@ -36,51 +36,66 @@ var (
 	}
 )
 
+// Params contains parameters for running a kubectl fetch command.
+type Params struct {
+	DryRun    bool
+	Verbose   bool
+	Namespace string
+	Pod       string
+	Container string
+}
+
 // GetK8sResources returns all k8s cluster resources.
-func GetK8sResources(dryRun bool) (string, error) {
+func GetK8sResources(params *Params) (string, error) {
 	return kubectlcmd.RunCmd("get --all-namespaces "+
 		"all,jobs,ingresses,endpoints,customresourcedefinitions,configmaps,events "+
-		"-o yaml", "", dryRun)
+		"-o yaml", "", params.DryRun)
 }
 
 // GetSecrets returns all k8s secrets. If full is set, the secret contents are also returned.
-func GetSecrets(full, dryRun bool) (string, error) {
+func GetSecrets(params *Params) (string, error) {
 	cmdStr := "get secrets --all-namespaces"
-	if full {
+	if params.Verbose {
 		cmdStr += " -o yaml"
 	}
-	return kubectlcmd.RunCmd(cmdStr, "", dryRun)
+	return kubectlcmd.RunCmd(cmdStr, "", params.DryRun)
 }
 
 // GetCRs returns CR contents for all CRDs in the cluster.
-func GetCRs(dryRun bool) (string, error) {
-	crds, err := getCRDList(dryRun)
+func GetCRs(params *Params) (string, error) {
+	crds, err := getCRDList(params)
 	if err != nil {
 		return "", err
 	}
-	return kubectlcmd.RunCmd("get --all-namespaces "+strings.Join(crds, ",")+" -o yaml", "", dryRun)
+	return kubectlcmd.RunCmd("get --all-namespaces "+strings.Join(crds, ",")+" -o yaml", "", params.DryRun)
 }
 
 // GetClusterInfo returns the cluster info.
-func GetClusterInfo(dryRun bool) (string, error) {
-	return kubectlcmd.RunCmd("cluster-info dump", "", dryRun)
+func GetClusterInfo(params *Params) (string, error) {
+	return kubectlcmd.RunCmd("cluster-info dump", "", params.DryRun)
 }
 
 // GetDescribePods returns describe pods for istioNamespace.
-func GetDescribePods(istioNamespace string, dryRun bool) (string, error) {
-	return kubectlcmd.RunCmd("describe pods", istioNamespace, dryRun)
+func GetDescribePods(params *Params) (string, error) {
+	if params.Namespace == "" {
+		return "", fmt.Errorf("getDescribePods requires the Istio namespace")
+	}
+	return kubectlcmd.RunCmd("describe pods", params.Namespace, params.DryRun)
 }
 
 // GetEvents returns events for all namespaces.
-func GetEvents(dryRun bool) (string, error) {
-	return kubectlcmd.RunCmd("get events --all-namespaces -o wide", "", dryRun)
+func GetEvents(params *Params) (string, error) {
+	return kubectlcmd.RunCmd("get events --all-namespaces -o wide", "", params.DryRun)
 }
 
 // GetIstiodInfo returns internal Istiod debug info.
-func GetIstiodInfo(namespace, pod string, dryRun bool) (string, error) {
+func GetIstiodInfo(params *Params) (string, error) {
+	if params.Namespace == "" || params.Pod == "" {
+		return "", fmt.Errorf("getIstiodInfo requires namespace and pod")
+	}
 	var sb strings.Builder
 	for _, url := range istiodURLs {
-		out, err := kubectlcmd.Exec(namespace, pod, "discovery", dryRun, "curl", `http://localhost:8080/`+url+``)
+		out, err := kubectlcmd.Exec(params.Namespace, params.Pod, "discovery", params.DryRun, "curl", `http://localhost:8080/`+url+``)
 		if err != nil {
 			return "", err
 		}
@@ -92,18 +107,21 @@ func GetIstiodInfo(namespace, pod string, dryRun bool) (string, error) {
 }
 
 // GetCoredumps returns coredumps for the given namespace/pod/container.
-func GetCoredumps(namespace, pod, container string, dryRun bool) (string, error) {
-	log.Infof("Getting coredumps for %s/%s/%s...", namespace, pod, container)
-	cds, err := getCoredumpList(namespace, pod, container, dryRun)
+func GetCoredumps(params *Params) (string, error) {
+	if params.Namespace == "" || params.Pod == "" {
+		return "", fmt.Errorf("getCoredumps requires namespace and pod")
+	}
+	log.Infof("Getting coredumps for %s/%s/%s...", params.Namespace, params.Pod, params.Container)
+	cds, err := getCoredumpList(params)
 	if err != nil {
 		return "", err
 	}
 
 	var out []string
-	log.Infof("%s/%s/%s has %d coredumps", namespace, pod, container, len(cds))
+	log.Infof("%s/%s/%s has %d coredumps", params.Namespace, params.Pod, params.Container, len(cds))
 	for idx, cd := range cds {
 		out = append(out, fmt.Sprintf("============= Coredump %d =============\n", idx))
-		outStr, err := kubectlcmd.Cat(namespace, pod, container, cd, dryRun)
+		outStr, err := kubectlcmd.Cat(params.Namespace, params.Pod, params.Container, cd, params.DryRun)
 		if err != nil {
 			return "", err
 		}
@@ -112,8 +130,8 @@ func GetCoredumps(namespace, pod, container string, dryRun bool) (string, error)
 	return strings.Join(out, "\n"), nil
 }
 
-func getCoredumpList(namespace, pod, container string, dryRun bool) ([]string, error) {
-	out, err := kubectlcmd.Exec(namespace, pod, container, dryRun, "find", coredumpDir, "-name", "'core.*'")
+func getCoredumpList(params *Params) ([]string, error) {
+	out, err := kubectlcmd.Exec(params.Namespace, params.Pod, params.Container, params.DryRun, "find", coredumpDir, "-name", "'core.*'")
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +141,8 @@ func getCoredumpList(namespace, pod, container string, dryRun bool) ([]string, e
 	return strings.Split(out, "\n"), nil
 }
 
-func getCRDList(dryRun bool) ([]string, error) {
-	crdStr, err := kubectlcmd.RunCmd("get customresourcedefinitions --no-headers", "", dryRun)
+func getCRDList(params *Params) ([]string, error) {
+	crdStr, err := kubectlcmd.RunCmd("get customresourcedefinitions --no-headers", "", params.DryRun)
 	if err != nil {
 		return nil, err
 	}

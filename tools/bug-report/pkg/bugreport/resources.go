@@ -21,6 +21,7 @@ const (
 	bugReportHelpIstioNamespace = "List of comma-separated namespaces where Istio control planes " +
 		"are installed."
 	bugReportHelpDryRun         = "Console output only, does not actually capture logs."
+	bugReportHelpFullSecrets    = "If set, secret contents are included in output."
 	bugReportHelpCommandTimeout = "Maximum amount of time to spend fetching logs. When timeout is reached " +
 		"only the logs captured so far are saved to the archive."
 	bugReportHelpMaxArchiveSizeMb = "Maximum size of the compressed archive in Mb. Logs are prioritized" +

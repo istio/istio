@@ -127,16 +127,16 @@ func runBugReportCommand(_ *cobra.Command) error {
 // Errors are reported through gErrors.
 func gatherInfo(config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
 	var wg sync.WaitGroup
+	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
 
-	getSecrets(config, &wg)
-	getDescribePods(config, &wg)
+	getFromCluster(content.GetK8sResources, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "resources"), &wg)
+	getFromCluster(content.GetCRs, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "crs"), &wg)
+	getFromCluster(content.GetEvents, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "events"), &wg)
+	getFromCluster(content.GetClusterInfo, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "cluster-info"), &wg)
+	getFromCluster(content.GetSecrets, &content.Params{DryRun: config.DryRun, Verbose: config.FullSecrets}, archive.ClusterInfoPath(tempDir, "secrets"), &wg)
+	getFromCluster(content.GetDescribePods, &content.Params{DryRun: config.DryRun, Namespace: config.IstioNamespace}, archive.ClusterInfoPath(tempDir, "describe-pods"), &wg)
 
-	getFromCluster(config, &wg, "resources", content.GetK8sResources)
-	getFromCluster(config, &wg, "crs", content.GetCRs)
-	getFromCluster(config, &wg, "events", content.GetEvents)
-	getFromCluster(config, &wg, "cluster-info", content.GetClusterInfo)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.CommandTimeout))
+	var wg2 sync.WaitGroup
 	for _, p := range paths {
 		p := p
 		namespace, _, pod, container, err := cluster2.ParsePath(p)
@@ -144,86 +144,62 @@ func gatherInfo(config *config.BugReportConfig, resources *cluster2.Resources, p
 			log.Error(err.Error())
 			continue
 		}
-		wg.Add(1)
+		wg2.Add(1)
 		go func() {
-			defer wg.Done()
-			var wg2 sync.WaitGroup
+			defer wg2.Done()
+			var wg3 sync.WaitGroup
 
 			switch {
 			case container == "istio-proxy":
-				getCoreDumps(config, namespace, pod, container, &wg2)
-				getProxyLogs(ctx, config, resources, p, namespace, pod, container, &wg2)
+				getFromCluster(content.GetCoredumps, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
+					archive.ProxyCoredumpPath(tempDir, namespace, pod), &wg3)
+				getProxyLogs(config, resources, p, namespace, pod, container, &wg3)
 
 			case strings.HasPrefix(pod, "istiod-") && container == "discovery":
-				getIstiodDebug(config, namespace, pod, &wg2)
-				getIstiodLogs(ctx, config, resources, namespace, pod, &wg2)
+				getFromCluster(content.GetIstiodInfo, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
+					archive.IstiodPath(tempDir, namespace, pod+".debug"), &wg3)
+				getIstiodLogs(config, resources, namespace, pod, &wg3)
+
 			}
-			wg2.Wait()
+			wg3.Wait()
 		}()
 	}
-	go func() {
-		time.Sleep(time.Duration(config.CommandTimeout))
-		cancel()
-	}()
 
 	// Not all items are subject to timeout. Proceed only if the non-cancellable items have completed.
 	wg.Wait()
+
+	// If log fetches have completed, cancel the timeout.
+	go func() {
+		wg2.Wait()
+		cmdTimer.Stop()
+	}()
+
+	// Wait for log fetches, up to the timeout.
+	<-cmdTimer.C
 }
 
-func getFromCluster(config *config.BugReportConfig, wg *sync.WaitGroup, fileName string, f func(bool) (string, error)) {
+// getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
+// Runs if a goroutine, with errors reported through gErrors.
+func getFromCluster(f func(params *content.Params) (string, error), params *content.Params, fileName string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		out, err := f(config.DryRun)
+		out, err := f(params)
 		appendGlobalErr(err)
 		if err == nil {
-			writeFile(archive.ClusterInfoPath(tempDir, fileName), out)
+			writeFile(fileName, out)
 		}
 	}()
 }
 
-func getSecrets(config *config.BugReportConfig, wg *sync.WaitGroup) {
+// getProxyLogs fetches proxy logs for the given namespace/pod/container and stores the output in global structs.
+// Runs if a goroutine, with errors reported through gErrors.
+// TODO(stewartbutler): output the logs to a more robust/complete structure.
+func getProxyLogs(config *config.BugReportConfig, resources *cluster2.Resources, path, namespace, pod, container string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// TODO(mostrowski): configure secrets
-		out, err := content.GetSecrets(false, config.DryRun)
-		appendGlobalErr(err)
-		if err == nil {
-			writeFile(archive.ClusterInfoPath(tempDir, "secrets"), out)
-		}
-	}()
-}
-
-func getDescribePods(config *config.BugReportConfig, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		out, err := content.GetDescribePods(config.IstioNamespace, config.DryRun)
-		appendGlobalErr(err)
-		if err == nil {
-			writeFile(archive.ClusterInfoPath(tempDir, "describe-pods"), out)
-		}
-	}()
-}
-
-func getCoreDumps(config *config.BugReportConfig, namespace, pod, container string, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		cds, err := content.GetCoredumps(namespace, pod, container, config.DryRun)
-		appendGlobalErr(err)
-		if err == nil && cds != "" {
-			writeFile(archive.ProxyCoredumpPath(tempDir, namespace, pod), cds)
-		}
-	}()
-}
-
-func getProxyLogs(ctx context.Context, config *config.BugReportConfig, resources *cluster2.Resources, path, namespace, pod, container string, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		clog, cstat, imp, err := getLog(ctx, resources, config, namespace, pod, container)
+		clog, cstat, imp, err := getLog(resources, config, namespace, pod, container)
 		appendGlobalErr(err)
 		lock.Lock()
 		if err == nil {
@@ -233,29 +209,20 @@ func getProxyLogs(ctx context.Context, config *config.BugReportConfig, resources
 	}()
 }
 
-func getIstiodLogs(ctx context.Context, config *config.BugReportConfig, resources *cluster2.Resources, namespace, pod string, wg *sync.WaitGroup) {
+// getIstiodLogs fetches Istiod logs for the given namespace/pod and writes the output.
+// Runs if a goroutine, with errors reported through gErrors.
+func getIstiodLogs(config *config.BugReportConfig, resources *cluster2.Resources, namespace, pod string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(ctx, resources, config, namespace, pod, "discovery")
+		clog, _, _, err := getLog(resources, config, namespace, pod, "discovery")
 		appendGlobalErr(err)
 		writeFile(archive.IstiodPath(tempDir, namespace, pod+".log"), clog)
 	}()
 }
 
-func getIstiodDebug(config *config.BugReportConfig, namespace, pod string, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		info, err := content.GetIstiodInfo(namespace, pod, config.DryRun)
-		appendGlobalErr(err)
-		if err == nil {
-			writeFile(archive.IstiodPath(tempDir, namespace, pod+".debug"), info)
-		}
-	}()
-}
-
-func getLog(ctx context.Context, resources *cluster2.Resources, config *config.BugReportConfig, namespace, pod, container string) (string, *processlog.Stats, int, error) {
+// getLog fetches the logs for the given namespace/pod/container and returns the log text and stats for it.
+func getLog(resources *cluster2.Resources, config *config.BugReportConfig, namespace, pod, container string) (string, *processlog.Stats, int, error) {
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
 	previous := resources.ContainerRestarts(pod, container) > 0
 	clog, err := kubectlcmd.Logs(namespace, pod, container, previous, config.DryRun)
@@ -271,6 +238,9 @@ func getLog(ctx context.Context, resources *cluster2.Resources, config *config.B
 }
 
 func writeFile(path, text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
 	if err := ioutil.WriteFile(path, []byte(text), 0755); err != nil {
 		log.Errorf(err.Error())
 	}
