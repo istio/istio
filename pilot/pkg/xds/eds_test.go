@@ -191,7 +191,7 @@ func TestEDSServiceResolutionUpdate(t *testing.T) {
 	// Now update the service resolution to DNSLB with a DNS endpoint.
 	updateServiceResolution(s)
 
-	if _, err := adscConn.Wait(5*time.Second, "eds"); err != nil {
+	if _, err := adscConn.Wait(5*time.Second, v3.EndpointType); err != nil {
 		t.Fatal(err)
 	}
 
@@ -215,13 +215,13 @@ func TestEndpointFlipFlops(t *testing.T) {
 	// Clear the endpoint and validate it does not trigger a full push.
 	s.Discovery.MemRegistry.SetEndpoints("flipflop.com", "", []*model.IstioEndpoint{})
 
-	upd, _ := adscConn.Wait(5*time.Second, "eds")
+	upd, _ := adscConn.Wait(5*time.Second, v3.EndpointType)
 
 	if contains(upd, "cds") {
 		t.Fatalf("Expecting only EDS update as part of a partial push. But received CDS also %v", upd)
 	}
 
-	if len(upd) > 0 && !contains(upd, "eds") {
+	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
 		t.Fatalf("Expecting EDS push as part of a partial push. But received %v", upd)
 	}
 
@@ -250,7 +250,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 		t.Fatal("Expecting only EDS update as part of a partial push. But received CDS also +v", upd)
 	}
 
-	if len(upd) > 0 && !contains(upd, "eds") {
+	if len(upd) > 0 && !contains(upd, v3.EndpointType) {
 		t.Fatal("Expecting EDS push as part of a partial push. But did not receive +v", upd)
 	}
 
@@ -287,7 +287,7 @@ func adsConnectAndWait(t *testing.T, ip int) *adsc.ADSC {
 		t.Fatal("Error connecting ", err)
 	}
 	adscConn.Watch()
-	_, err = adscConn.Wait(10*time.Second, "eds", "lds", "cds", "rds")
+	_, err = adscConn.Wait(10*time.Second, watchAll...)
 	if err != nil {
 		t.Fatal("Error getting initial config ", err)
 	}
@@ -460,7 +460,7 @@ func edsUpdates(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 
 	// will trigger recompute and push
 
-	if _, err := adsc.Wait(5*time.Second, "eds"); err != nil {
+	if _, err := adsc.Wait(5*time.Second, v3.EndpointType); err != nil {
 		t.Fatal("EDS push failed", err)
 	}
 	testTCPEndpoints("127.0.0.3", adsc, t)
@@ -469,7 +469,7 @@ func edsUpdates(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // edsFullUpdateCheck checks for updates required in a full push after the CDS update
 func edsFullUpdateCheck(adsc *adsc.ADSC, t *testing.T) {
 	t.Helper()
-	if upd, err := adsc.Wait(15*time.Second, "cds", "eds", "lds", "rds"); err != nil {
+	if upd, err := adsc.Wait(15*time.Second, watchAll...); err != nil {
 		t.Fatal("Expecting CDS, EDS, LDS, and RDS update as part of a full push", err, upd)
 	}
 }
@@ -498,7 +498,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	if err != nil {
 		t.Fatal("Incremental push failed", err)
 	}
-	if !reflect.DeepEqual(upd, []string{"eds"}) {
+	if !reflect.DeepEqual(upd, []string{v3.EndpointType}) {
 		t.Fatal("Expecting EDS only update, got", upd)
 	}
 
@@ -519,7 +519,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	if err != nil {
 		t.Fatal("Incremental push failed", err)
 	}
-	if !reflect.DeepEqual(upd, []string{"eds"}) {
+	if !reflect.DeepEqual(upd, []string{v3.EndpointType}) {
 		t.Fatal("Expecting EDS only update, got", upd)
 	}
 	testTCPEndpoints("127.0.0.4", adsc, t)
@@ -538,7 +538,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	if err != nil {
 		t.Fatal("Incremental push failed", err)
 	}
-	if !reflect.DeepEqual(upd, []string{"eds"}) {
+	if !reflect.DeepEqual(upd, []string{v3.EndpointType}) {
 		t.Fatal("Expecting EDS only update, got", upd)
 	}
 	testTCPEndpoints("127.0.0.5", adsc, t)
@@ -546,7 +546,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	// Wipe out all endpoints - expect full
 	s.Discovery.MemRegistry.SetEndpoints(edsIncSvc, "", []*model.IstioEndpoint{})
 
-	if upd, err := adsc.Wait(15*time.Second, "eds"); err != nil {
+	if upd, err := adsc.Wait(15*time.Second, v3.EndpointType); err != nil {
 		t.Fatal("Expecting EDS update as part of a partial push", err, upd)
 	}
 
@@ -585,7 +585,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			defer wg.Done()
 			// Connect and get initial response
 			adscConn := s.Connect(&model.Proxy{IPAddresses: []string{fmt.Sprintf("1.1.1.%d", id)}}, nil, nil)
-			_, err := adscConn.Wait(15*time.Second, "rds")
+			_, err := adscConn.Wait(15*time.Second, v3.RouteType)
 			if err != nil {
 				errChan <- errors.New("failed to get initial rds: " + err.Error())
 				wgConnect.Done()
@@ -604,7 +604,7 @@ func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
 			log.Println("Waiting for pushes ", id)
 
 			// Pushes may be merged so we may not get nPushes pushes
-			got, err := adscConn.Wait(15*time.Second, "eds")
+			got, err := adscConn.Wait(15*time.Second, v3.EndpointType)
 
 			// If in incremental mode, shouldn't receive cds|rds|lds here
 			if inc {

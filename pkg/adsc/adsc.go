@@ -656,7 +656,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	a.tcpListeners = lt
 
 	select {
-	case a.Updates <- "lds":
+	case a.Updates <- v3.ListenerType:
 	default:
 	}
 }
@@ -752,7 +752,7 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 	a.clusters = cds
 
 	select {
-	case a.Updates <- "cds":
+	case a.Updates <- v3.ClusterType:
 	default:
 	}
 }
@@ -814,7 +814,7 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	a.eds = la
 
 	select {
-	case a.Updates <- "eds":
+	case a.Updates <- v3.EndpointType:
 	default:
 	}
 }
@@ -856,7 +856,7 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 	a.mutex.Unlock()
 
 	select {
-	case a.Updates <- "rds":
+	case a.Updates <- v3.RouteType:
 	default:
 	}
 
@@ -885,32 +885,12 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	got := make([]string, 0, len(updates))
 	for {
 		select {
-		case t := <-a.Updates:
-			if t == "" {
+		case toDelete := <-a.Updates:
+			if toDelete == "" {
 				return got, fmt.Errorf("closed")
 			}
-			toDelete := t
-			// legacy names, still used in tests.
-			switch t {
-			case v3.ListenerType:
-				delete(want, "lds")
-			case v3.ClusterType:
-				delete(want, "cds")
-			case v3.EndpointType:
-				delete(want, "eds")
-			case v3.RouteType:
-				delete(want, "rds")
-			case "lds":
-				delete(want, v3.ListenerType)
-			case "cds":
-				delete(want, v3.ClusterType)
-			case "eds":
-				delete(want, v3.EndpointType)
-			case "rds":
-				delete(want, v3.RouteType)
-			}
 			delete(want, toDelete)
-			got = append(got, t)
+			got = append(got, toDelete)
 			if len(want) == 0 {
 				return got, nil
 			}
