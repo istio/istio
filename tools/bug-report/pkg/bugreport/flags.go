@@ -50,15 +50,15 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false, bugReportHelpFullSecrets)
 
 	// istio namespaces
-	cmd.PersistentFlags().StringVarP(&args.IstioNamespace, "istio-namespace", "n", bugReportDefaultIstioNamespace, bugReportHelpIstioNamespace)
+	cmd.PersistentFlags().StringVar(&args.IstioNamespace, "istio-namespace", bugReportDefaultIstioNamespace, bugReportHelpIstioNamespace)
 
 	// timeouts and max sizes
 	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout, bugReportHelpCommandTimeout)
 	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", bugReportDefaultMaxSizeMb, bugReportHelpMaxArchiveSizeMb)
 
 	// include / exclude specs
-	cmd.PersistentFlags().StringSliceVarP(&included, "include", "i", bugReportDefaultInclude, bugReportHelpInclude)
-	cmd.PersistentFlags().StringSliceVarP(&excluded, "exclude", "e", bugReportDefaultExclude, bugReportHelpExclude)
+	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude, bugReportHelpInclude)
+	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude, bugReportHelpExclude)
 
 	// log time ranges
 	cmd.PersistentFlags().StringVar(&startTime, "start-time", "", bugReportHelpStartTime)

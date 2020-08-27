@@ -22,24 +22,20 @@ import (
 	"strings"
 )
 
-var (
+const (
 	// PathSeparator is the separator between path elements.
 	PathSeparator = "."
-	// EscapedPathSeparator is what to use when the path shouldn't separate
-	EscapedPathSeparator = "\\" + PathSeparator
 	// KVSeparator is the separator between the key and value in a key/value path element,
-	KVSeparator = string(kvSeparatorRune)
-)
+	KVSeparator     = string(kvSeparatorRune)
+	kvSeparatorRune = ':'
 
-const (
 	// InsertIndex is the index that means "insert" when setting values
 	InsertIndex = -1
 
-	// pathSeparatorRune is the separator between path elements, as a rune.
+	// PathSeparatorRune is the separator between path elements, as a rune.
 	pathSeparatorRune = '.'
-
-	// kvSeparatorRune is the separator between key/value elements, as a rune.
-	kvSeparatorRune = ':'
+	// EscapedPathSeparator is what to use when the path shouldn't separate
+	EscapedPathSeparator = "\\" + PathSeparator
 )
 
 var (
@@ -55,7 +51,7 @@ func PathFromString(path string) Path {
 	path = filepath.Clean(path)
 	path = strings.TrimPrefix(path, PathSeparator)
 	path = strings.TrimSuffix(path, PathSeparator)
-	pv := splitEscaped(path, []rune(PathSeparator)[0])
+	pv := splitEscaped(path, pathSeparatorRune)
 	var r []string
 	for _, str := range pv {
 		if str != "" {

@@ -18,6 +18,9 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -49,8 +52,8 @@ var (
 	bugReportDefaultExclude        = []string{"kube-system,kube-public"}
 )
 
-// GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string) *cobra.Command {
+// BugReportCmd returns a cobra command for bug-report.
+func BugReportCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
@@ -61,7 +64,6 @@ func GetRootCmd(args []string) *cobra.Command {
 			return runBugReportCommand(cmd)
 		},
 	}
-	rootCmd.SetArgs(args)
 	rootCmd.AddCommand(version.CobraCommand())
 	addFlags(rootCmd, gConfig)
 
@@ -80,9 +82,6 @@ var (
 )
 
 func runBugReportCommand(_ *cobra.Command) error {
-	// Default of "." doesn't work for K8s names.
-	util.PathSeparator = "/"
-
 	config, err := parseConfig()
 	if err != nil {
 		return err
@@ -126,51 +125,47 @@ func runBugReportCommand(_ *cobra.Command) error {
 // proxy logs and info are saved in logs/stats/importance global maps.
 // Errors are reported through gErrors.
 func gatherInfo(config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
-	var wg sync.WaitGroup
+	// no timeout on mandatoryWg.
+	var mandatoryWg sync.WaitGroup
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
 
-	getFromCluster(content.GetK8sResources, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "resources"), &wg)
-	getFromCluster(content.GetCRs, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "crs"), &wg)
-	getFromCluster(content.GetEvents, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "events"), &wg)
-	getFromCluster(content.GetClusterInfo, &content.Params{DryRun: config.DryRun}, archive.ClusterInfoPath(tempDir, "cluster-info"), &wg)
-	getFromCluster(content.GetSecrets, &content.Params{DryRun: config.DryRun, Verbose: config.FullSecrets}, archive.ClusterInfoPath(tempDir, "secrets"), &wg)
-	getFromCluster(content.GetDescribePods, &content.Params{DryRun: config.DryRun, Namespace: config.IstioNamespace}, archive.ClusterInfoPath(tempDir, "describe-pods"), &wg)
+	clusterDir := archive.ClusterInfoPath(tempDir)
+	getFromCluster(content.GetK8sResources, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetCRs, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetEvents, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetClusterInfo, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetSecrets, &content.Params{DryRun: config.DryRun, Verbose: config.FullSecrets}, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetDescribePods, &content.Params{DryRun: config.DryRun, Namespace: config.IstioNamespace}, clusterDir, &mandatoryWg)
 
-	var wg2 sync.WaitGroup
+	// optionalWg is subject to timer.
+	var optionalWg sync.WaitGroup
 	for _, p := range paths {
-		p := p
 		namespace, _, pod, container, err := cluster2.ParsePath(p)
 		if err != nil {
 			log.Error(err.Error())
 			continue
 		}
-		wg2.Add(1)
-		go func() {
-			defer wg2.Done()
-			var wg3 sync.WaitGroup
 
-			switch {
-			case container == "istio-proxy":
-				getFromCluster(content.GetCoredumps, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
-					archive.ProxyCoredumpPath(tempDir, namespace, pod), &wg3)
-				getProxyLogs(config, resources, p, namespace, pod, container, &wg3)
+		switch {
+		case container == "istio-proxy":
+			getFromCluster(content.GetCoredumps, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
+				archive.ProxyCoredumpPath(tempDir, namespace, pod), &mandatoryWg)
+			getProxyLogs(config, resources, p, namespace, pod, container, &optionalWg)
 
-			case strings.HasPrefix(pod, "istiod-") && container == "discovery":
-				getFromCluster(content.GetIstiodInfo, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
-					archive.IstiodPath(tempDir, namespace, pod+".debug"), &wg3)
-				getIstiodLogs(config, resources, namespace, pod, &wg3)
+		case strings.HasPrefix(pod, "istiod-") && container == "discovery":
+			getFromCluster(content.GetIstiodInfo, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
+				archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
+			getIstiodLogs(config, resources, namespace, pod, &mandatoryWg)
 
-			}
-			wg3.Wait()
-		}()
+		}
 	}
 
 	// Not all items are subject to timeout. Proceed only if the non-cancellable items have completed.
-	wg.Wait()
+	mandatoryWg.Wait()
 
 	// If log fetches have completed, cancel the timeout.
 	go func() {
-		wg2.Wait()
+		optionalWg.Wait()
 		cmdTimer.Stop()
 	}()
 
@@ -180,14 +175,14 @@ func gatherInfo(config *config.BugReportConfig, resources *cluster2.Resources, p
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
 // Runs if a goroutine, with errors reported through gErrors.
-func getFromCluster(f func(params *content.Params) (string, error), params *content.Params, fileName string, wg *sync.WaitGroup) {
+func getFromCluster(f func(params *content.Params) (map[string]string, error), params *content.Params, dir string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		out, err := f(params)
 		appendGlobalErr(err)
 		if err == nil {
-			writeFile(fileName, out)
+			writeFiles(dir, out)
 		}
 	}()
 }
@@ -237,12 +232,26 @@ func getLog(resources *cluster2.Resources, config *config.BugReportConfig, names
 	return clog, cstat, cstat.Importance(), nil
 }
 
+func writeFiles(dir string, files map[string]string) {
+	for fname, text := range files {
+		writeFile(filepath.Join(dir, fname), text)
+	}
+}
+
 func writeFile(path, text string) {
 	if strings.TrimSpace(text) == "" {
 		return
 	}
+	mkdirOrExit(path)
 	if err := ioutil.WriteFile(path, []byte(text), 0755); err != nil {
 		log.Errorf(err.Error())
+	}
+}
+
+func mkdirOrExit(fpath string) {
+	if err := os.MkdirAll(path.Dir(fpath), 0755); err != nil {
+		fmt.Printf("Could not create output directories: %s", err)
+		os.Exit(-1)
 	}
 }
 

@@ -70,7 +70,8 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 		for _, p := range pods.Items {
 			deployment, err := getOwnerDeployment(&p, replicasets.Items)
 			if err != nil {
-				errs = append(errs, err.Error())
+				// Non critical error, should only show up in the logs, not console.
+				log.Infoa(err)
 				continue
 			}
 			for _, c := range p.Spec.Containers {
