@@ -2034,14 +2034,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
-		{name: "no hosts", in: &networking.VirtualService{
+		{name: "delegate with no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "bad host", in: &networking.VirtualService{
 			Hosts: []string{"foo.ba!r"},
 			Http: []*networking.HTTPRoute{{

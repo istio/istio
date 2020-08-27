@@ -16,6 +16,7 @@ package xdstest
 
 import (
 	"reflect"
+	"sort"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -176,4 +177,14 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	}
 
 	return ret
+}
+
+func MapKeys(mp interface{}) []string {
+	keys := reflect.ValueOf(mp).MapKeys()
+	res := []string{}
+	for _, k := range keys {
+		res = append(res, k.String())
+	}
+	sort.Strings(res)
+	return res
 }

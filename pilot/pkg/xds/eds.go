@@ -15,8 +15,6 @@
 package xds
 
 import (
-	"time"
-
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes/any"
@@ -27,10 +25,12 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/sets"
+	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // UpdateServiceShards will list the endpoints and create the shards.
@@ -294,55 +294,63 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 	return l
 }
 
+// Legacy v2 generator. Used only for gRPC
+type EdsV2Generator struct {
+	Generator *EdsGenerator
+}
+
+func (e *EdsV2Generator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	results := e.Generator.Generate(proxy, push, w, req)
+	for _, i := range results {
+		i.TypeUrl = v2.EndpointType
+	}
+	return results
+}
+
+var _ model.XdsResourceGenerator = &EdsV2Generator{}
+
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
 // storage in DiscoveryServer.
 type EdsGenerator struct {
 	Server *DiscoveryServer
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	var resp []*any.Any
+var _ model.XdsResourceGenerator = &EdsGenerator{}
 
-	var edsUpdatedServices map[string]struct{} = nil
-	if updates != nil {
-		edsUpdatedServices = model.ConfigNamesOfKind(updates, gvk.ServiceEntry)
-	}
-	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
-	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
-	for _, clusterName := range w.ResourceNames {
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-		if _, f := edsUpdatedServices[string(hostname)]; f {
-			continue
-		}
-		epb := NewEndpointBuilder(clusterName, proxy, push)
-		l := eds.Server.generateEndpoints(epb)
-		if l == nil {
-			continue
-		}
-		msg := util.MessageToAny(l)
-		msg.TypeUrl = w.TypeUrl
-		resp = append(resp, msg)
-	}
-
-	return resp
+// Map of all configs that do not impact EDS
+var skippedEdsConfigs = map[resource.GroupVersionKind]struct{}{
+	gvk.Gateway:               {},
+	gvk.VirtualService:        {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
 }
 
-// pushEds is pushing EDS updates for a single connection. Called the first time
-// a client connects, for incremental updates and for full periodic updates.
-func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, version string, edsUpdatedServices map[string]struct{}) error {
-	pushStart := time.Now()
-	defer func() { edsPushTime.Record(time.Since(pushStart).Seconds()) }()
+func edsNeedsPush(updates model.XdsUpdates) bool {
+	// If none set, we will always push
+	if len(updates) == 0 {
+		return true
+	}
+	for config := range updates {
+		if _, f := skippedEdsConfigs[config.Kind]; !f {
+			return true
+		}
+	}
+	return false
+}
 
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !edsNeedsPush(req.ConfigsUpdated) {
+		return nil
+	}
+	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	resources := make([]*any.Any, 0)
-	endpoints := 0
 	empty := 0
 
 	cached := 0
 	regenerated := 0
-	// All clusters that this endpoint is watching. For 1.0 - it's typically all clusters in the mesh.
-	// For 1.1+Sidecar - it's the small set of explicitly imported clusters, using the isolated DestinationRules
-	for _, clusterName := range con.Clusters() {
-		if edsUpdatedServices != nil {
+	for _, clusterName := range w.ResourceNames {
+		if len(edsUpdatedServices) != 0 {
 			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
 			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
@@ -350,46 +358,33 @@ func (s *DiscoveryServer) pushEds(push *model.PushContext, con *Connection, vers
 				continue
 			}
 		}
-		builder := NewEndpointBuilder(clusterName, con.proxy, push)
-		if marshalledEndpoint, f := s.cache.Get(builder); f {
+		builder := NewEndpointBuilder(clusterName, proxy, push)
+		if marshalledEndpoint, f := eds.Server.cache.Get(builder); f {
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
-			l := s.generateEndpoints(builder)
+			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
 			}
 			regenerated++
-
-			for _, e := range l.Endpoints {
-				endpoints += len(e.LbEndpoints)
-			}
 
 			if len(l.Endpoints) == 0 {
 				empty++
 			}
 			resource := util.MessageToAny(l)
 			resources = append(resources, resource)
-			s.cache.Add(builder, resource)
+			eds.Server.cache.Add(builder, resource)
 		}
 	}
-
-	response := endpointDiscoveryResponse(resources, version, push.Version)
-	err := con.send(response)
-	if err != nil {
-		recordSendError("EDS", con.ConID, edsSendErrPushes, err)
-		return err
-	}
-	edsPushes.Increment()
-
-	if edsUpdatedServices == nil {
-		adsLog.Infof("EDS: PUSH for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
+	if len(edsUpdatedServices) == 0 {
+		adsLog.Infof("EDS: PUSH for node:%s resources:%d empty:%v cached:%v/%v",
+			proxy.ID, len(resources), empty, cached, cached+regenerated)
 	} else {
-		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d endpoints:%d empty:%v cached:%v/%v",
-			con.proxy.ID, len(con.Clusters()), endpoints, empty, cached, cached+regenerated)
+		adsLog.Debugf("EDS: PUSH INC for node:%s clusters:%d empty:%v cached:%v/%v",
+			proxy.ID, len(resources), empty, cached, cached+regenerated)
 	}
-	return nil
+	return resources
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
