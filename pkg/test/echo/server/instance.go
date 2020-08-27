@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
-	"istio.io/pkg/log"
 )
 
 // Config for an echo server Instance.

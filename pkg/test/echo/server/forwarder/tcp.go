@@ -66,6 +66,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	if req.ServerFirst {
 		bytes, err := bufio.NewReader(conn).ReadBytes('\n')
 		if err != nil {
+			fwLog.Warnf("server first TCP read failed: %v", err)
 			return "", err
 		}
 		if string(bytes) != common.ServerFirstMagicString {
@@ -80,6 +81,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	}
 
 	if _, err := conn.Write([]byte(message + "\n")); err != nil {
+		fwLog.Warnf("TCP write failed: %v", err)
 		return msgBuilder.String(), err
 	}
 	var resBuffer bytes.Buffer
@@ -87,10 +89,11 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		buf := make([]byte, 4096+len(message))
 		n, err := bufio.NewReader(conn).Read(buf)
 		if err != nil {
-			if err == io.EOF {
-				break
+			if err != io.EOF {
+				fwLog.Warnf("TCP read failed: %v", err)
+				return msgBuilder.String(), err
 			}
-			return msgBuilder.String(), err
+			break
 		}
 		resBuffer.Write(buf[:n])
 		// the message is sent last - when we get the whole message we can stop reading

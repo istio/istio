@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/response"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 var _ Instance = &tcpInstance{}
@@ -77,7 +76,7 @@ func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Warn("TCP accept failed: " + err.Error())
+				epLog.Warn("TCP accept failed: " + err.Error())
 				return
 			}
 
@@ -97,8 +96,7 @@ func (s *tcpInstance) echo(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 	}()
-
-	log.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
+	epLog.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
 
 	// If this is server first, client expects a message from server. Send the magic string.
 	if s.Port.ServerFirst {
@@ -119,7 +117,7 @@ func (s *tcpInstance) echo(conn net.Conn) {
 
 		if err != nil {
 			if err != io.EOF {
-				log.Warnf("TCP read failed: %v", err.Error())
+				epLog.Warnf("TCP read failed: %v", err.Error())
 			}
 			break
 		}
@@ -127,7 +125,7 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		// echo the message from the request
 		_, err = conn.Write(buf)
 		if err != nil {
-			log.Warnf("TCP write failed %q, :%v", string(buf), err)
+			epLog.Warnf("TCP write failed %q, :%v", string(buf), err)
 		}
 	}
 }
@@ -144,7 +142,7 @@ func (s *tcpInstance) writeResponse(conn net.Conn) {
 		val := fmt.Sprintf("%s=%s\n", string(field), val)
 		_, err := conn.Write([]byte(val))
 		if err != nil {
-			log.Warnf("TCP write failed %q: %v", val, err)
+			epLog.Warnf("TCP write failed %q: %v", val, err)
 		}
 	}
 }
@@ -173,8 +171,8 @@ func (s *tcpInstance) awaitReady(onReady OnReadyFunc, port int) {
 	}, retry.Timeout(readyTimeout), retry.Delay(readyInterval))
 
 	if err != nil {
-		log.Errorf("readiness failed for endpoint %s: %v", address, err)
+		epLog.Errorf("readiness failed for endpoint %s: %v", address, err)
 	} else {
-		log.Infof("ready for TCP endpoint %s", address)
+		epLog.Infof("ready for TCP endpoint %s", address)
 	}
 }

@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
-	"istio.io/pkg/log"
 )
 
 var _ io.Closer = &Instance{}
@@ -88,7 +87,7 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 
 	if i.qps > 0 {
 		sleepTime := time.Second / time.Duration(i.qps)
-		log.Debugf("Sleeping %v between requests", sleepTime)
+		fwLog.Debugf("Sleeping %v between requests", sleepTime)
 		throttle = time.NewTicker(sleepTime)
 	}
 
