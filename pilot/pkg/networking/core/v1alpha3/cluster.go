@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -107,7 +106,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, push *mo
 	switch proxy.Type {
 	case model.SidecarProxy:
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
-		// DO NOT CALL PLUGINS for these two clusters.
 		outboundClusters = append(outboundClusters, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		outboundClusters = envoyfilter.ApplyClusterPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, proxy, push, outboundClusters)
 		inboundClusters := configgen.buildInboundClusters(cb, instances)
@@ -268,12 +266,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			// Filter out service instances with the same port as we are going to mark them as duplicates any way
 			// in normalizeClusters method.
 			if !have[instance.ServicePort] {
-				pluginParams := &plugin.InputParams{
-					Node:            cb.proxy,
-					ServiceInstance: instance,
-					Push:            cb.push,
-				}
-				localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams, actualLocalHost)
+				localCluster := cb.buildInboundClusterForPortOrUDS(instance, actualLocalHost)
 				clusters = append(clusters, localCluster)
 				have[instance.ServicePort] = true
 			}
@@ -318,12 +311,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, i
 			instance.Endpoint.ServicePortName = listenPort.Name
 			instance.Endpoint.EndpointPort = uint32(port)
 
-			pluginParams := &plugin.InputParams{
-				Node:            cb.proxy,
-				ServiceInstance: instance,
-				Push:            cb.push,
-			}
-			localCluster := configgen.buildInboundClusterForPortOrUDS(pluginParams, endpointAddress)
+			localCluster := cb.buildInboundClusterForPortOrUDS(instance, endpointAddress)
 			clusters = append(clusters, localCluster)
 		}
 	}
@@ -353,40 +341,6 @@ func (configgen *ConfigGeneratorImpl) findOrCreateServiceInstance(instances []*m
 		},
 		Endpoint: &model.IstioEndpoint{},
 	}
-}
-
-func (configgen *ConfigGeneratorImpl) buildInboundClusterForPortOrUDS(pluginParams *plugin.InputParams, bind string) *cluster.Cluster {
-	cb := NewClusterBuilder(pluginParams.Node, pluginParams.Push)
-	instance := pluginParams.ServiceInstance
-	clusterName := model.BuildSubsetKey(model.TrafficDirectionInbound, instance.ServicePort.Name,
-		instance.Service.Hostname, instance.ServicePort.Port)
-	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Endpoint.EndpointPort)
-	localCluster := cb.buildDefaultCluster(clusterName, cluster.Cluster_STATIC, localityLbEndpoints,
-		model.TrafficDirectionInbound, nil, false)
-	// If stat name is configured, build the alt statname.
-	if len(pluginParams.Push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.AltStatName = util.BuildStatPrefix(pluginParams.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.ServicePort, instance.Service.Attributes)
-	}
-	setUpstreamProtocol(pluginParams.Node, localCluster, instance.ServicePort, model.TrafficDirectionInbound)
-
-	// When users specify circuit breakers, they need to be set on the receiver end
-	// (server side) as well as client side, so that the server has enough capacity
-	// (not the defaults) to handle the increased traffic volume
-	// TODO: This is not foolproof - if instance is part of multiple services listening on same port,
-	// choice of inbound cluster is arbitrary. So the connection pool settings may not apply cleanly.
-	cfg := pluginParams.Push.DestinationRule(pluginParams.Node, instance.Service)
-	if cfg != nil {
-		destinationRule := cfg.Spec.(*networking.DestinationRule)
-		if destinationRule.TrafficPolicy != nil {
-			connectionPool, _, _, _ := selectTrafficPolicyComponents(MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, instance.ServicePort))
-			// only connection pool settings make sense on the inbound path.
-			// upstream TLS settings/outlier detection/load balancer don't apply here.
-			applyConnectionPool(pluginParams.Push.Mesh, localCluster, connectionPool)
-			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
-		}
-	}
-	return localCluster
 }
 
 func convertResolution(proxy *model.Proxy, service *model.Service) cluster.Cluster_DiscoveryType {
