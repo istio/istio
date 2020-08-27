@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 
@@ -41,11 +42,11 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	}
 	defer conn.Close()
 
-	var outBuffer bytes.Buffer
-	outBuffer.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
+	msgBuilder := strings.Builder{}
+	msgBuilder.WriteString(fmt.Sprintf("[%d] Url=%s\n", req.RequestID, req.URL))
 
 	if req.Message != "" {
-		outBuffer.WriteString(fmt.Sprintf("[%d] Echo=%s\n", req.RequestID, req.Message))
+		msgBuilder.WriteString(fmt.Sprintf("[%d] Echo=%s\n", req.RequestID, req.Message))
 	}
 
 	// Apply per-request timeout to calculate deadline for reads/writes.
@@ -55,10 +56,10 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	// Apply the deadline to the connection.
 	deadline, _ := ctx.Deadline()
 	if err := conn.SetWriteDeadline(deadline); err != nil {
-		return outBuffer.String(), err
+		return msgBuilder.String(), err
 	}
 	if err := conn.SetReadDeadline(deadline); err != nil {
-		return outBuffer.String(), err
+		return msgBuilder.String(), err
 	}
 
 	// For server first protocol, we expect the server to send us the magic string first
@@ -79,27 +80,38 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 	}
 
 	if _, err := conn.Write([]byte(message + "\n")); err != nil {
-		return outBuffer.String(), err
+		return msgBuilder.String(), err
 	}
-
-	buf := make([]byte, 1024+len(message))
-	n, err := bufio.NewReader(conn).Read(buf)
-	if err != nil {
-		return outBuffer.String(), err
-	}
-
-	for _, line := range strings.Split(string(buf[:n]), "\n") {
-		if line != "" {
-			outBuffer.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
+	var resBuffer bytes.Buffer
+	for {
+		buf := make([]byte, 4096+len(message))
+		n, err := bufio.NewReader(conn).Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return msgBuilder.String(), err
+		}
+		resBuffer.Write(buf[:n])
+		// the message is sent last - when we get the whole message we can stop reading
+		if strings.Contains(resBuffer.String(), message) {
+			break
 		}
 	}
 
-	msg := outBuffer.String()
+	// format the output for forwarder response
+	for _, line := range strings.Split(resBuffer.String(), "\n") {
+		if line != "" {
+			msgBuilder.WriteString(fmt.Sprintf("[%d body] %s\n", req.RequestID, line))
+		}
+	}
+
+	msg := msgBuilder.String()
 	expected := fmt.Sprintf("%s=%s", string(response.StatusCodeField), response.StatusCodeOK)
 	if !strings.Contains(msg, expected) {
 		return msg, fmt.Errorf("expect to recv message with %s, got %s. Return EOF", expected, msg)
 	}
-	return outBuffer.String(), err
+	return msg, nil
 }
 
 func (c *tcpProtocol) Close() error {

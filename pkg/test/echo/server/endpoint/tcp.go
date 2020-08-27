@@ -98,29 +98,54 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		_ = conn.Close()
 	}()
 
+	log.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
+
 	// If this is server first, client expects a message from server. Send the magic string.
 	if s.Port.ServerFirst {
 		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
 	}
 
-	initialReply := true
+	reader := bufio.NewReader(conn)
+	firstReply := true
 	for {
-		buf, err := bufio.NewReader(conn).ReadBytes(byte('\n'))
-		if err != nil {
-			if err != io.EOF {
-				log.Warn("TCP read failed: " + err.Error())
-			}
-			return
-		}
-		log.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
-		if initialReply {
-			// Fill the field in the response
-			_, _ = conn.Write([]byte(fmt.Sprintf("%s=%s\n", string(response.StatusCodeField), response.StatusCodeOK)))
-			initialReply = false
+		buf, err := reader.ReadBytes(byte('\n'))
+
+		// important not to start sending any response until we've started reading the message,
+		// otherwise the response could be read when we expect the magic string
+		if firstReply {
+			s.writeResponse(conn)
+			firstReply = false
 		}
 
-		// echo the message in the buffer
-		_, _ = conn.Write(buf)
+		if err != nil {
+			if err != io.EOF {
+				log.Warnf("TCP read failed: %v", err.Error())
+			}
+			break
+		}
+
+		// echo the message from the request
+		_, err = conn.Write(buf)
+		if err != nil {
+			log.Warnf("TCP write failed %q, :%v", string(buf), err)
+		}
+	}
+}
+
+func (s *tcpInstance) writeResponse(conn net.Conn) {
+	// Write non-request fields specific to the instance
+	respFields := map[response.Field]string{
+		response.StatusCodeField:     response.StatusCodeOK,
+		response.ClusterField:        s.Cluster,
+		response.ServiceVersionField: s.Version,
+		response.ServicePortField:    strconv.Itoa(s.Port.Port),
+	}
+	for field, val := range respFields {
+		val := fmt.Sprintf("%s=%s\n", string(field), val)
+		_, err := conn.Write([]byte(val))
+		if err != nil {
+			log.Warnf("TCP write failed %q: %v", val, err)
+		}
 	}
 }
 
