@@ -117,7 +117,7 @@ func TestAgent(t *testing.T) {
 			&adsc.Config{
 				IP:        "10.11.10.1",
 				Namespace: "test",
-				RootCert: creds.RootCert,
+				RootCert:  creds.RootCert,
 				Watch: []string{
 					v3.ClusterType,
 					collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String()},

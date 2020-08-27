@@ -323,6 +323,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+		clientCerts = []tls.Certificate{clientCert}
 	} else if a.cfg.CertDir != "" {
 		certName = a.cfg.CertDir + "/cert-chain.pem"
 		clientCert, err = tls.LoadX509KeyPair(certName, a.cfg.CertDir+"/key.pem")

@@ -25,7 +25,6 @@ import (
 
 	"google.golang.org/grpc"
 
-
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/xds"
