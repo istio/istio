@@ -299,8 +299,8 @@ type EdsV2Generator struct {
 	Generator *EdsGenerator
 }
 
-func (e *EdsV2Generator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	results := e.Generator.Generate(proxy, push, w, updates)
+func (e *EdsV2Generator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	results := e.Generator.Generate(proxy, push, w, req)
 	for _, i := range results {
 		i.TypeUrl = v2.EndpointType
 	}
@@ -339,11 +339,11 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	if !edsNeedsPush(updates) {
+func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !edsNeedsPush(req.ConfigsUpdated) {
 		return nil
 	}
-	edsUpdatedServices := model.ConfigNamesOfKind(updates, gvk.ServiceEntry)
+	edsUpdatedServices := model.ConfigNamesOfKind(req.ConfigsUpdated, gvk.ServiceEntry)
 	resources := make([]*any.Any, 0)
 	empty := 0
 

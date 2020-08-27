@@ -141,7 +141,7 @@ type XdsUpdates = map[ConfigKey]struct{}
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates XdsUpdates) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
