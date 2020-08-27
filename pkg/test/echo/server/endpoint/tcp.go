@@ -40,6 +40,10 @@ func newTCP(config Config) Instance {
 	}
 }
 
+func (s *tcpInstance) GetConfig() Config {
+	return s.Config
+}
+
 func (s *tcpInstance) Start(onReady OnReadyFunc) error {
 	var listener net.Listener
 	var port int

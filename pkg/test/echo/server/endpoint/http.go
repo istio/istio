@@ -64,6 +64,10 @@ func newHTTP(config Config) Instance {
 	}
 }
 
+func (s *httpInstance) GetConfig() Config {
+	return s.Config
+}
+
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	h2s := &http2.Server{}
 	s.server = &http.Server{

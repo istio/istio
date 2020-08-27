@@ -267,7 +267,7 @@ func (r ParsedResponses) String() string {
 	return out
 }
 
-func parseForwardedResponse(resp *proto.ForwardEchoResponse) ParsedResponses {
+func ParseForwardedResponse(resp *proto.ForwardEchoResponse) ParsedResponses {
 	responses := make([]*ParsedResponse, len(resp.Output))
 	for i, output := range resp.Output {
 		responses[i] = parseResponse(output)

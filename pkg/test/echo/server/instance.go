@@ -17,6 +17,7 @@ package server
 import (
 	"fmt"
 	"io"
+	"istio.io/pkg/log"
 	"net/http"
 	"sync"
 	"sync/atomic"
