@@ -874,6 +874,33 @@ func (a *ADSC) WaitClear() {
 	}
 }
 
+// WaitSingle waits for a single resource, and fails if any other are returned
+func (a *ADSC) WaitSingle(to time.Duration, want string) error {
+	t := time.NewTimer(to)
+	for {
+		select {
+		case t := <-a.Updates:
+			if t == "" {
+				return fmt.Errorf("closed")
+			}
+			if t != want && shortTypeMap[t] != want {
+				return fmt.Errorf("wanted update for %v got %v/%v", want, t, shortTypeMap[t])
+			}
+			return nil
+		case <-t.C:
+			return fmt.Errorf("timeout, still waiting for update for %v", want)
+		}
+	}
+}
+
+// TODO stop using short types
+var shortTypeMap = map[string]string{
+	"cds": v3.ClusterType,
+	"lds": v3.ListenerType,
+	"rds": v3.RouteType,
+	"eds": v3.EndpointType,
+}
+
 // Wait for an updates for all the specified types
 // If updates is empty, this will wait for any update
 func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {

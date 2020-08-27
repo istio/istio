@@ -55,6 +55,67 @@ const (
 	edsIncVip = "10.10.1.2"
 )
 
+func TestIncrementalPush(t *testing.T) {
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml")})
+	ads := s.Connect(nil, nil, watchAll)
+	t.Run("Full Push", func(t *testing.T) {
+		s.Discovery.Push(&model.PushRequest{Full: true})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("Incremental Push", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{Full: false})
+		if err := ads.WaitSingle(time.Second*5, v3.EndpointType); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("Incremental Push with updated services", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full: false,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{
+				{Name: "destall.default.svc.cluster.local", Namespace: "testns", Kind: gvk.ServiceEntry}: {},
+			},
+		})
+		if err := ads.WaitSingle(time.Second*5, v3.EndpointType); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("Full Push with updated services", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{
+				{Name: "foo.bar", Namespace: "default", Kind: gvk.ServiceEntry}:   {},
+				{Name: "destall", Namespace: "testns", Kind: gvk.DestinationRule}: {},
+			},
+		})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) < 3 {
+			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		}
+	})
+	t.Run("Full Push without updated services", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: map[model.ConfigKey]struct{}{
+				{Name: "destall", Namespace: "testns", Kind: gvk.DestinationRule}: {},
+			},
+		})
+		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) < 3 {
+			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		}
+	})
+}
+
 func TestEds(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml")})
 	addUdsEndpoint(s)
