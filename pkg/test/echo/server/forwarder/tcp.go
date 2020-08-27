@@ -93,6 +93,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 				fwLog.Warnf("TCP read failed: %v", err)
 				return msgBuilder.String(), err
 			}
+			fwLog.Warnf("EOF before complete message")
 			break
 		}
 		resBuffer.Write(buf[:n])
