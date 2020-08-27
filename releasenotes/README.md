@@ -80,7 +80,7 @@ The `docs` field should be used to list related documentation. These will be tur
 
 ### Release Notes
 
-These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `**Action**`. Acceptable actions are: `**Added**`, `**Deprecated**`, `**Enabled**`, `**Fixed**`, `**Optimized**`, `**Improved**`, `**Removed**`, **Promoted**, and `**Upgraded**`.
+These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `**Action**`. Acceptable actions are: `**Added**`, `**Deprecated**`, `**Enabled**`, `**Fixed**`, `**Optimized**`, `**Improved**`, `**Removed**`, `**Promoted**`, and `**Upgraded**`.
 
 ### Upgrade Notes
 
