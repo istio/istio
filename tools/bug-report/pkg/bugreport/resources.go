@@ -20,7 +20,7 @@ const (
 	bugReportHelpFilename       = "Path to a file containing configuration in YAML format."
 	bugReportHelpIstioNamespace = "List of comma-separated namespaces where Istio control planes " +
 		"are installed."
-	bugReportHelpDryRun         = "Console output only, does not actually capture logs."
+	bugReportHelpDryRun         = "Only log commands that would be run, don't fetch or write."
 	bugReportHelpFullSecrets    = "If set, secret contents are included in output."
 	bugReportHelpCommandTimeout = "Maximum amount of time to spend fetching logs. When timeout is reached " +
 		"only the logs captured so far are saved to the archive."

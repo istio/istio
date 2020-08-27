@@ -68,12 +68,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 			return nil, err
 		}
 		for _, p := range pods.Items {
-			deployment, err := getOwnerDeployment(&p, replicasets.Items)
-			if err != nil {
-				// Non critical error, should only show up in the logs, not console.
-				log.Infoa(err)
-				continue
-			}
+			deployment := getOwnerDeployment(&p, replicasets.Items)
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(ns.Name, deployment, p.Name, c.Name)
 			}
@@ -148,14 +143,14 @@ func resourcesStringImpl(node interface{}, prefix string) string {
 	return out
 }
 
-func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) (string, error) {
+func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
 	for _, o := range pod.OwnerReferences {
 		if o.Kind == "ReplicaSet" {
 			for _, rs := range replicasets {
 				if rs.Name == o.Name {
 					for _, oo := range rs.OwnerReferences {
 						if oo.Kind == "Deployment" {
-							return oo.Name, nil
+							return oo.Name
 						}
 					}
 
@@ -163,5 +158,6 @@ func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) (string, e
 			}
 		}
 	}
-	return "", fmt.Errorf("no owning Deployment found for pod %s", pod.Name)
+	log.Infof("no owning Deployment found for pod %s", pod.Name)
+	return ""
 }

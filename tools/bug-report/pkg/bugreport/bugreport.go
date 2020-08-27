@@ -256,6 +256,9 @@ func mkdirOrExit(fpath string) {
 }
 
 func appendGlobalErr(err error) {
+	if err == nil {
+		return
+	}
 	lock.Lock()
 	gErrors = util.AppendErr(gErrors, err)
 	lock.Unlock()
