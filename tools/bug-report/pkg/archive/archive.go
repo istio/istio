@@ -26,14 +26,46 @@ import (
 )
 
 const (
-	proxyLogsPath = "proxy-logs"
-	istioLogsPath = "istio-logs"
+	proxyLogsPathSubdir = "proxy-logs"
+	istioLogsPathSubdir = "istio-logs"
+	clusterInfoSubdir   = "cluster"
 )
 
 var (
 	// Each run of the command produces a new archive.
 	instancePath = fmt.Sprint(rand.Int())
 )
+
+func mkdirOrExit(path string) {
+	if err := os.MkdirAll(path, 0755); err != nil {
+		fmt.Printf("Could not create output directories: %s", err)
+		os.Exit(-1)
+	}
+}
+
+func ProxyLogPath(rootDir, namespace, pod string) string {
+	dir := filepath.Join(rootDir, instancePath, proxyLogsPathSubdir, namespace)
+	mkdirOrExit(dir)
+	return filepath.Join(dir, pod+".log")
+}
+
+func ProxyCoredumpPath(rootDir, namespace, pod string) string {
+	dir := filepath.Join(rootDir, instancePath, proxyLogsPathSubdir, namespace)
+	mkdirOrExit(dir)
+	return filepath.Join(dir, pod+".core")
+}
+
+func IstiodPath(rootDir, namespace, pod string) string {
+	dir := filepath.Join(rootDir, instancePath, istioLogsPathSubdir, namespace)
+	mkdirOrExit(dir)
+	return filepath.Join(dir, pod)
+}
+
+func ClusterInfoPath(rootDir, fileName string) string {
+	dir := filepath.Join(rootDir, instancePath, clusterInfoSubdir)
+	mkdirOrExit(dir)
+	return filepath.Join(dir, fileName)
+}
 
 // Create creates a gzipped tar file from srcDir and writes it to outPath.
 func Create(srcDir, outPath string) error {

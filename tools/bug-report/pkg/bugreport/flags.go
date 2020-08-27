@@ -47,7 +47,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, bugReportHelpDryRun)
 
 	// istio namespaces
-	cmd.PersistentFlags().StringSliceVarP(&args.IstioNamespaces, "namespaces", "n", bugReportDefaultIstioNamespaces, bugReportHelpIstioNamespaces)
+	cmd.PersistentFlags().StringVarP(&args.IstioNamespace, "istio-namespace", "n", bugReportDefaultIstioNamespace, bugReportHelpIstioNamespace)
 
 	// timeouts and max sizes
 	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout, bugReportHelpCommandTimeout)

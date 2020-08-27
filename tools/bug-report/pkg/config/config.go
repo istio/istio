@@ -79,9 +79,8 @@ type BugReportConfig struct {
 	// Context is the cluster Context in the kube config
 	Context string `json:"context,omitempty"`
 
-	// IstioNamespaces is the list of namespaces where istio control planes
-	// are installed.
-	IstioNamespaces []string `json:"istioNamespaces,omitempty"`
+	// IstioNamespace is the namespace where the istio control plane is installed.
+	IstioNamespace string `json:"istioNamespace,omitempty"`
 
 	// DryRun controls whether logs are actually captured and saved.
 	DryRun bool `json:"dryRun,omitempty"`

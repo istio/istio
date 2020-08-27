@@ -67,19 +67,19 @@ func Logs(namespace, pod, container string, previous, dryRun bool) (string, erro
 }
 
 // Exec runs exec for the given command in the given namespace/pod/container.
-func Exec(namespace, pod, container, command string, dryRun bool) (string, error) {
+func Exec(namespace, pod, container string, dryRun bool, command ...string) (string, error) {
 	cmdStr := []string{"exec"}
 	return Run(cmdStr,
 		&Options{
 			Namespace: namespace,
-			ExtraArgs: []string{"-i", "-t", pod, "-c", container, "--", command},
+			ExtraArgs: append([]string{"-i", "-t", pod, "-c", container, "--"}, command...),
 			DryRun:    dryRun,
 		})
 }
 
 // Cat runs the cat command for the given path in the given namespace/pod/container.
 func Cat(namespace, pod, container, path string, dryRun bool) (string, error) {
-	return Exec(namespace, pod, container, `cat `+path, dryRun)
+	return Exec(namespace, pod, container, dryRun, "cat", path)
 }
 
 // RunCmd runs the given command in kubectl, adding -n namespace if namespace is not empty.

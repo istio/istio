@@ -15,6 +15,7 @@
 package content
 
 import (
+	"fmt"
 	"strings"
 
 	"istio.io/istio/tools/bug-report/pkg/kubectlcmd"
@@ -79,7 +80,7 @@ func GetEvents(dryRun bool) (string, error) {
 func GetIstiodInfo(namespace, pod string, dryRun bool) (string, error) {
 	var sb strings.Builder
 	for _, url := range istiodURLs {
-		out, err := kubectlcmd.Exec(namespace, pod, "discovery", `curl "http://localhost:8080/`+url+`"`, dryRun)
+		out, err := kubectlcmd.Exec(namespace, pod, "discovery", dryRun, "curl", `http://localhost:8080/`+url+``)
 		if err != nil {
 			return "", err
 		}
@@ -91,29 +92,33 @@ func GetIstiodInfo(namespace, pod string, dryRun bool) (string, error) {
 }
 
 // GetCoredumps returns coredumps for the given namespace/pod/container.
-func GetCoredumps(namespace, pod, container string, dryRun bool) ([]string, error) {
+func GetCoredumps(namespace, pod, container string, dryRun bool) (string, error) {
 	log.Infof("Getting coredumps for %s/%s/%s...", namespace, pod, container)
 	cds, err := getCoredumpList(namespace, pod, container, dryRun)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	var out []string
 	log.Infof("%s/%s/%s has %d coredumps", namespace, pod, container, len(cds))
-	for _, cd := range cds {
+	for idx, cd := range cds {
+		out = append(out, fmt.Sprintf("============= Coredump %d =============\n", idx))
 		outStr, err := kubectlcmd.Cat(namespace, pod, container, cd, dryRun)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		out = append(out, outStr)
+		out = append(out, outStr, "\n")
 	}
-	return out, nil
+	return strings.Join(out, "\n"), nil
 }
 
 func getCoredumpList(namespace, pod, container string, dryRun bool) ([]string, error) {
-	out, err := kubectlcmd.Exec(namespace, pod, container, `find `+coredumpDir+` -name 'core.*'`, dryRun)
+	out, err := kubectlcmd.Exec(namespace, pod, container, dryRun, "find", coredumpDir, "-name", "'core.*'")
 	if err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(out) == "" {
+		return nil, nil
 	}
 	return strings.Split(out, "\n"), nil
 }
@@ -125,6 +130,9 @@ func getCRDList(dryRun bool) ([]string, error) {
 	}
 	var out []string
 	for _, crd := range strings.Split(crdStr, "\n") {
+		if strings.TrimSpace(crd) == "" {
+			continue
+		}
 		out = append(out, strings.Split(crd, " ")[0])
 	}
 	return out, nil

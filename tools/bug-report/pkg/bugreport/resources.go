@@ -15,10 +15,10 @@
 package bugreport
 
 const (
-	bugReportHelpKubeconfig      = "Path to kube config."
-	bugReportHelpContext         = "Name of the kubeconfig Context to use."
-	bugReportHelpFilename        = "Path to a file containing configuration in YAML format."
-	bugReportHelpIstioNamespaces = "List of comma-separated namespaces where Istio control planes " +
+	bugReportHelpKubeconfig     = "Path to kube config."
+	bugReportHelpContext        = "Name of the kubeconfig Context to use."
+	bugReportHelpFilename       = "Path to a file containing configuration in YAML format."
+	bugReportHelpIstioNamespace = "List of comma-separated namespaces where Istio control planes " +
 		"are installed."
 	bugReportHelpDryRun         = "Console output only, does not actually capture logs."
 	bugReportHelpCommandTimeout = "Maximum amount of time to spend fetching logs. When timeout is reached " +
