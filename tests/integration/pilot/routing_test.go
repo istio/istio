@@ -379,7 +379,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 					cases = append(cases, TrafficTestCase{
 						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
 						call: func() (echoclient.ParsedResponses, error) {
-							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount})
+							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount, Timeout: time.Second * 5})
 						},
 						validator: func(responses echoclient.ParsedResponses) error {
 							return responses.CheckOK()
