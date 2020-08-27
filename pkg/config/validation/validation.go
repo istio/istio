@@ -107,7 +107,7 @@ var (
 	validateFuncs = make(map[string]ValidateFunc)
 )
 
-// Validate defines a validation func for an API proto.
+// ValidateFunc defines a validation func for an API proto.
 type ValidateFunc func(name, namespace string, config proto.Message) error
 
 // IsValidateFunc indicates whether there is a validation function with the given name.
@@ -189,6 +189,18 @@ func validateDNS1123Labels(domain string) error {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
+	}
+	return nil
+}
+
+// ValidateHTTPHeaderValue validates a header value for Envoy
+// Valid: "foo", "%HOSTNAME%", "100%%", "prefix %HOSTNAME% suffix"
+// Invalid: "abc%123"
+// We don't try to check that what is inside the %% is one of Envoy recognized values, we just prevent invalid config.
+// See: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers.html#custom-request-response-headers
+func ValidateHTTPHeaderValue(value string) error {
+	if strings.Count(value, "%")%2 != 0 {
+		return errors.New("single % not allowed.  Escape by doubling to %% or encase Envoy variable name in pair of %")
 	}
 	return nil
 }
@@ -1725,20 +1737,24 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 	}
 
 	// header manipulation
-	for name := range http.Headers.GetRequest().GetAdd() {
+	for name, val := range http.Headers.GetRequest().GetAdd() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
-	for name := range http.Headers.GetRequest().GetSet() {
+	for name, val := range http.Headers.GetRequest().GetSet() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetRequest().GetRemove() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
-	for name := range http.Headers.GetResponse().GetAdd() {
+	for name, val := range http.Headers.GetResponse().GetAdd() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
-	for name := range http.Headers.GetResponse().GetSet() {
+	for name, val := range http.Headers.GetResponse().GetSet() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetResponse().GetRemove() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
@@ -1848,20 +1864,24 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		}
 
 		// header manipulations
-		for name := range weight.Headers.GetRequest().GetAdd() {
+		for name, val := range weight.Headers.GetRequest().GetAdd() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
-		for name := range weight.Headers.GetRequest().GetSet() {
+		for name, val := range weight.Headers.GetRequest().GetSet() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetRequest().GetRemove() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
-		for name := range weight.Headers.GetResponse().GetAdd() {
+		for name, val := range weight.Headers.GetResponse().GetAdd() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
-		for name := range weight.Headers.GetResponse().GetSet() {
+		for name, val := range weight.Headers.GetResponse().GetSet() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetResponse().GetRemove() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
@@ -2278,6 +2298,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		return
 	})
 
+// ValidatePortName validates a port name to DNS-1123
 func ValidatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
@@ -2285,6 +2306,7 @@ func ValidatePortName(name string) error {
 	return nil
 }
 
+// ValidateProtocol validates a portocol name is known
 func ValidateProtocol(protocolStr string) error {
 	// Empty string is used for protocol sniffing.
 	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {
