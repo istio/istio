@@ -139,6 +139,10 @@ type AgentConfig struct {
 
 	// Namespace to connect as
 	Namespace string
+
+	// Location of the root CA for the XDS connection. Used for setting platform certs or
+	// using custom roots.
+	XDSRootCerts string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -281,28 +285,26 @@ func gatewaySdsExists() bool {
 //
 // TODO: additional checks for existence. Fail early, instead of obscure envoy errors.
 func (sa *Agent) FindRootCAForXDS() string {
-	if strings.HasSuffix(sa.proxyConfig.DiscoveryAddress, ":443") {
-		return "/etc/ssl/certs/ca-certificates.crt"
+	if sa.cfg.XDSRootCerts != "" {
+		return sa.cfg.XDSRootCerts
 	} else if _, err := os.Stat("./etc/certs/root-cert.pem"); err == nil {
 		// Old style - mounted cert. This is used for XDS auth only,
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
 		return "./etc/certs/root-cert.pem"
-	} else if sa.secOpts.PilotCertProvider == "istiod" {
-		// PILOT_CERT_PROVIDER - default is istiod
-		// This is the default - a mounted config map on K8S
-		return "./var/run/secrets/istio/root-cert.pem"
 	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident.
 		// API is alpha.
-		return "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+		return k8sCAPath
 	} else if sa.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
 		return sa.secOpts.ProvCert + "/root-cert.pem"
+	} else {
+		// PILOT_CERT_PROVIDER - default is istiod
+		// This is the default - a mounted config map on K8S
+		return path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
 	}
-	// Default to std certs.
-	return "/etc/ssl/certs/ca-certificates.crt"
 }
 
 // Find the root CA to use when connecting to the CA (Istiod or external).
@@ -314,10 +316,6 @@ func (sa *Agent) FindRootCAForCA() string {
 	}
 	if strings.HasSuffix(ca, ":443") {
 		return "/etc/ssl/certs/ca-certificates.crt"
-	} else if sa.secOpts.PilotCertProvider == "istiod" {
-		// This is the default - a mounted config map on K8S
-		return path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
-		// or: "./var/run/secrets/istio/root-cert.pem"
 	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
 		// Using K8S - this is likely incorrect, may work by accident.
 		// API is alpha.
@@ -328,9 +326,11 @@ func (sa *Agent) FindRootCAForCA() string {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
 		return sa.secOpts.ProvCert + "/root-cert.pem"
+	} else {
+		// This is the default - a mounted config map on K8S
+		return path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName)
+		// or: "./var/run/secrets/istio/root-cert.pem"
 	}
-	// Default to std certs.
-	return "/etc/ssl/certs/ca-certificates.crt"
 }
 
 // newWorkloadSecretCache creates the cache for workload secrets and/or gateway secrets.
