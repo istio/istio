@@ -293,9 +293,6 @@ var (
 			}
 
 			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{}, secOpts)
-			if _, err := sa.StartXdsProxy(); err != nil {
-				panic(err.Error())
-			}
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				// Obtain Pilot SAN, using DNS.
@@ -362,6 +359,10 @@ var (
 				dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
 			}
 
+			if _, err := sa.StartXdsProxy(); err != nil {
+				log.Errorf("failed to start XDS Proxy: %v", err)
+				return err
+			}
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
