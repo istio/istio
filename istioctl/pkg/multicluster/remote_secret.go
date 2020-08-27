@@ -323,7 +323,7 @@ type RemoteSecretOptions struct {
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.StringVar(&o.ServiceAccountName, "service-account", o.ServiceAccountName,
-		"create a secret with this service account's credentials.")
+		"Create a secret with this service account's credentials.")
 	flagset.StringVar(&o.ClusterName, "name", "",
 		"Name of the local cluster whose credentials are stored "+
 			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
@@ -333,12 +333,12 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 		supportedAuthType = append(supportedAuthType, string(at))
 	}
 	flagset.Var(&o.AuthType, "auth-type",
-		fmt.Sprintf("type of authentication to use. supported values = %v", supportedAuthType))
+		fmt.Sprintf("Type of authentication to use. supported values = %v", supportedAuthType))
 	flagset.StringVar(&o.AuthPluginName, "auth-plugin-name", o.AuthPluginName,
-		fmt.Sprintf("authenticator plug-in name. --auth-type=%v must be set with this option",
+		fmt.Sprintf("Authenticator plug-in name. --auth-type=%v must be set with this option",
 			RemoteSecretAuthTypePlugin))
 	flagset.StringToString("auth-plugin-config", o.AuthPluginConfig,
-		fmt.Sprintf("authenticator plug-in configuration. --auth-type=%v must be set with this option",
+		fmt.Sprintf("Authenticator plug-in configuration. --auth-type=%v must be set with this option",
 			RemoteSecretAuthTypePlugin))
 }
 

@@ -60,7 +60,7 @@ func (o *CentralControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command)
 	cmd.PersistentFlags().IntVar(&o.XdsPodPort, "xds-port", viper.GetInt("XDS-PORT"),
 		"Istiod pod port")
 	cmd.PersistentFlags().DurationVar(&o.Timeout, "timeout", time.Second*30,
-		"the duration to wait before failing")
+		"The duration to wait before failing")
 	cmd.PersistentFlags().StringVar(&o.XDSSAN, "authority", viper.GetString("AUTHORITY"),
 		"XDS Subject Alternative Name (for example istiod.istio-system.svc)")
 	cmd.PersistentFlags().BoolVar(&o.InsecureSkipVerify, "insecure", viper.GetBool("INSECURE"),
