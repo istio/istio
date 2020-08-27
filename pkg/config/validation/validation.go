@@ -200,7 +200,7 @@ func ValidateHTTPHeaderName(name string) error {
 // See: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers.html#custom-request-response-headers
 func ValidateHTTPHeaderValue(value string) error {
 	if strings.Count(value, "%")%2 != 0 {
-		return errors.New("Single % not allowed.  Escape by doubling to %% or encase Envoy variable name in pair of %")
+		return errors.New("single % not allowed.  Escape by doubling to %% or encase Envoy variable name in pair of %")
 	}
 	return nil
 }
