@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -18,7 +32,7 @@ import (
 const (
 	version = "v2"
 	cluster = "cluster-1"
-	msg = "Hello world!"
+	msg     = "Hello world!"
 )
 
 var testCases = map[string]struct {
@@ -27,6 +41,13 @@ var testCases = map[string]struct {
 }{
 	"tcp": {
 		proto: protocol.TCP,
+	},
+	"tcp server-first": {
+		proto:       protocol.TCP,
+		serverFirst: true,
+	},
+	"http": {
+		proto:       protocol.HTTP,
 	},
 }
 
@@ -88,15 +109,6 @@ func TestEcho(t *testing.T) {
 			if err := parsedRes.CheckCluster(cluster); err != nil {
 				t.Error(err)
 			}
-			if err := parsedRes.Check(func(i int, response *client.ParsedResponse) error {
-				if response.Count(fmt.Sprintf("body] %s", msg)) != 1 {
-					return fmt.Errorf("did not find %q in res %d", msg, i)
-				}
-				return nil
-			}); err != nil {
-				t.Error(err)
-			}
-
 		})
 	}
 }
