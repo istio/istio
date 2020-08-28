@@ -28,11 +28,21 @@ const (
 
 var (
 	istiodURLs = []string{
-		"debug/configz",
-		"debug/endpointz",
+		"debug/edsz",
 		"debug/adsz",
-		"debug/authenticationz",
-		"metrics",
+		"debug/cdsz",
+		"debug/syncz",
+		"debug/config_distribution",
+		"debug/registryz",
+		"debug/endpointz",
+		"debug/endpointShardz",
+		"debug/configz",
+		"debug/resourcesz",
+		"debug/instancesz",
+		"debug/authorizationz",
+		"debug/config_dump",
+		"debug/push_status",
+		"debug/inject",
 	}
 )
 
