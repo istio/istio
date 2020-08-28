@@ -101,11 +101,11 @@ istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.2
 		"injectConfigMapName", "valuesFile")
 	addToMeshCmd.AddCommand(externalSvcMeshifyCmd)
 	addToMeshCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
-		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	addToMeshCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"injection configuration filename. Cannot be used with --injectConfigMapName")
+		"Injection configuration filename. Cannot be used with --injectConfigMapName")
 	addToMeshCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
-		"injection values configuration filename.")
+		"Injection values configuration filename.")
 
 	addToMeshCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
@@ -164,7 +164,7 @@ istioctl experimental add-to-mesh deployment productpage-v1`,
 	}
 
 	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
+		"Control plane revision (experimental)")
 
 	return cmd
 }
@@ -221,7 +221,7 @@ istioctl experimental add-to-mesh service productpage`,
 	}
 
 	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
+		"Control plane revision (experimental)")
 
 	return cmd
 }

@@ -259,16 +259,16 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 			}
 		}
 		if arResponse != nil {
-			var patchType kubeApiAdmissionv1beta1.PatchType
+			var patchType *kubeApiAdmissionv1beta1.PatchType
 			if arResponse.PatchType != nil {
-				patchType = kubeApiAdmissionv1beta1.PatchType(*arResponse.PatchType)
+				patchType = (*kubeApiAdmissionv1beta1.PatchType)(arResponse.PatchType)
 			}
 			arv1beta1.Response = &kubeApiAdmissionv1beta1.AdmissionResponse{
 				UID:              arResponse.UID,
 				Allowed:          arResponse.Allowed,
 				Result:           arResponse.Result,
 				Patch:            arResponse.Patch,
-				PatchType:        &patchType,
+				PatchType:        patchType,
 				AuditAnnotations: arResponse.AuditAnnotations,
 			}
 		}
@@ -296,16 +296,16 @@ func AdmissionReviewAdapterToKube(ar *AdmissionReview, apiVersion string) runtim
 			}
 		}
 		if arResponse != nil {
-			var patchType kubeApiAdmissionv1.PatchType
+			var patchType *kubeApiAdmissionv1.PatchType
 			if arResponse.PatchType != nil {
-				patchType = kubeApiAdmissionv1.PatchType(*arResponse.PatchType)
+				patchType = (*kubeApiAdmissionv1.PatchType)(arResponse.PatchType)
 			}
 			arv1.Response = &kubeApiAdmissionv1.AdmissionResponse{
 				UID:              arResponse.UID,
 				Allowed:          arResponse.Allowed,
 				Result:           arResponse.Result,
 				Patch:            arResponse.Patch,
-				PatchType:        &patchType,
+				PatchType:        patchType,
 				AuditAnnotations: arResponse.AuditAnnotations,
 			}
 		}
