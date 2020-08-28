@@ -30,7 +30,7 @@ import (
 
 var _ io.Closer = &Instance{}
 
-const maxConcurrency = 50
+const maxConcurrency = 10
 
 // Config for a forwarder Instance.
 type Config struct {
