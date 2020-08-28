@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	proxyLogsPathSubdir = "proxy-logs"
-	istioLogsPathSubdir = "istio-logs"
+	proxyLogsPathSubdir = "proxies"
+	istioLogsPathSubdir = "istio"
 	clusterInfoSubdir   = "cluster"
 )
 
