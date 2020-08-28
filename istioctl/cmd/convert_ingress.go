@@ -151,7 +151,7 @@ func validateConfigs(configs []config.Config) error {
 	var errs error
 	for _, cfg := range configs {
 		if collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind() == cfg.GroupVersionKind {
-			if err := validation.ValidateVirtualService(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
+			if err := validation.ValidateVirtualService(cfg); err != nil {
 				errs = multierror.Append(err, errs)
 			}
 		}

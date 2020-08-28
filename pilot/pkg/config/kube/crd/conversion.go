@@ -168,7 +168,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 		}
 
 		if withValidate {
-			if err := s.Resource().ValidateConfig(cfg.Name, cfg.Namespace, cfg.Spec); err != nil {
+			if err := s.Resource().ValidateConfig(*cfg); err != nil {
 				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 			}
 		}

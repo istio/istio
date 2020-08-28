@@ -162,74 +162,74 @@ func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string) er
 	return nil
 }
 
-func (cr *store) Create(config config.Config) (string, error) {
+func (cr *store) Create(cfg config.Config) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
-	kind := config.GroupVersionKind
+	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
-		if err := s.Resource().ValidateConfig(config.Name, config.Namespace, config.Spec); err != nil {
+		if err := s.Resource().ValidateConfig(cfg); err != nil {
 			return "", err
 		}
 	}
-	ns, exists := cr.data[kind][config.Namespace]
+	ns, exists := cr.data[kind][cfg.Namespace]
 	if !exists {
 		ns = new(sync.Map)
-		cr.data[kind][config.Namespace] = ns
+		cr.data[kind][cfg.Namespace] = ns
 	}
 
-	_, exists = ns.Load(config.Name)
+	_, exists = ns.Load(cfg.Name)
 
 	if !exists {
 		tnow := time.Now()
-		config.ResourceVersion = tnow.String()
+		cfg.ResourceVersion = tnow.String()
 
 		// Set the creation timestamp, if not provided.
-		if config.CreationTimestamp.IsZero() {
-			config.CreationTimestamp = tnow
+		if cfg.CreationTimestamp.IsZero() {
+			cfg.CreationTimestamp = tnow
 		}
 
-		_, err := cr.ledger.Put(config.Key(kind.Kind, config.Namespace, config.Name), config.ResourceVersion)
+		_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
 		}
-		ns.Store(config.Name, config)
-		return config.ResourceVersion, nil
+		ns.Store(cfg.Name, cfg)
+		return cfg.ResourceVersion, nil
 	}
 	return "", errAlreadyExists
 }
 
-func (cr *store) Update(config config.Config) (string, error) {
+func (cr *store) Update(cfg config.Config) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
-	kind := config.GroupVersionKind
+	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := s.Resource().ValidateConfig(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Resource().ValidateConfig(cfg); err != nil {
 		return "", err
 	}
 
-	ns, exists := cr.data[kind][config.Namespace]
+	ns, exists := cr.data[kind][cfg.Namespace]
 	if !exists {
 		return "", errNotFound
 	}
 
-	_, exists = ns.Load(config.Name)
+	_, exists = ns.Load(cfg.Name)
 	if !exists {
 		return "", errNotFound
 	}
 
 	rev := time.Now().String()
-	config.ResourceVersion = rev
-	_, err := cr.ledger.Put(config.Key(kind.Kind, config.Namespace, config.Name), config.ResourceVersion)
+	cfg.ResourceVersion = rev
+	_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}
-	ns.Store(config.Name, config)
+	ns.Store(cfg.Name, cfg)
 	return rev, nil
 }

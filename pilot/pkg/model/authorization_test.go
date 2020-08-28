@@ -361,15 +361,15 @@ func (fs *authzFakeStore) SetLedger(ledger.Ledger) error {
 	panic("implement me")
 }
 
-func (fs *authzFakeStore) add(config config.Config) {
+func (fs *authzFakeStore) add(cfg config.Config) {
 	fs.data = append(fs.data, struct {
 		typ config.GroupVersionKind
 		ns  string
 		cfg config.Config
 	}{
-		typ: config.GroupVersionKind,
-		ns:  config.Namespace,
-		cfg: config,
+		typ: cfg.GroupVersionKind,
+		ns:  cfg.Namespace,
+		cfg: cfg,
 	})
 }
 

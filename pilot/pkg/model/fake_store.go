@@ -59,13 +59,13 @@ func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) ([]confi
 	return nsConfigs[namespace], nil
 }
 
-func (s *FakeStore) Create(config config.Config) (revision string, err error) {
-	configs := s.store[config.GroupVersionKind]
+func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {
+	configs := s.store[cfg.GroupVersionKind]
 	if configs == nil {
 		configs = make(map[string][]config.Config)
 	}
-	configs[config.Namespace] = append(configs[config.Namespace], config)
-	s.store[config.GroupVersionKind] = configs
+	configs[cfg.Namespace] = append(configs[cfg.Namespace], cfg)
+	s.store[cfg.GroupVersionKind] = configs
 	return "", nil
 }
 
