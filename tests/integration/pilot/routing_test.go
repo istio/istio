@@ -379,7 +379,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 					cases = append(cases, TrafficTestCase{
 						name: fmt.Sprintf("%v %v->%v from %s", call.port, client.Config().Service, destination.Config().Service, client.Config().Cluster.Name()),
 						call: func() (echoclient.ParsedResponses, error) {
-							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount, Timeout: time.Second * 1})
+							return client.Call(echo.CallOptions{Target: destination, PortName: call.port, Scheme: call.scheme, Count: callCount, Timeout: time.Second * 5})
 						},
 						validator: func(responses echoclient.ParsedResponses) error {
 							return responses.CheckOK()
@@ -560,8 +560,7 @@ func TestTraffic(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
 			cases["virtualservice"] = virtualServiceCases(ctx)
-			// TODO(https://github.com/istio/istio/issues/26798)
-			//cases["sniffing"] = protocolSniffingCases(ctx)
+			cases["sniffing"] = protocolSniffingCases(ctx)
 			cases["serverfirst"] = serverFirstTestCases()
 			cases["vm"] = vmTestCases(apps.vmA)
 			for n, tts := range cases {
