@@ -60,7 +60,7 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 		ns := r.Metadata.FullName.Namespace
 		name := r.Metadata.FullName.Name
 
-		err := a.s.Resource().ValidateProto(string(name), string(ns), r.Message)
+		err := a.s.Resource().ValidateConfig(string(name), string(ns), r.Message)
 		if err != nil {
 			if multiErr, ok := err.(*multierror.Error); ok {
 				for _, err := range multiErr.WrappedErrors() {

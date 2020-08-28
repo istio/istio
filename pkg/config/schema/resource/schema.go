@@ -69,9 +69,9 @@ type Schema interface {
 	// Validate this schema.
 	Validate() error
 
-	// ValidateProto validates that the given protocol buffer message is of the correct type for this schema
+	// ValidateConfig validates that the given config message is of the correct type for this schema
 	// and that the contents are valid.
-	ValidateProto(name, namespace string, config proto.Message) error
+	ValidateConfig(name, namespace string, config proto.Message) error
 
 	// Equal is a helper function for testing equality between Schema instances. This supports comparison
 	// with the cmp library.
@@ -154,22 +154,22 @@ func (b Builder) BuildNoValidate() Schema {
 			Version: b.Version,
 			Kind:    b.Kind,
 		},
-		plural:        b.Plural,
-		apiVersion:    b.Group + "/" + b.Version,
-		proto:         b.Proto,
-		protoPackage:  b.ProtoPackage,
-		validateProto: b.ValidateProto,
+		plural:         b.Plural,
+		apiVersion:     b.Group + "/" + b.Version,
+		proto:          b.Proto,
+		protoPackage:   b.ProtoPackage,
+		validateConfig: b.ValidateProto,
 	}
 }
 
 type schemaImpl struct {
-	clusterScoped bool
-	gvk           GroupVersionKind
-	plural        string
-	apiVersion    string
-	proto         string
-	protoPackage  string
-	validateProto validation.ValidateFunc
+	clusterScoped  bool
+	gvk            GroupVersionKind
+	plural         string
+	apiVersion     string
+	proto          string
+	protoPackage   string
+	validateConfig validation.ValidateFunc
 }
 
 func (s *schemaImpl) GroupVersionKind() GroupVersionKind {
@@ -258,8 +258,8 @@ func (s *schemaImpl) MustNewProtoInstance() proto.Message {
 	return p
 }
 
-func (s *schemaImpl) ValidateProto(name, namespace string, config proto.Message) error {
-	return s.validateProto(name, namespace, config)
+func (s *schemaImpl) ValidateConfig(name, namespace string, config proto.Message) error {
+	return s.validateConfig(name, namespace, config)
 }
 
 func (s *schemaImpl) Equal(o Schema) bool {

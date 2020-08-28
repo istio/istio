@@ -171,7 +171,7 @@ func (cr *store) Create(config model.Config) (string, error) {
 		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
-		if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
+		if err := s.Resource().ValidateConfig(config.Name, config.Namespace, config.Spec); err != nil {
 			return "", err
 		}
 	}
@@ -210,7 +210,7 @@ func (cr *store) Update(config model.Config) (string, error) {
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Resource().ValidateConfig(config.Name, config.Namespace, config.Spec); err != nil {
 		return "", err
 	}
 

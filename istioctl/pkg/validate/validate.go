@@ -98,7 +98,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		if err = checkFields(un); err != nil {
 			return err
 		}
-		return schema.Resource().ValidateProto(obj.Name, obj.Namespace, obj.Spec)
+		return schema.Resource().ValidateConfig(obj.Name, obj.Namespace, obj.Spec)
 	}
 
 	var errs error

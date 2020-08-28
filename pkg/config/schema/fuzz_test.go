@@ -79,7 +79,7 @@ func TestValidationFuzzing(t *testing.T) {
 				}
 				obj := istiofuzz.Fuzz(t, kgvk, scheme, fz)
 				iobj = crdclient.TranslateObject(obj, gvk, "cluster.local")
-				_ = r.Resource().ValidateProto(iobj.Name, iobj.Namespace, iobj.Spec)
+				_ = r.Resource().ValidateConfig(iobj.Name, iobj.Namespace, iobj.Spec)
 			}
 		})
 	}

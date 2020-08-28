@@ -102,7 +102,7 @@ var (
 			Proto: "google.protobuf.Struct",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: false,
-			ValidateProto: validation.EmptyValidate,
+			ValidateConfig: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
@@ -119,7 +119,7 @@ var (
 			Proto: "google.protobuf.Struct",
 			ProtoPackage: "github.com/gogo/protobuf/types",
 			ClusterScoped: true,
-			ValidateProto: validation.EmptyValidate,
+			ValidateConfig: validation.EmptyValidate,
 		}.MustBuild(),
 	}.MustBuild()
 
