@@ -39,6 +39,9 @@ var skippedCdsConfigs = map[resource.GroupVersionKind]struct{}{
 }
 
 func cdsNeedsPush(req *model.PushRequest) bool {
+	if req == nil {
+		return true
+	}
 	if !req.Full {
 		// CDS only handles full push
 		return false

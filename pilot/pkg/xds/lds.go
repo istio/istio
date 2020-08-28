@@ -34,6 +34,9 @@ var skippedLdsConfigs = map[resource.GroupVersionKind]struct{}{
 }
 
 func ldsNeedsPush(req *model.PushRequest) bool {
+	if req == nil {
+		return true
+	}
 	if !req.Full {
 		// LDS only handles full push
 		return false
