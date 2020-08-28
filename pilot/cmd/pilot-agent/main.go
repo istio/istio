@@ -74,13 +74,13 @@ var (
 	meshConfigFile string
 
 	// proxy config flags (named identically)
-	serviceCluster           string
-	proxyLogLevel            string
-	proxyComponentLogLevel   string
-	concurrency              int
-	templateFile             string
-	loggingOptions           = log.DefaultOptions()
-	outlierLogPath           string
+	serviceCluster         string
+	proxyLogLevel          string
+	proxyComponentLogLevel string
+	concurrency            int
+	templateFile           string
+	loggingOptions         = log.DefaultOptions()
+	outlierLogPath         string
 
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
