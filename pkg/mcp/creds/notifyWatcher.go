@@ -18,7 +18,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
-	"path"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -51,21 +50,6 @@ var _ CertificateWatcher = &notifyWatcher{}
 
 func (n *notifyWatcher) certPool() *x509.CertPool {
 	return n.caCertPool
-}
-
-// WatchFolder loads certificates from the given folder. It expects the
-// following files:
-// cert-chain.pem, key.pem: Certificate/key files for the client/server on this side.
-// root-cert.pem: certificate from the CA that will be used for validating peer's certificate.
-//
-// Internally WatchFolder will call WatchFiles.
-func WatchFolder(stop <-chan struct{}, folder string) (CertificateWatcher, error) {
-	cred := &Options{
-		CertificateFile:   path.Join(folder, defaultCertificateFile),
-		KeyFile:           path.Join(folder, defaultKeyFile),
-		CACertificateFile: path.Join(folder, defaultCACertificateFile),
-	}
-	return WatchFiles(stop, cred)
 }
 
 // WatchFiles loads certificate & key files from the file system. The method will start a background
