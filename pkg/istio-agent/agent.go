@@ -26,8 +26,8 @@ import (
 	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
+
 	"istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
@@ -36,6 +36,7 @@ import (
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 	"istio.io/istio/security/pkg/nodeagent/secretfetcher"
+
 	"istio.io/pkg/log"
 )
 
