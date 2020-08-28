@@ -39,7 +39,6 @@ require (
 	github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd // indirect
 	github.com/containernetworking/cni v0.7.0-alpha1
 	github.com/containernetworking/plugins v0.7.3
-	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/davecgh/go-spew v1.1.1
@@ -111,7 +110,7 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200824190445-b8a5f5dbee58
+	istio.io/api v0.0.0-20200827131210-bd18678dabfe
 	istio.io/client-go v0.0.0-20200812230733-f5504d568313
 	istio.io/gogo-genproto v0.0.0-20200720193312-b523a30fe746
 	istio.io/pkg v0.0.0-20200721143030-6b837ddaf2ab

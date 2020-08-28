@@ -149,6 +149,16 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
+func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*cluster.Cluster {
+	res := make([]*cluster.Cluster, 0, len(cl))
+	for _, c := range cl {
+		if f(c) {
+			res = append(res, c)
+		}
+	}
+	return res
+}
+
 func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	slice := InterfaceSlice(p)
 	if len(slice) == 0 {

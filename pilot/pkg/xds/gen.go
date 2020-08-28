@@ -70,15 +70,14 @@ var SkipLogTypes = map[string]struct{}{
 // based on the passed in generator. Based on the updates field, generators may
 // choose to send partial or even no response if there are no changes.
 func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
-	gen model.XdsResourceGenerator, currentVersion string, w *model.WatchedResource, updates model.XdsUpdates) error {
+	gen model.XdsResourceGenerator, currentVersion string, w *model.WatchedResource, req *model.PushRequest) error {
 	if gen == nil {
 		return nil
 	}
 
 	t0 := time.Now()
-	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 
-	cl := gen.Generate(con.proxy, push, w, updates)
+	cl := gen.Generate(con.proxy, push, w, req)
 	if cl == nil {
 		// If we have nothing to send, report that we got an ACK for this version.
 		if s.StatusReporter != nil {
@@ -86,6 +85,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, push *model.PushContext,
 		}
 		return nil // No push needed.
 	}
+	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 
 	resp := &discovery.DiscoveryResponse{
 		TypeUrl:     w.TypeUrl,
