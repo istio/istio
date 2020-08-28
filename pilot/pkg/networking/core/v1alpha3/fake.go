@@ -36,6 +36,7 @@ import (
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
@@ -44,8 +45,8 @@ import (
 
 type TestOptions struct {
 	// If provided, these configs will be used directly
-	Configs        []model.Config
-	ConfigPointers []*model.Config
+	Configs        []config.Config
+	ConfigPointers []*config.Config
 
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
@@ -234,7 +235,7 @@ func (f *ConfigGenTest) Store() model.ConfigStoreCache {
 
 var _ model.XDSUpdater = &FakeXdsUpdater{}
 
-func getConfigs(t test.Failer, opts TestOptions) []model.Config {
+func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 	for _, p := range opts.ConfigPointers {
 		if p != nil {
 			opts.Configs = append(opts.Configs, *p)

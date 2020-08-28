@@ -17,20 +17,20 @@ package model
 import (
 	"time"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/ledger"
 )
 
 type FakeStore struct {
-	store  map[resource.GroupVersionKind]map[string][]Config
+	store  map[config.GroupVersionKind]map[string][]config.Config
 	ledger ledger.Ledger
 }
 
 func NewFakeStore() *FakeStore {
 	f := FakeStore{
-		store:  make(map[resource.GroupVersionKind]map[string][]Config),
+		store:  make(map[config.GroupVersionKind]map[string][]config.Config),
 		ledger: ledger.Make(time.Minute),
 	}
 	return &f
@@ -42,14 +42,14 @@ func (s *FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 
-func (*FakeStore) Get(typ resource.GroupVersionKind, name, namespace string) *Config { return nil }
+func (*FakeStore) Get(typ config.GroupVersionKind, name, namespace string) *config.Config { return nil }
 
-func (s *FakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Config, error) {
+func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	nsConfigs := s.store[typ]
 	if nsConfigs == nil {
 		return nil, nil
 	}
-	var res []Config
+	var res []config.Config
 	if namespace == NamespaceAll {
 		for _, configs := range nsConfigs {
 			res = append(res, configs...)
@@ -59,19 +59,19 @@ func (s *FakeStore) List(typ resource.GroupVersionKind, namespace string) ([]Con
 	return nsConfigs[namespace], nil
 }
 
-func (s *FakeStore) Create(config Config) (revision string, err error) {
-	configs := s.store[config.GroupVersionKind]
+func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {
+	configs := s.store[cfg.GroupVersionKind]
 	if configs == nil {
-		configs = make(map[string][]Config)
+		configs = make(map[string][]config.Config)
 	}
-	configs[config.Namespace] = append(configs[config.Namespace], config)
-	s.store[config.GroupVersionKind] = configs
+	configs[cfg.Namespace] = append(configs[cfg.Namespace], cfg)
+	s.store[cfg.GroupVersionKind] = configs
 	return "", nil
 }
 
-func (*FakeStore) Update(config Config) (newRevision string, err error) { return "", nil }
+func (*FakeStore) Update(config config.Config) (newRevision string, err error) { return "", nil }
 
-func (*FakeStore) Delete(typ resource.GroupVersionKind, name, namespace string) error { return nil }
+func (*FakeStore) Delete(typ config.GroupVersionKind, name, namespace string) error { return nil }
 
 func (s *FakeStore) Version() string {
 	return s.ledger.RootHash()

@@ -24,8 +24,8 @@ import (
 	"github.com/ghodss/yaml"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -53,10 +53,10 @@ func TestConvertResources(t *testing.T) {
 	}
 }
 
-func splitOutput(configs []model.Config) IstioResources {
+func splitOutput(configs []config.Config) IstioResources {
 	out := IstioResources{
-		Gateway:        []model.Config{},
-		VirtualService: []model.Config{},
+		Gateway:        []config.Config{},
+		VirtualService: []config.Config{},
 	}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
@@ -69,7 +69,7 @@ func splitOutput(configs []model.Config) IstioResources {
 	return out
 }
 
-func splitInput(configs []model.Config) *KubernetesResources {
+func splitInput(configs []config.Config) *KubernetesResources {
 	out := &KubernetesResources{}
 	for _, c := range configs {
 		switch c.GroupVersionKind {
@@ -86,7 +86,7 @@ func splitInput(configs []model.Config) *KubernetesResources {
 	return out
 }
 
-func readConfig(t *testing.T, filename string) []model.Config {
+func readConfig(t *testing.T, filename string) []config.Config {
 	t.Helper()
 
 	data, err := ioutil.ReadFile(filename)
@@ -101,7 +101,7 @@ func readConfig(t *testing.T, filename string) []model.Config {
 }
 
 // Print as YAML
-func marshalYaml(t *testing.T, cl []model.Config) []byte {
+func marshalYaml(t *testing.T, cl []config.Config) []byte {
 	t.Helper()
 	result := []byte{}
 	separator := []byte("---\n")

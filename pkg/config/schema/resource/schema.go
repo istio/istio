@@ -22,6 +22,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/validation"
 )
@@ -31,7 +32,7 @@ type Schema interface {
 	fmt.Stringer
 
 	// GroupVersionKind of the resource. This is the only way to uniquely identify a resource.
-	GroupVersionKind() GroupVersionKind
+	GroupVersionKind() config.GroupVersionKind
 
 	// GroupVersionResource of the resource.
 	GroupVersionResource() schema.GroupVersionResource
@@ -69,28 +70,13 @@ type Schema interface {
 	// Validate this schema.
 	Validate() error
 
-	// ValidateProto validates that the given protocol buffer message is of the correct type for this schema
+	// ValidateConfig validates that the given config message is of the correct type for this schema
 	// and that the contents are valid.
-	ValidateProto(name, namespace string, config proto.Message) error
+	ValidateConfig(cfg config.Config) error
 
 	// Equal is a helper function for testing equality between Schema instances. This supports comparison
 	// with the cmp library.
 	Equal(other Schema) bool
-}
-
-type GroupVersionKind struct {
-	Group   string `json:"group"`
-	Version string `json:"version"`
-	Kind    string `json:"kind"`
-}
-
-var _ fmt.Stringer = GroupVersionKind{}
-
-func (g GroupVersionKind) String() string {
-	if g.Group == "" {
-		return "core/" + g.Version + "/" + g.Kind
-	}
-	return g.Group + "/" + g.Version + "/" + g.Kind
 }
 
 // Builder for a Schema.
@@ -149,30 +135,30 @@ func (b Builder) BuildNoValidate() Schema {
 
 	return &schemaImpl{
 		clusterScoped: b.ClusterScoped,
-		gvk: GroupVersionKind{
+		gvk: config.GroupVersionKind{
 			Group:   b.Group,
 			Version: b.Version,
 			Kind:    b.Kind,
 		},
-		plural:        b.Plural,
-		apiVersion:    b.Group + "/" + b.Version,
-		proto:         b.Proto,
-		protoPackage:  b.ProtoPackage,
-		validateProto: b.ValidateProto,
+		plural:         b.Plural,
+		apiVersion:     b.Group + "/" + b.Version,
+		proto:          b.Proto,
+		protoPackage:   b.ProtoPackage,
+		validateConfig: b.ValidateProto,
 	}
 }
 
 type schemaImpl struct {
-	clusterScoped bool
-	gvk           GroupVersionKind
-	plural        string
-	apiVersion    string
-	proto         string
-	protoPackage  string
-	validateProto validation.ValidateFunc
+	clusterScoped  bool
+	gvk            config.GroupVersionKind
+	plural         string
+	apiVersion     string
+	proto          string
+	protoPackage   string
+	validateConfig validation.ValidateFunc
 }
 
-func (s *schemaImpl) GroupVersionKind() GroupVersionKind {
+func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {
 	return s.gvk
 }
 
@@ -258,8 +244,8 @@ func (s *schemaImpl) MustNewProtoInstance() proto.Message {
 	return p
 }
 
-func (s *schemaImpl) ValidateProto(name, namespace string, config proto.Message) error {
-	return s.validateProto(name, namespace, config)
+func (s *schemaImpl) ValidateConfig(cfg config.Config) error {
+	return s.validateConfig(cfg)
 }
 
 func (s *schemaImpl) Equal(o Schema) bool {
@@ -273,8 +259,8 @@ func (s *schemaImpl) Equal(o Schema) bool {
 }
 
 // FromKubernetesGVK converts a Kubernetes GVK to an Istio GVK
-func FromKubernetesGVK(in *schema.GroupVersionKind) GroupVersionKind {
-	return GroupVersionKind{
+func FromKubernetesGVK(in *schema.GroupVersionKind) config.GroupVersionKind {
+	return config.GroupVersionKind{
 		Group:   in.Group,
 		Version: in.Version,
 		Kind:    in.Kind,

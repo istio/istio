@@ -30,8 +30,8 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
@@ -92,7 +92,7 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
 			resourceVersions := []string{firstVersion}
-			targetResource := model.Key(targetSchema.Resource().Kind(), nameflag, namespace)
+			targetResource := config.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
 				//run the check here as soon as we start
 				// because tickers won't run immediately

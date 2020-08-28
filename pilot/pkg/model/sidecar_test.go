@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
@@ -113,8 +114,8 @@ var (
 		},
 	}
 
-	configs1 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs1 = &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -136,16 +137,16 @@ var (
 		},
 	}
 
-	configs2 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs2 = &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
 		Spec: &networking.Sidecar{},
 	}
 
-	configs3 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs3 = &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -158,8 +159,8 @@ var (
 		},
 	}
 
-	configs4 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs4 = &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -177,8 +178,8 @@ var (
 		},
 	}
 
-	configs5 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs5 = &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -196,8 +197,8 @@ var (
 		},
 	}
 
-	configs6 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs6 = &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -223,8 +224,8 @@ var (
 		},
 	}
 
-	configs7 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs7 = &config.Config{
+		Meta: config.Meta{
 			Name: "sidecar-scope-ns1-ns2",
 		},
 		Spec: &networking.Sidecar{
@@ -249,8 +250,8 @@ var (
 		},
 	}
 
-	configs8 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs8 = &config.Config{
+		Meta: config.Meta{
 			Name: "different-port-name",
 		},
 		Spec: &networking.Sidecar{
@@ -267,8 +268,8 @@ var (
 		},
 	}
 
-	configs9 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs9 = &config.Config{
+		Meta: config.Meta{
 			Name: "sidecar-scope-wildcards",
 		},
 		Spec: &networking.Sidecar{
@@ -293,8 +294,8 @@ var (
 		},
 	}
 
-	configs10 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs10 = &config.Config{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-http-proxy",
 		},
 		Spec: &networking.Sidecar{
@@ -311,8 +312,8 @@ var (
 		},
 	}
 
-	configs11 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs11 = &config.Config{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-http-proxy-match-virtual-service",
 		},
 		Spec: &networking.Sidecar{
@@ -329,8 +330,8 @@ var (
 		},
 	}
 
-	configs12 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs12 = &config.Config{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-http-proxy-match-virtual-service-and-service",
 		},
 		Spec: &networking.Sidecar{
@@ -347,8 +348,8 @@ var (
 		},
 	}
 
-	configs13 = &Config{
-		ConfigMeta: ConfigMeta{
+	configs13 = &config.Config{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-illegal-host",
 		},
 		Spec: &networking.Sidecar{
@@ -609,9 +610,9 @@ var (
 		},
 	}
 
-	virtualServices1 = []Config{
+	virtualServices1 = []config.Config{
 		{
-			ConfigMeta: ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:             "virtualbar",
 				Namespace:        "foo",
@@ -632,10 +633,10 @@ var (
 func TestCreateSidecarScope(t *testing.T) {
 	tests := []struct {
 		name          string
-		sidecarConfig *Config
+		sidecarConfig *config.Config
 		// list of available service for a given proxy
 		services        []*Service
-		virtualServices []Config
+		virtualServices []config.Config
 		// list of services expected to be in the listener
 		excpectedServices []*Service
 	}{
@@ -1232,8 +1233,8 @@ func TestContainsEgressDependencies(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &Config{
-				ConfigMeta: ConfigMeta{
+			cfg := &config.Config{
+				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "default",
 				},
@@ -1253,9 +1254,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 				{Hostname: "nomatch", Attributes: ServiceAttributes{Namespace: "nomatch"}},
 				{Hostname: svcName, Attributes: ServiceAttributes{Namespace: nsName}},
 			}
-			virtualServices := []Config{
+			virtualServices := []config.Config{
 				{
-					ConfigMeta: ConfigMeta{
+					Meta: config.Meta{
 						Name:      vsName,
 						Namespace: nsName,
 					},
@@ -1264,9 +1265,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 					},
 				},
 			}
-			destinationRules := []Config{
+			destinationRules := []config.Config{
 				{
-					ConfigMeta: ConfigMeta{
+					Meta: config.Meta{
 						Name:      drName,
 						Namespace: nsName,
 					},
@@ -1295,15 +1296,15 @@ func TestContainsEgressDependencies(t *testing.T) {
 
 func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 
-	configWithoutOutboundTrafficPolicy := &Config{
-		ConfigMeta: ConfigMeta{
+	configWithoutOutboundTrafficPolicy := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
 		Spec: &networking.Sidecar{},
 	}
-	configRegistryOnly := &Config{
-		ConfigMeta: ConfigMeta{
+	configRegistryOnly := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -1313,8 +1314,8 @@ func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 			},
 		},
 	}
-	configAllowAny := &Config{
-		ConfigMeta: ConfigMeta{
+	configAllowAny := &config.Config{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -1336,7 +1337,7 @@ outboundTrafficPolicy:
 	tests := []struct {
 		name                  string
 		meshConfig            v1alpha1.MeshConfig
-		sidecar               *Config
+		sidecar               *config.Config
 		outboundTrafficPolicy *networking.OutboundTrafficPolicy
 	}{
 		{

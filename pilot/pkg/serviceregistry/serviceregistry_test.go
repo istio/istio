@@ -34,6 +34,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -117,8 +118,8 @@ func TestWorkloadInstances(t *testing.T) {
 		"app": "foo",
 	}
 	namespace := "namespace"
-	serviceEntry := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	serviceEntry := config.Config{
+		Meta: config.Meta{
 			Name:             "service-entry",
 			Namespace:        namespace,
 			GroupVersionKind: gvk.ServiceEntry,
@@ -153,8 +154,8 @@ func TestWorkloadInstances(t *testing.T) {
 		},
 		Status: v1.PodStatus{PodIP: "1.2.3.4"},
 	}
-	workloadEntry := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	workloadEntry := config.Config{
+		Meta: config.Meta{
 			Name:             "workload",
 			Namespace:        namespace,
 			GroupVersionKind: gvk.WorkloadEntry,
@@ -210,8 +211,8 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("External only with named port override", func(t *testing.T) {
 		_, wc, store, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -237,8 +238,8 @@ func TestWorkloadInstances(t *testing.T) {
 
 	t.Run("External only with target port", func(t *testing.T) {
 		_, wc, store, _ := setupTest(t)
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "service-entry",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.ServiceEntry,
@@ -299,8 +300,8 @@ func TestWorkloadInstances(t *testing.T) {
 				ClusterIP: "9.9.9.9",
 			},
 		})
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -341,8 +342,8 @@ func TestWorkloadInstances(t *testing.T) {
 				ClusterIP: "9.9.9.9",
 			},
 		})
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -379,8 +380,8 @@ func TestWorkloadInstances(t *testing.T) {
 
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
 		_, wc, store, kube := setupTest(t)
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "service-entry",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.ServiceEntry,
@@ -548,7 +549,7 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	}
 }
 
-func makeIstioObject(t *testing.T, c model.ConfigStore, svc model.Config) {
+func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 	t.Helper()
 	_, err := c.Create(svc)
 	if err != nil {
