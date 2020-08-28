@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -400,40 +399,5 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedConfig, cfgs) {
 		t.Errorf("Got different Config, Excepted:\n%v\n, Got: \n%v\n", expectedConfig, cfgs)
-	}
-}
-
-func TestDeepCopy(t *testing.T) {
-	cfg := config.Config{
-		Meta: config.Meta{
-			Name:              "name1",
-			Namespace:         "zzz",
-			CreationTimestamp: time.Now(),
-			Labels:            map[string]string{"app": "test-app"},
-			Annotations:       map[string]string{"policy.istio.io/checkRetries": "3"},
-		},
-		Spec: &networking.Gateway{},
-	}
-
-	copied := cfg.DeepCopy()
-
-	if diff := cmp.Diff(copied, cfg); diff != "" {
-		t.Fatalf("cloned config is not identical: %v", diff)
-	}
-
-	copied.Labels["app"] = "cloned-app"
-	copied.Annotations["policy.istio.io/checkRetries"] = "0"
-	if cfg.Labels["app"] == copied.Labels["app"] ||
-		cfg.Annotations["policy.istio.io/checkRetries"] == copied.Annotations["policy.istio.io/checkRetries"] {
-		t.Fatalf("Did not deep copy labels and annotations")
-	}
-
-	// change the copied gateway to see if the original config is not effected
-	copiedGateway := copied.Spec.(*networking.Gateway)
-	copiedGateway.Selector = map[string]string{"app": "test"}
-
-	gateway := cfg.Spec.(*networking.Gateway)
-	if gateway.Selector != nil {
-		t.Errorf("Original gateway is mutated")
 	}
 }

@@ -18,16 +18,19 @@ import (
 	bytes "bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	gogoproto "github.com/gogo/protobuf/proto"
 	gogostruct "github.com/gogo/protobuf/types"
-	gogotypes "github.com/gogo/protobuf/types"
+	gogostruct "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	pstruct "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -136,6 +139,46 @@ func ToMap(s ConfigSpec) (map[string]interface{}, error) {
 	return data, nil
 }
 
+type deepCopier interface {
+	DeepCopyInterface() interface{}
+}
+
+func DeepCopy(s ConfigSpec) ConfigSpec {
+	// If deep copy is defined, use that
+	if dc, ok := s.(deepCopier); ok {
+		return dc.DeepCopyInterface()
+	}
+
+	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
+	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
+	// but also not used by Istio at all.
+	if _, ok := s.(protoreflect.ProtoMessage); ok {
+		if pb, ok := s.(proto.Message); ok {
+			return proto.Clone(pb)
+		}
+	}
+
+	// gogo protobuf
+	if pb, ok := s.(gogoproto.Message); ok {
+		return gogoproto.Clone(pb)
+	}
+
+	// If we don't have a deep copy method, we will have to do some reflection magic. Its not ideal,
+	// but all Istio types have an efficient deep copy.
+	js, err := json.Marshal(s)
+	if err != nil {
+		return nil
+	}
+
+	data := reflect.New(reflect.TypeOf(s).Elem()).Interface()
+	err = json.Unmarshal(js, &data)
+	if err != nil {
+		return nil
+	}
+
+	return data
+}
+
 // Key function for the configuration objects
 func Key(typ, name, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", typ, namespace, name)
@@ -162,9 +205,7 @@ func (c Config) DeepCopy() Config {
 			clone.Annotations[k] = v
 		}
 	}
-	// TODO!!!!! do not merge
-	clone.Spec = c.Spec
-	//clone.Spec = proto.Clone(c.Spec)
+	clone.Spec = DeepCopy(c.Spec)
 	return clone
 }
 
