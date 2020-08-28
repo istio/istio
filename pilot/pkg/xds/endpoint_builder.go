@@ -24,6 +24,7 @@ import (
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -34,7 +35,7 @@ type EndpointBuilder struct {
 	network         string
 	clusterID       string
 	locality        *core.Locality
-	destinationRule *model.Config
+	destinationRule *config.Config
 	service         *model.Service
 
 	// These fields are provided for convenience only

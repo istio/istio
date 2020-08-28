@@ -50,6 +50,7 @@ import (
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -293,7 +294,7 @@ func httpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.HTTPR
 	mismatchNotes := []string{}
 	match := false
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
 				if contains(nonmatchingSubsets, dest.Destination.Subset) {
@@ -354,7 +355,7 @@ func tcpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.TCPRou
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			match = true
 		}

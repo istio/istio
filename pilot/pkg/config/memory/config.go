@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 )
@@ -48,7 +48,7 @@ func MakeWithoutValidation(schemas collection.Schemas) model.ConfigStore {
 func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger, skipValidation bool) model.ConfigStore {
 	out := store{
 		schemas:        schemas,
-		data:           make(map[resource.GroupVersionKind]map[string]*sync.Map),
+		data:           make(map[config.GroupVersionKind]map[string]*sync.Map),
 		ledger:         configLedger,
 		skipValidation: skipValidation,
 	}
@@ -60,7 +60,7 @@ func MakeWithLedger(schemas collection.Schemas, configLedger ledger.Ledger, skip
 
 type store struct {
 	schemas        collection.Schemas
-	data           map[resource.GroupVersionKind]map[string]*sync.Map
+	data           map[config.GroupVersionKind]map[string]*sync.Map
 	ledger         ledger.Ledger
 	skipValidation bool
 	mutex          sync.RWMutex
@@ -87,7 +87,7 @@ func (cr *store) Version() string {
 	return cr.ledger.RootHash()
 }
 
-func (cr *store) Get(kind resource.GroupVersionKind, name, namespace string) *model.Config {
+func (cr *store) Get(kind config.GroupVersionKind, name, namespace string) *config.Config {
 	cr.mutex.RLock()
 	defer cr.mutex.RUnlock()
 	_, ok := cr.data[kind]
@@ -104,23 +104,23 @@ func (cr *store) Get(kind resource.GroupVersionKind, name, namespace string) *mo
 	if !exists {
 		return nil
 	}
-	config := out.(model.Config)
+	config := out.(config.Config)
 
 	return &config
 }
 
-func (cr *store) List(kind resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+func (cr *store) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	cr.mutex.RLock()
 	defer cr.mutex.RUnlock()
 	data, exists := cr.data[kind]
 	if !exists {
 		return nil, nil
 	}
-	out := make([]model.Config, 0, len(cr.data[kind]))
+	out := make([]config.Config, 0, len(cr.data[kind]))
 	if namespace == "" {
 		for _, ns := range data {
 			ns.Range(func(key, value interface{}) bool {
-				out = append(out, value.(model.Config))
+				out = append(out, value.(config.Config))
 				return true
 			})
 		}
@@ -130,14 +130,14 @@ func (cr *store) List(kind resource.GroupVersionKind, namespace string) ([]model
 			return nil, nil
 		}
 		ns.Range(func(key, value interface{}) bool {
-			out = append(out, value.(model.Config))
+			out = append(out, value.(config.Config))
 			return true
 		})
 	}
 	return out, nil
 }
 
-func (cr *store) Delete(kind resource.GroupVersionKind, name, namespace string) error {
+func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string) error {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 	data, ok := cr.data[kind]
@@ -154,7 +154,7 @@ func (cr *store) Delete(kind resource.GroupVersionKind, name, namespace string) 
 		return errNotFound
 	}
 
-	err := cr.ledger.Delete(model.Key(kind.Kind, name, namespace))
+	err := cr.ledger.Delete(config.Key(kind.Kind, name, namespace))
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}
@@ -162,74 +162,74 @@ func (cr *store) Delete(kind resource.GroupVersionKind, name, namespace string) 
 	return nil
 }
 
-func (cr *store) Create(config model.Config) (string, error) {
+func (cr *store) Create(cfg config.Config) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
-	kind := config.GroupVersionKind
+	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", fmt.Errorf("unknown type %v", kind)
 	}
 	if !cr.skipValidation {
-		if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
+		if err := s.Resource().ValidateConfig(cfg); err != nil {
 			return "", err
 		}
 	}
-	ns, exists := cr.data[kind][config.Namespace]
+	ns, exists := cr.data[kind][cfg.Namespace]
 	if !exists {
 		ns = new(sync.Map)
-		cr.data[kind][config.Namespace] = ns
+		cr.data[kind][cfg.Namespace] = ns
 	}
 
-	_, exists = ns.Load(config.Name)
+	_, exists = ns.Load(cfg.Name)
 
 	if !exists {
 		tnow := time.Now()
-		config.ResourceVersion = tnow.String()
+		cfg.ResourceVersion = tnow.String()
 
 		// Set the creation timestamp, if not provided.
-		if config.CreationTimestamp.IsZero() {
-			config.CreationTimestamp = tnow
+		if cfg.CreationTimestamp.IsZero() {
+			cfg.CreationTimestamp = tnow
 		}
 
-		_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.ResourceVersion)
+		_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
 		if err != nil {
 			log.Warnf(ledgerLogf, err)
 		}
-		ns.Store(config.Name, config)
-		return config.ResourceVersion, nil
+		ns.Store(cfg.Name, cfg)
+		return cfg.ResourceVersion, nil
 	}
 	return "", errAlreadyExists
 }
 
-func (cr *store) Update(config model.Config) (string, error) {
+func (cr *store) Update(cfg config.Config) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
-	kind := config.GroupVersionKind
+	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
 		return "", errors.New("unknown type")
 	}
-	if err := s.Resource().ValidateProto(config.Name, config.Namespace, config.Spec); err != nil {
+	if err := s.Resource().ValidateConfig(cfg); err != nil {
 		return "", err
 	}
 
-	ns, exists := cr.data[kind][config.Namespace]
+	ns, exists := cr.data[kind][cfg.Namespace]
 	if !exists {
 		return "", errNotFound
 	}
 
-	_, exists = ns.Load(config.Name)
+	_, exists = ns.Load(cfg.Name)
 	if !exists {
 		return "", errNotFound
 	}
 
 	rev := time.Now().String()
-	config.ResourceVersion = rev
-	_, err := cr.ledger.Put(model.Key(kind.Kind, config.Namespace, config.Name), config.ResourceVersion)
+	cfg.ResourceVersion = rev
+	_, err := cr.ledger.Put(config.Key(kind.Kind, cfg.Namespace, cfg.Name), cfg.ResourceVersion)
 	if err != nil {
 		log.Warnf(ledgerLogf, err)
 	}
-	ns.Store(config.Name, config)
+	ns.Store(cfg.Name, cfg)
 	return rev, nil
 }

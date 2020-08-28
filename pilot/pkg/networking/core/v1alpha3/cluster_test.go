@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -338,10 +339,10 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		},
 	}
 
-	configs := []model.Config{}
+	configs := []config.Config{}
 	if c.destRule != nil {
-		configs = append(configs, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		configs = append(configs, config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
@@ -353,8 +354,8 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		if c.peerAuthn.Selector != nil {
 			policyName = "acme"
 		}
-		configs = append(configs, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		configs = append(configs, config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.PeerAuthentication,
 				Name:             policyName,
 				Namespace:        TestServiceNamespace,
@@ -1552,10 +1553,10 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewWithT(t)
-			cfgs := []model.Config{}
+			cfgs := []config.Config{}
 			if c.destRule != nil {
-				cfgs = append(cfgs, model.Config{
-					ConfigMeta: model.ConfigMeta{
+				cfgs = append(cfgs, config.Config{
+					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
 						Namespace:        "default",
@@ -3193,10 +3194,10 @@ func TestEnvoyFilterPatching(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			cfgs := []model.Config{}
+			cfgs := []config.Config{}
 			for i, c := range tt.efs {
-				cfgs = append(cfgs, model.Config{
-					ConfigMeta: model.ConfigMeta{
+				cfgs = append(cfgs, config.Config{
+					Meta: config.Meta{
 						GroupVersionKind: gvk.EnvoyFilter,
 						Name:             fmt.Sprint(i),
 						Namespace:        "default",

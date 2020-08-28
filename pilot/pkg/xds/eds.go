@@ -27,10 +27,10 @@ import (
 	"istio.io/istio/pilot/pkg/util/sets"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // UpdateServiceShards will list the endpoints and create the shards.
@@ -318,7 +318,7 @@ type EdsGenerator struct {
 var _ model.XdsResourceGenerator = &EdsGenerator{}
 
 // Map of all configs that do not impact EDS
-var skippedEdsConfigs = map[resource.GroupVersionKind]struct{}{
+var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.Gateway:               {},
 	gvk.VirtualService:        {},
 	gvk.WorkloadGroup:         {},

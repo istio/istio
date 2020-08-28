@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	pilotutil "istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pkg/config"
 	authn_alpha "istio.io/istio/pkg/envoy/config/authentication/v1alpha1"
 	authn_filter "istio.io/istio/pkg/envoy/config/filter/http/authn/v2alpha1"
 	protovalue "istio.io/istio/pkg/proto"
@@ -51,17 +52,17 @@ func TestJwtFilter(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		in       []*model.Config
+		in       []*config.Config
 		expected *http_conn.HttpFilter
 	}{
 		{
 			name:     "No policy",
-			in:       []*model.Config{},
+			in:       []*config.Config{},
 			expected: nil,
 		},
 		{
 			name: "Empty policy",
-			in: []*model.Config{
+			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{},
 				},
@@ -70,7 +71,7 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "Single JWT policy",
-			in: []*model.Config{
+			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -134,7 +135,7 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "Multi JWTs policy",
-			in: []*model.Config{
+			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -267,7 +268,7 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "JWT policy with inline Jwks",
-			in: []*model.Config{
+			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -331,7 +332,7 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "JWT policy with bad Jwks URI",
-			in: []*model.Config{
+			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -395,7 +396,7 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "Forward original token",
-			in: []*model.Config{
+			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -460,7 +461,7 @@ func TestJwtFilter(t *testing.T) {
 		},
 		{
 			name: "Output payload",
-			in: []*model.Config{
+			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -852,8 +853,8 @@ func TestAuthnFilterConfig(t *testing.T) {
 		name                         string
 		isGateway                    bool
 		gatewayServerUsesIstioMutual bool
-		jwtIn                        []*model.Config
-		peerIn                       []*model.Config
+		jwtIn                        []*config.Config
+		peerIn                       []*config.Config
 		expected                     *http_conn.HttpFilter
 	}{
 		{
@@ -931,7 +932,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		},
 		{
 			name: "beta-jwt",
-			jwtIn: []*model.Config{
+			jwtIn: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -975,7 +976,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		{
 			name:      "beta-jwt-for-gateway",
 			isGateway: true,
-			jwtIn: []*model.Config{
+			jwtIn: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -1011,7 +1012,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			name:                         "beta-jwt-for-gateway-with-istio-mutual",
 			isGateway:                    true,
 			gatewayServerUsesIstioMutual: true,
-			jwtIn: []*model.Config{
+			jwtIn: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -1054,7 +1055,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		},
 		{
 			name: "multi-beta-jwt",
-			jwtIn: []*model.Config{
+			jwtIn: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -1115,7 +1116,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		},
 		{
 			name: "multi-beta-jwt-sort-by-issuer-again",
-			jwtIn: []*model.Config{
+			jwtIn: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
 						JwtRules: []*v1beta1.JWTRule{
@@ -1176,7 +1177,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		},
 		{
 			name: "beta-mtls",
-			peerIn: []*model.Config{
+			peerIn: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
@@ -1208,7 +1209,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		{
 			name:      "beta-mtls-for-gateway-does-not-respect-mtls-configs",
 			isGateway: true,
-			peerIn: []*model.Config{
+			peerIn: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
@@ -1221,7 +1222,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 		},
 		{
 			name: "beta-mtls-skip-trust-domain",
-			peerIn: []*model.Config{
+			peerIn: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
@@ -1345,7 +1346,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 
 	cases := []struct {
 		name         string
-		peerPolicies []*model.Config
+		peerPolicies []*config.Config
 		sdsUdsPath   string
 		expected     []networking.FilterChain
 	}{
@@ -1356,7 +1357,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		{
 			name: "Single policy - disable mode",
-			peerPolicies: []*model.Config{
+			peerPolicies: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
@@ -1370,7 +1371,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		{
 			name: "Single policy - permissive mode",
-			peerPolicies: []*model.Config{
+			peerPolicies: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
@@ -1384,7 +1385,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		{
 			name: "Single policy - strict mode",
-			peerPolicies: []*model.Config{
+			peerPolicies: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
@@ -1398,9 +1399,9 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		{
 			name: "Multiple policies resolved to STRICT",
-			peerPolicies: []*model.Config{
+			peerPolicies: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1417,7 +1418,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "later",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second),
@@ -1439,9 +1440,9 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		{
 			name: "Multiple policies resolved to PERMISSIVE",
-			peerPolicies: []*model.Config{
+			peerPolicies: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1458,7 +1459,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "earlier",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1480,7 +1481,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		{
 			name: "Port level hit",
-			peerPolicies: []*model.Config{
+			peerPolicies: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Selector: &type_beta.WorkloadSelector{
@@ -1504,7 +1505,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 		},
 		{
 			name: "Port level miss",
-			peerPolicies: []*model.Config{
+			peerPolicies: []*config.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
 						Selector: &type_beta.WorkloadSelector{
@@ -1552,19 +1553,19 @@ func TestComposePeerAuthentication(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
 		name    string
-		configs []*model.Config
+		configs []*config.Config
 		want    *v1beta1.PeerAuthentication
 	}{
 		{
 			name:    "no config",
-			configs: []*model.Config{},
+			configs: []*config.Config{},
 			want:    nil,
 		},
 		{
 			name: "mesh only",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1583,9 +1584,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "mesh vs namespace",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1599,7 +1600,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1618,9 +1619,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "ignore non-empty selector in root namespace",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1640,16 +1641,16 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "workload vs namespace config",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
 					Spec: &v1beta1.PeerAuthentication{},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1670,9 +1671,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "workload vs mesh config",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1683,7 +1684,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1702,9 +1703,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "multiple mesh policy",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "root-namespace",
 						CreationTimestamp: now,
@@ -1716,7 +1717,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second ago",
 						Namespace:         "root-namespace",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1728,7 +1729,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second later",
 						Namespace:         "root-namespace",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1748,9 +1749,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "multiple namespace policy",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1762,7 +1763,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second ago",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1774,7 +1775,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second later",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1794,9 +1795,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "multiple workload policy",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1813,7 +1814,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second ago",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1830,7 +1831,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second later",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1855,9 +1856,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "inheritance: default mesh",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1876,9 +1877,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "inheritance: mesh to workload",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1889,7 +1890,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1910,9 +1911,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "inheritance: namespace to workload",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1923,7 +1924,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1944,9 +1945,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "inheritance: mesh to namespace to workload",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1957,7 +1958,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1968,7 +1969,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1989,9 +1990,9 @@ func TestComposePeerAuthentication(t *testing.T) {
 		},
 		{
 			name: "port level",
-			configs: []*model.Config{
+			configs: []*config.Config{
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -2002,7 +2003,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: model.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},

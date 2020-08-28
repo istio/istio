@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -88,7 +89,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 	node *model.Proxy,
 	push *model.PushContext,
 	serviceRegistry map[host.Name]*model.Service,
-	virtualServices []model.Config,
+	virtualServices []config.Config,
 	listenPort int) []VirtualHostWrapper {
 
 	out := make([]VirtualHostWrapper, 0)
@@ -141,7 +142,7 @@ func BuildSidecarVirtualHostsFromConfigAndRegistry(
 
 // separateVSHostsAndServices splits the virtual service hosts into services (if they are found in the registry) and
 // plain non-registry hostnames
-func separateVSHostsAndServices(virtualService model.Config,
+func separateVSHostsAndServices(virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service) ([]string, []*model.Service) {
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
@@ -189,7 +190,7 @@ func separateVSHostsAndServices(virtualService model.Config,
 func buildSidecarVirtualHostsForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
-	virtualService model.Config,
+	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int) []VirtualHostWrapper {
 	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
@@ -265,7 +266,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	push *model.PushContext,
-	virtualService model.Config,
+	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	listenPort int,
 	gatewayNames map[string]bool) ([]*route.Route, error) {
@@ -332,7 +333,7 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Coll
 // translateRoute translates HTTP routes
 func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest, port int,
-	virtualService model.Config,
+	virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
 	gatewayNames map[string]bool) *route.Route {
 
@@ -351,7 +352,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 	out := &route.Route{
 		Match:    translateRouteMatch(match, node),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
 	routeName := in.Name

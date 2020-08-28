@@ -27,13 +27,13 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/visibility"
 )
 
@@ -70,7 +70,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push0,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: resource.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {}},
+					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {}},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate},
 			},
 			&PushRequest{
@@ -78,7 +78,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t1,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: resource.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
+					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
 				Reason: []TriggerReason{EndpointUpdate},
 			},
 			PushRequest{
@@ -86,8 +86,8 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Push:  push1,
 				Start: t0,
 				ConfigsUpdated: map[ConfigKey]struct{}{
-					{Kind: resource.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
-					{Kind: resource.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
+					{Kind: config.GroupVersionKind{Kind: "cfg1"}, Namespace: "ns1"}: {},
+					{Kind: config.GroupVersionKind{Kind: "cfg2"}, Namespace: "ns2"}: {}},
 				Reason: []TriggerReason{ServiceUpdate, ServiceUpdate, EndpointUpdate},
 			},
 		},
@@ -95,7 +95,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 			"skip config type merge: one empty",
 			&PushRequest{Full: true, ConfigsUpdated: nil},
 			&PushRequest{Full: true, ConfigsUpdated: map[ConfigKey]struct{}{{
-				Kind: resource.GroupVersionKind{Kind: "cfg2"}}: {}}},
+				Kind: config.GroupVersionKind{Kind: "cfg2"}}: {}}},
 			PushRequest{Full: true, ConfigsUpdated: nil},
 		},
 	}
@@ -257,16 +257,16 @@ func TestSidecarScope(t *testing.T) {
 		},
 		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
 	}
-	configWithWorkloadSelector := Config{
-		ConfigMeta: ConfigMeta{
+	configWithWorkloadSelector := config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 			Name:             "foo",
 			Namespace:        "default",
 		},
 		Spec: sidecarWithWorkloadSelector,
 	}
-	rootConfig := Config{
-		ConfigMeta: ConfigMeta{
+	rootConfig := config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 			Name:             "global",
 			Namespace:        "istio-system",
@@ -399,8 +399,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 	ps := NewPushContext()
 	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
 	testhost := "httpbin.org"
-	destinationRuleNamespace1 := Config{
-		ConfigMeta: ConfigMeta{
+	destinationRuleNamespace1 := config.Config{
+		Meta: config.Meta{
 			Name:      "rule1",
 			Namespace: "test",
 		},
@@ -416,8 +416,8 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 			},
 		},
 	}
-	destinationRuleNamespace2 := Config{
-		ConfigMeta: ConfigMeta{
+	destinationRuleNamespace2 := config.Config{
+		Meta: config.Meta{
 			Name:      "rule2",
 			Namespace: "test",
 		},
@@ -433,7 +433,7 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 			},
 		},
 	}
-	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2})
+	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2})
 	subsetsLocal := ps.namespaceLocalDestRules["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
 	subsetsExport := ps.exportedDestRulesByNamespace["test"].destRule[host.Name(testhost)].Spec.(*networking.DestinationRule).Subsets
 	if len(subsetsLocal) != 4 {
@@ -449,8 +449,8 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
-	destinationRuleNamespace1 := Config{
-		ConfigMeta: ConfigMeta{
+	destinationRuleNamespace1 := config.Config{
+		Meta: config.Meta{
 			Name:      "rule1",
 			Namespace: "test1",
 		},
@@ -467,8 +467,8 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	destinationRuleNamespace2 := Config{
-		ConfigMeta: ConfigMeta{
+	destinationRuleNamespace2 := config.Config{
+		Meta: config.Meta{
 			Name:      "rule2",
 			Namespace: "test2",
 		},
@@ -485,8 +485,8 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	destinationRuleNamespace3 := Config{
-		ConfigMeta: ConfigMeta{
+	destinationRuleNamespace3 := config.Config{
+		Meta: config.Meta{
 			Name:      "rule3",
 			Namespace: "test3",
 		},
@@ -503,8 +503,8 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	destinationRuleRootNamespace := Config{
-		ConfigMeta: ConfigMeta{
+	destinationRuleRootNamespace := config.Config{
+		Meta: config.Meta{
 			Name:      "rule4",
 			Namespace: "istio-system",
 		},
@@ -520,8 +520,8 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	destinationRuleRootNamespaceLocal := Config{
-		ConfigMeta: ConfigMeta{
+	destinationRuleRootNamespaceLocal := config.Config{
+		Meta: config.Meta{
 			Name:      "rule1",
 			Namespace: "istio-system",
 		},
@@ -538,7 +538,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 			},
 		},
 	}
-	ps.SetDestinationRules([]Config{destinationRuleNamespace1, destinationRuleNamespace2,
+	ps.SetDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2,
 		destinationRuleNamespace3, destinationRuleRootNamespace, destinationRuleRootNamespaceLocal})
 	cases := []struct {
 		proxyNs     string
@@ -623,8 +623,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	configStore := NewFakeStore()
 	gatewayName := "default/gateway"
 
-	rule1 := Config{
-		ConfigMeta: ConfigMeta{
+	rule1 := config.Config{
+		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
 			GroupVersionKind: gvk.VirtualService,
@@ -634,8 +634,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	}
-	rule2 := Config{
-		ConfigMeta: ConfigMeta{
+	rule2 := config.Config{
+		Meta: config.Meta{
 			Name:             "rule2",
 			Namespace:        "test2",
 			GroupVersionKind: gvk.VirtualService,
@@ -645,8 +645,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 			ExportTo: []string{"test2", "ns1", "test1"},
 		},
 	}
-	rule2Gw := Config{
-		ConfigMeta: ConfigMeta{
+	rule2Gw := config.Config{
+		Meta: config.Meta{
 			Name:             "rule2Gw",
 			Namespace:        "test2",
 			GroupVersionKind: gvk.VirtualService,
@@ -657,8 +657,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 			ExportTo: []string{"test2", "ns1", "test1"},
 		},
 	}
-	rule3 := Config{
-		ConfigMeta: ConfigMeta{
+	rule3 := config.Config{
+		Meta: config.Meta{
 			Name:             "rule3",
 			Namespace:        "test3",
 			GroupVersionKind: gvk.VirtualService,
@@ -669,8 +669,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 			ExportTo: []string{"test1", "test2", "*"},
 		},
 	}
-	rule3Gw := Config{
-		ConfigMeta: ConfigMeta{
+	rule3Gw := config.Config{
+		Meta: config.Meta{
 			Name:             "rule3Gw",
 			Namespace:        "test3",
 			GroupVersionKind: gvk.VirtualService,
@@ -681,8 +681,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 			ExportTo: []string{"test1", "test2", "*"},
 		},
 	}
-	rootNS := Config{
-		ConfigMeta: ConfigMeta{
+	rootNS := config.Config{
+		Meta: config.Meta{
 			Name:             "zzz",
 			Namespace:        "zzz",
 			GroupVersionKind: gvk.VirtualService,
@@ -692,7 +692,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 		},
 	}
 
-	for _, c := range []Config{rule1, rule2, rule3, rule2Gw, rule3Gw, rootNS} {
+	for _, c := range []config.Config{rule1, rule2, rule3, rule2Gw, rule3Gw, rootNS} {
 		if _, err := configStore.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
