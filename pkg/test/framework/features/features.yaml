@@ -68,6 +68,9 @@ features:
       tls:
         secretrotation:
         gateway:
+          invalid-secret:
+          K8sca:
+          valid-secret:
     egress:
       mtls:
         sds:
@@ -82,10 +85,10 @@ features:
       negative-match:
       ingress-gateway:
       egress-gateway:
-      tcp-deny:
+      tcp:
       conditions:
-      grpc-restful:
-      path-get:
+      grpc-protocol:
+      path-normalization:
     authentication:
       jwt:
       ingressjwt:
@@ -96,8 +99,7 @@ features:
       k8s-certs:
         dns-certificate:
         k8sca:
-          kubernetes:
-          first-party-jwt:
+        jwt:
         webhook:
       plugin-cert:
   # features which allow extending or deep integrations with istio and other products

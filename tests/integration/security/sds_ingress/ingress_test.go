@@ -293,7 +293,7 @@ func TestSingleMTLSGatewayAndNotGeneric_CompoundSecretRotation(t *testing.T) {
 func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.tls.gateway").
+		Features("security.ingress.tls.gateway.valid-secret").
 		Run(func(ctx framework.TestContext) {
 			ingressutil.RunTestMultiTLSGateways(ctx, inst)
 		})
@@ -316,7 +316,7 @@ func TestMtlsGateways(t *testing.T) {
 func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.tls.gateway").
+		Features("security.ingress.tls.gateway.invalid-secret").
 		Run(func(ctx framework.TestContext) {
 
 			ns := ingressutil.SetupTest(ctx)
@@ -460,7 +460,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.mtls").
+		Features("security.ingress.mtls.gateway").
 		Run(func(ctx framework.TestContext) {
 			ns := ingressutil.SetupTest(ctx)
 
