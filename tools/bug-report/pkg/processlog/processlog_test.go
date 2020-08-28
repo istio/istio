@@ -15,7 +15,6 @@
 package processlog
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -63,7 +62,7 @@ func TestTimeRangeFilter(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			var b []byte
 			if !tt.wantEmpty {
 				b = util.ReadFile(filepath.Join(testDataDir, "output", tt.name+".log"), t)

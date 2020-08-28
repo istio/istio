@@ -15,7 +15,6 @@
 package filter
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -71,12 +70,12 @@ ns1.d2.p4:
   k4: v4
 `
 
-	p1c1 = "ns1.d1.p1.c1"
-	p1c2 = "ns1.d1.p1.c2"
-	p2c3 = "ns1.d1.p2.c3"
-	p3c4 = "ns1.d2.p3.c4"
-	p3c5 = "ns1.d2.p3.c5"
-	p4c6 = "ns1.d2.p4.c6"
+	p1c1 = "ns1/d1/p1/c1"
+	p1c2 = "ns1/d1/p1/c2"
+	p2c3 = "ns1/d1/p2/c3"
+	p3c4 = "ns1/d2/p3/c4"
+	p3c5 = "ns1/d2/p3/c5"
+	p4c6 = "ns1/d2/p4/c6"
 
 	p1 = []string{p1c1, p1c2}
 	p2 = []string{p2c3}
@@ -231,7 +230,7 @@ include:
 		},
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			config := &config2.BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
@@ -307,7 +306,7 @@ include:
 		},
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			config := &config2.BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)
@@ -449,7 +448,7 @@ exclude:
 		},
 	}
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			config := &config2.BugReportConfig{}
 			if err := yaml.Unmarshal([]byte(tt.config), config); err != nil {
 				t.Fatal(err)

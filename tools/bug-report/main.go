@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	if err := bugreport.BugReportCmd().Execute(); err != nil {
+	if err := bugreport.Cmd().Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
 	}

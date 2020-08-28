@@ -147,7 +147,7 @@ func overlayConfig(base, overlay *config2.BugReportConfig) (*config2.BugReportCo
 	if err != nil {
 		return nil, err
 	}
-	oj, err := json.Marshal(base)
+	oj, err := json.Marshal(overlay)
 	if err != nil {
 		return nil, err
 	}

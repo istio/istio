@@ -52,8 +52,8 @@ var (
 	bugReportDefaultExclude        = []string{"kube-system,kube-public"}
 )
 
-// BugReportCmd returns a cobra command for bug-report.
-func BugReportCmd() *cobra.Command {
+// Cmd returns a cobra command for bug-report.
+func Cmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "bug-report",
 		Short:        "Cluster information and log capture support tool.",
@@ -224,11 +224,8 @@ func getLog(resources *cluster2.Resources, config *config.BugReportConfig, names
 	if err != nil {
 		return "", nil, 0, err
 	}
-	cstat := &processlog.Stats{}
-	clog, cstat, err = processlog.Process(config, clog)
-	if err != nil {
-		return "", nil, 0, err
-	}
+	var cstat *processlog.Stats
+	clog, cstat = processlog.Process(config, clog)
 	return clog, cstat, cstat.Importance(), nil
 }
 

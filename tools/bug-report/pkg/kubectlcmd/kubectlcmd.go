@@ -122,7 +122,7 @@ func Run(subcmds []string, opts *Options) (string, error) {
 
 	log.Infof("running command: kubectl %s", cmdStr)
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s\n\n",
+		return "", fmt.Errorf("kubectl error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
 			err, util.ConsolidateLog(stderr.String()), stdout.String())
 	}
 

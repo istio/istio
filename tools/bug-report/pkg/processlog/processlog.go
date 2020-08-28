@@ -48,13 +48,9 @@ func (s *Stats) Importance() int {
 }
 
 // Process processes logStr based on the supplied config and returns the processed log along with statistics on it.
-func Process(config *config.BugReportConfig, logStr string) (string, *Stats, error) {
+func Process(config *config.BugReportConfig, logStr string) (string, *Stats) {
 	out := getTimeRange(logStr, config.StartTime, config.EndTime)
-	stats, err := getStats(config, out)
-	if err != nil {
-		return "", nil, err
-	}
-	return out, stats, nil
+	return out, getStats(config, out)
 }
 
 // getTimeRange returns the log lines that fall inside the start to end time range, inclusive.
@@ -79,7 +75,7 @@ func getTimeRange(logStr string, start, end time.Time) string {
 }
 
 // getStats returns statistics for the given log string.
-func getStats(config *config.BugReportConfig, logStr string) (*Stats, error) {
+func getStats(config *config.BugReportConfig, logStr string) *Stats {
 	out := &Stats{}
 	for _, l := range strings.Split(logStr, "\n") {
 		_, level, text, valid := processLogLine(l)
@@ -102,7 +98,7 @@ func getStats(config *config.BugReportConfig, logStr string) (*Stats, error) {
 		default:
 		}
 	}
-	return out, nil
+	return out
 }
 
 func processLogLine(line string) (timeStamp *time.Time, level string, text string, valid bool) {

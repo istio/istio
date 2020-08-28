@@ -29,8 +29,8 @@ var (
 // Path is a path in slice form.
 type Path []string
 
-// PathFromString converts a string path of form a.b.c to a string slice representation.
-func PathFromString(path string) Path {
+// FromString converts a string path of form a.b.c to a string slice representation.
+func FromString(path string) Path {
 	path = filepath.Clean(path)
 	path = strings.TrimPrefix(path, pathSeparator)
 	path = strings.TrimSuffix(path, pathSeparator)

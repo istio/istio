@@ -250,7 +250,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(softGraduatedCmd(upgradeCmd))
 	rootCmd.AddCommand(upgradeCmd)
 
-	bugReportCmd := bugreport.BugReportCmd()
+	bugReportCmd := bugreport.Cmd()
 	hideInheritedFlags(bugReportCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(bugReportCmd)
 

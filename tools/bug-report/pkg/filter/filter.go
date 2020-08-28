@@ -58,7 +58,8 @@ func getMatchingPathsForSpec(config *config.BugReportConfig, cluster *cluster2.R
 	return getMatchingPathsForSpecImpl(config, cluster, cluster.Root, nil, paths)
 }
 
-func getMatchingPathsForSpecImpl(config *config.BugReportConfig, cluster *cluster2.Resources, node map[string]interface{}, path path.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
+func getMatchingPathsForSpecImpl(config *config.BugReportConfig, cluster *cluster2.Resources, node map[string]interface{},
+	path path.Path, matchingPaths map[string]struct{}) (map[string]struct{}, error) {
 	for pe, n := range node {
 		np := append(path, pe)
 		if nn, ok := n.(map[string]interface{}); ok {
