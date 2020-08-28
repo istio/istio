@@ -299,7 +299,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	if a.cfg.Secrets != nil {
 		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
 		if err != nil {
-			log.Infof("Failed to get credential token: %v", err)
+			log.Infof("Failed to get credential token in agent: %v", err)
 			tok = []byte("")
 		}
 
