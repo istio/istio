@@ -30,13 +30,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	serviceapisclient "sigs.k8s.io/service-apis/pkg/client/clientset/versioned"
 
+	config "istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/resource"
+
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	securityv1beta1 "istio.io/api/security/v1beta1"
 	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
-
-	config "istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
 
 	servicev1alpha1 "sigs.k8s.io/service-apis/apis/v1alpha1"
 )
