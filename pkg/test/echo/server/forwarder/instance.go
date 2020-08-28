@@ -16,6 +16,8 @@ package forwarder
 
 import (
 	"context"
+	"fmt"
+	"golang.org/x/sync/semaphore"
 	"io"
 	"net/http"
 	"time"
@@ -27,6 +29,8 @@ import (
 )
 
 var _ io.Closer = &Instance{}
+
+const maxConcurrency = 50
 
 // Config for a forwarder Instance.
 type Config struct {
@@ -91,6 +95,7 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 		throttle = time.NewTicker(sleepTime)
 	}
 
+	sem := semaphore.NewWeighted(maxConcurrency)
 	for reqIndex := 0; reqIndex < i.count; reqIndex++ {
 		r := request{
 			RequestID:   reqIndex,
@@ -106,8 +111,11 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 			<-throttle.C
 		}
 
-		// TODO(nmittler): Refactor this to limit the number of go routines.
+		if err := sem.Acquire(ctx, 1); err != nil {
+			return nil, fmt.Errorf("failed aquiring semaphore: %v", err)
+		}
 		g.Go(func() error {
+			defer sem.Release(1)
 			resp, err := i.p.makeRequest(ctx, &r)
 			if err != nil {
 				return err

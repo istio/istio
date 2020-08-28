@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"istio.io/pkg/log"
 	"testing"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/istio/pkg/test/echo/server/forwarder"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -42,73 +42,79 @@ var testCases = map[string]struct {
 	"tcp": {
 		proto: protocol.TCP,
 	},
-	"tcp server-first": {
-		proto:       protocol.TCP,
-		serverFirst: true,
-	},
-	"http": {
-		proto:       protocol.HTTP,
-	},
+	//"tcp server-first": {
+	//	proto:       protocol.TCP,
+	//	serverFirst: true,
+	//},
+	//"http": {
+	//	proto:       protocol.HTTP,
+	//},
 }
 
 func TestEcho(t *testing.T) {
-	for _, s := range log.Scopes() {
-		s.SetOutputLevel(log.WarnLevel)
-	}
 	dialer := common.Dialer{}.FillInDefaults()
-	for name, tt := range testCases {
-		tt := tt
-		t.Run(name, func(t *testing.T) {
-			ep, err := endpoint.New(endpoint.Config{
-				IsServerReady: func() bool { return true },
-				Version:       version,
-				Cluster:       cluster,
-				Dialer:        dialer,
-				Port: &common.Port{
-					Port:        7070,
-					Protocol:    tt.proto,
-					ServerFirst: tt.serverFirst,
-				},
+	for _, s := range log.Scopes() {
+		s.SetOutputLevel(log.NoneLevel)
+	}
+	for i := 0; i < 100; i++ {
+		fmt.Println(i)
+		for name, tt := range testCases {
+			tt := tt
+			t.Run(name, func(t *testing.T) {
+				ep, err := endpoint.New(endpoint.Config{
+					IsServerReady: func() bool { return true },
+					Version:       version,
+					Cluster:       cluster,
+					Dialer:        dialer,
+					Port: &common.Port{
+						Port:        7070,
+						Protocol:    tt.proto,
+						ServerFirst: tt.serverFirst,
+					},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				readyChan := make(chan struct{}, 1)
+				if err := ep.Start(func() {
+					readyChan <- struct{}{}
+				}); err != nil {
+					t.Fatal(err)
+				}
+				<-readyChan
+				defer func() { _ = ep.Close() }()
+
+				fw, err := forwarder.New(forwarder.Config{
+					Request: &proto.ForwardEchoRequest{
+						Count:         100,
+						TimeoutMicros: common.DurationToMicros(5 * time.Second),
+						Url:           fmt.Sprintf("%s://127.0.0.1:%d", tt.proto, ep.GetConfig().Port.Port),
+						ServerFirst:   tt.serverFirst,
+						Message:       msg,
+					},
+					Dialer: dialer,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() { _ = fw.Close() }()
+
+				res, err := fw.Run(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				parsedRes := client.ParseForwardedResponse(res)
+				if err := parsedRes.CheckOK(); err != nil {
+					t.Fatal(err)
+				}
+				if err := parsedRes.CheckCluster(cluster); err != nil {
+					t.Fatal(err)
+				}
 			})
-			if err != nil {
-				t.Fatal(err)
+			if t.Failed() {
+				t.FailNow()
 			}
-
-			readyChan := make(chan struct{}, 1)
-			if err := ep.Start(func() {
-				readyChan <- struct{}{}
-			}); err != nil {
-				t.Fatal(err)
-			}
-			<-readyChan
-			defer func() { _ = ep.Close() }()
-
-			fw, err := forwarder.New(forwarder.Config{
-				Request: &proto.ForwardEchoRequest{
-					Count:         100,
-					TimeoutMicros: common.DurationToMicros(5 * time.Second),
-					Url:           fmt.Sprintf("%s://127.0.0.1:%d", tt.proto, ep.GetConfig().Port.Port),
-					ServerFirst:   tt.serverFirst,
-					Message:       msg,
-				},
-				Dialer: dialer,
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() { _ = fw.Close() }()
-
-			res, err := fw.Run(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-			parsedRes := client.ParseForwardedResponse(res)
-			if err := parsedRes.CheckOK(); err != nil {
-				t.Error(err)
-			}
-			if err := parsedRes.CheckCluster(cluster); err != nil {
-				t.Error(err)
-			}
-		})
+		}
 	}
 }
