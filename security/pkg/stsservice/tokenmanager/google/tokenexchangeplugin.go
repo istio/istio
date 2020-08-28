@@ -27,9 +27,10 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
+	"istio.io/istio/security/pkg/util"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -51,11 +52,13 @@ var (
 	// default grace period in seconds of an access token. If caching is enabled and token remaining life time is
 	// within this period, refresh access token.
 	defaultGracePeriod = 300
+	GCEProvider        = "GoogleComputeEngine"
 )
 
 // Plugin supports token exchange with Google OAuth 2.0 authorization server.
 type Plugin struct {
 	httpClient  *http.Client
+	credFetcher security.CredFetcher
 	trustDomain string
 	// tokens is the cache for fetched tokens.
 	// map key is token type, map value is tokenInfo.
@@ -70,7 +73,7 @@ type Plugin struct {
 }
 
 // CreateTokenManagerPlugin creates a plugin that fetches token from a Google OAuth 2.0 authorization server.
-func CreateTokenManagerPlugin(trustDomain, gcpProjectNumber, gkeClusterURL string, enableCache bool) (*Plugin, error) {
+func CreateTokenManagerPlugin(credFetcher security.CredFetcher, trustDomain, gcpProjectNumber, gkeClusterURL string, enableCache bool) (*Plugin, error) {
 	caCertPool, err := x509.SystemCertPool()
 	if err != nil {
 		pluginLog.Errorf("Failed to get SystemCertPool: %v", err)
@@ -85,6 +88,7 @@ func CreateTokenManagerPlugin(trustDomain, gcpProjectNumber, gkeClusterURL strin
 				},
 			},
 		},
+		credFetcher:      credFetcher,
 		trustDomain:      trustDomain,
 		gcpProjectNumber: gcpProjectNumber,
 		gkeClusterURL:    gkeClusterURL,
@@ -152,12 +156,40 @@ func (p *Plugin) useCachedToken() ([]byte, bool) {
 	return nil, false
 }
 
+// Construct the audience field for GetFederatedToken request.
+func (p *Plugin) constructAudience(subjectToken string) string {
+	provider := ""
+	if p.credFetcher != nil {
+		provider = p.credFetcher.GetIdentityProvider()
+	}
+	// For GKE, we do not register IdentityProvider explicitly. The provider name
+	// is GKEClusterURL by default.
+	if provider == "" {
+		provider = p.gkeClusterURL
+	}
+
+	var identityNS string
+	// Prefer to use the identity namespace from the token audience. The trust domain
+	// could configured differently from the identity namespace.
+	// Note the token exchange request would fail anyway if the identity namespace is not
+	// matched with the audience of the token.
+	if audiences, err := util.GetAud(subjectToken); len(audiences) == 1 && audiences[0] != "" {
+		identityNS = audiences[0]
+	} else {
+		pluginLog.Errorf("expect only 1 non-empty audience in token but found %v with error %v. Fallback to use trust domain %q as the identity namespace.",
+			audiences, err, p.trustDomain)
+		identityNS = p.trustDomain
+	}
+
+	return fmt.Sprintf("identitynamespace:%s:%s", identityNS, provider)
+}
+
 // constructFederatedTokenRequest returns an HTTP request for federated token.
 // Example of a federated token request:
 // POST https://securetoken.googleapis.com/v1/identitybindingtoken
 // Content-Type: application/json
 // {
-//    audience: <trust domain>
+//    audience: <trust domain>:<provider>
 //    grantType: urn:ietf:params:oauth:grant-type:token-exchange
 //    requestedTokenType: urn:ietf:params:oauth:token-type:access_token
 //    subjectTokenType: urn:ietf:params:oauth:token-type:jwt
@@ -169,7 +201,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters stsservice.StsRequest
 	if len(parameters.Scope) != 0 {
 		reqScope = parameters.Scope
 	}
-	aud := fmt.Sprintf("identitynamespace:%s:%s", p.trustDomain, p.gkeClusterURL)
+	aud := p.constructAudience(parameters.SubjectToken)
 	query := map[string]string{
 		"audience":           aud,
 		"grantType":          parameters.GrantType,
@@ -286,11 +318,18 @@ func (p *Plugin) sendRequestWithRetry(req *http.Request) (resp *http.Response, e
 	return resp, time.Since(start), err
 }
 
+type Duration struct {
+	// Signed seconds of the span of time. Must be from -315,576,000,000
+	// to +315,576,000,000 inclusive. Note: these bounds are computed from:
+	// 60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years
+	Seconds int64 `json:"seconds"`
+}
+
 type accessTokenRequest struct {
-	Name      string        `json:"name"` // nolint: structcheck, unused
-	Delegates []string      `json:"delegates"`
-	Scope     []string      `json:"scope"`
-	LifeTime  time.Duration `json:"lifetime"` // nolint: structcheck, unused
+	Name      string   `json:"name"` // nolint: structcheck, unused
+	Delegates []string `json:"delegates"`
+	Scope     []string `json:"scope"`
+	LifeTime  Duration `json:"lifetime"` // nolint: structcheck, unused
 }
 
 type accessTokenResponse struct {
@@ -313,7 +352,7 @@ type accessTokenResponse struct {
 func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenResponse) (*http.Request, error) {
 	// Request for access token with a lifetime of 3600 seconds.
 	query := accessTokenRequest{
-		LifeTime: time.Second * 3600,
+		LifeTime: Duration{Seconds: 3600},
 	}
 	query.Scope = append(query.Scope, scope)
 

@@ -15,13 +15,13 @@
 package v1beta1
 
 import (
-	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -29,12 +29,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
 
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
-
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pilot/pkg/networking"
@@ -385,7 +381,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: "",
+												InlineString: createFakeJwks("http://site.not.exist"),
 											},
 										},
 									},
@@ -763,7 +759,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: "",
+									InlineString: createFakeJwks(""),
 								},
 							},
 						},
@@ -815,7 +811,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: "",
+									InlineString: createFakeJwks("http://site.not.exist"),
 								},
 							},
 						},
@@ -833,13 +829,6 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
-	}
-}
-
-func setSkipValidateTrustDomain(value string, t *testing.T) {
-	err := os.Setenv(features.SkipValidateTrustDomain.Name, value)
-	if err != nil {
-		t.Fatalf("failed to set SkipValidateTrustDomain: %v", err)
 	}
 }
 
@@ -863,7 +852,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 		name                         string
 		isGateway                    bool
 		gatewayServerUsesIstioMutual bool
-		skipTrustDomainValidate      bool
 		jwtIn                        []*model.Config
 		peerIn                       []*model.Config
 		expected                     *http_conn.HttpFilter
@@ -885,6 +873,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 								},
 							},
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -919,8 +908,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			},
 		},
 		{
-			name:                    "no-request-authn-rule-skip-trust-domain",
-			skipTrustDomainValidate: true,
+			name: "no-request-authn-rule-skip-trust-domain",
 			expected: &http_conn.HttpFilter{
 				Name: "istio_authn",
 				ConfigType: &http_conn.HttpFilter_TypedConfig{
@@ -979,6 +967,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1013,6 +1002,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1118,6 +1108,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1178,6 +1169,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 							OriginIsOptional: true,
 							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1208,6 +1200,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 								},
 							},
 						},
+						SkipValidateTrustDomain: true,
 					}),
 				},
 			},
@@ -1227,8 +1220,7 @@ func TestAuthnFilterConfig(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:                    "beta-mtls-skip-trust-domain",
-			skipTrustDomainValidate: true,
+			name: "beta-mtls-skip-trust-domain",
 			peerIn: []*model.Config{
 				{
 					Spec: &v1beta1.PeerAuthentication{
@@ -1261,12 +1253,6 @@ func TestAuthnFilterConfig(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if c.skipTrustDomainValidate {
-				setSkipValidateTrustDomain("true", t)
-				defer func() {
-					setSkipValidateTrustDomain("false", t)
-				}()
-			}
 			proxyType := model.SidecarProxy
 			if c.isGateway {
 				proxyType = model.Router
@@ -1283,25 +1269,49 @@ func TestOnInboundFilterChain(t *testing.T) {
 	now := time.Now()
 	tlsContext := &tls.DownstreamTlsContext{
 		CommonTlsContext: &tls.CommonTlsContext{
-			TlsCertificates: []*tls.TlsCertificate{
+			TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
 				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/cert-chain.pem",
+					Name: "default",
+					SdsConfig: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+							ApiConfigSource: &core.ApiConfigSource{
+								ApiType:             core.ApiConfigSource_GRPC,
+								TransportApiVersion: core.ApiVersion_V3,
+								GrpcServices: []*core.GrpcService{
+									{
+										TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+											EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+										},
+									},
+								},
+							},
 						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/key.pem",
-						},
+						InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+						ResourceApiVersion:  core.ApiVersion_V3,
 					},
 				},
 			},
-			ValidationContextType: &tls.CommonTlsContext_ValidationContext{
-				ValidationContext: &tls.CertificateValidationContext{
-					TrustedCa: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: "/etc/certs/root-cert.pem",
+			ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext: &tls.CertificateValidationContext{},
+					ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+						Name: "ROOTCA",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:             core.ApiConfigSource_GRPC,
+									TransportApiVersion: core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
+											},
+										},
+									},
+								},
+							},
+							InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+							ResourceApiVersion:  core.ApiVersion_V3,
 						},
 					},
 				},
@@ -1340,8 +1350,9 @@ func TestOnInboundFilterChain(t *testing.T) {
 		expected     []networking.FilterChain
 	}{
 		{
-			name:     "No policy - behave as permissive",
-			expected: expectedPermissive,
+			name:       "No policy - behave as permissive",
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   expectedPermissive,
 		},
 		{
 			name: "Single policy - disable mode",
@@ -1354,7 +1365,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: nil,
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   nil,
 		},
 		{
 			name: "Single policy - permissive mode",
@@ -1367,7 +1379,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: expectedPermissive,
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   expectedPermissive,
 		},
 		{
 			name: "Single policy - strict mode",
@@ -1380,7 +1393,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: expectedStrict,
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to STRICT",
@@ -1420,7 +1434,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: expectedStrict,
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   expectedStrict,
 		},
 		{
 			name: "Multiple policies resolved to PERMISSIVE",
@@ -1460,7 +1475,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: expectedPermissive,
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   expectedPermissive,
 		},
 		{
 			name: "Port level hit",
@@ -1483,7 +1499,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: expectedStrict,
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   expectedStrict,
 		},
 		{
 			name: "Port level miss",
@@ -1503,7 +1520,8 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 			},
-			expected: expectedPermissive,
+			sdsUdsPath: "/tmp/sdsuds.sock",
+			expected:   expectedPermissive,
 		},
 	}
 
@@ -1521,6 +1539,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 				tc.sdsUdsPath,
 				testNode,
 				networking.ListenerProtocolAuto,
+				[]string{},
 			)
 			if !reflect.DeepEqual(got, tc.expected) {
 				t.Errorf("[%v] unexpected filter chains, got %v, want %v", tc.name, got, tc.expected)

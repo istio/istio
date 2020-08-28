@@ -21,12 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 type Test interface {
@@ -157,7 +156,7 @@ func (t *testImpl) Features(feats ...features.Feature) Test {
 	for _, f := range feats {
 		check, scenario := c.Check(f)
 		if !check {
-			log.Errorf("feature %s is not present in /pkg/test/framework/features/features.yaml", f)
+			log.Errorf("feature %s is not a leaf in /pkg/test/framework/features/features.yaml", f)
 			t.goTest.FailNow()
 			return nil
 		}

@@ -14,43 +14,16 @@
 
 package xds
 
-import (
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-)
+import v3 "istio.io/istio/pilot/pkg/xds/v3"
 
-// EventType represents the type of object we are tracking. This is distinct from Envoy's TypeUrl
-// as TypeUrl is versioned, whereas EventType is not
-type EventType string
-
-const (
-	ClusterEventType  EventType = "Cluster"
-	ListenerEventType EventType = "Listener"
-	RouteEventType    EventType = "Route"
-	EndpointEventType EventType = "Endpoint"
-	UnknownEventType  EventType = ""
-)
+// EventType represents the type of object we are tracking, mapping to envoy TypeUrl.
+type EventType = string
 
 var AllEventTypes = []EventType{
-	ClusterEventType,
-	ListenerEventType,
-	RouteEventType,
-	EndpointEventType,
-}
-
-func TypeURLToEventType(typeURL string) EventType {
-	switch typeURL {
-	case v2.ClusterType, v3.ClusterType:
-		return ClusterEventType
-	case v2.EndpointType, v3.EndpointType:
-		return EndpointEventType
-	case v2.RouteType, v3.RouteType:
-		return RouteEventType
-	case v2.ListenerType, v3.ListenerType:
-		return ListenerEventType
-	default:
-		return UnknownEventType
-	}
+	v3.ClusterType,
+	v3.ListenerType,
+	v3.RouteType,
+	v3.EndpointType,
 }
 
 // EventHandler allows for generic monitoring of xDS ACKS and disconnects, for the purpose of tracking

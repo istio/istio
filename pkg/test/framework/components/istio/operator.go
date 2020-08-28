@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,12 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
-
 	pkgAPI "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/test/cert/ca"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -63,6 +63,7 @@ type operatorComponent struct {
 	// installManifest includes the yamls use to install Istio. These can be deleted on cleanup
 	// The key is the cluster name
 	installManifest map[string]string
+	ingress         map[resource.ClusterIndex]ingress.Instance
 }
 
 var _ io.Closer = &operatorComponent{}
@@ -102,6 +103,18 @@ var leaderElectionConfigMaps = []string{
 	leaderelection.ValidationController,
 }
 
+func (i *operatorComponent) IngressFor(cluster resource.Cluster) ingress.Instance {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if _, ok := i.ingress[cluster.Index()]; !ok {
+		i.ingress[cluster.Index()] = newIngress(i.ctx, ingressConfig{
+			Namespace: i.settings.IngressNamespace,
+			Cluster:   cluster,
+		})
+	}
+	return i.ingress[cluster.Index()]
+}
+
 func (i *operatorComponent) Close() (err error) {
 	scopes.Framework.Infof("=== BEGIN: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
 	defer scopes.Framework.Infof("=== DONE: Cleanup Istio [Suite=%s] ===", i.ctx.Settings().TestID)
@@ -128,14 +141,21 @@ func (i *operatorComponent) Close() (err error) {
 			}
 		}
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.ingress != nil {
+		for _, ing := range i.ingress {
+			ing.CloseClients()
+		}
+	}
 	return
 }
 
-func (i *operatorComponent) Dump() {
+func (i *operatorComponent) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
 
 	for _, cluster := range i.environment.KubeClusters {
-		d, err := i.ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
+		d, err := ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
 		if err != nil {
 			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
@@ -160,6 +180,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		settings:        cfg,
 		ctx:             ctx,
 		installManifest: map[string]string{},
+		ingress:         map[resource.ClusterIndex]ingress.Instance{},
 	}
 	i.id = ctx.TrackResource(i)
 
@@ -204,11 +225,14 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
+				if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
+					return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
+				}
 				return nil
 			})
 			if isCentralIstio(env, cfg) && env.IsControlPlaneCluster(cluster) {
 				errG.Go(func() error {
-					return patchIstiodCustomHost(cfg, cluster)
+					return patchIstiodCustomHost(i, cfg, cluster)
 				})
 			}
 		}
@@ -275,14 +299,10 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	return i, nil
 }
 
-func patchIstiodCustomHost(cfg Config, cluster resource.Cluster) error {
-	var remoteIstiodAddress net.TCPAddr
-	if err := retry.UntilSuccess(func() error {
-		var err error
-		remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, cluster, false)
+func patchIstiodCustomHost(i *operatorComponent, cfg Config, cluster resource.Cluster) error {
+	remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
+	if err != nil {
 		return err
-	}, retry.Timeout(90*time.Second)); err != nil {
-		return fmt.Errorf("failed getting the istiod address for cluster %s: %v", cluster.Name(), err)
 	}
 
 	patchOptions := kubeApiMeta.PatchOptions{
@@ -461,27 +481,13 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				"--set", "values.global.network="+networkName)
 		}
 
-		if c.environment.IsControlPlaneCluster(cluster) {
-			// Expose Istiod through ingress to allow remote clusters to connect
-			installSettings = append(installSettings, "--set", "values.global.meshExpansion.enabled=true")
-		} else {
-			installSettings = append(installSettings, "--set", "profile=remote")
-			controlPlaneCluster, err := c.environment.GetControlPlaneCluster(cluster)
+		if !c.environment.IsControlPlaneCluster(cluster) {
+			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
 			if err != nil {
-				return fmt.Errorf("failed getting control plane cluster for cluster %s: %v", cluster.Name(), err)
-			}
-			var remoteIstiodAddress net.TCPAddr
-			if err := retry.UntilSuccess(func() error {
-				var err error
-				remoteIstiodAddress, err = GetRemoteDiscoveryAddress(cfg.SystemNamespace, controlPlaneCluster, false)
 				return err
-			}, retry.Timeout(1*time.Minute)); err != nil {
-				return fmt.Errorf("failed getting the istiod address for cluster %s: %v", controlPlaneCluster.Name(), err)
 			}
 			installSettings = append(installSettings,
-				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
-				// Use the local Istiod for CA
-				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
+				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
 
 			if isCentralIstio(c.environment, cfg) {
 				installSettings = append(installSettings,
@@ -504,6 +510,16 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		}
 	}
 	return applyManifest(c, installSettings, istioCtl, cluster.Name())
+}
+
+func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
+	yamlBytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, "samples/istiod-gateway/istiod-gateway.yaml"))
+	if err != nil {
+		return err
+	}
+	yaml := string(yamlBytes)
+	yaml = strings.ReplaceAll(yaml, "istio-system", cfg.SystemNamespace)
+	return ctx.Config(cluster).ApplyYAML(cfg.SystemNamespace, yaml)
 }
 
 func isCentralIstio(env *kube.Environment, cfg Config) bool {
@@ -569,7 +585,7 @@ func waitForControlPlane(ctx resource.Context, dumper resource.Dumper, cluster r
 	if !cfg.SkipWaitForValidationWebhook {
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		if err := waitForValidationWebhook(ctx, cluster, cfg); err != nil {
-			dumper.Dump()
+			dumper.Dump(ctx)
 			return err
 		}
 	}

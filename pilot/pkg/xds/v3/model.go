@@ -16,8 +16,6 @@ package v3
 
 import (
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
 )
 
 const (
@@ -27,23 +25,33 @@ const (
 	RouteType    = resource.RouteType
 )
 
-var (
-	ListenerShortType = "LDS"
-	RouteShortType    = "RDS"
-	EndpointShortType = "EDS"
-	ClusterShortType  = "CDS"
-)
-
+// GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
 func GetShortType(typeURL string) string {
 	switch typeURL {
-	case v2.ClusterType, ClusterType:
-		return ClusterShortType
-	case v2.ListenerType, ListenerType:
-		return ListenerShortType
-	case v2.RouteType, RouteType:
-		return RouteShortType
-	case v2.EndpointType, EndpointType:
-		return EndpointShortType
+	case ClusterType:
+		return "CDS"
+	case ListenerType:
+		return "LDS"
+	case RouteType:
+		return "RDS"
+	case EndpointType:
+		return "EDS"
+	default:
+		return typeURL
+	}
+}
+
+// GetMetricType returns the form of a type reported for metrics
+func GetMetricType(typeURL string) string {
+	switch typeURL {
+	case ClusterType:
+		return "cds"
+	case ListenerType:
+		return "lds"
+	case RouteType:
+		return "rds"
+	case EndpointType:
+		return "eds"
 	default:
 		return typeURL
 	}

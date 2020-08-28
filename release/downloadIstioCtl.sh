@@ -83,21 +83,38 @@ cd "$tmp" || exit
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
 
-printf "Downloading %s from %s ... \n" "${NAME}" "${URL}"
-if ! curl -fsLO "$URL"
-then
-  printf "Failed. \n\nTrying with TARGET_ARCH. Downloading %s from %s ...\n" "${NAME}" "$ARCH_URL"
-  if ! curl -fsLO "$ARCH_URL"
-  then
-   download_failed
-  else
-    filename="istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
-    tar -xzf "${filename}"
-  fi
-else
+with_arch() {
+  printf "\nDownloading %s from %s ...\n" "${NAME}" "$ARCH_URL"
+  curl -fsLO "$ARCH_URL"
+  filename="istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
+  tar -xzf "${filename}"
+}
+
+without_arch() {
+  printf "\n Downloading %s from %s ... \n" "${NAME}" "${URL}"
+  curl -fsLO "$URL"
   filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
   tar -xzf "${filename}"
+}
+
+# Istio 1.6 and above support arch
+ARCH_SUPPORTED=$(echo "$ISTIO_VERSION" | awk  '{ ARCH_SUPPORTED=substr($0, 1, 3); print ARCH_SUPPORTED; }' )
+# Istio 1.5 and below do not have arch support
+ARCH_UNSUPPORTED="1.5"
+
+if [ "${OS}" = "Linux" ] ; then
+  # This checks if 1.6 <= 1.5 or 1.4 <= 1.5
+  if [ "$(expr "${ARCH_SUPPORTED}" \<= "${ARCH_UNSUPPORTED}")" -eq 1 ]; then
+    without_arch
+  else
+    with_arch
+  fi
+elif [ "x${OS}" = "xDarwin" ] ; then
+  without_arch
+else
+  download_failed
 fi
+
 printf "%s download complete!\n" "${filename}"
 
 # setup istioctl

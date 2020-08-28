@@ -21,11 +21,19 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -186,12 +194,12 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		endpoints := ExtractEndpoints(s.Endpoints(proxy))
+		endpoints := xdstest.ExtractLoadAssignments(s.Endpoints(proxy))
 		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -213,13 +221,13 @@ func TestServiceScoping(t *testing.T) {
 		p.IPAddresses = []string{"100.100.100.100"}
 		proxy := s.SetupProxy(p)
 
-		endpoints := ExtractClusterEndpoints(s.Clusters(proxy))
+		endpoints := xdstest.ExtractClusterEndpoints(s.Clusters(proxy))
 		eps := endpoints["inbound|9080|custom-http|sidecar.app"]
 		if !listEqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
 			t.Fatalf("expected /var/run/someuds.sock, got %v", eps)
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -237,7 +245,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
@@ -250,7 +258,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
 	})
 }
 
@@ -261,12 +269,12 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
+			Equals(wellknown.TCPProxy, "{.filterChains[0].filters[0].name}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
 			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
@@ -281,7 +289,7 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
@@ -301,50 +309,72 @@ func TestSidecarListeners(t *testing.T) {
 }
 
 func TestMeshNetworking(t *testing.T) {
-	s := NewFakeDiscoveryServer(t, FakeOptions{
-		KubernetesObjectString: `
-apiVersion: v1
-kind: Pod
-metadata:
-  name: kubeapp-1234
-  namespace: pod
-  labels:
-    app: kubeapp
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kubeapp
-  namespace: pod
-spec:
-  clusterIP: 1.2.3.4
-  selector:
-    app: kubeapp
-  ports:
-  - port: 80
-    name: http
-    protocol: TCP
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: kubeapp
-  namespace: pod
-  labels:
-    app: kubeapp
-subsets:
-- addresses:
-  - ip: 10.10.10.20
-    targetRef:
-      kind: Pod
-      name: kubeapp-1234
-      namespace: pod
-  ports:
-  - port: 80
-    name: http
-    protocol: TCP
-`,
-		ConfigString: `
+	ingresses := []*corev1.Service{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "istio-ingressgateway",
+				Namespace: "istio-system",
+			},
+			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "2.2.2.2"}}},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "istio-ingressgateway",
+				Namespace:   "istio-system",
+				Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
+			},
+			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 15443, NodePort: 25443}}},
+			Status: corev1.ServiceStatus{
+				LoadBalancer: corev1.LoadBalancerStatus{Ingress: []corev1.LoadBalancerIngress{{IP: "8.8.8.8"}}}, // 2.2.2.2 should be found on the node
+			},
+		},
+	}
+
+	meshNetworkConfigs := map[string]*meshconfig.MeshNetworks{
+		"gateway-address": {Networks: map[string]*meshconfig.Network{
+			// Explicitly set address
+			"network-1": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
+					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
+				}},
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw:   &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"},
+					Port: 15443,
+				}},
+			},
+		}},
+		"gateway-registryServiceName": {Networks: map[string]*meshconfig.Network{
+			// Address from service
+			"network-1": {
+				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
+					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
+				}},
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw: &meshconfig.Network_IstioNetworkGateway_RegistryServiceName{
+						RegistryServiceName: "istio-ingressgateway.istio-system.svc.cluster.local",
+					},
+					Port: 15443,
+				}},
+			},
+		}},
+	}
+
+	for _, ingr := range ingresses {
+		t.Run(string(ingr.Spec.Type), func(t *testing.T) {
+			var k8sObjects []runtime.Object
+			k8sObjects = append(k8sObjects,
+				// NodePort ingress needs this
+				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
+				ingr)
+			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
+			for name, networkConfig := range meshNetworkConfigs {
+				t.Run(name, func(t *testing.T) {
+					s := NewFakeDiscoveryServer(t, FakeOptions{
+						KubernetesObjects: k8sObjects,
+						ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
@@ -361,6 +391,7 @@ spec:
   location: MESH_INTERNAL
   endpoints:
   - address: 10.10.10.30
+    serviceAccount: svc-acc
     labels:
       app: se-pod
     network: network-1
@@ -384,82 +415,75 @@ spec:
       app: httpbin
     network: vm
 `,
-		MeshNetworks: &meshconfig.MeshNetworks{Networks: map[string]*meshconfig.Network{
-			"network-1": {
-				Endpoints: []*meshconfig.Network_NetworkEndpoints{{
-					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
-				}},
-				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
-					Gw:       &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"},
-					Port:     15443,
-					Locality: "",
-				}},
-			},
-		}},
-	})
-	se := s.SetupProxy(&model.Proxy{
-		ID: "se-pod.pod",
-		Metadata: &model.NodeMetadata{
-			Network:   "network-1",
-			ClusterID: "Kubernetes",
-			Labels:    labels.Instance{"app": "se-pod"},
-		},
-	})
-	pod := s.SetupProxy(&model.Proxy{
-		ID: "kubeapp-1234.pod",
-		Metadata: &model.NodeMetadata{
-			Network:   "network-1",
-			ClusterID: "Kubernetes",
-			Labels:    labels.Instance{"app": "kubeapp"},
-		},
-	})
-	vm := s.SetupProxy(&model.Proxy{
-		ID:              "vm",
-		IPAddresses:     []string{"10.10.10.10"},
-		ConfigNamespace: "default",
-		Metadata: &model.NodeMetadata{
-			Network:          "vm",
-			InterceptionMode: "NONE",
-		},
-	})
+						NetworksWatcher: mesh.NewFixedNetworksWatcher(networkConfig),
+					})
+					se := s.SetupProxy(&model.Proxy{
+						ID: "se-pod.pod",
+						Metadata: &model.NodeMetadata{
+							Network:   "network-1",
+							ClusterID: "Kubernetes",
+							Labels:    labels.Instance{"app": "se-pod"},
+						},
+					})
+					pod := s.SetupProxy(&model.Proxy{
+						ID: "kubeapp-1234.pod",
+						Metadata: &model.NodeMetadata{
+							Network:   "network-1",
+							ClusterID: "Kubernetes",
+							Labels:    labels.Instance{"app": "kubeapp"},
+						},
+					})
+					vm := s.SetupProxy(&model.Proxy{
+						ID:              "vm",
+						IPAddresses:     []string{"10.10.10.10"},
+						ConfigNamespace: "default",
+						Metadata: &model.NodeMetadata{
+							Network:          "vm",
+							InterceptionMode: "NONE",
+						},
+					})
 
-	tests := []struct {
-		p      *model.Proxy
-		expect map[string]string
-	}{
-		{
-			p: pod,
-			expect: map[string]string{
-				"outbound|7070||httpbin.com":                 "10.10.10.10",
-				"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-				"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
-			},
-		},
-		{
-			p: se,
-			expect: map[string]string{
-				"outbound|7070||httpbin.com":                 "10.10.10.10",
-				"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-				"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
-			},
-		},
-		{
-			p: vm,
-			expect: map[string]string{
-				"outbound|7070||httpbin.com":                 "10.10.10.10",
-				"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
-				"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
-			},
-		},
-	}
+					tests := []struct {
+						p      *model.Proxy
+						expect map[string]string
+					}{
+						{
+							p: pod,
+							expect: map[string]string{
+								"outbound|7070||httpbin.com":                 "10.10.10.10",
+								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
+								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							},
+						},
+						{
+							p: se,
+							expect: map[string]string{
+								"outbound|7070||httpbin.com":                 "10.10.10.10",
+								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
+								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							},
+						},
+						{
+							p: vm,
+							expect: map[string]string{
+								"outbound|7070||httpbin.com":                 "10.10.10.10",
+								"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
+								"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
+							},
+						},
+					}
 
-	for _, tt := range tests {
-		eps := ExtractEndpoints(s.Endpoints(tt.p))
-		for c, ip := range tt.expect {
-			t.Run(fmt.Sprintf("%s from %s", c, vm.ID), func(t *testing.T) {
-				assertListEqual(t, eps[c], []string{ip})
-			})
-		}
+					for _, tt := range tests {
+						eps := xdstest.ExtractLoadAssignments(s.Endpoints(tt.p))
+						for c, ip := range tt.expect {
+							t.Run(fmt.Sprintf("%s from %s", c, tt.p.ID), func(t *testing.T) {
+								assertListEqual(t, eps[c], []string{ip})
+							})
+						}
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -506,7 +530,7 @@ spec:
 	})
 
 	listeners := s.Listeners(proxy)
-	assertListEqual(t, ExtractListenerNames(listeners), []string{
+	assertListEqual(t, xdstest.ExtractListenerNames(listeners), []string{
 		"0.0.0.0_80",
 		"virtualInbound",
 		"virtualOutbound",
@@ -515,12 +539,12 @@ spec:
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 
 	found := false
-	for _, f := range ExtractListener("virtualOutbound", listeners).FilterChains {
+	for _, f := range xdstest.ExtractListener("virtualOutbound", listeners).FilterChains {
 		// We want to check the match all filter chain, as this is testing the fallback logic
 		if f.FilterChainMatch != nil {
 			continue
 		}
-		tcp := ExtractTCPProxy(t, f)
+		tcp := xdstest.ExtractTCPProxy(t, f)
 		if tcp.GetCluster() != expectedEgressCluster {
 			t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
 		}
@@ -547,6 +571,78 @@ spec:
 	}
 	if !found {
 		t.Fatalf("failed to find expected fallthrough route")
+	}
+}
+
+type fakeServiceOpts struct {
+	name         string
+	ns           string
+	ip           string
+	podLabels    labels.Instance
+	servicePorts []corev1.ServicePort
+}
+
+// fakePodService build the minimal k8s objects required to discover one endpoint.
+// If servicePorts is empty a default of http-80 will be used.
+func fakePodService(opts fakeServiceOpts) []runtime.Object {
+	baseMeta := metav1.ObjectMeta{
+		Name: opts.name,
+		Labels: labels.Instance{
+			"app":         opts.name,
+			label.TLSMode: model.IstioMutualTLSModeLabel,
+		},
+		Namespace: opts.ns,
+	}
+	podMeta := baseMeta
+	podMeta.Name = opts.name + "-" + rand.String(4)
+	for k, v := range opts.podLabels {
+		podMeta.Labels[k] = v
+	}
+
+	if len(opts.servicePorts) == 0 {
+		opts.servicePorts = []corev1.ServicePort{{
+			Port:     80,
+			Name:     "http",
+			Protocol: corev1.ProtocolTCP,
+		}}
+	}
+	var endpointPorts []corev1.EndpointPort
+	for _, sp := range opts.servicePorts {
+		endpointPorts = append(endpointPorts, corev1.EndpointPort{
+			Name:        sp.Name,
+			Port:        sp.Port,
+			Protocol:    sp.Protocol,
+			AppProtocol: sp.AppProtocol,
+		})
+	}
+
+	return []runtime.Object{
+		&corev1.Pod{
+			ObjectMeta: podMeta,
+		},
+		&corev1.Service{
+			ObjectMeta: baseMeta,
+			Spec: corev1.ServiceSpec{
+				ClusterIP: "1.2.3.4", // just can't be 0.0.0.0/ClusterIPNone
+				Selector:  baseMeta.Labels,
+				Ports:     opts.servicePorts,
+			},
+		},
+		&corev1.Endpoints{
+			ObjectMeta: baseMeta,
+			Subsets: []corev1.EndpointSubset{{
+				Addresses: []corev1.EndpointAddress{{
+					IP: opts.ip,
+					TargetRef: &corev1.ObjectReference{
+						APIVersion: "v1",
+						Kind:       "Pod",
+						Name:       podMeta.Name,
+						Namespace:  podMeta.Namespace,
+					},
+				}},
+				Ports: endpointPorts,
+			}},
+		},
 	}
 }
 

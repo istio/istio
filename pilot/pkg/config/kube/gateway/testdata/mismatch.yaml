@@ -15,4 +15,4 @@ spec:
   class: something-else
   listeners: []
   routes:
-    namespaceSelector: {}
+    resources: httproutes

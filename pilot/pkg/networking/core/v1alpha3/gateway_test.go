@@ -18,17 +18,17 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	networking "istio.io/api/networking/v1alpha3"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
@@ -36,8 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -51,44 +50,6 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 		sdsPath string
 		result  *auth.DownstreamTlsContext
 	}{
-		{
-			name: "mesh SDS disabled, tls mode ISTIO_MUTUAL",
-			server: &networking.Server{
-				Hosts: []string{"httpbin.example.com"},
-				Tls: &networking.ServerTLSSettings{
-					Mode: networking.ServerTLSSettings_ISTIO_MUTUAL,
-				},
-			},
-			result: &auth.DownstreamTlsContext{
-				CommonTlsContext: &auth.CommonTlsContext{
-					AlpnProtocols: util.ALPNHttp,
-					TlsCertificates: []*auth.TlsCertificate{
-						{
-							CertificateChain: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: constants.DefaultCertChain,
-								},
-							},
-							PrivateKey: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: constants.DefaultKey,
-								},
-							},
-						},
-					},
-					ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-						ValidationContext: &auth.CertificateValidationContext{
-							TrustedCa: &core.DataSource{
-								Specifier: &core.DataSource_Filename{
-									Filename: constants.DefaultRootCert,
-								},
-							},
-						},
-					},
-				},
-				RequireClientCertificate: proto.BoolTrue,
-			},
-		},
 		{
 			name: "mesh SDS enabled, tls mode ISTIO_MUTUAL",
 			server: &networking.Server{
@@ -105,7 +66,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 						{
 							Name: "default",
 							SdsConfig: &core.ConfigSource{
-								InitialFetchTimeout: features.InitialFetchTimeout,
+								InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 								ResourceApiVersion:  core.ApiVersion_V3,
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{
@@ -129,7 +90,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 							ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 								Name: "ROOTCA",
 								SdsConfig: &core.ConfigSource{
-									InitialFetchTimeout: features.InitialFetchTimeout,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 									ResourceApiVersion:  core.ApiVersion_V3,
 									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 										ApiConfigSource: &core.ApiConfigSource{
@@ -207,7 +168,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -250,7 +211,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -332,7 +293,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and subject names are specified, SDS configs are generated for fetching
+		{
+			// Credential name and subject names are specified, SDS configs are generated for fetching
 			// key/cert and root cert.
 			name: "credential name subject alternative name key and cert tls MUTUAL",
 			server: &networking.Server{
@@ -362,7 +324,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -391,7 +353,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.GatewaySdsUdsPath,
+															TargetUri:  model.CredentialNameSDSUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -407,7 +369,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and VerifyCertificateSpki options are specified, SDS configs are generated for fetching
+		{
+			// Credential name and VerifyCertificateSpki options are specified, SDS configs are generated for fetching
 			// key/cert and root cert
 			name: "credential name verify spki key and cert tls MUTUAL",
 			server: &networking.Server{
@@ -435,7 +398,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -464,7 +427,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.GatewaySdsUdsPath,
+															TargetUri:  model.CredentialNameSDSUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -480,7 +443,8 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 				RequireClientCertificate: proto.BoolTrue,
 			},
 		},
-		{ // Credential name and VerifyCertificateHash options are specified, SDS configs are generated for fetching
+		{
+			// Credential name and VerifyCertificateHash options are specified, SDS configs are generated for fetching
 			// key/cert and root cert
 			name: "credential name verify hash key and cert tls MUTUAL",
 			server: &networking.Server{
@@ -508,7 +472,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 											{
 												TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 													GoogleGrpc: &core.GrpcService_GoogleGrpc{
-														TargetUri:  model.GatewaySdsUdsPath,
+														TargetUri:  model.CredentialNameSDSUdsPath,
 														StatPrefix: model.SDSStatPrefix,
 													},
 												},
@@ -537,7 +501,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 												{
 													TargetSpecifier: &core.GrpcService_GoogleGrpc_{
 														GoogleGrpc: &core.GrpcService_GoogleGrpc{
-															TargetUri:  model.GatewaySdsUdsPath,
+															TargetUri:  model.CredentialNameSDSUdsPath,
 															StatPrefix: model.SDSStatPrefix,
 														},
 													},
@@ -569,7 +533,7 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{SdsEnabled: true}, v3.ListenerType)
+			ret := buildGatewayListenerTLSContext(tc.server, tc.sdsPath, &pilot_model.NodeMetadata{})
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: %v", diff)
 			}
@@ -636,33 +600,57 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			result: &filterChainOpts{
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
-					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
-						TlsCertificates: []*auth.TlsCertificate{
-							{
-								CertificateChain: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/cert-chain.pem",
-									},
-								},
-								PrivateKey: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/key.pem",
-									},
-								},
-							},
-						},
-						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-							ValidationContext: &auth.CertificateValidationContext{
-								TrustedCa: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/root-cert.pem",
-									},
-								},
-							},
-						},
 						AlpnProtocols: []string{"h2", "http/1.1"},
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &auth.CertificateValidationContext{},
+								ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
+					RequireClientCertificate: proto.BoolTrue,
 				},
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
@@ -699,33 +687,57 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			result: &filterChainOpts{
 				sniHosts: []string{"example.org", "test.org"},
 				tlsContext: &auth.DownstreamTlsContext{
-					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
-						TlsCertificates: []*auth.TlsCertificate{
-							{
-								CertificateChain: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/cert-chain.pem",
-									},
-								},
-								PrivateKey: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/key.pem",
-									},
-								},
-							},
-						},
-						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-							ValidationContext: &auth.CertificateValidationContext{
-								TrustedCa: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/root-cert.pem",
-									},
-								},
-							},
-						},
 						AlpnProtocols: []string{"h2", "http/1.1"},
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &auth.CertificateValidationContext{},
+								ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
+					RequireClientCertificate: proto.BoolTrue,
 				},
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
@@ -762,33 +774,57 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			result: &filterChainOpts{
 				sniHosts: []string{"*.example.org", "example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
-					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
-						TlsCertificates: []*auth.TlsCertificate{
-							{
-								CertificateChain: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/cert-chain.pem",
-									},
-								},
-								PrivateKey: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/key.pem",
-									},
-								},
-							},
-						},
-						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-							ValidationContext: &auth.CertificateValidationContext{
-								TrustedCa: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/root-cert.pem",
-									},
-								},
-							},
-						},
 						AlpnProtocols: []string{"h2", "http/1.1"},
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &auth.CertificateValidationContext{},
+								ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
+					RequireClientCertificate: proto.BoolTrue,
 				},
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
@@ -864,33 +900,57 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			result: &filterChainOpts{
 				sniHosts: []string{"example.org"},
 				tlsContext: &auth.DownstreamTlsContext{
-					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
-						TlsCertificates: []*auth.TlsCertificate{
-							{
-								CertificateChain: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/cert-chain.pem",
-									},
-								},
-								PrivateKey: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/key.pem",
-									},
-								},
-							},
-						},
-						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-							ValidationContext: &auth.CertificateValidationContext{
-								TrustedCa: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/root-cert.pem",
-									},
-								},
-							},
-						},
 						AlpnProtocols: []string{"h2", "http/1.1"},
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &auth.CertificateValidationContext{},
+								ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
+					RequireClientCertificate: proto.BoolTrue,
 				},
 				httpOpts: &httpListenerOpts{
 					rds:              "some-route",
@@ -935,30 +995,54 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 				tlsContext: &auth.DownstreamTlsContext{
 					RequireClientCertificate: proto.BoolTrue,
 					CommonTlsContext: &auth.CommonTlsContext{
-						TlsCertificates: []*auth.TlsCertificate{
-							{
-								CertificateChain: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/cert-chain.pem",
-									},
-								},
-								PrivateKey: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/key.pem",
-									},
-								},
-							},
-						},
-						ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-							ValidationContext: &auth.CertificateValidationContext{
-								TrustedCa: &core.DataSource{
-									Specifier: &core.DataSource_Filename{
-										Filename: "/etc/certs/root-cert.pem",
-									},
-								},
-							},
-						},
 						AlpnProtocols: []string{"h2", "http/1.1"},
+						TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+							{
+								Name: "default",
+								SdsConfig: &core.ConfigSource{
+									ResourceApiVersion:  core.ApiVersion_V3,
+									InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+									ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+										ApiConfigSource: &core.ApiConfigSource{
+											ApiType:             core.ApiConfigSource_GRPC,
+											TransportApiVersion: core.ApiVersion_V3,
+											GrpcServices: []*core.GrpcService{
+												{
+													TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+														EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &auth.CertificateValidationContext{},
+								ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+									Name: "ROOTCA",
+									SdsConfig: &core.ConfigSource{
+										ResourceApiVersion:  core.ApiVersion_V3,
+										InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: model.SDSClusterName},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 				httpOpts: &httpListenerOpts{
@@ -983,14 +1067,22 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		cgi := NewConfigGenerator([]plugin.Plugin{})
-		tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
-			tc.server: pilot_model.GetSNIHostsForServer(tc.server),
-		}}
-		ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "", tc.proxyConfig)
-		if !reflect.DeepEqual(tc.result, ret) {
-			t.Errorf("test case %s: expecting %+v but got %+v", tc.name, tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			cgi := NewConfigGenerator([]plugin.Plugin{})
+			tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
+				tc.server: pilot_model.GetSNIHostsForServer(tc.server),
+			}}
+			ret := cgi.createGatewayHTTPFilterChainOpts(tc.node, tc.server, tc.routeName, "", tc.proxyConfig)
+			if diff := cmp.Diff(tc.result.tlsContext, ret.tlsContext, protocmp.Transform()); diff != "" {
+				t.Errorf("got diff in tls context: %v", diff)
+			}
+			if !reflect.DeepEqual(tc.result.httpOpts, ret.httpOpts) {
+				t.Errorf("expecting httpopts %+v but got %+v", tc.result.httpOpts.connectionManager, ret.httpOpts.connectionManager)
+			}
+			if !reflect.DeepEqual(tc.result.sniHosts, ret.sniHosts) {
+				t.Errorf("expecting snihosts %+v but got %+v", tc.result.sniHosts, ret.sniHosts)
+			}
+		})
 	}
 }
 
@@ -1256,18 +1348,13 @@ func TestBuildGatewayListeners(t *testing.T) {
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
 		builder := configgen.buildGatewayListeners(&ListenerBuilder{node: &proxyGateway, push: env.PushContext})
-		var listeners []string
-		for _, l := range builder.gatewayListeners {
-			if err := l.Validate(); err != nil {
-				t.Fatalf("Validation failed for listener %s with error %v", l.Name, err)
-			}
-			listeners = append(listeners, l.Name)
-		}
+		listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
 		sort.Strings(listeners)
 		sort.Strings(tt.expectedListeners)
 		if !reflect.DeepEqual(listeners, tt.expectedListeners) {
 			t.Fatalf("Expected listeners: %v, got: %v\n%v", tt.expectedListeners, listeners, proxyGateway.MergedGateway.Servers)
 		}
+		xdstest.ValidateListeners(t, builder.gatewayListeners)
 	}
 }
 

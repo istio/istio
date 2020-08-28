@@ -32,11 +32,7 @@ import (
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 
-	"istio.io/istio/pkg/util/gogo"
-
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
@@ -44,6 +40,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/gogo"
+	"istio.io/pkg/log"
 )
 
 // Headers with special meaning in Envoy
@@ -63,14 +61,15 @@ const DefaultRouteName = "default"
 const maxRegExProgramSize = 1024
 
 var (
-	// TODO: remove deprecatedRegexEngine once all envoys have unlimited default.
-	deprecatedRegexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
+	// TODO: In the current version of Envoy, MaxProgramSize has been deprecated. However even if we do not send
+	// MaxProgramSize, Envoy is enforcing max size of 100 via runtime. We will have to remove this and find a
+	// way to specify via runtime or find a better option.
+	// See https://www.envoyproxy.io/docs/envoy/latest/api-v3/type/matcher/v3/regex.proto.html#type-matcher-v3-regexmatcher-googlere2.
+	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
 		MaxProgramSize: &wrappers.UInt32Value{
 			Value: uint32(maxRegExProgramSize),
 		},
 	}}
-
-	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 )
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
@@ -743,6 +742,16 @@ func translateHeaderMatch(name string, in *networking.StringMatch, node *model.P
 	return out
 }
 
+func convertToExactEnvoyMatch(in []string) []*matcher.StringMatcher {
+	res := make([]*matcher.StringMatcher, 0, len(in))
+
+	for _, istioMatcher := range in {
+		res = append(res, &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: istioMatcher}})
+	}
+
+	return res
+}
+
 func convertToEnvoyMatch(in []*networking.StringMatch, node *model.Proxy) []*matcher.StringMatcher {
 	res := make([]*matcher.StringMatcher, 0, len(in))
 
@@ -777,6 +786,8 @@ func translateCORSPolicy(in *networking.CorsPolicy, node *model.Proxy) *route.Co
 	out := route.CorsPolicy{}
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = convertToEnvoyMatch(in.AllowOrigins, node)
+	} else if in.AllowOrigin != nil {
+		out.AllowOriginStringMatch = convertToExactEnvoyMatch(in.AllowOrigin)
 	}
 
 	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
@@ -1117,8 +1128,5 @@ func traceOperation(host string, port int) string {
 }
 
 func regexMatcher(node *model.Proxy) *matcher.RegexMatcher_GoogleRe2 {
-	if util.IsIstioVersionGE17(node) {
-		return regexEngine
-	}
-	return deprecatedRegexEngine
+	return regexEngine
 }

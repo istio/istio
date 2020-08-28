@@ -37,17 +37,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 	"go.opencensus.io/stats/view"
-
-	"istio.io/pkg/env"
-
-	"istio.io/istio/pilot/pkg/model"
-
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -166,6 +162,11 @@ func NewServer(config Config) (*Server, error) {
 		}
 		if s.prometheus.Port == "" {
 			s.prometheus.Port = "80"
+		}
+		if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
+			return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+				"application port is the same as agent port, which may lead to a recursive loop. "+
+				"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
 		}
 	}
 

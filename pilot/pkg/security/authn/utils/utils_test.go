@@ -15,67 +15,30 @@
 package utils
 
 import (
-	"strings"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/spiffe"
 )
 
-const (
-	expPilotSAN string = "spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"
-)
-
 func TestBuildInboundFilterChain(t *testing.T) {
-	tlsContext := func(alpnProtocols []string) *auth.DownstreamTlsContext {
-		return &auth.DownstreamTlsContext{
-			CommonTlsContext: &auth.CommonTlsContext{
-				TlsCertificates: []*auth.TlsCertificate{
-					{
-						CertificateChain: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/cert-chain.pem",
-							},
-						},
-						PrivateKey: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/key.pem",
-							},
-						},
-					},
-				},
-				ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-					ValidationContext: &auth.CertificateValidationContext{
-						TrustedCa: &core.DataSource{
-							Specifier: &core.DataSource_Filename{
-								Filename: "/etc/certs/root-cert.pem",
-							},
-						},
-					},
-				},
-				AlpnProtocols: alpnProtocols,
-			},
-			RequireClientCertificate: protovalue.BoolTrue,
-		}
-	}
-
 	type args struct {
 		mTLSMode         model.MutualTLSMode
 		sdsUdsPath       string
 		node             *model.Proxy
 		listenerProtocol networking.ListenerProtocol
+		trustDomains     []string
 	}
 	tests := []struct {
 		name string
@@ -106,54 +69,12 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "MTLSStrict",
-			args: args{
-				mTLSMode: model.MTLSStrict,
-				node: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
-			},
-			want: []networking.FilterChain{
-				{
-					TLSContext: tlsContext([]string{"h2", "http/1.1"}),
-				},
-			},
-		},
-		{
-			name: "MTLSPermissive",
-			args: args{
-				mTLSMode: model.MTLSPermissive,
-				node: &model.Proxy{
-					Metadata: &model.NodeMetadata{},
-				},
-				listenerProtocol: networking.ListenerProtocolTCP,
-			},
-			// Two filter chains, one for mtls traffic within the mesh, one for plain text traffic.
-			want: []networking.FilterChain{
-				{
-					TLSContext: tlsContext([]string{"istio-peer-exchange", "h2", "http/1.1"}),
-					FilterChainMatch: &listener.FilterChainMatch{
-						ApplicationProtocols: []string{"istio-peer-exchange", "istio"},
-					},
-					ListenerFilters: []*listener.ListenerFilter{
-						xdsfilters.TLSInspector,
-					},
-				},
-				{
-					FilterChainMatch: &listener.FilterChainMatch{},
-				},
-			},
-		},
-		{
 			name: "MTLSStrict using SDS",
 			args: args{
 				mTLSMode:   model.MTLSStrict,
 				sdsUdsPath: "/tmp/sdsuds.sock",
 				node: &model.Proxy{
-					Metadata: &model.NodeMetadata{
-						SdsEnabled: true,
-					},
+					Metadata: &model.NodeMetadata{},
 				},
 				listenerProtocol: networking.ListenerProtocolHTTP,
 			},
@@ -165,7 +86,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 								{
 									Name: "default",
 									SdsConfig: &core.ConfigSource{
-										InitialFetchTimeout: features.InitialFetchTimeout,
+										InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
 										ResourceApiVersion:  core.ApiVersion_V3,
 										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 											ApiConfigSource: &core.ApiConfigSource{
@@ -185,11 +106,11 @@ func TestBuildInboundFilterChain(t *testing.T) {
 							},
 							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
 								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
-									DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch([]string{})},
+									DefaultValidationContext: &auth.CertificateValidationContext{},
 									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
 										Name: "ROOTCA",
 										SdsConfig: &core.ConfigSource{
-											InitialFetchTimeout: features.InitialFetchTimeout,
+											InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
 											ResourceApiVersion:  core.ApiVersion_V3,
 											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 												ApiConfigSource: &core.ApiConfigSource{
@@ -216,7 +137,7 @@ func TestBuildInboundFilterChain(t *testing.T) {
 			},
 		},
 		{
-			name: "MTLSStrict using SDS without node meta",
+			name: "MTLSStrict using SDS with local trust domain",
 			args: args{
 				mTLSMode:   model.MTLSStrict,
 				sdsUdsPath: "/tmp/sdsuds.sock",
@@ -224,50 +145,57 @@ func TestBuildInboundFilterChain(t *testing.T) {
 					Metadata: &model.NodeMetadata{},
 				},
 				listenerProtocol: networking.ListenerProtocolHTTP,
+				trustDomains:     []string{"cluster.local"},
 			},
-			want: []networking.FilterChain{
-				{
-					TLSContext: tlsContext([]string{"h2", "http/1.1"}),
-				},
-			},
-		},
-		{
-			name: "MTLSStrict with custom cert paths from proxy node metadata",
-			args: args{
-				mTLSMode: model.MTLSStrict,
-				node: &model.Proxy{
-					Metadata: &model.NodeMetadata{
-						TLSServerCertChain: "/custom/path/to/cert-chain.pem",
-						TLSServerKey:       "/custom-key.pem",
-						TLSServerRootCert:  "/custom/path/to/root.pem",
-					},
-				},
-				listenerProtocol: networking.ListenerProtocolHTTP,
-			},
-			// Only one filter chain with mTLS settings should be generated.
 			want: []networking.FilterChain{
 				{
 					TLSContext: &auth.DownstreamTlsContext{
 						CommonTlsContext: &auth.CommonTlsContext{
-							TlsCertificates: []*auth.TlsCertificate{
+							TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
 								{
-									CertificateChain: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/custom/path/to/cert-chain.pem",
-										},
-									},
-									PrivateKey: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/custom-key.pem",
+									Name: "default",
+									SdsConfig: &core.ConfigSource{
+										InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+										ResourceApiVersion:  core.ApiVersion_V3,
+										ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+											ApiConfigSource: &core.ApiConfigSource{
+												ApiType:             core.ApiConfigSource_GRPC,
+												TransportApiVersion: core.ApiVersion_V3,
+												GrpcServices: []*core.GrpcService{
+													{
+														TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+															EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+														},
+													},
+												},
+											},
 										},
 									},
 								},
 							},
-							ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-								ValidationContext: &auth.CertificateValidationContext{
-									TrustedCa: &core.DataSource{
-										Specifier: &core.DataSource_Filename{
-											Filename: "/custom/path/to/root.pem",
+							ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+									DefaultValidationContext: &auth.CertificateValidationContext{MatchSubjectAltNames: []*matcher.StringMatcher{
+										{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: spiffe.URIPrefix + spiffe.GetTrustDomain() + "/"}},
+									}},
+									ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+										Name: "ROOTCA",
+										SdsConfig: &core.ConfigSource{
+											InitialFetchTimeout: ptypes.DurationProto(0 * time.Second),
+											ResourceApiVersion:  core.ApiVersion_V3,
+											ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+												ApiConfigSource: &core.ApiConfigSource{
+													ApiType:             core.ApiConfigSource_GRPC,
+													TransportApiVersion: core.ApiVersion_V3,
+													GrpcServices: []*core.GrpcService{
+														{
+															TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+																EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: authn_model.SDSClusterName},
+															},
+														},
+													},
+												},
+											},
 										},
 									},
 								},
@@ -282,18 +210,10 @@ func TestBuildInboundFilterChain(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol)
+			got := BuildInboundFilterChain(tt.args.mTLSMode, tt.args.sdsUdsPath, tt.args.node, tt.args.listenerProtocol, tt.args.trustDomains)
 			if diff := cmp.Diff(got, tt.want, protocmp.Transform()); diff != "" {
 				t.Errorf("BuildInboundFilterChain() = %v", diff)
 			}
 		})
-	}
-}
-
-func TestGetPilotSAN(t *testing.T) {
-	spiffe.SetTrustDomain("cluster.local")
-	pilotSANs := GetSAN("istio-system", PilotSvcAccName)
-	if strings.Compare(pilotSANs, expPilotSAN) != 0 {
-		t.Errorf("GetPilotSAN() => expected %#v but got %#v", expPilotSAN, pilotSANs[0])
 	}
 }

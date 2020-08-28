@@ -33,6 +33,9 @@ func (w *Wrapper) GetDynamicListenerDump(stripVersions bool) (*adminapi.Listener
 
 	dal := make([]*adminapi.ListenersConfigDump_DynamicListener, 0)
 	for _, l := range listenerDump.DynamicListeners {
+		// If a listener was reloaded, it would contain both the active and draining state
+		// delete the draining state for proper comparison
+		l.DrainingState = nil
 		if l.ActiveState != nil {
 			dal = append(dal, l)
 		}

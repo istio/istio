@@ -134,10 +134,8 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
-		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15013",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
@@ -155,6 +153,12 @@ func TestRulesWithIpRange(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15013",
+		"iptables -t nat -A POSTROUTING -p udp --dport 15013 -j SNAT --to-source 127.0.0.1",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)
@@ -630,10 +634,8 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
-		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15053",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --uid-owner 3 -j RETURN",
@@ -648,6 +650,12 @@ func TestHandleInboundIpv4RulesWithUidGid(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -m owner ! --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15053",
+		"iptables -t nat -A POSTROUTING -p udp --dport 15053 -j SNAT --to-source 127.0.0.1",
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
@@ -713,10 +721,8 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 		"iptables -t nat -N ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN",
 		"iptables -t nat -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001",
-		"iptables -t nat -A ISTIO_REDIRECT -p udp -j REDIRECT --to-ports 15013",
 		"iptables -t nat -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006",
 		"iptables -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT",
-		"iptables -t nat -A OUTPUT -p udp --dport 53 -j ISTIO_OUTPUT",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -m owner --uid-owner 3 -j RETURN",
@@ -729,6 +735,12 @@ func TestRulesWithLoopbackIpInOutboundIpRanges(t *testing.T) {
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN",
 		"iptables -t nat -A ISTIO_OUTPUT -d 127.1.2.3/32 -j ISTIO_REDIRECT",
 		"iptables -t nat -A ISTIO_OUTPUT -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN",
+		"iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15013",
+		"iptables -t nat -A POSTROUTING -p udp --dport 15013 -j SNAT --to-source 127.0.0.1",
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("Output mismatch. Expected: \n%#v ; Actual: \n%#v", expected, actual)

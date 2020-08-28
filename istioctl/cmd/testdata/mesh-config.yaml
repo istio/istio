@@ -1,6 +1,3 @@
-# Set the following variable to true to disable policy checks by Mixer.
-# Note that metrics will still be reported to Mixer.
-disablePolicyChecks: false
 # Set enableTracing to false to disable request tracing.
 enableTracing: true
 # This is the ingress service name, update if you used a different name

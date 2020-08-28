@@ -20,7 +20,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/visibility"
@@ -346,7 +345,7 @@ func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
 
 	// without headers
 	for key, leafValue := range leaf.WithoutHeaders {
-		if stringMatchConflict(root.Headers[key], leafValue) {
+		if stringMatchConflict(root.WithoutHeaders[key], leafValue) {
 			return true
 		}
 	}

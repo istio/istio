@@ -17,13 +17,12 @@ package bootstrap
 import (
 	"strings"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/webhooks/validation/controller"
 	"istio.io/istio/pkg/webhooks/validation/server"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -33,11 +32,17 @@ var (
 	validationWebhookConfigNameTemplate = "istiod-" + validationWebhookConfigNameTemplateVar
 
 	validationWebhookConfigName = env.RegisterStringVar("VALIDATION_WEBHOOK_CONFIG_NAME", validationWebhookConfigNameTemplate,
-		"Name of validatingwegbhookconfiguration to patch, if istioctl is not used.")
+		"Name of validatingwebhookconfiguration to patch. Empty will skip using cluster admin to patch.")
+
+	validationEnabled = env.RegisterBoolVar("VALIDATION_ENABLED", true, "Enable config validation handler.")
 )
 
 func (s *Server) initConfigValidation(args *PilotArgs) error {
 	if s.kubeClient == nil {
+		return nil
+	}
+
+	if !validationEnabled.Get() {
 		return nil
 	}
 
@@ -73,25 +78,18 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 			WebhookConfigName: webhookConfigName,
 			ServiceName:       "istiod",
 		}
+		whController, err := controller.New(o, s.kubeClient)
+		if err != nil {
+			log.Errorf("failed to start validation controller: %v", err)
+			return err
+		}
 		s.addTerminatingStartFunc(func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					whController, err := controller.New(o, s.kubeClient)
-					if err != nil {
-						log.Errorf("failed to start validation controller")
-						return
-					}
-					log.Infof("Starting validation controller")
-					// Start informers again. This fixes the case where informers for namespace do not start,
-					// as we create them only after acquiring the leader lock
-					// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-					// basically lazy loading the informer, if we stop it when we lose the lock we will never
-					// recreate it again.
-					s.kubeClient.RunAndWait(stop)
-					whController.Start(leaderStop)
-				}).
-				Run(stop)
+			le := leaderelection.NewLeaderElection(args.Namespace, args.PodName, leaderelection.ValidationController, s.kubeClient)
+			le.AddRunFunction(func(leaderStop <-chan struct{}) {
+				log.Infof("Starting validation controller")
+				whController.Start(leaderStop)
+			})
+			le.Run(stop)
 			return nil
 		})
 	}

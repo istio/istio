@@ -20,15 +20,13 @@ import (
 	"math/rand"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"istio.io/pkg/log"
 
 	"istio.io/istio/security/pkg/k8s/controller"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-
-	v1 "k8s.io/api/core/v1"
+	"istio.io/pkg/log"
 )
 
 var rootCertRotatorLog = log.RegisterScope("rootcertrotator", "Self-signed CA root cert rotator log", 0)

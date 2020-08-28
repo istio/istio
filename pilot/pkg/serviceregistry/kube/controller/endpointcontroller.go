@@ -19,14 +19,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/pkg/log"
 )
 
 // Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
@@ -37,8 +36,7 @@ type kubeEndpointsController interface {
 	Run(stopCh <-chan struct{})
 	getInformer() cache.SharedIndexInformer
 	onEvent(curr interface{}, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int,
-		labelsList labels.Collection) ([]*model.ServiceInstance, error)
+	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
@@ -71,7 +69,7 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 					// TODO: extend and set service instance type, so no need to re-init push context
 					ConfigsUpdated: map[model.ConfigKey]struct{}{{
 						Kind:      gvk.ServiceEntry,
-						Name:      svc.Name,
+						Name:      string(kube.ServiceHostname(svc.Name, svc.Namespace, c.domainSuffix)),
 						Namespace: svc.Namespace,
 					}: {}},
 					Reason: []model.TriggerReason{model.EndpointUpdate},
@@ -105,7 +103,7 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
 	fep := c.collectWorkloadInstanceEndpoints(svc)
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
+	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
 	// fire instance handles for k8s endpoints only
 	for _, handler := range c.instanceHandlers {
 		for _, ep := range endpoints {
@@ -119,10 +117,17 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	}
 }
 
-func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) *v1.Pod {
+// getPod fetches a pod by IP address.
+// A pod may be missing (nil) for two reasons:
+// * It is an endpoint without an associated Pod. In this case, expectPod will be false.
+// * It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
+//   this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
+//   should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
+//   correctness and security.
+func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.ObjectReference, host host.Name) (rpod *v1.Pod, expectPod bool) {
 	pod := c.pods.getPodByIP(ip)
 	if pod != nil {
-		return pod
+		return pod, false
 	}
 	// This means, the endpoint event has arrived before pod event.
 	// This might happen because PodCache is eventually consistent.
@@ -140,9 +145,9 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 			// Tell pod cache we want to queue the endpoint event when this pod arrives.
 			epkey := kube.KeyFunc(ep.Name, ep.Namespace)
 			c.pods.queueEndpointEventOnPodArrival(epkey, ip)
-			return nil
+			return nil, true
 		}
 		pod = podFromInformer.(*v1.Pod)
 	}
-	return pod
+	return pod, false
 }

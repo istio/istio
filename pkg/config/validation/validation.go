@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	xdsUtil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
@@ -34,8 +34,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -45,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/pkg/log"
 )
 
 // Constants for duration fields
@@ -108,7 +107,7 @@ var (
 	validateFuncs = make(map[string]ValidateFunc)
 )
 
-// Validate defines a validation func for an API proto.
+// ValidateFunc defines a validation func for an API proto.
 type ValidateFunc func(name, namespace string, config proto.Message) error
 
 // IsValidateFunc indicates whether there is a validation function with the given name.
@@ -190,6 +189,18 @@ func validateDNS1123Labels(domain string) error {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
+	}
+	return nil
+}
+
+// ValidateHTTPHeaderValue validates a header value for Envoy
+// Valid: "foo", "%HOSTNAME%", "100%%", "prefix %HOSTNAME% suffix"
+// Invalid: "abc%123"
+// We don't try to check that what is inside the %% is one of Envoy recognized values, we just prevent invalid config.
+// See: https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/headers.html#custom-request-response-headers
+func ValidateHTTPHeaderValue(value string) error {
+	if strings.Count(value, "%")%2 != 0 {
+		return errors.New("single % not allowed.  Escape by doubling to %% or encase Envoy variable name in pair of %")
 	}
 	return nil
 }
@@ -562,9 +573,10 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 									continue
 								}
 								// sub filter match requires the network filter to match to envoy http connection manager
-								if listenerMatch.FilterChain.Filter.Name != xdsUtil.HTTPConnectionManager {
+								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
+									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
 									errs = appendErrors(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: golint,stylecheck
-										xdsUtil.HTTPConnectionManager))
+										wellknown.HTTPConnectionManager))
 									continue
 								}
 								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
@@ -1725,20 +1737,24 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate bool) (errs error) {
 	}
 
 	// header manipulation
-	for name := range http.Headers.GetRequest().GetAdd() {
+	for name, val := range http.Headers.GetRequest().GetAdd() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
-	for name := range http.Headers.GetRequest().GetSet() {
+	for name, val := range http.Headers.GetRequest().GetSet() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetRequest().GetRemove() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 	}
-	for name := range http.Headers.GetResponse().GetAdd() {
+	for name, val := range http.Headers.GetResponse().GetAdd() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
-	for name := range http.Headers.GetResponse().GetSet() {
+	for name, val := range http.Headers.GetResponse().GetSet() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 	}
 	for _, name := range http.Headers.GetResponse().GetRemove() {
 		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
@@ -1848,20 +1864,24 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination) (
 		}
 
 		// header manipulations
-		for name := range weight.Headers.GetRequest().GetAdd() {
+		for name, val := range weight.Headers.GetRequest().GetAdd() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
-		for name := range weight.Headers.GetRequest().GetSet() {
+		for name, val := range weight.Headers.GetRequest().GetSet() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetRequest().GetRemove() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
 		}
-		for name := range weight.Headers.GetResponse().GetAdd() {
+		for name, val := range weight.Headers.GetResponse().GetAdd() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
-		for name := range weight.Headers.GetResponse().GetSet() {
+		for name, val := range weight.Headers.GetResponse().GetSet() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetResponse().GetRemove() {
 			errs = appendErrors(errs, ValidateHTTPHeaderName(name))
@@ -2278,6 +2298,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		return
 	})
 
+// ValidatePortName validates a port name to DNS-1123
 func ValidatePortName(name string) error {
 	if !labels.IsDNS1123Label(name) {
 		return fmt.Errorf("invalid port name: %s", name)
@@ -2285,6 +2306,7 @@ func ValidatePortName(name string) error {
 	return nil
 }
 
+// ValidateProtocol validates a portocol name is known
 func ValidateProtocol(protocolStr string) error {
 	// Empty string is used for protocol sniffing.
 	if protocolStr != "" && protocol.Parse(protocolStr) == protocol.Unsupported {

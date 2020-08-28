@@ -16,9 +16,12 @@ package security
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
+
+	"istio.io/pkg/env"
 )
 
 const (
@@ -34,6 +37,27 @@ const (
 
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
+
+	// Credential fetcher type
+	GCE  = "GoogleComputeEngine"
+	Mock = "Mock" // testing only
+)
+
+// TODO: For 1.8, make sure MeshConfig is updated with those settings,
+// they should be dynamic to allow migrations without restart.
+// Both are critical.
+var (
+	// Require 3P TOKEN disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
+	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
+	// the Apiserver.
+	Require3PToken = env.RegisterBoolVar("REQUIRE_3P_TOKEN", false,
+		"Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
+
+	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
+	// contain the JWTs intended for Citadel.
+	TokenAudiences = strings.Split(env.RegisterStringVar("TOKEN_AUDIENCES", "istio-ca",
+		"A list of comma separated audiences to check in the JWT token before issuing a certificate. "+
+			"The token is accepted if it matches with one of the audiences").Get(), ",")
 )
 
 // Options provides all of the configuration parameters for secret discovery service
@@ -96,9 +120,6 @@ type Options struct {
 
 	// EnableGatewaySDS indicates whether node agent works as ingress gateway agent.
 	EnableGatewaySDS bool
-
-	// Set this flag to true for if token used is always valid(ex, normal k8s JWT)
-	AlwaysValidTokenFlag bool
 
 	// UseLocalJWT is set when the sds server should use its own local JWT, and not expect one
 	// from the UDS caller. Used when it runs in the same container with Envoy.
@@ -172,6 +193,13 @@ type Options struct {
 	// CSR requires a token. This is a property of the CA.
 	// The default value is false because Istiod does not require a token in CSR.
 	UseTokenForCSR bool
+
+	// credential fetcher.
+	CredFetcher CredFetcher
+
+	// whether need to skip parsing token to inspect information like expiration time
+	// Default is false.
+	SkipParseToken bool
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
@@ -204,7 +232,8 @@ type SecretManager interface {
 
 // TokenExchanger provides common interfaces so that authentication providers could choose to implement their specific logic.
 type TokenExchanger interface {
-	ExchangeToken(context.Context, string, string) (string, time.Time, int, error)
+	ExchangeToken(ctx context.Context, credFetcher CredFetcher, trustDomain,
+		serviceAccountToken string) (string /*access token*/, time.Time /*expireTime*/, int /*httpRespCode*/, error)
 }
 
 // SecretItem is the cached item in in-memory secret store.
@@ -234,4 +263,15 @@ type SecretItem struct {
 	CreatedTime time.Time
 
 	ExpireTime time.Time
+}
+
+type CredFetcher interface {
+	// GetPlatformCredential fetches workload credential provided by the platform.
+	GetPlatformCredential() (string, error)
+
+	// GetType returns credential fetcher type. Currently the supported type is "GoogleComputeEngine".
+	GetType() string
+
+	// The name of the IdentityProvider that can authenticate the workload credential.
+	GetIdentityProvider() string
 }

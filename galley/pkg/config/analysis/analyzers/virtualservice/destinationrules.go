@@ -18,7 +18,6 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -61,18 +60,38 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	vs := r.Message.(*v1alpha3.VirtualService)
 	ns := r.Metadata.FullName.Namespace
 
-	for _, destination := range getRouteDestinations(vs) {
-		if !d.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+	for _, ad := range getRouteDestinations(vs) {
+
+		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
+
+			m := msg.NewReferencedResourceNotFound(r, "host+subset in destinationrule",
+				fmt.Sprintf("%s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()))
+
+			key := fmt.Sprintf(util.DestinationHost, ad.RouteRule, ad.ServiceIndex, ad.DestinationIndex)
+			if line, ok := util.ErrorLine(r, key); ok {
+				m.Line = line
+			}
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
+
 	}
 
-	for _, destination := range getHTTPMirrorDestinations(vs) {
-		if !d.checkDestinationSubset(ns, destination, destHostsAndSubsets) {
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-				msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule", fmt.Sprintf("%s+%s", destination.GetHost(), destination.GetSubset())))
+	for _, ad := range getHTTPMirrorDestinations(vs) {
+
+		if !d.checkDestinationSubset(ns, ad.Destination, destHostsAndSubsets) {
+
+			m := msg.NewReferencedResourceNotFound(r, "mirror+subset in destinationrule",
+				fmt.Sprintf("%s+%s", ad.Destination.GetHost(), ad.Destination.GetSubset()))
+
+			key := fmt.Sprintf(util.MirrorHost, ad.ServiceIndex)
+			if line, ok := util.ErrorLine(r, key); ok {
+				m.Line = line
+			}
+
+			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
 		}
+
 	}
 }
 

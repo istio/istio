@@ -25,6 +25,11 @@
         "source_version": "v1",
         "source_workload": "clt-v1",
         "protocol": "grpc",
-        "log_sampled": "false"
+        "log_sampled": "false",
+        "upstream_cluster": "inbound|7070|grpc|srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "route_name": "default",
+        "requested_server_name": "outbound_.7070_._.srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "x-envoy-original-dst-host": "",
+        "x-envoy-original-path": ""
     }
 }

@@ -26,21 +26,18 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-
-	"istio.io/istio/pilot/pkg/features"
-
 	"google.golang.org/grpc"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
 )
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -119,8 +116,9 @@ var (
 
 type CAOptions struct {
 	// domain to use in SPIFFE identity URLs
-	TrustDomain string
-	Namespace   string
+	TrustDomain    string
+	Namespace      string
+	Authenticators []authenticate.Authenticator
 }
 
 // EnableCA returns whether CA functionality is enabled in istiod.
@@ -161,7 +159,6 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	iss := trustedIssuer.Get()
 	aud := audience.Get()
 
-	ch := make(chan struct{})
 	token, err := ioutil.ReadFile(s.jwtPath)
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
@@ -179,10 +176,8 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
-	caServer, startErr := caserver.NewWithGRPC(grpc, ca, maxWorkloadCertTTL.Get(),
-		false, []string{"istiod.istio-system"}, 0, spiffe.GetTrustDomain(),
-		true, features.JwtPolicy.Get(), s.clusterID, s.kubeClient,
-		s.multicluster.GetRemoteKubeClient)
+	// Adds client cert auth and kube (sds enabled)
+	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -203,16 +198,8 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		}
 	}
 
-	// Allow authorization with a previously issued certificate, for VMs
-	// Will return a caller with identities extracted from the SAN, should be a SPIFFE identity.
-	caServer.Authenticators = append(caServer.Authenticators, &authenticate.ClientCertAuthenticator{})
+	caServer.Register(grpc)
 
-	if serverErr := caServer.Run(); serverErr != nil {
-		// stop the registry-related controllers
-		ch <- struct{}{}
-
-		log.Warnf("Failed to start GRPC server with error: %v", serverErr)
-	}
 	log.Info("Istiod CA has started")
 }
 

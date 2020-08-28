@@ -17,13 +17,12 @@ package bootstrap
 import (
 	"time"
 
-	"istio.io/pkg/ctrlz"
-	"istio.io/pkg/env"
-
 	"istio.io/istio/pilot/pkg/features"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/keepalive"
+	"istio.io/pkg/ctrlz"
+	"istio.io/pkg/env"
 )
 
 // RegistryOptions provide configuration options for the configuration controller. If FileDir is set, that directory will
@@ -73,6 +72,9 @@ type DiscoveryServerOptions struct {
 
 	// The listening address for HTTPS (webhooks). If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")
 	// a port number is automatically chosen.
+	// If the address is empty, the secure port is disabled, and the
+	// webhooks are registred on the HTTP port - a gateway in front will
+	// terminate TLS instead.
 	HTTPSAddr string
 
 	// The listening address for gRPC. If the port in the address is empty or "0" (as in "127.0.0.1:" or "[::1]:0")

@@ -23,15 +23,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	svc "sigs.k8s.io/service-apis/apis/v1alpha1"
 
-	"istio.io/pkg/ledger"
-
+	"istio.io/istio/pilot/pkg/model"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
-
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/ledger"
 )
 
 var (
@@ -89,11 +87,7 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 	}
 	tcpRoute, err := c.cache.List(collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(), namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type TcpRoute: %v", err)
-	}
-	trafficSplit, err := c.cache.List(collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(), namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list type TrafficSplit: %v", err)
+		return nil, fmt.Errorf("failed to list type TCPRoute: %v", err)
 	}
 
 	nsl, err := c.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -109,7 +103,6 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		Gateway:      gateway,
 		HTTPRoute:    httpRoute,
 		TCPRoute:     tcpRoute,
-		TrafficSplit: trafficSplit,
 		Namespaces:   namespaces,
 		Domain:       c.domain,
 	}

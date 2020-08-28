@@ -18,6 +18,10 @@ import (
 	"io/ioutil"
 	"testing"
 
+	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/gogo/protobuf/proto"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -26,11 +30,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/util/protomarshal"
-
-	"github.com/gogo/protobuf/proto"
-
-	tcppb "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	httppb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 )
 
 const (
@@ -121,6 +120,11 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			input:    "td-aliases-source-principal-in.yaml",
 			want:     []string{"td-aliases-source-principal-out.yaml"},
 		},
+		{
+			name:  "audit-all",
+			input: "audit-all-in.yaml",
+			want:  []string{"audit-all-out.yaml"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -151,6 +155,11 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			name:  "action-deny-HTTP-for-TCP-filter",
 			input: "action-deny-HTTP-for-TCP-filter-in.yaml",
 			want:  []string{"action-deny-HTTP-for-TCP-filter-out.yaml"},
+		},
+		{
+			name:  "action-audit-HTTP-for-TCP-filter",
+			input: "action-audit-HTTP-for-TCP-filter-in.yaml",
+			want:  []string{"action-audit-HTTP-for-TCP-filter-out.yaml"},
 		},
 	}
 

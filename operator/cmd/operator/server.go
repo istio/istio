@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -105,6 +106,7 @@ func run() {
 	if operatorRevision, found := os.LookupEnv("REVISION"); found && operatorRevision != "" {
 		leaderElectionID += "-" + operatorRevision
 	}
+	log.Infof("leader election cm: %s", leaderElectionID)
 	if watchNS != "" {
 		namespaces := strings.Split(watchNS, ",")
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.

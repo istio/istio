@@ -23,24 +23,20 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	"github.com/golang/protobuf/ptypes/duration"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -61,7 +57,7 @@ func TestApplyDestinationRule(t *testing.T) {
 		Namespace: TestServiceNamespace,
 	}
 	service := &model.Service{
-		Hostname:    host.Name("foo"),
+		Hostname:    host.Name("foo.default.svc.cluster.local"),
 		Address:     "1.1.1.1",
 		ClusterVIPs: make(map[string]string),
 		Ports:       servicePort,
@@ -75,7 +71,6 @@ func TestApplyDestinationRule(t *testing.T) {
 		clusterMode            ClusterMode
 		service                *model.Service
 		port                   *model.Port
-		proxy                  *model.Proxy
 		networkView            map[string]bool
 		destRule               *networking.DestinationRule
 		expectedSubsetClusters []*cluster.Cluster
@@ -87,7 +82,6 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode:            DefaultClusterMode,
 			service:                &model.Service{},
 			port:                   &model.Port{},
-			proxy:                  &model.Proxy{},
 			networkView:            map[string]bool{},
 			destRule:               nil,
 			expectedSubsetClusters: []*cluster.Cluster{},
@@ -98,10 +92,9 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			proxy:       &model.Proxy{},
 			networkView: map[string]bool{},
 			destRule: &networking.DestinationRule{
-				Host: "foo",
+				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
 					{
 						Name:   "foobar",
@@ -111,10 +104,10 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{
 				{
-					Name:                 "outbound|8080|foobar|foo",
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
-						ServiceName: "outbound|8080|foobar|foo",
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
 					},
 				},
 			},
@@ -125,10 +118,9 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: SniDnatClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			proxy:       &model.Proxy{},
 			networkView: map[string]bool{},
 			destRule: &networking.DestinationRule{
-				Host: "foo",
+				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
 					{
 						Name:   "foobar",
@@ -138,10 +130,10 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{
 				{
-					Name:                 "outbound_.8080_.foobar_.foo",
+					Name:                 "outbound_.8080_.foobar_.foo.default.svc.cluster.local",
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
-						ServiceName: "outbound_.8080_.foobar_.foo",
+						ServiceName: "outbound_.8080_.foobar_.foo.default.svc.cluster.local",
 					},
 				},
 			},
@@ -152,10 +144,9 @@ func TestApplyDestinationRule(t *testing.T) {
 			clusterMode: DefaultClusterMode,
 			service:     service,
 			port:        servicePort[0],
-			proxy:       &model.Proxy{},
 			networkView: map[string]bool{},
 			destRule: &networking.DestinationRule{
-				Host: "foo",
+				Host: "foo.default.svc.cluster.local",
 				Subsets: []*networking.Subset{
 					{
 						Name:   "foobar",
@@ -172,10 +163,10 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{
 				{
-					Name:                 "outbound|8080|foobar|foo",
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
-						ServiceName: "outbound|8080|foobar|foo",
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
 					},
 					CircuitBreakers: &cluster.CircuitBreakers{
 						Thresholds: []*cluster.CircuitBreakers_Thresholds{
@@ -193,7 +184,6 @@ func TestApplyDestinationRule(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,
@@ -210,25 +200,23 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			}
 
-			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{tt.service})
-			serviceDiscovery.WantGetProxyServiceInstances = instances
-
-			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
+			var cfg *model.Config
 			if tt.destRule != nil {
-				configStore.Create(model.Config{
+				cfg = &model.Config{
 					ConfigMeta: model.ConfigMeta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
+						Namespace:        "default",
 					},
 					Spec: tt.destRule,
-				})
+				}
 			}
-			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
-			proxy := getProxy()
-			proxy.SetSidecarScope(env.PushContext)
-
-			cb := NewClusterBuilder(tt.proxy, env.PushContext)
+			cg := NewConfigGenTest(t, TestOptions{
+				ConfigPointers: []*model.Config{cfg},
+				Services:       []*model.Service{tt.service},
+			})
+			cg.MemRegistry.WantGetProxyServiceInstances = instances
+			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
 			subsetClusters := cb.applyDestinationRule(tt.cluster, tt.clusterMode, tt.service, tt.port, tt.networkView)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
@@ -531,10 +519,9 @@ func TestMergeTrafficPolicy(t *testing.T) {
 
 func TestApplyEdsConfig(t *testing.T) {
 	cases := []struct {
-		name       string
-		cluster    *cluster.Cluster
-		cdsVersion string
-		edsConfig  *cluster.Cluster_EdsClusterConfig
+		name      string
+		cluster   *cluster.Cluster
+		edsConfig *cluster.Cluster_EdsClusterConfig
 	}{
 		{
 			name:      "non eds type of cluster",
@@ -551,29 +538,15 @@ func TestApplyEdsConfig(t *testing.T) {
 						Ads: &core.AggregatedConfigSource{},
 					},
 					InitialFetchTimeout: features.InitialFetchTimeout,
-				},
-			},
-		},
-		{
-			name:    "eds type of cluster v3",
-			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			edsConfig: &cluster.Cluster_EdsClusterConfig{
-				ServiceName: "foo",
-				EdsConfig: &core.ConfigSource{
-					ConfigSourceSpecifier: &core.ConfigSource_Ads{
-						Ads: &core.AggregatedConfigSource{},
-					},
-					InitialFetchTimeout: features.InitialFetchTimeout,
 					ResourceApiVersion:  core.ApiVersion_V3,
 				},
 			},
-			cdsVersion: v3.ClusterType,
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			maybeApplyEdsConfig(tt.cluster, tt.cdsVersion)
+			maybeApplyEdsConfig(tt.cluster)
 			if !reflect.DeepEqual(tt.cluster.EdsClusterConfig, tt.edsConfig) {
 				t.Errorf("Unexpected Eds config in cluster. want %v, got %v", tt.edsConfig, tt.cluster.EdsClusterConfig)
 			}
@@ -681,20 +654,14 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
-			proxy := getProxy()
-			proxy.SetSidecarScope(env.PushContext)
-
-			cb := NewClusterBuilder(&model.Proxy{}, env.PushContext)
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: &testMesh})
+			cb := NewClusterBuilder(cg.SetupProxy(nil), cg.PushContext())
 
 			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery,
 				tt.endpoints, tt.direction, servicePort, tt.external)
 
-			if !reflect.DeepEqual(defaultCluster, tt.expectedCluster) {
-				t.Errorf("Unexpected default cluster, want %v got %v", tt.expectedCluster, defaultCluster)
+			if diff := cmp.Diff(defaultCluster, tt.expectedCluster, protocmp.Transform()); diff != "" {
+				t.Errorf("Unexpected default cluster, diff: %v", diff)
 			}
 		})
 	}
@@ -729,15 +696,13 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 
 	cases := []struct {
 		name      string
-		newEnv    func(model.ServiceDiscovery, model.IstioConfigStore) *model.Environment
+		mesh      meshconfig.MeshConfig
 		instances []*model.ServiceInstance
 		expected  []*endpoint.LocalityLbEndpoints
 	}{
 		{
 			name: "basics",
-			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
-				return newTestEnvironment(sd, testMesh, cs)
-			},
+			mesh: testMesh,
 			instances: []*model.ServiceInstance{
 				{
 					Service:     service,
@@ -868,9 +833,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		},
 		{
 			name: "cluster local",
-			newEnv: func(sd model.ServiceDiscovery, cs model.IstioConfigStore) *model.Environment {
-				return newTestEnvironment(sd, withClusterLocalHosts(testMesh, "*.example.org"), cs)
-			},
+			mesh: withClusterLocalHosts(testMesh, "*.example.org"),
 			instances: []*model.ServiceInstance{
 				{
 					Service:     service,
@@ -948,20 +911,20 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		})
 	}
 
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-			serviceDiscovery := memregistry.NewServiceDiscovery([]*model.Service{service})
-			serviceDiscovery.WantGetProxyServiceInstances = c.instances
-			for _, i := range c.instances {
-				serviceDiscovery.AddInstance(i.Service.Hostname, i)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				MeshConfig: &tt.mesh,
+				Services:   []*model.Service{service},
+			})
+			for _, i := range tt.instances {
+				cg.MemRegistry.AddInstance(i.Service.Hostname, i)
 			}
 
-			env := c.newEnv(serviceDiscovery, configStore)
-			cb := NewClusterBuilder(proxy, env.PushContext)
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
 			actual := cb.buildLocalityLbEndpoints(model.GetNetworkView(nil), service, 8080, nil)
 			sortEndpoints(actual)
-			if v := cmp.Diff(c.expected, actual, protocmp.Transform()); v != "" {
+			if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)
 			}
 		})
@@ -996,17 +959,12 @@ func TestBuildPassthroughClusters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-			configStore := model.MakeIstioStore(memory.Make(collections.Pilot))
-			env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
 			proxy := &model.Proxy{IPAddresses: tt.ips}
-			proxy.SetSidecarScope(env.PushContext)
-			proxy.DiscoverIPVersions()
+			cg := NewConfigGenTest(t, TestOptions{})
 
-			cb := NewClusterBuilder(proxy, env.PushContext)
-
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
 			clusters := cb.buildInboundPassthroughClusters()
+
 			var hasIpv4, hasIpv6 bool
 			for _, c := range clusters {
 				hasIpv4 = hasIpv4 || c.Name == util.InboundPassthroughClusterIpv4
@@ -1018,9 +976,14 @@ func TestBuildPassthroughClusters(t *testing.T) {
 			if hasIpv6 != tt.ipv6Expected {
 				t.Errorf("Unexpected Ipv6 Passthrough Cluster, want %v got %v", tt.ipv6Expected, hasIpv6)
 			}
+
+			passthrough := xdstest.ExtractCluster(util.InboundPassthroughClusterIpv4, clusters)
+			if passthrough == nil {
+				passthrough = xdstest.ExtractCluster(util.InboundPassthroughClusterIpv6, clusters)
+			}
 			// Validate that Passthrough Cluster LB Policy is set correctly.
-			if clusters[0].GetType() != cluster.Cluster_ORIGINAL_DST || clusters[0].GetLbPolicy() != cluster.Cluster_CLUSTER_PROVIDED {
-				t.Errorf("Unexpected Discovery type or Lb policy, got Discovery type: %v, Lb Policy: %v", clusters[0].GetType(), clusters[0].GetLbPolicy())
+			if passthrough.GetType() != cluster.Cluster_ORIGINAL_DST || passthrough.GetLbPolicy() != cluster.Cluster_CLUSTER_PROVIDED {
+				t.Errorf("Unexpected Discovery type or Lb policy, got Discovery type: %v, Lb Policy: %v", passthrough.GetType(), passthrough.GetLbPolicy())
 			}
 		})
 	}

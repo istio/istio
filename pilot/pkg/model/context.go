@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -33,12 +34,11 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/monitoring"
-
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}
@@ -141,7 +141,7 @@ type XdsUpdates = map[ConfigKey]struct{}
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates XdsUpdates) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -151,6 +151,7 @@ type XdsResourceGenerator interface {
 // In current Istio implementation nodes use a 4-parts '~' delimited ID.
 // Type~IPAddress~ID~Domain
 type Proxy struct {
+	sync.RWMutex
 
 	// Type specifies the node type. First part of the ID.
 	Type NodeType
@@ -196,13 +197,13 @@ type Proxy struct {
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
 
-	// Indicates wheteher proxy supports IPv6 addresses
+	// Indicates whether proxy supports IPv6 addresses
 	ipv6Support bool
 
-	// Indicates wheteher proxy supports IPv4 addresses
+	// Indicates whether proxy supports IPv4 addresses
 	ipv4Support bool
 
-	// GlobalUnicastIP stores the globacl unicast IP if available, otherwise nil
+	// GlobalUnicastIP stores the global unicast IP if available, otherwise nil
 	GlobalUnicastIP string
 
 	// XdsResourceGenerator is used to generate resources for the node, based on the PushContext.
@@ -211,25 +212,8 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest short type.
-	Active map[string]*WatchedResource
-
-	// ActiveExperimental contains the list of watched resources for the proxy, keyed by the canonical DiscoveryRequest type.
-	// Note that the key may not be equal to the proper TypeUrl. For example, Envoy types like Cluster will share a single
-	// key for multiple versions.
-	ActiveExperimental map[string]*WatchedResource
-
-	// Envoy may request different versions of configuration (XDS v2 vs v3). While internally Pilot will
-	// only generate one version or the other, because the protos are wire compatible we can cast to the
-	// requested version. This struct keeps track of the types requested for each resource type.
-	// For example, if Envoy requests Clusters v3, we would track that here. Pilot would generate a v2
-	// cluster response, but change the TypeUrl in the response to be v3.
-	RequestedTypes struct {
-		CDS string
-		EDS string
-		RDS string
-		LDS string
-	}
+	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
+	WatchedResources map[string]*WatchedResource
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -412,6 +396,10 @@ type BootstrapNodeMetadata struct {
 	StatsInclusionRegexps  string `json:"sidecar.istio.io/statsInclusionRegexps,omitempty"`
 	StatsInclusionSuffixes string `json:"sidecar.istio.io/statsInclusionSuffixes,omitempty"`
 	ExtraStatTags          string `json:"sidecar.istio.io/extraStatTags,omitempty"`
+
+	// StsPort specifies the port of security token exchange server (STS).
+	// Used by envoy filters
+	StsPort string `json:"STS_PORT,omitempty"`
 }
 
 // NodeMetadata defines the metadata associated with a proxy
@@ -466,11 +454,6 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	PolicyCheck                  string `json:"policy.istio.io/check,omitempty"`
-	PolicyCheckRetries           string `json:"policy.istio.io/checkRetries,omitempty"`
-	PolicyCheckBaseRetryWaitTime string `json:"policy.istio.io/checkBaseRetryWaitTime,omitempty"`
-	PolicyCheckMaxRetryWaitTime  string `json:"policy.istio.io/checkMaxRetryWaitTime,omitempty"`
-
 	// TLSServerCertChain is the absolute path to server cert-chain file
 	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
 	// TLSServerKey is the absolute path to server private key file
@@ -485,12 +468,6 @@ type NodeMetadata struct {
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
 	CertBaseDir string `json:"BASE,omitempty"`
-	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
-	SdsEnabled StringBool `json:"SDS,omitempty"`
-
-	// StsPort specifies the port of security token exchange server (STS).
-	// Used by envoy filters
-	StsPort string `json:"STS_PORT,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.

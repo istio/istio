@@ -25,13 +25,14 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
+	"k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"istio.io/istio/pkg/url"
 )
 
 const (
@@ -214,7 +215,7 @@ istioctl experimental post-install webhook enable --validation --webhook-secret 
 		"PEM encoded CA bundle which will be used to validate the webhook's server certificates. "+
 			"If this is empty, the kube-apisever's root CA is used if it can be confirmed to have signed "+
 			"the webhook's certificates. This condition is sometimes true but is not guaranteed "+
-			"(see https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping)")
+			"(see "+url.K8TLSBootstrapping+")")
 	flags.StringVar(&opts.validationWebhookConfigPath, "validation-path", "",
 		"The file path of the validation webhook configuration.")
 	flags.StringVar(&opts.mutatingWebhookConfigPath, "injection-path", "",
@@ -361,10 +362,10 @@ istioctl experimental post-install webhook status --validation --validation-conf
 
 // Create the validatingwebhookconfiguration
 func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
-	config *kubeApiAdmission.ValidatingWebhookConfiguration, writer io.Writer) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
-	var whConfig, curConfig *kubeApiAdmission.ValidatingWebhookConfiguration
+	config *v1beta1.ValidatingWebhookConfiguration, writer io.Writer) (*v1beta1.ValidatingWebhookConfiguration, error) {
+	var whConfig, curConfig *v1beta1.ValidatingWebhookConfiguration
 	var err error
-	client := k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	client := k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 	curConfig, err = client.Get(context.TODO(), config.Name, metav1.GetOptions{})
 	if err == nil {
 		fmt.Fprintf(writer, "update webhook configuration %v\n", config.Name)
@@ -379,10 +380,10 @@ func createValidatingWebhookConfig(k8sClient kubernetes.Interface,
 
 // Create the mutatingwebhookconfiguration
 func createMutatingWebhookConfig(k8sClient kubernetes.Interface,
-	config *kubeApiAdmission.MutatingWebhookConfiguration, writer io.Writer) (*kubeApiAdmission.MutatingWebhookConfiguration, error) {
-	var curConfig, whConfig *kubeApiAdmission.MutatingWebhookConfiguration
+	config *v1beta1.MutatingWebhookConfiguration, writer io.Writer) (*v1beta1.MutatingWebhookConfiguration, error) {
+	var curConfig, whConfig *v1beta1.MutatingWebhookConfiguration
 	var err error
-	client := k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	client := k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations()
 	curConfig, err = client.Get(context.TODO(), config.Name, metav1.GetOptions{})
 	if err == nil {
 		fmt.Fprintf(writer, "update webhook configuration %v\n", config.Name)
@@ -466,11 +467,11 @@ func disableWebhookConfig(k8sClient kubernetes.Interface, opt *disableCliOptions
 	var validationErr error
 	var injectionErr error
 	if opt.disableValidationWebhook {
-		validationErr = k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().
+		validationErr = k8sClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().
 			Delete(context.TODO(), opt.validatingWebhookConfigName, metav1.DeleteOptions{})
 	}
 	if opt.disableInjectionWebhook {
-		injectionErr = k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations().
+		injectionErr = k8sClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().
 			Delete(context.TODO(), opt.mutatingWebhookConfigName, metav1.DeleteOptions{})
 	}
 	return validationErr, injectionErr
@@ -491,7 +492,7 @@ func displayWebhookConfig(client kubernetes.Interface, opt *statusCliOptions, wr
 
 // Display validation webhook configuration
 func displayValidationWebhookConfig(client kubernetes.Interface, opt *statusCliOptions, writer io.Writer) error {
-	config, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+	config, err := client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(
 		context.TODO(),
 		opt.validatingWebhookConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -508,7 +509,7 @@ func displayValidationWebhookConfig(client kubernetes.Interface, opt *statusCliO
 
 // Display mutation webhook configuration
 func displayMutationWebhookConfig(client kubernetes.Interface, opt *statusCliOptions, writer io.Writer) error {
-	config, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
+	config, err := client.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(
 		context.TODO(),
 		opt.mutatingWebhookConfigName, metav1.GetOptions{})
 	if err != nil {
@@ -602,13 +603,13 @@ func waitForServerRunning(client kubernetes.Interface, namespace, svc string, ma
 // Build the desired validatingwebhookconfiguration from the specified CA
 // and webhook config file.
 func buildValidatingWebhookConfig(
-	caCert []byte, webhookConfigPath string) (*kubeApiAdmission.ValidatingWebhookConfiguration, error) {
+	caCert []byte, webhookConfigPath string) (*v1beta1.ValidatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigPath)
 	if err != nil {
 		return nil, err
 	}
-	var webhookConfig kubeApiAdmission.ValidatingWebhookConfiguration
+	var webhookConfig v1beta1.ValidatingWebhookConfiguration
 	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
 		return nil, fmt.Errorf("could not decode validatingwebhookconfiguration from %v: %v",
 			webhookConfigPath, err)
@@ -625,13 +626,13 @@ func buildValidatingWebhookConfig(
 // Build the desired mutatingwebhookconfiguration from the specified CA
 // and webhook config file.
 func buildMutatingWebhookConfig(
-	caCert []byte, webhookConfigPath string) (*kubeApiAdmission.MutatingWebhookConfiguration, error) {
+	caCert []byte, webhookConfigPath string) (*v1beta1.MutatingWebhookConfiguration, error) {
 	// load and validate configuration
 	webhookConfigData, err := ioutil.ReadFile(webhookConfigPath)
 	if err != nil {
 		return nil, err
 	}
-	var webhookConfig kubeApiAdmission.MutatingWebhookConfiguration
+	var webhookConfig v1beta1.MutatingWebhookConfiguration
 	if err := yaml.Unmarshal(webhookConfigData, &webhookConfig); err != nil {
 		return nil, fmt.Errorf("could not decode mutatingwebhookconfiguration from %v: %v",
 			webhookConfigPath, err)

@@ -26,8 +26,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -38,6 +36,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -239,7 +238,6 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		FilterChains:                        filterChains,
 		TrafficDirection:                    core.TrafficDirection_OUTBOUND,
 	}
-	configgen.onVirtualOutboundListener(lb.node, lb.push, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
 	return lb
 }
@@ -449,8 +447,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains, needTLS
 }
 
-func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
-	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
 	if node.SupportsIPv4() {
@@ -476,13 +473,10 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		in := &plugin.InputParams{
-			ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-			Node:               node,
-			ServiceInstance:    dummyServiceInstance,
-			Port:               port,
-			Push:               push,
-			Bind:               matchingIP,
-			InboundClusterName: clusterName,
+			ListenerProtocol: istionetworking.ListenerProtocolHTTP,
+			Node:             node,
+			ServiceInstance:  dummyServiceInstance,
+			Push:             push,
 		}
 		// Call plugins to install authn/authz policies.
 		var allChains []istionetworking.FilterChain
@@ -517,11 +511,17 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			}
 		}
 
+		listenerOpts := buildListenerOpts{
+			push:  push,
+			proxy: node,
+			bind:  matchingIP,
+			port:  port,
+		}
 		// Construct the actual filter chains for each of the filter chain from the plugin.
 		for _, chain := range allChains {
-			httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
+			httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in, clusterName)
 			httpOpts.statPrefix = clusterName
-			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(listenerOpts, httpOpts, chain.HTTP)
 
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,

@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -55,9 +54,13 @@ type FakeXdsUpdater struct {
 	Events chan Event
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) error {
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) {
 	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
-	return nil
+}
+
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
@@ -75,7 +78,7 @@ func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceE
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
-	eventch := make(chan Event, 10)
+	eventch := make(chan Event, 100)
 
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
@@ -482,10 +485,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 	svc.Attributes.ServiceRegistry = string(sd.Provider())
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
-		instances, err := sd.InstancesByPort(svc, port, nil)
-		if err != nil {
-			return fmt.Errorf("instancesByPort() encountered unexpected error: %v", err)
-		}
+		instances := sd.InstancesByPort(svc, port, nil)
 		sortServiceInstances(instances)
 		got := []ServiceInstanceResponse{}
 		for _, i := range instances {

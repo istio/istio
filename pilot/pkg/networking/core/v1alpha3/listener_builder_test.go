@@ -27,16 +27,12 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -51,7 +47,7 @@ func getDefaultLdsEnv() *LdsEnv {
 	return &listenerEnv
 }
 
-func getDefaultProxy() model.Proxy {
+func getDefaultProxy() *model.Proxy {
 	proxy := model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1"},
@@ -66,7 +62,7 @@ func getDefaultProxy() model.Proxy {
 	}
 
 	proxy.DiscoverIPVersions()
-	return proxy
+	return &proxy
 }
 
 func setNilSidecarOnProxy(proxy *model.Proxy, pushContext *model.PushContext) {
@@ -96,9 +92,9 @@ func TestVirtualListenerBuilder(t *testing.T) {
 	}
 	proxy := getDefaultProxy()
 	proxy.ServiceInstances = instances
-	setNilSidecarOnProxy(&proxy, env.PushContext)
+	setNilSidecarOnProxy(proxy, env.PushContext)
 
-	builder := NewListenerBuilder(&proxy, env.PushContext)
+	builder := NewListenerBuilder(proxy, env.PushContext)
 	listeners := builder.
 		buildVirtualOutboundListener(ldsEnv.configgen).
 		getListeners()
@@ -143,10 +139,10 @@ func prepareListeners(t *testing.T, services []*model.Service, mode model.Traffi
 
 	proxy := getDefaultProxy()
 	proxy.ServiceInstances = instances
-	setInboundCaptureAllOnThisNode(&proxy, mode)
-	setNilSidecarOnProxy(&proxy, env.PushContext)
+	setInboundCaptureAllOnThisNode(proxy, mode)
+	setNilSidecarOnProxy(proxy, env.PushContext)
 
-	builder := NewListenerBuilder(&proxy, env.PushContext)
+	builder := NewListenerBuilder(proxy, env.PushContext)
 	return builder.buildSidecarInboundListeners(ldsEnv.configgen).
 		buildHTTPProxyListener(ldsEnv.configgen).
 		buildVirtualOutboundListener(ldsEnv.configgen).
@@ -397,17 +393,10 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			},
 		},
 	}
-	configStore := buildEnvoyFilterConfigStore(configPatches)
+	cg := NewConfigGenTest(t, TestOptions{Configs: getEnvoyFilterConfigs(configPatches)})
 
-	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-
-	env := newTestEnvironment(serviceDiscovery, testMesh, configStore)
-
-	gatewayProxy := getDefaultProxy()
-	gatewayProxy.Type = model.Router
-	gatewayProxy.SetGatewaysForProxy(env.PushContext)
-	sidecarProxy := getDefaultProxy()
-	sidecarProxy.SetSidecarScope(env.PushContext)
+	gatewayProxy := cg.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "not-default"})
+	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
 	type fields struct {
 		gatewayListeners        []*listener.Listener
 		inboundListeners        []*listener.Listener
@@ -417,17 +406,15 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 		virtualInboundListener  *listener.Listener
 	}
 	tests := []struct {
-		name        string
-		proxy       *model.Proxy
-		pushContext *model.PushContext
-		fields      fields
-		want        fields
+		name   string
+		proxy  *model.Proxy
+		fields fields
+		want   fields
 	}{
 
 		{
-			name:        "patch add inbound and outbound listener",
-			proxy:       &sidecarProxy,
-			pushContext: env.PushContext,
+			name:  "patch add inbound and outbound listener",
+			proxy: sidecarProxy,
 			fields: fields{
 				outboundListeners: []*listener.Listener{
 					{
@@ -453,9 +440,8 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			},
 		},
 		{
-			name:        "patch inbound and outbound listener",
-			proxy:       &sidecarProxy,
-			pushContext: env.PushContext,
+			name:  "patch inbound and outbound listener",
+			proxy: sidecarProxy,
 			fields: fields{
 				outboundListeners: []*listener.Listener{
 					{
@@ -493,9 +479,8 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 			},
 		},
 		{
-			name:        "patch add gateway listener",
-			proxy:       &gatewayProxy,
-			pushContext: env.PushContext,
+			name:  "patch add gateway listener",
+			proxy: gatewayProxy,
 			fields: fields{
 				gatewayListeners: []*listener.Listener{
 					{
@@ -516,9 +501,8 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 		},
 
 		{
-			name:        "patch gateway listener",
-			proxy:       &gatewayProxy,
-			pushContext: env.PushContext,
+			name:  "patch gateway listener",
+			proxy: gatewayProxy,
 			fields: fields{
 				gatewayListeners: []*listener.Listener{
 					{
@@ -555,7 +539,7 @@ func TestListenerBuilderPatchListeners(t *testing.T) {
 
 			lb := &ListenerBuilder{
 				node:                    tt.proxy,
-				push:                    tt.pushContext,
+				push:                    cg.PushContext(),
 				gatewayListeners:        tt.fields.gatewayListeners,
 				inboundListeners:        tt.fields.inboundListeners,
 				outboundListeners:       tt.fields.outboundListeners,
@@ -587,10 +571,10 @@ func buildPatchStruct(config string) *types.Struct {
 	return val
 }
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.IstioConfigStore {
-	cs := model.MakeIstioStore(memory.Make(collections.Pilot))
+func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) []model.Config {
+	res := []model.Config{}
 	for i, cp := range configPatches {
-		if _, err := cs.Create(model.Config{
+		res = append(res, model.Config{
 			ConfigMeta: model.ConfigMeta{
 				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
 				Namespace:        "not-default",
@@ -598,9 +582,7 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 			},
 			Spec: &networking.EnvoyFilter{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{cp},
-			}}); err != nil {
-			panic(err.Error())
-		}
+			}})
 	}
-	return cs
+	return res
 }

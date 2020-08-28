@@ -26,12 +26,10 @@ import (
 	envoy_config_listener_v2 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v2"
 	"github.com/golang/protobuf/ptypes/any"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-
 	"istio.io/istio/pkg/config/host"
+	"istio.io/pkg/log"
 )
 
 // To avoid a recoursive depenency to v2.
@@ -67,7 +65,7 @@ const (
 type GrpcConfigGenerator struct {
 }
 
-func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
 	switch w.TypeUrl {
 	case ListenerType:
 		return g.BuildListeners(proxy, push, w.ResourceNames)
@@ -182,9 +180,6 @@ func (g *GrpcConfigGenerator) BuildHTTPRoutes(node *model.Proxy, push *model.Pus
 
 	// Currently this mode is only used by GRPC, to extract Cluster for the default
 	// route.
-	// Current GRPC is also expecting the default route to be prefix=="", while we generate "/"
-	// in normal response.
-	// TODO: add support for full route, make sure GRPC is fixed to support both
 	for _, n := range routeNames {
 		hn, portn, err := net.SplitHostPort(n)
 		if err != nil {

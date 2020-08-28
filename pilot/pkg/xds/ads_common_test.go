@@ -16,13 +16,13 @@ package xds
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"testing"
 
 	model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/spiffe"
 )
 
 func TestProxyNeedsPush(t *testing.T) {
@@ -155,127 +155,10 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			pushEv := &Event{configsUpdated: tt.configs}
+			pushEv := &Event{pushRequest: &model.PushRequest{ConfigsUpdated: tt.configs}}
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPushTypeFor(t *testing.T) {
-	sidecar := &model.Proxy{Type: model.SidecarProxy}
-	gateway := &model.Proxy{Type: model.Router}
-
-	tests := []struct {
-		name        string
-		proxy       *model.Proxy
-		configTypes []resource.GroupVersionKind
-		expect      map[Type]bool
-	}{
-		{
-			name:        "configTypes is empty",
-			proxy:       sidecar,
-			configTypes: nil,
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "configTypes is empty",
-			proxy:       gateway,
-			configTypes: nil,
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "sidecar updated for sidecar proxy",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.Sidecar},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "sidecar updated for gateway proxy",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.Sidecar},
-			expect:      map[Type]bool{},
-		},
-		{
-			name:        "authorizationpolicy updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.AuthorizationPolicy},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "authorizationpolicy updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.AuthorizationPolicy},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "unknown type updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{{Kind: "unknown"}},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "unknown type updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:  "gateway and virtualservice updated for gateway proxy",
-			proxy: gateway,
-			configTypes: []resource.GroupVersionKind{gvk.Gateway,
-				gvk.VirtualService},
-			expect: map[Type]bool{LDS: true, RDS: true},
-		},
-		{
-			name:  "virtualservice and destinationrule updated",
-			proxy: sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.DestinationRule,
-				gvk.VirtualService},
-			expect: map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "requestauthentication updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.RequestAuthentication},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "requestauthentication updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.RequestAuthentication},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "peerauthentication updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.PeerAuthentication},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true},
-		},
-		{
-			name:        "peerauthentication updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.PeerAuthentication},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfgs := map[model.ConfigKey]struct{}{}
-			for _, kind := range tt.configTypes {
-				cfgs[model.ConfigKey{
-					Kind:      kind,
-					Name:      "name",
-					Namespace: "ns",
-				}] = struct{}{}
-			}
-			pushEv := &Event{configsUpdated: cfgs}
-			out := PushTypeFor(tt.proxy, pushEv)
-			if !reflect.DeepEqual(out, tt.expect) {
-				t.Errorf("expected: %v, but got %v", tt.expect, out)
 			}
 		})
 	}
@@ -300,5 +183,62 @@ func BenchmarkListEquals(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		listEqualUnordered(l, equal)
 		listEqualUnordered(l, notEqual)
+	}
+}
+
+func TestCheckConnectionIdentity(t *testing.T) {
+	cases := []struct {
+		name      string
+		identity  []string
+		sa        string
+		namespace string
+		success   bool
+	}{
+		{
+			name:      "single match",
+			identity:  []string{spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String()},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   true,
+		},
+		{
+			name: "second match",
+			identity: []string{
+				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
+				spiffe.Identity{"cluster.local", "namespace", "serviceaccount"}.String(),
+			},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   true,
+		},
+		{
+			name: "no match namespace",
+			identity: []string{
+				spiffe.Identity{"cluster.local", "bad", "serviceaccount"}.String(),
+			},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   false,
+		},
+		{
+			name: "no match service account",
+			identity: []string{
+				spiffe.Identity{"cluster.local", "namespace", "bad"}.String(),
+			},
+			sa:        "serviceaccount",
+			namespace: "namespace",
+			success:   false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			con := &Connection{
+				proxy:      &model.Proxy{ConfigNamespace: tt.namespace, Metadata: &model.NodeMetadata{ServiceAccount: tt.sa}},
+				Identities: tt.identity,
+			}
+			if err := checkConnectionIdentity(con); (err == nil) != tt.success {
+				t.Fatalf("expected success=%v, got err=%v", tt.success, err)
+			}
+		})
 	}
 }

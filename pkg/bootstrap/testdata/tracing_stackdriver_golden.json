@@ -4,7 +4,7 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PLATFORM_METADATA":{"gcp_project":"my-sd-project"},"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_stackdriver","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"stackdriver":{"debug":true,"maxNumberOfAnnotations":"201","maxNumberOfMessageEvents":"201"}}},"SDS":"true","STS_PORT":"15463"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PLATFORM_METADATA":{"gcp_project":"my-sd-project"},"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_stackdriver","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"stackdriver":{"debug":true,"maxNumberOfAnnotations":"201","maxNumberOfMessageEvents":"201"}}},"STS_PORT":"15463"}
   },
   "layered_runtime": {
       "layers": [
@@ -367,7 +367,6 @@
       }
       
       
-      
     ],
     "listeners":[
       {
@@ -382,7 +381,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -408,7 +407,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -431,7 +430,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -457,7 +456,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -470,7 +469,6 @@
       }
     ]
   }
-  
   ,
   "tracing": {
     "http": {

@@ -14,12 +14,17 @@ spec:
   template:
     metadata:
       annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"2343d4598565fd00d328a3388421ee637d25d3f7068e7d5cadef374ee1a06b37","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":null,"imagePullSecrets":null}'
       creationTimestamp: null
       labels:
         app: hello
         istio.io/rev: ""
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
+        service.istio.io/canonical-revision: latest
         tier: backend
         track: stable
     spec:

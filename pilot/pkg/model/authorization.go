@@ -16,11 +16,9 @@ package model
 
 import (
 	authpb "istio.io/api/security/v1beta1"
-
-	istiolog "istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
+	istiolog "istio.io/pkg/log"
 )
 
 var (
@@ -67,9 +65,9 @@ func GetAuthorizationPolicies(env *Environment) (*AuthorizationPolicies, error) 
 	return policy, nil
 }
 
-// ListAuthorizationPolicies returns the deny and allow AuthorizationPolicy for the workload in the given namespace.
+// ListAuthorizationPolicies returns the deny, allow, and audit AuthorizationPolicies for the workload in the given namespace.
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Collection) (
-	denyPolicies []AuthorizationPolicy, allowPolicies []AuthorizationPolicy) {
+	denyPolicies []AuthorizationPolicy, allowPolicies []AuthorizationPolicy, auditPolicies []AuthorizationPolicy) {
 	if policy == nil {
 		return
 	}
@@ -93,6 +91,8 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string,
 					allowPolicies = append(allowPolicies, config)
 				case authpb.AuthorizationPolicy_DENY:
 					denyPolicies = append(denyPolicies, config)
+				case authpb.AuthorizationPolicy_AUDIT:
+					auditPolicies = append(auditPolicies, config)
 				default:
 					log.Errorf("ignored authorization policy %s.%s with unsupported action: %s",
 						config.Namespace, config.Name, config.Spec.GetAction())

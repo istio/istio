@@ -157,7 +157,7 @@ func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.Servi
 		return
 	}
 	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = []*model.ServiceInstance{instance}
+	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
 
 	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
 	instanceList := sd.instancesByPortNum[key]
@@ -190,9 +190,8 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpoints []*model.IstioEndpoint) {
 
 	sh := host.Name(service)
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
 
+	sd.mutex.Lock()
 	svc := sd.services[sh]
 	if svc == nil {
 		return
@@ -240,7 +239,9 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
 	}
-	_ = sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
+	sd.mutex.Unlock()
+
+	sd.EDSUpdater.EDSUpdate(sd.ClusterID, service, namespace, endpoints)
 }
 
 // Services implements discovery interface
@@ -275,19 +276,18 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, erro
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int,
-	labels labels.Collection) ([]*model.ServiceInstance, error) {
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, _ labels.Collection) []*model.ServiceInstance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
+		return nil
 	}
 	key := fmt.Sprintf("%s:%d", string(svc.Hostname), port)
 	instances, ok := sd.instancesByPortNum[key]
 	if !ok {
-		return nil, nil
+		return nil
 	}
-	return instances, nil
+	return instances
 }
 
 // GetProxyServiceInstances returns service instances associated with a node, resulting in

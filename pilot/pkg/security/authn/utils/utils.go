@@ -18,8 +18,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -27,7 +25,7 @@ import (
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	protovalue "istio.io/istio/pkg/proto"
-	"istio.io/istio/pkg/spiffe"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -37,7 +35,7 @@ const (
 
 // BuildInboundFilterChain returns the filter chain(s) corresponding to the mTLS mode.
 func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, node *model.Proxy,
-	listenerProtocol networking.ListenerProtocol) []networking.FilterChain {
+	listenerProtocol networking.ListenerProtocol, trustDomainAliases []string) []networking.FilterChain {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
 	}
@@ -79,7 +77,7 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 			RequireClientCertificate: protovalue.BoolTrue,
 		}
 	}
-	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/, node.RequestedTypes.LDS)
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, meta, sdsUdsPath, []string{} /*subjectAltNames*/, trustDomainAliases)
 
 	if mTLSMode == model.MTLSStrict {
 		log.Debug("Allow only istio mutual TLS traffic")
@@ -104,13 +102,4 @@ func BuildInboundFilterChain(mTLSMode model.MutualTLSMode, sdsUdsPath string, no
 		}
 	}
 	return nil
-}
-
-// GetSAN returns the SAN used for passed in identity for mTLS.
-func GetSAN(ns string, identity string) string {
-
-	if ns != "" {
-		return spiffe.MustGenSpiffeURI(ns, identity)
-	}
-	return spiffe.GenCustomSpiffe(identity)
 }

@@ -232,6 +232,15 @@ func (os K8sObjects) Keys() []string {
 	return out
 }
 
+// UnstructuredItems returns the list of items of unstructured.Unstructured.
+func (os K8sObjects) UnstructuredItems() []unstructured.Unstructured {
+	var usList []unstructured.Unstructured
+	for _, obj := range os {
+		usList = append(usList, *obj.UnstructuredObject())
+	}
+	return usList
+}
+
 // ParseK8sObjectsFromYAMLManifest returns a K8sObjects representation of manifest.
 func ParseK8sObjectsFromYAMLManifest(manifest string) (K8sObjects, error) {
 	return ParseK8sObjectsFromYAMLManifestFailOption(manifest, true)
@@ -285,16 +294,17 @@ func ParseK8sObjectsFromYAMLManifestFailOption(manifest string, failOnError bool
 }
 
 func removeNonYAMLLines(yms string) string {
-	out := ""
+	var b strings.Builder
 	for _, s := range strings.Split(yms, "\n") {
 		if strings.HasPrefix(s, "#") {
 			continue
 		}
-		out += s + "\n"
+		b.WriteString(s)
+		b.WriteString("\n")
 	}
 
 	// helm charts sometimes emits blank objects with just a "disabled" comment.
-	return strings.TrimSpace(out)
+	return strings.TrimSpace(b.String())
 }
 
 // YAMLManifest returns a YAML representation of K8sObjects os.

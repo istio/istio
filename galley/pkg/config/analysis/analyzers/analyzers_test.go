@@ -24,13 +24,12 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/deprecation"
+	"istio.io/istio/galley/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/multicluster"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/galley/pkg/config/scope"
 	"istio.io/istio/pkg/config/schema"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/pkg/log"
 )
 
 type message struct {
@@ -74,7 +74,6 @@ var testGrid = []testCase{
 		analyzer: &annotations.K8sAnalyzer{},
 		expected: []message{
 			{msg.UnknownAnnotation, "Service httpbin"},
-			{msg.MisplacedAnnotation, "Service details"},
 			{msg.InvalidAnnotation, "Pod invalid-annotations"},
 			{msg.MisplacedAnnotation, "Pod grafana-test"},
 			{msg.MisplacedAnnotation, "Deployment fortio-deploy"},
@@ -163,6 +162,17 @@ var testGrid = []testCase{
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",
 			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+		},
+	},
+	{
+		name: "istioInjectionProxyImageMismatchAbsolute",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+			"testdata/sidecar-injector-configmap-absolute-override.yaml",
 		},
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
@@ -311,6 +321,76 @@ var testGrid = []testCase{
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
 			{msg.ReferencedResourceNotFound, "AuthorizationPolicy httpbin-bogus-not-ns.httpbin"},
 		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-destination.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-simple-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-tls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at portlevel",
+		inputFiles: []string{
+			"testdata/destinationrule-mutual-port.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, mutual at destinationlevel and simple at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-simple-mutual.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with no cacert, simple at destinationlevel and mutual at port level",
+		inputFiles: []string{
+			"testdata/destinationrule-compound-mutual-simple.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{
+			{msg.NoServerCertificateVerificationPortLevel, "DestinationRule db-mtls"},
+			{msg.NoServerCertificateVerificationDestinationLevel, "DestinationRule db-mtls"},
+		},
+	},
+	{
+		name: "destinationrule with both cacerts",
+		inputFiles: []string{
+			"testdata/destinationrule-with-ca.yaml",
+		},
+		analyzer: &destinationrule.CaCertificateAnalyzer{},
+		expected: []message{},
 	},
 }
 

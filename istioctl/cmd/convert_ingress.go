@@ -27,14 +27,13 @@ import (
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/convert"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -77,7 +76,7 @@ func convertConfigs(readers []io.Reader, writer io.Writer, client kubernetes.Int
 }
 
 func readConfigs(readers []io.Reader) ([]model.Config, []*v1beta1.Ingress, error) {
-	out := make([]model.Config, 0)
+	out := make([]model.Config, 0, len(readers))
 	outIngresses := make([]*v1beta1.Ingress, 0)
 
 	for _, reader := range readers {

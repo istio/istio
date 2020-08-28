@@ -28,23 +28,21 @@ import (
 	"strings"
 	"testing"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	v1 "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
-	v2 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v2"
+	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	trace "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
-	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	diff "gopkg.in/d4l3k/messagediff.v1"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 )
@@ -71,13 +69,8 @@ var (
 )
 
 // Generate configs for the default configs used by istio.
-// If the template is updated, copy the new golden files from out:
-// cp $TOP/out/linux_amd64/release/bootstrap/all/envoy-rev0.json pkg/bootstrap/testdata/all_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/auth/envoy-rev0.json pkg/bootstrap/testdata/auth_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/default/envoy-rev0.json pkg/bootstrap/testdata/default_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/tracing_datadog/envoy-rev0.json pkg/bootstrap/testdata/tracing_datadog_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/tracing_lightstep/envoy-rev0.json pkg/bootstrap/testdata/tracing_lightstep_golden.json
-// cp $TOP/out/linux_amd64/release/bootstrap/tracing_zipkin/envoy-rev0.json pkg/bootstrap/testdata/tracing_zipkin_golden.json
+// If the template is updated, refresh golden files using:
+// REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
 	out := "/tmp"
 	var ts *httptest.Server
@@ -95,7 +88,7 @@ func TestGolden(t *testing.T) {
 		platformMeta               map[string]string
 		setup                      func()
 		teardown                   func()
-		check                      func(got *v2.Bootstrap, t *testing.T)
+		check                      func(got *bootstrap.Bootstrap, t *testing.T)
 	}{
 		{
 			base: "auth",
@@ -177,7 +170,7 @@ func TestGolden(t *testing.T) {
 				}
 				_ = os.Unsetenv("GCE_METADATA_HOST")
 			},
-			check: func(got *v2.Bootstrap, t *testing.T) {
+			check: func(got *bootstrap.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
 				cfg := got.Tracing.Http.GetTypedConfig()
 				sdMsg := &trace.OpenCensusConfig{}
@@ -297,6 +290,9 @@ func TestGolden(t *testing.T) {
 		{
 			base: "tracing_tls",
 		},
+		{
+			base: "tracing_tls_custom_sni",
+		},
 	}
 
 	for _, c := range cases {
@@ -365,8 +361,8 @@ func TestGolden(t *testing.T) {
 				golden = []byte{}
 			}
 
-			realM := &v2.Bootstrap{}
-			goldenM := &v2.Bootstrap{}
+			realM := &bootstrap.Bootstrap{}
+			goldenM := &bootstrap.Bootstrap{}
 
 			jgolden, err := yaml.YAMLToJSON(golden)
 
@@ -398,9 +394,8 @@ func TestGolden(t *testing.T) {
 
 			checkOpencensusConfig(t, realM, goldenM)
 
-			if !reflect.DeepEqual(realM, goldenM) {
-				s, _ := diff.PrettyDiff(goldenM, realM)
-				t.Logf("difference: %s", s)
+			if diff := cmp.Diff(goldenM, realM, protocmp.Transform()); diff != "" {
+				t.Logf("difference: %s", diff)
 				t.Fatalf("\n got: %s\nwant: %s", prettyPrint(read), prettyPrint(jgolden))
 			}
 
@@ -441,7 +436,7 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want s
 		case "regexp":
 			// Migration tracked in https://github.com/istio/istio/issues/17127
 			//nolint: staticcheck
-			pat = pattern.GetRegex()
+			pat = pattern.GetSafeRegex().GetRegex()
 		}
 
 		if pat != "" {
@@ -454,7 +449,8 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want s
 	}
 }
 
-func checkOpencensusConfig(t *testing.T, got, want *v2.Bootstrap) {
+// nolint: staticcheck
+func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 	if want.Tracing == nil {
 		return
 	}
@@ -469,7 +465,7 @@ func checkOpencensusConfig(t *testing.T, got, want *v2.Bootstrap) {
 	}
 }
 
-func checkStatsMatcher(t *testing.T, got, want *v2.Bootstrap, stats stats) {
+func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats) {
 	gsm := got.GetStatsConfig().GetStatsMatcher()
 
 	if stats.prefixes == "" {

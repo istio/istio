@@ -17,7 +17,7 @@ In this README:
 
 In addition, here are some other documents you may wish to read:
 
-- [Istio Community](https://github.com/istio/community) - describes how to get involved and contribute to the Istio project
+- [Istio Community](https://github.com/istio/community#istio-community) - describes how to get involved and contribute to the Istio project
 - [Istio Developer's Guide](https://github.com/istio/istio/wiki/Preparing-for-Development) - explains how to set up and use an Istio development environment
 - [Project Conventions](https://github.com/istio/istio/wiki/Development-Conventions) - describes the conventions we use within the code base
 - [Creating Fast and Lean Code](https://github.com/istio/istio/wiki/Writing-Fast-and-Lean-Code) - performance-oriented advice and guidelines for the code base
@@ -26,8 +26,8 @@ You'll find many other useful documents on our [Wiki](https://github.com/istio/i
 
 ## Introduction
 
-Istio is an open platform for providing a uniform way to integrate
-microservices, manage traffic flow across microservices, enforce policies
+[Istio](https://istio.io/latest/docs/concepts/what-is-istio/) is an open platform for providing a uniform way to [integrate
+microservices](https://istio.io/latest/docs/examples/microservices-istio/), manage [traffic flow](https://istio.io/latest/docs/concepts/traffic-management/) across microservices, enforce policies
 and aggregate telemetry data. Istio's control plane provides an abstraction
 layer over the underlying cluster management platform, such as Kubernetes.
 
@@ -69,7 +69,7 @@ the Istio open source project.
 core components, install artifacts, and sample programs. It includes:
 
     - [istioctl](istioctl/). This directory contains code for the
-[_istioctl_](https://istio.io/docs/reference/commands/istioctl.html) command line utility.
+[_istioctl_](https://istio.io/latest/docs/reference/commands/istioctl/) command line utility.
 
     - [operator](operator/). This directory contains code for the standalone
 [Istio Operator](https://istio.io/latest/docs/setup/install/standalone-operator/).
@@ -78,9 +78,9 @@ core components, install artifacts, and sample programs. It includes:
 contains platform-specific code to populate the
 [abstract service model](https://istio.io/docs/concepts/traffic-management/#pilot), dynamically reconfigure the proxies
 when the application topology changes, as well as translate
-[routing rules](https://istio.io/docs/reference/config/networking/) into proxy specific configuration.
+[routing rules](https://istio.io/latest/docs/reference/config/networking/) into proxy specific configuration.
 
-    - [security](security/). This directory contains security related code,
+    - [security](security/). This directory contains [security](https://istio.io/latest/docs/concepts/security/) related code,
 including Citadel (acting as Certificate Authority), citadel agent, etc.
 
 - [istio/proxy](https://github.com/istio/proxy). The Istio proxy contains

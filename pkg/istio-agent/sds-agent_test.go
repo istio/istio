@@ -15,10 +15,10 @@
 package istioagent
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/security"
-
-	"testing"
 )
 
 func TestNewAgent(t *testing.T) {

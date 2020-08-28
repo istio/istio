@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
@@ -51,6 +51,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.mtls-local").
 		Run(func(ctx framework.TestContext) {
+			// Create namespaces
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "v1beta1-mtls-ns1",
 				Inject: true,
@@ -60,6 +61,7 @@ func TestAuthorization_mTLS(t *testing.T) {
 				Inject: true,
 			})
 
+			// Create services
 			var a, b, c echo.Instance
 			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
@@ -70,17 +72,18 @@ func TestAuthorization_mTLS(t *testing.T) {
 			newTestCase := func(from echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
 				return rbacUtil.TestCase{
 					Request: connection.Checker{
-						From: from,
+						From: from, // From service
 						Options: echo.CallOptions{
 							Target:   b,
 							PortName: "http",
 							Scheme:   scheme.HTTP,
-							Path:     path,
+							Path:     path, // Requested path
 						},
 					},
 					ExpectAllowed: expectAllowed,
 				}
 			}
+			// a and c send requests to b
 			cases := []rbacUtil.TestCase{
 				newTestCase(a, "/principal-a", true),
 				newTestCase(a, "/namespace-2", false),
@@ -338,7 +341,7 @@ func TestAuthorization_Deny(t *testing.T) {
 		})
 }
 
-// TestAuthorization_Deny tests the authorization policy with negative match.
+// TestAuthorization_NegativeMatch tests the authorization policy with negative match.
 func TestAuthorization_NegativeMatch(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.authorization.negative-match").
@@ -456,13 +459,7 @@ func TestAuthorization_IngressGateway(t *testing.T) {
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				BuildOrFail(t)
 
-			var ingr ingress.Instance
-			var err error
-			if ingr, err = ingress.New(ctx, ingress.Config{
-				Istio: ist,
-			}); err != nil {
-				t.Fatal(err)
-			}
+			ingr := ist.IngressFor(ctx.Clusters().Default())
 
 			cases := []struct {
 				Name     string
@@ -721,9 +718,14 @@ func TestAuthorization_TCP(t *testing.T) {
 					InstancePort: 8091,
 				},
 				{
-					Name:         "tcp",
+					Name:         "tcp-8092",
 					Protocol:     protocol.TCP,
 					InstancePort: 8092,
+				},
+				{
+					Name:         "tcp-8093",
+					Protocol:     protocol.TCP,
+					InstancePort: 8093,
 				},
 			}
 			echoboot.NewBuilder(ctx).
@@ -783,18 +785,26 @@ func TestAuthorization_TCP(t *testing.T) {
 				// The policy on workload b denies request with path "/data" to port 8090:
 				// - request to port http-8090 should be denied because both path and port are matched.
 				// - request to port http-8091 should be allowed because the port is not matched.
-				// - request to port tcp should be allowed because the port is not matched.
+				// - request to port tcp-8092 should be allowed because the port is not matched.
 				newTestCase(a, b, "http-8090", false, scheme.HTTP),
 				newTestCase(a, b, "http-8091", true, scheme.HTTP),
-				newTestCase(a, b, "tcp", true, scheme.TCP),
+				newTestCase(a, b, "tcp-8092", true, scheme.TCP),
 
 				// The policy on workload c denies request to port 8090:
 				// - request to port http-8090 should be denied because the port is matched.
 				// - request to http port 8091 should be allowed because the port is not matched.
 				// - request to tcp port 8092 should be allowed because the port is not matched.
+				// - request from b to tcp port 8092 should be allowed by default.
+				// - request from b to tcp port 8093 should be denied because the principal is matched.
+				// - request from x to tcp port 8092 should be denied because the namespace is matched.
+				// - request from x to tcp port 8093 should be allowed by default.
 				newTestCase(a, c, "http-8090", false, scheme.HTTP),
 				newTestCase(a, c, "http-8091", true, scheme.HTTP),
-				newTestCase(a, c, "tcp", true, scheme.TCP),
+				newTestCase(a, c, "tcp-8092", true, scheme.TCP),
+				newTestCase(b, c, "tcp-8092", true, scheme.TCP),
+				newTestCase(b, c, "tcp-8093", false, scheme.TCP),
+				newTestCase(x, c, "tcp-8092", false, scheme.TCP),
+				newTestCase(x, c, "tcp-8093", true, scheme.TCP),
 
 				// The policy on workload d denies request from service account a and workloads in namespace 2:
 				// - request from a to d should be denied because it has service account a.
@@ -802,19 +812,19 @@ func TestAuthorization_TCP(t *testing.T) {
 				// - request from c to d should be allowed.
 				// - request from x to a should be allowed because there is no policy on a.
 				// - request from x to d should be denied because it's in namespace 2.
-				newTestCase(a, d, "tcp", false, scheme.TCP),
-				newTestCase(b, d, "tcp", true, scheme.TCP),
-				newTestCase(c, d, "tcp", true, scheme.TCP),
-				newTestCase(x, a, "tcp", true, scheme.TCP),
-				newTestCase(x, d, "tcp", false, scheme.TCP),
+				newTestCase(a, d, "tcp-8092", false, scheme.TCP),
+				newTestCase(b, d, "tcp-8092", true, scheme.TCP),
+				newTestCase(c, d, "tcp-8092", true, scheme.TCP),
+				newTestCase(x, a, "tcp-8092", true, scheme.TCP),
+				newTestCase(x, d, "tcp-8092", false, scheme.TCP),
 
 				// The policy on workload e denies request with path "/other":
 				// - request to port http-8090 should be allowed because the path is not matched.
 				// - request to port http-8091 should be allowed because the path is not matched.
-				// - request to port tcp should be denied because policy uses HTTP fields.
+				// - request to port tcp-8092 should be denied because policy uses HTTP fields.
 				newTestCase(a, e, "http-8090", true, scheme.HTTP),
 				newTestCase(a, e, "http-8091", true, scheme.HTTP),
-				newTestCase(a, e, "tcp", false, scheme.TCP),
+				newTestCase(a, e, "tcp-8092", false, scheme.TCP),
 			}
 
 			rbacUtil.RunRBACTest(t, cases)
@@ -893,36 +903,50 @@ func TestAuthorization_Conditions(t *testing.T) {
 				newTestCase(b, "/request-headers", map[string]string{"x-foo": "bar"}, false),
 				newTestCase(a, "/request-headers", nil, false),
 				newTestCase(b, "/request-headers", nil, false),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "foo"}, true),
+				newTestCase(a, "/request-headers-notValues-bar", map[string]string{"x-foo": "bar"}, false),
 
 				newTestCase(a, "/source-ip-a", nil, true),
 				newTestCase(b, "/source-ip-a", nil, false),
 				newTestCase(a, "/source-ip-b", nil, false),
 				newTestCase(b, "/source-ip-b", nil, true),
+				newTestCase(a, "/source-ip-notValues-b", nil, true),
+				newTestCase(b, "/source-ip-notValues-b", nil, false),
 
 				newTestCase(a, "/source-namespace-a", nil, true),
 				newTestCase(b, "/source-namespace-a", nil, false),
 				newTestCase(a, "/source-namespace-b", nil, false),
 				newTestCase(b, "/source-namespace-b", nil, true),
+				newTestCase(a, "/source-namespace-notValues-b", nil, true),
+				newTestCase(b, "/source-namespace-notValues-b", nil, false),
 
 				newTestCase(a, "/source-principal-a", nil, true),
 				newTestCase(b, "/source-principal-a", nil, false),
 				newTestCase(a, "/source-principal-b", nil, false),
 				newTestCase(b, "/source-principal-b", nil, true),
+				newTestCase(a, "/source-principal-notValues-b", nil, true),
+				newTestCase(b, "/source-principal-notValues-b", nil, false),
 
 				newTestCase(a, "/destination-ip-good", nil, true),
 				newTestCase(b, "/destination-ip-good", nil, true),
 				newTestCase(a, "/destination-ip-bad", nil, false),
 				newTestCase(b, "/destination-ip-bad", nil, false),
+				newTestCase(a, "/destination-ip-notValues-a-or-b", nil, true),
+				newTestCase(a, "/destination-ip-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/destination-port-good", nil, true),
 				newTestCase(b, "/destination-port-good", nil, true),
 				newTestCase(a, "/destination-port-bad", nil, false),
 				newTestCase(b, "/destination-port-bad", nil, false),
+				newTestCase(a, "/destination-port-notValues-c", nil, false),
+				newTestCase(b, "/destination-port-notValues-c", nil, false),
 
 				newTestCase(a, "/connection-sni-good", nil, true),
 				newTestCase(b, "/connection-sni-good", nil, true),
 				newTestCase(a, "/connection-sni-bad", nil, false),
 				newTestCase(b, "/connection-sni-bad", nil, false),
+				newTestCase(a, "/connection-sni-notValues-a-or-b", nil, true),
+				newTestCase(a, "/connection-sni-notValues-a-or-b-or-c", nil, false),
 
 				newTestCase(a, "/other", nil, false),
 				newTestCase(b, "/other", nil, false),
@@ -1067,6 +1091,64 @@ func TestAuthorization_Path(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/authz/v1beta1-path.yaml.tmpl"))
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policies...)
+
+			rbacUtil.RunRBACTest(t, cases)
+		})
+}
+
+// TestAuthorization_Audit tests that the AUDIT action does not impact allowing or denying a request
+func TestAuthorization_Audit(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "v1beta1-audit",
+				Inject: true,
+			})
+
+			var a, b, c, d echo.Instance
+			echoboot.NewBuilder(ctx).
+				With(&a, util.EchoConfig("a", ns, false, nil)).
+				With(&b, util.EchoConfig("b", ns, false, nil)).
+				With(&c, util.EchoConfig("c", ns, false, nil)).
+				With(&d, util.EchoConfig("d", ns, false, nil)).
+				BuildOrFail(t)
+
+			newTestCase := func(target echo.Instance, path string, expectAllowed bool) rbacUtil.TestCase {
+				return rbacUtil.TestCase{
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   target,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Path:     path,
+						},
+					},
+					ExpectAllowed: expectAllowed,
+				}
+			}
+			cases := []rbacUtil.TestCase{
+				newTestCase(b, "/allow", true),
+				newTestCase(b, "/audit", false),
+				newTestCase(c, "/audit", true),
+				newTestCase(c, "/deny", false),
+				newTestCase(d, "/audit", true),
+				newTestCase(d, "/other", true),
+			}
+
+			args := map[string]string{
+				"Namespace":     ns.Name(),
+				"RootNamespace": rootNamespace,
+			}
+
+			applyPolicy := func(filename string, ns namespace.Instance) []string {
+				policy := tmpl.EvaluateAllOrFail(t, args, file.AsStringOrFail(t, filename))
+				ctx.Config().ApplyYAMLOrFail(t, ns.Name(), policy...)
+				return policy
+			}
+
+			policy := applyPolicy("testdata/authz/v1beta1-audit.yaml.tmpl", ns)
+			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), policy...)
 
 			rbacUtil.RunRBACTest(t, cases)
 		})

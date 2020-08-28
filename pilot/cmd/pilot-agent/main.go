@@ -28,16 +28,7 @@ import (
 	"github.com/spf13/cobra/doc"
 	"google.golang.org/grpc/grpclog"
 
-	"istio.io/istio/pkg/security"
-
-	"istio.io/istio/pkg/dns"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
-
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -46,16 +37,22 @@ import (
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/security/pkg/credentialfetcher"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
+	"istio.io/pkg/collateral"
+	"istio.io/pkg/env"
+	"istio.io/pkg/log"
+	"istio.io/pkg/version"
 )
 
 const (
@@ -141,6 +138,11 @@ var (
 	eccSigAlgEnv        = env.RegisterStringVar("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
 	fileMountedCertsEnv = env.RegisterBoolVar("FILE_MOUNTED_CERTS", false, "").Get()
 	useTokenForCSREnv   = env.RegisterBoolVar("USE_TOKEN_FOR_CSR", false, "CSR requires a token").Get()
+	credFetcherTypeEnv  = env.RegisterStringVar("CREDENTIAL_FETCHER_TYPE", "",
+		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
+	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
+		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
+			"for example in vm we don't use token to rotate cert.").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -256,6 +258,7 @@ var (
 				FileMountedCerts:   fileMountedCertsEnv,
 				CAEndpoint:         caEndpointEnv,
 				UseTokenForCSR:     useTokenForCSREnv,
+				CredFetcher:        nil,
 			}
 			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
@@ -276,16 +279,23 @@ var (
 			secOpts.InitialBackoffInMilliSec = int64(initialBackoffInMilliSecEnv)
 			// Disable the secret eviction for istio agent.
 			secOpts.EvictionDuration = 0
-			if citadel.ProvCert != "" {
-				secOpts.AlwaysValidTokenFlag = true
+			secOpts.SkipParseToken = skipParseTokenEnv
+
+			// TODO (liminw): CredFetcher is a general interface. In 1.7, we limit the use on GCE only because
+			// GCE is the only supported plugin at the moment.
+			if credFetcherTypeEnv == security.GCE {
+				credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, secOpts.TrustDomain, jwtPath)
+				if err != nil {
+					return fmt.Errorf("failed to create credential fetcher: %v", err)
+				}
+				log.Infof("Start credential fetcher of %s type in %s trust domain", credFetcherTypeEnv, secOpts.TrustDomain)
+				secOpts.CredFetcher = credFetcher
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig,
-				&istio_agent.AgentConfig{}, secOpts)
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{}, secOpts)
 
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
-				setSpiffeTrustDomain(podNamespace, role.DNSDomain)
 				// Obtain Pilot SAN, using DNS.
 				pilotSAN = []string{getPilotSan(proxyConfig.DiscoveryAddress)}
 			}
@@ -303,26 +313,13 @@ var (
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				localHostAddr := localHostIPv4
-				if proxyIPv6 {
-					localHostAddr = localHostIPv6
-				}
-				prober := kubeAppProberNameVar.Get()
-				statusServer, err := status.NewServer(status.Config{
-					LocalHostAddr:  localHostAddr,
-					AdminPort:      uint16(proxyConfig.ProxyAdminPort),
-					StatusPort:     uint16(proxyConfig.StatusPort),
-					KubeAppProbers: prober,
-					NodeType:       role.Type,
-				})
-				if err != nil {
-					cancel()
+				if err := initStatusServer(ctx, proxyIPv6, proxyConfig); err != nil {
 					return err
 				}
-				go statusServer.Run(ctx)
 			}
 
 			// If security token service (STS) port is not zero, start STS server and
@@ -334,13 +331,12 @@ var (
 					localHostAddr = localHostIPv6
 				}
 				tokenManager := tokenmanager.CreateTokenManager(tokenManagerPlugin,
-					tokenmanager.Config{TrustDomain: trustDomain})
+					tokenmanager.Config{CredFetcher: secOpts.CredFetcher, TrustDomain: secOpts.TrustDomain})
 				stsServer, err := stsserver.NewServer(stsserver.Config{
 					LocalHostAddr: localHostAddr,
 					LocalPort:     stsPort,
 				}, tokenManager)
 				if err != nil {
-					cancel()
 					return err
 				}
 				defer stsServer.Stop()
@@ -380,6 +376,7 @@ var (
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
+				Sidecar:             role.Type == model.SidecarProxy,
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
@@ -402,19 +399,24 @@ var (
 	}
 )
 
-// explicitly set the trustdomain so the pilot SAN will have same trustdomain
-// and the initialization of the spiffe pkg isn't linked to generating pilot's SAN first
-func setSpiffeTrustDomain(podNamespace string, domain string) {
-	pilotTrustDomain := trustDomain
-	if len(pilotTrustDomain) == 0 {
-		if registryID == serviceregistry.Kubernetes &&
-			(domain == podNamespace+".svc."+constants.DefaultKubernetesDomain || domain == "") {
-			pilotTrustDomain = constants.DefaultKubernetesDomain
-		} else {
-			pilotTrustDomain = domain
-		}
+func initStatusServer(ctx context.Context, proxyIPv6 bool, proxyConfig meshconfig.ProxyConfig) error {
+	localHostAddr := localHostIPv4
+	if proxyIPv6 {
+		localHostAddr = localHostIPv6
 	}
-	spiffe.SetTrustDomain(pilotTrustDomain)
+	prober := kubeAppProberNameVar.Get()
+	statusServer, err := status.NewServer(status.Config{
+		LocalHostAddr:  localHostAddr,
+		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
+		StatusPort:     uint16(proxyConfig.StatusPort),
+		KubeAppProbers: prober,
+		NodeType:       role.Type,
+	})
+	if err != nil {
+		return err
+	}
+	go statusServer.Run(ctx)
+	return nil
 }
 
 func getDNSDomain(podNamespace, domain string) string {

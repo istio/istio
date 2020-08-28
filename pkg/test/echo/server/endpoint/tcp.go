@@ -23,9 +23,7 @@ import (
 	"strconv"
 
 	"istio.io/istio/pkg/test/echo/common"
-
 	"istio.io/istio/pkg/test/echo/common/response"
-
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/log"
 )
@@ -44,14 +42,13 @@ func newTCP(config Config) Instance {
 }
 
 func (s *tcpInstance) Start(onReady OnReadyFunc) error {
-
 	var listener net.Listener
 	var port int
 	var err error
 	if s.Port.TLS {
 		cert, cerr := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if cerr != nil {
-			return fmt.Errorf("could not load TLS keys: %v", err)
+			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
 		config := &tls.Config{Certificates: []tls.Certificate{cert}}
 		// Listen on the given port and update the port if it changed from what was passed in.
@@ -100,6 +97,11 @@ func (s *tcpInstance) echo(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 	}()
+
+	// If this is server first, client expects a message from server. Send the magic string.
+	if s.Port.ServerFirst {
+		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
+	}
 
 	initialReply := true
 	for {

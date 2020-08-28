@@ -22,13 +22,13 @@ import (
 	"strings"
 	"time"
 
+	kubeCore "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/image"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-
-	kubeCore "k8s.io/api/core/v1"
 )
 
 const (

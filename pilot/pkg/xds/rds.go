@@ -15,55 +15,52 @@
 package xds
 
 import (
-	"time"
-
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
-	"istio.io/istio/pkg/util/protomarshal"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func (s *DiscoveryServer) pushRoute(con *Connection, push *model.PushContext, version string) error {
-	pushStart := time.Now()
-	rawRoutes := s.ConfigGenerator.BuildHTTPRoutes(con.node, push, con.Routes())
-	if s.DebugConfigs {
-		for _, r := range rawRoutes {
-			con.XdsRoutes[r.Name] = r
-			if adsLog.DebugEnabled() {
-				resp, _ := protomarshal.ToJSONWithIndent(r, " ")
-				adsLog.Debugf("RDS: Adding route:%s for node:%v", resp, con.node.ID)
-			}
-		}
-	}
-
-	response := routeDiscoveryResponse(rawRoutes, version, push.Version, con.node.RequestedTypes.RDS)
-	err := con.send(response)
-	rdsPushTime.Record(time.Since(pushStart).Seconds())
-	if err != nil {
-		recordSendError("RDS", con.ConID, rdsSendErrPushes, err)
-		return err
-	}
-	rdsPushes.Increment()
-
-	adsLog.Infof("RDS: PUSH for node:%s routes:%d", con.node.ID, len(rawRoutes))
-	return nil
+type RdsGenerator struct {
+	Server *DiscoveryServer
 }
 
-func routeDiscoveryResponse(rs []*route.RouteConfiguration, version, noncePrefix, typeURL string) *discovery.DiscoveryResponse {
-	resp := &discovery.DiscoveryResponse{
-		TypeUrl:     typeURL,
-		VersionInfo: version,
-		Nonce:       nonce(noncePrefix),
-	}
-	for _, rc := range rs {
-		rr := util.MessageToAny(rc)
-		rr.TypeUrl = typeURL
-		resp.Resources = append(resp.Resources, rr)
-	}
+var _ model.XdsResourceGenerator = &RdsGenerator{}
 
-	return resp
+// Map of all configs that do not impact RDS
+var skippedRdsConfigs = map[resource.GroupVersionKind]struct{}{
+	gvk.WorkloadEntry:         {},
+	gvk.WorkloadGroup:         {},
+	gvk.AuthorizationPolicy:   {},
+	gvk.RequestAuthentication: {},
+	gvk.PeerAuthentication:    {},
+}
+
+func rdsNeedsPush(req *model.PushRequest) bool {
+	if !req.Full {
+		// RDS only handles full push
+		return false
+	}
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for config := range req.ConfigsUpdated {
+		if _, f := skippedRdsConfigs[config.Kind]; !f {
+			return true
+		}
+	}
+	return false
+}
+
+func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !rdsNeedsPush(req) {
+		return nil
+	}
+	rawRoutes := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, push, w.ResourceNames)
+	resources := model.Resources{}
+	for _, c := range rawRoutes {
+		resources = append(resources, util.MessageToAny(c))
+	}
+	return resources
 }

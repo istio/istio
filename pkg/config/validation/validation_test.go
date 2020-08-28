@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
@@ -1854,6 +1855,78 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "envoy escaped % set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"i-love-istio": "100%%",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy variable set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"name": "%HOSTNAME%",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy unescaped % set", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Set: map[string]string{
+							"name": "abcd%oijasodifj",
+						},
+					},
+				},
+			}},
+		}, valid: false},
+		{name: "envoy escaped % add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"i-love-istio": "100%% and more",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy variable add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "hello %HOSTNAME%",
+						},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "envoy unescaped % add", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Headers: &networking.Headers{
+					Response: &networking.Headers_HeaderOperations{
+						Add: map[string]string{
+							"name": "abcd%oijasodifj",
+						},
+					},
+				},
+			}},
+		}, valid: false},
 		{name: "null header match", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
@@ -2033,14 +2106,14 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: false},
-		{name: "no hosts", in: &networking.VirtualService{
+		{name: "delegate with no hosts", in: &networking.VirtualService{
 			Hosts: nil,
 			Http: []*networking.HTTPRoute{{
 				Route: []*networking.HTTPRouteDestination{{
 					Destination: &networking.Destination{Host: "foo.baz"},
 				}},
 			}},
-		}, valid: false},
+		}, valid: true},
 		{name: "bad host", in: &networking.VirtualService{
 			Hosts: []string{"foo.ba!r"},
 			Http: []*networking.HTTPRoute{{
@@ -2728,7 +2801,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "Envoy filter: subfilter match requires filter match with envoy.http_connection_manager"},
+		}, error: "Envoy filter: subfilter match requires filter match with envoy.filters.network.http_connection_manager"},
 		{name: "listener with sub filter match and no sub filter name", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -2738,7 +2811,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 							Listener: &networking.EnvoyFilter_ListenerMatch{
 								FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
 									Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
-										Name:      "envoy.http_connection_manager",
+										Name:      wellknown.HTTPConnectionManager,
 										SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{},
 									},
 								},

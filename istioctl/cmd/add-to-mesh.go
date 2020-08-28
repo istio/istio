@@ -25,7 +25,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,8 +36,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/model"
 	kube_registry "istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -48,6 +45,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/url"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -126,7 +125,7 @@ func deploymentMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
 
@@ -181,7 +180,7 @@ func svcMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh service' which does the reverse.
 
@@ -337,9 +336,10 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 		}
 		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dep.Name,
-				Namespace: dep.Namespace,
-				UID:       dep.UID,
+				Name:            dep.Name,
+				Namespace:       dep.Namespace,
+				UID:             dep.UID,
+				OwnerReferences: dep.OwnerReferences,
 			},
 		}
 		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
@@ -348,15 +348,13 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 			continue
 		}
 		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
-			"Next Step: Add related labels to the deployment to align with Istio's requirement: "+
-			"https://istio.io/docs/setup/kubernetes/additional-setup/requirements/\n",
-			dep.Name, dep.Namespace)
+			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
+			dep.Name, dep.Namespace, url.DeploymentRequirements)
 	}
 	return errs
 }
 
 func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]appsv1.Deployment, error) {
-	deps := make([]appsv1.Deployment, 0)
 	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -369,6 +367,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 	if err != nil {
 		return nil, err
 	}
+	deps := make([]appsv1.Deployment, 0, len(deployments.Items))
 	for _, dep := range deployments.Items {
 		depLabels := k8s_labels.Set(dep.Spec.Selector.MatchLabels)
 		if svcSelector.Matches(depLabels) {
@@ -482,7 +481,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 	if o == nil {
 		return fmt.Errorf("empty vm service options")
 	}
-	ports := make([]*v1alpha3.Port, 0)
+	ports := make([]*v1alpha3.Port, 0, len(o.PortList))
 	for _, p := range o.PortList {
 		ports = append(ports, &v1alpha3.Port{
 			Number:   uint32(p.Port),
@@ -490,7 +489,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Name:     p.Name,
 		})
 	}
-	eps := make([]*v1alpha3.WorkloadEntry, 0)
+	eps := make([]*v1alpha3.WorkloadEntry, 0, len(o.IP))
 	for _, ip := range o.IP {
 		eps = append(eps, &v1alpha3.WorkloadEntry{
 			Address: ip,
@@ -529,7 +528,7 @@ func resourceName(hostShortName string) string {
 }
 
 func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
-	ports := make([]corev1.ServicePort, 0)
+	ports := make([]corev1.ServicePort, 0, len(o.PortList))
 	for _, p := range o.PortList {
 		ports = append(ports, corev1.ServicePort{
 			Name: strings.ToLower(p.Name),

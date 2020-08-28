@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Prepare k8s. This can be used in multiple tests, to
@@ -168,6 +169,13 @@ func waitForPod(c *FakeController, ip string) error {
 		}
 		return false, nil
 	})
+}
+
+func waitForNode(c *FakeController, name string) error {
+	return retry.UntilSuccess(func() error {
+		_, err := c.nodeLister.Get(name)
+		return err
+	}, retry.Timeout(time.Second*5))
 }
 
 func testPodCache(t *testing.T) {
