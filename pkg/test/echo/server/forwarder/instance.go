@@ -112,7 +112,7 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 		}
 
 		if err := sem.Acquire(ctx, 1); err != nil {
-			return nil, fmt.Errorf("failed aquiring semaphore: %v", err)
+			return nil, fmt.Errorf("failed acquiring semaphore: %v", err)
 		}
 		g.Go(func() error {
 			defer sem.Release(1)
