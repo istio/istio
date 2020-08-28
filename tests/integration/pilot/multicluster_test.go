@@ -27,6 +27,7 @@ import (
 
 func TestClusterLocalService(t *testing.T) {
 	framework.NewTest(t).
+		Features("traffic.reachability.clusterlocal").
 		RequiresMinClusters(2).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("respect-cluster-local-config").Run(func(ctx framework.TestContext) {
@@ -53,6 +54,7 @@ func TestClusterLocalService(t *testing.T) {
 func TestClusterTelemetryLabels(t *testing.T) {
 	// TODO(landow) we can remove this when tests/integration/telemetry are converted to cover multicluster
 	framework.NewTest(t).
+		Features("observability.telemetry.multicluster.cluster-label").
 		RequiresMinClusters(2).
 		Run(func(ctx framework.TestContext) {
 			ctx.NewSubTest("telemetry").

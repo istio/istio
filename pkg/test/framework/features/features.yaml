@@ -18,6 +18,8 @@ features:
   # features that relate to measuring or exploring your service mesh or the services which comprise it.
   observability:
     telemetry:
+      multicluster:
+        cluster-label:
       stackdriver:
       stats:
         prometheus:
@@ -83,6 +85,8 @@ features:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
+    # TODO multicluster installation is a framework feature/environment. The analyzer tracks if tests _can_ run in multicluster mode.
+    # TODO (cont.) but does not track which kind of multicluster.
     multicluster:
       central-istiod:
       multimaster:
