@@ -31,11 +31,10 @@ import (
 
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
+	proxyName       string
 	clusterName     string
 	network         string
 	networkView     map[string]bool
-	proxyType       model.NodeType
-	routerMode      model.RouterMode
 	clusterID       string
 	locality        *core.Locality
 	destinationRule *config.Config
@@ -52,12 +51,11 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
 	return EndpointBuilder{
+		proxyName:       proxy.ID,
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
 		networkView:     model.GetNetworkView(proxy),
 		clusterID:       proxy.Metadata.ClusterID,
-		proxyType:       proxy.Type,
-		routerMode:      proxy.GetRouterMode(),
 		locality:        proxy.Locality,
 		service:         svc,
 		destinationRule: push.DestinationRule(proxy, svc),
