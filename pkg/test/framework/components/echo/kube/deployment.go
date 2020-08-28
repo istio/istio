@@ -159,6 +159,11 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 10
+        startupProbe:
+          tcpSocket:
+            port: tcp-health-port
+          periodSeconds: 10
+          failureThreshold: 10
 {{- if $.TLSSettings }}
         volumeMounts:
         - mountPath: /etc/certs/custom
