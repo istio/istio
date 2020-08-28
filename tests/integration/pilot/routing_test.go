@@ -561,7 +561,8 @@ func TestTraffic(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 			cases := map[string][]TrafficTestCase{}
 			cases["virtualservice"] = virtualServiceCases(ctx)
-			cases["sniffing"] = protocolSniffingCases(ctx)
+			// TODO(https://github.com/istio/istio/issues/26798)
+			//cases["sniffing"] = protocolSniffingCases(ctx)
 			cases["serverfirst"] = serverFirstTestCases()
 			cases["vm"] = vmTestCases(apps.vmA)
 			for n, tts := range cases {
