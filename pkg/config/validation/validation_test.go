@@ -28,6 +28,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -718,7 +719,13 @@ func TestValidateGateway(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGateway(someName, someNamespace, tt.in)
+			err := ValidateGateway(config.Config{
+				ConfigMeta: config.ConfigMeta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
 			if err == nil && tt.out != "" {
 				t.Fatalf("ValidateGateway(%v) = nil, wanted %q", tt.in, tt.out)
 			} else if err != nil && tt.out == "" {
@@ -2210,7 +2217,7 @@ func TestValidateVirtualService(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := ValidateVirtualService("", "", tc.in); (err == nil) != tc.valid {
+			if err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -2369,7 +2376,13 @@ func TestValidateDestinationRule(t *testing.T) {
 		}, valid: true},
 	}
 	for _, c := range cases {
-		if got := ValidateDestinationRule(someName, someNamespace, c.in); (got == nil) != c.valid {
+		if got := ValidateDestinationRule(config.Config{
+			ConfigMeta: config.ConfigMeta{
+				Name:      someName,
+				Namespace: someNamespace,
+			},
+			Spec: c.in,
+		}); (got == nil) != c.valid {
 			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
 				c.name, got == nil, c.valid, got)
 		}
@@ -2961,7 +2974,13 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateEnvoyFilter(someName, someNamespace, tt.in)
+			err := ValidateEnvoyFilter(config.Config{
+				ConfigMeta: config.ConfigMeta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
 			if err == nil && tt.error != "" {
 				t.Fatalf("ValidateEnvoyFilter(%v) = nil, wanted %q", tt.in, tt.error)
 			} else if err != nil && tt.error == "" {
@@ -3341,7 +3360,13 @@ func TestValidateServiceEntries(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateServiceEntry(someName, someNamespace, &c.in); (got == nil) != c.valid {
+			if got := ValidateServiceEntry(config.Config{
+				ConfigMeta: config.ConfigMeta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: &c.in,
+			}); (got == nil) != c.valid {
 				t.Errorf("ValidateServiceEntry got valid=%v but wanted valid=%v: %v",
 					got == nil, c.valid, got)
 			}
@@ -3975,7 +4000,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateAuthorizationPolicy("", "", c.in); (got == nil) != c.valid {
+			if got := ValidateAuthorizationPolicy(config.Config{Spec: c.in}); (got == nil) != c.valid {
 				t.Errorf("got: %v\nwant: %v", got, c.valid)
 			}
 		})
@@ -4444,7 +4469,13 @@ func TestValidateSidecar(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSidecar("foo", "bar", tt.in)
+			err := ValidateSidecar(config.Config{
+				ConfigMeta: config.ConfigMeta{
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Spec: tt.in,
+			})
 			if err == nil && !tt.valid {
 				t.Fatalf("ValidateSidecar(%v) = true, wanted false", tt.in)
 			} else if err != nil && tt.valid {
@@ -4883,7 +4914,13 @@ func TestValidateRequestAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateRequestAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+			if got := ValidateRequestAuthentication(config.Config{
+				ConfigMeta: config.ConfigMeta{
+					Name:      c.configName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			}); (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
 			}
 		})
@@ -4997,7 +5034,13 @@ func TestValidatePeerAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidatePeerAuthentication(c.configName, someNamespace, c.in); (got == nil) != c.valid {
+			if got := ValidatePeerAuthentication(config.Config{
+				ConfigMeta: config.ConfigMeta{
+					Name:      c.configName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			}); (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
 			}
 		})

@@ -169,7 +169,7 @@ func (c *controller) Apply(change *sink.Change) error {
 			Spec: obj.Body,
 		}
 
-		if err := s.Resource().ValidateConfig(conf.Name, conf.Namespace, conf.Spec); err != nil {
+		if err := s.Resource().ValidateConfig(*conf); err != nil {
 			// Do not return an error, instead discard the resources so that Pilot can process the rest.
 			log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 			continue
@@ -342,17 +342,17 @@ func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 
 	// add/update
 	for namespace, byName := range currentStore {
-		for name, config := range byName {
+		for name, cfg := range byName {
 			if prevByNamespace, ok := prevStore[namespace]; ok {
 				if prevConfig, ok := prevByNamespace[name]; ok {
-					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(*prevConfig, *config, model.EventUpdate)
+					if cfg.ResourceVersion != prevConfig.ResourceVersion {
+						dispatch(*prevConfig, *cfg, model.EventUpdate)
 					}
 				} else {
-					dispatch(config.Config{}, *config, model.EventAdd)
+					dispatch(config.Config{}, *cfg, model.EventAdd)
 				}
 			} else {
-				dispatch(config.Config{}, *config, model.EventAdd)
+				dispatch(config.Config{}, *cfg, model.EventAdd)
 			}
 		}
 	}

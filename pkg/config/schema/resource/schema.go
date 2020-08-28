@@ -72,7 +72,7 @@ type Schema interface {
 
 	// ValidateConfig validates that the given config message is of the correct type for this schema
 	// and that the contents are valid.
-	ValidateConfig(name, namespace string, config proto.Message) error
+	ValidateConfig(cfg config.Config) error
 
 	// Equal is a helper function for testing equality between Schema instances. This supports comparison
 	// with the cmp library.
@@ -244,8 +244,8 @@ func (s *schemaImpl) MustNewProtoInstance() proto.Message {
 	return p
 }
 
-func (s *schemaImpl) ValidateConfig(name, namespace string, config proto.Message) error {
-	return s.validateConfig(name, namespace, config)
+func (s *schemaImpl) ValidateConfig(cfg config.Config) error {
+	return s.validateConfig(cfg)
 }
 
 func (s *schemaImpl) Equal(o Schema) bool {
