@@ -205,14 +205,14 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	// TODO: we could be smarter here and only trigger when real changes were found
 	for _, f := range c.virtualServiceHandlers {
 		f(config.Config{}, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 			},
 		}, event)
 	}
 	for _, f := range c.gatewayHandlers {
 		f(config.Config{}, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.Gateway,
 			},
 		}, event)

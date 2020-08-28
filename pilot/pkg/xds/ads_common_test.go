@@ -46,7 +46,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		want    bool
 	}
 
-	proxyCfg := &config.Config{ConfigMeta: config.ConfigMeta{
+	proxyCfg := &config.Config{Meta: config.Meta{
 		Name:      generalName,
 		Namespace: nsName,
 	}}

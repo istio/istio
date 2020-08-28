@@ -31,7 +31,7 @@ func TestConvert(t *testing.T) {
 		t.Errorf("error for converting object: %s", err)
 	}
 	config := config2.Config{
-		ConfigMeta: config2.ConfigMeta{
+		Meta: config2.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "test",
 			Namespace:        "default",

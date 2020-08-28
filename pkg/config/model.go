@@ -21,10 +21,10 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-// ConfigMeta is metadata attached to each configuration unit.
+// Meta is metadata attached to each configuration unit.
 // The revision is optional, and if provided, identifies the
 // last update operation on the object.
-type ConfigMeta struct {
+type Meta struct {
 	// GroupVersionKind is a short configuration name that matches the content message type
 	// (e.g. "route-rule")
 	GroupVersionKind GroupVersionKind `json:"type,omitempty"`
@@ -70,7 +70,7 @@ type ConfigMeta struct {
 // key identifier that is unique per type, and the content represented as a
 // protobuf message.
 type Config struct {
-	ConfigMeta
+	Meta
 
 	// Spec holds the configuration object as a gogo protobuf message
 	Spec proto.Message
@@ -83,13 +83,13 @@ func Key(typ, name, namespace string) string {
 
 // Key is the unique identifier for a configuration object
 // TODO: this is *not* unique - needs the version and group
-func (meta *ConfigMeta) Key() string {
+func (meta *Meta) Key() string {
 	return Key(meta.GroupVersionKind.Kind, meta.Name, meta.Namespace)
 }
 
 func (c Config) DeepCopy() Config {
 	var clone Config
-	clone.ConfigMeta = c.ConfigMeta
+	clone.Meta = c.Meta
 	if c.Labels != nil {
 		clone.Labels = make(map[string]string)
 		for k, v := range c.Labels {

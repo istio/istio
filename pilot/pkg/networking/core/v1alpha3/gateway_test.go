@@ -1089,7 +1089,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 
 func TestGatewayHTTPRouteConfig(t *testing.T) {
 	httpsRedirectGateway := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "gateway-redirect",
 			Namespace:        "default",
 			GroupVersionKind: gvk.Gateway,
@@ -1106,7 +1106,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	httpGateway := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "gateway",
 			Namespace:        "default",
 			GroupVersionKind: gvk.Gateway,
@@ -1140,7 +1140,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	virtualService := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service",
 			Namespace:        "default",
@@ -1148,7 +1148,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		Spec: virtualServiceSpec,
 	}
 	virtualServiceCopy := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-copy",
 			Namespace:        "default",
@@ -1156,7 +1156,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		Spec: virtualServiceSpec,
 	}
 	virtualServiceWildcard := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-wildcard",
 			Namespace:        "default",
@@ -1344,7 +1344,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 	for _, tt := range cases {
 		p := &fakePlugin{}
 		configgen := NewConfigGenerator([]plugin.Plugin{p})
-		env := buildEnv(t, []config.Config{{ConfigMeta: config.ConfigMeta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}}, []config.Config{})
+		env := buildEnv(t, []config.Config{{Meta: config.Meta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}}, []config.Config{})
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()

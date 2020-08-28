@@ -86,7 +86,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+		clusterMetadata = util.BuildConfigInfoMetadata(destRule.Meta)
 		c.Metadata = clusterMetadata
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
@@ -260,7 +260,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.Servic
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
-			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
+			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.Meta)
 		}
 	}
 	return localCluster

@@ -246,7 +246,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.DestinationRule)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -261,7 +261,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.EnvoyFilter)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Envoyfilters.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -276,7 +276,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.Gateway)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Gateways.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -291,7 +291,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.ServiceEntry)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -306,7 +306,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.Sidecar)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -321,7 +321,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.VirtualService)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -336,7 +336,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.WorkloadEntry)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -351,7 +351,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientnetworkingv1alpha3.WorkloadGroup)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Workloadgroups.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -366,7 +366,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientsecurityv1beta1.AuthorizationPolicy)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -381,7 +381,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientsecurityv1beta1.PeerAuthentication)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -396,7 +396,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*clientsecurityv1beta1.RequestAuthentication)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioSecurityV1Beta1Requestauthentications.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -411,7 +411,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*servicev1alpha1.GatewayClass)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -426,7 +426,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*servicev1alpha1.Gateway)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Gateways.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -441,7 +441,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*servicev1alpha1.HTTPRoute)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
@@ -456,7 +456,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) *config.
 	collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(): func(r runtime.Object) *config.Config {
 		obj := r.(*servicev1alpha1.TCPRoute)
 		return &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(),
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,

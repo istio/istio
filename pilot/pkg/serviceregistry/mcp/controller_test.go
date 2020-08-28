@@ -495,7 +495,7 @@ func TestEventHandler(t *testing.T) {
 
 	makeServiceEntryModel := func(name, host, version string) config.Config {
 		return config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  gvk.ServiceEntry,
 				Name:              name,
 				Namespace:         "default",

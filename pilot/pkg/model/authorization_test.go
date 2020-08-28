@@ -336,7 +336,7 @@ func createFakeAuthorizationPolicies(configs []config.Config, t *testing.T) *Aut
 
 func newConfig(name, ns string, spec proto.Message) config.Config {
 	return config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
 			Name:             name,
 			Namespace:        ns,

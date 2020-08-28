@@ -720,7 +720,7 @@ func TestValidateGateway(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGateway(config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
@@ -2377,7 +2377,7 @@ func TestValidateDestinationRule(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := ValidateDestinationRule(config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:      someName,
 				Namespace: someNamespace,
 			},
@@ -2975,7 +2975,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateEnvoyFilter(config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
@@ -3361,7 +3361,7 @@ func TestValidateServiceEntries(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ValidateServiceEntry(config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,
 				},
@@ -4470,7 +4470,7 @@ func TestValidateSidecar(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateSidecar(config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "bar",
 				},
@@ -4915,7 +4915,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ValidateRequestAuthentication(config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
 				},
@@ -5035,7 +5035,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ValidatePeerAuthentication(config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
 				},

@@ -168,7 +168,7 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(&dummyNode, constants.IstioMeshGateway)
 
 	out := &SidecarScope{
-		Config: &config.Config{ConfigMeta: config.ConfigMeta{
+		Config: &config.Config{Meta: config.Meta{
 			Namespace: configNamespace,
 		}},
 		EgressListeners:    []*IstioEgressListenerWrapper{defaultEgressListener},

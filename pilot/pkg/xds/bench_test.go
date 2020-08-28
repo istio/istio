@@ -326,7 +326,7 @@ func createEndpoints(numEndpoints int, numServices int) []config.Config {
 			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
 		}
 		result = append(result, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",

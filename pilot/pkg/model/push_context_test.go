@@ -258,7 +258,7 @@ func TestSidecarScope(t *testing.T) {
 		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
 	}
 	configWithWorkloadSelector := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 			Name:             "foo",
 			Namespace:        "default",
@@ -266,7 +266,7 @@ func TestSidecarScope(t *testing.T) {
 		Spec: sidecarWithWorkloadSelector,
 	}
 	rootConfig := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Sidecars.Resource().GroupVersionKind(),
 			Name:             "global",
 			Namespace:        "istio-system",
@@ -400,7 +400,7 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 	ps.defaultDestinationRuleExportTo = map[visibility.Instance]bool{visibility.Public: true}
 	testhost := "httpbin.org"
 	destinationRuleNamespace1 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "rule1",
 			Namespace: "test",
 		},
@@ -417,7 +417,7 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 		},
 	}
 	destinationRuleNamespace2 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "rule2",
 			Namespace: "test",
 		},
@@ -450,7 +450,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	testhost := "httpbin.org"
 	destinationRuleNamespace1 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "rule1",
 			Namespace: "test1",
 		},
@@ -468,7 +468,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		},
 	}
 	destinationRuleNamespace2 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "rule2",
 			Namespace: "test2",
 		},
@@ -486,7 +486,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		},
 	}
 	destinationRuleNamespace3 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "rule3",
 			Namespace: "test3",
 		},
@@ -504,7 +504,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		},
 	}
 	destinationRuleRootNamespace := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "rule4",
 			Namespace: "istio-system",
 		},
@@ -521,7 +521,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		},
 	}
 	destinationRuleRootNamespaceLocal := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "rule1",
 			Namespace: "istio-system",
 		},
@@ -624,7 +624,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	gatewayName := "default/gateway"
 
 	rule1 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
 			GroupVersionKind: gvk.VirtualService,
@@ -635,7 +635,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 		},
 	}
 	rule2 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "rule2",
 			Namespace:        "test2",
 			GroupVersionKind: gvk.VirtualService,
@@ -646,7 +646,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 		},
 	}
 	rule2Gw := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "rule2Gw",
 			Namespace:        "test2",
 			GroupVersionKind: gvk.VirtualService,
@@ -658,7 +658,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 		},
 	}
 	rule3 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "rule3",
 			Namespace:        "test3",
 			GroupVersionKind: gvk.VirtualService,
@@ -670,7 +670,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 		},
 	}
 	rule3Gw := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "rule3Gw",
 			Namespace:        "test3",
 			GroupVersionKind: gvk.VirtualService,
@@ -682,7 +682,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 		},
 	}
 	rootNS := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "zzz",
 			Namespace:        "zzz",
 			GroupVersionKind: gvk.VirtualService,

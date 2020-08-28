@@ -110,7 +110,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
 // destination routes and builds a stack of network filters.
 func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes []*networking.RouteDestination,
-	push *model.PushContext, port *model.Port, configMeta config.ConfigMeta) []*listener.Filter {
+	push *model.PushContext, port *model.Port, configMeta config.Meta) []*listener.Filter {
 
 	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp.TcpProxy_WeightedClusters{
@@ -183,7 +183,7 @@ func buildNetworkFiltersStack(port *model.Port, tcpFilter *listener.Filter, stat
 // filter).
 func buildOutboundNetworkFilters(node *model.Proxy,
 	routes []*networking.RouteDestination, push *model.PushContext,
-	port *model.Port, configMeta config.ConfigMeta) []*listener.Filter {
+	port *model.Port, configMeta config.Meta) []*listener.Filter {
 	if len(routes) == 1 {
 		service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 		clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)

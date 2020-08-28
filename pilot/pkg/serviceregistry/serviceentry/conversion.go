@@ -111,7 +111,7 @@ func ServiceToServiceEntry(svc *model.Service) *config.Config {
 	}
 
 	cfg := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind:  gvk,
 			Name:              "synthetic-" + svc.Attributes.Name,
 			Namespace:         svc.Attributes.Namespace,

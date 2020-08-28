@@ -146,7 +146,7 @@ func (m *Monitor) checkAndUpdate() {
 			newIndex++
 		} else {
 			// version may change without content changing
-			oldConfig.ConfigMeta.ResourceVersion = newConfig.ConfigMeta.ResourceVersion
+			oldConfig.Meta.ResourceVersion = newConfig.Meta.ResourceVersion
 			if !reflect.DeepEqual(oldConfig, newConfig) {
 				m.updateConfig(newConfig)
 			}

@@ -71,7 +71,7 @@ func TestAggregateStoreGet(t *testing.T) {
 	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Gatewayclasses))
 
 	configReturn := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(),
 			Name:             "other",
 		},
@@ -95,7 +95,7 @@ func TestAggregateStoreList(t *testing.T) {
 	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
 
 	if _, err := store1.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 			Name:             "other",
 		},
@@ -103,7 +103,7 @@ func TestAggregateStoreList(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := store2.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 			Name:             "another",
 		},
@@ -181,7 +181,7 @@ func TestAggregateStoreCache(t *testing.T) {
 		})
 
 		controller1.Create(config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 				Name:             "another",
 			},

@@ -62,7 +62,7 @@ func (a *ValidationAnalyzer) Analyze(ctx analysis.Context) {
 		name := r.Metadata.FullName.Name
 
 		err := a.s.Resource().ValidateConfig(config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:      string(name),
 				Namespace: string(ns),
 			},

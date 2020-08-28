@@ -31,7 +31,7 @@ import (
 
 var createConfigSet = []*config.Config{
 	{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "magic",
 			GroupVersionKind: gvk.Gateway,
 		},
@@ -52,7 +52,7 @@ var createConfigSet = []*config.Config{
 
 var updateConfigSet = []*config.Config{
 	{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "magic",
 			GroupVersionKind: gvk.Gateway,
 		},
@@ -115,7 +115,7 @@ func TestMonitorForChange(t *testing.T) {
 			return errors.New("no configs")
 		}
 
-		if c[0].ConfigMeta.Name != "magic" {
+		if c[0].Meta.Name != "magic" {
 			return errors.New("wrong config")
 		}
 

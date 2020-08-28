@@ -1401,7 +1401,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 			name: "Multiple policies resolved to STRICT",
 			peerPolicies: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1418,7 +1418,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "later",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second),
@@ -1442,7 +1442,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 			name: "Multiple policies resolved to PERMISSIVE",
 			peerPolicies: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1459,7 +1459,7 @@ func TestOnInboundFilterChain(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "earlier",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1565,7 +1565,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "mesh only",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1586,7 +1586,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "mesh vs namespace",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1600,7 +1600,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1621,7 +1621,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "ignore non-empty selector in root namespace",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1643,14 +1643,14 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "workload vs namespace config",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
 					Spec: &v1beta1.PeerAuthentication{},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1673,7 +1673,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "workload vs mesh config",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1684,7 +1684,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1705,7 +1705,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "multiple mesh policy",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "root-namespace",
 						CreationTimestamp: now,
@@ -1717,7 +1717,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second ago",
 						Namespace:         "root-namespace",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1729,7 +1729,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second later",
 						Namespace:         "root-namespace",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1751,7 +1751,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "multiple namespace policy",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1763,7 +1763,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second ago",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1775,7 +1775,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second later",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1797,7 +1797,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "multiple workload policy",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "now",
 						Namespace:         "my-ns",
 						CreationTimestamp: now,
@@ -1814,7 +1814,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second ago",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1831,7 +1831,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:              "second later",
 						Namespace:         "my-ns",
 						CreationTimestamp: now.Add(time.Second * -1),
@@ -1858,7 +1858,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "inheritance: default mesh",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1879,7 +1879,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "inheritance: mesh to workload",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1890,7 +1890,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1913,7 +1913,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "inheritance: namespace to workload",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1924,7 +1924,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1947,7 +1947,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "inheritance: mesh to namespace to workload",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -1958,7 +1958,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "my-ns",
 					},
@@ -1969,7 +1969,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},
@@ -1992,7 +1992,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 			name: "port level",
 			configs: []*config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "default",
 						Namespace: "root-namespace",
 					},
@@ -2003,7 +2003,7 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "foo",
 						Namespace: "my-ns",
 					},

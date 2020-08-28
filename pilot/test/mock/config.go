@@ -99,7 +99,7 @@ var (
 func Make(namespace string, i int) config2.Config {
 	name := fmt.Sprintf("%s%d", "mock-config", i)
 	return config2.Config{
-		ConfigMeta: config2.ConfigMeta{
+		Meta: config2.Meta{
 			GroupVersionKind: mockGvk,
 			Name:             name,
 			Namespace:        namespace,
@@ -171,7 +171,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	invalid := config2.Config{
-		ConfigMeta: config2.ConfigMeta{
+		Meta: config2.Meta{
 			GroupVersionKind: mockGvk,
 			Name:             "invalid",
 			ResourceVersion:  revs[0],
@@ -180,7 +180,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	missing := config2.Config{
-		ConfigMeta: config2.ConfigMeta{
+		Meta: config2.Meta{
 			GroupVersionKind: mockGvk,
 			Name:             "missing",
 			ResourceVersion:  revs[0],
@@ -305,7 +305,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			configMeta := config2.ConfigMeta{
+			configMeta := config2.Meta{
 				GroupVersionKind: c.schema.Resource().GroupVersionKind(),
 				Name:             c.configName,
 			}
@@ -314,8 +314,8 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 			}
 
 			if _, err := store.Create(config2.Config{
-				ConfigMeta: configMeta,
-				Spec:       c.spec,
+				Meta: configMeta,
+				Spec: c.spec,
 			}); err != nil {
 				t.Errorf("Post(%v) => got %v", c.name, err)
 			}
@@ -376,7 +376,7 @@ func CheckCacheFreshness(cache model.ConfigStoreCache, namespace string, t *test
 
 			log.Infof("Calling Update(%s)", config.Key())
 			revised := Make(namespace, 1)
-			revised.ConfigMeta = elt.ConfigMeta
+			revised.Meta = elt.Meta
 			if _, err := cache.Update(revised); err != nil {
 				t.Error(err)
 			}

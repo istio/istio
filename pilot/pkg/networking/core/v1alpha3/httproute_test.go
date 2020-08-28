@@ -114,7 +114,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 	}
 
 	virtualService6 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme-v3",
 			Namespace:        "not-default",
@@ -183,7 +183,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -236,7 +236,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	sidecarConfigWithWildcard := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -254,7 +254,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	sidecarConfigWitHTTPProxy := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -272,7 +272,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	sidecarConfigWithRegistryOnly := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -326,7 +326,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	sidecarConfigWithAllowAny := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -465,7 +465,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		},
 	}
 	virtualService1 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme2-v1",
 			Namespace:        "not-default",
@@ -473,7 +473,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: virtualServiceSpec1,
 	}
 	virtualService2 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme-v2",
 			Namespace:        "not-default",
@@ -481,7 +481,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: virtualServiceSpec2,
 	}
 	virtualService3 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme-v3",
 			Namespace:        "not-default",
@@ -489,7 +489,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: virtualServiceSpec3,
 	}
 	virtualService4 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme-v4",
 			Namespace:        "not-default",
@@ -497,7 +497,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: virtualServiceSpec4,
 	}
 	virtualService5 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme-v3",
 			Namespace:        "not-default",

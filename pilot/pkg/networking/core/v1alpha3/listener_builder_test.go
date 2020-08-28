@@ -576,7 +576,7 @@ func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigOb
 	res := []config.Config{}
 	for i, cp := range configPatches {
 		res = append(res, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:             fmt.Sprintf("test-envoyfilter-%d", i),
 				Namespace:        "not-default",
 				GroupVersionKind: gvk.EnvoyFilter,

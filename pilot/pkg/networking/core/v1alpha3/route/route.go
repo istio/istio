@@ -352,7 +352,7 @@ func translateRoute(push *model.PushContext, node *model.Proxy, in *networking.H
 
 	out := &route.Route{
 		Match:    translateRouteMatch(match, node),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.ConfigMeta),
+		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
 	routeName := in.Name

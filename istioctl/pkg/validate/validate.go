@@ -348,7 +348,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 	}
 
 	return &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),

@@ -206,7 +206,7 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 			httproutes = append(httproutes, vs)
 		}
 		vsConfig := config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: istioVsResource.GroupVersionKind(),
 				Name:             name,
 				Namespace:        obj.Namespace,
@@ -235,7 +235,7 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 	}
 
 	vsConfig := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: istioVsResource.GroupVersionKind(),
 			Name:             fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
 			Namespace:        obj.Namespace,
@@ -470,7 +470,7 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 			}
 		}
 		gatewayConfig := config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: istioGwResource.GroupVersionKind(),
 				Name:             name,
 				Namespace:        obj.Namespace,

@@ -115,7 +115,7 @@ var (
 	}
 
 	configs1 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -138,7 +138,7 @@ var (
 	}
 
 	configs2 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -146,7 +146,7 @@ var (
 	}
 
 	configs3 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -160,7 +160,7 @@ var (
 	}
 
 	configs4 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -179,7 +179,7 @@ var (
 	}
 
 	configs5 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -198,7 +198,7 @@ var (
 	}
 
 	configs6 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -225,7 +225,7 @@ var (
 	}
 
 	configs7 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name: "sidecar-scope-ns1-ns2",
 		},
 		Spec: &networking.Sidecar{
@@ -251,7 +251,7 @@ var (
 	}
 
 	configs8 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name: "different-port-name",
 		},
 		Spec: &networking.Sidecar{
@@ -269,7 +269,7 @@ var (
 	}
 
 	configs9 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name: "sidecar-scope-wildcards",
 		},
 		Spec: &networking.Sidecar{
@@ -295,7 +295,7 @@ var (
 	}
 
 	configs10 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-http-proxy",
 		},
 		Spec: &networking.Sidecar{
@@ -313,7 +313,7 @@ var (
 	}
 
 	configs11 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-http-proxy-match-virtual-service",
 		},
 		Spec: &networking.Sidecar{
@@ -331,7 +331,7 @@ var (
 	}
 
 	configs12 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-http-proxy-match-virtual-service-and-service",
 		},
 		Spec: &networking.Sidecar{
@@ -349,7 +349,7 @@ var (
 	}
 
 	configs13 = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name: "sidecar-scope-with-illegal-host",
 		},
 		Spec: &networking.Sidecar{
@@ -612,7 +612,7 @@ var (
 
 	virtualServices1 = []config.Config{
 		{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:             "virtualbar",
 				Namespace:        "foo",
@@ -1234,7 +1234,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Name:      "foo",
 					Namespace: "default",
 				},
@@ -1256,7 +1256,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			}
 			virtualServices := []config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      vsName,
 						Namespace: nsName,
 					},
@@ -1267,7 +1267,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			}
 			destinationRules := []config.Config{
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      drName,
 						Namespace: nsName,
 					},
@@ -1297,14 +1297,14 @@ func TestContainsEgressDependencies(t *testing.T) {
 func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 
 	configWithoutOutboundTrafficPolicy := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
 		Spec: &networking.Sidecar{},
 	}
 	configRegistryOnly := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -1315,7 +1315,7 @@ func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 		},
 	}
 	configAllowAny := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},

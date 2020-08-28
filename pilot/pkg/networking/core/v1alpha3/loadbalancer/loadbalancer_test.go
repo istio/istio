@@ -268,7 +268,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]config.Config{
-		{ConfigMeta: config.ConfigMeta{
+		{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},
@@ -325,7 +325,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env.PushContext = model.NewPushContext()
 	_ = env.PushContext.InitContext(env, nil, nil)
 	env.PushContext.SetDestinationRules([]config.Config{
-		{ConfigMeta: config.ConfigMeta{
+		{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},

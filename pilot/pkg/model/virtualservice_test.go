@@ -31,7 +31,7 @@ import (
 
 func TestMergeVirtualServices(t *testing.T) {
 	independentVs := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "virtual-service",
 			Namespace:        "default",
@@ -57,7 +57,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	rootVs := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
 			Namespace:        "istio-system",
@@ -101,7 +101,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	oneRoot := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
 			Namespace:        "istio-system",
@@ -127,7 +127,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	delegateVs := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "productpage-vs",
 			Namespace:        "default",
@@ -195,7 +195,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	delegateVsNotExported := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "productpage-vs",
 			Namespace:        "default2",
@@ -208,7 +208,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	mergedVs := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
 			Namespace:        "istio-system",
@@ -301,7 +301,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	// invalid delegate, match condition conflicts with root
 	delegateVs2 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "productpage-vs",
 			Namespace:        "default",
@@ -378,7 +378,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	mergedVs2 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
 			Namespace:        "istio-system",
@@ -445,7 +445,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	// multiple routes delegate to one single sub VS
 	multiRoutes := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
 			Namespace:        "istio-system",
@@ -488,7 +488,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	singleDelegate := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "productpage-vs",
 			Namespace:        "default",
@@ -515,7 +515,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	}
 
 	mergedVs3 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "root-vs",
 			Namespace:        "istio-system",
@@ -1660,7 +1660,7 @@ var gatewayNameTests = []struct {
 func TestResolveGatewayName(t *testing.T) {
 	for _, tt := range gatewayNameTests {
 		t.Run(fmt.Sprintf("%s-%s", tt.gateway, tt.namespace), func(t *testing.T) {
-			if got := resolveGatewayName(tt.gateway, config.ConfigMeta{Namespace: tt.namespace}); got != tt.resolved {
+			if got := resolveGatewayName(tt.gateway, config.Meta{Namespace: tt.namespace}); got != tt.resolved {
 				t.Fatalf("expected %q got %q", tt.resolved, got)
 			}
 		})
@@ -1670,7 +1670,7 @@ func TestResolveGatewayName(t *testing.T) {
 func BenchmarkResolveGatewayName(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, tt := range gatewayNameTests {
-			_ = resolveGatewayName(tt.gateway, config.ConfigMeta{Namespace: tt.namespace})
+			_ = resolveGatewayName(tt.gateway, config.Meta{Namespace: tt.namespace})
 		}
 	}
 }

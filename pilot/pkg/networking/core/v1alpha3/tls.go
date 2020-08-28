@@ -144,10 +144,10 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 					matchHash := hashRuntimeTLSMatchPredicates(match)
 					if !matchHasBeenHandled[matchHash] {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
+							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(node, tls.Route, push, listenPort, cfg.ConfigMeta),
+							networkFilters:   buildOutboundNetworkFilters(node, tls.Route, push, listenPort, cfg.Meta),
 						})
 						hasTLSMatch = true
 					}
@@ -224,9 +224,9 @@ TcpLoop:
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{
-					metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
+					metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
+					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.Meta),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -248,9 +248,9 @@ TcpLoop:
 					// (this is similar to virtual hosts in http) and create filter chain match accordingly.
 					if len(match.DestinationSubnets) == 0 || listenPort.Port == 0 {
 						out = append(out, &filterChainOpts{
-							metadata:         util.BuildConfigInfoMetadata(cfg.ConfigMeta),
+							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
+							networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.Meta),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -263,7 +263,7 @@ TcpLoop:
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.ConfigMeta),
+					networkFilters:   buildOutboundNetworkFilters(node, tcp.Route, push, listenPort, cfg.Meta),
 				})
 
 				// If at this point there is a filter chain generated with the same CIDR match as the

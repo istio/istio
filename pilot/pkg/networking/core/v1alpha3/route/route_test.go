@@ -260,7 +260,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -309,7 +309,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -349,7 +349,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		virtualService := config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:             "acme",
 			},
@@ -362,7 +362,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -392,7 +392,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	t.Run("for virtual service with subsets with port level settings with ring hash", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		virtualService := config.Config{ConfigMeta: config.ConfigMeta{
+		virtualService := config.Config{Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},
@@ -407,7 +407,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		push.SetDestinationRules([]config.Config{
 			{
 
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -434,7 +434,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g := gomega.NewWithT(t)
 
 		virtualService := config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 				Name:             "acme",
 			},
@@ -442,7 +442,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 
 		cnfg := config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 				Name:             "acme",
 			},
@@ -485,7 +485,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -630,7 +630,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -647,7 +647,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		push.SetDestinationRules([]config.Config{
 			{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 					Name:             "acme",
 				},
@@ -722,7 +722,7 @@ var virtualServiceWithSubsetWithPortLevelSettings = &networking.VirtualService{
 }
 
 var virtualServicePlain = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -748,7 +748,7 @@ var virtualServicePlain = config.Config{
 }
 
 var virtualServiceWithTimeout = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -777,7 +777,7 @@ var virtualServiceWithTimeout = config.Config{
 }
 
 var virtualServiceWithTimeoutDisabled = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -806,7 +806,7 @@ var virtualServiceWithTimeoutDisabled = config.Config{
 }
 
 var virtualServiceWithCatchAllRoute = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -850,7 +850,7 @@ var virtualServiceWithCatchAllRoute = config.Config{
 }
 
 var virtualServiceWithCatchAllMultiPrefixRoute = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -897,7 +897,7 @@ var virtualServiceWithCatchAllMultiPrefixRoute = config.Config{
 }
 
 var virtualServiceWithCatchAllRouteWeightedDestination = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -947,7 +947,7 @@ var virtualServiceWithCatchAllRouteWeightedDestination = config.Config{
 }
 
 var virtualServiceWithHeaderOperations = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -995,7 +995,7 @@ var virtualServiceWithHeaderOperations = config.Config{
 }
 
 var virtualServiceWithRedirect = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1015,7 +1015,7 @@ var virtualServiceWithRedirect = config.Config{
 }
 
 var virtualServiceWithRedirectAndSetHeader = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1042,7 +1042,7 @@ var virtualServiceWithRedirectAndSetHeader = config.Config{
 }
 
 var virtualServiceWithRegexMatchingOnURI = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1072,7 +1072,7 @@ var virtualServiceWithRegexMatchingOnURI = config.Config{
 }
 
 var virtualServiceWithRegexMatchingOnHeader = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1107,7 +1107,7 @@ func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*config.Config
 	ret := []*config.Config{}
 	regex := "*"
 	ret = append(ret, &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 			Name:             "acme",
 		},
@@ -1142,7 +1142,7 @@ func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*config.Config
 }
 
 var virtualServiceWithRegexMatchingOnWithoutHeader = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1174,7 +1174,7 @@ var virtualServiceWithRegexMatchingOnWithoutHeader = config.Config{
 }
 
 var virtualServiceWithPresentMatchingOnHeader = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1202,7 +1202,7 @@ var virtualServiceWithPresentMatchingOnHeader = config.Config{
 }
 
 var virtualServiceWithPresentMatchingOnWithoutHeader = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},
@@ -1230,7 +1230,7 @@ var virtualServiceWithPresentMatchingOnWithoutHeader = config.Config{
 }
 
 var virtualServiceMatchingOnSourceNamespace = config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 		Name:             "acme",
 	},

@@ -204,7 +204,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			var cfg *config.Config
 			if tt.destRule != nil {
 				cfg = &config.Config{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
 						Namespace:        "default",

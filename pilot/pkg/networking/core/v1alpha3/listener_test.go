@@ -378,7 +378,7 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 
 			p := &fakePlugin{}
 			virtualService := config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
 					Name:             "test_vs",
 					Namespace:        "default",
@@ -587,7 +587,7 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "sidecar-with-http-proxy",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -888,7 +888,7 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -917,7 +917,7 @@ func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *mo
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo-without-service",
 			Namespace: "not-default",
 		},
@@ -1037,7 +1037,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -1175,7 +1175,7 @@ func testInboundListenerConfigWithSidecarWithHTTP10Proxy(t *testing.T, proxy *mo
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},
@@ -1210,7 +1210,7 @@ func testInboundListenerConfigWithSidecarWithoutServicesWithHTTP10Proxy(t *testi
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo-without-service",
 			Namespace: "not-default",
 		},
@@ -1244,7 +1244,7 @@ func testOutboundListenerConfigWithSidecarWithSniffingDisabled(t *testing.T, ser
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -1295,7 +1295,7 @@ func testOutboundListenerConfigWithSidecarWithUseRemoteAddress(t *testing.T, ser
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -1339,7 +1339,7 @@ func testOutboundListenerConfigWithSidecarWithCaptureModeNone(t *testing.T, serv
 	t.Helper()
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "foo",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.Sidecar,
@@ -2288,7 +2288,7 @@ func buildListenerEnvWithVirtualServices(services []*model.Service, virtualServi
 	serviceDiscovery.WantGetProxyServiceInstances = instances
 
 	envoyFilter := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "test-envoyfilter",
 			Namespace:        "not-default",
 			GroupVersionKind: gvk.EnvoyFilter,
@@ -2534,7 +2534,7 @@ func TestOutboundRateLimitedThriftListenerConfig(t *testing.T) {
 
 	p := &fakePlugin{}
 	sidecarConfig := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      "foo",
 			Namespace: "not-default",
 		},

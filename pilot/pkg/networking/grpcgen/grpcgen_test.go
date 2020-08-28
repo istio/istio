@@ -63,7 +63,7 @@ func TestGRPC(t *testing.T) {
 	store := ds.MemoryConfigStore
 
 	store.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: se.GroupVersionKind(),
 			Name:             "fortio",
 			Namespace:        "fortio",

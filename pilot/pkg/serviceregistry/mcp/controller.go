@@ -156,7 +156,7 @@ func (c *controller) Apply(change *sink.Change) error {
 			}] = struct{}{}
 		}
 		conf := &config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind:  kind,
 				Name:              name,
 				Namespace:         namespace,

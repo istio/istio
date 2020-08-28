@@ -200,7 +200,7 @@ func TestLabelsEquals(t *testing.T) {
 func TestConfigKey(t *testing.T) {
 	cfg := mock_config.Make("ns", 2)
 	want := "MockConfig/ns/mock-config2"
-	if key := cfg.ConfigMeta.Key(); key != want {
+	if key := cfg.Meta.Key(); key != want {
 		t.Fatalf("config.Key() => got %q, want %q", key, want)
 	}
 }
@@ -208,26 +208,26 @@ func TestConfigKey(t *testing.T) {
 func TestResolveShortnameToFQDN(t *testing.T) {
 	tests := []struct {
 		name string
-		meta config.ConfigMeta
+		meta config.Meta
 		out  host.Name
 	}{
 		{
-			"*", config.ConfigMeta{}, "*",
+			"*", config.Meta{}, "*",
 		},
 		{
-			"*", config.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "*",
+			"*", config.Meta{Namespace: "default", Domain: "cluster.local"}, "*",
 		},
 		{
-			"foo", config.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "foo.default.svc.cluster.local",
+			"foo", config.Meta{Namespace: "default", Domain: "cluster.local"}, "foo.default.svc.cluster.local",
 		},
 		{
-			"foo.bar", config.ConfigMeta{Namespace: "default", Domain: "cluster.local"}, "foo.bar",
+			"foo.bar", config.Meta{Namespace: "default", Domain: "cluster.local"}, "foo.bar",
 		},
 		{
-			"foo", config.ConfigMeta{Domain: "cluster.local"}, "foo.svc.cluster.local",
+			"foo", config.Meta{Domain: "cluster.local"}, "foo.svc.cluster.local",
 		},
 		{
-			"foo", config.ConfigMeta{Namespace: "default"}, "foo.default",
+			"foo", config.Meta{Namespace: "default"}, "foo.default",
 		},
 	}
 
@@ -328,7 +328,7 @@ func TestIstioConfigStore_ServiceEntries(t *testing.T) {
 		cfg: map[config.GroupVersionKind][]config.Config{
 			gvk.ServiceEntry: {
 				{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						Name:      "request-count-1",
 						Namespace: ns,
 					},
@@ -358,7 +358,7 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 	workloadLabels := labels.Collection{}
 	now := time.Now()
 	gw1 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:              "name1",
 			Namespace:         "zzz",
 			CreationTimestamp: now,
@@ -366,7 +366,7 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 		Spec: &networking.Gateway{},
 	}
 	gw2 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:              "name1",
 			Namespace:         "aaa",
 			CreationTimestamp: now,
@@ -374,7 +374,7 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 		Spec: &networking.Gateway{},
 	}
 	gw3 := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:              "name1",
 			Namespace:         "ns2",
 			CreationTimestamp: now.Add(time.Second * -1),
@@ -404,7 +404,7 @@ func TestIstioConfigStore_Gateway(t *testing.T) {
 
 func TestDeepCopy(t *testing.T) {
 	cfg := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:              "name1",
 			Namespace:         "zzz",
 			CreationTimestamp: time.Now(),

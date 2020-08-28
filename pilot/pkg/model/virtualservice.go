@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 )
 
-func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.ConfigMeta) {
+func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
 		rule.Hosts[i] = string(ResolveShortnameToFQDN(h, meta))

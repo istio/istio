@@ -349,12 +349,12 @@ func TestIsLocalityEmpty(t *testing.T) {
 func TestBuildConfigInfoMetadata(t *testing.T) {
 	cases := []struct {
 		name string
-		in   config.ConfigMeta
+		in   config.Meta
 		want *core.Metadata
 	}{
 		{
 			"destination-rule",
-			config.ConfigMeta{
+			config.Meta{
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",

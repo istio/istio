@@ -34,7 +34,7 @@ import (
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
 func (ps *PushContext) mergeDestinationRule(p *processedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
-	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.ConfigMeta)
+	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
 
 	if mdr, exists := p.destRule[resolvedHost]; exists {
 		// Deep copy destination rule, to prevent mutate it later when merge with a new one.

@@ -35,7 +35,7 @@ import (
 
 var GlobalTime = time.Now()
 var httpNone = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpNone",
 		Namespace:         "httpNone",
@@ -54,7 +54,7 @@ var httpNone = &config.Config{
 }
 
 var tcpNone = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpNone",
 		Namespace:         "tcpNone",
@@ -72,7 +72,7 @@ var tcpNone = &config.Config{
 }
 
 var httpStatic = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpStatic",
 		Namespace:         "httpStatic",
@@ -108,7 +108,7 @@ var httpStatic = &config.Config{
 
 // Shares the same host as httpStatic, but adds some endpoints. We expect these to be merge
 var httpStaticOverlay = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpStaticOverlay",
 		Namespace:         "httpStatic",
@@ -131,7 +131,7 @@ var httpStaticOverlay = &config.Config{
 }
 
 var httpDNSnoEndpoints = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpDNSnoEndpoints",
 		Namespace:         "httpDNSnoEndpoints",
@@ -150,7 +150,7 @@ var httpDNSnoEndpoints = &config.Config{
 }
 
 var httpDNS = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpDNS",
 		Namespace:         "httpDNS",
@@ -185,7 +185,7 @@ var httpDNS = &config.Config{
 }
 
 var tcpDNS = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpDNS",
 		Namespace:         "tcpDNS",
@@ -213,7 +213,7 @@ var tcpDNS = &config.Config{
 }
 
 var tcpStatic = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpStatic",
 		Namespace:         "tcpStatic",
@@ -242,7 +242,7 @@ var tcpStatic = &config.Config{
 }
 
 var httpNoneInternal = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "httpNoneInternal",
 		Namespace:         "httpNoneInternal",
@@ -261,7 +261,7 @@ var httpNoneInternal = &config.Config{
 }
 
 var tcpNoneInternal = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "tcpNoneInternal",
 		Namespace:         "tcpNoneInternal",
@@ -280,7 +280,7 @@ var tcpNoneInternal = &config.Config{
 }
 
 var multiAddrInternal = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "multiAddrInternal",
 		Namespace:         "multiAddrInternal",
@@ -299,7 +299,7 @@ var multiAddrInternal = &config.Config{
 }
 
 var udsLocal = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "udsLocal",
 		Namespace:         "udsLocal",
@@ -320,7 +320,7 @@ var udsLocal = &config.Config{
 
 // ServiceEntry DNS with a selector
 var selectorDNS = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "selector",
 		Namespace:         "selector",
@@ -342,7 +342,7 @@ var selectorDNS = &config.Config{
 
 // ServiceEntry with a selector
 var selector = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "selector",
 		Namespace:         "selector",
@@ -364,7 +364,7 @@ var selector = &config.Config{
 
 // DNS ServiceEntry with a selector
 var dnsSelector = &config.Config{
-	ConfigMeta: config.ConfigMeta{
+	Meta: config.Meta{
 		GroupVersionKind:  gvk.ServiceEntry,
 		Name:              "dns-selector",
 		Namespace:         "dns-selector",
@@ -386,7 +386,7 @@ var dnsSelector = &config.Config{
 
 func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *config.Config {
 	return &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind:  gvk.WorkloadEntry,
 			Name:              name,
 			Namespace:         namespace,
@@ -843,7 +843,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			name:      "metadata labels only",
 			namespace: "ns1",
 			wle: config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Labels: labels,
 				},
 				Spec: &networking.WorkloadEntry{
@@ -870,7 +870,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 			name:      "labels merge",
 			namespace: "ns1",
 			wle: config.Config{
-				ConfigMeta: config.ConfigMeta{
+				Meta: config.Meta{
 					Labels: map[string]string{
 						"my-label": "bar",
 					},

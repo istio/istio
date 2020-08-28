@@ -112,7 +112,7 @@ func TestMergeGateways(t *testing.T) {
 
 func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string) config.Config {
 	c := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:      name,
 			Namespace: namespace,
 		},

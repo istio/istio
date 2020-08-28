@@ -1108,13 +1108,13 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 	// convert all shortnames in virtual services into FQDNs
 	for _, r := range vservices {
-		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.ConfigMeta)
+		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.Meta)
 	}
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
-		gwNames := getGatewayNames(rule, virtualService.ConfigMeta)
+		gwNames := getGatewayNames(rule, virtualService.Meta)
 		if len(rule.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
 			// We only honor ., *
@@ -1178,7 +1178,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) error {
 
 var meshGateways = []string{constants.IstioMeshGateway}
 
-func getGatewayNames(vs *networking.VirtualService, meta config.ConfigMeta) []string {
+func getGatewayNames(vs *networking.VirtualService, meta config.Meta) []string {
 	if len(vs.Gateways) == 0 {
 		return meshGateways
 	}
@@ -1341,7 +1341,7 @@ func (ps *PushContext) SetDestinationRules(configs []config.Config) {
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].ConfigMeta))
+		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		exportToMap := make(map[visibility.Instance]bool)
 		for _, e := range rule.ExportTo {
 			exportToMap[visibility.Instance(e)] = true

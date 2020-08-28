@@ -87,7 +87,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	meta := object.GetObjectMeta()
 
 	return &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
@@ -184,7 +184,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 // response.
 //
 // NOTE: This function only decodes a subset of the complete k8s
-// ObjectMeta as identified by the fields in model.ConfigMeta. This
+// ObjectMeta as identified by the fields in model.Meta. This
 // would typically only be a problem if a user dumps an configuration
 // object with kubectl and then re-ingests it.
 func ParseInputs(inputs string) ([]config.Config, []IstioKind, error) {

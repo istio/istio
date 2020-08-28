@@ -561,7 +561,7 @@ func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 		return &config.Config{}, nil
 	}
 	c := &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			ResourceVersion: m.Metadata.Version,
 			Labels:          m.Metadata.Labels,
 			Annotations:     m.Metadata.Annotations,

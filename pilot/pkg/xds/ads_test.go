@@ -435,7 +435,7 @@ func TestAdsPushScoping(t *testing.T) {
 
 	addVirtualService := func(i int, hosts ...string) {
 		if _, err := s.Store().Create(config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 				Name:             fmt.Sprintf("vs%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.VirtualService{
@@ -456,7 +456,7 @@ func TestAdsPushScoping(t *testing.T) {
 	}
 	addDestinationRule := func(i int, host string) {
 		if _, err := s.Store().Create(config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
 				Name:             fmt.Sprintf("dr%d", i), Namespace: model.IstioDefaultConfigNamespace},
 			Spec: &networking.DestinationRule{
@@ -479,7 +479,7 @@ func TestAdsPushScoping(t *testing.T) {
 		},
 	}
 	if _, err := s.Store().Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
 			Name:             "sc", Namespace: model.IstioDefaultConfigNamespace},
 		Spec: sc,
@@ -978,7 +978,7 @@ func unmarshallRoute(value []byte) (*route.RouteConfiguration, error) {
 func TestXdsCache(t *testing.T) {
 	makeEndpoint := func(addr []*networking.WorkloadEntry) config.Config {
 		return config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:             "service",
 				Namespace:        "default",
 				GroupVersionKind: gvk.ServiceEntry,
@@ -1006,7 +1006,12 @@ func TestXdsCache(t *testing.T) {
 	}
 
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		Configs: []config.Config{makeEndpoint([]*networking.WorkloadEntry{{Address: "1.2.3.4", Locality: "region/zone"}, {Address: "1.2.3.5", Locality: "notmatch"}})},
+		Configs: []config.Config{
+			makeEndpoint([]*networking.WorkloadEntry{
+				{Address: "1.2.3.4", Locality: "region/zone"},
+				{Address: "1.2.3.5", Locality: "notmatch"},
+			}),
+		},
 	})
 	ads := s.Connect(&model.Proxy{Locality: &core.Locality{Region: "region"}}, nil, watchAll)
 
@@ -1027,7 +1032,7 @@ func TestXdsCache(t *testing.T) {
 
 	ads.WaitClear()
 	if _, err := s.Store().Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "service",
 			Namespace:        "default",
 			GroupVersionKind: gvk.DestinationRule,

@@ -342,7 +342,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 	configs := []config.Config{}
 	if c.destRule != nil {
 		configs = append(configs, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.DestinationRule,
 				Name:             "acme",
 			},
@@ -355,7 +355,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			policyName = "acme"
 		}
 		configs = append(configs, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.PeerAuthentication,
 				Name:             policyName,
 				Namespace:        TestServiceNamespace,
@@ -1556,7 +1556,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			cfgs := []config.Config{}
 			if c.destRule != nil {
 				cfgs = append(cfgs, config.Config{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
 						Namespace:        "default",
@@ -3197,7 +3197,7 @@ func TestEnvoyFilterPatching(t *testing.T) {
 			cfgs := []config.Config{}
 			for i, c := range tt.efs {
 				cfgs = append(cfgs, config.Config{
-					ConfigMeta: config.ConfigMeta{
+					Meta: config.Meta{
 						GroupVersionKind: gvk.EnvoyFilter,
 						Name:             fmt.Sprint(i),
 						Namespace:        "default",

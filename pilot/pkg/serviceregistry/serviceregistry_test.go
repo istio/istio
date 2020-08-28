@@ -119,7 +119,7 @@ func TestWorkloadInstances(t *testing.T) {
 	}
 	namespace := "namespace"
 	serviceEntry := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "service-entry",
 			Namespace:        namespace,
 			GroupVersionKind: gvk.ServiceEntry,
@@ -155,7 +155,7 @@ func TestWorkloadInstances(t *testing.T) {
 		Status: v1.PodStatus{PodIP: "1.2.3.4"},
 	}
 	workloadEntry := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			Name:             "workload",
 			Namespace:        namespace,
 			GroupVersionKind: gvk.WorkloadEntry,
@@ -212,7 +212,7 @@ func TestWorkloadInstances(t *testing.T) {
 		_, wc, store, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
 		makeIstioObject(t, store, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -239,7 +239,7 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("External only with target port", func(t *testing.T) {
 		_, wc, store, _ := setupTest(t)
 		makeIstioObject(t, store, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:             "service-entry",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.ServiceEntry,
@@ -301,7 +301,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 		})
 		makeIstioObject(t, store, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -343,7 +343,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 		})
 		makeIstioObject(t, store, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -381,7 +381,7 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
 		_, wc, store, kube := setupTest(t)
 		makeIstioObject(t, store, config.Config{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Name:             "service-entry",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.ServiceEntry,

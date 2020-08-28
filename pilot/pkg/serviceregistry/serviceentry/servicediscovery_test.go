@@ -937,7 +937,7 @@ func TestNonServiceConfig(t *testing.T) {
 
 	// Create a non-service configuration element. This should not affect the service registry at all.
 	cfg := config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
 			Name:              "fakeDestinationRule",
 			Namespace:         "default",
@@ -965,7 +965,7 @@ func TestNonServiceConfig(t *testing.T) {
 // nolint: lll
 func TestServicesDiff(t *testing.T) {
 	var updatedHTTPDNS = &config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 			Name:              "httpDNS",
 			Namespace:         "httpDNS",

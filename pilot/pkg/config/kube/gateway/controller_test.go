@@ -104,7 +104,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	k8sHTTPRouteType := collections.K8SServiceApisV1Alpha1Httproutes.Resource()
 
 	store.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gwClassType.GroupVersionKind(),
 			Name:             "gwclass",
 			Namespace:        "ns1",
@@ -112,7 +112,7 @@ func TestListGatewayResourceType(t *testing.T) {
 		Spec: gatewayClassSpec,
 	})
 	if _, err := store.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gwSpecType.GroupVersionKind(),
 			Name:             "gwspec",
 			Namespace:        "ns1",
@@ -122,7 +122,7 @@ func TestListGatewayResourceType(t *testing.T) {
 		t.Fatal(err)
 	}
 	store.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: k8sHTTPRouteType.GroupVersionKind(),
 			Name:             "http-route",
 			Namespace:        "ns1",
@@ -153,7 +153,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 	k8sHTTPRouteType := collections.K8SServiceApisV1Alpha1Httproutes.Resource()
 
 	store.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gwClassType.GroupVersionKind(),
 			Name:             "gwclass",
 			Namespace:        "ns1",
@@ -161,7 +161,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 		Spec: gatewayClassSpec,
 	})
 	store.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: gwSpecType.GroupVersionKind(),
 			Name:             "gwspec",
 			Namespace:        "ns1",
@@ -169,7 +169,7 @@ func TestListVirtualServiceResourceType(t *testing.T) {
 		Spec: gatewaySpec,
 	})
 	store.Create(config.Config{
-		ConfigMeta: config.ConfigMeta{
+		Meta: config.Meta{
 			GroupVersionKind: k8sHTTPRouteType.GroupVersionKind(),
 			Name:             "http-route",
 			Namespace:        "ns1",

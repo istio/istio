@@ -193,7 +193,7 @@ const (
 
 // ResolveShortnameToFQDN uses metadata information to resolve a reference
 // to shortname of the service to FQDN
-func ResolveShortnameToFQDN(hostname string, meta config.ConfigMeta) host.Name {
+func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 	out := hostname
 	// Treat the wildcard hostname as fully qualified. Any other variant of a wildcard hostname will contain a `.` too,
 	// and skip the next if, so we only need to check for the literal wildcard itself.
@@ -219,7 +219,7 @@ func ResolveShortnameToFQDN(hostname string, meta config.ConfigMeta) host.Name {
 
 // resolveGatewayName uses metadata information to resolve a reference
 // to shortname of the gateway to FQDN
-func resolveGatewayName(gwname string, meta config.ConfigMeta) string {
+func resolveGatewayName(gwname string, meta config.Meta) string {
 	out := gwname
 
 	// New way of binding to a gateway in remote namespace

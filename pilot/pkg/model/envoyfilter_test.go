@@ -96,8 +96,8 @@ func TestEnvoyFilterMatch(t *testing.T) {
 	}
 	for _, tt := range cases {
 		got := convertToEnvoyFilterWrapper(&config.Config{
-			ConfigMeta: config.ConfigMeta{},
-			Spec:       tt.config,
+			Meta: config.Meta{},
+			Spec: tt.config,
 		})
 		if len(got.Patches[networking.EnvoyFilter_INVALID]) != 1 {
 			t.Fatalf("unexpected patches: %v", got.Patches)

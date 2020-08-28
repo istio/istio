@@ -67,21 +67,21 @@ func TestBuildReport(t *testing.T) {
 	l := ledger.Make(time.Minute)
 	resources := []*config.Config{
 		{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Namespace:       "default",
 				Name:            "foo",
 				ResourceVersion: "1",
 			},
 		},
 		{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Namespace:       "default",
 				Name:            "bar",
 				ResourceVersion: "1",
 			},
 		},
 		{
-			ConfigMeta: config.ConfigMeta{
+			Meta: config.Meta{
 				Namespace:       "alternate",
 				Name:            "boo",
 				ResourceVersion: "1",
