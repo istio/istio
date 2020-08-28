@@ -123,8 +123,9 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		}
 
 		// echo the message from the request
-		if _, err := conn.Write(buf[:n]); err != nil {
-			epLog.Warnf("TCP write failed %q, :%v", string(buf), err)
+		out := buf[:n]
+		if _, err := conn.Write(out); err != nil {
+			epLog.Warnf("TCP write failed, :%v", err)
 			break
 		}
 
