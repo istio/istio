@@ -47,7 +47,6 @@ var (
 	savePath = env.RegisterStringVar("LOCAL_XDS_GENERATOR_CONFIG_SAVE_PATH", "",
 		"If set, the XDS proxy will save a snapshot of the received config")
 
-
 	xdsUpstream = env.RegisterStringVar("XDS_UPSTREAM", "",
 		"Address for upstream XDS server. If not set, discoveryAddress is used")
 )
@@ -173,7 +172,6 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 	}
 	return nil
 }
-
 
 func (sa *Agent) closeLocalXDSGenerator() {
 	if sa.localXDSGenerator == nil {
