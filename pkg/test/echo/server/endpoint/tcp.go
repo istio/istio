@@ -99,7 +99,6 @@ func (s *tcpInstance) echo(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 	}()
-	epLog.Infof("TCP Request:\n  Source IP:%s\n  Destination Port:%d", conn.RemoteAddr(), s.Port.Port)
 
 	// If this is server first, client expects a message from server. Send the magic string.
 	if s.Port.ServerFirst {
@@ -126,6 +125,7 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		// echo the message from the request
 		if _, err := conn.Write(buf[:n]); err != nil {
 			epLog.Warnf("TCP write failed %q, :%v", string(buf), err)
+			break
 		}
 
 		// Read can return n > 0 with EOF, do this last.
@@ -148,6 +148,7 @@ func (s *tcpInstance) writeResponse(conn net.Conn) {
 		_, err := conn.Write([]byte(val))
 		if err != nil {
 			epLog.Warnf("TCP write failed %q: %v", val, err)
+			break
 		}
 	}
 }

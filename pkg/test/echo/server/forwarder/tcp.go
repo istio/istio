@@ -85,7 +85,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		return msgBuilder.String(), err
 	}
 	var resBuffer bytes.Buffer
-	buf := make([]byte, 4096+len(message))
+	buf := make([]byte, 1024+len(message))
 	for {
 		n, err := conn.Read(buf)
 		if err != nil && err != io.EOF {
