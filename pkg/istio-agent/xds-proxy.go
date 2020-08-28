@@ -37,7 +37,7 @@ import (
 	"istio.io/pkg/log"
 )
 
-func (sa *Agent) StartXdsProxy() (*XdsProxy, error) {
+func (sa *Agent) startXdsProxy() (*XdsProxy, error) {
 	l, err := setUpUds("./etc/istio/proxy/XDS")
 	if err != nil {
 		return nil, err

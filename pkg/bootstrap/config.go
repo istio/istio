@@ -80,12 +80,7 @@ type Config struct {
 	PilotSubjectAltName []string
 	LocalEnv            []string
 	NodeIPs             []string
-	PodName             string
-	PodNamespace        string
-	PodIP               net.IP
 	STSPort             int
-	ControlPlaneAuth    bool
-	DisableReportCalls  bool
 	ProxyViaAgent       bool
 	OutlierLogPath      string
 	PilotCertProvider   string
@@ -107,13 +102,8 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 
 	opts = append(opts,
 		option.NodeID(cfg.Node),
-		option.PodName(cfg.PodName),
-		option.PodNamespace(cfg.PodNamespace),
-		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
-		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
 		option.ProxyViaAgent(cfg.ProxyViaAgent),
-		option.DisableReportCalls(cfg.DisableReportCalls),
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath),
 		option.ProvCert(cfg.ProvCert),

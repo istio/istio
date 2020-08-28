@@ -295,7 +295,7 @@ var (
 				secOpts.CredFetcher = credFetcher
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{}, secOpts)
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{ProxyXDSViaAgent: proxyXDSViaAgent}, secOpts)
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				// Obtain Pilot SAN, using DNS.
@@ -362,10 +362,6 @@ var (
 				dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
 			}
 
-			if _, err := sa.StartXdsProxy(); err != nil {
-				log.Errorf("failed to start XDS Proxy: %v", err)
-				return err
-			}
 			envoyProxy := envoy.NewProxy(envoy.ProxyConfig{
 				Config:              proxyConfig,
 				Node:                role.ServiceNode(),
@@ -373,12 +369,7 @@ var (
 				ComponentLogLevel:   proxyComponentLogLevel,
 				PilotSubjectAltName: pilotSAN,
 				NodeIPs:             role.IPAddresses,
-				PodName:             podName,
-				PodNamespace:        podNamespace,
-				PodIP:               podIP,
 				STSPort:             stsPort,
-				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
@@ -470,8 +461,6 @@ func init() {
 		"The component log level used to start the Envoy proxy")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
-	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
-		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
 
