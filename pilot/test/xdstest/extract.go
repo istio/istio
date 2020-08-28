@@ -16,6 +16,7 @@ package xdstest
 
 import (
 	"reflect"
+	"sort"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -148,6 +149,16 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 	return res
 }
 
+func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*cluster.Cluster {
+	res := make([]*cluster.Cluster, 0, len(cl))
+	for _, c := range cl {
+		if f(c) {
+			res = append(res, c)
+		}
+	}
+	return res
+}
+
 func ToDiscoveryResponse(p interface{}) *discovery.DiscoveryResponse {
 	slice := InterfaceSlice(p)
 	if len(slice) == 0 {
@@ -176,4 +187,14 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	}
 
 	return ret
+}
+
+func MapKeys(mp interface{}) []string {
+	keys := reflect.ValueOf(mp).MapKeys()
+	res := []string{}
+	for _, k := range keys {
+		res = append(res, k.String())
+	}
+	sort.Strings(res)
+	return res
 }

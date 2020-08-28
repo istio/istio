@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/monitoring"
 )
 
 func createProxies(n int) []*Connection {
@@ -440,12 +439,10 @@ func TestShouldRespond(t *testing.T) {
 		},
 	}
 
-	metric := monitoring.NewSum("test", "test reject metric")
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewFakeDiscoveryServer(t, FakeOptions{})
-			if response := s.Discovery.shouldRespond(tt.connection, metric, tt.request); response != tt.response {
+			if response := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {
