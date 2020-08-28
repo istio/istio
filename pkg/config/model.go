@@ -154,12 +154,29 @@ func ApplyYAML(s ConfigSpec, yml string) error {
 	return ApplyJSON(s, string(js))
 }
 
-func ApplyJSON(s ConfigSpec, js string) error {
-	if ju, ok := s.(json.Unmarshaler); ok {
-		err := ju.UnmarshalJSON([]byte(js))
+func ApplyJSONStrict(s ConfigSpec, js string) error {
+	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
+	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
+	// but also not used by Istio at all.
+	if _, ok := s.(protoreflect.ProtoMessage); ok {
+		if pb, ok := s.(proto.Message); ok {
+			err := gogoprotomarshal.ApplyJSONStrict(js, pb)
+			return err
+		}
+	}
+
+	// gogo protobuf
+	if pb, ok := s.(gogoproto.Message); ok {
+		err := protomarshal.ApplyJSONStrict(js, pb)
 		return err
 	}
 
+	d := json.NewDecoder(bytes.NewReader([]byte(js)))
+	d.DisallowUnknownFields()
+	return d.Decode(&s)
+}
+
+func ApplyJSON(s ConfigSpec, js string) error {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.

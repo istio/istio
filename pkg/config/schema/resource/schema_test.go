@@ -224,30 +224,6 @@ func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
 	_ = s.MustNewInstance()
 }
 
-func TestNewProtoInstance_Panic_NonProto(t *testing.T) {
-	g := NewWithT(t)
-	defer func() {
-		r := recover()
-		g.Expect(r).NotTo(BeNil())
-	}()
-	old := protoMessageType
-	defer func() {
-		protoMessageType = old
-	}()
-	protoMessageType = func(name string) reflect.Type {
-		return reflect.TypeOf(&struct{}{})
-	}
-
-	s := Builder{
-		Kind:         "Empty",
-		Plural:       "empties",
-		ProtoPackage: "github.com/gogo/protobuf/types",
-		Proto:        "google.protobuf.Empty",
-	}.MustBuild()
-
-	_ = s.MustNewInstance()
-}
-
 func TestString(t *testing.T) {
 	g := NewWithT(t)
 

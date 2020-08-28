@@ -15,6 +15,7 @@
 package resource
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -147,6 +148,7 @@ func (b Builder) BuildNoValidate() Schema {
 		apiVersion:     b.Group + "/" + b.Version,
 		proto:          b.Proto,
 		goPackage:      b.ProtoPackage,
+		reflectType:    b.ReflectType,
 		validateConfig: b.ValidateProto,
 	}
 }
@@ -159,6 +161,7 @@ type schemaImpl struct {
 	proto          string
 	goPackage      string
 	validateConfig validation.ValidateFunc
+	reflectType    reflect.Type
 }
 
 func (s *schemaImpl) GroupVersionKind() config.GroupVersionKind {
@@ -212,8 +215,8 @@ func (s *schemaImpl) Validate() (err error) {
 	if !labels.IsDNS1123Label(s.plural) {
 		err = multierror.Append(err, fmt.Errorf("invalid plural for kind %s: %s", s.Kind(), s.plural))
 	}
-	if getProtoMessageType(s.proto) == nil {
-		err = multierror.Append(err, fmt.Errorf("proto message not found: %v", s.proto))
+	if s.reflectType == nil && getProtoMessageType(s.proto) == nil {
+		err = multierror.Append(err, fmt.Errorf("proto message or reflect type not found: %v", s.proto))
 	}
 	return
 }
@@ -223,18 +226,20 @@ func (s *schemaImpl) String() string {
 }
 
 func (s *schemaImpl) NewInstance() (config.ConfigSpec, error) {
-	goType := getProtoMessageType(s.proto)
-	if goType == nil {
-		return nil, fmt.Errorf("message not found: %q", s.proto)
+	rt := s.reflectType
+	if rt == nil {
+		rt = getProtoMessageType(s.proto)
 	}
-
-	instance := reflect.New(goType).Interface()
+	if rt == nil {
+		return nil, errors.New("failed to find reflect type")
+	}
+	instance := reflect.New(rt).Interface()
 
 	p, ok := instance.(config.ConfigSpec)
 	if !ok {
 		return nil, fmt.Errorf(
 			"newInstance: message is not an instance of config.ConfigSpec. kind:%s, type:%v, value:%v",
-			s.Kind(), goType, instance)
+			s.Kind(), rt, instance)
 	}
 	return p, nil
 }
