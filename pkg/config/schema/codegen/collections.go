@@ -66,7 +66,7 @@ var (
 			Proto: "{{ .Resource.Proto }}",
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
 			ClusterScoped: {{ .Resource.ClusterScoped }},
-			ValidateConfig: validation.{{ .Resource.Validate }},
+			ValidateProto: validation.{{ .Resource.Validate }},
 		}.MustBuild(),
 	}.MustBuild()
 {{ end }}
