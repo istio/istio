@@ -319,7 +319,7 @@ func removeImagePullSecrets(imagePullSecrets []corev1.LocalObjectReference, remo
 	return patch
 }
 
-func addContainer(sic *SidecarInjectionSpec, target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
+func addContainer(target, added []corev1.Container, basePath string) (patch []rfc6902PatchOperation) {
 	saJwtSecretMountName := ""
 	var saJwtSecretMount corev1.VolumeMount
 	// find service account secret volume mount(/var/run/secrets/kubernetes.io/serviceaccount,
@@ -346,7 +346,7 @@ func addContainer(sic *SidecarInjectionSpec, target, added []corev1.Container, b
 		if first {
 			first = false
 			value = []corev1.Container{add}
-		} else if shouldBeInjectedInFront(add, sic) {
+		} else if add.Name == ValidationContainerName {
 			path += "/0"
 		} else {
 			path += "/-"
@@ -358,17 +358,6 @@ func addContainer(sic *SidecarInjectionSpec, target, added []corev1.Container, b
 		})
 	}
 	return patch
-}
-
-func shouldBeInjectedInFront(container corev1.Container, sic *SidecarInjectionSpec) bool {
-	switch container.Name {
-	case ValidationContainerName:
-		return true
-	case ProxyContainerName:
-		return sic.HoldApplicationUntilProxyStarts
-	default:
-		return false
-	}
 }
 
 func addSecurityContext(target *corev1.PodSecurityContext, basePath string) (patch []rfc6902PatchOperation) {
@@ -505,6 +494,36 @@ func updateAnnotation(target map[string]string, added map[string]string) (patch 
 	return patch
 }
 
+// placeContainerInFront redorders the container list by placing the container "containerName" to the front
+func placeContainerInFront(containers []corev1.Container, containerName, path string) []rfc6902PatchOperation {
+	var patch []rfc6902PatchOperation
+	// JSONPatch `remove` is applied sequentially. Remove items in reverse
+	// order to avoid renumbering indices.
+	for i := len(containers) - 1; i >= 0; i-- {
+		if containers[i].Name == containerName {
+			patch = append(patch, rfc6902PatchOperation{
+				Op:   "remove",
+				Path: fmt.Sprintf("%v/%v", path, i),
+			})
+		}
+	}
+
+	var value interface{}
+	for _, container := range containers {
+		if container.Name == containerName {
+			value = container
+			path += "/0"
+			patch = append(patch, rfc6902PatchOperation{
+				Op:    "add",
+				Path:  path,
+				Value: value,
+			})
+		}
+	}
+
+	return patch
+}
+
 func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision string, annotations map[string]string,
 	sic *SidecarInjectionSpec, workloadName string, mesh *meshconfig.MeshConfig) ([]byte, error) {
 
@@ -546,8 +565,8 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 		annotations["prometheus.io/scrape"] = "true"
 	}
 
-	patch = append(patch, addContainer(sic, pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
-	patch = append(patch, addContainer(sic, pod.Spec.Containers, sic.Containers, "/spec/containers")...)
+	patch = append(patch, addContainer(pod.Spec.InitContainers, sic.InitContainers, "/spec/initContainers")...)
+	patch = append(patch, addContainer(pod.Spec.Containers, sic.Containers, "/spec/containers")...)
 	patch = append(patch, addVolume(pod.Spec.Volumes, sic.Volumes, "/spec/volumes")...)
 	patch = append(patch, addImagePullSecrets(pod.Spec.ImagePullSecrets, sic.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
@@ -570,6 +589,11 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 
 	if rewrite {
 		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
+	}
+
+	if sic.HoldApplicationUntilProxyStarts {
+		// Reorder the containers after all the other necessary modifications
+		patch = append(patch, placeContainerInFront(pod.Spec.Containers, ProxyContainerName, "/spec/containers")...)
 	}
 
 	return json.Marshal(patch)
