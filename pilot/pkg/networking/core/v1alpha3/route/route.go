@@ -55,9 +55,7 @@ const (
 const DefaultRouteName = "default"
 
 var (
-	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{
-		MaxProgramSize: &wrappers.UInt32Value{},
-	}}
+	regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
 )
 
 // VirtualHostWrapper is a context-dependent virtual host entry with guarded routes.
