@@ -23,7 +23,7 @@ import (
 
 	gogojsonpb "github.com/gogo/protobuf/jsonpb"
 	gogoproto "github.com/gogo/protobuf/proto"
-	gogostruct "github.com/gogo/protobuf/types"
+	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -115,7 +115,7 @@ func ToProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
 	if err != nil {
 		return nil, err
 	}
-	pbs := &gogostruct.Struct{}
+	pbs := &gogotypes.Struct{}
 	if err := gogojsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
 		return nil, err
 	}
