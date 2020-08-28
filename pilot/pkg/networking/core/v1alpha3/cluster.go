@@ -849,6 +849,7 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
+// nolint unparam
 func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings,
 	node *model.Proxy) (*auth.UpstreamTlsContext, error) {
 	c := opts.cluster
