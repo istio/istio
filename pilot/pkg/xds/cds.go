@@ -17,8 +17,8 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type CdsGenerator struct {
@@ -28,7 +28,7 @@ type CdsGenerator struct {
 var _ model.XdsResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
-var skippedCdsConfigs = map[resource.GroupVersionKind]struct{}{
+var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 	// TODO: investigate if this is correct when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is set
 	gvk.Gateway:               {},
 	gvk.VirtualService:        {},

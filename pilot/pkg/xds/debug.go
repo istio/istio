@@ -37,8 +37,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube/inject"
 )
 
@@ -374,7 +374,7 @@ func (s *DiscoveryServer) getResourceVersion(nonce, key string, cache map[string
 }
 
 type kubernetesConfig struct {
-	model.Config
+	config.Config
 }
 
 func (k kubernetesConfig) MarshalJSON() ([]byte, error) {
@@ -408,7 +408,7 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 // Resource debugging.
 func (s *DiscoveryServer) resourcez(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	schemas := []resource.GroupVersionKind{}
+	schemas := []config.GroupVersionKind{}
 	s.Env.Schemas().ForEach(func(schema collection.Schema) bool {
 		schemas = append(schemas, schema.Resource().GroupVersionKind())
 		return false

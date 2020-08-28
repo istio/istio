@@ -17,8 +17,8 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type LdsGenerator struct {
@@ -28,7 +28,7 @@ type LdsGenerator struct {
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[resource.GroupVersionKind]struct{}{
+var skippedLdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.DestinationRule: {},
 	gvk.WorkloadGroup:   {},
 }

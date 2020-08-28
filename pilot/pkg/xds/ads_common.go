@@ -16,12 +16,12 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 // configKindAffectedProxyTypes contains known config types which will affect certain node types.
-var configKindAffectedProxyTypes = map[resource.GroupVersionKind][]model.NodeType{
+var configKindAffectedProxyTypes = map[config.GroupVersionKind][]model.NodeType{
 	gvk.Gateway: {model.Router},
 	gvk.Sidecar: {model.SidecarProxy},
 }

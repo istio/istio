@@ -35,7 +35,7 @@ import (
 	clientnetworkingbeta "istio.io/client-go/pkg/apis/networking/v1beta1"
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	istiofuzz "istio.io/istio/pkg/config/schema/fuzz"
 )
@@ -63,7 +63,7 @@ func TestValidationFuzzing(t *testing.T) {
 	fz := createFuzzer()
 	for _, r := range collections.Pilot.All() {
 		t.Run(r.VariableName(), func(t *testing.T) {
-			var iobj *model.Config
+			var iobj *config.Config
 			defer func() {
 				if err := recover(); err != nil {
 					logPanic(t, err)
@@ -79,7 +79,7 @@ func TestValidationFuzzing(t *testing.T) {
 				}
 				obj := istiofuzz.Fuzz(t, kgvk, scheme, fz)
 				iobj = crdclient.TranslateObject(obj, gvk, "cluster.local")
-				_ = r.Resource().ValidateProto(iobj.Name, iobj.Namespace, iobj.Spec)
+				_ = r.Resource().ValidateConfig(*iobj)
 			}
 		})
 	}

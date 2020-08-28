@@ -25,7 +25,7 @@ import (
 	k8s "sigs.k8s.io/service-apis/apis/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -45,17 +45,17 @@ var (
 )
 
 type KubernetesResources struct {
-	GatewayClass []model.Config
-	Gateway      []model.Config
-	HTTPRoute    []model.Config
-	TCPRoute     []model.Config
+	GatewayClass []config.Config
+	Gateway      []config.Config
+	HTTPRoute    []config.Config
+	TCPRoute     []config.Config
 	Namespaces   map[string]*corev1.Namespace
 
 	// Domain for the cluster. Typically cluster.local
 	Domain string
 }
 
-func isRouteMatch(cfg model.Config, res resource.Schema, gatewayNamespace string,
+func isRouteMatch(cfg config.Config, res resource.Schema, gatewayNamespace string,
 	routes k8s.RouteBindingSelector, namespaces map[string]*corev1.Namespace) bool {
 	if routes.Resource != res.Plural() {
 		return false
@@ -94,8 +94,8 @@ func isRouteMatch(cfg model.Config, res resource.Schema, gatewayNamespace string
 	return true
 }
 
-func (r *KubernetesResources) fetchHTTPRoutes(gatewayNamespace string, routes k8s.RouteBindingSelector) []model.Config {
-	result := []model.Config{}
+func (r *KubernetesResources) fetchHTTPRoutes(gatewayNamespace string, routes k8s.RouteBindingSelector) []config.Config {
+	result := []config.Config{}
 	for _, http := range r.HTTPRoute {
 		if isRouteMatch(http, collections.K8SServiceApisV1Alpha1Httproutes.Resource(), gatewayNamespace, routes, r.Namespaces) {
 			result = append(result, http)
@@ -104,8 +104,8 @@ func (r *KubernetesResources) fetchHTTPRoutes(gatewayNamespace string, routes k8
 	return result
 }
 
-func (r *KubernetesResources) fetchTCPRoutes(gatewayNamespace string, routes k8s.RouteBindingSelector) []model.Config {
-	result := []model.Config{}
+func (r *KubernetesResources) fetchTCPRoutes(gatewayNamespace string, routes k8s.RouteBindingSelector) []config.Config {
+	result := []config.Config{}
 	for _, http := range r.TCPRoute {
 		if isRouteMatch(http, collections.K8SServiceApisV1Alpha1Tcproutes.Resource(), gatewayNamespace, routes, r.Namespaces) {
 			result = append(result, http)
@@ -115,8 +115,8 @@ func (r *KubernetesResources) fetchTCPRoutes(gatewayNamespace string, routes k8s
 }
 
 type IstioResources struct {
-	Gateway        []model.Config
-	VirtualService []model.Config
+	Gateway        []config.Config
+	VirtualService []config.Config
 }
 
 var _ = k8s.HTTPRoute{}
@@ -132,12 +132,12 @@ func convertResources(r *KubernetesResources) IstioResources {
 
 // Unique key to identify a route
 type RouteKey struct {
-	Gvk       resource.GroupVersionKind
+	Gvk       config.GroupVersionKind
 	Name      string
 	Namespace string
 }
 
-func toRouteKey(c model.Config) RouteKey {
+func toRouteKey(c config.Config) RouteKey {
 	return RouteKey{
 		c.GroupVersionKind,
 		c.Name,
@@ -145,8 +145,8 @@ func toRouteKey(c model.Config) RouteKey {
 	}
 }
 
-func convertVirtualService(r *KubernetesResources, routeMap map[RouteKey][]string) []model.Config {
-	result := []model.Config{}
+func convertVirtualService(r *KubernetesResources, routeMap map[RouteKey][]string) []config.Config {
+	result := []config.Config{}
 	for _, obj := range r.TCPRoute {
 		gateways, f := routeMap[toRouteKey(obj)]
 		if !f {
@@ -170,8 +170,8 @@ func convertVirtualService(r *KubernetesResources, routeMap map[RouteKey][]strin
 	return result
 }
 
-func buildHTTPVirtualServices(obj model.Config, gateways []string, domain string) []model.Config {
-	result := []model.Config{}
+func buildHTTPVirtualServices(obj config.Config, gateways []string, domain string) []config.Config {
+	result := []config.Config{}
 
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
 	// Matches * and "/". Currently not supported - would conflict
@@ -205,8 +205,8 @@ func buildHTTPVirtualServices(obj model.Config, gateways []string, domain string
 			}
 			httproutes = append(httproutes, vs)
 		}
-		vsConfig := model.Config{
-			ConfigMeta: model.ConfigMeta{
+		vsConfig := config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: istioVsResource.GroupVersionKind(),
 				Name:             name,
 				Namespace:        obj.Namespace,
@@ -223,7 +223,7 @@ func buildHTTPVirtualServices(obj model.Config, gateways []string, domain string
 	return result
 }
 
-func buildTCPVirtualService(obj model.Config, gateways []string, domain string) model.Config {
+func buildTCPVirtualService(obj config.Config, gateways []string, domain string) config.Config {
 	route := obj.Spec.(*k8s.TCPRouteSpec)
 	routes := []*istio.TCPRoute{}
 	for _, r := range route.Rules {
@@ -234,8 +234,8 @@ func buildTCPVirtualService(obj model.Config, gateways []string, domain string) 
 		routes = append(routes, ir)
 	}
 
-	vsConfig := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	vsConfig := config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: istioVsResource.GroupVersionKind(),
 			Name:             fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
 			Namespace:        obj.Namespace,
@@ -430,8 +430,8 @@ func getGatewayClasses(r *KubernetesResources) map[string]struct{} {
 	return classes
 }
 
-func convertGateway(r *KubernetesResources) ([]model.Config, map[RouteKey][]string) {
-	result := []model.Config{}
+func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]string) {
+	result := []config.Config{}
 	routeToGateway := map[RouteKey][]string{}
 	classes := getGatewayClasses(r)
 	for _, obj := range r.Gateway {
@@ -469,8 +469,8 @@ func convertGateway(r *KubernetesResources) ([]model.Config, map[RouteKey][]stri
 				routeToGateway[k] = append(routeToGateway[k], obj.Namespace+"/"+name)
 			}
 		}
-		gatewayConfig := model.Config{
-			ConfigMeta: model.ConfigMeta{
+		gatewayConfig := config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: istioGwResource.GroupVersionKind(),
 				Name:             name,
 				Namespace:        obj.Namespace,
