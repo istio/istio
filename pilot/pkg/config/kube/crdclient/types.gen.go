@@ -32,7 +32,6 @@ import (
 
 	config "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	securityv1beta1 "istio.io/api/security/v1beta1"
