@@ -15,7 +15,6 @@
 package option
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -178,12 +177,6 @@ func addressConverter(addr string) convertFunc {
 func durationConverter(value *types.Duration) convertFunc {
 	return func(*instance) (interface{}, error) {
 		return value.String(), nil
-	}
-}
-
-func podIPConverter(value net.IP) convertFunc {
-	return func(*instance) (interface{}, error) {
-		return base64.StdEncoding.EncodeToString(value), nil
 	}
 }
 
