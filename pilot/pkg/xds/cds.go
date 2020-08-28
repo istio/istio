@@ -38,12 +38,19 @@ var skippedCdsConfigs = map[resource.GroupVersionKind]struct{}{
 	gvk.RequestAuthentication: {},
 }
 
-func cdsNeedsPush(updates model.XdsUpdates) bool {
-	// If none set, we will always push
-	if len(updates) == 0 {
+func cdsNeedsPush(req *model.PushRequest) bool {
+	if req == nil {
 		return true
 	}
-	for config := range updates {
+	if !req.Full {
+		// CDS only handles full push
+		return false
+	}
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for config := range req.ConfigsUpdated {
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
 			return true
 		}
@@ -51,8 +58,8 @@ func cdsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	if !cdsNeedsPush(updates) {
+func (c CdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !cdsNeedsPush(req) {
 		return nil
 	}
 	rawClusters := c.Server.ConfigGenerator.BuildClusters(proxy, push)

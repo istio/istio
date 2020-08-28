@@ -36,12 +36,19 @@ var skippedRdsConfigs = map[resource.GroupVersionKind]struct{}{
 	gvk.PeerAuthentication:    {},
 }
 
-func rdsNeedsPush(updates model.XdsUpdates) bool {
-	// If none set, we will always push
-	if len(updates) == 0 {
+func rdsNeedsPush(req *model.PushRequest) bool {
+	if req == nil {
 		return true
 	}
-	for config := range updates {
+	if !req.Full {
+		// RDS only handles full push
+		return false
+	}
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for config := range req.ConfigsUpdated {
 		if _, f := skippedRdsConfigs[config.Kind]; !f {
 			return true
 		}
@@ -49,8 +56,8 @@ func rdsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	if !rdsNeedsPush(updates) {
+func (c RdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !rdsNeedsPush(req) {
 		return nil
 	}
 	rawRoutes := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, push, w.ResourceNames)

@@ -53,7 +53,8 @@ type TestOptions struct {
 	ConfigTemplateInput interface{}
 
 	// Services to pre-populate as part of the service discovery
-	Services []*model.Service
+	Services  []*model.Service
+	Instances []*model.ServiceInstance
 
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
@@ -103,6 +104,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services)
+	for _, instance := range opts.Instances {
+		msd.AddInstance(instance.Service.Hostname, instance)
+	}
 	msd.ClusterID = string(serviceregistry.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        string(serviceregistry.Mock),
@@ -177,6 +181,9 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	}
 	if p.Type == "" {
 		p.Type = model.SidecarProxy
+	}
+	if p.ConfigNamespace == "" {
+		p.ConfigNamespace = "default"
 	}
 	if p.ID == "" {
 		p.ID = "app.test"

@@ -33,12 +33,19 @@ var skippedLdsConfigs = map[resource.GroupVersionKind]struct{}{
 	gvk.WorkloadGroup:   {},
 }
 
-func ldsNeedsPush(updates model.XdsUpdates) bool {
-	// If none set, we will always push
-	if len(updates) == 0 {
+func ldsNeedsPush(req *model.PushRequest) bool {
+	if req == nil {
 		return true
 	}
-	for config := range updates {
+	if !req.Full {
+		// LDS only handles full push
+		return false
+	}
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	for config := range req.ConfigsUpdated {
 		if _, f := skippedLdsConfigs[config.Kind]; !f {
 			return true
 		}
@@ -46,8 +53,8 @@ func ldsNeedsPush(updates model.XdsUpdates) bool {
 	return false
 }
 
-func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
-	if !ldsNeedsPush(updates) {
+func (l LdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	if !ldsNeedsPush(req) {
 		return nil
 	}
 	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, push)

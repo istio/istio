@@ -17,6 +17,7 @@ package injection
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -133,6 +134,10 @@ func getIstioProxyImage(cm *v1.ConfigMap) string {
 	var m injectionConfigMap
 	if err := json.Unmarshal([]byte(cm.Data["values"]), &m); err != nil {
 		return ""
+	}
+	// The injector template has a similar '{ contains "/" ... }' conditional
+	if strings.Contains(m.Global.Proxy.Image, "/") {
+		return m.Global.Proxy.Image
 	}
 	return fmt.Sprintf("%s/%s:%s", m.Global.Hub, m.Global.Proxy.Image, m.Global.Tag)
 }
