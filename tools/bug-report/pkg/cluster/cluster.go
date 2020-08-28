@@ -38,10 +38,11 @@ const (
 	Container
 )
 
+// ParsePath parses path into its components. Input must have the form namespace/deployment/pod/container.
 func ParsePath(path string) (namespace string, deployment, pod string, container string, err error) {
 	pv := strings.Split(path, "/")
 	if len(pv) != 4 {
-		return "", "", "", "", fmt.Errorf("bad path %s, must be namespace/pod/container", path)
+		return "", "", "", "", fmt.Errorf("bad path %s, must be namespace/deployment/pod/container", path)
 	}
 	return pv[0], pv[1], pv[2], pv[3], nil
 }
