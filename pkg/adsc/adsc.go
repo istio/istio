@@ -49,8 +49,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
@@ -541,7 +541,7 @@ func (a *ADSC) handleRecv() {
 
 		a.mutex.Lock()
 		if len(gvk) == 3 {
-			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			a.sync[gt.String()] = time.Now()
 			a.syncCh <- gt.String()
 		}
@@ -556,12 +556,12 @@ func (a *ADSC) handleRecv() {
 	}
 }
 
-func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
+func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	if m == nil || m.Metadata == nil {
-		return &model.Config{}, nil
+		return &config.Config{}, nil
 	}
-	c := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	c := &config.Config{
+		ConfigMeta: config.ConfigMeta{
 			ResourceVersion: m.Metadata.Version,
 			Labels:          m.Metadata.Labels,
 			Annotations:     m.Metadata.Annotations,
@@ -1115,7 +1115,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 		return err
 	}
-	val.GroupVersionKind = resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+	val.GroupVersionKind = config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 	if cfg == nil {
 		_, err = a.Store.Create(*val)

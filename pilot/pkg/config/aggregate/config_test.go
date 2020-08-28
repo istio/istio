@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -69,8 +70,8 @@ func TestAggregateStoreGet(t *testing.T) {
 	store1 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Gatewayclasses))
 	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Gatewayclasses))
 
-	configReturn := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	configReturn := &config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind: collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(),
 			Name:             "other",
 		},
@@ -93,16 +94,16 @@ func TestAggregateStoreList(t *testing.T) {
 	store1 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
 	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
 
-	if _, err := store1.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
+	if _, err := store1.Create(config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 			Name:             "other",
 		},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store2.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
+	if _, err := store2.Create(config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 			Name:             "another",
 		},
@@ -133,14 +134,14 @@ func TestAggregateStoreFails(t *testing.T) {
 	t.Run("Fails to Delete", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		err = store.Delete(resource.GroupVersionKind{Kind: "not"}, "gonna", "work")
+		err = store.Delete(config.GroupVersionKind{Kind: "not"}, "gonna", "work")
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
 	})
 
 	t.Run("Fails to Create", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		c, err := store.Create(model.Config{})
+		c, err := store.Create(config.Config{})
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
 		g.Expect(c).To(gomega.BeEmpty())
 	})
@@ -148,7 +149,7 @@ func TestAggregateStoreFails(t *testing.T) {
 	t.Run("Fails to Update", func(t *testing.T) {
 		g := gomega.NewWithT(t)
 
-		c, err := store.Update(model.Config{})
+		c, err := store.Update(config.Config{})
 		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("unsupported operation")))
 		g.Expect(c).To(gomega.BeEmpty())
 	})
@@ -175,12 +176,12 @@ func TestAggregateStoreCache(t *testing.T) {
 
 	t.Run("it registers an event handler", func(t *testing.T) {
 		handled := atomic.NewBool(false)
-		cacheStore.RegisterEventHandler(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), func(model.Config, model.Config, model.Event) {
+		cacheStore.RegisterEventHandler(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), func(config.Config, config.Config, model.Event) {
 			handled.Store(true)
 		})
 
-		controller1.Create(model.Config{
-			ConfigMeta: model.ConfigMeta{
+		controller1.Create(config.Config{
+			ConfigMeta: config.ConfigMeta{
 				GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
 				Name:             "another",
 			},

@@ -27,7 +27,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -75,7 +75,7 @@ func FromJSONMap(s collection.Schema, data interface{}) (proto.Message, error) {
 }
 
 // ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
-func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*model.Config, error) {
+func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*config.Config, error) {
 	js, err := json.Marshal(object.GetSpec())
 	if err != nil {
 		return nil, err
@@ -86,8 +86,8 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 	}
 	meta := object.GetObjectMeta()
 
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	return &config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
@@ -102,7 +102,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 }
 
 // ConvertConfig translates Istio config to k8s config JSON
-func ConvertConfig(cfg model.Config) (IstioObject, error) {
+func ConvertConfig(cfg config.Config) (IstioObject, error) {
 	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
 	if err != nil {
 		return nil, err
@@ -133,8 +133,8 @@ func ConvertConfig(cfg model.Config) (IstioObject, error) {
 // information to the abstract model and/or elevating k8s
 // representation to first-class type to avoid extra conversions.
 
-func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioKind, error) {
-	var varr []model.Config
+func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []IstioKind, error) {
+	var varr []config.Config
 	var others []IstioKind
 	reader := bytes.NewReader([]byte(inputs))
 	var empty = IstioKind{}
@@ -187,6 +187,6 @@ func parseInputsImpl(inputs string, withValidate bool) ([]model.Config, []IstioK
 // ObjectMeta as identified by the fields in model.ConfigMeta. This
 // would typically only be a problem if a user dumps an configuration
 // object with kubectl and then re-ingests it.
-func ParseInputs(inputs string) ([]model.Config, []IstioKind, error) {
+func ParseInputs(inputs string) ([]config.Config, []IstioKind, error) {
 	return parseInputsImpl(inputs, true)
 }

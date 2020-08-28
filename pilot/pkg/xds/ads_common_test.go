@@ -20,8 +20,8 @@ import (
 	"testing"
 
 	model "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -46,7 +46,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		want    bool
 	}
 
-	proxyCfg := &model.Config{ConfigMeta: model.ConfigMeta{
+	proxyCfg := &config.Config{ConfigMeta: config.ConfigMeta{
 		Name:      generalName,
 		Namespace: nsName,
 	}}
@@ -56,7 +56,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		SidecarScope: &model.SidecarScope{Config: proxyCfg, RootNamespace: nsRoot}}
 	gateway := &model.Proxy{Type: model.Router}
 
-	sidecarScopeKindNames := map[resource.GroupVersionKind]string{
+	sidecarScopeKindNames := map[config.GroupVersionKind]string{
 		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName}
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
@@ -89,7 +89,7 @@ func TestProxyNeedsPush(t *testing.T) {
 				Name: scName, Namespace: nsName}: {}}, false},
 		{"invalid config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
-				Kind: resource.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
+				Kind: config.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
 			true},
 		{"mixture matched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{Kind: gvk.DestinationRule, Name: drName, Namespace: nsName}:                   {},
@@ -116,7 +116,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		})
 	}
 
-	sidecarNamespaceScopeTypes := []resource.GroupVersionKind{
+	sidecarNamespaceScopeTypes := []config.GroupVersionKind{
 		gvk.Sidecar, gvk.EnvoyFilter, gvk.AuthorizationPolicy, gvk.RequestAuthentication,
 	}
 	for _, kind := range sidecarNamespaceScopeTypes {

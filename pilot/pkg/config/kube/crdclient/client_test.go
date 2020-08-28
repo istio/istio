@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
@@ -67,7 +68,7 @@ func TestClientNoCRDs(t *testing.T) {
 		return nil
 	}, retry.Timeout(time.Second))
 	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
-	configMeta := model.ConfigMeta{
+	configMeta := config.ConfigMeta{
 		Name:             "name",
 		Namespace:        "ns",
 		GroupVersionKind: r.GroupVersionKind(),
@@ -77,7 +78,7 @@ func TestClientNoCRDs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := store.Create(model.Config{
+	if _, err := store.Create(config.Config{
 		ConfigMeta: configMeta,
 		Spec:       pb,
 	}); err != nil {
@@ -114,7 +115,7 @@ func TestClient(t *testing.T) {
 		name := c.Resource().Kind()
 		t.Run(name, func(t *testing.T) {
 			r := c.Resource()
-			configMeta := model.ConfigMeta{
+			configMeta := config.ConfigMeta{
 				GroupVersionKind: r.GroupVersionKind(),
 				Name:             configName,
 			}
@@ -127,7 +128,7 @@ func TestClient(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if _, err := store.Create(model.Config{
+			if _, err := store.Create(config.Config{
 				ConfigMeta: configMeta,
 				Spec:       pb,
 			}); err != nil {

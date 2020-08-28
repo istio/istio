@@ -21,6 +21,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
@@ -80,9 +81,9 @@ func TestInMemoryCache(t *testing.T) {
 	t.Run("multiple destinationRules", func(t *testing.T) {
 		c := model.NewXdsCache()
 		ep1 := ep1
-		ep1.destinationRule = &model.Config{ConfigMeta: model.ConfigMeta{Name: "a", Namespace: "b"}}
+		ep1.destinationRule = &config.Config{ConfigMeta: config.ConfigMeta{Name: "a", Namespace: "b"}}
 		ep2 := ep2
-		ep2.destinationRule = &model.Config{ConfigMeta: model.ConfigMeta{Name: "b", Namespace: "b"}}
+		ep2.destinationRule = &config.Config{ConfigMeta: config.ConfigMeta{Name: "b", Namespace: "b"}}
 		c.Add(ep1, any1)
 		c.Add(ep2, any2)
 

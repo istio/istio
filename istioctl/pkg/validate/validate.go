@@ -33,12 +33,11 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	operator_validate "istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
@@ -79,7 +78,7 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	gvk := resource.GroupVersionKind{
+	gvk := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
@@ -342,14 +341,14 @@ func handleNamespace(istioNamespace string) string {
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
+func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*config.Config, error) {
 	data, err := fromSchemaAndJSONMap(schema, un.Object["spec"])
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	return &config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),

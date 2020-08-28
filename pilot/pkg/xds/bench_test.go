@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -241,9 +242,9 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	return s, proxy
 }
 
-var configCache = map[ConfigInput][]model.Config{}
+var configCache = map[ConfigInput][]config.Config{}
 
-func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
+func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
 	// Config setup is slow for large tests. Cache this and return from cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
@@ -317,15 +318,15 @@ func logDebug(b *testing.B, m model.Resources) {
 	b.StartTimer()
 }
 
-func createEndpoints(numEndpoints int, numServices int) []model.Config {
-	result := make([]model.Config, 0, numServices)
+func createEndpoints(numEndpoints int, numServices int) []config.Config {
+	result := make([]config.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
 		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
 			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
 		}
-		result = append(result, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		result = append(result, config.Config{
+			ConfigMeta: config.ConfigMeta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",

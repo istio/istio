@@ -15,7 +15,7 @@
 package crdclient
 
 import (
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/pkg/monitoring"
 )
 
@@ -52,7 +52,7 @@ func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
-func handleValidationFailure(obj *model.Config, err error) {
+func handleValidationFailure(obj *config.Config, err error) {
 	key := obj.Namespace + "/" + obj.Name
 	scope.Debugf("CRD validation failed: %s (%v): %v", key, obj.GroupVersionKind, err)
 	k8sErrors.With(nameTag.Value(key)).Record(1)

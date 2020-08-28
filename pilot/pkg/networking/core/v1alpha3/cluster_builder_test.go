@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -200,10 +201,10 @@ func TestApplyDestinationRule(t *testing.T) {
 				},
 			}
 
-			var cfg *model.Config
+			var cfg *config.Config
 			if tt.destRule != nil {
-				cfg = &model.Config{
-					ConfigMeta: model.ConfigMeta{
+				cfg = &config.Config{
+					ConfigMeta: config.ConfigMeta{
 						GroupVersionKind: gvk.DestinationRule,
 						Name:             "acme",
 						Namespace:        "default",
@@ -212,7 +213,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				}
 			}
 			cg := NewConfigGenTest(t, TestOptions{
-				ConfigPointers: []*model.Config{cfg},
+				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
 			cg.MemRegistry.WantGetProxyServiceInstances = instances

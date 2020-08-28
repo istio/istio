@@ -33,10 +33,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security_beta "istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -45,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/pkg/log"
 )
 
 // Constants for duration fields
@@ -101,7 +100,7 @@ var (
 
 	// EmptyValidate is a Validate that does nothing and returns no error.
 	EmptyValidate = registerValidateFunc("EmptyValidate",
-		func(model.Config) error {
+		func(config.Config) error {
 			return nil
 		})
 
@@ -109,7 +108,7 @@ var (
 )
 
 // ValidateFunc defines a validation func for an API proto.
-type ValidateFunc func(config model.Config) error
+type ValidateFunc func(config config.Config) error
 
 // IsValidateFunc indicates whether there is a validation function with the given name.
 func IsValidateFunc(name string) bool {
@@ -273,7 +272,7 @@ func ValidateUnixAddress(addr string) error {
 
 // ValidateGateway checks gateway specifications
 var ValidateGateway = registerValidateFunc("ValidateGateway",
-	func(cfg model.Config) (errs error) {
+	func(cfg config.Config) (errs error) {
 		name := cfg.Name
 		// Gateway name must conform to the DNS label format (no dots)
 		if !labels.IsDNS1123Label(name) {
@@ -416,7 +415,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (errs error) {
 
 // ValidateDestinationRule checks proxy policies
 var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
-	func(cfg model.Config) (errs error) {
+	func(cfg config.Config) (errs error) {
 		rule, ok := cfg.Spec.(*networking.DestinationRule)
 		if !ok {
 			return fmt.Errorf("cannot cast to destination rule")
@@ -511,7 +510,7 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) error 
 
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
-	func(cfg model.Config) (errs error) {
+	func(cfg config.Config) (errs error) {
 		rule, ok := cfg.Spec.(*networking.EnvoyFilter)
 		if !ok {
 			return fmt.Errorf("cannot cast to Envoy filter")
@@ -671,7 +670,7 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 
 // ValidateSidecar checks sidecar config supplied by user
 var ValidateSidecar = registerValidateFunc("ValidateSidecar",
-	func(cfg model.Config) (errs error) {
+	func(cfg config.Config) (errs error) {
 		rule, ok := cfg.Spec.(*networking.Sidecar)
 		if !ok {
 			return fmt.Errorf("cannot cast to Sidecar")
@@ -1335,7 +1334,7 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) error {
 
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
-	func(cfg model.Config) error {
+	func(cfg config.Config) error {
 		in, ok := cfg.Spec.(*security_beta.AuthorizationPolicy)
 		if !ok {
 			return fmt.Errorf("cannot cast to AuthorizationPolicy")
@@ -1437,7 +1436,7 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 // ValidateRequestAuthentication checks that request authentication spec is well-formed.
 var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthentication",
-	func(cfg model.Config) error {
+	func(cfg config.Config) error {
 		in, ok := cfg.Spec.(*security_beta.RequestAuthentication)
 		if !ok {
 			return errors.New("cannot cast to RequestAuthentication")
@@ -1491,7 +1490,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 
 // ValidatePeerAuthentication checks that peer authentication spec is well-formed.
 var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthentication",
-	func(cfg model.Config) error {
+	func(cfg config.Config) error {
 		in, ok := cfg.Spec.(*security_beta.PeerAuthentication)
 		if !ok {
 			return errors.New("cannot cast to PeerAuthentication")
@@ -1523,7 +1522,7 @@ var ValidatePeerAuthentication = registerValidateFunc("ValidatePeerAuthenticatio
 
 // ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
 var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
-	func(cfg model.Config) (errs error) {
+	func(cfg config.Config) (errs error) {
 		virtualService, ok := cfg.Spec.(*networking.VirtualService)
 		if !ok {
 			return errors.New("cannot cast to virtual service")
@@ -2131,7 +2130,7 @@ func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 
 // ValidateWorkloadEntry validates a workload entry.
 var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
-	func(cfg model.Config) (errs error) {
+	func(cfg config.Config) (errs error) {
 		we, ok := cfg.Spec.(*networking.WorkloadEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to workload entry")
@@ -2146,7 +2145,7 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 
 // ValidateServiceEntry validates a service entry.
 var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
-	func(cfg model.Config) (errs error) {
+	func(cfg config.Config) (errs error) {
 		serviceEntry, ok := cfg.Spec.(*networking.ServiceEntry)
 		if !ok {
 			return fmt.Errorf("cannot cast to service entry")

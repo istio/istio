@@ -21,11 +21,12 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/visibility"
 )
 
-func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta ConfigMeta) {
+func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.ConfigMeta) {
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
 		rule.Hosts[i] = string(ResolveShortnameToFQDN(h, meta))
@@ -86,12 +87,12 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta Confi
 	}
 }
 
-func mergeVirtualServicesIfNeeded(vServices []Config, defaultExportTo map[visibility.Instance]bool) (out []Config) {
-	out = make([]Config, 0, len(vServices))
-	delegatesMap := map[string]Config{}
+func mergeVirtualServicesIfNeeded(vServices []config.Config, defaultExportTo map[visibility.Instance]bool) (out []config.Config) {
+	out = make([]config.Config, 0, len(vServices))
+	delegatesMap := map[string]config.Config{}
 	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
 	// root virtualservices with delegate
-	var rootVses []Config
+	var rootVses []config.Config
 
 	// 1. classify virtualservices
 	for _, vs := range vServices {

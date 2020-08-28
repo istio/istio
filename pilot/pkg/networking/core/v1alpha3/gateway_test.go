@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/security/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -1087,8 +1088,8 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 }
 
 func TestGatewayHTTPRouteConfig(t *testing.T) {
-	httpsRedirectGateway := pilot_model.Config{
-		ConfigMeta: pilot_model.ConfigMeta{
+	httpsRedirectGateway := config.Config{
+		ConfigMeta: config.ConfigMeta{
 			Name:             "gateway-redirect",
 			Namespace:        "default",
 			GroupVersionKind: gvk.Gateway,
@@ -1104,8 +1105,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	httpGateway := pilot_model.Config{
-		ConfigMeta: pilot_model.ConfigMeta{
+	httpGateway := config.Config{
+		ConfigMeta: config.ConfigMeta{
 			Name:             "gateway",
 			Namespace:        "default",
 			GroupVersionKind: gvk.Gateway,
@@ -1138,24 +1139,24 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
-	virtualService := pilot_model.Config{
-		ConfigMeta: pilot_model.ConfigMeta{
+	virtualService := config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service",
 			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec,
 	}
-	virtualServiceCopy := pilot_model.Config{
-		ConfigMeta: pilot_model.ConfigMeta{
+	virtualServiceCopy := config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-copy",
 			Namespace:        "default",
 		},
 		Spec: virtualServiceSpec,
 	}
-	virtualServiceWildcard := pilot_model.Config{
-		ConfigMeta: pilot_model.ConfigMeta{
+	virtualServiceWildcard := config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service-wildcard",
 			Namespace:        "default",
@@ -1181,16 +1182,16 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	cases := []struct {
 		name                 string
-		virtualServices      []pilot_model.Config
-		gateways             []pilot_model.Config
+		virtualServices      []config.Config
+		gateways             []config.Config
 		routeName            string
 		expectedVirtualHosts map[string][]string
 		expectedHTTPRoutes   map[string]int
 	}{
 		{
 			"404 when no services",
-			[]pilot_model.Config{},
-			[]pilot_model.Config{httpGateway},
+			[]config.Config{},
+			[]config.Config{httpGateway},
 			"http.80",
 			map[string][]string{
 				"blackhole:80": {
@@ -1201,8 +1202,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		{
 			"virtual services do not matter when tls redirect is set",
-			[]pilot_model.Config{virtualService},
-			[]pilot_model.Config{httpsRedirectGateway},
+			[]config.Config{virtualService},
+			[]config.Config{httpsRedirectGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1213,8 +1214,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		{
 			"no merging of virtual services when tls redirect is set",
-			[]pilot_model.Config{virtualService, virtualServiceCopy},
-			[]pilot_model.Config{httpsRedirectGateway, httpGateway},
+			[]config.Config{virtualService, virtualServiceCopy},
+			[]config.Config{httpsRedirectGateway, httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1225,8 +1226,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		{
 			"add a route for a virtual service",
-			[]pilot_model.Config{virtualService},
-			[]pilot_model.Config{httpGateway},
+			[]config.Config{virtualService},
+			[]config.Config{httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1237,8 +1238,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		{
 			"duplicate virtual service should merge",
-			[]pilot_model.Config{virtualService, virtualServiceCopy},
-			[]pilot_model.Config{httpGateway},
+			[]config.Config{virtualService, virtualServiceCopy},
+			[]config.Config{httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1249,8 +1250,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		},
 		{
 			"duplicate by wildcard should merge",
-			[]pilot_model.Config{virtualService, virtualServiceWildcard},
-			[]pilot_model.Config{httpGateway},
+			[]config.Config{virtualService, virtualServiceWildcard},
+			[]config.Config{httpGateway},
 			"http.80",
 			map[string][]string{
 				"example.org:80": {
@@ -1343,7 +1344,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 	for _, tt := range cases {
 		p := &fakePlugin{}
 		configgen := NewConfigGenerator([]plugin.Plugin{p})
-		env := buildEnv(t, []pilot_model.Config{{ConfigMeta: pilot_model.ConfigMeta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}}, []pilot_model.Config{})
+		env := buildEnv(t, []config.Config{{ConfigMeta: config.ConfigMeta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}}, []config.Config{})
 		proxyGateway.SetGatewaysForProxy(env.PushContext)
 		proxyGateway.ServiceInstances = tt.node.ServiceInstances
 		proxyGateway.DiscoverIPVersions()
@@ -1358,7 +1359,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 	}
 }
 
-func buildEnv(t *testing.T, gateways []pilot_model.Config, virtualServices []pilot_model.Config) pilot_model.Environment {
+func buildEnv(t *testing.T, gateways []config.Config, virtualServices []config.Config) pilot_model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
 
 	configStore := pilot_model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))

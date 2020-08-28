@@ -34,6 +34,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -61,8 +62,8 @@ func TestGRPC(t *testing.T) {
 	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
 	store := ds.MemoryConfigStore
 
-	store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
+	store.Create(config.Config{
+		ConfigMeta: config.ConfigMeta{
 			GroupVersionKind: se.GroupVersionKind(),
 			Name:             "fortio",
 			Namespace:        "fortio",

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
 )
@@ -414,7 +415,7 @@ func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_Dis
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
 // Otherwise, return default (empty) DR.
-func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationRule {
+func castDestinationRuleOrDefault(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}
