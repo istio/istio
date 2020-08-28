@@ -103,7 +103,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(cfg config.Config) (IstioObject, error) {
-	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
+	spec, err := config.ToMap(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}

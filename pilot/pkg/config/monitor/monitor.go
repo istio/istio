@@ -20,11 +20,10 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gogo/protobuf/proto"
+	"istio.io/pkg/log"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
 )
 
 // Monitor will poll a config function in order to update a ConfigStore as
@@ -127,7 +126,8 @@ func (m *Monitor) checkAndUpdate() {
 	copyConfigs := make([]*config.Config, 0)
 	for _, config := range newConfigs {
 		cpy := *config
-		cpy.Spec = proto.Clone(config.Spec)
+		// TODO do not merge howardjohn!!!
+		//cpy.Spec = proto.Clone(config.Spec)
 		copyConfigs = append(copyConfigs, &cpy)
 	}
 

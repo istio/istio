@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -416,11 +417,8 @@ func TestDeepCopy(t *testing.T) {
 
 	copied := cfg.DeepCopy()
 
-	if !(cfg.Spec.String() == copied.Spec.String() &&
-		cfg.Namespace == copied.Namespace &&
-		cfg.Name == copied.Name &&
-		cfg.CreationTimestamp == copied.CreationTimestamp) {
-		t.Fatalf("cloned config is not identical")
+	if diff := cmp.Diff(copied, cfg); diff != "" {
+		t.Fatalf("cloned config is not identical: %v", diff)
 	}
 
 	copied.Labels["app"] = "cloned-app"

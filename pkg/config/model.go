@@ -86,15 +86,15 @@ type Config struct {
 }
 
 type ConfigSpec interface {
-	json.Marshaler
-	json.Unmarshaler
+	//	json.Marshaler
+	//	json.Unmarshaler
 }
 
-func MarshalProto(s ConfigSpec) (*any.Any, error) {
+func ToProto(s ConfigSpec) (*any.Any, error) {
 	if pb, ok := s.(proto.Message); ok {
 		return ptypes.MarshalAny(pb)
 	}
-	js, err := s.MarshalJSON()
+	js, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +105,11 @@ func MarshalProto(s ConfigSpec) (*any.Any, error) {
 	return ptypes.MarshalAny(pbs)
 }
 
-func MarshalProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
+func ToProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
 	if pb, ok := s.(proto.Message); ok {
 		return gogotypes.MarshalAny(pb)
 	}
-	js, err := s.MarshalJSON()
+	js, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +118,22 @@ func MarshalProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
 		return nil, err
 	}
 	return gogotypes.MarshalAny(pbs)
+}
+
+func ToMap(s ConfigSpec) (map[string]interface{}, error) {
+	js, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal from json bytes to go map
+	var data map[string]interface{}
+	err = json.Unmarshal(js, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 // Key function for the configuration objects
@@ -147,6 +163,7 @@ func (c Config) DeepCopy() Config {
 		}
 	}
 	// TODO!!!!! do not merge
+	clone.Spec = c.Spec
 	//clone.Spec = proto.Clone(c.Spec)
 	return clone
 }

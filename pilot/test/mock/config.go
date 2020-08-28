@@ -294,7 +294,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		name       string
 		configName string
 		schema     collection.Schema
-		spec       model.ConfigSpec
+		spec       config2.ConfigSpec
 	}{
 		{"VirtualService", configName, collections.IstioNetworkingV1Alpha3Virtualservices, ExampleVirtualService},
 		{"DestinationRule", configName, collections.IstioNetworkingV1Alpha3Destinationrules, ExampleDestinationRule},
