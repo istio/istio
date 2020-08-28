@@ -85,7 +85,8 @@ func TestValidation(t *testing.T) {
 					strings.Contains(err.Error(), "is invalid")
 			}
 
-			for _, d := range dataset {
+			for i := range dataset {
+				d := dataset[i]
 				ctx.NewSubTest(string(d)).RunParallel(func(ctx framework.TestContext) {
 					if d.isSkipped() {
 						ctx.SkipNow()
