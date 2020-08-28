@@ -63,14 +63,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		DNSDomain:   "foo.com",
 		Metadata:    &model.NodeMetadata{},
 	}
-	node16 := &model.Proxy{
-		Type:         model.SidecarProxy,
-		IPAddresses:  []string{"1.1.1.1"},
-		ID:           "someID",
-		DNSDomain:    "foo.com",
-		Metadata:     &model.NodeMetadata{},
-		IstioVersion: &model.IstioVersion{Major: 1, Minor: 6},
-	}
 
 	gatewayNames := map[string]bool{"some-gateway": true}
 
