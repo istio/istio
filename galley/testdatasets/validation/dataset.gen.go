@@ -388,7 +388,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 25
+        weight: 15
 `)
 
 func datasetNetworkingV1alpha3VirtualserviceInvalidYamlBytes() ([]byte, error) {
@@ -761,7 +761,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 25
+        weight: 15
 `)
 
 func datasetNetworkingV1betaVirtualserviceInvalidYamlBytes() ([]byte, error) {
