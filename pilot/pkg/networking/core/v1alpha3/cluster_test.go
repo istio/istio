@@ -2099,11 +2099,11 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			customMetadataMutual := features.AllowMetadataCertsInMutual
+			customMetadataMutual := features.AllowMetadataCertsInMutualTLS
 			if test.allowCustomMetadataMutual {
-				features.AllowMetadataCertsInMutual = true
+				features.AllowMetadataCertsInMutualTLS = true
 			}
-			defer func() { features.AllowMetadataCertsInMutual = customMetadataMutual }()
+			defer func() { features.AllowMetadataCertsInMutualTLS = customMetadataMutual }()
 			if test.customMetadata != nil {
 				proxy.Metadata = test.customMetadata
 			} else {
@@ -2165,12 +2165,11 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name                  string
-		opts                  *buildClusterOpts
-		tls                   *networking.ClientTLSSettings
-		node                  *model.Proxy
-		certValidationContext *tls.CertificateValidationContext
-		result                expectedResult
+		name   string
+		opts   *buildClusterOpts
+		tls    *networking.ClientTLSSettings
+		node   *model.Proxy
+		result expectedResult
 	}{
 		{
 			name: "tls mode disabled",
@@ -2182,9 +2181,8 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			tls: &networking.ClientTLSSettings{
 				Mode: networking.ClientTLSSettings_DISABLE,
 			},
-			node:                  &model.Proxy{},
-			certValidationContext: &tls.CertificateValidationContext{},
-			result:                expectedResult{nil, nil},
+			node:   &model.Proxy{},
+			result: expectedResult{nil, nil},
 		},
 		{
 			name: "tls mode ISTIO_MUTUAL with metadata certs",
@@ -2206,13 +2204,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
-			},
-			certValidationContext: &tls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: rootCert,
-					},
-				},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2290,13 +2281,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: rootCert,
-					},
-				},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2370,7 +2354,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2399,13 +2382,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
-			},
-			certValidationContext: &tls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: rootCert,
-					},
-				},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2460,13 +2436,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
-			},
-			certValidationContext: &tls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: rootCert,
-					},
-				},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2524,13 +2493,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: rootCert,
-					},
-				},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2577,8 +2539,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				ClientCertificate: "",
 				PrivateKey:        "some-fake-key",
 			},
-			node:                  &model.Proxy{},
-			certValidationContext: &tls.CertificateValidationContext{},
+			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				fmt.Errorf("client cert must be provided"),
@@ -2596,8 +2557,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				ClientCertificate: "some-fake-cert",
 				PrivateKey:        "",
 			},
-			node:                  &model.Proxy{},
-			certValidationContext: &tls.CertificateValidationContext{},
+			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				fmt.Errorf("client key must be provided"),
@@ -2623,7 +2583,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2676,13 +2635,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
-			},
-			certValidationContext: &tls.CertificateValidationContext{
-				TrustedCa: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: rootCert,
-					},
-				},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2760,7 +2712,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2820,7 +2771,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2879,7 +2829,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2964,7 +2913,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			certValidationContext: &tls.CertificateValidationContext{},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -3043,8 +2991,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				Mode:           networking.ClientTLSSettings_MUTUAL,
 				CredentialName: "fake-cred",
 			},
-			node:                  &model.Proxy{},
-			certValidationContext: &tls.CertificateValidationContext{},
+			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				nil,
@@ -3065,8 +3012,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				Mode:           networking.ClientTLSSettings_SIMPLE,
 				CredentialName: "fake-cred",
 			},
-			node:                  &model.Proxy{},
-			certValidationContext: &tls.CertificateValidationContext{},
+			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				nil,
@@ -3075,7 +3021,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node, tc.certValidationContext)
+			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
