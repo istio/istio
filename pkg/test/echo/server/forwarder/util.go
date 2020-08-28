@@ -17,9 +17,10 @@ package forwarder
 import (
 	"bytes"
 	"fmt"
-	"istio.io/pkg/log"
 	"net/http"
 	"net/textproto"
+
+	"istio.io/pkg/log"
 )
 
 const (

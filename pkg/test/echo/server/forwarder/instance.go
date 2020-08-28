@@ -17,12 +17,12 @@ package forwarder
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/semaphore"
 	"io"
 	"net/http"
 	"time"
 
 	"github.com/golang/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"

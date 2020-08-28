@@ -17,7 +17,6 @@ package server
 import (
 	"fmt"
 	"io"
-	"istio.io/pkg/log"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
+	"istio.io/pkg/log"
 )
 
 // Config for an echo server Instance.
