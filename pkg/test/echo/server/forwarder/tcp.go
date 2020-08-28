@@ -85,20 +85,16 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		return msgBuilder.String(), err
 	}
 	var resBuffer bytes.Buffer
+	buf := make([]byte, 4096+len(message))
 	for {
-		buf := make([]byte, 4096+len(message))
-		n, err := bufio.NewReader(conn).Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				fwLog.Warnf("TCP read failed (already read %d bytes): %v", len(resBuffer.String()), err)
-				return msgBuilder.String(), err
-			}
-			fwLog.Warnf("EOF before complete message")
-			break
+		n, err := conn.Read(buf)
+		if err != nil && err != io.EOF {
+			fwLog.Warnf("TCP read failed (already read %d bytes): %v", len(resBuffer.String()), err)
+			return msgBuilder.String(), err
 		}
 		resBuffer.Write(buf[:n])
 		// the message is sent last - when we get the whole message we can stop reading
-		if strings.Contains(resBuffer.String(), message) {
+		if err == io.EOF || strings.Contains(resBuffer.String(), message) {
 			break
 		}
 	}

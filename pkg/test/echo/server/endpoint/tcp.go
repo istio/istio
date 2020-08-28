@@ -15,7 +15,6 @@
 package endpoint
 
 import (
-	"bufio"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -107,10 +106,10 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		_, _ = conn.Write([]byte(common.ServerFirstMagicString))
 	}
 
-	reader := bufio.NewReader(conn)
 	firstReply := true
+	buf := make([]byte, 4096)
 	for {
-		buf, err := reader.ReadBytes(byte('\n'))
+		n, err := conn.Read(buf)
 
 		// important not to start sending any response until we've started reading the message,
 		// otherwise the response could be read when we expect the magic string
@@ -119,17 +118,19 @@ func (s *tcpInstance) echo(conn net.Conn) {
 			firstReply = false
 		}
 
-		if err != nil {
-			if err != io.EOF {
-				epLog.Warnf("TCP read failed: %v", err.Error())
-			}
+		if err != nil && err != io.EOF {
+			epLog.Warnf("TCP read failed: %v", err.Error())
 			break
 		}
 
 		// echo the message from the request
-		_, err = conn.Write(buf)
-		if err != nil {
+		if _, err := conn.Write(buf[:n]); err != nil {
 			epLog.Warnf("TCP write failed %q, :%v", string(buf), err)
+		}
+
+		// Read can return n > 0 with EOF, do this last.
+		if err != io.EOF {
+			break
 		}
 	}
 }
