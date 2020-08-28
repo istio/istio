@@ -196,7 +196,7 @@ func TestNewProtoInstance(t *testing.T) {
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	p, err := s.NewProtoInstance()
+	p, err := s.NewInstance()
 	g.Expect(err).To(BeNil())
 	g.Expect(p).To(Equal(&types.Empty{}))
 }
@@ -221,7 +221,7 @@ func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	_ = s.MustNewProtoInstance()
+	_ = s.MustNewInstance()
 }
 
 func TestNewProtoInstance_Panic_NonProto(t *testing.T) {
@@ -245,7 +245,7 @@ func TestNewProtoInstance_Panic_NonProto(t *testing.T) {
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	_ = s.MustNewProtoInstance()
+	_ = s.MustNewInstance()
 }
 
 func TestString(t *testing.T) {

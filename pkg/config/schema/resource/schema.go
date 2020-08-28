@@ -61,11 +61,11 @@ type Schema interface {
 	// ProtoPackage returns the golang package for the protobuf resource.
 	ProtoPackage() string
 
-	// NewProtoInstance returns a new instance of the protocol buffer message for this resource.
-	NewProtoInstance() (proto.Message, error)
+	// NewInstance returns a new instance of the protocol buffer message for this resource.
+	NewInstance() (config.ConfigSpec, error)
 
-	// MustNewProtoInstance calls NewProtoInstance and panics if an error occurs.
-	MustNewProtoInstance() proto.Message
+	// MustNewInstance calls NewInstance and panics if an error occurs.
+	MustNewInstance() config.ConfigSpec
 
 	// Validate this schema.
 	Validate() error
@@ -98,6 +98,9 @@ type Builder struct {
 
 	// Proto refers to the protobuf message type name corresponding to the type
 	Proto string
+
+	// ReflectType is the type of the go struct
+	ReflectType reflect.Type
 
 	// ProtoPackage refers to the name of golang package for the protobuf message.
 	ProtoPackage string
@@ -143,7 +146,7 @@ func (b Builder) BuildNoValidate() Schema {
 		plural:         b.Plural,
 		apiVersion:     b.Group + "/" + b.Version,
 		proto:          b.Proto,
-		protoPackage:   b.ProtoPackage,
+		goPackage:      b.ProtoPackage,
 		validateConfig: b.ValidateProto,
 	}
 }
@@ -154,7 +157,7 @@ type schemaImpl struct {
 	plural         string
 	apiVersion     string
 	proto          string
-	protoPackage   string
+	goPackage      string
 	validateConfig validation.ValidateFunc
 }
 
@@ -199,7 +202,7 @@ func (s *schemaImpl) Proto() string {
 }
 
 func (s *schemaImpl) ProtoPackage() string {
-	return s.protoPackage
+	return s.goPackage
 }
 
 func (s *schemaImpl) Validate() (err error) {
@@ -216,10 +219,10 @@ func (s *schemaImpl) Validate() (err error) {
 }
 
 func (s *schemaImpl) String() string {
-	return fmt.Sprintf("[Schema](%s, %q, %s)", s.Kind(), s.protoPackage, s.proto)
+	return fmt.Sprintf("[Schema](%s, %q, %s)", s.Kind(), s.goPackage, s.proto)
 }
 
-func (s *schemaImpl) NewProtoInstance() (proto.Message, error) {
+func (s *schemaImpl) NewInstance() (config.ConfigSpec, error) {
 	goType := getProtoMessageType(s.proto)
 	if goType == nil {
 		return nil, fmt.Errorf("message not found: %q", s.proto)
@@ -227,17 +230,17 @@ func (s *schemaImpl) NewProtoInstance() (proto.Message, error) {
 
 	instance := reflect.New(goType).Interface()
 
-	p, ok := instance.(proto.Message)
+	p, ok := instance.(config.ConfigSpec)
 	if !ok {
 		return nil, fmt.Errorf(
-			"newProtoInstance: message is not an instance of proto.Message. kind:%s, type:%v, value:%v",
+			"newInstance: message is not an instance of config.ConfigSpec. kind:%s, type:%v, value:%v",
 			s.Kind(), goType, instance)
 	}
 	return p, nil
 }
 
-func (s *schemaImpl) MustNewProtoInstance() proto.Message {
-	p, err := s.NewProtoInstance()
+func (s *schemaImpl) MustNewInstance() config.ConfigSpec {
+	p, err := s.NewInstance()
 	if err != nil {
 		panic(err)
 	}

@@ -54,6 +54,7 @@ import (
 var (
 {{ range .Entries }}
 	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
+    // {{ .Collection.Type }}
 	{{ .Collection.VariableName }} = collection.Builder {
 		Name: "{{ .Collection.Name }}",
 		VariableName: "{{ .Collection.VariableName }}",

@@ -364,7 +364,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
 func fromSchemaAndYAML(schema collection.Schema, yml string) (proto.Message, error) {
-	pb, err := schema.Resource().NewProtoInstance()
+	pb, err := schema.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}

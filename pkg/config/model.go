@@ -15,10 +15,25 @@
 package config
 
 import (
+	bytes "bytes"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/ghodss/yaml"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	gogoproto "github.com/gogo/protobuf/proto"
+	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/reflect/protoreflect"
+
+	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -73,7 +88,131 @@ type Config struct {
 	Meta
 
 	// Spec holds the configuration object as a gogo protobuf message
-	Spec proto.Message
+	Spec ConfigSpec
+}
+
+type ConfigSpec interface {
+	//	json.Marshaler
+	//	json.Unmarshaler
+}
+
+func ToProto(s ConfigSpec) (*any.Any, error) {
+	if pb, ok := s.(proto.Message); ok {
+		return ptypes.MarshalAny(pb)
+	}
+	js, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	pbs := &pstruct.Struct{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+		return nil, err
+	}
+	return ptypes.MarshalAny(pbs)
+}
+
+func ToProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
+	if pb, ok := s.(proto.Message); ok {
+		return gogotypes.MarshalAny(pb)
+	}
+	js, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	pbs := &gogotypes.Struct{}
+	if err := gogojsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+		return nil, err
+	}
+	return gogotypes.MarshalAny(pbs)
+}
+
+func ToMap(s ConfigSpec) (map[string]interface{}, error) {
+	js, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal from json bytes to go map
+	var data map[string]interface{}
+	err = json.Unmarshal(js, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+type deepCopier interface {
+	DeepCopyInterface() interface{}
+}
+
+func ApplyYAML(s ConfigSpec, yml string) error {
+	js, err := yaml.YAMLToJSON([]byte(yml))
+	if err != nil {
+		return err
+	}
+	return ApplyJSON(s, string(js))
+}
+
+func ApplyJSON(s ConfigSpec, js string) error {
+	if ju, ok := s.(json.Unmarshaler); ok {
+		err := ju.UnmarshalJSON([]byte(js))
+		return err
+	}
+
+	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
+	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
+	// but also not used by Istio at all.
+	if _, ok := s.(protoreflect.ProtoMessage); ok {
+		if pb, ok := s.(proto.Message); ok {
+			err := gogoprotomarshal.ApplyJSON(js, pb)
+			return err
+		}
+	}
+
+	// gogo protobuf
+	if pb, ok := s.(gogoproto.Message); ok {
+		err := protomarshal.ApplyJSON(js, pb)
+		return err
+	}
+
+	return json.Unmarshal([]byte(js), &s)
+}
+
+func DeepCopy(s ConfigSpec) ConfigSpec {
+	// If deep copy is defined, use that
+	if dc, ok := s.(deepCopier); ok {
+		return dc.DeepCopyInterface()
+	}
+
+	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
+	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
+	// but also not used by Istio at all.
+	if _, ok := s.(protoreflect.ProtoMessage); ok {
+		if pb, ok := s.(proto.Message); ok {
+			return proto.Clone(pb)
+		}
+	}
+
+	// gogo protobuf
+	if pb, ok := s.(gogoproto.Message); ok {
+		return gogoproto.Clone(pb)
+	}
+
+	// If we don't have a deep copy method, we will have to do some reflection magic. Its not ideal,
+	// but all Istio types have an efficient deep copy.
+	js, err := json.Marshal(s)
+	if err != nil {
+		return nil
+	}
+
+	data := reflect.New(reflect.TypeOf(s).Elem()).Interface()
+	err = json.Unmarshal(js, &data)
+	if err != nil {
+		return nil
+	}
+
+	return data
 }
 
 // Key function for the configuration objects
@@ -102,7 +241,7 @@ func (c Config) DeepCopy() Config {
 			clone.Annotations[k] = v
 		}
 	}
-	clone.Spec = proto.Clone(c.Spec)
+	clone.Spec = DeepCopy(c.Spec)
 	return clone
 }
 

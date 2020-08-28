@@ -155,7 +155,7 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 					Schema:   s.Resource(),
 					FullName: name,
 				},
-				Message: s.Resource().MustNewProtoInstance(),
+				Message: s.Resource().MustNewInstance(),
 				Origin:  &origin{friendlyName: name.String()},
 			}
 			set.Collection(s.Name()).Set(r)

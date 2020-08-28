@@ -2,6 +2,8 @@ module istio.io/istio
 
 go 1.15
 
+replace istio.io/api => github.com/howardjohn/api v0.0.0-20200828204656-f6dad094af09
+
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
 replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
@@ -125,3 +127,5 @@ require (
 	sigs.k8s.io/service-apis v0.0.0-20200731055707-56154e7bfde5
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace sigs.k8s.io/service-apis => /home/howardjohn/go/src/sigs.k8s.io/service-apis
