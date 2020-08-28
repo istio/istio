@@ -159,7 +159,7 @@ func configToResource(c *config.Config) (*mcp.Resource, error) {
 
 	// MCP, K8S and Istio configs use gogo configs
 	// On the wire it's the same as golang proto.
-	a, err := gogotypes.MarshalAny(c.Spec)
+	a, err := model.MarshalProtoGogo(c.Spec)
 	if err != nil {
 		return nil, err
 	}

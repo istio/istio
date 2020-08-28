@@ -15,10 +15,19 @@
 package config
 
 import (
+	bytes "bytes"
+	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	gogojsonpb "github.com/gogo/protobuf/jsonpb"
+	gogostruct "github.com/gogo/protobuf/types"
+	gogotypes "github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/any"
+	pstruct "github.com/golang/protobuf/ptypes/struct"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -73,7 +82,42 @@ type Config struct {
 	Meta
 
 	// Spec holds the configuration object as a gogo protobuf message
-	Spec proto.Message
+	Spec ConfigSpec
+}
+
+type ConfigSpec interface {
+	json.Marshaler
+	json.Unmarshaler
+}
+
+func MarshalProto(s ConfigSpec) (*any.Any, error) {
+	if pb, ok := s.(proto.Message); ok {
+		return ptypes.MarshalAny(pb)
+	}
+	js, err := s.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	pbs := &pstruct.Struct{}
+	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+		return nil, err
+	}
+	return ptypes.MarshalAny(pbs)
+}
+
+func MarshalProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
+	if pb, ok := s.(proto.Message); ok {
+		return gogotypes.MarshalAny(pb)
+	}
+	js, err := s.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	pbs := &gogostruct.Struct{}
+	if err := gogojsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+		return nil, err
+	}
+	return gogotypes.MarshalAny(pbs)
 }
 
 // Key function for the configuration objects
@@ -102,7 +146,8 @@ func (c Config) DeepCopy() Config {
 			clone.Annotations[k] = v
 		}
 	}
-	clone.Spec = proto.Clone(c.Spec)
+	// TODO!!!!! do not merge
+	//clone.Spec = proto.Clone(c.Spec)
 	return clone
 }
 
