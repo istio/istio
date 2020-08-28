@@ -90,7 +90,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, req *request) (string, er
 		n, err := bufio.NewReader(conn).Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				fwLog.Warnf("TCP read failed: %v", err)
+				fwLog.Warnf("TCP read failed (already read %d bytes): %v", len(resBuffer.String()), err)
 				return msgBuilder.String(), err
 			}
 			fwLog.Warnf("EOF before complete message")
