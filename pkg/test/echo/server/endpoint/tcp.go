@@ -123,14 +123,16 @@ func (s *tcpInstance) echo(conn net.Conn) {
 		}
 
 		// echo the message from the request
-		out := buf[:n]
-		if _, err := conn.Write(out); err != nil {
-			epLog.Warnf("TCP write failed, :%v", err)
-			break
+		if n > 0 {
+			out := buf[:n]
+			if _, err := conn.Write(out); err != nil {
+				epLog.Warnf("TCP write failed, :%v", err)
+				break
+			}
 		}
 
 		// Read can return n > 0 with EOF, do this last.
-		if err != io.EOF {
+		if err == io.EOF {
 			break
 		}
 	}
