@@ -281,9 +281,8 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is the UnnamedNetwork (""), which matches
-		// the default network assigned to endpoints that don't have an explicit network
-		if !proxyNetworkView[instance.Endpoint.Network] {
+		// The default network view assigned to the Proxy is nil, in that case match any network.
+		if proxyNetworkView != nil && !proxyNetworkView[instance.Endpoint.Network] {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
