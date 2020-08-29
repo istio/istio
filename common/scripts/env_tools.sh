@@ -31,7 +31,7 @@ find_inplace_sed() {
     done
     rm "${tmpfile}"
     if [ -z ${INPLACE_SED+x} ]; then
-        echo "Cannot find a valid inplace sed command from ${POSSIBLE_INPLACE_SED_CMDS[@]}"
+        echo "Cannot find a valid inplace sed command from:" "${POSSIBLE_INPLACE_SED_CMDS[@]}"
         return 1
     fi
     return 0
