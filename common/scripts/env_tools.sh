@@ -16,20 +16,22 @@
 
 # TODO: Use the below in every script that uses the -i option on sed
 find_inplace_sed() {
-    local tmpfile=`mktemp`
-    local POSSIBLE_INPLACE_SED_CMDS=("sed -i" "sed -i ''")
+    local tmpfile
+    local POSSIBLE_INPLACE_SED_CMDS
     local sed_cmd
     unset INPLACE_SED
+    tmpfile=$(mktemp)
+    POSSIBLE_INPLACE_SED_CMDS=("sed -i" "sed -i ''")
     for sed_cmd in "${POSSIBLE_INPLACE_SED_CMDS[@]}"; do
-        echo orig > ${tmpfile}
-        if eval ${sed_cmd} 's/orig/new/g' ${tmpfile} >/dev/null 2>&1 ; then
+        echo orig > "${tmpfile}"
+        if eval "${sed_cmd}" 's/orig/new/g' "${tmpfile}" >/dev/null 2>&1 ; then
             INPLACE_SED="${sed_cmd}"
             break
         fi
     done
-    rm $tmpfile
+    rm "${tmpfile}"
     if [ -z ${INPLACE_SED+x} ]; then
-        echo "Cannot find a valid inplace sed command from ${POSSIBLE_INPLACE_SED_CMDS}"
+        echo "Cannot find a valid inplace sed command from ${POSSIBLE_INPLACE_SED_CMDS[@]}"
         return 1
     fi
     return 0
