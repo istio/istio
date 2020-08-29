@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -126,14 +127,15 @@ when:
 	cases := []struct {
 		name    string
 		forTCP  bool
-		forDeny bool
+		action  rbacpb.RBAC_Action
 		rule    *authzpb.Rule
 		want    []string
 		notWant []string
 	}{
 		{
-			name: "allow-http",
-			rule: rule,
+			name:   "allow-http",
+			action: rbacpb.RBAC_ALLOW,
+			rule:   rule,
 			want: []string{
 				"td-1/ns/foo/sa/sleep-1",
 				"td-1/ns/foo/sa/sleep-2",
@@ -151,6 +153,7 @@ when:
 		},
 		{
 			name:   "allow-tcp",
+			action: rbacpb.RBAC_ALLOW,
 			forTCP: true,
 			rule:   rule,
 			notWant: []string{
@@ -169,9 +172,9 @@ when:
 			},
 		},
 		{
-			name:    "deny-http",
-			forDeny: true,
-			rule:    rule,
+			name:   "deny-http",
+			action: rbacpb.RBAC_DENY,
+			rule:   rule,
 			want: []string{
 				"td-1/ns/foo/sa/sleep-1",
 				"td-1/ns/foo/sa/sleep-2",
@@ -188,10 +191,51 @@ when:
 			},
 		},
 		{
-			name:    "deny-tcp",
-			forDeny: true,
-			forTCP:  true,
-			rule:    rule,
+			name:   "deny-tcp",
+			action: rbacpb.RBAC_DENY,
+			forTCP: true,
+			rule:   rule,
+			want: []string{
+				"8001",
+				"8002",
+				"8003",
+				"8004",
+				"10.0.0.1",
+				"10.0.0.2",
+				"td-1/ns/foo/sa/httpbin-1",
+				"td-1/ns/foo/sa/httpbin-2",
+			},
+			notWant: []string{
+				"td-1/ns/foo/sa/sleep-1",
+				"td-1/ns/foo/sa/sleep-2",
+				"td-1/ns/foo/sa/sleep-3",
+				"td-1/ns/foo/sa/sleep-4",
+			},
+		},
+		{
+			name:   "audit-http",
+			action: rbacpb.RBAC_LOG,
+			rule:   rule,
+			want: []string{
+				"td-1/ns/foo/sa/sleep-1",
+				"td-1/ns/foo/sa/sleep-2",
+				"td-1/ns/foo/sa/sleep-3",
+				"td-1/ns/foo/sa/sleep-4",
+				"td-1/ns/foo/sa/httpbin-1",
+				"td-1/ns/foo/sa/httpbin-2",
+				"8001",
+				"8002",
+				"8003",
+				"8004",
+				"10.0.0.1",
+				"10.0.0.2",
+			},
+		},
+		{
+			name:   "audit-tcp",
+			action: rbacpb.RBAC_LOG,
+			forTCP: true,
+			rule:   rule,
 			want: []string{
 				"8001",
 				"8002",
@@ -217,7 +261,7 @@ when:
 			if err != nil {
 				t.Fatal(err)
 			}
-			p, _ := m.Generate(tc.forTCP, tc.forDeny)
+			p, _ := m.Generate(tc.forTCP, tc.action)
 			var gotYaml string
 			if p != nil {
 				if gotYaml, err = protomarshal.ToYAML(p); err != nil {

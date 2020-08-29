@@ -44,8 +44,8 @@ usage() {
   error '                               directory'
   error '  -q, --quiet              if present, do not log'
   error '  -m, --max-bytes          max total bytes, 0=no limit, default='${DEFAULT_MAX_LOG_BYTES}
-  error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app=pilot -l istio=galley"'
-  error '  -n, --namespace          if set, dump logs only for pods in the given namespaces e.g. "-n default -n istio-system"'
+  error '  -l, --label              if set, dump logs only for pods with given labels e.g. "-l app=istiod"'
+  error '  -n, --namespace          if set, dump logs only for pods in the given namespaces e.g. "-n default, -n istio-system"'
   error '  --error-if-nasty-logs    if present, exit with 255 if any logs'
   error '  --add-full-secrets       also dump Secrets, not just the Secret names'
   error '                               contain errors'
@@ -288,34 +288,34 @@ dump_resources() {
   kubectl get events --all-namespaces -o wide > "${OUT_DIR}/events.txt"
 }
 
-dump_pilot_url(){
-  local pilot_pod=$1
+dump_istiod_url(){
+  local istiod_pod=$1
   local url=$2
   local dname=$3
   local outfile
 
-  outfile="${dname}/$(basename "${url}")-${pilot_pod}"
+  outfile="${dname}/$(basename "${url}")-${istiod_pod}"
 
-  log "Fetching ${url} from pilot"
-  kubectl -n istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- \
+  log "Fetching ${url} from istiod"
+  kubectl -n istio-system exec -it "${istiod_pod}" -c istio-proxy -- \
       curl "http://localhost:8080/${url}" > "${outfile}"
 }
 
-dump_pilot() {
-  local pilot_pods
-  pilot_pods=$(kubectl -n istio-system get pods -l istio=pilot \
+dump_istiod() {
+  local istiod_pods
+  istiod_pods=$(kubectl get pods -n istio-system -l app=istiod \
       -o jsonpath='{.items[*].metadata.name}')
 
-  if [ -n "${pilot_pods}" ]; then
-    local pilot_dir="${OUT_DIR}/pilot"
-    mkdir -p "${pilot_dir}"
-    for pilot_pod in ${pilot_pods}
+  if [ -n "${istiod_pods}" ]; then
+    local istiod_dir="${OUT_DIR}/istiod"
+    mkdir -p "${istiod_dir}"
+    for istiod_pod in ${istiod_pods}
     do
-      dump_pilot_url "${pilot_pod}" debug/configz "${pilot_dir}"
-      dump_pilot_url "${pilot_pod}" debug/endpointz "${pilot_dir}"
-      dump_pilot_url "${pilot_pod}" debug/adsz "${pilot_dir}"
-      dump_pilot_url "${pilot_pod}" debug/authenticationz "${pilot_dir}"
-      dump_pilot_url "${pilot_pod}" metrics "${pilot_dir}"
+      dump_istiod_url "${istiod_pod}" debug/configz "${istiod_dir}"
+      dump_istiod_url "${istiod_pod}" debug/endpointz "${istiod_dir}"
+      dump_istiod_url "${istiod_pod}" debug/adsz "${istiod_dir}"
+      dump_istiod_url "${istiod_pod}" debug/authenticationz "${istiod_dir}"
+      dump_istiod_url "${istiod_pod}" metrics "${istiod_dir}"
     done
   fi
 }
@@ -329,8 +329,6 @@ archive() {
   pushd "${parent_dir}" > /dev/null || exit
   tar -czf "${dir}.tar.gz" "${dir}"
   popd > /dev/null || exit
-
-  log "Wrote ${parent_dir}/${dir}.tar.gz"
 }
 
 check_logs_for_errors() {
@@ -343,7 +341,7 @@ main() {
   parse_args "$@"
   check_prerequisites kubectl
   dump_time
-  dump_pilot
+  dump_istiod
   dump_resources
   tap_containers "dump_logs_for_container" "copy_core_dumps_if_istio_proxy"
   exit_code=$?
@@ -358,7 +356,12 @@ main() {
     archive
     rm -r "${OUT_DIR}"
   fi
-  log "Wrote to ${OUT_DIR}"
+
+  if [ "${SHOULD_ARCHIVE}" = true ] ; then
+    log "Wrote to ${OUT_DIR}.tar.gz"
+  else
+    log "Wrote to ${OUT_DIR}"
+  fi
 
   return ${exit_code}
 }

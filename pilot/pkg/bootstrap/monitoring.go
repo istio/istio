@@ -63,39 +63,48 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 
 	// get the network stuff setup
 	var listener net.Listener
-	var err error
-	if listener, err = net.Listen("tcp", addr); err != nil {
-		return nil, fmt.Errorf("unable to listen on socket: %v", err)
+	if addr != "" {
+		var err error
+		if listener, err = net.Listen("tcp", addr); err != nil {
+			return nil, fmt.Errorf("unable to listen on socket: %v", err)
+		}
 	}
 
 	// NOTE: this is a temporary solution to provide bare-bones debug functionality
 	// for pilot. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how pilot reports its own metrics.
-	if err = addMonitor(mux); err != nil {
+	if err := addMonitor(mux); err != nil {
 		return nil, fmt.Errorf("could not establish self-monitoring: %v", err)
 	}
-	m.monitoringServer = &http.Server{
-		Handler: mux,
+	if addr != "" {
+		m.monitoringServer = &http.Server{
+			Handler: mux,
+		}
 	}
 
 	version.Info.RecordComponentBuildTag("pilot")
 
-	go func() {
-		m.shutdown <- struct{}{}
-		_ = m.monitoringServer.Serve(listener)
-		m.shutdown <- struct{}{}
-	}()
-
-	// This is here to work around (mostly) a race condition in the Serve
-	// function. If the Close method is called before or during the execution of
-	// Serve, the call may be ignored and Serve never returns.
-	<-m.shutdown
+	if addr != "" {
+		go func() {
+			m.shutdown <- struct{}{}
+			_ = m.monitoringServer.Serve(listener)
+			m.shutdown <- struct{}{}
+		}()
+		// This is here to work around (mostly) a race condition in the Serve
+		// function. If the Close method is called before or during the execution of
+		// Serve, the call may be ignored and Serve never returns.
+		<-m.shutdown
+	}
 
 	return m, nil
 }
 
 func (m *monitor) Close() error {
+	if m.monitoringServer == nil {
+		<-m.shutdown
+		return nil
+	}
 	err := m.monitoringServer.Close()
 	<-m.shutdown
 	return err
@@ -104,7 +113,7 @@ func (m *monitor) Close() error {
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(addr string) error { //nolint: unparam
 	s.addStartFunc(func(stop <-chan struct{}) error {
-		monitor, err := startMonitor(addr, s.httpMux)
+		monitor, err := startMonitor(addr, s.monitoringMux)
 		if err != nil {
 			return err
 		}

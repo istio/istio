@@ -144,6 +144,36 @@ func TestEnvoyNoServerStats(t *testing.T) {
 	g.Expect(err).To(HaveOccurred())
 }
 
+func TestEnvoyReadinessCache(t *testing.T) {
+	g := NewWithT(t)
+
+	server := createAndStartServer(noServerStats)
+	probe := Probe{AdminPort: 1234}
+	err := probe.Check()
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	err = probe.Check()
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	server.Close()
+
+	server = createAndStartServer(liveServerStats)
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	server.Close()
+
+	server = createAndStartServer(noServerStats)
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	server.Close()
+
+	err = probe.Check()
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+}
+
 func createDefaultFuncMap(statsToReturn string) map[string]func(rw http.ResponseWriter, _ *http.Request) {
 	return map[string]func(rw http.ResponseWriter, _ *http.Request){
 

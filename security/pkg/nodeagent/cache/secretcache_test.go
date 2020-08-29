@@ -760,55 +760,6 @@ func TestGatewayAgentUpdateSecret(t *testing.T) {
 	checkBool(t, "SecretExist", sc.SecretExist(connID, k8sGenericSecretName+"-cacert", "", gotSecret.Version), false)
 }
 
-func TestConstructCSRHostName(t *testing.T) {
-	data, err := ioutil.ReadFile("./testdata/testjwt")
-	if err != nil {
-		t.Errorf("failed to read test jwt file %v", err)
-	}
-	testJwt := string(data)
-
-	cases := []struct {
-		trustDomain string
-		token       string
-		expected    string
-		errFlag     bool
-	}{
-		{
-			token:    testJwt,
-			expected: "spiffe://cluster.local/ns/default/sa/sleep",
-			errFlag:  false,
-		},
-		{
-			trustDomain: "fooDomain",
-			token:       testJwt,
-			expected:    "spiffe://fooDomain/ns/default/sa/sleep",
-			errFlag:     false,
-		},
-		{
-			token:    "faketoken",
-			expected: "",
-			errFlag:  true,
-		},
-	}
-	for _, c := range cases {
-		got, err := constructCSRHostName(c.trustDomain, c.token)
-		if err != nil {
-			if c.errFlag == false {
-				t.Errorf("constructCSRHostName no error, but got %v", err)
-			}
-			continue
-		}
-
-		if c.errFlag == true {
-			t.Error("constructCSRHostName error")
-		}
-
-		if got != c.expected {
-			t.Errorf("constructCSRHostName got %q, want %q", got, c.expected)
-		}
-	}
-}
-
 func checkBool(t *testing.T, name string, got bool, want bool) {
 	if got != want {
 		t.Errorf("%s: got: %v, want: %v", name, got, want)
@@ -902,7 +853,9 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
 	opt := &security.Options{
-		RotationInterval: 200 * time.Millisecond,
+		// Large rotation, to make sure the test is not
+		// affected - this is not a rotation test.
+		RotationInterval: 2 * time.Hour,
 		EvictionDuration: 0,
 		UseTokenForCSR:   true,
 		SkipParseToken:   false,
@@ -960,12 +913,11 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	ctx := context.Background()
 
 	wgAddedWatch.Add(1) // Watch should be added for cert file.
-	notifyEvent.Add(1)  // Nofify should be called once.
-
+	// notify is called only on rotation - it was accidentally called
+	// because rotation interval was set to a very small value.
 	gotSecret, err := sc.GenerateSecret(ctx, conID, WorkloadKeyCertResourceName, "jwtToken1")
 
 	wgAddedWatch.Wait()
-	notifyEvent.Wait()
 
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -981,12 +933,13 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 	}
 
 	wgAddedWatch.Add(1) // Watch should be added for root file.
-	notifyEvent.Add(1)  // Notify should be called once.
 
+	// This test was passing because it overrides secret rotation to 100ms,
+	// and the callback happens to be called on rotation (by accident I think, since
+	// secret is not supposed to be rotated - probably a sideffect of the token?)
 	gotSecretRoot, err := sc.GenerateSecret(ctx, conID, RootCertReqResourceName, "jwtToken1")
 
 	wgAddedWatch.Wait()
-	notifyEvent.Wait()
 
 	if err != nil {
 		t.Fatalf("Failed to get secrets: %v", err)
@@ -1027,6 +980,8 @@ func TestWorkloadAgentGenerateSecretFromFile(t *testing.T) {
 		Name: certChainPath,
 		Op:   fsnotify.Write,
 	})
+	// Test will timeout after a long time if rotation doesn't happen.
+	// A channel with timeout would work better.
 	notifyEvent.Wait()
 }
 

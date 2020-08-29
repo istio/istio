@@ -631,35 +631,35 @@ Istio will be started on the host network as a docker container in capture mode.
 	}
 
 	vmBSCommand.PersistentFlags().BoolVarP(&all, "all", "a", false,
-		"attempt to bootstrap all workload entries")
+		"Attempt to bootstrap all workload entries")
 	vmBSCommand.PersistentFlags().DurationVar(&certDuration, "duration", 365*24*time.Hour,
-		"(experimental) duration the certificates generated are valid for.")
+		"(experimental) Duration the certificates generated are valid for.")
 	vmBSCommand.PersistentFlags().StringVarP(&dumpDir, "local-dir", "d", "",
-		"directory to place certs in locally as opposed to copying")
+		"Directory to place certs in locally as opposed to copying")
 	vmBSCommand.PersistentFlags().StringVar(&istioProxyImage, "istio-image", "istio/proxyv2:latest",
-		"(experimental) the Istio proxy image to start up when starting Istio")
+		"(experimental) The Istio proxy image to start up when starting Istio")
 	vmBSCommand.PersistentFlags().BoolVar(&mutualTLS, "mutual-tls", false,
-		"(experimental) enable mutual TLS if starting Istio-Proxy.")
+		"(experimental) Enable mutual TLS if starting Istio-Proxy.")
 	vmBSCommand.PersistentFlags().StringVarP(&organization, "organization", "o", "",
-		"(experimental) the organization to use on the certificate, defaults to the same as the root cert.")
+		"(experimental) The organization to use on the certificate, defaults to the same as the root cert.")
 	vmBSCommand.PersistentFlags().StringVar(&remoteDirectory, "remote-directory", "/var/run/istio",
-		"(experimental) the directory to create on the remote machine.")
+		"(experimental) The directory to create on the remote machine.")
 	vmBSCommand.PersistentFlags().StringVar(&scpPath, "remote-scp-path", "/usr/bin/scp",
-		"(experimental) the scp binary location on the target machine if not at /usr/bin/scp")
+		"(experimental) The scp binary location on the target machine if not at /usr/bin/scp")
 	vmBSCommand.PersistentFlags().DurationVar(&scpTimeout, "timeout", 60*time.Second,
-		"(experimental) the timeout for copying certificates")
+		"(experimental) The timeout for copying certificates")
 	vmBSCommand.PersistentFlags().StringVar(&spiffeTrustDomain, "spiffe-trust-domain", "",
-		"(experimental) the SPIFFE trust domain for the generated certs")
+		"(experimental) The SPIFFE trust domain for the generated certs")
 	vmBSCommand.PersistentFlags().BoolVar(&sshIgnoreHostKeys, "ignore-host-keys", false,
-		"(experimental) ignore host keys on the remote host")
+		"(experimental) Ignore host keys on the remote host")
 	vmBSCommand.PersistentFlags().StringVarP(&sshKeyLocation, "ssh-key", "k", "",
-		"(experimental) the location of the SSH key")
+		"(experimental) The location of the SSH key")
 	vmBSCommand.PersistentFlags().IntVar(&sshPort, "ssh-port", 22,
-		"(experimental) the port to SSH to the machine on")
+		"(experimental) The port to SSH to the machine on")
 	vmBSCommand.PersistentFlags().StringVarP(&sshUser, "ssh-user", "u", "",
-		"(experimental) the user to SSH as, defaults to the current user")
+		"(experimental) The user to SSH as, defaults to the current user")
 	vmBSCommand.PersistentFlags().BoolVar(&startIstio, "start-istio-proxy", false,
-		"start Istio proxy on a remote host after copying certs")
+		"Start Istio proxy on a remote host after copying certs")
 
 	return vmBSCommand
 }

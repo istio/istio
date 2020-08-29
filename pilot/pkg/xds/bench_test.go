@@ -22,15 +22,18 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Masterminds/sprig"
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/Masterminds/sprig/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/any"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
@@ -98,7 +101,7 @@ func BenchmarkInitPushContext(b *testing.B) {
 			s, proxy := setupTest(b, tt)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				initPushContext(s.Env, proxy)
+				initPushContext(s.Env(), proxy)
 			}
 		})
 	}
@@ -111,20 +114,19 @@ func BenchmarkRouteGeneration(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			// To determine which routes to generate, first gen listeners once (not part of benchmark) and extract routes
 			l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
-			routeNames := ExtractRoutesFromListeners(l)
+			routeNames := xdstest.ExtractRoutesFromListeners(l)
 			if len(routeNames) == 0 {
 				b.Fatal("Got no route names!")
 			}
 			b.ResetTimer()
-			var response *discovery.DiscoveryResponse
+			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				r := s.Discovery.ConfigGenerator.BuildHTTPRoutes(proxy, s.PushContext(), routeNames)
-				if len(r) == 0 {
+				c = s.Discovery.Generators[v3.RouteType].Generate(proxy, s.PushContext(), &model.WatchedResource{ResourceNames: routeNames}, nil)
+				if len(c) == 0 {
 					b.Fatal("Got no routes!")
 				}
-				response = routeDiscoveryResponse(r, "", "")
 			}
-			logDebug(b, response)
+			logDebug(b, c)
 		})
 	}
 }
@@ -135,15 +137,14 @@ func BenchmarkClusterGeneration(b *testing.B) {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			b.ResetTimer()
-			var response *discovery.DiscoveryResponse
+			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c := s.Discovery.ConfigGenerator.BuildClusters(proxy, s.PushContext())
+				c = s.Discovery.Generators[v3.ClusterType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no clusters!")
 				}
-				response = cdsDiscoveryResponse(c, "")
 			}
-			logDebug(b, response)
+			logDebug(b, c)
 		})
 	}
 }
@@ -154,15 +155,14 @@ func BenchmarkListenerGeneration(b *testing.B) {
 		b.Run(tt.Name, func(b *testing.B) {
 			s, proxy := setupAndInitializeTest(b, tt)
 			b.ResetTimer()
-			var response *discovery.DiscoveryResponse
+			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
-				if len(l) == 0 {
+				c = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
+				if len(c) == 0 {
 					b.Fatal("Got no listeners!")
 				}
-				response = ldsDiscoveryResponse(l, "", "")
 			}
-			logDebug(b, response)
+			logDebug(b, c)
 		})
 	}
 }
@@ -198,14 +198,14 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {
-				loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
+				loadAssignments := make([]*any.Any, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.Discovery.generateEndpoints(createEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
-					loadAssignments = append(loadAssignments, l)
+					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
+					loadAssignments = append(loadAssignments, util.MessageToAny(l))
 				}
 				response = endpointDiscoveryResponse(loadAssignments, version, push.Version)
 			}
-			logDebug(b, response)
+			logDebug(b, response.GetResources())
 		})
 	}
 }
@@ -228,7 +228,6 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			IstioVersion: "1.7.0",
-			SdsEnabled:   true,
 		},
 		// TODO: if you update this, make sure telemetry.yaml is also updated
 		IstioVersion:    &model.IstioVersion{Major: 1, Minor: 6},
@@ -243,9 +242,9 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 	return s, proxy
 }
 
-var configCache = map[ConfigInput][]model.Config{}
+var configCache = map[ConfigInput][]config.Config{}
 
-func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
+func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
 	// Config setup is slow for large tests. Cache this and return from cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
@@ -280,7 +279,7 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) []model.Config {
 
 func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
 	s, proxy := setupTest(t, config)
-	initPushContext(s.Env, proxy)
+	initPushContext(s.Env(), proxy)
 	return s, proxy
 }
 
@@ -296,36 +295,38 @@ var debugGeneration = env.RegisterBoolVar("DEBUG_CONFIG_DUMP", false, "if enable
 var benchmarkScope = log.RegisterScope("benchmark", "", 0)
 
 // Add additional debug info for a test
-func logDebug(b *testing.B, m *discovery.DiscoveryResponse) {
+func logDebug(b *testing.B, m model.Resources) {
 	b.Helper()
 	b.StopTimer()
 
 	if debugGeneration.Get() {
-		s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(m)
-		if err != nil {
-			b.Fatal(err)
+		for i, r := range m {
+			s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(r)
+			if err != nil {
+				b.Fatal(err)
+			}
+			// Cannot use b.Logf, it truncates
+			benchmarkScope.Infof("Generated: %d %s", i, s)
 		}
-		// Cannot use b.Logf, it truncates
-		benchmarkScope.Infof("Generated: %s", s)
 	}
-	bytes, err := proto.Marshal(m)
-	if err != nil {
-		b.Fatal(err)
+	bytes := 0
+	for _, r := range m {
+		bytes += len(r.Value)
 	}
-	b.ReportMetric(float64(len(bytes))/1000, "kb/msg")
-	b.ReportMetric(float64(len(m.Resources)), "resources/msg")
+	b.ReportMetric(float64(bytes)/1000, "kb/msg")
+	b.ReportMetric(float64(len(m)), "resources/msg")
 	b.StartTimer()
 }
 
-func createEndpoints(numEndpoints int, numServices int) []model.Config {
-	result := make([]model.Config, 0, numServices)
+func createEndpoints(numEndpoints int, numServices int) []config.Config {
+	result := make([]config.Config, 0, numServices)
 	for s := 0; s < numServices; s++ {
 		endpoints := make([]*networking.WorkloadEntry, 0, numEndpoints)
 		for e := 0; e < numEndpoints; e++ {
 			endpoints = append(endpoints, &networking.WorkloadEntry{Address: fmt.Sprintf("111.%d.%d.%d", e/(256*256), (e/256)%256, e%256)})
 		}
-		result = append(result, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		result = append(result, config.Config{
+			Meta: config.Meta{
 				GroupVersionKind:  collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(),
 				Name:              fmt.Sprintf("foo-%d", s),
 				Namespace:         "default",

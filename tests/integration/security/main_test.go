@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,7 +41,6 @@ func setupConfig(cfg *istio.Config) {
 	}
 	rootNamespace = cfg.SystemNamespace
 
-	cfg.ExposeIstiod = true
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:

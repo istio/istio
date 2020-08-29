@@ -52,6 +52,8 @@ features:
       proxy-config:
       proxy-status:
       authz-check:
+      analysis:
+        line-numbers:
     helpers:
       add-to-mesh:
       remove-from-mesh:
@@ -59,6 +61,7 @@ features:
   security:
     peer:
       secure-naming:
+      trust-domain-validation:
     user:
     ingress:
       mtls:

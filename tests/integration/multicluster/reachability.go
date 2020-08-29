@@ -20,14 +20,12 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 )
 
-// ReachabilityTest tests that services in 2 different clusters can talk to each other.
-func ReachabilityTest(t *testing.T, ns namespace.Instance, features ...features.Feature) {
+// ReachabilityTest tests that different services in 2 different clusters can talk to each other.
+func ReachabilityTest(t *testing.T, apps AppContext, features ...features.Feature) {
 	framework.NewTest(t).
 		Label(label.Multicluster).
 		Features(features...).
@@ -35,30 +33,10 @@ func ReachabilityTest(t *testing.T, ns namespace.Instance, features ...features.
 			ctx.NewSubTest("reachability").
 				Run(func(ctx framework.TestContext) {
 					clusters := ctx.Clusters()
-					// Running multiple instances in each cluster teases out cases where proxies inconsistently
-					// use wrong different discovery server. For higher numbers of clusters, we already end up
-					// running plenty of services. (see https://github.com/istio/istio/issues/23591).
-					svcPerCluster := 5 - len(clusters)
-					if svcPerCluster < 1 {
-						svcPerCluster = 1
-					}
-
-					builder := echoboot.NewBuilder(ctx)
-					for _, cluster := range clusters {
-						for i := 0; i < svcPerCluster; i++ {
-							svcName := fmt.Sprintf("echo-%d-%d", cluster.Index(), i)
-							builder = builder.With(nil, newEchoConfig(svcName, ns, cluster))
-						}
-					}
-					echos := builder.BuildOrFail(ctx)
-
-					// Now verify that all services in each cluster can hit one service in each cluster.
-					// Calling 1 service per remote cluster makes the number linear rather than quadratic with
-					// respect to len(clusters) * svcPerCluster.
-					for _, src := range echos {
+					for _, src := range apps.UniqueEchos {
 						for _, dstCluster := range clusters {
 							src := src
-							dest := echos.GetOrFail(ctx, echo.InCluster(dstCluster))
+							dest := apps.UniqueEchos.GetOrFail(ctx, echo.InCluster(dstCluster))
 							subTestName := fmt.Sprintf("%s->%s://%s:%s%s",
 								src.Config().Service,
 								"http",

@@ -30,11 +30,12 @@ import (
 	"strings"
 	"text/template"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +47,6 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/api/annotation"
-	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
@@ -444,10 +444,11 @@ func flippedContains(needle, haystack string) bool {
 }
 
 // InjectionData renders sidecarTemplate with valuesConfig.
-func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta, spec *corev1.PodSpec,
-	metadata *metav1.ObjectMeta, meshConfig *meshconfig.MeshConfig, path string) (
+func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, deploymentMetadata *metav1.ObjectMeta) (
 	*SidecarInjectionSpec, string, error) {
-
+	spec := &params.pod.Spec
+	metadata := &params.pod.ObjectMeta
+	meshConfig := params.meshConfig
 	// If DNSPolicy is not ClusterFirst, the Envoy sidecar may not able to connect to Istio Pilot.
 	if spec.DNSPolicy != "" && spec.DNSPolicy != corev1.DNSClusterFirst {
 		podName := potentialPodName(metadata)
@@ -461,8 +462,8 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	}
 
 	values := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(valuesConfig), &values); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, valuesConfig)
+	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
 		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
@@ -526,7 +527,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 		return bbuf.String()
 	}
 
-	bbuf, err := parseTemplate(sidecarTemplate, funcMap, data)
+	bbuf, err := parseTemplate(params.template, funcMap, data)
 	if err != nil {
 		return nil, "", err
 	}
@@ -535,7 +536,7 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	if err := yaml.Unmarshal(bbuf.Bytes(), &sic); err != nil {
 		// This usually means an invalid injector template; we can't check
 		// the template itself because it is merely a string.
-		log.Warnf("Failed to unmarshal template %v\n %s", err, bbuf.String())
+		log.Warnf("Failed to unmarshal template: %v\n %s", err, bbuf.String())
 		return nil, "", multierror.Prefix(err, "failed parsing generated injected YAML (check Istio sidecar injector configuration):")
 	}
 
@@ -543,9 +544,9 @@ func InjectionData(sidecarTemplate, valuesConfig, version string, typeMetadata *
 	applyConcurrency(sic.Containers)
 
 	// overwrite cluster name and network if needed
-	overwriteClusterInfo(sic.Containers, path)
+	overwriteClusterInfo(sic.Containers, params)
 
-	status := &SidecarInjectionStatus{Version: version}
+	status := &SidecarInjectionStatus{Version: params.version}
 	for _, c := range sic.InitContainers {
 		status.InitContainers = append(status.InitContainers, c.Name)
 	}
@@ -747,88 +748,60 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		}
 	}
 
-	spec, status, err := InjectionData(
-		sidecarTemplate,
-		valuesConfig,
-		sidecarTemplateVersionHash(sidecarTemplate),
-		typeMeta,
-		deploymentMetadata,
-		podSpec,
-		metadata,
-		meshconfig,
-		"")
+	pod := &corev1.Pod{
+		ObjectMeta: *metadata,
+		Spec:       *podSpec,
+	}
+	if !injectRequired(ignoredNamespaces, &Config{Policy: InjectionPolicyEnabled}, &pod.Spec, &pod.ObjectMeta) {
+		warningHandler(fmt.Sprintf("===> Skipping injection because %q has sidecar injection disabled\n", name))
+		return out, nil
+	}
+	params := InjectionParameters{
+		pod:                 pod,
+		deployMeta:          deploymentMetadata,
+		typeMeta:            typeMeta,
+		template:            sidecarTemplate,
+		version:             sidecarTemplateVersionHash(sidecarTemplate),
+		meshConfig:          meshconfig,
+		valuesConfig:        valuesConfig,
+		revision:            revision,
+		proxyEnvs:           nil,
+		injectedAnnotations: nil,
+	}
+	patchBytes, err := injectPod(params)
+	if err != nil {
+		return nil, err
+	}
+	patched, err := applyJSONPatchToPod(pod, patchBytes)
+	if err != nil {
+		return nil, err
+	}
+	patchedObject, _, err := jsonSerializer.Decode(patched, nil, pod)
+	if err != nil {
+		return nil, err
+	}
+	patchedPod := patchedObject.(*corev1.Pod)
+	*metadata = patchedPod.ObjectMeta
+	*podSpec = patchedPod.Spec
+	return out, nil
+}
+
+func applyJSONPatchToPod(input *corev1.Pod, patch []byte) ([]byte, error) {
+	objJS, err := runtime.Encode(jsonSerializer, input)
 	if err != nil {
 		return nil, err
 	}
 
-	podSpec.InitContainers = append(podSpec.InitContainers, spec.InitContainers...)
-
-	podSpec.Containers = injectContainers(podSpec.Containers, spec)
-	podSpec.Volumes = append(podSpec.Volumes, spec.Volumes...)
-
-	podSpec.DNSConfig = spec.DNSConfig
-
-	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, spec.ImagePullSecrets...)
-
-	// Modify application containers' HTTP probe after appending injected containers.
-	// Because we need to extract istio-proxy's statusPort.
-	rewriteAppHTTPProbe(metadata.Annotations, podSpec, spec, meshconfig.DefaultConfig.GetStatusPort())
-
-	// due to bug https://github.com/kubernetes/kubernetes/issues/57923,
-	// k8s sa jwt token volume mount file is only accessible to root user, not istio-proxy(the user that istio proxy runs as).
-	// workaround by https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-	var grp = int64(1337)
-	if podSpec.SecurityContext == nil {
-		podSpec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup: &grp,
-		}
-	} else {
-		podSpec.SecurityContext.FSGroup = &grp
+	p, err := jsonpatch.DecodePatch(patch)
+	if err != nil {
+		return nil, err
 	}
 
-	if metadata.Annotations == nil {
-		metadata.Annotations = make(map[string]string)
+	patchedJSON, err := p.Apply(objJS)
+	if err != nil {
+		return nil, err
 	}
-
-	if len(spec.PodRedirectAnnot) != 0 {
-		rewriteCniPodSpec(metadata.Annotations, spec)
-	}
-
-	metadata.Annotations[annotation.SidecarStatus.Name] = status
-	if metadata.Labels == nil {
-		metadata.Labels = make(map[string]string)
-	}
-	// This function, IntoObject(), is only used on the 'istioctl kube-kubeinject' path, which
-	// doesn't use Pilot bootstrap variables.
-	metadata.Labels[label.IstioRev] = revision
-	if status != "" && metadata.Labels[label.TLSMode] == "" {
-		metadata.Labels[label.TLSMode] = model.IstioMutualTLSModeLabel
-	}
-
-	return out, nil
-}
-
-func injectContainers(target []corev1.Container, sic *SidecarInjectionSpec) []corev1.Container {
-	containersToInject := sic.Containers
-	if sic.HoldApplicationUntilProxyStarts {
-		// inject sidecar at start of spec.containers
-		proxyIndex := -1
-		for i, c := range containersToInject {
-			if c.Name == ProxyContainerName {
-				proxyIndex = i
-				break
-			}
-		}
-		if proxyIndex != -1 {
-			result := make([]corev1.Container, 1, len(target)+len(containersToInject))
-			result[0] = containersToInject[proxyIndex]
-			result = append(result, target...)
-			result = append(result, containersToInject[:proxyIndex]...)
-			result = append(result, containersToInject[proxyIndex+1:]...)
-			return result
-		}
-	}
-	return append(target, containersToInject...)
+	return patchedJSON, nil
 }
 
 func getPortsForContainer(container corev1.Container) []string {
@@ -1084,59 +1057,31 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 	return ""
 }
 
-// rewriteCniPodSpec will check if values from the sidecar injector Helm
-// values need to be inserted as Pod annotations so the CNI will apply
-// the proper redirection rules.
-func rewriteCniPodSpec(annotations map[string]string, spec *SidecarInjectionSpec) {
-
-	if spec == nil {
-		return
-	}
-	if len(spec.PodRedirectAnnot) == 0 {
-		return
-	}
-	for k := range AnnotationValidation {
-		if spec.PodRedirectAnnot[k] != "" {
-			if annotations[k] == spec.PodRedirectAnnot[k] {
-				continue
-			}
-			annotations[k] = spec.PodRedirectAnnot[k]
-		}
-	}
-}
-
 // overwriteClusterInfo updates cluster name and network from url path
 // This is needed when webconfig config runs on a different cluster than webhook
-func overwriteClusterInfo(containers []corev1.Container, path string) {
-	res := strings.Split(path, "/")
-	if len(res) >= 5 {
-		// if len is less than 5, not enough length for /cluster/X/net/Y
-		clusterName, clusterNetwork := "", ""
-		clusterName = res[len(res)-3]
-		clusterNetwork = res[len(res)-1]
-
-		log.Debugf("Updating cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
-
+func overwriteClusterInfo(containers []corev1.Container, params InjectionParameters) {
+	if len(params.proxyEnvs) > 0 {
+		log.Debugf("Updating cluster envs based on inject url: %s\n", params.proxyEnvs)
 		for i, c := range containers {
 			if c.Name == ProxyContainerName {
-				updateClusterInfo(&containers[i], clusterName, clusterNetwork)
+				updateClusterEnvs(&containers[i], params.proxyEnvs)
+				break
 			}
 		}
 	}
-
 }
 
-func updateClusterInfo(container *corev1.Container, clusterName, clusterNetwork string) {
+func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 	envVars := make([]corev1.EnvVar, 0)
+
 	for _, env := range container.Env {
-		if env.Name != "ISTIO_META_CLUSTER_ID" && env.Name != "ISTIO_META_NETWORK" {
+		if _, found := newKVs[env.Name]; !found {
 			envVars = append(envVars, env)
 		}
 	}
+	for k, v := range newKVs {
+		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v, ValueFrom: nil})
+	}
 
-	log.Debugf("Appending env ISTIO_META_CLUSTER_ID: %s and ISTIO_META_NETWORK: %s\n", clusterName, clusterNetwork)
-	envVars = append(envVars,
-		corev1.EnvVar{Name: "ISTIO_META_CLUSTER_ID", Value: clusterName, ValueFrom: nil},
-		corev1.EnvVar{Name: "ISTIO_META_NETWORK", Value: clusterNetwork, ValueFrom: nil})
 	container.Env = envVars
 }

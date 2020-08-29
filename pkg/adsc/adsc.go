@@ -49,8 +49,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	"istio.io/pkg/log"
@@ -66,6 +66,8 @@ type Config struct {
 
 	// Meta includes additional metadata for the node
 	Meta *pstruct.Struct
+
+	Locality *core.Locality
 
 	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
 	NodeType string
@@ -192,8 +194,9 @@ type ADSC struct {
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
 
-	sync   map[string]time.Time
-	syncCh chan string
+	sync     map[string]time.Time
+	syncCh   chan string
+	Locality *core.Locality
 }
 
 type ResponseHandler interface {
@@ -255,6 +258,7 @@ func Dial(url string, certDir string, opts *Config) (*ADSC, error) {
 		opts.Workload = "test-1"
 	}
 	adsc.Metadata = opts.Meta
+	adsc.Locality = opts.Locality
 
 	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", opts.NodeType, opts.IP,
 		opts.Workload, opts.Namespace, opts.Namespace)
@@ -295,7 +299,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 	if a.cfg.Secrets != nil {
 		tok, err := ioutil.ReadFile(a.cfg.JWTPath)
 		if err != nil {
-			log.Infof("Failed to get credential token: %v", err)
+			log.Infof("Failed to get credential token in agent: %v", err)
 			tok = []byte("")
 		}
 
@@ -524,10 +528,20 @@ func (a *ADSC) handleRecv() {
 		// This scheme also allows us to chunk large responses !
 
 		// TODO: add hook to inject nacks
+		switch msg.TypeUrl {
+		case v3.ClusterType:
+			a.handleCDS(clusters)
+		case v3.EndpointType:
+			a.handleEDS(eds)
+		case v3.ListenerType:
+			a.handleLDS(listeners)
+		case v3.RouteType:
+			a.handleRDS(routes)
+		}
 
 		a.mutex.Lock()
 		if len(gvk) == 3 {
-			gt := resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+			gt := config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 			a.sync[gt.String()] = time.Now()
 			a.syncCh <- gt.String()
 		}
@@ -535,18 +549,6 @@ func (a *ADSC) handleRecv() {
 		a.ack(msg)
 		a.mutex.Unlock()
 
-		if len(listeners) > 0 {
-			a.handleLDS(listeners)
-		}
-		if len(clusters) > 0 {
-			a.handleCDS(clusters)
-		}
-		if len(eds) > 0 {
-			a.handleEDS(eds)
-		}
-		if len(routes) > 0 {
-			a.handleRDS(routes)
-		}
 		select {
 		case a.XDSUpdates <- msg:
 		default:
@@ -554,12 +556,12 @@ func (a *ADSC) handleRecv() {
 	}
 }
 
-func mcpToPilot(m *mcp.Resource) (*model.Config, error) {
+func mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	if m == nil || m.Metadata == nil {
-		return &model.Config{}, nil
+		return &config.Config{}, nil
 	}
-	c := &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	c := &config.Config{
+		Meta: config.Meta{
 			ResourceVersion: m.Metadata.Version,
 			Labels:          m.Metadata.Labels,
 			Annotations:     m.Metadata.Annotations,
@@ -654,7 +656,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	a.tcpListeners = lt
 
 	select {
-	case a.Updates <- "lds":
+	case a.Updates <- v3.ListenerType:
 	default:
 	}
 }
@@ -717,7 +719,7 @@ func (a *ADSC) Save(base string) error {
 
 func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 
-	cn := []string{}
+	cn := make([]string, 0, len(ll))
 	cdsSize := 0
 	edscds := map[string]*cluster.Cluster{}
 	cds := map[string]*cluster.Cluster{}
@@ -750,14 +752,15 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 	a.clusters = cds
 
 	select {
-	case a.Updates <- "cds":
+	case a.Updates <- v3.ClusterType:
 	default:
 	}
 }
 
 func (a *ADSC) node() *core.Node {
 	n := &core.Node{
-		Id: a.nodeID,
+		Id:       a.nodeID,
+		Locality: a.Locality,
 	}
 	if a.Metadata == nil {
 		n.Metadata = &pstruct.Struct{
@@ -811,7 +814,7 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	a.eds = la
 
 	select {
-	case a.Updates <- "eds":
+	case a.Updates <- v3.EndpointType:
 	default:
 	}
 }
@@ -853,7 +856,7 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 	a.mutex.Unlock()
 
 	select {
-	case a.Updates <- "rds":
+	case a.Updates <- v3.RouteType:
 	default:
 	}
 
@@ -871,6 +874,33 @@ func (a *ADSC) WaitClear() {
 	}
 }
 
+// WaitSingle waits for a single resource, and fails if any other are returned
+func (a *ADSC) WaitSingle(to time.Duration, want string) error {
+	t := time.NewTimer(to)
+	for {
+		select {
+		case t := <-a.Updates:
+			if t == "" {
+				return fmt.Errorf("closed")
+			}
+			if t != want && shortTypeMap[t] != want {
+				return fmt.Errorf("wanted update for %v got %v/%v", want, t, shortTypeMap[t])
+			}
+			return nil
+		case <-t.C:
+			return fmt.Errorf("timeout, still waiting for update for %v", want)
+		}
+	}
+}
+
+// TODO stop using short types
+var shortTypeMap = map[string]string{
+	"cds": v3.ClusterType,
+	"lds": v3.ListenerType,
+	"rds": v3.RouteType,
+	"eds": v3.EndpointType,
+}
+
 // Wait for an updates for all the specified types
 // If updates is empty, this will wait for any update
 func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
@@ -882,32 +912,12 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	got := make([]string, 0, len(updates))
 	for {
 		select {
-		case t := <-a.Updates:
-			if t == "" {
+		case toDelete := <-a.Updates:
+			if toDelete == "" {
 				return got, fmt.Errorf("closed")
 			}
-			toDelete := t
-			// legacy names, still used in tests.
-			switch t {
-			case v3.ListenerType:
-				delete(want, "lds")
-			case v3.ClusterType:
-				delete(want, "cds")
-			case v3.EndpointType:
-				delete(want, "eds")
-			case v3.RouteType:
-				delete(want, "rds")
-			case "lds":
-				delete(want, v3.ListenerType)
-			case "cds":
-				delete(want, v3.ClusterType)
-			case "eds":
-				delete(want, v3.EndpointType)
-			case "rds":
-				delete(want, v3.RouteType)
-			}
 			delete(want, toDelete)
-			got = append(got, t)
+			got = append(got, toDelete)
 			if len(want) == 0 {
 				return got, nil
 			}
@@ -1022,12 +1032,17 @@ func (a *ADSC) sendRsc(typeurl string, rsc []string) {
 
 func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
 	var resources []string
-	// TODO: Send routes also in future.
 	if msg.TypeUrl == v3.EndpointType {
 		for c := range a.edsClusters {
 			resources = append(resources, c)
 		}
 	}
+	if msg.TypeUrl == v3.RouteType {
+		for r := range a.routes {
+			resources = append(resources, r)
+		}
+	}
+
 	_ = a.stream.Send(&discovery.DiscoveryRequest{
 		ResponseNonce: msg.Nonce,
 		TypeUrl:       msg.TypeUrl,
@@ -1100,7 +1115,7 @@ func (a *ADSC) handleMCP(gvk []string, rsc *any.Any, valBytes []byte) error {
 		adscLog.Warna("Invalid data ", err, " ", string(valBytes))
 		return err
 	}
-	val.GroupVersionKind = resource.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
+	val.GroupVersionKind = config.GroupVersionKind{Group: gvk[0], Version: gvk[1], Kind: gvk[2]}
 	cfg := a.Store.Get(val.GroupVersionKind, val.Name, val.Namespace)
 	if cfg == nil {
 		_, err = a.Store.Create(*val)

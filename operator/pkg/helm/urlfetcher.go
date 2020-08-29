@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mholt/archiver"
+	"github.com/mholt/archiver/v3"
 
 	"istio.io/istio/operator/pkg/httprequest"
 	"istio.io/istio/operator/pkg/version"

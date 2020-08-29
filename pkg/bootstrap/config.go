@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/spiffe"
 	"istio.io/pkg/log"
 )
 
@@ -98,9 +97,6 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 	opts := make([]option.Instance, 0)
 
 	// Fill in default config values.
-	if cfg.PilotSubjectAltName == nil {
-		cfg.PilotSubjectAltName = defaultPilotSAN()
-	}
 	if cfg.PlatEnv == nil {
 		cfg.PlatEnv = platform.Discover()
 	}
@@ -255,11 +251,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata, nodeIPs []string, config
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(meta.StatsInclusionRegexps, "")),
 		option.EnvoyExtraStatTags(extraStatTags),
 	}
-}
-
-func defaultPilotSAN() []string {
-	return []string{
-		spiffe.MustGenSpiffeURI("istio-system", "istio-pilot-service-account")}
 }
 
 func lightstepAccessTokenFile(config string) string {
@@ -494,9 +485,6 @@ func getNodeMetaData(envs []string, plat platform.Environment, nodeIPs []string,
 
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = nodeIPs
-
-	// sds is enabled by default
-	meta.SdsEnabled = true
 
 	// Add STS port into node metadata if it is not 0. This is read by envoy telemetry filters
 	if stsPort != 0 {

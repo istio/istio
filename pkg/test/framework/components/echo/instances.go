@@ -25,6 +25,19 @@ import (
 // Instances contains the instances created by the builder with methods for filtering
 type Instances []Instance
 
+// Clusters returns a list of cluster names that the instances are deployed in
+func (i Instances) Clusters() resource.Clusters {
+	clusters := map[string]resource.Cluster{}
+	for _, instance := range i {
+		clusters[instance.Config().Cluster.Name()] = instance.Config().Cluster
+	}
+	out := make(resource.Clusters, 0, len(clusters))
+	for _, c := range clusters {
+		out = append(out, c)
+	}
+	return out
+}
+
 // Matcher is used to filter matching instances
 type Matcher func(Instance) bool
 
@@ -57,6 +70,13 @@ func InCluster(c resource.Cluster) Matcher {
 	}
 }
 
+// InNetwork matches instances deployed in the given network.
+func InNetwork(n string) Matcher {
+	return func(i Instance) bool {
+		return i.Config().Cluster.NetworkName() == n
+	}
+}
+
 // Match filters instances that matcher the given Matcher
 func (i Instances) Match(matches Matcher) Instances {
 	out := make(Instances, 0)
@@ -83,4 +103,16 @@ func (i Instances) GetOrFail(t test.Failer, matches Matcher) Instance {
 		t.Fatal(err)
 	}
 	return res
+}
+
+func (i Instances) Contains(instances ...Instance) bool {
+	matches := i.Match(func(instance Instance) bool {
+		for _, ii := range instances {
+			if ii == instance {
+				return true
+			}
+		}
+		return false
+	})
+	return len(matches) > 0
 }

@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +24,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/Masterminds/sprig"
+	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
@@ -111,20 +112,20 @@ func TestLocality(t *testing.T) {
 					LocalityInput{
 						LocalitySetting: localityFailover,
 						Resolution:      "DNS",
-						Local:           apps.podB.Config().Service,
-						Remote:          apps.podC.Config().Service,
+						Local:           podBSvc,
+						Remote:          podCSvc,
 					},
-					expectAllTrafficTo(apps.podB.Config().Service),
+					expectAllTrafficTo(podBSvc),
 				},
 				{
 					"Prioritized/EDS",
 					LocalityInput{
 						LocalitySetting: localityFailover,
 						Resolution:      "STATIC",
-						Local:           apps.podC.Address(),
-						Remote:          apps.podB.Address(),
+						Local:           apps.podC[0].Address(),
+						Remote:          apps.podB[0].Address(),
 					},
-					expectAllTrafficTo(apps.podC.Config().Service),
+					expectAllTrafficTo(podCSvc),
 				},
 				{
 					"Failover/CDS",
@@ -132,10 +133,10 @@ func TestLocality(t *testing.T) {
 						LocalitySetting: localityFailover,
 						Resolution:      "DNS",
 						Local:           "fake-should-fail.example.com",
-						NearLocal:       apps.podB.Config().Service,
-						Remote:          apps.podC.Config().Service,
+						NearLocal:       podBSvc,
+						Remote:          podCSvc,
 					},
-					expectAllTrafficTo(apps.podB.Config().Service),
+					expectAllTrafficTo(podBSvc),
 				},
 				{
 					"Failover/EDS",
@@ -143,23 +144,23 @@ func TestLocality(t *testing.T) {
 						LocalitySetting: localityFailover,
 						Resolution:      "STATIC",
 						Local:           "10.10.10.10",
-						NearLocal:       apps.podC.Address(),
-						Remote:          apps.podB.Address(),
+						NearLocal:       apps.podC[0].Address(),
+						Remote:          apps.podB[0].Address(),
 					},
-					expectAllTrafficTo(apps.podC.Config().Service),
+					expectAllTrafficTo(podCSvc),
 				},
 				{
 					"Distribute/CDS",
 					LocalityInput{
 						LocalitySetting: localityDistribute,
 						Resolution:      "DNS",
-						Local:           apps.podC.Config().Service,
-						NearLocal:       apps.podB.Config().Service,
+						Local:           podCSvc,
+						NearLocal:       podBSvc,
 						Remote:          "fake-should-fail.example.com",
 					},
 					map[string]int{
-						apps.podB.Config().Service: sendCount * .8,
-						apps.podC.Config().Service: sendCount * .2,
+						podBSvc: sendCount * .8,
+						podCSvc: sendCount * .2,
 					},
 				},
 				{
@@ -167,13 +168,13 @@ func TestLocality(t *testing.T) {
 					LocalityInput{
 						LocalitySetting: localityDistribute,
 						Resolution:      "STATIC",
-						Local:           apps.podB.Address(),
-						NearLocal:       apps.podC.Address(),
+						Local:           apps.podB[0].Address(),
+						NearLocal:       apps.podC[0].Address(),
 						Remote:          "10.10.10.10",
 					},
 					map[string]int{
-						apps.podC.Config().Service: sendCount * .8,
-						apps.podB.Config().Service: sendCount * .2,
+						podCSvc: sendCount * .8,
+						podBSvc: sendCount * .2,
 					},
 				},
 			}
@@ -183,7 +184,7 @@ func TestLocality(t *testing.T) {
 					tt.input.Host = hostname
 					applyAndCleanup(ctx, apps.namespace.Name(), runTemplate(ctx, localityTemplate, tt.input))
 					retry.UntilSuccessOrFail(ctx, func() error {
-						return sendTraffic(apps.podA, hostname, tt.expected)
+						return sendTraffic(apps.podA[0], hostname, tt.expected)
 					}, retry.Delay(250*time.Millisecond))
 				})
 			}

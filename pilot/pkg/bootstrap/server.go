@@ -30,6 +30,7 @@ import (
 	middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -49,6 +50,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -60,6 +62,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/chiron"
 	"istio.io/istio/security/pkg/pki/ca"
+	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/pkg/ctrlz"
 	"istio.io/pkg/filewatcher"
 	"istio.io/pkg/log"
@@ -111,8 +114,10 @@ type Server struct {
 
 	kubeRestConfig *rest.Config
 	kubeClient     kubelib.Client
-	kubeRegistry   *kubecontroller.Controller
-	multicluster   *kubecontroller.Multicluster
+
+	// kubeRegistry is the service registry handling the primary cluster.
+	kubeRegistry *kubecontroller.Controller
+	multicluster *kubecontroller.Multicluster
 
 	configController  model.ConfigStoreCache
 	ConfigStores      []model.ConfigStoreCache
@@ -125,7 +130,18 @@ type Server struct {
 	grpcServer       *grpc.Server
 	secureGrpcServer *grpc.Server
 
-	httpMux  *http.ServeMux // debug, monitoring and readiness.
+	// monitoringMux listens on monitoringAddr(:15014).
+	// Currently runs prometheus monitoring and debug (if enabled).
+	monitoringMux *http.ServeMux
+
+	// httpMux listens on the httpAddr (8080).
+	// If a Gateway is used in front and https is off it is also multiplexing
+	// the rest of the features if their port is empty.
+	// Currently runs readiness and debug (if enabled)
+	httpMux *http.ServeMux
+
+	// httpsMux listens on the httpsAddr(15017), handling webhooks
+	// If the address os empty, the webhooks will be set on the default httpPort.
 	httpsMux *http.ServeMux // webhooks
 
 	HTTPListener       net.Listener
@@ -165,10 +181,13 @@ type Server struct {
 // NewServer creates a new Server instance based on the provided arguments.
 func NewServer(args *PilotArgs) (*Server, error) {
 	e := &model.Environment{
-		ServiceDiscovery: aggregate.NewController(),
-		PushContext:      model.NewPushContext(),
-		DomainSuffix:     args.RegistryOptions.KubeOptions.DomainSuffix,
+		PushContext:  model.NewPushContext(),
+		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 	}
+	ac := aggregate.NewController(aggregate.Options{
+		MeshHolder: e,
+	})
+	e.ServiceDiscovery = ac
 
 	s := &Server{
 		clusterID:       getClusterID(args),
@@ -176,6 +195,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 		XDSServer:       xds.NewDiscoveryServer(e, args.Plugins),
 		fileWatcher:     filewatcher.NewWatcher(),
 		httpMux:         http.NewServeMux(),
+		monitoringMux:   http.NewServeMux(),
 		readinessProbes: make(map[string]readinessProbe),
 	}
 
@@ -193,6 +213,7 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	prometheus.EnableHandlingTimeHistogram()
 
+	// TODO: revert to watching k8s (and merge with the file)
 	s.initMeshConfiguration(args, s.fileWatcher)
 
 	// Apply the arguments to the configuration.
@@ -259,9 +280,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initRegistryEventHandlers(); err != nil {
 		return nil, fmt.Errorf("error initializing handlers: %v", err)
 	}
-	if err := s.initDiscoveryService(args); err != nil {
-		return nil, fmt.Errorf("error initializing discovery service: %v", err)
-	}
+
+	s.initDiscoveryService(args)
 
 	// TODO(irisdingbj):add integration test after centralIstiod finished
 	args.RegistryOptions.KubeOptions.FetchCaRoot = nil
@@ -272,6 +292,20 @@ func NewServer(args *PilotArgs) (*Server, error) {
 
 	if err := s.initClusterRegistries(args); err != nil {
 		return nil, fmt.Errorf("error initializing cluster registries: %v", err)
+	}
+
+	// Notice that the order of authenticators matters, since at runtime
+	// authenticators are activated sequentially and the first successful attempt
+	// is used as the authentication result.
+	// The JWT authenticator requires the multicluster registry to be initialized, so we build this later
+	authenticators := []authenticate.Authenticator{
+		&authenticate.ClientCertAuthenticator{},
+		authenticate.NewKubeJWTAuthenticator(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient, spiffe.GetTrustDomain(), features.JwtPolicy.Get()),
+	}
+
+	caOpts.Authenticators = authenticators
+	if features.XDSAuth {
+		s.XDSServer.Authenticators = authenticators
 	}
 
 	s.initDNSServer(args)
@@ -339,6 +373,12 @@ func (s *Server) Start(stop <-chan struct{}) error {
 
 	// grpcServer is shared by Galley, CA, XDS - must Serve at the end, but before 'wait'
 	go func() {
+		if s.GRPCListener == nil {
+			return // listener is off - using handler
+		}
+		if !s.waitForCacheSync(stop) {
+			return
+		}
 		log.Infof("starting gRPC discovery service at %s", s.GRPCListener.Addr())
 		if err := s.grpcServer.Serve(s.GRPCListener); err != nil {
 			log.Warna(err)
@@ -434,9 +474,8 @@ func (s *Server) istiodReadyHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// initIstiodHTTPServer initializes monitoring, debug and readiness end points.
+// initIstiodAdminServer initializes monitoring, debug and readiness end points.
 func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) error {
-	log.Info("initializing Istiod admin server")
 	s.httpServer = &http.Server{
 		Addr:    args.ServerOptions.HTTPAddr,
 		Handler: s.httpMux,
@@ -448,8 +487,23 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 		return err
 	}
 
+	shouldMultiplex := args.ServerOptions.MonitoringAddr == ""
+
+	if shouldMultiplex {
+		s.monitoringMux = s.httpMux
+		log.Infoa("initializing Istiod admin server multiplexed on httpAddr ", listener.Addr())
+	} else {
+		log.Info("initializing Istiod admin server")
+	}
+
 	// Debug Server.
-	s.XDSServer.InitDebug(s.httpMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+	s.XDSServer.InitDebug(s.monitoringMux, s.ServiceController(), args.ServerOptions.EnableProfiling, wh)
+
+	// Debug handlers are currently added on monitoring mux and readiness mux.
+	// If monitoring addr is empty, the mux is shared and we only add it once on the shared mux .
+	if !shouldMultiplex {
+		s.XDSServer.AddDebugHandlers(s.httpMux, args.ServerOptions.EnableProfiling, wh)
+	}
 
 	// Monitoring Server.
 	if err := s.initMonitor(args.ServerOptions.MonitoringAddr); err != nil {
@@ -464,7 +518,7 @@ func (s *Server) initIstiodAdminServer(args *PilotArgs, wh *inject.Webhook) erro
 }
 
 // initDiscoveryService intializes discovery server on plain text port.
-func (s *Server) initDiscoveryService(args *PilotArgs) error {
+func (s *Server) initDiscoveryService(args *PilotArgs) {
 	log.Infof("starting discovery service")
 	// Implement EnvoyXdsServer grace shutdown
 	s.addStartFunc(func(stop <-chan struct{}) error {
@@ -474,13 +528,28 @@ func (s *Server) initDiscoveryService(args *PilotArgs) error {
 	})
 
 	s.initGrpcServer(args.KeepaliveOptions)
-	grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
-	if err != nil {
-		return err
-	}
-	s.GRPCListener = grpcListener
 
-	return nil
+	if args.ServerOptions.GRPCAddr != "" {
+		grpcListener, err := net.Listen("tcp", args.ServerOptions.GRPCAddr)
+		if err != nil {
+			log.Warnf("Failed to listen on gRPC port %v", err)
+		}
+		s.GRPCListener = grpcListener
+	} else if s.GRPCListener == nil {
+		// This happens only if the GRPC port (15010) is disabled. We will multiplex
+		// it on the HTTP port. Does not impact the HTTPS gRPC or HTTPS.
+		log.Infoa("multplexing gRPC on http port ", s.HTTPListener.Addr())
+		m := cmux.New(s.HTTPListener)
+		s.GRPCListener = m.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+		s.HTTPListener = m.Match(cmux.Any())
+		go func() {
+			err := m.Serve()
+			if err != nil {
+				log.Warnf("Failed to listen on multiplexed port %v", err)
+			}
+		}()
+
+	}
 }
 
 // Wait for the stop, and do cleanups
@@ -528,6 +597,9 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 		if s.IstioDNSServer != nil {
 			s.IstioDNSServer.Close()
 		}
+
+		// Shutdown the DiscoveryServer.
+		s.XDSServer.Shutdown()
 	}()
 }
 
@@ -588,6 +660,11 @@ func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
 
 // initialize secureGRPCServer.
 func (s *Server) initSecureDiscoveryService(args *PilotArgs) error {
+	if args.ServerOptions.SecureGRPCAddr == "" {
+		log.Infoa("The secure discovery port is disabled, multiplexing on httpAddr ")
+		return nil
+	}
+
 	if s.peerCertVerifier == nil {
 		// Running locally without configured certs - no TLS mode
 		log.Warnf("The secure discovery service is disabled")
@@ -764,7 +841,7 @@ func (s *Server) initRegistryEventHandlers() error {
 	}
 
 	if s.configController != nil {
-		configHandler := func(_, curr model.Config, event model.Event) {
+		configHandler := func(_, curr config.Config, event model.Event) {
 			pushReq := &model.PushRequest{
 				Full: true,
 				ConfigsUpdated: map[model.ConfigKey]struct{}{{
@@ -1051,7 +1128,11 @@ func (s *Server) startCA(caOpts *CAOptions) {
 	if s.CA != nil {
 		s.addStartFunc(func(stop <-chan struct{}) error {
 			log.Infof("staring CA")
-			s.RunCA(s.secureGrpcServer, s.CA, caOpts)
+			grpcServer := s.secureGrpcServer
+			if s.secureGrpcServer == nil {
+				grpcServer = s.grpcServer
+			}
+			s.RunCA(grpcServer, s.CA, caOpts)
 			return nil
 		})
 	}

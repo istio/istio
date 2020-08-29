@@ -184,12 +184,6 @@ func kubeToIstioServiceAccount(saname string, ns string) string {
 
 // SecureNamingSAN creates the secure naming used for SAN verification from pod metadata
 func SecureNamingSAN(pod *coreV1.Pod) string {
-
-	//use the identity annotation
-	if identity, exist := pod.Annotations[annotation.AlphaIdentity.Name]; exist {
-		return spiffe.GenCustomSpiffe(identity)
-	}
-
 	return spiffe.MustGenSpiffeURI(pod.Namespace, pod.Spec.ServiceAccountName)
 }
 

@@ -30,8 +30,8 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util/handlers"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
@@ -92,7 +92,7 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 				return fmt.Errorf("unable to retrieve Kubernetes resource %s: %v", "", err)
 			}
 			resourceVersions := []string{firstVersion}
-			targetResource := model.Key(targetSchema.Resource().Kind(), nameflag, namespace)
+			targetResource := config.Key(targetSchema.Resource().Kind(), nameflag, namespace)
 			for {
 				//run the check here as soon as we start
 				// because tickers won't run immediately
@@ -132,13 +132,13 @@ istioctl experimental wait --for=distribution --threshold=.99 --timeout=300 virt
 		},
 	}
 	cmd.PersistentFlags().StringVar(&forFlag, "for", "distribution",
-		"wait condition, must be 'distribution' or 'delete'")
+		"Wait condition, must be 'distribution' or 'delete'")
 	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
-		"the duration to wait before failing")
+		"The duration to wait before failing")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
-		"the ratio of distribution required for success")
+		"The ratio of distribution required for success")
 	cmd.PersistentFlags().StringVar(&resourceVersion, "resource-version", "",
-		"wait for a specific version of config to become current, rather than using whatever is latest in "+
+		"Wait for a specific version of config to become current, rather than using whatever is latest in "+
 			"kubernetes")
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enables verbose output")
 	_ = cmd.PersistentFlags().MarkHidden("verbose")

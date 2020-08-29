@@ -151,11 +151,11 @@ func (i *operatorComponent) Close() (err error) {
 	return
 }
 
-func (i *operatorComponent) Dump() {
+func (i *operatorComponent) Dump(ctx resource.Context) {
 	scopes.Framework.Errorf("=== Dumping Istio Deployment State...")
 
 	for _, cluster := range i.environment.KubeClusters {
-		d, err := i.ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
+		d, err := ctx.CreateTmpDirectory(fmt.Sprintf("istio-state-%s", cluster.Name()))
 		if err != nil {
 			scopes.Framework.Errorf("Unable to create directory for dumping Istio contents: %v", err)
 			return
@@ -225,11 +225,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
-
-				if cfg.ExposeIstiod {
-					if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
-						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
-					}
+				if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
+					return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
 				}
 				return nil
 			})
@@ -490,9 +487,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				return err
 			}
 			installSettings = append(installSettings,
-				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String(),
-				// Use the local Istiod for CA
-				"--set", "values.global.caAddress="+"istiod.istio-system.svc:15012")
+				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
 
 			if isCentralIstio(c.environment, cfg) {
 				installSettings = append(installSettings,
@@ -590,7 +585,7 @@ func waitForControlPlane(ctx resource.Context, dumper resource.Dumper, cluster r
 	if !cfg.SkipWaitForValidationWebhook {
 		// Wait for webhook to come online. The only reliable way to do that is to see if we can submit invalid config.
 		if err := waitForValidationWebhook(ctx, cluster, cfg); err != nil {
-			dumper.Dump()
+			dumper.Dump(ctx)
 			return err
 		}
 	}

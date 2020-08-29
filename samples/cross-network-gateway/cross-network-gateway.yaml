@@ -8,7 +8,7 @@ spec:
     istio: ingressgateway
   servers:
     - port:
-        number: 443
+        number: 15443
         name: tls
         protocol: TLS
       tls:

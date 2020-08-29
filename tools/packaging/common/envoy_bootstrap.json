@@ -26,7 +26,8 @@
           {
               "name": "deprecation",
               "static_layer": {
-                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+                  "re2.max_program_size.error_level": 1024
               }
           },
           {
@@ -457,7 +458,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -483,7 +484,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -506,7 +507,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -532,7 +533,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -549,7 +550,7 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.zipkin",
+      "name": "envoy.tracers.zipkin",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
         "collector_cluster": "zipkin",
@@ -564,7 +565,7 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.lightstep",
+      "name": "envoy.tracers.lightstep",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.trace.v3.LightstepConfig",
         "collector_cluster": "lightstep",
@@ -644,7 +645,7 @@
   "stats_sinks": [
     {{ if .envoy_metrics_service_address }}
     {
-      "name": "envoy.metrics_service",
+      "name": "envoy.stat_sinks.metrics_service",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
         "grpc_service": {
@@ -657,7 +658,7 @@
     {{ end }}
     {{ if .statsd }}
     {
-      "name": "envoy.statsd",
+      "name": "envoy.stat_sinks.statsd",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {

@@ -33,9 +33,8 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
 	"istio.io/istio/pilot/pkg/xds"
-	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 )
 
@@ -48,9 +47,6 @@ var (
 
 func TestGRPC(t *testing.T) {
 	ds := xds.NewXDS()
-	ds.DiscoveryServer.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &xds.EdsGenerator{Server: ds.DiscoveryServer}
-	ds.DiscoveryServer.Generators["grpc/"+v2.EndpointType] = epGen
 
 	sd := ds.DiscoveryServer.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
@@ -66,8 +62,8 @@ func TestGRPC(t *testing.T) {
 	se := collections.IstioNetworkingV1Alpha3Serviceentries.Resource()
 	store := ds.MemoryConfigStore
 
-	store.Create(model.Config{
-		ConfigMeta: model.ConfigMeta{
+	store.Create(config.Config{
+		Meta: config.Meta{
 			GroupVersionKind: se.GroupVersionKind(),
 			Name:             "fortio",
 			Namespace:        "fortio",
@@ -133,7 +129,9 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("gRPC-dial", func(t *testing.T) {
-		conn, err := grpc.Dial("xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure())
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		conn, err := grpc.DialContext(ctx, "xds:///istiod.istio-system.svc.cluster.local:14057", grpc.WithInsecure(), grpc.WithBlock())
 		if err != nil {
 			t.Fatal("XDS gRPC", err)
 		}
@@ -141,7 +139,7 @@ func TestGRPC(t *testing.T) {
 		defer conn.Close()
 		xds := ads.NewAggregatedDiscoveryServiceClient(conn)
 
-		s, err := xds.StreamAggregatedResources(context.Background())
+		s, err := xds.StreamAggregatedResources(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}

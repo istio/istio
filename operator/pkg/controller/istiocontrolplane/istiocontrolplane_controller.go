@@ -49,7 +49,8 @@ import (
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
-	errdict "istio.io/istio/pkg/errdict"
+	"istio.io/istio/pkg/errdict"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	"istio.io/pkg/version"
 )
@@ -286,7 +287,7 @@ func (r *ReconcileIstioOperator) Reconcile(request reconcile.Request) (reconcile
 		if jwtPolicy == util.FirstPartyJWT {
 			scope.Info("Detected that your cluster does not support third party JWT authentication. " +
 				"Falling back to less secure first party JWT. " +
-				"See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
+				"See " + url.ConfigureSAToken + " for details.")
 		}
 		globalValues["jwtPolicy"] = string(jwtPolicy)
 	}
@@ -341,7 +342,7 @@ func mergeIOPSWithProfile(iop *iopv1alpha1.IstioOperator) (*v1alpha1.IstioOperat
 		return nil, fmt.Errorf("could not overlay k8s settings from values to IOP: %s", err)
 	}
 
-	mergedYAML, err := util.OverlayYAML(profileYAML, overlayYAML)
+	mergedYAML, err := util.OverlayIOP(profileYAML, overlayYAML)
 	if err != nil {
 		return nil, err
 	}

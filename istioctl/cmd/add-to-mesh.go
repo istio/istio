@@ -45,12 +45,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
-)
-
-const (
-	// RequirementsURL specifies deployment requirements for pod and services
-	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
 )
 
 var (
@@ -105,11 +101,11 @@ istioctl experimental add-to-mesh external-service vmhttp 172.12.23.125,172.12.2
 		"injectConfigMapName", "valuesFile")
 	addToMeshCmd.AddCommand(externalSvcMeshifyCmd)
 	addToMeshCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
-		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	addToMeshCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"injection configuration filename. Cannot be used with --injectConfigMapName")
+		"Injection configuration filename. Cannot be used with --injectConfigMapName")
 	addToMeshCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
-		"injection values configuration filename.")
+		"Injection values configuration filename.")
 
 	addToMeshCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))
@@ -129,7 +125,7 @@ func deploymentMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your deployment does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See ` + RequirementsURL + `
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh deployment' which does the reverse.
 
@@ -168,7 +164,7 @@ istioctl experimental add-to-mesh deployment productpage-v1`,
 	}
 
 	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
+		"Control plane revision (experimental)")
 
 	return cmd
 }
@@ -184,7 +180,7 @@ func svcMeshifyCmd() *cobra.Command {
 to test deployments for compatibility with Istio.  It can be used instead of namespace-wide auto-injection of sidecars and is especially helpful for compatibility testing.
 
 If your service does not function after using 'add-to-mesh' you must re-deploy it and troubleshoot it for Istio compatibility.
-See ` + RequirementsURL + `
+See ` + url.DeploymentRequirements + `
 
 See also 'istioctl experimental remove-from-mesh service' which does the reverse.
 
@@ -225,7 +221,7 @@ istioctl experimental add-to-mesh service productpage`,
 	}
 
 	cmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision (experimental)")
+		"Control plane revision (experimental)")
 
 	return cmd
 }
@@ -340,9 +336,10 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 		}
 		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dep.Name,
-				Namespace: dep.Namespace,
-				UID:       dep.UID,
+				Name:            dep.Name,
+				Namespace:       dep.Namespace,
+				UID:             dep.UID,
+				OwnerReferences: dep.OwnerReferences,
 			},
 		}
 		if _, err = client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {
@@ -352,13 +349,12 @@ func injectSideCarIntoDeployment(client kubernetes.Interface, deps []appsv1.Depl
 		}
 		_, _ = fmt.Fprintf(writer, "deployment %s.%s updated successfully with Istio sidecar injected.\n"+
 			"Next Step: Add related labels to the deployment to align with Istio's requirement: %s\n",
-			dep.Name, dep.Namespace, RequirementsURL)
+			dep.Name, dep.Namespace, url.DeploymentRequirements)
 	}
 	return errs
 }
 
 func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]appsv1.Deployment, error) {
-	deps := make([]appsv1.Deployment, 0)
 	svc, err := client.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -371,6 +367,7 @@ func findDeploymentsForSvc(client kubernetes.Interface, ns, name string) ([]apps
 	if err != nil {
 		return nil, err
 	}
+	deps := make([]appsv1.Deployment, 0, len(deployments.Items))
 	for _, dep := range deployments.Items {
 		depLabels := k8s_labels.Set(dep.Spec.Selector.MatchLabels)
 		if svcSelector.Matches(depLabels) {
@@ -484,7 +481,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 	if o == nil {
 		return fmt.Errorf("empty vm service options")
 	}
-	ports := make([]*v1alpha3.Port, 0)
+	ports := make([]*v1alpha3.Port, 0, len(o.PortList))
 	for _, p := range o.PortList {
 		ports = append(ports, &v1alpha3.Port{
 			Number:   uint32(p.Port),
@@ -492,7 +489,7 @@ func generateServiceEntry(u *unstructured.Unstructured, o *vmServiceOpts) error 
 			Name:     p.Name,
 		})
 	}
-	eps := make([]*v1alpha3.WorkloadEntry, 0)
+	eps := make([]*v1alpha3.WorkloadEntry, 0, len(o.IP))
 	for _, ip := range o.IP {
 		eps = append(eps, &v1alpha3.WorkloadEntry{
 			Address: ip,
@@ -531,7 +528,7 @@ func resourceName(hostShortName string) string {
 }
 
 func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
-	ports := make([]corev1.ServicePort, 0)
+	ports := make([]corev1.ServicePort, 0, len(o.PortList))
 	for _, p := range o.PortList {
 		ports = append(ports, corev1.ServicePort{
 			Name: strings.ToLower(p.Name),

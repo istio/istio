@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -240,7 +241,7 @@ func TestKubeOnly(t *testing.T) {
 				Inject: true,
 			})
 
-			defer applyFileOrFail(ctx, ns.Name(), gatewayFile).Delete()
+			applyFileOrFail(ctx, ns.Name(), gatewayFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -263,7 +264,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 				Inject: true,
 			})
 
-			defer applyFileOrFail(ctx, ns.Name(), virtualServiceFile).Delete()
+			applyFileOrFail(ctx, ns.Name(), virtualServiceFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -291,8 +292,8 @@ func TestAllNamespaces(t *testing.T) {
 				Inject: true,
 			})
 
-			defer applyFileOrFail(ctx, ns1.Name(), gatewayFile).Delete()
-			defer applyFileOrFail(ctx, ns2.Name(), gatewayFile).Delete()
+			applyFileOrFail(ctx, ns1.Name(), gatewayFile)
+			applyFileOrFail(ctx, ns2.Name(), gatewayFile)
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 
@@ -336,6 +337,31 @@ func TestTimeout(t *testing.T) {
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
 			g.Expect(err.Error()).To(ContainSubstring("timed out"))
+		})
+}
+
+// Verify the error line number in the message is correct
+func TestErrorLine(t *testing.T) {
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Features("usability.observability.analysis.line-numbers").
+		Run(func(ctx framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, ctx, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
+
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 
@@ -398,24 +424,13 @@ func istioctlWithStderr(t *testing.T, i istioctl.Instance, ns string, useKube bo
 	return i.Invoke(args)
 }
 
-func applyFileOrFail(ctx framework.TestContext, ns, filename string) interface {
-	Delete()
-} {
+// applyFileOrFail applys the given yaml file and deletes it during context cleanup
+func applyFileOrFail(ctx framework.TestContext, ns, filename string) {
 	ctx.Helper()
 	if err := ctx.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {
 		ctx.Fatal(err)
 	}
-	return &cleanup{
-		func() {
-			ctx.Clusters().Default().DeleteYAMLFiles(ns, filename)
-		},
-	}
-}
-
-type cleanup struct {
-	close func()
-}
-
-func (c *cleanup) Delete() {
-	c.close()
+	ctx.WhenDone(func() error {
+		return ctx.Clusters().Default().DeleteYAMLFiles(ns, filename)
+	})
 }

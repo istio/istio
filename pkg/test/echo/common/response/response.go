@@ -38,5 +38,7 @@ const (
 	URLField            Field = "URL"
 	HostField           Field = "Host"
 	HostnameField       Field = "Hostname"
+	MethodField         Field = "Method"
+	ResponseHeader      Field = "ResponseHeader"
 	ClusterField        Field = "Cluster"
 )

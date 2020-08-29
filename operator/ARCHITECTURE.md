@@ -56,17 +56,15 @@ The available features and the components that comprise each feature are as foll
 
 | Feature | Components |
 |---------|------------|
-Base | CRDs
+CRDs, and other cluster wide configs | Base
 Traffic Management | Pilot
-Policy | Policy
-Telemetry | Telemetry
-Security | Citadel
-Security | Node agent
-Security | Cert manager
-Configuration management | Galley
+Security | Pilot
+Configuration management | Pilot
+AutoInjection | Pilot
 Gateways | Ingress gateway
 Gateways | Egress gateway
-AutoInjection | Sidecar injector
+Policy | Policy (deprecated)
+Telemetry | Telemetry (deprecated)
 
 Features and components are defined in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L44) package.
@@ -93,24 +91,27 @@ namespace is defined as:
 defaultNamespace: istio-system
 ```
 
-and namespaces are specialized for the security feature and one of the components:
+and namespaces are specialized for the gateway feature and its components:
 
 ```yaml
-security:
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-operator
+spec:
   components:
-    namespace: istio-security
-    citadel:
-policy:
-  components:
-    policy:
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      namespace: istio-gateways
 ```
 
 the resulting namespaces will be:
 
 | Component | Namespace |
 | --------- | :-------- |
-policy | istio-system
-citadel | istio-security
+ingressGateways | istio-gateways
+
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L246) package.
 
@@ -121,14 +122,15 @@ components are disabled, regardless of their component-level enablement. If a fe
 are enabled, unless they are individually disabled. For example:
 
 ```yaml
-security:
-  enabled: true
-  components:
-    citadel:
-      enabled: false
+    telemetry:
+      enabled: true
+      v1:
+        enabled: false
+      v2:
+        enabled: true
 ```
 
-will enable all components of the security feature except citadel.
+will enable telemetry v2 but disable telemetry v1.
 
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L131) package.

@@ -30,10 +30,11 @@ import (
 )
 
 var (
-	FakeFederatedToken   = "FakeFederatedToken"
-	FakeAccessToken      = "FakeAccessToken"
-	FakeTrustDomain      = "FakeTrustDomain"
-	FakeSubjectToken     = "FakeSubjectToken"
+	FakeFederatedToken = "FakeFederatedToken"
+	FakeAccessToken    = "FakeAccessToken"
+	FakeTrustDomain    = "FakeTrustDomain"
+	// FakeSubjectToken is a fake JWT token without signing, anyone can change it if needed by base64 decoding or using online tool like https://jwt.io/.
+	FakeSubjectToken     = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNZemdPQnpLcENublNPSWVPZGNyWjktMGV5UXdRc2V3RHgtOWxmS20tMWcifQ.eyJhdWQiOlsiRmFrZVRydXN0RG9tYWluIl0sImV4cCI6MTU5Njg5NjI0NiwiaWF0IjoxNTk2ODUzMDQ2LCJpc3MiOiJodHRwczovL2NvbnRhaW5lci5nb29nbGVhcGlzLmNvbS92MS9wcm9qZWN0cy90ZXN0cHJvai9sb2NhdGlvbnMvdXMtY2VudHJhbDEtYy9jbHVzdGVycy9jbHVzdGVyLTEiLCJrdWJlcm5ldGVzLmlvIjp7Im5hbWVzcGFjZSI6ImRlZmF1bHQiLCJwb2QiOnsibmFtZSI6InByb2R1Y3RwYWdlLXYxLTdmNGNjOTg4YzYtZG1kcWciLCJ1aWQiOiIzYzUwMDYwZC05OGQwLTRmNzItYTM5Zi0zZmMyODFjNjdiM2EifSwic2VydmljZWFjY291bnQiOnsibmFtZSI6ImJvb2tpbmZvLXByb2R1Y3RwYWdlIiwidWlkIjoiYTlhNzE4NWUtZjhjOC00NGVlLTgzYzMtZDgyOWZjZDk4M2FiIn19LCJuYmYiOjE1OTY4NTMwNDYsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmJvb2tpbmZvLXByb2R1Y3RwYWdlIn0=.blablablafoofoofoofakesignature" // nolint: lll
 	FakeProjectNum       = "1234567"
 	FakeGKEClusterURL    = "https://container.googleapis.com/v1/projects/fakeproject/locations/fakelocation/clusters/fakecluster"
 	FakeExpiresInSeconds = 3600

@@ -24,5 +24,4 @@ func TestCreateForClientAndServer(t *testing.T) {
 	if got.Info().ServerName != serverName {
 		t.Fatalf("wrong server name: got %v want %v", got.Info().ServerName, serverName)
 	}
-	_ = CreateForServer(&notifyWatcher{})
 }

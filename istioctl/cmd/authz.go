@@ -30,32 +30,31 @@ import (
 )
 
 var (
-	printAll       bool
 	configDumpFile string
 )
 
 var (
 	checkCmd = &cobra.Command{
 		Use:   "check <pod-name>[.<pod-namespace>]",
-		Short: "Check Envoy config dump for authorization configuration.",
-		Long: `Check reads the Envoy config dump and checks the filter configuration
-related to authorization. For example, it shows whether or not the Envoy is configured
-with authorization and the rules used in the authorization.
+		Short: "Check AuthorizationPolicy applied in the pod.",
+		Long: `Check prints the AuthorizationPolicy applied to a pod by directly checking
+the Envoy configuration of the pod. The command is especially useful for inspecting 
+the policy propagation from Istiod to Envoy and the final AuthorizationPolicy list merged 
+from multiple sources (mesh-level, namespace-level and workload-level).
 
-The Envoy config dump could be provided either by pod name or from a config dump file
-(the whole output of http://localhost:15000/config_dump of an Envoy instance).
+The command also supports reading from a standalone config dump file with flag -f.
 
 THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 `,
-		Example: `  # Check Envoy authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
+		Example: `  # Check AuthorizationPolicy applied to pod httpbin-88ddbcfdd-nt5jb:
   istioctl x authz check httpbin-88ddbcfdd-nt5jb
 
-  # Check Envoy authorization configuration from a config dump file:
+  # Check AuthorizationPolicy from Envoy config dump file:
   istioctl x authz check -f httpbin_config_dump.json`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				cmd.Println(cmd.UsageString())
-				return fmt.Errorf("check requires only pod name")
+				return fmt.Errorf("check requires only <pod-name>[.<pod-namespace>]")
 			}
 			return nil
 		},
@@ -81,7 +80,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 			if err != nil {
 				return err
 			}
-			analyzer.Print(cmd.OutOrStdout(), printAll)
+			analyzer.Print(cmd.OutOrStdout())
 			return nil
 		},
 	}
@@ -141,13 +140,7 @@ func getConfigDumpFromPod(podName, podNamespace string) (*configdump.Wrapper, er
 func AuthZ() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authz",
-		Short: "Inspect and interact with authorization policies",
-		Long: `Commands to inspect and interact with the authorization policies
-  check - check Envoy config dump for authorization configuration
-`,
-		Example: `  # Check Envoy authorization configuration for pod httpbin-88ddbcfdd-nt5jb:
-  istioctl x authz check httpbin-88ddbcfdd-nt5jb
-`,
+		Short: "Inspect Istio AuthorizationPolicy",
 	}
 
 	cmd.AddCommand(checkCmd)
@@ -155,8 +148,6 @@ func AuthZ() *cobra.Command {
 }
 
 func init() {
-	checkCmd.PersistentFlags().BoolVarP(&printAll, "all", "a", false,
-		"Show additional information (e.g. SNI and ALPN)")
 	checkCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"The json file with Envoy config dump to be checked")
 }

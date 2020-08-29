@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -89,8 +90,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 		Example: `  # Apply a default Istio installation
   istioctl install
 
-  # Enable grafana dashboard
-  istioctl install --set values.grafana.enabled=true
+  # Enable Tracing
+  istioctl install --set meshConfig.enableTracing=true
 
   # Generate the demo profile and don't wait for confirmation
   istioctl install --set profile=demo --skip-confirmation
@@ -111,8 +112,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	// Warn users if they use `istioctl install` without any config args.
-	if len(iArgs.inFilenames) == 0 && len(iArgs.set) == 0 && !rootArgs.dryRun && !iArgs.skipConfirmation {
-		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+	if !rootArgs.dryRun && !iArgs.skipConfirmation {
+		if !confirm("This will install the Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
 		}
@@ -137,6 +138,9 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 
 	restConfig, clientset, client, err := K8sConfig(kubeConfigPath, context)
 	if err != nil {
+		return err
+	}
+	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
 		return err
 	}
 	_, iops, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
