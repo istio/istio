@@ -103,7 +103,6 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: DNS_AGENT
-
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
