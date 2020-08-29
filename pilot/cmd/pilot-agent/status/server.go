@@ -126,24 +126,6 @@ func NewServer(config Config) (*Server, error) {
 		},
 		envoyStatsPort: 15090,
 	}
-	if config.KubeAppProbers == "" {
-		return s, nil
-	}
-	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
-		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
-	}
-	// Validate the map key matching the regex pattern.
-	for path, prober := range s.appKubeProbers {
-		if !appProberPattern.Match([]byte(path)) {
-			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
-		}
-		if prober.HTTPGet == nil {
-			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
-		}
-		if prober.HTTPGet.Port.Type != intstr.Int {
-			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
-		}
-	}
 
 	// Enable prometheus server if its configured and a sidecar
 	// Because port 15020 is exposed in the gateway Services, we cannot safely serve this endpoint
@@ -167,6 +149,25 @@ func NewServer(config Config) (*Server, error) {
 			return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
 				"application port is the same as agent port, which may lead to a recursive loop. "+
 				"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+		}
+	}
+
+	if config.KubeAppProbers == "" {
+		return s, nil
+	}
+	if err := json.Unmarshal([]byte(config.KubeAppProbers), &s.appKubeProbers); err != nil {
+		return nil, fmt.Errorf("failed to decode app prober err = %v, json string = %v", err, config.KubeAppProbers)
+	}
+	// Validate the map key matching the regex pattern.
+	for path, prober := range s.appKubeProbers {
+		if !appProberPattern.Match([]byte(path)) {
+			return nil, fmt.Errorf(`invalid key, must be in form of regex pattern ^/app-health/[^\/]+/(livez|readyz)$`)
+		}
+		if prober.HTTPGet == nil {
+			return nil, fmt.Errorf(`invalid prober type, must be of type httpGet`)
+		}
+		if prober.HTTPGet.Port.Type != intstr.Int {
+			return nil, fmt.Errorf("invalid prober config for %v, the port must be int type", path)
 		}
 	}
 
