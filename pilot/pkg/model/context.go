@@ -34,6 +34,7 @@ import (
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -449,7 +450,7 @@ type NodeMetadata struct {
 	Network string `json:"NETWORK,omitempty"`
 
 	// RequestedNetworkView specifies the networks that the proxy wants to see
-	RequestedNetworkView StringList `json:"REQUESTED_NETWORK_VIEW,omitempty"`
+	RequestedNetworkView sets.Set `json:"REQUESTED_NETWORK_VIEW,omitempty"`
 
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
