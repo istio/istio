@@ -74,7 +74,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 	return b.destinationRule.Spec.(*networkingapi.DestinationRule)
 }
 
-// CacheKey Functions
+// Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
 	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality)}
 	if b.destinationRule != nil {
@@ -82,6 +82,11 @@ func (b EndpointBuilder) Key() string {
 	}
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
+	}
+	if b.networkView != nil {
+		for nw := range b.networkView {
+			params = append(params, nw)
+		}
 	}
 	return strings.Join(params, "~")
 }
