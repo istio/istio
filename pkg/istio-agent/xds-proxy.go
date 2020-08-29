@@ -132,11 +132,9 @@ func (p *XdsProxy) StreamAggregatedResources(server discovery.AggregatedDiscover
 	for {
 		select {
 		case req := <-p.Requests:
-			err := p.client.Send(req)
-			log.Infof("forwarded request %v with err %v", req.TypeUrl, err)
+			p.client.Send(req)
 		case resp := <-p.Responses:
-			err := server.Send(resp)
-			log.Infof("forwarded response %v with err %v", resp.TypeUrl, err)
+			server.Send(resp)
 		}
 	}
 }
