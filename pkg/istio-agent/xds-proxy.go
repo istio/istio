@@ -17,6 +17,7 @@ package istioagent
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -37,11 +38,17 @@ import (
 	"istio.io/pkg/log"
 )
 
+// XDS Proxy proxies all XDS requests from envoy to istiod
+// There is no intelligence here. The goal here is to consolidate all
+// connections to istiod into a single tcp connection with multiple gRPC streams.
+// Right now, the workloadSDS server and gatewaySDS servers are still separate
+// connections.
 func (sa *Agent) startXdsProxy() (*XdsProxy, error) {
 	l, err := setUpUds("./etc/istio/proxy/XDS")
 	if err != nil {
 		return nil, err
 	}
+
 	// TODO share SDS server
 	grpcs := grpc.NewServer()
 	proxy := &XdsProxy{
@@ -51,30 +58,31 @@ func (sa *Agent) startXdsProxy() (*XdsProxy, error) {
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, proxy)
 	reflection.Register(grpcs)
 
-	// TODO proper verify
-	// this needs to use all the logic in istio-agent package
-	// provisioned cert or istiod or k8s
-	config := &tls.Config{
-		InsecureSkipVerify: true,
-		ServerName:         sa.proxyConfig.DiscoveryAddress,
-		MinVersion:         tls.VersionTLS12,
-	}
-
 	log.Infof("connecting to %v", sa.proxyConfig.DiscoveryAddress)
+	tlsOpts, err := getTLSDialOption(sa)
+	if err != nil {
+		return nil, err
+	}
 	dialOptions := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(config)),
+		tlsOpts,
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoff.DefaultConfig,
 			MinConnectTimeout: 5 * time.Second,
 		}),
 	}
 
-	// TODO:
-	// only if running in k8s pod
-	dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
-		"./var/run/secrets/tokens/istio-token",
-		time.Second * 300,
-	}}))
+	// TODO: This is not a valid way of detecting if we are on VM vs k8s
+	// Some end users do not use Istiod for CA but run on k8s with file mounted certs
+	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
+	// it would be ideal to keep using token plus k8s ca certs for control plane communication
+	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
+	if sa.secOpts.ProvCert == "" {
+		// only if running in k8s pod
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
+			"./var/run/secrets/tokens/istio-token",
+			time.Second * 300,
+		}}))
+	}
 
 	conn, err := grpc.Dial(sa.proxyConfig.DiscoveryAddress, dialOptions...)
 	if err != nil {
@@ -111,11 +119,13 @@ type XdsProxy struct {
 func (p *XdsProxy) StreamAggregatedResources(server discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	go func() {
 		for {
+			// From Envoy
 			req, err := server.Recv()
 			if err != nil {
 				log.Errorf("recv error: %v", err)
 				return
 			}
+			// forward to istiod
 			p.Requests <- req
 		}
 	}()
@@ -192,4 +202,51 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 		AccessToken: tok,
 		Expiry:      time.Now().Add(ts.period),
 	}, nil
+}
+
+// Returns the TLS option to use when talking to Istiod
+// If provisioned cert is set, it will return a mTLS related config
+// Else it will return a one-way TLS related config with the assumption
+// that the consumer code will use tokens to authenticate the client.
+func getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
+
+	var certPool *x509.CertPool
+	var err error
+	var rootCert []byte
+	if agent.secOpts.ProvCert != "" {
+		// This is most likely a VM using pre-provisioned mTLS certs (key.pem, cert-chain.pem, root-cert.pem)
+		// to talk to Istiod setup mtls
+		rootCert, err = ioutil.ReadFile(agent.secOpts.ProvCert + "/root-cert.pem")
+	} else if agent.secOpts.PilotCertProvider != "" {
+		rootCert, err = agent.loadPilotCertProviderRootCert()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	certPool = x509.NewCertPool()
+	ok := certPool.AppendCertsFromPEM(rootCert)
+	if !ok {
+		return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
+	}
+
+	var certificate tls.Certificate
+	config := tls.Config{
+		Certificates: []tls.Certificate{certificate},
+		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			if agent.secOpts.ProvCert != "" {
+				// Load the certificate from disk
+				if certificate, err = tls.LoadX509KeyPair(agent.secOpts.ProvCert+"/cert-chain.pem", agent.secOpts.ProvCert+"/key.pem"); err != nil {
+					return nil, err
+				}
+			}
+			return &certificate, nil
+		},
+	}
+	config.RootCAs = certPool
+	config.ServerName = agent.proxyConfig.DiscoveryAddress
+	config.MinVersion = tls.VersionTLS12
+	transportCreds := credentials.NewTLS(&config)
+	return grpc.WithTransportCredentials(transportCreds), nil
 }
