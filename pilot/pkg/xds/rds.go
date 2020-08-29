@@ -17,8 +17,8 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 )
 
 type RdsGenerator struct {
@@ -28,7 +28,7 @@ type RdsGenerator struct {
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
-var skippedRdsConfigs = map[resource.GroupVersionKind]struct{}{
+var skippedRdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.WorkloadEntry:         {},
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},

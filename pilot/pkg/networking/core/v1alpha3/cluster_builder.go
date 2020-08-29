@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/gogo"
 )
@@ -85,7 +86,7 @@ func (cb *ClusterBuilder) applyDestinationRule(c *cluster.Cluster, clusterMode C
 
 	var clusterMetadata *core.Metadata
 	if destRule != nil {
-		clusterMetadata = util.BuildConfigInfoMetadata(destRule.ConfigMeta)
+		clusterMetadata = util.BuildConfigInfoMetadata(destRule.Meta)
 		c.Metadata = clusterMetadata
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
@@ -259,7 +260,7 @@ func (cb *ClusterBuilder) buildInboundClusterForPortOrUDS(instance *model.Servic
 			// only connection pool settings make sense on the inbound path.
 			// upstream TLS settings/outlier detection/load balancer don't apply here.
 			applyConnectionPool(cb.push.Mesh, localCluster, connectionPool)
-			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.ConfigMeta)
+			localCluster.Metadata = util.BuildConfigInfoMetadata(cfg.Meta)
 		}
 	}
 	return localCluster
@@ -414,7 +415,7 @@ func (cb *ClusterBuilder) defaultTrafficPolicy(discoveryType cluster.Cluster_Dis
 
 // castDestinationRuleOrDefault returns the destination rule enclosed by the config, if not null.
 // Otherwise, return default (empty) DR.
-func castDestinationRuleOrDefault(config *model.Config) *networking.DestinationRule {
+func castDestinationRuleOrDefault(config *config.Config) *networking.DestinationRule {
 	if config != nil {
 		return config.Spec.(*networking.DestinationRule)
 	}

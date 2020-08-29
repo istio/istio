@@ -37,6 +37,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
@@ -48,7 +49,7 @@ type FakeOptions struct {
 	// If provided, the yaml string will be parsed and used as objects
 	KubernetesObjectString string
 	// If provided, these configs will be used directly
-	Configs []model.Config
+	Configs []config.Config
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
 	// If provided, the ConfigString will be treated as a go template, with this as input params
@@ -103,7 +104,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Setup config handlers
 	// TODO code re-use from server.go
-	configHandler := func(_, curr model.Config, event model.Event) {
+	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full: true,
 			ConfigsUpdated: map[model.ConfigKey]struct{}{{
