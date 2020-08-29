@@ -256,12 +256,6 @@ var (
 		},
 	}
 
-	// State logged by the metadata exchange filter about the upstream and downstream service instances
-	// We need to propagate these as part of access log service stream
-	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
-	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
-	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
-
 	// pilotTraceSamplingEnv is value of PILOT_TRACE_SAMPLING env bounded
 	// by [0.0, 100.0]; if outside the range it is set to 100.0
 	pilotTraceSamplingEnv = getPilotRandomSamplingEnv()
@@ -1697,13 +1691,7 @@ func buildHTTPConnectionManager(listenerOpts buildListenerOpts, httpOpts *httpLi
 		connectionManager.RouteSpecifier = &hcm.HttpConnectionManager_RouteConfig{RouteConfig: httpOpts.routeConfig}
 	}
 
-	if listenerOpts.push.Mesh.AccessLogFile != "" {
-		connectionManager.AccessLog = append(connectionManager.AccessLog, maybeBuildAccessLog(listenerOpts.push.Mesh))
-	}
-
-	if listenerOpts.push.Mesh.EnableEnvoyAccessLogService {
-		connectionManager.AccessLog = append(connectionManager.AccessLog, httpGrpcAccessLog)
-	}
+	accessLogBuilder.setHTTPAccessLog(listenerOpts.push.Mesh, connectionManager)
 
 	if listenerOpts.push.Mesh.EnableTracing {
 		proxyConfig := listenerOpts.proxy.Metadata.ProxyConfigOrDefault(listenerOpts.push.Mesh.DefaultConfig)
@@ -2334,13 +2322,6 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 			l.ContinueOnListenerFiltersTimeout = false
 		}
 	}
-}
-
-// nolint: unparam
-func resetCachedListenerConfig() {
-	lmutex.Lock()
-	defer lmutex.Unlock()
-	cachedAccessLog = nil
 }
 
 // listenerKey builds the key for a given bind and port

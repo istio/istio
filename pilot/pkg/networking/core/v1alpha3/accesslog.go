@@ -22,6 +22,8 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 
@@ -83,22 +85,57 @@ var (
 		},
 	}
 
-	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
-	httpGrpcAccessLog = buildHTTPGrpcAccessLog()
+	// State logged by the metadata exchange filter about the upstream and downstream service instances
+	// We need to propagate these as part of access log service stream
+	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
+	// But end users can certainly configure it on their own via the meshConfig using the %FILTERSTATE% macro.
+	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
 
-	lmutex          sync.RWMutex
-	cachedAccessLog *accesslog.AccessLog
+	// accessLogBuilder is used to set accessLog to filters
+	accessLogBuilder = newAccessLogBuilder()
 )
 
-func getCachedAccessLog() *accesslog.AccessLog {
-	lmutex.RLock()
-	defer lmutex.RUnlock()
-	return cachedAccessLog
+type AccessLogBuilder struct {
+	// tcpGrpcAccessLog is used when access log service is enabled in mesh config.
+	tcpGrpcAccessLog *accesslog.AccessLog
+	// httpGrpcAccessLog is used when access log service is enabled in mesh config.
+	httpGrpcAccessLog *accesslog.AccessLog
+
+	// file accessLog
+	mutex               sync.RWMutex
+	cachedFileAccessLog *accesslog.AccessLog
 }
 
-func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+func newAccessLogBuilder() *AccessLogBuilder {
+	return &AccessLogBuilder{
+		tcpGrpcAccessLog:  buildTCPGrpcAccessLog(),
+		httpGrpcAccessLog: buildHTTPGrpcAccessLog(),
+	}
+}
+
+func (b *AccessLogBuilder) setTCPAccessLog(mesh *meshconfig.MeshConfig, config *tcp.TcpProxy) {
+	if mesh.AccessLogFile != "" {
+		config.AccessLog = append(config.AccessLog, b.buildFileAccessLog(mesh))
+	}
+
+	if mesh.EnableEnvoyAccessLogService {
+		config.AccessLog = append(config.AccessLog, b.tcpGrpcAccessLog)
+	}
+}
+
+func (b *AccessLogBuilder) setHTTPAccessLog(mesh *meshconfig.MeshConfig, connectionManager *hcm.HttpConnectionManager) {
+	if mesh.AccessLogFile != "" {
+		connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
+	}
+
+	if mesh.EnableEnvoyAccessLogService {
+		connectionManager.AccessLog = append(connectionManager.AccessLog, b.httpGrpcAccessLog)
+	}
+}
+
+func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 	// Check if cached config is available, and return immediately.
-	if cal := getCachedAccessLog(); cal != nil {
+	if cal := b.getCachedFileAccessLog(); cal != nil {
 		return cal
 	}
 
@@ -142,13 +179,43 @@ func maybeBuildAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
 		log.Warnf("unsupported access log format %v", mesh.AccessLogEncoding)
 	}
 
-	lmutex.Lock()
-	defer lmutex.Unlock()
-	cachedAccessLog = &accesslog.AccessLog{
+	al := &accesslog.AccessLog{
 		Name:       wellknown.FileAccessLog,
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
-	return cachedAccessLog
+
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	b.cachedFileAccessLog = al
+
+	return al
+}
+
+func (b *AccessLogBuilder) getCachedFileAccessLog() *accesslog.AccessLog {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	return b.cachedFileAccessLog
+}
+
+func buildTCPGrpcAccessLog() *accesslog.AccessLog {
+	fl := &grpcaccesslog.TcpGrpcAccessLogConfig{
+		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
+			LogName: tcpEnvoyAccessLogFriendlyName,
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: EnvoyAccessLogCluster,
+					},
+				},
+			},
+			FilterStateObjectsToLog: envoyWasmStateToLog,
+		},
+	}
+
+	return &accesslog.AccessLog{
+		Name:       tcpEnvoyALSName,
+		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
+	}
 }
 
 func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
@@ -162,13 +229,18 @@ func buildHTTPGrpcAccessLog() *accesslog.AccessLog {
 					},
 				},
 			},
+			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
 	}
-
-	fl.CommonConfig.FilterStateObjectsToLog = envoyWasmStateToLog
 
 	return &accesslog.AccessLog{
 		Name:       wellknown.HTTPGRPCAccessLog,
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: util.MessageToAny(fl)},
 	}
+}
+
+func (b *AccessLogBuilder) reset() {
+	b.mutex.Lock()
+	b.cachedFileAccessLog = nil
+	b.mutex.Unlock()
 }
