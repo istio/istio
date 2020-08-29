@@ -245,7 +245,9 @@ func getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 		},
 	}
 	config.RootCAs = certPool
-	config.ServerName = agent.proxyConfig.DiscoveryAddress
+	// strip the port from the address
+	parts := strings.Split(agent.proxyConfig.DiscoveryAddress, ":")
+	config.ServerName = parts[0]
 	config.MinVersion = tls.VersionTLS12
 	transportCreds := credentials.NewTLS(&config)
 	return grpc.WithTransportCredentials(transportCreds), nil
