@@ -17,9 +17,12 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/url"
 	appsv1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,9 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
-
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/url"
 )
 
 type testcase struct {
@@ -285,4 +285,49 @@ func mockDynamicClientGenerator(dynamicConfigs []runtime.Object) func(kubeconfig
 		return client, nil
 	}
 	return outFactory
+}
+
+func Test_splitEqual(t *testing.T) {
+	tests := []struct {
+		arg       string
+		wantKey   string
+		wantValue string
+	}{
+		{arg: "key=value", wantKey: "key", wantValue: "value"},
+		{arg: "key==value", wantKey: "key", wantValue: "=value"},
+		{arg: "key=", wantKey: "key", wantValue: ""},
+		{arg: "key", wantKey: "key", wantValue: ""},
+		{arg: "", wantKey: "", wantValue: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.arg, func(t *testing.T) {
+			gotKey, gotValue := splitEqual(tt.arg)
+			if gotKey != tt.wantKey {
+				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
+			}
+			if gotValue != tt.wantValue {
+				t.Errorf("splitEqual(%v) got1 = %v, want %v", tt.arg, gotValue, tt.wantValue)
+			}
+		})
+	}
+}
+
+func Test_convertToMap(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		want map[string]string
+	}{
+		{name: "empty", arg: []string{""}, want: map[string]string{"": ""}},
+		{name: "one-valid", arg: []string{"key=value"}, want: map[string]string{"key": "value"}},
+		{name: "one-valid-double-equals", arg: []string{"key==value"}, want: map[string]string{"key": "=value"}},
+		{name: "one-key-only", arg: []string{"key"}, want: map[string]string{"key": ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := convertToMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("convertToMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
