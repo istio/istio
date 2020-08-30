@@ -142,8 +142,8 @@ var (
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
-	proxyXDSViaAgent = env.RegisterBoolVar("PROXY_XDS_VIA_AGENT", false,
-		"If enabled, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option"+
+	proxyXDSViaAgent = env.RegisterStringVar("PROXY_XDS_VIA_AGENT", "",
+		"If set to enable or true or 1, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option"+
 			"will be removed once the feature is stabilized.").Get()
 
 	rootCmd = &cobra.Command{
@@ -294,7 +294,11 @@ var (
 				secOpts.CredFetcher = credFetcher
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{ProxyXDSViaAgent: proxyXDSViaAgent}, secOpts)
+			agentConfig := &istio_agent.AgentConfig{}
+			if proxyXDSViaAgent == "enable" || proxyXDSViaAgent == "true" || proxyXDSViaAgent == "1" {
+				agentConfig.ProxyXDSViaAgent = true
+			}
+			sa := istio_agent.NewAgent(&proxyConfig, agentConfig, secOpts)
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
 				// Obtain Pilot SAN, using DNS.
@@ -373,7 +377,7 @@ var (
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            citadel.ProvCert,
 				Sidecar:             role.Type == model.SidecarProxy,
-				ProxyViaAgent:       proxyXDSViaAgent,
+				ProxyViaAgent:       agentConfig.ProxyXDSViaAgent,
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)
