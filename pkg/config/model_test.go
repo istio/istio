@@ -199,7 +199,7 @@ func TestApplyJSON(t *testing.T) {
 				t.Fatalf("Diff: %v", diff)
 			}
 			if err := ApplyJSONStrict(tt.input, tt.json); err == nil {
-				t.Fatalf("expected error from non existant field in strict mode")
+				t.Fatalf("expected error from non existent field in strict mode")
 			}
 		})
 	}
