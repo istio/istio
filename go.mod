@@ -2,7 +2,7 @@ module istio.io/istio
 
 go 1.15
 
-replace istio.io/api => github.com/howardjohn/api v0.0.0-20200828204656-f6dad094af09
+replace istio.io/api => github.com/howardjohn/api v0.0.0-20200830233340-4f91eb6dfa6c
 
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
