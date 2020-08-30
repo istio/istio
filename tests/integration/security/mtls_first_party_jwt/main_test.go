@@ -41,6 +41,4 @@ func setupConfig(cfg *istio.Config) {
 		return
 	}
 	cfg.Values["global.jwtPolicy"] = "first-party-jwt"
-	// local XDS proxy does not work for first party JWT
-	cfg.Values["meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT"] = "false"
 }

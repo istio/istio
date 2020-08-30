@@ -132,9 +132,9 @@ func (p *XdsProxy) StreamAggregatedResources(server discovery.AggregatedDiscover
 	for {
 		select {
 		case req := <-p.Requests:
-			p.client.Send(req)
+			_ = p.client.Send(req)
 		case resp := <-p.Responses:
-			server.Send(resp)
+			_ = server.Send(resp)
 		}
 	}
 }
