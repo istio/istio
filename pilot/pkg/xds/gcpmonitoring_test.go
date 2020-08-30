@@ -21,10 +21,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 
 	gm "istio.io/istio/pilot/pkg/gcpmonitoring"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/pkg/monitoring"
 )
@@ -50,16 +52,14 @@ func TestGCPMonitoringPilotXDSMetrics(t *testing.T) {
 		wantMetric string
 		wantVal    *view.Row
 	}{
-		{"cdsPushes", cdsPushes, true, 0, "config_push_count", &view.Row{
+		{"cdsPushes", pushes.With(typeTag.Value(v3.GetMetricType(resource.ClusterType))), true, 0, "config_push_count", &view.Row{
 			Tags: []tag.Tag{{Key: successTestTag, Value: "true"}, {Key: typeTestTag, Value: "CDS"}}, Data: &view.SumData{1.0}}},
-		{"edsPushes", edsPushes, true, 0, "config_push_count", &view.Row{
+		{"edsPushes", pushes.With(typeTag.Value(v3.GetMetricType(resource.EndpointType))), true, 0, "config_push_count", &view.Row{
 			Tags: []tag.Tag{{Key: successTestTag, Value: "true"}, {Key: typeTestTag, Value: "EDS"}}, Data: &view.SumData{1.0}}},
-		{"ldsPushes", ldsPushes, true, 0, "config_push_count", &view.Row{
+		{"ldsPushes", pushes.With(typeTag.Value(v3.GetMetricType(resource.ListenerType))), true, 0, "config_push_count", &view.Row{
 			Tags: []tag.Tag{{Key: successTestTag, Value: "true"}, {Key: typeTestTag, Value: "LDS"}}, Data: &view.SumData{1.0}}},
-		{"rdsPushes", rdsPushes, true, 0, "config_push_count", &view.Row{
+		{"rdsPushes", pushes.With(typeTag.Value(v3.GetMetricType(resource.RouteType))), true, 0, "config_push_count", &view.Row{
 			Tags: []tag.Tag{{Key: successTestTag, Value: "true"}, {Key: typeTestTag, Value: "RDS"}}, Data: &view.SumData{1.0}}},
-		{"apiPushes", apiPushes, true, 0, "config_push_count", &view.Row{
-			Tags: []tag.Tag{{Key: successTestTag, Value: "true"}, {Key: typeTestTag, Value: "API"}}, Data: &view.SumData{1.0}}},
 
 		{"cdsSendErrPushes", cdsSendErrPushes, true, 0, "config_push_count", &view.Row{
 			Tags: []tag.Tag{{Key: successTestTag, Value: "false"}, {Key: typeTestTag, Value: "CDS"}}, Data: &view.SumData{1.0}}},
@@ -69,8 +69,6 @@ func TestGCPMonitoringPilotXDSMetrics(t *testing.T) {
 			Tags: []tag.Tag{{Key: successTestTag, Value: "false"}, {Key: typeTestTag, Value: "LDS"}}, Data: &view.SumData{1.0}}},
 		{"rdsSendErrPushes", rdsSendErrPushes, true, 0, "config_push_count", &view.Row{
 			Tags: []tag.Tag{{Key: successTestTag, Value: "false"}, {Key: typeTestTag, Value: "RDS"}}, Data: &view.SumData{1.0}}},
-		{"apiSendErrPushes", apiSendErrPushes, true, 0, "config_push_count", &view.Row{
-			Tags: []tag.Tag{{Key: successTestTag, Value: "false"}, {Key: typeTestTag, Value: "API"}}, Data: &view.SumData{1.0}}},
 
 		{"cdsReject", cdsReject, true, 0, "rejected_config_count", &view.Row{
 			Tags: []tag.Tag{{Key: typeTestTag, Value: "CDS"}}, Data: &view.SumData{1.0}}},
