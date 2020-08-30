@@ -106,7 +106,7 @@ func TestSingleTlsGateway_SecretRotation(t *testing.T) {
 func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.mtls.server-keyrotation").
+		Features("security.ingress.mtls.secretrotation").
 		Run(func(ctx framework.TestContext) {
 
 			var (

@@ -65,7 +65,7 @@ features:
     user:
     ingress:
       mtls:
-        server-keyrotation:
+        secretrotation:
         generic-compoundrotation:
         nongeneric-compoundrotation:
         gateway:
