@@ -63,10 +63,10 @@ type Schema interface {
 	ProtoPackage() string
 
 	// NewInstance returns a new instance of the protocol buffer message for this resource.
-	NewInstance() (config.ConfigSpec, error)
+	NewInstance() (config.Spec, error)
 
 	// MustNewInstance calls NewInstance and panics if an error occurs.
-	MustNewInstance() config.ConfigSpec
+	MustNewInstance() config.Spec
 
 	// Validate this schema.
 	Validate() error
@@ -225,7 +225,7 @@ func (s *schemaImpl) String() string {
 	return fmt.Sprintf("[Schema](%s, %q, %s)", s.Kind(), s.goPackage, s.proto)
 }
 
-func (s *schemaImpl) NewInstance() (config.ConfigSpec, error) {
+func (s *schemaImpl) NewInstance() (config.Spec, error) {
 	rt := s.reflectType
 	if rt == nil {
 		rt = getProtoMessageType(s.proto)
@@ -235,16 +235,16 @@ func (s *schemaImpl) NewInstance() (config.ConfigSpec, error) {
 	}
 	instance := reflect.New(rt).Interface()
 
-	p, ok := instance.(config.ConfigSpec)
+	p, ok := instance.(config.Spec)
 	if !ok {
 		return nil, fmt.Errorf(
-			"newInstance: message is not an instance of config.ConfigSpec. kind:%s, type:%v, value:%v",
+			"newInstance: message is not an instance of config.Spec. kind:%s, type:%v, value:%v",
 			s.Kind(), rt, instance)
 	}
 	return p, nil
 }
 
-func (s *schemaImpl) MustNewInstance() config.ConfigSpec {
+func (s *schemaImpl) MustNewInstance() config.Spec {
 	p, err := s.NewInstance()
 	if err != nil {
 		panic(err)

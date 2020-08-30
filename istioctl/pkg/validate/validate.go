@@ -362,7 +362,7 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (config.ConfigSpec, error) {
+func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (config.Spec, error) {
 	// Marshal to json bytes
 	str, err := json.Marshal(data)
 	if err != nil {

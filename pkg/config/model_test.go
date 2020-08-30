@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -65,19 +66,19 @@ func TestDeepCopy(t *testing.T) {
 }
 
 type TestStruct struct {
-	Name string
+	Name string `json:"name"`
 }
 
 func TestDeepCopyTypes(t *testing.T) {
 	cases := []struct {
-		input  ConfigSpec
-		modify func(c ConfigSpec) ConfigSpec
+		input  Spec
+		modify func(c Spec) Spec
 		option cmp.Option
 	}{
 		// Istio type
 		{
 			&networking.VirtualService{Gateways: []string{"foo"}},
-			func(c ConfigSpec) ConfigSpec {
+			func(c Spec) Spec {
 				c.(*networking.VirtualService).Gateways = []string{"bar"}
 				return c
 			},
@@ -86,7 +87,7 @@ func TestDeepCopyTypes(t *testing.T) {
 		// Kubernetes type
 		{
 			&corev1.PodSpec{ServiceAccountName: "foobar"},
-			func(c ConfigSpec) ConfigSpec {
+			func(c Spec) Spec {
 				c.(*corev1.PodSpec).ServiceAccountName = "bar"
 				return c
 			},
@@ -95,7 +96,7 @@ func TestDeepCopyTypes(t *testing.T) {
 		//service-apis type
 		{
 			&v1alpha1.GatewayClassSpec{Controller: "foo"},
-			func(c ConfigSpec) ConfigSpec {
+			func(c Spec) Spec {
 				c.(*v1alpha1.GatewayClassSpec).Controller = "bar"
 				return c
 			},
@@ -104,7 +105,7 @@ func TestDeepCopyTypes(t *testing.T) {
 		// mock type
 		{
 			&config.MockConfig{Key: "foobar"},
-			func(c ConfigSpec) ConfigSpec {
+			func(c Spec) Spec {
 				c.(*config.MockConfig).Key = "bar"
 				return c
 			},
@@ -113,7 +114,7 @@ func TestDeepCopyTypes(t *testing.T) {
 		// XDS type, to test golang/proto
 		{
 			&cluster.Cluster{Name: "foobar"},
-			func(c ConfigSpec) ConfigSpec {
+			func(c Spec) Spec {
 				c.(*cluster.Cluster).Name = "bar"
 				return c
 			},
@@ -122,7 +123,7 @@ func TestDeepCopyTypes(t *testing.T) {
 		// Random struct
 		{
 			&TestStruct{Name: "foobar"},
-			func(c ConfigSpec) ConfigSpec {
+			func(c Spec) Spec {
 				c.(*TestStruct).Name = "bar"
 				return c
 			},
@@ -131,13 +132,191 @@ func TestDeepCopyTypes(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%T", tt.input), func(t *testing.T) {
-			copy := DeepCopy(tt.input)
-			if diff := cmp.Diff(tt.input, copy, tt.option); diff != "" {
-				t.Fatalf("Type was %T now is %T. Diff: %v", tt.input, copy, diff)
+			cpy := DeepCopy(tt.input)
+			if diff := cmp.Diff(tt.input, cpy, tt.option); diff != "" {
+				t.Fatalf("Type was %T now is %T. Diff: %v", tt.input, cpy, diff)
 			}
 			changed := tt.modify(tt.input)
-			if cmp.Equal(copy, changed, tt.option) {
+			if cmp.Equal(cpy, changed, tt.option) {
 				t.Fatalf("deep copy allowed modification")
+			}
+		})
+	}
+}
+
+func TestApplyJSON(t *testing.T) {
+	cases := []struct {
+		input  Spec
+		json   string
+		output Spec
+		option cmp.Option
+	}{
+		// Istio type
+		{
+			input:  &networking.VirtualService{},
+			json:   `{"gateways":["foobar"],"fake-field":1}`,
+			output: &networking.VirtualService{Gateways: []string{"foobar"}},
+		},
+		// Kubernetes type
+		{
+			input:  &corev1.PodSpec{},
+			json:   `{"serviceAccountName":"foobar","fake-field":1}`,
+			output: &corev1.PodSpec{ServiceAccountName: "foobar"},
+		},
+		//service-apis type
+		{
+			input:  &v1alpha1.GatewayClassSpec{},
+			json:   `{"controller":"foobar","fake-field":1}`,
+			output: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
+		},
+		// mock type
+		{
+
+			input:  &config.MockConfig{},
+			json:   `{"key":"foobar","fake-field":1}`,
+			output: &config.MockConfig{Key: "foobar"},
+		},
+		// XDS type, to test golang/proto
+		{
+			input:  &cluster.Cluster{},
+			json:   `{"name":"foobar","fake-field":1}`,
+			output: &cluster.Cluster{Name: "foobar"},
+			option: protocmp.Transform(),
+		},
+		// Random struct
+		{
+			input:  &TestStruct{},
+			json:   `{"name":"foobar","fake-field":1}`,
+			output: &TestStruct{Name: "foobar"},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(fmt.Sprintf("%T", tt.input), func(t *testing.T) {
+			if err := ApplyJSON(tt.input, tt.json); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(tt.input, tt.output, tt.option); diff != "" {
+				t.Fatalf("Diff: %v", diff)
+			}
+			if err := ApplyJSONStrict(tt.input, tt.json); err == nil {
+				t.Fatalf("expected error from non existant field in strict mode")
+			}
+		})
+	}
+}
+
+func TestToJSON(t *testing.T) {
+	cases := []struct {
+		input Spec
+		json  string
+	}{
+		// Istio type
+		{
+			input: &networking.VirtualService{Gateways: []string{"foobar"}},
+			json:  `{"gateways":["foobar"]}`,
+		},
+		// Kubernetes type
+		{
+			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
+			json:  `{"serviceAccountName":"foobar"}`,
+		},
+		//service-apis type
+		{
+			input: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
+			// Gateway class has some structs without omitempty. TODO: add omitempty to these in the api?
+			json: `{"controller":"foobar","allowedGatewayNamespaceSelector":{},"allowedRouteNamespaces":{"namespaceSelector":{}}}`,
+		},
+		// mock type
+		{
+
+			input: &config.MockConfig{Key: "foobar"},
+			json:  `{"key":"foobar"}`,
+		},
+		// XDS type, to test golang/proto
+		{
+			input: &cluster.Cluster{Name: "foobar"},
+			json:  `{"name":"foobar"}`,
+		},
+		// Random struct
+		{
+			input: &TestStruct{Name: "foobar"},
+			json:  `{"name":"foobar"}`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(fmt.Sprintf("%T", tt.input), func(t *testing.T) {
+			jb, err := ToJSON(tt.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(jb) != tt.json {
+				t.Fatalf("got %v want %v", string(jb), tt.json)
+			}
+		})
+	}
+}
+
+func TestToMap(t *testing.T) {
+	cases := []struct {
+		input Spec
+		mp    map[string]interface{}
+	}{
+		// Istio type
+		{
+			input: &networking.VirtualService{Gateways: []string{"foobar"}},
+			mp: map[string]interface{}{
+				"gateways": []interface{}{"foobar"},
+			},
+		},
+		// Kubernetes type
+		{
+			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
+			mp: map[string]interface{}{
+				"serviceAccountName": "foobar",
+			},
+		},
+		//service-apis type
+		{
+			input: &v1alpha1.GatewayClassSpec{Controller: "foobar"},
+			mp: map[string]interface{}{
+				"controller":                      "foobar",
+				"allowedGatewayNamespaceSelector": map[string]interface{}{},
+				"allowedRouteNamespaces": map[string]interface{}{
+					"namespaceSelector": map[string]interface{}{},
+				},
+			},
+		},
+		// mock type
+		{
+
+			input: &config.MockConfig{Key: "foobar"},
+			mp: map[string]interface{}{
+				"key": "foobar",
+			},
+		},
+		// XDS type, to test golang/proto
+		{
+			input: &cluster.Cluster{Name: "foobar"},
+			mp: map[string]interface{}{
+				"name": "foobar",
+			},
+		},
+		// Random struct
+		{
+			input: &TestStruct{Name: "foobar"},
+			mp: map[string]interface{}{
+				"name": "foobar",
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(fmt.Sprintf("%T", tt.input), func(t *testing.T) {
+			got, err := ToMap(tt.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, tt.mp) {
+				t.Fatalf("got %+v want %+v", got, tt.mp)
 			}
 		})
 	}

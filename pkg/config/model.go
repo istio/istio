@@ -28,8 +28,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/any"
-	pstruct "github.com/golang/protobuf/ptypes/struct"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"istio.io/istio/pkg/util/gogoprotomarshal"
@@ -88,33 +86,38 @@ type Config struct {
 	Meta
 
 	// Spec holds the configuration object as a gogo protobuf message
-	Spec ConfigSpec
+	Spec Spec
 }
 
-type ConfigSpec interface {
-	//	json.Marshaler
-	//	json.Unmarshaler
-}
+// Spec defines the spec for the config. In order to use below helper methods,
+// this must be one of:
+// * golang/protobuf Message
+// * gogo/protobuf Message
+// * Able to marshal/unmarshal using json
+type Spec interface{}
 
-func ToProto(s ConfigSpec) (*any.Any, error) {
-	if pb, ok := s.(proto.Message); ok {
-		return ptypes.MarshalAny(pb)
+func ToProtoGogo(s Spec) (*gogotypes.Any, error) {
+	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
+	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
+	// but also not used by Istio at all.
+	if _, ok := s.(protoreflect.ProtoMessage); ok {
+		if pb, ok := s.(proto.Message); ok {
+			golangany, err := ptypes.MarshalAny(pb)
+			if err != nil {
+				return nil, err
+			}
+			return &gogotypes.Any{
+				TypeUrl: golangany.TypeUrl,
+				Value:   golangany.Value,
+			}, nil
+		}
 	}
-	js, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	pbs := &pstruct.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
-		return nil, err
-	}
-	return ptypes.MarshalAny(pbs)
-}
 
-func ToProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
-	if pb, ok := s.(proto.Message); ok {
+	// gogo protobuf
+	if pb, ok := s.(gogoproto.Message); ok {
 		return gogotypes.MarshalAny(pb)
 	}
+
 	js, err := json.Marshal(s)
 	if err != nil {
 		return nil, err
@@ -126,8 +129,8 @@ func ToProtoGogo(s ConfigSpec) (*gogotypes.Any, error) {
 	return gogotypes.MarshalAny(pbs)
 }
 
-func ToMap(s ConfigSpec) (map[string]interface{}, error) {
-	js, err := json.Marshal(s)
+func ToMap(s Spec) (map[string]interface{}, error) {
+	js, err := ToJSON(s)
 	if err != nil {
 		return nil, err
 	}
@@ -142,11 +145,32 @@ func ToMap(s ConfigSpec) (map[string]interface{}, error) {
 	return data, nil
 }
 
+func ToJSON(s Spec) ([]byte, error) {
+	b := &bytes.Buffer{}
+	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
+	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
+	// but also not used by Istio at all.
+	if _, ok := s.(protoreflect.ProtoMessage); ok {
+		if pb, ok := s.(proto.Message); ok {
+			err := (&jsonpb.Marshaler{}).Marshal(b, pb)
+			return b.Bytes(), err
+		}
+	}
+
+	// gogo protobuf
+	if pb, ok := s.(gogoproto.Message); ok {
+		err := (&gogojsonpb.Marshaler{}).Marshal(b, pb)
+		return b.Bytes(), err
+	}
+
+	return json.Marshal(s)
+}
+
 type deepCopier interface {
 	DeepCopyInterface() interface{}
 }
 
-func ApplyYAML(s ConfigSpec, yml string) error {
+func ApplyYAML(s Spec, yml string) error {
 	js, err := yaml.YAMLToJSON([]byte(yml))
 	if err != nil {
 		return err
@@ -154,20 +178,20 @@ func ApplyYAML(s ConfigSpec, yml string) error {
 	return ApplyJSON(s, string(js))
 }
 
-func ApplyJSONStrict(s ConfigSpec, js string) error {
+func ApplyJSONStrict(s Spec, js string) error {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			err := gogoprotomarshal.ApplyJSONStrict(js, pb)
+			err := protomarshal.ApplyJSONStrict(js, pb)
 			return err
 		}
 	}
 
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
-		err := protomarshal.ApplyJSONStrict(js, pb)
+		err := gogoprotomarshal.ApplyJSONStrict(js, pb)
 		return err
 	}
 
@@ -176,7 +200,7 @@ func ApplyJSONStrict(s ConfigSpec, js string) error {
 	return d.Decode(&s)
 }
 
-func ApplyJSON(s ConfigSpec, js string) error {
+func ApplyJSON(s Spec, js string) error {
 	// golang protobuf. Use protoreflect.ProtoMessage to distinguish from gogo
 	// golang/protobuf 1.4+ will have this interface. Older golang/protobuf are gogo compatible
 	// but also not used by Istio at all.
@@ -196,7 +220,7 @@ func ApplyJSON(s ConfigSpec, js string) error {
 	return json.Unmarshal([]byte(js), &s)
 }
 
-func DeepCopy(s ConfigSpec) ConfigSpec {
+func DeepCopy(s Spec) Spec {
 	// If deep copy is defined, use that
 	if dc, ok := s.(deepCopier); ok {
 		return dc.DeepCopyInterface()

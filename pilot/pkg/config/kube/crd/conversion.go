@@ -34,7 +34,7 @@ import (
 )
 
 // FromJSON converts a canonical JSON to a proto message
-func FromJSON(s collection.Schema, js string) (config.ConfigSpec, error) {
+func FromJSON(s collection.Schema, js string) (config.Spec, error) {
 	c, err := s.Resource().NewInstance()
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func FromJSON(s collection.Schema, js string) (config.ConfigSpec, error) {
 }
 
 // FromYAML converts a canonical YAML to a proto message
-func FromYAML(s collection.Schema, yml string) (config.ConfigSpec, error) {
+func FromYAML(s collection.Schema, yml string) (config.Spec, error) {
 	c, err := s.Resource().NewInstance()
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func FromYAML(s collection.Schema, yml string) (config.ConfigSpec, error) {
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func FromJSONMap(s collection.Schema, data interface{}) (config.ConfigSpec, error) {
+func FromJSONMap(s collection.Schema, data interface{}) (config.Spec, error) {
 	// Marshal to YAML bytes
 	str, err := yaml.Marshal(data)
 	if err != nil {
