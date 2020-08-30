@@ -119,7 +119,7 @@ var _templatesConfigHtml = []byte(`{{ define "content" }}
         <table id="recent-requests-table">
             <thead>
             <tr>
-                <th colspan="4">Recent Requests</th>
+                <th colspan="4">Recent requestsChan</th>
             </tr>
             <tr>
                 <th>Time</th>

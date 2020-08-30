@@ -43,7 +43,7 @@ func TestCSRFailure(t *testing.T) {
 		numReq++
 	}
 	// Force CA server to send error response to SDS server, certs are not rotated and not expired.
-	// Sending HTTP Requests should still succeed.
+	// Sending HTTP requestsChan should still succeed.
 	setup.CAServer.RejectCSR(true)
 	// Let the current cert rotation complete.
 	time.Sleep(rotateInterval)

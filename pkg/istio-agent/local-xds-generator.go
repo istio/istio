@@ -84,7 +84,7 @@ func (sa *Agent) initXDSGenerator() {
 	// Code is shared with Istiod - meaning the internal connection handling, metrics, auth are common
 	// However we configure the generators differently - the MCP (API) generator for Istioctl uses the in-memory
 	// store, and should work the same with Istiod.
-	// TODO: forward any unknown request to the ADSC client, as a default
+	// TODO: forward any unknown request to the ADSC upstream, as a default
 	// -
 	g := s.DiscoveryServer.Generators
 	g["grpc"] = &grpcgen.GrpcConfigGenerator{}
@@ -106,7 +106,7 @@ func (sa *Agent) initXDSGenerator() {
 	reflection.Register(sa.localXDSGenerator.grpcServer)
 }
 
-// startXDSGenerator will start the XDS proxy and client. Will connect to Istiod (or XDS server),
+// startXDSGenerator will start the XDS proxy and upstream. Will connect to Istiod (or XDS server),
 // and start fetching configs to be cached.
 // If 'RequireCerts' is set, will attempt to get certificates. Will then attempt to connect to
 // the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the

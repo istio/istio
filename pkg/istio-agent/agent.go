@@ -97,7 +97,7 @@ type Agent struct {
 	// is calling this.
 	WorkloadSecrets security.SecretManager
 
-	// If set, this is the Citadel client, used to retrieve certificates.
+	// If set, this is the Citadel upstream, used to retrieve certificates.
 	CitadelClient security.Client
 
 	proxyConfig *mesh.ProxyConfig
@@ -252,7 +252,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 	if sa.cfg.ProxyXDSViaAgent {
 		// TODO: Merge pieces with the nodeagent code
-		sa.xdsProxy, err = sa.startXdsProxy()
+		sa.xdsProxy, err = initXdsProxy(sa)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
 		}
@@ -261,6 +261,9 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 }
 
 func (sa *Agent) Close() {
+	if sa.xdsProxy != nil {
+		sa.xdsProxy.close()
+	}
 	sa.closeLocalXDSGenerator()
 }
 
