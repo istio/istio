@@ -43,7 +43,7 @@ func TestBadCSRResponse(t *testing.T) {
 		numReq++
 	}
 	// Force CA server to send empty cert chain in response to SDS server.
-	// Certs are not rotated and not expired. Sending HTTP requestsChan should still succeed.
+	// Certs are not rotated and not expired. Sending HTTP Requests should still succeed.
 	setup.CAServer.SendEmptyCert()
 	// Let the current cert rotation complete.
 	time.Sleep(rotateInterval)
