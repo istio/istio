@@ -82,9 +82,14 @@ func NewASMExporter(pe *ocprom.Exporter) (*ASMExporter, error) {
 		}, nil
 	}
 	labels := &stackdriver.Labels{}
+	gcpMetadata := platform.NewGCP().Metadata()
+	if meshUID == "" {
+		if pid, ok := gcpMetadata[platform.GCPProjectNumber]; ok && pid != "" {
+			meshUID = "proj-" + pid
+		}
+	}
 	labels.Set("mesh_uid", meshUID, "ID for Mesh")
 	labels.Set("revision", version.Info.Version, "Control plane revision")
-	gcpMetadata := platform.NewGCP().Metadata()
 	clientOptions := []option.ClientOption{}
 	if strings.HasSuffix(trustDomain, "svc.id.goog") {
 		// Workload identity is enabled and P4SA access token is used.
