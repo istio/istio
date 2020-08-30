@@ -182,14 +182,14 @@ func ApplyJSON(s ConfigSpec, js string) error {
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			err := gogoprotomarshal.ApplyJSON(js, pb)
+			err := protomarshal.ApplyJSON(js, pb)
 			return err
 		}
 	}
 
 	// gogo protobuf
 	if pb, ok := s.(gogoproto.Message); ok {
-		err := protomarshal.ApplyJSON(js, pb)
+		err := gogoprotomarshal.ApplyJSON(js, pb)
 		return err
 	}
 
