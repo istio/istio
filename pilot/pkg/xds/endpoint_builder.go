@@ -15,6 +15,8 @@
 package xds
 
 import (
+	"sort"
+	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -51,7 +53,6 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 	svc := push.ServiceForHostname(proxy, hostname)
 	return EndpointBuilder{
-		proxyName:       proxy.ID,
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
 		networkView:     model.GetNetworkView(proxy),
@@ -83,16 +84,51 @@ func (b EndpointBuilder) Key() string {
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
-	if b.networkView != nil {
-		for nw := range b.networkView {
-			params = append(params, nw)
-		}
-	}
+	params = append(params, b.multinetworkKey()...)
 	return strings.Join(params, "~")
 }
 
-func (b *EndpointBuilder) IsMultinetwork() bool {
-	return b.push.Networks != nil && len(b.push.Networks.Networks) > 0
+func (b EndpointBuilder) multinetworkKey() []string {
+	// TODO(landow) computing this here kind of sucks
+	// TODO(landow) when these things change, the original won't be evicted from the cache
+
+	// TODO(landow) NetworkGateways is sort-of global, we can hash it somewhere earlier and re-use
+	ngws := b.push.NetworkGateways()
+	if ngws == nil {
+		return nil
+	}
+	params := make([]string, 0, len(ngws))
+
+	gwKeys := make([]string, 0, len(ngws))
+	for nw, gws := range ngws {
+		k := nw + "~"
+		for i, gw := range gws {
+			k += gw.Addr + ":" + strconv.Itoa(int(gw.Port))
+			if i < len(gws)-1 {
+				k += "~"
+			}
+		}
+		gwKeys = append(gwKeys, k)
+	}
+	sort.Strings(gwKeys)
+	params = append(params, gwKeys...)
+
+	// network view only matters when gateways are enabled
+	if b.networkView != nil {
+		nv := make([]string, 0, len(b.networkView))
+		for nw := range b.networkView {
+			nv = append(nv, nw)
+		}
+		sort.Strings(nv)
+		params = append(params, nv...)
+	}
+
+	return params
+}
+
+// MultinetworkConfigured determines if we have gateways to use for building cross-network endpoints.
+func (b *EndpointBuilder) MultinetworkConfigured() bool {
+	return b.push.NetworkGateways() != nil
 }
 
 func (b EndpointBuilder) Cacheable() bool {
