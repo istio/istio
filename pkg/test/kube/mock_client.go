@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
@@ -150,6 +151,12 @@ func (c MockClient) ApplyYAMLFiles(string, ...string) error {
 }
 
 func (c MockClient) ApplyYAMLFilesDryRun(string, ...string) error {
+	panic("not implemented by mock")
+}
+
+// CreatePerRPCCredentials -- when implemented -- mocks per-RPC credentials (bearer token)
+func (c MockClient) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
+	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
 	panic("not implemented by mock")
 }
 
