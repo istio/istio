@@ -780,9 +780,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	if pod.ObjectMeta.Namespace == "" {
 		pod.ObjectMeta.Namespace = req.Namespace
 	}
-
-	log.Infof("AdmissionReview for Kind=%v Namespace=%v Name=%v (%v) UID=%v Rfc6902PatchOperation=%v UserInfo=%v",
-		req.Kind, req.Namespace, req.Name, podName, req.UID, req.Operation, req.UserInfo)
+	log.Infof("Sidecar injection request for %v/%v", req.Namespace, podName)
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
