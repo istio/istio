@@ -386,7 +386,8 @@ func (a *ADSC) Run() error {
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
+	} else if len(opts) == 0 {
+		// Only disable transport security if the user didn't supply custom dial options
 		opts = append(opts, grpc.WithInsecure())
 	}
 	a.conn, err = grpc.Dial(a.url, opts...)
