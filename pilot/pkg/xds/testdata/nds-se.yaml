@@ -21,7 +21,7 @@ metadata:
 spec:
   hosts:
     - random-2.host.example
-  address:
+  addresses:
     - 9.9.9.9
   ports:
     - number: 80
@@ -64,6 +64,8 @@ spec:
       protocol: HTTP
   resolution: NONE
 ---
+# this should not have any name table entry
+# as we dont auto allocate for none mode services
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
