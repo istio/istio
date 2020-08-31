@@ -15,7 +15,10 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 
@@ -122,5 +125,53 @@ func TestIsIPv6Proxy(t *testing.T) {
 		if result != tt.expected {
 			t.Errorf("Test %s failed, expected: %t got: %t", tt.name, tt.expected, result)
 		}
+	}
+}
+
+func TestWaitForFile(t *testing.T) {
+	tests := []struct {
+		desc    string
+		fName   string
+		maxWait time.Duration
+		waitFor time.Duration
+		expect  bool
+	}{
+		{
+			desc:    "exists-in-timeframe",
+			fName:   "test.txt",
+			maxWait: time.Second * 1 / 2,
+			waitFor: time.Second * 1 / 8,
+			expect:  true,
+		},
+		{
+			desc:    "does-not-exist-in-timeframe",
+			fName:   "test.txt",
+			maxWait: time.Second * 1 / 2,
+			waitFor: time.Second,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			// channel to wait for the goroutine to finish writing, regardless of timeframe.
+			writeChan := make(chan struct{})
+			// sleep & write on separate thread
+			go func(fName string, waitDur time.Duration, sigChan chan struct{}) {
+				time.Sleep(tt.waitFor)
+				err := ioutil.WriteFile(fName, []byte("lol"), 0644)
+				if err != nil {
+					t.Errorf("Error writing to file after duration: %v", err)
+				}
+				// signal to main goroutine writing is complete so we can delete
+				sigChan <- struct{}{}
+			}(tt.fName, tt.waitFor, writeChan)
+			if got := waitForFile(tt.fName, tt.maxWait); got != tt.expect {
+				t.Errorf("%s: TestWaitForFile(%s, %v) => %v, expected %v", tt.desc, tt.fName, tt.maxWait,
+					got, tt.expect)
+			}
+			// wait for writing to finish
+			<-writeChan
+			// remove file
+			_ = os.Remove(tt.fName)
+		})
 	}
 }
