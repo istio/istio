@@ -21,8 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/url"
 	appsv1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/fake"
+
+	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/url"
 )
 
 type testcase struct {
@@ -287,7 +288,7 @@ func mockDynamicClientGenerator(dynamicConfigs []runtime.Object) func(kubeconfig
 	return outFactory
 }
 
-func Test_splitEqual(t *testing.T) {
+func TestSplitEqual(t *testing.T) {
 	tests := []struct {
 		arg       string
 		wantKey   string
@@ -312,7 +313,7 @@ func Test_splitEqual(t *testing.T) {
 	}
 }
 
-func Test_convertToMap(t *testing.T) {
+func TestConvertToMap(t *testing.T) {
 	tests := []struct {
 		name string
 		arg  []string
