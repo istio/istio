@@ -108,7 +108,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("LoadBalancerSupported:      %v\n", s.LoadBalancerSupported)
 	result += fmt.Sprintf("ControlPlaneTopology: %v\n", s.ControlPlaneTopology)
 	result += fmt.Sprintf("NetworkTopology:      %v\n", s.networkTopology)
-
+	result += fmt.Sprintf("ConfigTopology:      %v\n", s.ConfigTopology)
 	return result
 }
 

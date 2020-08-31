@@ -81,7 +81,7 @@ func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) 
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
-	if !i.settings.UseLegacyRemote {
+	if !i.environment.IsConfigCluster(cp) {
 		address, err := retry.Do(func() (interface{}, bool, error) {
 			return getRemoteServiceAddress(i.environment.Settings(), cluster, i.settings.SystemNamespace, istiodLabel,
 				istiodSvcName, discoveryPort)
@@ -158,4 +158,13 @@ func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, lab
 
 	ip := svc.Status.LoadBalancer.Ingress[0].IP
 	return net.TCPAddr{IP: net.ParseIP(ip), Port: port}, true, nil
+}
+
+func (i *operatorComponent) isExternalControlPlane() bool {
+	for _, cluster := range i.environment.KubeClusters {
+		if i.environment.IsControlPlaneCluster(cluster) && !i.environment.IsConfigCluster(cluster) {
+			return true
+		}
+	}
+	return false
 }

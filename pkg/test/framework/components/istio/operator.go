@@ -212,16 +212,17 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			return nil, err
 		}
 	}
-	// If UseLegacyRemote is false, we are under central Istiod which uses remote KUBECONFIG
+	// If control plane cluster isn't the config cluster we are under external control plane mode which uses remote KUBECONFIG
 	// we follow below install sequences:
 	// install istiod Remote + base in remote cluster first.
-	// install istiod in primary cluster
+	// install istiod in external control plane cluster
 	// get istiod loadbalancer address(discoveryAddress)
-	// create istiod service and endpoints in remote cluster
-
-	if !cfg.UseLegacyRemote {
-		err = deployWithRemoteKubeConfig(iopFile, remoteIopFile, env, cfg, i)
-		return i, err
+	// create istiod service and endpoints in remote/config cluster
+	for _, cluster := range env.KubeClusters {
+		if env.IsControlPlaneCluster(cluster) &&  !env.IsConfigCluster(cluster){
+			err = deployWithRemoteKubeConfig(iopFile, remoteIopFile, env, cfg, i)
+			return i, err
+		}
 	}
 
 	// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
@@ -394,8 +395,13 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 			return fmt.Errorf("failed to unmarshal base values: %v", err)
 		}
 	}
-
-	if env.IsMultinetwork() && cfg.UseLegacyRemote {
+	externalControlPlane := false
+	for _, cluster := range env.KubeClusters {
+		if env.IsControlPlaneCluster(cluster) &&  !env.IsConfigCluster(cluster){
+			externalControlPlane = true
+		}
+	}
+	if env.IsMultinetwork() && !externalControlPlane {
 		if values.Global == nil {
 			values.Global = &pkgAPI.GlobalConfig{}
 		}
@@ -486,7 +492,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
 
-	if c.environment.IsMulticluster() && cfg.UseLegacyRemote {
+	if c.environment.IsMulticluster() && !c.isExternalControlPlane() {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())

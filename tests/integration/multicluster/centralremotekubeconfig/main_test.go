@@ -41,18 +41,21 @@ func TestMain(m *testing.M) {
 		Label(label.Multicluster).
 		RequireMinClusters(2).
 		Setup(kube.Setup(func(s *kube.Settings, ctx resource.Context) {
-			// Make istiod run on 2nd cluster and points to KUBECONFIG in cluster 1
+			// Make istiod run on 2nd cluster and points to KUBECONFIG in cluster 0
 			scopes.Framework.Infof("setting up istiod cluster before hand")
 			s.ControlPlaneTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
-			primaryCluster := resource.ClusterIndex(1)
-			scopes.Framework.Infof("remote cluster %s", ctx.Clusters()[primaryCluster].Name())
+			s.ConfigTopology = make(map[resource.ClusterIndex]resource.ClusterIndex)
+			externalControlPlaneCluster := resource.ClusterIndex(1)
+			configCluster := resource.ClusterIndex(0)
+			scopes.Framework.Infof("remote cluster %s", ctx.Clusters()[configCluster].Name())
 			cfg, err := istio.DefaultConfig(ctx)
 			if err != nil {
 				scopes.Framework.Infof("has error in creating istio cfg ")
 				return
 			}
 			for i := 0; i < len(ctx.Clusters()); i++ {
-				s.ControlPlaneTopology[resource.ClusterIndex(i)] = primaryCluster
+				s.ControlPlaneTopology[resource.ClusterIndex(i)] = externalControlPlaneCluster
+				s.ConfigTopology[resource.ClusterIndex(i)] = configCluster
 			}
 			//create related namespace ,secret and service account before hand in 2nd cluster
 			istioKubeConfig, err := file.AsString(s.KubeConfig[0])
