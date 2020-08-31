@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -51,7 +52,10 @@ import (
 )
 
 // TODO: dynamically generate meshID to support multi-tenancy tests
-const meshID = "testmesh0"
+const (
+	meshID        = "testmesh0"
+	istiodSvcName = "istiod"
+)
 
 type operatorComponent struct {
 	id          resource.ID
@@ -195,13 +199,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, err
 	}
 
-	// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
-	if env.IsMulticluster() {
-		if err := deployCACerts(workDir, env, cfg); err != nil {
-			return nil, err
-		}
-	}
-
 	// Generate the istioctl config file
 	iopFile := filepath.Join(workDir, "iop.yaml")
 	if err := initIOPFile(cfg, env, iopFile, cfg.ControlPlaneValues); err != nil {
@@ -212,6 +209,24 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	if cfg.RemoteClusterValues != "" {
 		remoteIopFile = filepath.Join(workDir, "remote.yaml")
 		if err := initIOPFile(cfg, env, remoteIopFile, cfg.RemoteClusterValues); err != nil {
+			return nil, err
+		}
+	}
+	// If UseLegacyRemote is false, we are under central Istiod which uses remote KUBECONFIG
+	// we follow below install sequences:
+	// install istiod Remote + base in remote cluster first.
+	// install istiod in primary cluster
+	// get istiod loadbalancer address(discoveryAddress)
+	// create istiod service and endpoints in remote cluster
+
+	if !cfg.UseLegacyRemote {
+		err = deployWithRemoteKubeConfig(iopFile, remoteIopFile, env, cfg, i)
+		return i, err
+	}
+
+	// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
+	if env.IsMulticluster() {
+		if err := deployCACerts(workDir, env, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -380,7 +395,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 		}
 	}
 
-	if env.IsMultinetwork() {
+	if env.IsMultinetwork() && cfg.UseLegacyRemote {
 		if values.Global == nil {
 			values.Global = &pkgAPI.GlobalConfig{}
 		}
@@ -471,7 +486,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
 
-	if c.environment.IsMulticluster() {
+	if c.environment.IsMulticluster() && cfg.UseLegacyRemote {
 		// Set the clusterName for the local cluster.
 		// This MUST match the clusterName in the remote secret for this cluster.
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
@@ -692,4 +707,133 @@ func deployCACerts(workDir string, env *kube.Environment, cfg Config) error {
 		}
 	}
 	return nil
+}
+
+func createIstiodEndpoint(discoveryAddress string, cfg Config, cluster resource.Cluster) error {
+	scopes.Framework.Infof("creating endpoints and service in cluster %s", cluster.Name())
+	svc := &kubeApiCore.Service{
+		ObjectMeta: kubeApiMeta.ObjectMeta{
+			Name:      istiodSvcName,
+			Namespace: cfg.SystemNamespace,
+		},
+		Spec: kubeApiCore.ServiceSpec{
+			Ports: []kubeApiCore.ServicePort{
+				{
+					Port:     15012,
+					Name:     "tcp-istiod",
+					Protocol: kubeApiCore.ProtocolTCP,
+				},
+				{
+					Name:     "tcp-webhook",
+					Protocol: kubeApiCore.ProtocolTCP,
+					Port:     15017,
+				},
+			},
+			ClusterIP: "None",
+		},
+	}
+	_, err := cluster.CoreV1().Services(cfg.SystemNamespace).Create(context.TODO(), svc, kubeApiMeta.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	eps := &kubeApiCore.Endpoints{
+		ObjectMeta: kubeApiMeta.ObjectMeta{
+			Name:      istiodSvcName,
+			Namespace: cfg.SystemNamespace,
+		},
+		Subsets: []kubeApiCore.EndpointSubset{
+			{
+				Addresses: []kubeApiCore.EndpointAddress{
+					{
+						IP: discoveryAddress,
+					},
+				},
+				Ports: []kubeApiCore.EndpointPort{
+					{
+						Name:     "tcp-istiod",
+						Protocol: kubeApiCore.ProtocolTCP,
+						Port:     15012,
+					},
+					{
+						Name:     "tcp-webhook",
+						Protocol: kubeApiCore.ProtocolTCP,
+						Port:     15017,
+					},
+				},
+			},
+		},
+	}
+
+	_, err = cluster.CoreV1().Endpoints(cfg.SystemNamespace).Create(context.TODO(), eps, kubeApiMeta.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	err = retry.UntilSuccess(func() error {
+		_, err := cluster.CoreV1().Services(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
+		if err != nil {
+			return err
+		}
+		_, err = cluster.CoreV1().Endpoints(cfg.SystemNamespace).Get(context.TODO(), istiodSvcName, kubeApiMeta.GetOptions{})
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Timeout(20*time.Second), retry.Delay(2*time.Second))
+	return err
+}
+
+func deployWithRemoteKubeConfig(iopFile, remoteIopFile string, env *kube.Environment, cfg Config, i *operatorComponent) error {
+	var err error
+	// 1. install istiod Remote + base in remote cluster
+	for _, cluster := range env.KubeClusters {
+		if !env.IsControlPlaneCluster(cluster) {
+			cluster := cluster
+			if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
+				return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
+			}
+			break
+		}
+	}
+
+	var istiodAddress net.TCPAddr
+	for _, cluster := range env.KubeClusters {
+		if env.IsControlPlaneCluster(cluster) {
+			// 2. install istiod on primary cluster
+			if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
+				return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
+			}
+			// 3. get Istiod address as discovery Address
+			err = retry.UntilSuccess(func() error {
+				istiodAddress, err = i.RemoteDiscoveryAddressFor(cluster)
+				if err != nil {
+					return err
+				}
+				return nil
+			}, retry.Timeout(90*time.Second), retry.Delay(2*time.Second))
+			if err != nil {
+				return err
+			}
+			err = patchIstiodCustomHost(i, cfg, cluster)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	// 4. create istiod endpoints and svc in remote cluster
+	discoveryAddress := istiodAddress.IP.String()
+	scopes.Framework.Infof("discoveryAddress : %s", discoveryAddress)
+	for _, cluster := range env.KubeClusters {
+		if !env.IsControlPlaneCluster(cluster) {
+			err = createIstiodEndpoint(discoveryAddress, cfg, cluster)
+			if err != nil {
+				scopes.Framework.Infof("creating istiod endpoint has error %v", err)
+			}
+			break
+		}
+	}
+
+	return nil
+
 }

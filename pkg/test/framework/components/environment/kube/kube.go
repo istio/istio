@@ -112,6 +112,15 @@ func (e *Environment) IsControlPlaneCluster(cluster resource.Cluster) bool {
 	return true
 }
 
+// IsConfigCluster returns true if the cluster uses itself as config cluster in the ConfigTopology.
+// We return if there is no mapping for the cluster, similar to the behavior of the istio.test.kube.controlPlaneTopology.
+func (e *Environment) IsConfigCluster(cluster resource.Cluster) bool {
+	if configIndex, ok := e.Settings().ConfigTopology[cluster.Index()]; ok {
+		return configIndex == cluster.Index()
+	}
+	return true
+}
+
 // GetControlPlaneCluster returns the cluster running the control plane for the given cluster based on the ControlPlaneTopology.
 // An error is returned if the given cluster isn't present in the topology, or the cluster in the topology isn't in KubeClusters.
 func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource.Cluster, error) {
