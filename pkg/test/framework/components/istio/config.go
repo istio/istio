@@ -56,17 +56,17 @@ var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:    DefaultSystemNamespace,
-		IstioNamespace:     DefaultSystemNamespace,
-		ConfigNamespace:    DefaultSystemNamespace,
-		TelemetryNamespace: DefaultSystemNamespace,
-		PolicyNamespace:    DefaultSystemNamespace,
-		IngressNamespace:   DefaultSystemNamespace,
-		EgressNamespace:    DefaultSystemNamespace,
-		DeployIstio:        true,
-		DeployTimeout:      0,
-		UndeployTimeout:    0,
-		IOPFile:            IntegrationTestDefaultsIOP,
+		SystemNamespace:                DefaultSystemNamespace,
+		IstioNamespace:                 DefaultSystemNamespace,
+		ConfigNamespace:                DefaultSystemNamespace,
+		TelemetryNamespace:             DefaultSystemNamespace,
+		PolicyNamespace:                DefaultSystemNamespace,
+		IngressNamespace:               DefaultSystemNamespace,
+		EgressNamespace:                DefaultSystemNamespace,
+		DeployIstio:                    true,
+		DeployTimeout:                  0,
+		UndeployTimeout:                0,
+		IOPFile:                        IntegrationTestDefaultsIOP,
 		CustomSidecarInjectorNamespace: "",
 	}
 )
