@@ -266,7 +266,7 @@ var (
 		"Custom host name of istiod that istiod signs the server cert.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
-		"the provider of Pilot DNS certificate.")
+		"The provider of Pilot DNS certificate.")
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
@@ -289,10 +289,8 @@ var (
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
-		false,
-		"If enabled, Pilot will merge virtual services with delegates. "+
-			"By default, this is false, and virtualService with delegate will be ignored",
-	).Get()
+		true,
+		"If set to false, virtualService delegate will not be supported.").Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()

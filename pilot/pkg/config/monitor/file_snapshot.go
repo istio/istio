@@ -21,10 +21,9 @@ import (
 	"sort"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/log"
 )
 
@@ -40,7 +39,7 @@ var (
 type FileSnapshot struct {
 	root             string
 	domainSuffix     string
-	configTypeFilter map[resource.GroupVersionKind]bool
+	configTypeFilter map[config.GroupVersionKind]bool
 }
 
 // NewFileSnapshot returns a snapshotter.
@@ -49,7 +48,7 @@ func NewFileSnapshot(root string, schemas collection.Schemas, domainSuffix strin
 	snapshot := &FileSnapshot{
 		root:             root,
 		domainSuffix:     domainSuffix,
-		configTypeFilter: make(map[resource.GroupVersionKind]bool),
+		configTypeFilter: make(map[config.GroupVersionKind]bool),
 	}
 
 	ss := schemas.All()
@@ -68,8 +67,8 @@ func NewFileSnapshot(root string, schemas collection.Schemas, domainSuffix strin
 
 // ReadConfigFiles parses files in the root directory and returns a sorted slice of
 // eligible model.Config. This can be used as a configFunc when creating a Monitor.
-func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
-	var result []*model.Config
+func (f *FileSnapshot) ReadConfigFiles() ([]*config.Config, error) {
+	var result []*config.Config
 
 	err := filepath.Walk(f.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -107,11 +106,11 @@ func (f *FileSnapshot) ReadConfigFiles() ([]*model.Config, error) {
 }
 
 // parseInputs is identical to crd.ParseInputs, except that it returns an array of config pointers.
-func parseInputs(data []byte, domainSuffix string) ([]*model.Config, error) {
+func parseInputs(data []byte, domainSuffix string) ([]*config.Config, error) {
 	configs, _, err := crd.ParseInputs(string(data))
 
 	// Convert to an array of pointers.
-	refs := make([]*model.Config, len(configs))
+	refs := make([]*config.Config, len(configs))
 	for i := range configs {
 		refs[i] = &configs[i]
 		refs[i].Domain = domainSuffix
@@ -120,7 +119,7 @@ func parseInputs(data []byte, domainSuffix string) ([]*model.Config, error) {
 }
 
 // byKey is an array of config objects that is capable or sorting by Namespace, GroupVersionKind, and Name.
-type byKey []*model.Config
+type byKey []*config.Config
 
 func (rs byKey) Len() int {
 	return len(rs)

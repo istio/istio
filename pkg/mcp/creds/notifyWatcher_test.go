@@ -19,7 +19,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
-	"path"
 	"reflect"
 	"strings"
 	"sync"
@@ -243,34 +242,6 @@ func TestWatchFiles(t *testing.T) {
 				t.Fatalf("Error mismatch: got:%v, wanted:%q", err, testCase.err)
 			}
 		})
-	}
-}
-
-func TestWatchFolder(t *testing.T) {
-	dir, err := ioutil.TempDir(os.TempDir(), "TestLoadFromFolder")
-	if err != nil {
-		t.Fatalf("Error creating temp dir: %v", err)
-	}
-
-	certFile := path.Join(dir, "cert-chain.pem")
-	keyFile := path.Join(dir, "key.pem")
-	caCertFile := path.Join(dir, "root-cert.pem")
-
-	if err = ioutil.WriteFile(certFile, testcerts.ServerCert, os.ModePerm); err != nil {
-		t.Fatalf("Error writing cert file: %v", err)
-	}
-	if err = ioutil.WriteFile(keyFile, testcerts.ServerKey, os.ModePerm); err != nil {
-		t.Fatalf("Error writing key file: %v", err)
-	}
-	if err = ioutil.WriteFile(caCertFile, testcerts.CACert, os.ModePerm); err != nil {
-		t.Fatalf("Error writing CA cert file: %v", err)
-	}
-
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	_, err = WatchFolder(stopCh, dir)
-	if err != nil {
-		t.Fatalf("Unexpected error found: %v", err)
 	}
 }
 

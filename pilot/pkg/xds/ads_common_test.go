@@ -16,13 +16,12 @@ package xds
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"testing"
 
 	model "istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -47,7 +46,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		want    bool
 	}
 
-	proxyCfg := &model.Config{ConfigMeta: model.ConfigMeta{
+	proxyCfg := &config.Config{Meta: config.Meta{
 		Name:      generalName,
 		Namespace: nsName,
 	}}
@@ -57,7 +56,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		SidecarScope: &model.SidecarScope{Config: proxyCfg, RootNamespace: nsRoot}}
 	gateway := &model.Proxy{Type: model.Router}
 
-	sidecarScopeKindNames := map[resource.GroupVersionKind]string{
+	sidecarScopeKindNames := map[config.GroupVersionKind]string{
 		gvk.ServiceEntry: svcName, gvk.VirtualService: vsName, gvk.DestinationRule: drName}
 	for kind, name := range sidecarScopeKindNames {
 		sidecar.SidecarScope.AddConfigDependencies(model.ConfigKey{Kind: kind, Name: name, Namespace: nsName})
@@ -90,7 +89,7 @@ func TestProxyNeedsPush(t *testing.T) {
 				Name: scName, Namespace: nsName}: {}}, false},
 		{"invalid config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{
-				Kind: resource.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
+				Kind: config.GroupVersionKind{Kind: invalidKind}, Name: generalName, Namespace: nsName}: {}},
 			true},
 		{"mixture matched and unmatched config for sidecar", sidecar, map[model.ConfigKey]struct{}{
 			{Kind: gvk.DestinationRule, Name: drName, Namespace: nsName}:                   {},
@@ -117,7 +116,7 @@ func TestProxyNeedsPush(t *testing.T) {
 		})
 	}
 
-	sidecarNamespaceScopeTypes := []resource.GroupVersionKind{
+	sidecarNamespaceScopeTypes := []config.GroupVersionKind{
 		gvk.Sidecar, gvk.EnvoyFilter, gvk.AuthorizationPolicy, gvk.RequestAuthentication,
 	}
 	for _, kind := range sidecarNamespaceScopeTypes {
@@ -160,123 +159,6 @@ func TestProxyNeedsPush(t *testing.T) {
 			got := ProxyNeedsPush(tt.proxy, pushEv)
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPushTypeFor(t *testing.T) {
-	sidecar := &model.Proxy{Type: model.SidecarProxy}
-	gateway := &model.Proxy{Type: model.Router}
-
-	tests := []struct {
-		name        string
-		proxy       *model.Proxy
-		configTypes []resource.GroupVersionKind
-		expect      map[Type]bool
-	}{
-		{
-			name:        "configTypes is empty",
-			proxy:       sidecar,
-			configTypes: nil,
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "configTypes is empty",
-			proxy:       gateway,
-			configTypes: nil,
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "sidecar updated for sidecar proxy",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.Sidecar},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "sidecar updated for gateway proxy",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.Sidecar},
-			expect:      map[Type]bool{},
-		},
-		{
-			name:        "authorizationpolicy updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.AuthorizationPolicy},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "authorizationpolicy updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.AuthorizationPolicy},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "unknown type updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{{Kind: "unknown"}},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "unknown type updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:  "gateway and virtualservice updated for gateway proxy",
-			proxy: gateway,
-			configTypes: []resource.GroupVersionKind{gvk.Gateway,
-				gvk.VirtualService},
-			expect: map[Type]bool{LDS: true, RDS: true},
-		},
-		{
-			name:  "virtualservice and destinationrule updated",
-			proxy: sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.DestinationRule,
-				gvk.VirtualService},
-			expect: map[Type]bool{CDS: true, EDS: true, LDS: true, RDS: true},
-		},
-		{
-			name:        "requestauthentication updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.RequestAuthentication},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "requestauthentication updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.RequestAuthentication},
-			expect:      map[Type]bool{LDS: true},
-		},
-		{
-			name:        "peerauthentication updated",
-			proxy:       sidecar,
-			configTypes: []resource.GroupVersionKind{gvk.PeerAuthentication},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true},
-		},
-		{
-			name:        "peerauthentication updated",
-			proxy:       gateway,
-			configTypes: []resource.GroupVersionKind{gvk.PeerAuthentication},
-			expect:      map[Type]bool{CDS: true, EDS: true, LDS: true},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfgs := map[model.ConfigKey]struct{}{}
-			for _, kind := range tt.configTypes {
-				cfgs[model.ConfigKey{
-					Kind:      kind,
-					Name:      "name",
-					Namespace: "ns",
-				}] = struct{}{}
-			}
-			pushEv := &Event{pushRequest: &model.PushRequest{ConfigsUpdated: cfgs}}
-			out := PushTypeFor(tt.proxy, pushEv)
-			if !reflect.DeepEqual(out, tt.expect) {
-				t.Errorf("expected: %v, but got %v", tt.expect, out)
 			}
 		})
 	}

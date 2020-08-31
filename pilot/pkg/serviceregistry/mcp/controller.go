@@ -26,10 +26,10 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/mcp/sink"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
@@ -61,9 +61,9 @@ type Options struct {
 type controller struct {
 	configStoreMu sync.RWMutex
 	// keys [type][namespace][name]
-	configStore   map[resource.GroupVersionKind]map[string]map[string]*model.Config
+	configStore   map[config.GroupVersionKind]map[string]map[string]*config.Config
 	options       *Options
-	eventHandlers map[resource.GroupVersionKind][]func(model.Config, model.Config, model.Event)
+	eventHandlers map[config.GroupVersionKind][]func(config.Config, config.Config, model.Event)
 	ledger        ledger.Ledger
 
 	syncedMu sync.Mutex
@@ -79,9 +79,9 @@ func NewController(options *Options) Controller {
 	}
 
 	return &controller{
-		configStore:   make(map[resource.GroupVersionKind]map[string]map[string]*model.Config),
+		configStore:   make(map[config.GroupVersionKind]map[string]map[string]*config.Config),
 		options:       options,
-		eventHandlers: make(map[resource.GroupVersionKind][]func(model.Config, model.Config, model.Event)),
+		eventHandlers: make(map[config.GroupVersionKind][]func(config.Config, config.Config, model.Event)),
 		synced:        synced,
 		ledger:        options.ConfigLedger,
 	}
@@ -93,7 +93,7 @@ func (c *controller) Schemas() collection.Schemas {
 
 // List returns all the config that is stored by type and namespace
 // if namespace is empty string it returns config for all the namespaces
-func (c *controller) List(typ resource.GroupVersionKind, namespace string) (out []model.Config, err error) {
+func (c *controller) List(typ config.GroupVersionKind, namespace string) (out []config.Config, err error) {
 	_, ok := collections.Pilot.FindByGroupVersionKind(typ)
 	if !ok {
 		return nil, fmt.Errorf("list unknown type %s", typ)
@@ -134,7 +134,7 @@ func (c *controller) Apply(change *sink.Change) error {
 	configUpdated := map[model.ConfigKey]struct{}{} // If non-incremental, we use empty configUpdated to indicate all.
 
 	// innerStore is [namespace][name]
-	innerStore := make(map[string]map[string]*model.Config)
+	innerStore := make(map[string]map[string]*config.Config)
 	for _, obj := range change.Objects {
 		namespace, name := extractNameNamespace(obj.Metadata.Name)
 
@@ -155,8 +155,8 @@ func (c *controller) Apply(change *sink.Change) error {
 				Namespace: namespace,
 			}] = struct{}{}
 		}
-		conf := &model.Config{
-			ConfigMeta: model.ConfigMeta{
+		conf := &config.Config{
+			Meta: config.Meta{
 				GroupVersionKind:  kind,
 				Name:              name,
 				Namespace:         namespace,
@@ -169,7 +169,7 @@ func (c *controller) Apply(change *sink.Change) error {
 			Spec: obj.Body,
 		}
 
-		if err := s.Resource().ValidateProto(conf.Name, conf.Namespace, conf.Spec); err != nil {
+		if err := s.Resource().ValidateConfig(*conf); err != nil {
 			// Do not return an error, instead discard the resources so that Pilot can process the rest.
 			log.Warnf("Discarding incoming MCP resource: validation failed (%s/%s): %v", conf.Namespace, conf.Name, err)
 			continue
@@ -181,7 +181,7 @@ func (c *controller) Apply(change *sink.Change) error {
 			if ok {
 				namedConfig[conf.Name] = conf
 			} else {
-				innerStore[conf.Namespace] = map[string]*model.Config{
+				innerStore[conf.Namespace] = map[string]*config.Config{
 					conf.Name: conf,
 				}
 			}
@@ -205,7 +205,7 @@ func (c *controller) Apply(change *sink.Change) error {
 		}
 	}
 
-	var prevStore map[string]map[string]*model.Config
+	var prevStore map[string]map[string]*config.Config
 
 	c.configStoreMu.Lock()
 	prevStore = c.configStore[kind]
@@ -213,9 +213,9 @@ func (c *controller) Apply(change *sink.Change) error {
 	if change.Incremental {
 
 		//Although it is not a deep copy, there is no problem because the config will not be modified
-		prevCache := make(map[string]map[string]*model.Config, len(prevStore))
+		prevCache := make(map[string]map[string]*config.Config, len(prevStore))
 		for namespace, namedConfig := range prevStore {
-			prevCache[namespace] = make(map[string]*model.Config, len(namedConfig))
+			prevCache[namespace] = make(map[string]*config.Config, len(namedConfig))
 			for name, config := range namedConfig {
 				prevCache[namespace][name] = config
 			}
@@ -243,7 +243,7 @@ func (c *controller) Apply(change *sink.Change) error {
 	return nil
 }
 
-func (c *controller) objectInRevision(o *model.Config) bool {
+func (c *controller) objectInRevision(o *config.Config) bool {
 	configEnv, f := o.Labels[label.IstioRev]
 	if !f {
 		// This is a global object, and always included
@@ -274,7 +274,7 @@ func (c *controller) HasSynced() bool {
 }
 
 // RegisterEventHandler registers a handler using the type as a key
-func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, handler func(model.Config, model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
 	c.eventHandlers[kind] = append(c.eventHandlers[kind], handler)
 }
 
@@ -301,25 +301,25 @@ func (c *controller) Run(<-chan struct{}) {
 }
 
 // Get is not implemented
-func (c *controller) Get(_ resource.GroupVersionKind, _, _ string) *model.Config {
+func (c *controller) Get(_ config.GroupVersionKind, _, _ string) *config.Config {
 	log.Warnf("get %s", errUnsupported)
 	return nil
 }
 
 // Update is not implemented
-func (c *controller) Update(model.Config) (newRevision string, err error) {
+func (c *controller) Update(config.Config) (newRevision string, err error) {
 	log.Warnf("update %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Create is not implemented
-func (c *controller) Create(model.Config) (revision string, err error) {
+func (c *controller) Create(config.Config) (revision string, err error) {
 	log.Warnf("create %s", errUnsupported)
 	return "", errUnsupported
 }
 
 // Delete is not implemented
-func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
+func (c *controller) Delete(_ config.GroupVersionKind, _, _ string) error {
 	return errUnsupported
 }
 
@@ -329,10 +329,10 @@ func (c *controller) sync(collection string) {
 	c.syncedMu.Unlock()
 }
 
-func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*model.Config) {
-	dispatch := func(prev model.Config, model model.Config, event model.Event) {}
+func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[string]*config.Config) {
+	dispatch := func(prev config.Config, model config.Config, event model.Event) {}
 	if handlers, ok := c.eventHandlers[gvk.ServiceEntry]; ok {
-		dispatch = func(prev model.Config, config model.Config, event model.Event) {
+		dispatch = func(prev config.Config, config config.Config, event model.Event) {
 			log.Debugf("MCP event dispatch: key=%v event=%v", config.Key(), event.String())
 			for _, handler := range handlers {
 				handler(prev, config, event)
@@ -342,17 +342,17 @@ func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 
 	// add/update
 	for namespace, byName := range currentStore {
-		for name, config := range byName {
+		for name, cfg := range byName {
 			if prevByNamespace, ok := prevStore[namespace]; ok {
 				if prevConfig, ok := prevByNamespace[name]; ok {
-					if config.ResourceVersion != prevConfig.ResourceVersion {
-						dispatch(*prevConfig, *config, model.EventUpdate)
+					if cfg.ResourceVersion != prevConfig.ResourceVersion {
+						dispatch(*prevConfig, *cfg, model.EventUpdate)
 					}
 				} else {
-					dispatch(model.Config{}, *config, model.EventAdd)
+					dispatch(config.Config{}, *cfg, model.EventAdd)
 				}
 			} else {
-				dispatch(model.Config{}, *config, model.EventAdd)
+				dispatch(config.Config{}, *cfg, model.EventAdd)
 			}
 		}
 	}
@@ -361,7 +361,7 @@ func (c *controller) serviceEntryEvents(currentStore, prevStore map[string]map[s
 	for namespace, prevByName := range prevStore {
 		for name, prevConfig := range prevByName {
 			if _, ok := currentStore[namespace][name]; !ok {
-				dispatch(model.Config{}, *prevConfig, model.EventDelete)
+				dispatch(config.Config{}, *prevConfig, model.EventDelete)
 			}
 		}
 	}
@@ -375,7 +375,7 @@ func extractNameNamespace(metadataName string) (string, string) {
 	return "", segments[0]
 }
 
-func (c *controller) removeConfig(kind resource.GroupVersionKind, resources []string) {
+func (c *controller) removeConfig(kind config.GroupVersionKind, resources []string) {
 	for _, fullName := range resources {
 		namespace, name := extractNameNamespace(fullName)
 		if byType, ok := c.configStore[kind]; ok {
@@ -396,7 +396,7 @@ func (c *controller) removeConfig(kind resource.GroupVersionKind, resources []st
 	}
 }
 
-func (c *controller) incrementalUpdate(kind resource.GroupVersionKind, conf map[string]map[string]*model.Config) {
+func (c *controller) incrementalUpdate(kind config.GroupVersionKind, conf map[string]map[string]*config.Config) {
 	if len(conf) == 0 {
 		return
 	}

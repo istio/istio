@@ -40,3 +40,19 @@ func GetShortType(typeURL string) string {
 		return typeURL
 	}
 }
+
+// GetMetricType returns the form of a type reported for metrics
+func GetMetricType(typeURL string) string {
+	switch typeURL {
+	case ClusterType:
+		return "cds"
+	case ListenerType:
+		return "lds"
+	case RouteType:
+		return "rds"
+	case EndpointType:
+		return "eds"
+	default:
+		return typeURL
+	}
+}

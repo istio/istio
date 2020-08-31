@@ -36,6 +36,7 @@ import (
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test"
@@ -44,8 +45,8 @@ import (
 
 type TestOptions struct {
 	// If provided, these configs will be used directly
-	Configs        []model.Config
-	ConfigPointers []*model.Config
+	Configs        []config.Config
+	ConfigPointers []*config.Config
 
 	// If provided, the yaml string will be parsed and used as configs
 	ConfigString string
@@ -53,7 +54,8 @@ type TestOptions struct {
 	ConfigTemplateInput interface{}
 
 	// Services to pre-populate as part of the service discovery
-	Services []*model.Service
+	Services  []*model.Service
+	Instances []*model.ServiceInstance
 
 	// If provided, this mesh config will be used
 	MeshConfig      *meshconfig.MeshConfig
@@ -103,6 +105,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services)
+	for _, instance := range opts.Instances {
+		msd.AddInstance(instance.Service.Hostname, instance)
+	}
 	msd.ClusterID = string(serviceregistry.Mock)
 	serviceDiscovery.AddRegistry(serviceregistry.Simple{
 		ClusterID:        string(serviceregistry.Mock),
@@ -178,6 +183,9 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	if p.Type == "" {
 		p.Type = model.SidecarProxy
 	}
+	if p.ConfigNamespace == "" {
+		p.ConfigNamespace = "default"
+	}
 	if p.ID == "" {
 		p.ID = "app.test"
 	}
@@ -227,7 +235,7 @@ func (f *ConfigGenTest) Store() model.ConfigStoreCache {
 
 var _ model.XDSUpdater = &FakeXdsUpdater{}
 
-func getConfigs(t test.Failer, opts TestOptions) []model.Config {
+func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 	for _, p := range opts.ConfigPointers {
 		if p != nil {
 			opts.Configs = append(opts.Configs, *p)

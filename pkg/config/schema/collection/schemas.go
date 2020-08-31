@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config"
 )
 
 // Schemas contains metadata about configuration resources.
@@ -110,7 +110,7 @@ func (s Schemas) MustFind(collection string) Schema {
 }
 
 // FindByKind searches and returns the first schema with the given kind
-func (s Schemas) FindByGroupVersionKind(gvk resource.GroupVersionKind) (Schema, bool) {
+func (s Schemas) FindByGroupVersionKind(gvk config.GroupVersionKind) (Schema, bool) {
 	for _, rs := range s.byAddOrder {
 		if rs.Resource().GroupVersionKind() == gvk {
 			return rs, true
@@ -134,7 +134,7 @@ func (s Schemas) FindByPlural(group, version, plural string) (Schema, bool) {
 }
 
 // MustFind calls FindByGroupVersionKind and panics if not found.
-func (s Schemas) MustFindByGroupVersionKind(gvk resource.GroupVersionKind) Schema {
+func (s Schemas) MustFindByGroupVersionKind(gvk config.GroupVersionKind) Schema {
 	r, found := s.FindByGroupVersionKind(gvk)
 	if !found {
 		panic(fmt.Sprintf("Schemas.MustFindByGroupVersionKind: unable to find %s", gvk))

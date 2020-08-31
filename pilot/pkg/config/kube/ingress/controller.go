@@ -33,12 +33,12 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/queue"
 	"istio.io/pkg/env"
@@ -83,8 +83,8 @@ type controller struct {
 	domainSuffix string
 
 	queue                  queue.Instance
-	virtualServiceHandlers []func(model.Config, model.Config, model.Event)
-	gatewayHandlers        []func(model.Config, model.Config, model.Event)
+	virtualServiceHandlers []func(config.Config, config.Config, model.Event)
+	gatewayHandlers        []func(config.Config, config.Config, model.Event)
 
 	ingressInformer cache.SharedInformer
 	serviceInformer cache.SharedInformer
@@ -204,15 +204,15 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	// Trigger updates for Gateway and VirtualService
 	// TODO: we could be smarter here and only trigger when real changes were found
 	for _, f := range c.virtualServiceHandlers {
-		f(model.Config{}, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		f(config.Config{}, config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 			},
 		}, event)
 	}
 	for _, f := range c.gatewayHandlers {
-		f(model.Config{}, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		f(config.Config{}, config.Config{
+			Meta: config.Meta{
 				GroupVersionKind: gvk.Gateway,
 			},
 		}, event)
@@ -221,7 +221,7 @@ func (c *controller) onEvent(obj interface{}, event model.Event) error {
 	return nil
 }
 
-func (c *controller) RegisterEventHandler(kind resource.GroupVersionKind, f func(model.Config, model.Config, model.Event)) {
+func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f func(config.Config, config.Config, model.Event)) {
 	switch kind {
 	case gvk.VirtualService:
 		c.virtualServiceHandlers = append(c.virtualServiceHandlers, f)
@@ -265,19 +265,19 @@ func (c *controller) Schemas() collection.Schemas {
 	return schemas
 }
 
-func (c *controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
+func (c *controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	return nil
 }
 
-func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+func (c *controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	if typ != gvk.Gateway &&
 		typ != gvk.VirtualService {
 		return nil, errUnsupportedOp
 	}
 
-	out := make([]model.Config, 0)
+	out := make([]config.Config, 0)
 
-	ingressByHost := map[string]*model.Config{}
+	ingressByHost := map[string]*config.Config{}
 
 	for _, obj := range c.ingressInformer.GetStore().List() {
 		ingress := obj.(*ingress.Ingress)
@@ -310,14 +310,14 @@ func (c *controller) List(typ resource.GroupVersionKind, namespace string) ([]mo
 	return out, nil
 }
 
-func (c *controller) Create(_ model.Config) (string, error) {
+func (c *controller) Create(_ config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Update(_ model.Config) (string, error) {
+func (c *controller) Update(_ config.Config) (string, error) {
 	return "", errUnsupportedOp
 }
 
-func (c *controller) Delete(_ resource.GroupVersionKind, _, _ string) error {
+func (c *controller) Delete(_ config.GroupVersionKind, _, _ string) error {
 	return errUnsupportedOp
 }
