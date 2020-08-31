@@ -776,7 +776,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	if err != nil {
 		return nil, err
 	}
-	patchedObject, _, err := jsonSerializer.Decode(patched, nil, pod)
+	patchedObject, _, err := jsonSerializer.Decode(patched, nil, &corev1.Pod{})
 	if err != nil {
 		return nil, err
 	}
