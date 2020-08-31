@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	ClusterType  = resource.ClusterType
-	EndpointType = resource.EndpointType
-	ListenerType = resource.ListenerType
-	RouteType    = resource.RouteType
+	ClusterType   = resource.ClusterType
+	EndpointType  = resource.EndpointType
+	ListenerType  = resource.ListenerType
+	RouteType     = resource.RouteType
+	NameTableType = "type.googleapis.com/istio.networking.nds.v1.NameTable"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
