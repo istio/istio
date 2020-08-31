@@ -70,6 +70,7 @@ var testCases = []ConfigInput{
 	{
 		Name:     "empty",
 		Services: 100,
+		ProxyType: model.SidecarProxy,
 	},
 	{
 		Name:     "tls",
@@ -160,6 +161,24 @@ func BenchmarkListenerGeneration(b *testing.B) {
 				c = s.Discovery.Generators[v3.ListenerType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 {
 					b.Fatal("Got no listeners!")
+				}
+			}
+			logDebug(b, c)
+		})
+	}
+}
+
+func BenchmarkNameTableGeneration(b *testing.B) {
+	disableLogging()
+	for _, tt := range testCases {
+		b.Run(tt.Name, func(b *testing.B) {
+			s, proxy := setupAndInitializeTest(b, tt)
+			b.ResetTimer()
+			var c model.Resources
+			for n := 0; n < b.N; n++ {
+				c = s.Discovery.Generators[IstioNDSType].Generate(proxy, s.PushContext(), nil, nil)
+				if len(c) == 0 && tt.ProxyType != model.Router {
+					b.Fatal("Got no name tables!")
 				}
 			}
 			logDebug(b, c)

@@ -454,8 +454,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(push *model.PushCont
 			buildSidecarOutboundListeners(configgen).
 			buildHTTPProxyListener(configgen).
 			buildVirtualOutboundListener(configgen).
-			buildVirtualInboundListener(configgen).
-			buildSidecarDNSListener(configgen)
+			buildVirtualInboundListener(configgen)
 	}
 
 	return builder
