@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 26873
+releaseNotes:
+- |
+  **Fixed** HoldApplicationUntilProxyStarts breaks rewriteAppProbers.

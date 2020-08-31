@@ -353,8 +353,10 @@ func TestRewriteAppProbe(t *testing.T) {
 		in                  string
 		rewriteAppHTTPProbe bool
 		want                string
+		setFlags            []string
 	}{
 		{
+
 			in:                  "hello-probes.yaml",
 			rewriteAppHTTPProbe: true,
 			want:                "hello-probes.yaml.injected",
@@ -419,6 +421,12 @@ func TestRewriteAppProbe(t *testing.T) {
 			rewriteAppHTTPProbe: true,
 			want:                "startup_ready_live.yaml.injected",
 		},
+		{
+			in:                  "hello-probes.yaml",
+			rewriteAppHTTPProbe: true,
+			want:                "hello-probes.proxyHoldsApplication.yaml.injected",
+			setFlags:            []string{`values.global.proxy.holdApplicationUntilProxyStarts=true`},
+		},
 		// TODO(incfly): add more test case covering different -statusPort=123, --statusPort=123
 		// No statusport, --statusPort 123.
 	}
@@ -426,7 +434,7 @@ func TestRewriteAppProbe(t *testing.T) {
 	for i, c := range cases {
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		t.Run(testName, func(t *testing.T) {
-			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, nil, "")
+			sidecarTemplate, valuesConfig, m := loadInjectionSettings(t, c.setFlags, "")
 			inputFilePath := "testdata/inject/app_probe/" + c.in
 			wantFilePath := "testdata/inject/app_probe/" + c.want
 			in, err := os.Open(inputFilePath)
