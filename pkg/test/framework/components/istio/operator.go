@@ -219,7 +219,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// get istiod loadbalancer address(discoveryAddress)
 	// create istiod service and endpoints in remote/config cluster
 	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) &&  !env.IsConfigCluster(cluster){
+		if env.IsControlPlaneCluster(cluster) && !env.IsConfigCluster(cluster) {
 			err = deployWithRemoteKubeConfig(iopFile, remoteIopFile, env, cfg, i)
 			return i, err
 		}
@@ -397,7 +397,7 @@ func initIOPFile(cfg Config, env *kube.Environment, iopFile string, valuesYaml s
 	}
 	externalControlPlane := false
 	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) &&  !env.IsConfigCluster(cluster){
+		if env.IsControlPlaneCluster(cluster) && !env.IsConfigCluster(cluster) {
 			externalControlPlane = true
 		}
 	}

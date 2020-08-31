@@ -56,17 +56,17 @@ var (
 	helmValues string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:                DefaultSystemNamespace,
-		IstioNamespace:                 DefaultSystemNamespace,
-		ConfigNamespace:                DefaultSystemNamespace,
-		TelemetryNamespace:             DefaultSystemNamespace,
-		PolicyNamespace:                DefaultSystemNamespace,
-		IngressNamespace:               DefaultSystemNamespace,
-		EgressNamespace:                DefaultSystemNamespace,
-		DeployIstio:                    true,
-		DeployTimeout:                  0,
-		UndeployTimeout:                0,
-		IOPFile:                        IntegrationTestDefaultsIOP,
+		SystemNamespace:    DefaultSystemNamespace,
+		IstioNamespace:     DefaultSystemNamespace,
+		ConfigNamespace:    DefaultSystemNamespace,
+		TelemetryNamespace: DefaultSystemNamespace,
+		PolicyNamespace:    DefaultSystemNamespace,
+		IngressNamespace:   DefaultSystemNamespace,
+		EgressNamespace:    DefaultSystemNamespace,
+		DeployIstio:        true,
+		DeployTimeout:      0,
+		UndeployTimeout:    0,
+		IOPFile:            IntegrationTestDefaultsIOP,
 		CustomSidecarInjectorNamespace: "",
 	}
 )
@@ -127,7 +127,6 @@ type Config struct {
 	// CustomSidecarInjectorNamespace allows injecting the sidecar from the specified namespace.
 	// if the value is "", use the default sidecar injection instead.
 	CustomSidecarInjectorNamespace string
-
 }
 
 func (c *Config) IstioOperatorConfigYAML(iopYaml string) string {
