@@ -124,7 +124,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 
 	virtualServices := []*config.Config{&virtualService6}
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
@@ -892,7 +892,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	expectedHosts map[string]map[string]bool, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 

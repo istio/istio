@@ -1364,7 +1364,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 			Protocol: "GRPC",
 		},
 	}
-	configgen := NewConfigGenerator([]plugin.Plugin{})
+	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
 	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
