@@ -57,7 +57,7 @@ const (
 
 var (
 
-	// EnvoyJSONLogFormat13 map of values for envoy json based access logs for Istio 1.3 onwards
+	// EnvoyJSONLogFormat map of values for envoy json based access logs for Istio 1.3 onwards
 	EnvoyJSONLogFormat = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
