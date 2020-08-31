@@ -815,31 +815,6 @@ func (s *Server) initRegistryEventHandlers() error {
 		return fmt.Errorf("append service handler failed: %v", err)
 	}
 
-	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
-		// TODO: This is an incomplete code. This code path is called for legacy MCP, etc.
-		// In all cases, this is simply an instance update and not a config update. So, we need to update
-		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
-		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
-				Name:      string(si.Service.Hostname),
-				Namespace: si.Service.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
-		})
-	}
-	for _, registry := range s.ServiceController().GetRegistries() {
-		// Skip kubernetes and external registries as they are handled separately
-		if registry.Provider() == serviceregistry.Kubernetes ||
-			registry.Provider() == serviceregistry.External {
-			continue
-		}
-		if err := registry.AppendInstanceHandler(instanceHandler); err != nil {
-			return fmt.Errorf("append instance handler to registry %s failed: %v", registry.Provider(), err)
-		}
-	}
-
 	if s.configController != nil {
 		configHandler := func(_, curr config.Config, event model.Event) {
 			pushReq := &model.PushRequest{
