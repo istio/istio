@@ -16,7 +16,6 @@ package xds
 
 import (
 	"sort"
-	"strconv"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -84,36 +83,6 @@ func (b EndpointBuilder) Key() string {
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
-	params = append(params, b.multinetworkKey()...)
-	return strings.Join(params, "~")
-}
-
-func (b EndpointBuilder) multinetworkKey() []string {
-	// TODO(landow) computing this here kind of sucks
-	// TODO(landow) when these things change, the original won't be evicted from the cache
-
-	// TODO(landow) NetworkGateways is sort-of global, we can hash it somewhere earlier and re-use
-	ngws := b.push.NetworkGateways()
-	if ngws == nil {
-		return nil
-	}
-	params := make([]string, 0, len(ngws))
-
-	gwKeys := make([]string, 0, len(ngws))
-	for nw, gws := range ngws {
-		k := nw + "~"
-		for i, gw := range gws {
-			k += gw.Addr + ":" + strconv.Itoa(int(gw.Port))
-			if i < len(gws)-1 {
-				k += "~"
-			}
-		}
-		gwKeys = append(gwKeys, k)
-	}
-	sort.Strings(gwKeys)
-	params = append(params, gwKeys...)
-
-	// network view only matters when gateways are enabled
 	if b.networkView != nil {
 		nv := make([]string, 0, len(b.networkView))
 		for nw := range b.networkView {
@@ -122,8 +91,7 @@ func (b EndpointBuilder) multinetworkKey() []string {
 		sort.Strings(nv)
 		params = append(params, nv...)
 	}
-
-	return params
+	return strings.Join(params, "~")
 }
 
 // MultinetworkConfigured determines if we have gateways to use for building cross-network endpoints.
