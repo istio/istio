@@ -143,7 +143,7 @@ var (
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
 	proxyXDSViaAgent = env.RegisterStringVar("PROXY_XDS_VIA_AGENT", "",
-		"If set to enable or true or 1, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option"+
+		"If set to enable or true or 1, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
 
 	rootCmd = &cobra.Command{

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -40,7 +41,7 @@ import (
 )
 
 const (
-	defaultClientMaxReceiveMessageSize = 1024 * 1024 * 8
+	defaultClientMaxReceiveMessageSize = math.MaxInt32
 	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
@@ -49,9 +50,11 @@ type XdsProxy struct {
 	stopChan             chan struct{}
 	downstreamListener   net.Listener
 	downstreamGrpcServer *grpc.Server
-	upstreamAddress      string
-	upstreamDialOptions  []grpc.DialOption
+	istiodAddress        string
+	istiodDialOptions    []grpc.DialOption
 }
+
+var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 
 // XDS Proxy proxies all XDS requests from envoy to istiod, in addition to allowing subsystems inside
 // the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -62,14 +65,14 @@ type XdsProxy struct {
 func initXdsProxy(sa *Agent) (*XdsProxy, error) {
 	var err error
 	proxy := &XdsProxy{
-		upstreamAddress: sa.proxyConfig.DiscoveryAddress,
+		istiodAddress: sa.proxyConfig.DiscoveryAddress,
 	}
 
 	if err = proxy.initDownstreamServer(); err != nil {
 		return nil, err
 	}
 
-	if proxy.upstreamDialOptions, err = buildUpstreamClientDialOpts(sa); err != nil {
+	if proxy.istiodDialOptions, err = buildUpstreamClientDialOpts(sa); err != nil {
 		return nil, err
 	}
 
@@ -88,17 +91,18 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	requestsChan := make(chan *discovery.DiscoveryRequest)
 	responsesChan := make(chan *discovery.DiscoveryResponse)
 
-	log.Infof("connecting to upstream %s", p.upstreamAddress)
-	upstreamConn, err := grpc.Dial(p.upstreamAddress, p.upstreamDialOptions...)
+	proxyLog.Infof("connecting to upstream %s", p.istiodAddress)
+	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
 	if err != nil {
-		log.Errorf("failed to connect to upstream %s: %v", p.upstreamAddress, err)
+		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
 		return err
 	}
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(upstreamConn)
-	upstream, err := xds.StreamAggregatedResources(context.Background())
+	upstream, err := xds.StreamAggregatedResources(context.Background(),
+		grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
 	if err != nil {
-		log.Errorf("failed to create upstream grpc client: %v", err)
+		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
 		return err
 	}
 
@@ -107,7 +111,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			// from istiod
 			resp, err := upstream.Recv()
 			if err != nil {
-				log.Errorf("upstream recv error: %v", err)
+				proxyLog.Errorf("upstream recv error: %v", err)
 				errChan <- err
 				return
 			}
@@ -119,7 +123,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			// From Envoy
 			req, err := downstream.Recv()
 			if err != nil {
-				log.Errorf("downstream recv error: %v", err)
+				proxyLog.Errorf("downstream recv error: %v", err)
 				errChan <- err
 				return
 			}
@@ -138,12 +142,12 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			return err
 		case req := <-requestsChan:
 			if err = upstream.Send(req); err != nil {
-				log.Errorf("upstream send error: %v", err)
+				proxyLog.Errorf("upstream send error: %v", err)
 				return err
 			}
 		case resp := <-responsesChan:
 			if err := downstream.Send(resp); err != nil {
-				log.Errorf("downstream send error: %v", err)
+				proxyLog.Errorf("downstream send error: %v", err)
 				// we cannot return partial error and hope to restart just the downstream
 				// as we are blindly proxying req/responses. For now, the best course of action
 				// is to terminate upstream connection as well and restart afresh.
@@ -176,30 +180,30 @@ func setUpUds(udsPath string) (net.Listener, error) {
 	// Remove unix socket before use.
 	if err := os.Remove(udsPath); err != nil && !os.IsNotExist(err) {
 		// Anything other than "file not found" is an error.
-		log.Errorf("Failed to remove unix://%s: %v", udsPath, err)
+		proxyLog.Errorf("Failed to remove unix://%s: %v", udsPath, err)
 		return nil, fmt.Errorf("failed to remove unix://%s", udsPath)
 	}
 
 	// Attempt to create the folder in case it doesn't exist
 	if err := os.MkdirAll(filepath.Dir(udsPath), 0750); err != nil {
 		// If we cannot create it, just warn here - we will fail later if there is a real error
-		log.Warnf("Failed to create directory for %v: %v", udsPath, err)
+		proxyLog.Warnf("Failed to create directory for %v: %v", udsPath, err)
 	}
 
 	var err error
 	udsListener, err := net.Listen("unix", udsPath)
 	if err != nil {
-		log.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
+		proxyLog.Errorf("Failed to listen on unix socket %q: %v", udsPath, err)
 		return nil, err
 	}
 
 	// Update SDS UDS file permission so that istio-proxy has permission to access it.
 	if _, err := os.Stat(udsPath); err != nil {
-		log.Errorf("SDS uds file %q doesn't exist", udsPath)
+		proxyLog.Errorf("SDS uds file %q doesn't exist", udsPath)
 		return nil, fmt.Errorf("sds uds file %q doesn't exist", udsPath)
 	}
 	if err := os.Chmod(udsPath, 0666); err != nil {
-		log.Errorf("Failed to update %q permission", udsPath)
+		proxyLog.Errorf("Failed to update %q permission", udsPath)
 		return nil, fmt.Errorf("failed to update %q permission", udsPath)
 	}
 
@@ -256,6 +260,8 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(defaultInitialWindowSize))
 	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize))
 	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
+	// Make sure the dial is blocking as we dont want any other operation to resume until the
+	// connection to upstream has been made.
 	dialOptions := []grpc.DialOption{
 		tlsOpts,
 		grpc.WithConnectParams(grpc.ConnectParams{
@@ -263,6 +269,7 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 			MinConnectTimeout: 5 * time.Second,
 		}),
 		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
+		grpc.WithBlock(),
 	}
 
 	// TODO: This is not a valid way of detecting if we are on VM vs k8s
