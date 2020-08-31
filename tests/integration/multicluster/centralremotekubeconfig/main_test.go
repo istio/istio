@@ -137,7 +137,6 @@ values:
   global:
     operatorManageWebhooks: true
 `
-			cfg.UseLegacyRemote = false
 		})).
 		Run()
 }
