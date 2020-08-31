@@ -141,7 +141,7 @@ func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cl
 		if !have.Contains(cluster.Name) {
 			out = append(out, cluster)
 		} else {
-			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy,
+			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy.ID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
 		}
 		have.Insert(cluster.Name)

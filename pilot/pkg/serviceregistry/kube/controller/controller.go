@@ -838,7 +838,7 @@ func (c *Controller) GetProxyServiceInstances(proxy *model.Proxy) ([]*model.Serv
 		}
 	}
 	if c.metrics != nil {
-		c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy, "")
+		c.metrics.AddMetric(model.ProxyStatusNoService, proxy.ID, proxy.ID, "")
 	} else {
 		log.Infof("Missing metrics env, empty list of services for pod %s", proxy.ID)
 	}
@@ -872,9 +872,6 @@ func (c *Controller) hydrateWorkloadInstance(si *model.WorkloadInstance) ([]*mod
 				}
 				// Similar code as UpdateServiceShards in eds.go
 				instances := c.InstancesByPort(service, port.Port, labels.Collection{})
-				if err != nil {
-					return nil, err
-				}
 				out = append(out, instances...)
 			}
 		}
