@@ -329,6 +329,7 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, dataVolumeName)
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, pilotCertVolumeName)
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, podInfoVolumeName)
 	removeDNSConfig(podSpec.DNSConfig)
