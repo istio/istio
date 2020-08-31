@@ -174,13 +174,6 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 	result := []config.Config{}
 
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
-	// Matches * and "/". Currently not supported - would conflict
-	// with any other explicit VirtualService.
-	// TODO re-evaluate this decision. Since Gateway will be bound by certain hostnames this may
-	// be feasible as long as our merging logic is smart enough to put this last
-	if route.Default != nil {
-		log.Warnf("Ignoring default route for %v/%v", obj.Name, obj.Namespace)
-	}
 
 	for i, h := range route.Hosts {
 		name := fmt.Sprintf("%s-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
@@ -190,14 +183,19 @@ func buildHTTPVirtualServices(obj config.Config, gateways []string, domain strin
 		for _, r := range h.Rules {
 			// TODO: implement redirect, rewrite, timeout, mirror, corspolicy, retries
 			vs := &istio.HTTPRoute{}
-			if r.Match != nil {
-				vs.Match = []*istio.HTTPMatchRequest{{
-					Uri:     createURIMatch(r.Match),
-					Headers: createHeadersMatch(r.Match),
-				}}
+			for _, match := range r.Matches {
+				vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
+					Uri:     createURIMatch(match),
+					Headers: createHeadersMatch(match),
+				})
 			}
-			if r.Filter != nil {
-				vs.Headers = createHeadersFilter(r.Filter.Headers)
+			for _, filter := range r.Filters {
+				switch filter.Type {
+				case k8s.FilterHTTPRequesttHeader:
+					vs.Headers = createHeadersFilter(filter.RequestHeader)
+				default:
+					log.Warnf("unsupported filter type %q", filter.Type)
+				}
 			}
 			// TODO this should be required in the spec. Follow up with the service-apis team
 			if r.Action != nil {
@@ -252,15 +250,30 @@ func buildTCPVirtualService(obj config.Config, gateways []string, domain string)
 }
 
 func buildTCPDestination(action *k8s.TCPRouteAction, ns string) []*istio.RouteDestination {
-	if action == nil || action.ForwardTo == nil {
+	if action == nil || len(action.ForwardTo) == 0 {
 		return nil
 	}
 
-	// TODO TCP currently has weight associated but only a single action. Update this one its changed to
-	// either be a list or has no weight
-	return []*istio.RouteDestination{{
-		Destination: buildDestination(*action.ForwardTo, ns),
-	}}
+	if len(action.ForwardTo) == 1 {
+		return []*istio.RouteDestination{{
+			Destination: buildDestination(action.ForwardTo[0], ns),
+		}}
+	}
+
+	weights := []int{}
+	for _, w := range action.ForwardTo {
+		weights = append(weights, int(w.Weight))
+	}
+	weights = standardizeWeights(weights)
+	res := []*istio.RouteDestination{}
+	for i, fwd := range action.ForwardTo {
+		dst := buildDestination(fwd, ns)
+		res = append(res, &istio.RouteDestination{
+			Destination: dst,
+			Weight:      int32(weights[i]),
+		})
+	}
+	return res
 }
 
 func buildTCPMatch(*k8s.TCPRouteMatch) []*istio.L4MatchAttributes {
@@ -362,7 +375,7 @@ func argsort(n []float64) []int {
 	return s.idx
 }
 
-func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers {
+func createHeadersFilter(filter *k8s.HTTPRequestHeaderConfig) *istio.Headers {
 	if filter == nil {
 		return nil
 	}
@@ -374,15 +387,15 @@ func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers {
 	}
 }
 
-func createHeadersMatch(match *k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
+func createHeadersMatch(match k8s.HTTPRouteMatch) map[string]*istio.StringMatch {
 	if len(match.Headers) == 0 {
 		return nil
 	}
 	res := map[string]*istio.StringMatch{}
 	for k, v := range match.Headers {
 		if match.HeaderMatchType == nil ||
-			*match.HeaderMatchType == k8s.HeaderMatchTypeExact ||
-			*match.HeaderMatchType == k8s.HeaderMatchTypeImplementionSpecific {
+			*match.HeaderMatchType == k8s.HeaderMatchExact ||
+			*match.HeaderMatchType == k8s.HeaderMatchImplementationSpecific {
 			res[k] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: v},
 			}
@@ -394,10 +407,7 @@ func createHeadersMatch(match *k8s.HTTPRouteMatch) map[string]*istio.StringMatch
 	return res
 }
 
-func createURIMatch(match *k8s.HTTPRouteMatch) *istio.StringMatch {
-	if match.Path == nil {
-		return nil
-	}
+func createURIMatch(match k8s.HTTPRouteMatch) *istio.StringMatch {
 	if match.PathMatchType == "" || match.PathMatchType == k8s.PathMatchExact {
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: *match.Path},
@@ -487,13 +497,6 @@ func convertGateway(r *KubernetesResources) ([]config.Config, map[RouteKey][]str
 	return result, routeToGateway
 }
 
-var tlsVersionConversionMap = map[string]istio.ServerTLSSettings_TLSProtocol{
-	k8s.TLS1_0: istio.ServerTLSSettings_TLSV1_0,
-	k8s.TLS1_1: istio.ServerTLSSettings_TLSV1_1,
-	k8s.TLS1_2: istio.ServerTLSSettings_TLSV1_2,
-	k8s.TLS1_3: istio.ServerTLSSettings_TLSV1_3,
-}
-
 func buildTLS(tls *k8s.TLSConfig) *istio.ServerTLSSettings {
 	if tls == nil {
 		return nil
@@ -507,14 +510,6 @@ func buildTLS(tls *k8s.TLSConfig) *istio.ServerTLSSettings {
 		HttpsRedirect:  false,
 		Mode:           istio.ServerTLSSettings_SIMPLE,
 		CredentialName: buildSecretReference(tls.CertificateRefs),
-	}
-	if tls.MinimumVersion != nil {
-		mv, f := tlsVersionConversionMap[*tls.MinimumVersion]
-		if !f {
-			log.Errorf("unknonwn TLS minimum version: %v", tls.MinimumVersion)
-		} else {
-			out.MinProtocolVersion = mv
-		}
 	}
 	return out
 }

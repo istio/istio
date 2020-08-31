@@ -67,8 +67,8 @@ spec:
   hosts:
   - hostnames: ["my.domain.example"]
     rules:
-    - match:
-        pathMatchType: Prefix
+    - matches:
+      - pathMatchType: Prefix
         path: /get
       action:
         forwardTo:
@@ -83,7 +83,7 @@ spec:
   rules:
   - action:
       forwardTo:
-        targetPort: 80
+      - targetPort: 80
         targetRef:
           name: b
 `)

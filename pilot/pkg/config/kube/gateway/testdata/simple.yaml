@@ -47,13 +47,14 @@ spec:
   hosts:
   - hostnames: ["first.domain.example", "another.domain.example"]
     rules:
-    - match:
-        pathMatchType: Prefix
+    - matches:
+      - pathMatchType: Prefix
         path: /get
         headers:
           my-header: some-value
-      filter:
-        headers:
+      filters:
+      - type: RequestHeader
+        requestHeader:
           add:
             my-added-header: added-value
           remove: [my-removed-header]
@@ -63,8 +64,8 @@ spec:
             name: httpbin
   - hostnames: ["second.domain.example"]
     rules:
-    - match:
-        pathMatchType: Prefix
+    - matches:
+      - pathMatchType: Prefix
         path: /second
       action:
         forwardTo:
@@ -82,8 +83,8 @@ spec:
   hosts:
   - hostnames: ["should.not.select"]
     rules:
-    - match:
-        pathMatchType: Prefix
+    - matches:
+      - pathMatchType: Prefix
         path: /get
       action:
         forwardTo:
@@ -101,5 +102,5 @@ spec:
   rules:
   - action:
       forwardTo:
-        targetRef:
+      - targetRef:
           name: httpbin

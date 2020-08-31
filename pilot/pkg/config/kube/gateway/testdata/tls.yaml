@@ -22,4 +22,5 @@ spec:
         certificateRefs:
           - name: my-cert
         options: {}
-        minimumVersion: TLS1_2
+      routes:
+        resource: httproutes
