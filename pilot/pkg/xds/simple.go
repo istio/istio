@@ -149,7 +149,6 @@ func (s *SimpleServer) StartGRPC(addr string) error {
 	}
 	gs := grpc.NewServer()
 	s.DiscoveryServer.Register(gs)
-	s.DiscoveryServer.RegisterLegacyv2(gs)
 	reflection.Register(gs)
 	s.GRPCListener = lis
 	go func() {

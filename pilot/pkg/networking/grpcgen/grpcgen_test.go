@@ -21,8 +21,7 @@ import (
 	"testing"
 	"time"
 
-	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	ads "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/resolver"
@@ -103,6 +102,7 @@ func TestGRPC(t *testing.T) {
 	defer ds.GRPCListener.Close()
 
 	os.Setenv("GRPC_XDS_BOOTSTRAP", "testdata/xds_bootstrap.json")
+	os.Setenv("GRPC_XDS_EXPERIMENTAL_V3_SUPPORT", "true")
 
 	t.Run("gRPC-resolve", func(t *testing.T) {
 		rb := resolver.Get("xds")
@@ -137,13 +137,13 @@ func TestGRPC(t *testing.T) {
 		}
 
 		defer conn.Close()
-		xds := ads.NewAggregatedDiscoveryServiceClient(conn)
+		xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
 
 		s, err := xds.StreamAggregatedResources(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Log(s.Send(&xdsapi.DiscoveryRequest{}))
+		t.Log(s.Send(&discovery.DiscoveryRequest{}))
 
 	})
 
