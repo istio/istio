@@ -1031,10 +1031,6 @@ func TestRunAndServe(t *testing.T) {
       "path":"/spec/containers/-",
       "value":{
          "name":"istio-proxy",
-         "env": [{
-           "name": "ISTIO_META_CLUSTER_ID",
-           "value": "Kubernetes"
-         }],
          "resources":{
 
          }
