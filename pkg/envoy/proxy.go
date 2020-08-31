@@ -60,6 +60,7 @@ type ProxyConfig struct {
 	PilotCertProvider   string
 	ProvCert            string
 	Sidecar             bool
+	CallCredentials     bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -170,6 +171,7 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
+			CallCredentials:     e.CallCredentials,
 			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {
