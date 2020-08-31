@@ -174,7 +174,10 @@ func TestEds(t *testing.T) {
 func mustReadFile(t *testing.T, fpaths ...string) string {
 	result := ""
 	for _, fpath := range fpaths {
-		bytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, fpath))
+		if !strings.HasPrefix(fpath, ".") {
+			fpath = filepath.Join(env.IstioSrc, fpath)
+		}
+		bytes, err := ioutil.ReadFile(fpath)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -185,12 +188,16 @@ func mustReadFile(t *testing.T, fpaths ...string) string {
 }
 func mustReadfolder(t *testing.T, folder string) string {
 	result := ""
-	f, err := ioutil.ReadDir(filepath.Join(env.IstioSrc, folder))
+	fpathRoot := folder
+	if !strings.HasPrefix(fpathRoot, ".") {
+		fpathRoot = filepath.Join(env.IstioSrc, folder)
+	}
+	f, err := ioutil.ReadDir(fpathRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, fpath := range f {
-		bytes, err := ioutil.ReadFile(filepath.Join(env.IstioSrc, folder, fpath.Name()))
+		bytes, err := ioutil.ReadFile(filepath.Join(fpathRoot, fpath.Name()))
 		if err != nil {
 			t.Fatal(err)
 		}
