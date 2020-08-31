@@ -58,7 +58,7 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedCdsConfigs[config.Kind]; !f {
+		if _, f := skippedNdsConfigs[config.Kind]; !f {
 			return true
 		}
 	}
