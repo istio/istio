@@ -32,7 +32,6 @@ import (
 
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
-	proxyName       string
 	clusterName     string
 	network         string
 	networkView     map[string]bool
