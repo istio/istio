@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -113,8 +112,8 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	// Warn users if they use `istioctl install` without any config args.
-	if len(iArgs.inFilenames) == 0 && len(iArgs.set) == 0 && !rootArgs.dryRun && !iArgs.skipConfirmation {
-		if !confirm("This will install the default Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
+	if !rootArgs.dryRun && !iArgs.skipConfirmation {
+		if !confirm("This will install the Istio profile into the cluster. Proceed? (y/N)", cmd.OutOrStdout()) {
 			cmd.Print("Cancelled.\n")
 			os.Exit(1)
 		}
@@ -141,22 +140,9 @@ func InstallManifests(setOverlay []string, inFilenames []string, force bool, dry
 	if err != nil {
 		return err
 	}
-
-	serverVersion, err := clientset.Discovery().ServerVersion()
-	if err != nil {
-		return fmt.Errorf("error getting Kubernetes version: %w", err)
+	if err := k8sversion.IsK8VersionSupported(clientset, l); err != nil {
+		return err
 	}
-	ok, err := k8sversion.CheckKubernetesVersion(serverVersion)
-	if err != nil {
-		return fmt.Errorf("error checking if Kubernetes version is supported: %w", err)
-	}
-	if !ok {
-		l.LogAndPrintf("\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is %s.\n"+
-			"Proceeding with the installation, but you might experience problems. "+
-			"See https://istio.io/latest/docs/setup/platform-setup/ for a list of supported versions.\n",
-			serverVersion.GitVersion, version.Info.Version, k8sversion.MinK8SVersion)
-	}
-
 	_, iops, err := manifest.GenerateConfig(inFilenames, setOverlay, force, restConfig, l)
 	if err != nil {
 		return err

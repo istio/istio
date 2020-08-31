@@ -21,25 +21,25 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pilot/pkg/config/kube/ingress"
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 )
 
 // IstioIngresses converts K8s extensions/v1beta1 Ingresses with Istio rules to v1alpha3 gateway and virtual service
-func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string, client kubernetes.Interface) ([]model.Config, error) {
+func IstioIngresses(ingresses []*v1beta1.Ingress, domainSuffix string, client kubernetes.Interface) ([]config.Config, error) {
 
 	if len(ingresses) == 0 {
-		return make([]model.Config, 0), nil
+		return make([]config.Config, 0), nil
 	}
 	if len(domainSuffix) == 0 {
 		domainSuffix = constants.DefaultKubernetesDomain
 	}
-	ingressByHost := map[string]*model.Config{}
+	ingressByHost := map[string]*config.Config{}
 	for _, ingrezz := range ingresses {
 		ingress.ConvertIngressVirtualService(*ingrezz, domainSuffix, ingressByHost, &serviceListerWrapper{client: client})
 	}
 
-	out := make([]model.Config, 0, len(ingressByHost))
+	out := make([]config.Config, 0, len(ingressByHost))
 	for _, vs := range ingressByHost {
 		// Ensure name is valid; ConvertIngressVirtualService will create a name that doesn't start with alphanumeric
 		if strings.HasPrefix(vs.Name, "-") {

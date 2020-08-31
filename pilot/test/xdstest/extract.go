@@ -16,6 +16,7 @@ package xdstest
 
 import (
 	"reflect"
+	"sort"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -86,32 +87,44 @@ func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProx
 	return nil
 }
 
-func ExtractEndpoints(endpoints []*endpoint.ClusterLoadAssignment) map[string][]string {
+func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
-	for _, cla := range endpoints {
+	for _, cla := range cla {
 		if cla == nil {
 			continue
 		}
-		for _, ep := range cla.Endpoints {
-			for _, lb := range ep.LbEndpoints {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetSocketAddress().Address)
-				} else {
-					got[cla.ClusterName] = append(got[cla.ClusterName], lb.GetEndpoint().Address.GetPipe().Path)
-				}
+		got[cla.ClusterName] = append(got[cla.ClusterName], ExtractEndpoints(cla)...)
+	}
+	return got
+}
+
+func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
+	if cla == nil {
+		return nil
+	}
+	got := []string{}
+	for _, ep := range cla.Endpoints {
+		for _, lb := range ep.LbEndpoints {
+			if lb.GetEndpoint().Address.GetSocketAddress() != nil {
+				got = append(got, lb.GetEndpoint().Address.GetSocketAddress().Address)
+			} else {
+				got = append(got, lb.GetEndpoint().Address.GetPipe().Path)
 			}
 		}
 	}
 	return got
 }
 
-func ExtractCluster(name string, cc []*cluster.Cluster) *cluster.Cluster {
+func ExtractClusters(cc []*cluster.Cluster) map[string]*cluster.Cluster {
+	res := map[string]*cluster.Cluster{}
 	for _, c := range cc {
-		if c.Name == name {
-			return c
-		}
+		res[c.Name] = c
 	}
-	return nil
+	return res
+}
+
+func ExtractCluster(name string, cc []*cluster.Cluster) *cluster.Cluster {
+	return ExtractClusters(cc)[name]
 }
 
 func ExtractClusterEndpoints(clusters []*cluster.Cluster) map[string][]string {
@@ -119,7 +132,7 @@ func ExtractClusterEndpoints(clusters []*cluster.Cluster) map[string][]string {
 	for _, c := range clusters {
 		cla = append(cla, c.LoadAssignment)
 	}
-	return ExtractEndpoints(cla)
+	return ExtractLoadAssignments(cla)
 }
 
 func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
@@ -132,6 +145,16 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 			}
 		}
 		res = append(res, c.Name)
+	}
+	return res
+}
+
+func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*cluster.Cluster {
+	res := make([]*cluster.Cluster, 0, len(cl))
+	for _, c := range cl {
+		if f(c) {
+			res = append(res, c)
+		}
 	}
 	return res
 }
@@ -164,4 +187,14 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	}
 
 	return ret
+}
+
+func MapKeys(mp interface{}) []string {
+	keys := reflect.ValueOf(mp).MapKeys()
+	res := []string{}
+	for _, k := range keys {
+		res = append(res, k.String())
+	}
+	sort.Strings(res)
+	return res
 }

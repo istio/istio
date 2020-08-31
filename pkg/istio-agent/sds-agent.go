@@ -135,6 +135,9 @@ type AgentConfig struct {
 
 	// Grpc dial options. Used for testing
 	GrpcOptions []grpc.DialOption
+
+	// Namespace to connect as
+	Namespace string
 }
 
 // NewAgent wraps the logic for a local SDS. It will check if the JWT token required for local SDS is
@@ -232,7 +235,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 			log.Infof("Starting gateway SDS")
 			sa.secOpts.EnableGatewaySDS = true
 			// TODO: what is the setting for ingress ?
-			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
+			sa.secOpts.GatewayUDSPath = strings.TrimPrefix(model.CredentialNameSDSUdsPath, "unix:")
 			gatewaySecretCache = sa.newSecretCache(podNamespace)
 		} else {
 			log.Infof("Skipping gateway SDS")
@@ -246,7 +249,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	}
 
 	// Start the XDS client and proxy.
-	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets)
+	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets, podNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("xds proxy: %v", err)
 	}
@@ -255,7 +258,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 }
 
 func gatewaySdsExists() bool {
-	p := strings.TrimPrefix(model.GatewaySdsUdsPath, "unix:")
+	p := strings.TrimPrefix(model.CredentialNameSDSUdsPath, "unix:")
 	dir := path.Dir(p)
 	_, err := os.Stat(dir)
 	return !os.IsNotExist(err)

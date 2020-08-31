@@ -50,6 +50,7 @@ import (
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -112,7 +113,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				return err
 			}
 
-			matchingServices := []v1.Service{}
+			matchingServices := make([]v1.Service, 0, len(svcs.Items))
 			for _, svc := range svcs.Items {
 				if len(svc.Spec.Selector) > 0 {
 					svcSelector := k8s_labels.SelectorFromSet(svc.Spec.Selector)
@@ -220,8 +221,8 @@ func extendFQDN(host string) string {
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
 func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []k8s_labels.Set) ([]string, []string) {
-	matchingSubsets := []string{}
-	nonmatchingSubsets := []string{}
+	matchingSubsets := make([]string, 0, len(subsets))
+	nonmatchingSubsets := make([]string, 0, len(subsets))
 	for _, subset := range subsets {
 		subsetSelector := k8s_labels.SelectorFromSet(subset.Labels)
 		if matchesAnyPod(subsetSelector, podsLabels) {
@@ -293,7 +294,7 @@ func httpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.HTTPR
 	mismatchNotes := []string{}
 	match := false
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
 				if contains(nonmatchingSubsets, dest.Destination.Subset) {
@@ -354,7 +355,7 @@ func tcpRouteMatchSvc(vs clientnetworking.VirtualService, route *v1alpha3.TCPRou
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	for _, dest := range route.Route {
-		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, model.ConfigMeta{Namespace: vs.Namespace}))
+		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			match = true
 		}
@@ -679,8 +680,8 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 }
 
 // routeDestinationMatchesSvc determines whether or not to use this service as a destination
-func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
-	if route == nil {
+func routeDestinationMatchesSvc(vhRoute *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
+	if vhRoute == nil {
 		return false
 	}
 
@@ -695,11 +696,20 @@ func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.Vi
 		}
 	}
 
+	clusterName := ""
+	switch cs := vhRoute.GetRoute().GetClusterSpecifier().(type) {
+	case *route.RouteAction_Cluster:
+		clusterName = cs.Cluster
+	case *route.RouteAction_WeightedClusters:
+		clusterName = cs.WeightedClusters.Clusters[0].GetName()
+	}
+
 	// If this is an ingress gateway, the Domains will be something like *:80, so check routes
 	// which will look like "outbound|9080||productpage.default.svc.cluster.local"
 	res := fmt.Sprintf(`outbound\|%d\|[^\|]*\|(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`, port)
 	re = regexp.MustCompile(res)
-	ss := re.FindStringSubmatch(route.GetRoute().GetCluster())
+
+	ss := re.FindStringSubmatch(clusterName)
 	if ss != nil {
 		if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
 			return true

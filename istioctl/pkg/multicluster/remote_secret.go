@@ -91,16 +91,16 @@ func NewCreateRemoteSecretCommand() *cobra.Command {
 		Short: "Create a secret with credentials to allow Istio to access remote Kubernetes apiservers",
 		Example: `
 # Create a secret to access cluster c0's apiserver and install it in cluster c1.
-istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 \
-    | kubectl --Kubeconfig=c1.yaml apply -f -
+istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 \
+    | kubectl --kubeconfig=c1.yaml apply -f -
 
 # Delete a secret that was previously installed in c1
-istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 \
-    | kubectl --Kubeconfig=c1.yaml delete -f -
+istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 \
+    | kubectl --kubeconfig=c1.yaml delete -f -
 
 # Create a secret access a remote cluster with an auth plugin
-istioctl --Kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugin --auth-plugin-name=gcp \
-    | kubectl --Kubeconfig=c1.yaml apply -f -
+istioctl --kubeconfig=c0.yaml x create-remote-secret --name c0 --auth-type=plugin --auth-plugin-name=gcp \
+    | kubectl --kubeconfig=c1.yaml apply -f -
 `,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
@@ -323,7 +323,7 @@ type RemoteSecretOptions struct {
 
 func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 	flagset.StringVar(&o.ServiceAccountName, "service-account", o.ServiceAccountName,
-		"create a secret with this service account's credentials.")
+		"Create a secret with this service account's credentials.")
 	flagset.StringVar(&o.ClusterName, "name", "",
 		"Name of the local cluster whose credentials are stored "+
 			"in the secret. If a name is not specified the kube-system namespace's UUID of "+
@@ -333,12 +333,12 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 		supportedAuthType = append(supportedAuthType, string(at))
 	}
 	flagset.Var(&o.AuthType, "auth-type",
-		fmt.Sprintf("type of authentication to use. supported values = %v", supportedAuthType))
+		fmt.Sprintf("Type of authentication to use. supported values = %v", supportedAuthType))
 	flagset.StringVar(&o.AuthPluginName, "auth-plugin-name", o.AuthPluginName,
-		fmt.Sprintf("authenticator plug-in name. --auth-type=%v must be set with this option",
+		fmt.Sprintf("Authenticator plug-in name. --auth-type=%v must be set with this option",
 			RemoteSecretAuthTypePlugin))
 	flagset.StringToString("auth-plugin-config", o.AuthPluginConfig,
-		fmt.Sprintf("authenticator plug-in configuration. --auth-type=%v must be set with this option",
+		fmt.Sprintf("Authenticator plug-in configuration. --auth-type=%v must be set with this option",
 			RemoteSecretAuthTypePlugin))
 }
 

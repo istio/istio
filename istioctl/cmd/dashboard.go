@@ -413,12 +413,12 @@ func dashboard() *cobra.Command {
 	dashboardCmd.AddCommand(zipkinDashCmd())
 
 	envoy := envoyDashCmd()
-	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "label selector")
+	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(envoy)
 
 	controlz := controlZDashCmd()
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
-	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "label selector")
+	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(controlz)
 
 	return dashboardCmd

@@ -43,17 +43,3 @@ func CreateForClientSkipVerify() credentials.TransportCredentials {
 
 	return credentials.NewTLS(&config)
 }
-
-// CreateForServer creates TransportCredentials for MCP servers.
-func CreateForServer(watcher CertificateWatcher) credentials.TransportCredentials {
-	config := tls.Config{
-		ClientAuth: tls.RequireAndVerifyClientCert,
-		ClientCAs:  watcher.certPool(),
-		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-			c := watcher.Get()
-			return &c, nil
-		},
-	}
-
-	return credentials.NewTLS(&config)
-}

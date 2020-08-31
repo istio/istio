@@ -258,7 +258,7 @@ var (
 		"Custom host name of istiod that istiod signs the server cert.")
 
 	PilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
-		"the provider of Pilot DNS certificate.")
+		"The provider of Pilot DNS certificate.")
 
 	JwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
@@ -281,10 +281,8 @@ var (
 
 	EnableVirtualServiceDelegate = env.RegisterBoolVar(
 		"PILOT_ENABLE_VIRTUAL_SERVICE_DELEGATE",
-		false,
-		"If enabled, Pilot will merge virtual services with delegates. "+
-			"By default, this is false, and virtualService with delegate will be ignored",
-	).Get()
+		true,
+		"If set to false, virtualService delegate will not be supported.").Get()
 
 	ClusterName = env.RegisterStringVar("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance is belongs to").Get()
@@ -302,8 +300,17 @@ var (
 	EnableCAServer = env.RegisterBoolVar("ENABLE_CA_SERVER", true,
 		"If this is set to false, will not create CA server in istiod.").Get()
 
+	EnableDebugOnHTTP = env.RegisterBoolVar("ENABLE_DEBUG_ON_HTTP", true,
+		"If this is set to false, the debug interface will not be ebabled on Http, recommended for production").Get()
+
 	XDSAuth = env.RegisterBoolVar("XDS_AUTH", true,
 		"If true, will authenticate XDS clients.").Get()
+
+	EnableXDSIdentityCheck = env.RegisterBoolVar(
+		"PILOT_ENABLE_XDS_IDENTITY_CHECK",
+		true,
+		"If enabled, pilot will authorize XDS clients, to ensure they are acting only as namespaces they have permissions for.",
+	).Get()
 
 	EnableServiceEntrySelectPods = env.RegisterBoolVar("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
@@ -322,4 +329,11 @@ var (
 			"No need to configure this for root certificates issued via Istiod or web-PKI based root certificates. "+
 			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
 			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
+
+	EnableEDSCaching = env.RegisterBoolVar("PILOT_ENABLE_EDS_CACHE", true,
+		"If true, Pilot will cache EDS responses.").Get()
+
+	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
+		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
+			"This is only enabled for migration and will be removed soon.").Get()
 )

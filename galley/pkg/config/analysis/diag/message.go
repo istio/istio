@@ -22,10 +22,8 @@ import (
 
 	"istio.io/api/analysis/v1alpha1"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/url"
 )
-
-// DocPrefix is the root URL for validation message docs
-const DocPrefix = "https://istio.io/docs/reference/config/analysis"
 
 // MessageType is a type of diagnostic message
 type MessageType struct {
@@ -89,7 +87,7 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]interface{} {
 	if m.DocRef != "" {
 		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
 	}
-	result["documentation_url"] = fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
+	result["documentation_url"] = fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, strings.ToLower(m.Type.Code()), docQueryString)
 
 	return result
 }
@@ -101,7 +99,7 @@ func (m *Message) UnstructuredAnalysisMessageBase() map[string]interface{} {
 	if m.DocRef != "" {
 		docQueryString = fmt.Sprintf("?ref=%s", m.DocRef)
 	}
-	docURL := fmt.Sprintf("%s/%s/%s", DocPrefix, strings.ToLower(m.Type.Code()), docQueryString)
+	docURL := fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, strings.ToLower(m.Type.Code()), docQueryString)
 
 	mb := v1alpha1.AnalysisMessageBase{
 		Type: &v1alpha1.AnalysisMessageBase_Type{

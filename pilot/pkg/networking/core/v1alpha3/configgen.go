@@ -31,6 +31,6 @@ func NewConfigGenerator(plugins []plugin.Plugin) *ConfigGeneratorImpl {
 }
 
 // Called when mesh config is changed.
-func (configgen *ConfigGeneratorImpl) MeshConfigChanged(mesh *meshconfig.MeshConfig) {
-	resetCachedListenerConfig(mesh)
+func (configgen *ConfigGeneratorImpl) MeshConfigChanged(_ *meshconfig.MeshConfig) {
+	accessLogBuilder.reset()
 }

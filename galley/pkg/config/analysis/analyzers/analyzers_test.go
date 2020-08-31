@@ -169,6 +169,17 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "istioInjectionProxyImageMismatchAbsolute",
+		inputFiles: []string{
+			"testdata/injection-with-mismatched-sidecar.yaml",
+			"testdata/sidecar-injector-configmap-absolute-override.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{
+			{msg.IstioProxyImageMismatch, "Pod details-v1-pod-old.enabled-namespace"},
+		},
+	},
+	{
 		name:       "portNameNotFollowConvention",
 		inputFiles: []string{"testdata/service-no-port-name.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},

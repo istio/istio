@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -35,14 +34,17 @@ import (
 const (
 	Scheme = "spiffe"
 
-	URIPrefix = Scheme + "://"
+	URIPrefix    = Scheme + "://"
+	URIPrefixLen = len(URIPrefix)
 
 	// The default SPIFFE URL value for trust domain
 	defaultTrustDomain = constants.DefaultKubernetesDomain
+
+	ServiceAccountSegment = "sa"
+	NamespaceSegment      = "ns"
 )
 
 var (
-	spiffePattern    = regexp.MustCompile(`spiffe://([^/]+)/.*$`)
 	trustDomain      = defaultTrustDomain
 	trustDomainMutex sync.RWMutex
 
@@ -51,6 +53,34 @@ var (
 
 	spiffeLog = log.RegisterScope("spiffe", "SPIFFE library logging", 0)
 )
+
+type Identity struct {
+	TrustDomain    string
+	Namespace      string
+	ServiceAccount string
+}
+
+func ParseIdentity(s string) (Identity, error) {
+	if !strings.HasPrefix(s, URIPrefix) {
+		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+	}
+	split := strings.Split(s[URIPrefixLen:], "/")
+	if len(split) != 5 {
+		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+	}
+	if split[1] != NamespaceSegment || split[3] != ServiceAccountSegment {
+		return Identity{}, fmt.Errorf("identity is not a spiffe format: %v", s)
+	}
+	return Identity{
+		TrustDomain:    split[0],
+		Namespace:      split[2],
+		ServiceAccount: split[4],
+	}, nil
+}
+
+func (i Identity) String() string {
+	return URIPrefix + i.TrustDomain + "/ns/" + i.Namespace + "/sa/" + i.ServiceAccount
+}
 
 type bundleDoc struct {
 	jose.JSONWebKeySet
@@ -113,39 +143,26 @@ func ExpandWithTrustDomains(spiffeIdentities, trustDomainAliases []string) map[s
 	for _, id := range spiffeIdentities {
 		out[id] = struct{}{}
 		// Expand with aliases set.
-		m := spiffePattern.FindStringSubmatchIndex(id)
-		// FindStringSubmatchIndex the pairs of the match, (trust domain + the whole match string) x 2
-		// so we should see 4 index.
-		if len(m) < 4 {
-			spiffeLog.Errorf("Failed to extract SPIFFE trust domain from: %v, match %v", id, m)
+		m, err := ParseIdentity(id)
+		if err != nil {
+			spiffeLog.Errorf("Failed to extract SPIFFE trust domain from %v: %v", id, err)
 			continue
 		}
-		suffix := id[m[3]:]
 		for _, td := range trustDomainAliases {
-			nid := URIPrefix + td + suffix
-			out[nid] = struct{}{}
+			m.TrustDomain = td
+			out[m.String()] = struct{}{}
 		}
 	}
 	return out
 }
 
-// GenCustomSpiffe returns the  spiffe string that can have a custom structure
-func GenCustomSpiffe(identity string) string {
-	if identity == "" {
-		spiffeLog.Error("spiffe identity can't be empty")
-		return ""
-	}
-
-	return URIPrefix + GetTrustDomain() + "/" + identity
-}
-
 // GetTrustDomainFromURISAN extracts the trust domain part from the URI SAN in the X.509 certificate.
 func GetTrustDomainFromURISAN(uriSan string) (string, error) {
-	parsed, err := url.Parse(uriSan)
+	parsed, err := ParseIdentity(uriSan)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse URI SAN %s. Error: %v", uriSan, err)
 	}
-	return parsed.Hostname(), nil
+	return parsed.TrustDomain, nil
 }
 
 // RetrieveSpiffeBundleRootCertsFromStringInput retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.

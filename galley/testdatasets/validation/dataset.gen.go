@@ -388,7 +388,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 25
+        weight: 15
 `)
 
 func datasetNetworkingV1alpha3VirtualserviceInvalidYamlBytes() ([]byte, error) {
@@ -523,7 +523,6 @@ var _datasetNetworkingV1alpha3WorkloadgroupInvalidYaml = []byte(`apiVersion: net
 kind: WorkloadGroup
 metadata:
   name: reviews
-  namespace: istio-system
 spec:
   metadata:
     labels:
@@ -551,7 +550,6 @@ var _datasetNetworkingV1alpha3WorkloadgroupValidYaml = []byte(`apiVersion: netwo
 kind: WorkloadGroup
 metadata:
   name: reviews
-  namespace: istio-system
 spec:
   metadata:
     labels:
@@ -763,7 +761,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 25
+        weight: 15
 `)
 
 func datasetNetworkingV1betaVirtualserviceInvalidYamlBytes() ([]byte, error) {

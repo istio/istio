@@ -141,7 +141,7 @@ type XdsUpdates = map[ConfigKey]struct{}
 // The server may associate a different generator based on client metadata. Different
 // WatchedResources may use same or different Generator.
 type XdsResourceGenerator interface {
-	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates XdsUpdates) Resources
+	Generate(proxy *Proxy, push *PushContext, w *WatchedResource, updates *PushRequest) Resources
 }
 
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
@@ -212,13 +212,8 @@ type Proxy struct {
 	// of configuration.
 	XdsResourceGenerator XdsResourceGenerator
 
-	// Active contains the list of watched resources for the proxy, keyed by the DiscoveryRequest short type.
-	Active map[string]*WatchedResource
-
-	// ActiveExperimental contains the list of watched resources for the proxy, keyed by the canonical DiscoveryRequest type.
-	// Note that the key may not be equal to the proper TypeUrl. For example, Envoy types like Cluster will share a single
-	// key for multiple versions.
-	ActiveExperimental map[string]*WatchedResource
+	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
+	WatchedResources map[string]*WatchedResource
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
@@ -473,8 +468,6 @@ type NodeMetadata struct {
 	TLSClientRootCert string `json:"TLS_CLIENT_ROOT_CERT,omitempty"`
 
 	CertBaseDir string `json:"BASE,omitempty"`
-	// SdsEnabled indicates if SDS is enabled or not. This is are set to "1" if true
-	SdsEnabled StringBool `json:"SDS,omitempty"`
 
 	// IdleTimeout specifies the idle timeout for the proxy, in duration format (10s).
 	// If not set, no timeout is set.

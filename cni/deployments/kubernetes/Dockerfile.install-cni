@@ -16,6 +16,9 @@ COPY install-cni /usr/local/bin/
 # Copy over the Repair binary
 COPY istio-cni-repair /opt/cni/bin/
 
+# Copy over the Taint binary
+COPY istio-cni-taint /opt/cni/bin/
+
 ENV PATH=$PATH:/opt/cni/bin
 WORKDIR /opt/cni/bin
 CMD ["/usr/local/bin/install-cni"]

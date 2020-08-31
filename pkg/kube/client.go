@@ -477,19 +477,26 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return nil, err
 	}
 	if len(istiods) == 0 {
-		return nil, errors.New("unable to find any Pilot instances")
+		return nil, errors.New("unable to find any Istiod instances")
 	}
+	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
 		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
-			return nil, err
+			fmt.Fprintf(os.Stderr, "Problem forwarding to %s.%s: %v; skipping.", istiod.Name, istiod.Namespace, err)
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		if len(res) > 0 {
 			result[istiod.Name] = res
 		}
 	}
-	return result, err
+	// If any Discovery servers responded, treat as a success
+	if len(result) > 0 {
+		return result, nil
+	}
+	return nil, errs
 }
 
 func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
@@ -572,7 +579,7 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
 		result, err := c.proxyGet(pod.Name, pod.Namespace, "/version", 15014).DoRaw(ctx)
 		if err != nil {
-			errs = multierror.Append(errs, fmt.Errorf("error port-forewarding into %s : %v", pod.Name, err))
+			errs = multierror.Append(errs, fmt.Errorf("error port-forwarding into %s : %v", pod.Name, err))
 			continue
 		}
 		if len(result) > 0 {

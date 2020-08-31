@@ -137,6 +137,7 @@ spec:
         - containerPort: 15021
         - containerPort: 8080
         - containerPort: 8443
+        - containerPort: 15012
         - containerPort: 15443
         - containerPort: 15090
           name: http-envoy-prom

@@ -90,7 +90,6 @@ docker.proxyv2: ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR}/gcp_envoy_bootstrap.json
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/${SIDECAR}
 docker.proxyv2: $(ISTIO_OUT_LINUX)/pilot-agent
 docker.proxyv2: pilot/docker/Dockerfile.proxyv2
-docker.proxyv2: pilot/docker/envoy_policy.yaml.tmpl
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/stats-filter.compiled.wasm
 docker.proxyv2: $(ISTIO_ENVOY_LINUX_RELEASE_DIR)/metadata-exchange-filter.wasm
@@ -196,6 +195,7 @@ docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-repair
 docker.install-cni: $(ISTIO_OUT_LINUX)/istio-iptables
 docker.install-cni: $(ISTIO_OUT_LINUX)/install-cni
+docker.install-cni: $(ISTIO_OUT_LINUX)/istio-cni-taint
 docker.install-cni: cni/deployments/kubernetes/Dockerfile.install-cni
 	$(DOCKER_RULE)
 

@@ -22,7 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/operator/v1alpha1"
@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/validate"
+	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
 	pkgversion "istio.io/pkg/version"
 )
@@ -55,7 +56,7 @@ func GenManifests(inFilename []string, setFlags []string, force bool,
 	if err != nil {
 		return nil, nil, err
 	}
-	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, l)
+	mergedIOPS, err := unmarshalAndValidateIOPS(mergedYAML, force, false, l)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -99,7 +100,7 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 		return "", nil, err
 	}
 
-	iopsString, iops, err := GenIOPSFromProfile(profile, fy, setFlags, force, kubeConfig, l)
+	iopsString, iops, err := GenIOPSFromProfile(profile, fy, setFlags, force, false, kubeConfig, l)
 
 	if err != nil {
 		return "", nil, err
@@ -118,7 +119,7 @@ func GenerateConfig(inFilenames []string, setFlags []string, force bool, kubeCon
 
 // GenIOPSFromProfile generates an IstioOperatorSpec from the given profile name or path, and overlay YAMLs from user
 // files and the --set flag. If successful, it returns an IstioOperatorSpec string and struct.
-func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation bool,
+func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string, skipValidation, allowUnknownField bool,
 	kubeConfig *rest.Config, l clog.Logger) (string, *v1alpha1.IstioOperatorSpec, error) {
 
 	installPackagePath, err := getInstallPackagePath(fileOverlayYAML)
@@ -175,7 +176,7 @@ func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string
 	}
 
 	// Merge user file and --set flags.
-	outYAML, err = util.OverlayYAML(outYAML, overlayYAML)
+	outYAML, err = util.OverlayIOP(outYAML, overlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
@@ -195,7 +196,7 @@ func GenIOPSFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string
 		return "", nil, err
 	}
 
-	finalIOPS, err := unmarshalAndValidateIOPS(outYAML, skipValidation, l)
+	finalIOPS, err := unmarshalAndValidateIOPS(outYAML, skipValidation, allowUnknownField, l)
 	if err != nil {
 		return "", nil, err
 	}
@@ -275,7 +276,7 @@ func readLayeredYAMLs(filenames []string, stdinReader io.Reader) (string, error)
 		if err != nil {
 			return "", err
 		}
-		ly, err = util.OverlayYAML(ly, string(b))
+		ly, err = util.OverlayIOP(ly, string(b))
 		if err != nil {
 			return "", err
 		}
@@ -411,7 +412,7 @@ func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
 	if jwtPolicy == util.FirstPartyJWT {
 		// nolint: lll
 		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
-			"Falling back to less secure first party JWT. See https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for details.")
+			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
 	}
 	return "values.global.jwtPolicy=" + string(jwtPolicy), nil
 }
@@ -419,9 +420,9 @@ func getJwtTypeOverlay(config *rest.Config, l clog.Logger) (string, error) {
 // unmarshalAndValidateIOPS unmarshals a string containing IstioOperator YAML, validates it, and returns a struct
 // representation if successful. If force is set, validation errors are written to logger rather than causing an
 // error.
-func unmarshalAndValidateIOPS(iopsYAML string, force bool, l clog.Logger) (*v1alpha1.IstioOperatorSpec, error) {
+func unmarshalAndValidateIOPS(iopsYAML string, force, allowUnknownField bool, l clog.Logger) (*v1alpha1.IstioOperatorSpec, error) {
 	iops := &v1alpha1.IstioOperatorSpec{}
-	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, false); err != nil {
+	if err := util.UnmarshalWithJSONPB(iopsYAML, iops, allowUnknownField); err != nil {
 		return nil, fmt.Errorf("could not unmarshal merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 && !force {

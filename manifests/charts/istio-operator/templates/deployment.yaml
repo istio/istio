@@ -13,7 +13,7 @@ spec:
       labels:
         name: istio-operator
     spec:
-      serviceAccountName: istio-operator
+      serviceAccountName: istio-operator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
       containers:
         - name: istio-operator
           image: {{.Values.hub}}/operator:{{.Values.tag}}
