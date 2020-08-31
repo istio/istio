@@ -235,7 +235,7 @@ template: |
     {{ end }}
     {{- if .DeploymentMeta.Name }}
     - name: ISTIO_META_WORKLOAD_NAME
-      value: {{ .DeploymentMeta.Name }}
+      value: "{{ .DeploymentMeta.Name }}"
     {{ end }}
     {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
     - name: ISTIO_META_OWNER
@@ -359,6 +359,12 @@ template: |
       {{ toYaml $value | indent 4 }}
       {{ end }}
       {{- end }}
+  {{- if .ProxyConfig.ProxyMetadata.ISTIO_META_DNS_CAPTURE }}
+  dnsConfig:
+    options:
+    - name: "ndots"
+      value: "4"
+  {{- end }}
   volumes:
   {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
   - name: custom-bootstrap-volume
@@ -416,13 +422,6 @@ template: |
     secret:
       optional: true
       secretName: lightstep.cacert
-  {{- end }}
-  {{- if .Values.global.podDNSSearchNamespaces }}
-  dnsConfig:
-    searches:
-      {{- range .Values.global.podDNSSearchNamespaces }}
-      - {{ render . }}
-      {{- end }}
   {{- end }}
   podRedirectAnnot:
   {{- if and (.Values.istio_cni.enabled) (not .Values.istio_cni.chained) }}

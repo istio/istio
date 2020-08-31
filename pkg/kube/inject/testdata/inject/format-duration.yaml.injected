@@ -84,7 +84,7 @@ spec:
               fieldPath: metadata.labels['service.istio.io/canonical-revision']
         - name: PROXY_CONFIG
           value: |
-            {"drainDuration":"23s","parentShutdownDuration":"42s","proxyMetadata":{"DNS_AGENT":""}}
+            {"drainDuration":"23s","parentShutdownDuration":"42s","proxyMetadata":{"DNS_AGENT":""},"meshId":"cluster.local"}
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
