@@ -159,8 +159,12 @@ debug and diagnose their Istio mesh.
 	}
 
 	cmd.AddFlags(rootCmd)
+	deprecatedMsg := "it will be removed in Istio 1.9."
 
-	rootCmd.AddCommand(register())
+	registerCmd := register()
+	registerCmd.Deprecated = deprecatedMsg
+	rootCmd.AddCommand(registerCmd)
+	deregisterCmd.Deprecated = deprecatedMsg
 	rootCmd.AddCommand(deregisterCmd)
 	rootCmd.AddCommand(injectCommand())
 
@@ -216,13 +220,15 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(describe())
 	experimentalCmd.AddCommand(addToMeshCmd())
 	experimentalCmd.AddCommand(removeFromMeshCmd())
-
-	experimentalCmd.AddCommand(vmBootstrapCommand())
+	vmBootstrapCmd := vmBootstrapCommand()
+	vmBootstrapCmd.Deprecated = deprecatedMsg
+	experimentalCmd.AddCommand(vmBootstrapCmd)
 	experimentalCmd.AddCommand(waitCmd())
 	experimentalCmd.AddCommand(mesh.UninstallCmd(loggingOptions))
 	experimentalCmd.AddCommand(configCmd())
-
-	postInstallCmd.AddCommand(Webhook())
+	postInstallWebhookCmd := Webhook()
+	postInstallWebhookCmd.Deprecated = deprecatedMsg
+	postInstallCmd.AddCommand(postInstallWebhookCmd)
 	experimentalCmd.AddCommand(postInstallCmd)
 
 	analyzeCmd := Analyze()
@@ -230,6 +236,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(analyzeCmd)
 
 	convertIngressCmd := convertIngress()
+	convertIngressCmd.Deprecated = deprecatedMsg
 	hideInheritedFlags(convertIngressCmd, "namespace", "istioNamespace")
 	rootCmd.AddCommand(convertIngressCmd)
 
@@ -255,7 +262,9 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(upgradeCmd)
 
 	experimentalCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
-	experimentalCmd.AddCommand(multicluster.NewMulticlusterCommand())
+	multiclusterCmd := multicluster.NewMulticlusterCommand()
+	multiclusterCmd.Deprecated = deprecatedMsg
+	experimentalCmd.AddCommand(multiclusterCmd)
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
