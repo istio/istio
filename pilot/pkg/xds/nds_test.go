@@ -59,15 +59,15 @@ func TestNDS(t *testing.T) {
 	}
 	expectedNameTable := &nds.NameTable{
 		Table: map[string]*nds.NameTable_NameInfo{
-			"random-1.host.example": &nds.NameTable_NameInfo{
+			"random-1.host.example": {
 				Ips:      []string{"240.240.0.1"},
 				Registry: "External",
 			},
-			"random-2.host.example": &nds.NameTable_NameInfo{
+			"random-2.host.example": {
 				Ips:      []string{"9.9.9.9"},
 				Registry: "External",
 			},
-			"random-3.host.example": &nds.NameTable_NameInfo{
+			"random-3.host.example": {
 				Ips:      []string{"240.240.0.2"},
 				Registry: "External",
 			},
