@@ -160,7 +160,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.3.1
 	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200825211402-ef18acabef9e
+	istio.io/api v0.0.0-20200831154936-6eea0a92a96f
 	istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26
 	istio.io/gogo-genproto v0.0.0-20200807182027-a780f93e8ee1
 	istio.io/pkg v0.0.0-20200807181912-d97bc429be20
