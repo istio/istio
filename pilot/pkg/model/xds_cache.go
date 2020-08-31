@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"istio.io/pkg/monitoring"
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/any"
@@ -24,6 +23,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 
 	"istio.io/istio/pilot/pkg/util/sets"
+	"istio.io/pkg/monitoring"
 )
 
 var (
@@ -213,7 +213,7 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 
 func (l *lruCache) ClearAll() {
 	l.mu.Lock()
-	l.mu.Unlock()
+	defer l.mu.Unlock()
 	l.configIndex = map[ConfigKey]sets.Set{}
 	l.store = newLru()
 }
