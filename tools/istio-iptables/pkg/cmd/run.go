@@ -364,12 +364,9 @@ func (iptConfigurator *IptablesConfigurator) run() {
 	}
 
 	redirectDNS := false
-	dnsTargetPort := constants.EnvoyDNSListenerPort
-	if dnsCaptureByAgent.Get() != "" || dnsCaptureByEnvoy.Get() != "" {
+	dnsTargetPort := constants.IstioAgentDNSListenerPort
+	if dnsCaptureByAgent.Get() != "" {
 		redirectDNS = true
-		if dnsCaptureByAgent.Get() != "" {
-			dnsTargetPort = constants.IstioAgentDNSListenerPort
-		}
 	}
 	iptConfigurator.logConfig()
 
