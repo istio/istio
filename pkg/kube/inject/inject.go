@@ -49,11 +49,11 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-	"istio.io/istio/pkg/util/jsonmap"
 	"istio.io/pkg/log"
 )
 
@@ -463,12 +463,6 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 		return nil, "", err
 	}
 
-	values := jsonmap.Map{}
-	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
-		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
-	}
-
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
 		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
@@ -477,9 +471,15 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 		}
 	}
 
-	cluster := values.Map("global").Map("multiCluster").String("clusterName")
-	network := values.Map("global").String("network")
-	// params may be set from webhook URL
+	valuesStruct := &opconfig.Values{}
+	if err := gogoprotomarshal.ApplyYAML(params.valuesConfig, valuesStruct); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
+		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
+	}
+
+	cluster := valuesStruct.GetGlobal().GetMultiCluster().GetClusterName()
+	network := valuesStruct.GetGlobal().GetNetwork()
+	// params may be set from webhook URL, take priority over values yaml
 	if params.proxyEnvs["ISTIO_META_CLUSTER"] != "" {
 		cluster = params.proxyEnvs["ISTIO_META_CLUSTER_ID"]
 	}
@@ -493,12 +493,16 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 
 	// use network in values for template, and proxy env variables
 	if cluster != "" {
-		values.Ensure("global").Ensure("multiCluster")["clusterName"] = cluster
 		params.proxyEnvs["ISTIO_META_CLUSTER_ID"] = cluster
 	}
 	if network != "" {
-		values.Ensure("global")["network"] = network
 		params.proxyEnvs["ISTIO_META_NETWORK"] = network
+	}
+
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
+		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
 	}
 
 	data := SidecarTemplateData{
@@ -790,7 +794,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		meshConfig:          meshconfig,
 		valuesConfig:        valuesConfig,
 		revision:            revision,
-		proxyEnvs:           nil,
+		proxyEnvs:           map[string]string{},
 		injectedAnnotations: nil,
 	}
 	patchBytes, err := injectPod(params)

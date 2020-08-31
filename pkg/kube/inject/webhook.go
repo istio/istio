@@ -826,6 +826,12 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
 	}
+
+	// ony set this default from the webhook
+	if params.proxyEnvs["ISTIO_META_CLUSTER_ID"] == "" {
+		params.proxyEnvs["ISTIO_META_CLUSTER_ID"] = "Kubernetes"
+	}
+
 	patchBytes, err := injectPod(params)
 	if err != nil {
 		handleError(fmt.Sprintf("Pod injection failed: %v", err))
