@@ -680,8 +680,8 @@ func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc v1.Se
 }
 
 // routeDestinationMatchesSvc determines whether or not to use this service as a destination
-func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
-	if route == nil {
+func routeDestinationMatchesSvc(vhRoute *route.Route, svc v1.Service, vh *route.VirtualHost, port int32) bool {
+	if vhRoute == nil {
 		return false
 	}
 
@@ -696,11 +696,20 @@ func routeDestinationMatchesSvc(route *route.Route, svc v1.Service, vh *route.Vi
 		}
 	}
 
+	clusterName := ""
+	switch cs := vhRoute.GetRoute().GetClusterSpecifier().(type) {
+	case *route.RouteAction_Cluster:
+		clusterName = cs.Cluster
+	case *route.RouteAction_WeightedClusters:
+		clusterName = cs.WeightedClusters.Clusters[0].GetName()
+	}
+
 	// If this is an ingress gateway, the Domains will be something like *:80, so check routes
 	// which will look like "outbound|9080||productpage.default.svc.cluster.local"
 	res := fmt.Sprintf(`outbound\|%d\|[^\|]*\|(?P<service>[^\.]+)\.(?P<namespace>[^\.]+)\.svc\.cluster\.local$`, port)
 	re = regexp.MustCompile(res)
-	ss := re.FindStringSubmatch(route.GetRoute().GetCluster())
+
+	ss := re.FindStringSubmatch(clusterName)
 	if ss != nil {
 		if ss[1] == svc.ObjectMeta.Name && ss[2] == svc.ObjectMeta.Namespace {
 			return true
