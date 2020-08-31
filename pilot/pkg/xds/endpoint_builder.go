@@ -83,6 +83,7 @@ func (b EndpointBuilder) Key() string {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
 	if b.networkView != nil {
+		// TODO(landow) it's likely this would never be evicted when REQUESTED_NETWORK_VIEW changes.
 		nv := make([]string, 0, len(b.networkView))
 		for nw := range b.networkView {
 			nv = append(nv, nw)
