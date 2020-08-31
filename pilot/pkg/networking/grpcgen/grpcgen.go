@@ -34,6 +34,19 @@ import (
 	"istio.io/pkg/log"
 )
 
+const (
+	typePrefix = "type.googleapis.com/envoy.api.v2."
+
+	// Constants used for XDS
+
+	// ClusterType is used for cluster discovery. Typically first request received
+	ClusterType = typePrefix + "Cluster"
+	// ListenerType is sent after clusters and endpoints.
+	ListenerType = typePrefix + "Listener"
+	// RouteType is sent after listeners.
+	RouteType = typePrefix + "RouteConfiguration"
+)
+
 // Support generation of 'ApiListener' LDS responses, used for native support of gRPC.
 // The same response can also be used by other apps using XDS directly.
 
@@ -54,12 +67,14 @@ type GrpcConfigGenerator struct {
 }
 
 func (g *GrpcConfigGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
+	// TODO: Eventhough grpc-go supports v3 at the transport layer, it still sends v2 types
+	// in the requests. Fix this when it starts sending v3 types.
 	switch w.TypeUrl {
-	case v3.ListenerType:
+	case ListenerType, v3.ListenerType:
 		return g.BuildListeners(proxy, push, w.ResourceNames)
-	case v3.ClusterType:
+	case ClusterType, v3.ClusterType:
 		return g.BuildClusters(proxy, push, w.ResourceNames)
-	case v3.RouteType:
+	case RouteType, v3.RouteType:
 		return g.BuildHTTPRoutes(proxy, push, w.ResourceNames)
 	}
 
@@ -108,20 +123,25 @@ func (g *GrpcConfigGenerator) BuildListeners(node *model.Proxy, push *model.Push
 						},
 					},
 				}
+				hcm := &hcm.HttpConnectionManager{
+					RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+						Rds: &hcm.Rds{
+							ConfigSource: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_Ads{
+									Ads: &core.AggregatedConfigSource{},
+								},
+							},
+							RouteConfigName: hp,
+						},
+					},
+				}
+				hcmAny := util.MessageToAny(hcm)
+				// TODO: grpc-go still expects the v2 Http connection manager TypeUrl. Fix this when it is changed.
+				// https://github.com/grpc/grpc-go/blob/master/xds/internal/version/version.go#L48.
+				hcmAny.TypeUrl = "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager"
 				// TODO: for TCP listeners don't generate RDS, but some indication of cluster name.
 				ll.ApiListener = &listener.ApiListener{
-					ApiListener: util.MessageToAny(&hcm.HttpConnectionManager{
-						RouteSpecifier: &hcm.HttpConnectionManager_Rds{
-							Rds: &hcm.Rds{
-								ConfigSource: &core.ConfigSource{
-									ConfigSourceSpecifier: &core.ConfigSource_Ads{
-										Ads: &core.AggregatedConfigSource{},
-									},
-								},
-								RouteConfigName: hp,
-							},
-						},
-					}),
+					ApiListener: hcmAny,
 				}
 				resp = append(resp, util.MessageToAny(ll))
 			}
