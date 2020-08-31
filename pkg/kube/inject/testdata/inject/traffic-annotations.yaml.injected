@@ -114,8 +114,6 @@ spec:
           value: cluster.local
         - name: FOO
           value: bar
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
