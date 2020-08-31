@@ -39,11 +39,6 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
-const (
-	// IstioNDSType corresponds to the nametable type sent to agents for local dns resolution.
-	IstioNDSType = "type.googleapis.com/istio.networking.nds.v1.NameTable"
-)
-
 var (
 	versionMutex sync.RWMutex
 	// version is the timestamp of the last registry event.
@@ -484,7 +479,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 	s.Generators[v3.EndpointType] = edsGen
-	s.Generators[IstioNDSType] = &NdsGenerator{Server: s}
+	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	epGen := &EdsV2Generator{edsGen}

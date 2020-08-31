@@ -68,8 +68,8 @@ var testCases = []ConfigInput{
 		ProxyType: model.Router,
 	},
 	{
-		Name:     "empty",
-		Services: 100,
+		Name:      "empty",
+		Services:  100,
 		ProxyType: model.SidecarProxy,
 	},
 	{
@@ -176,7 +176,7 @@ func BenchmarkNameTableGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				c = s.Discovery.Generators[IstioNDSType].Generate(proxy, s.PushContext(), nil, nil)
+				c = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
 				if len(c) == 0 && tt.ProxyType != model.Router {
 					b.Fatal("Got no name tables!")
 				}
