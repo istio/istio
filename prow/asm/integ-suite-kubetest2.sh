@@ -51,8 +51,10 @@ GO111MODULE=on go get -u sigs.k8s.io/kubetest2/kubetest2-tester-exec
 # TODO(chizhg): install kubetest2-tailorbird
 popd > /dev/null 2>&1 || exit 1
 
-deployer_flags=(
-  "--up" "--create-command=beta container clusters create --quiet" "--ignore-gcp-ssh-key=true"
+deployer_flags=("--up")
+
+gke_deployer_flags=(
+  "--ignore-gcp-ssh-key=true"
   "--gcp-service-account=${GOOGLE_APPLICATION_CREDENTIALS}"
 )
 
@@ -114,13 +116,15 @@ deployer_flags+=( "${extra_deployer_flags[@]}" )
 IFS=' ' read -r -a test_flags <<< "$TEST_FLAGS"
 
 if [[ "${DEPLOYER}" == "gke" ]]; then
+  deployer_flags+=( "${gke_deployer_flags[@]}" )
   if [[ "${TOPOLOGY}" == "MULTICLUSTER"  ]]; then
     deployer_flags+=("--cluster-name=test1,test2" "--machine-type=e2-standard-4" "--num-nodes=3" "--region=us-central1")
   elif [[ "${TOPOLOGY}" == "MULTIPROJECT_MULTICLUSTER" ]]; then
     # A slightly hacky step to setup the environment, see the comments on the
     # function signature.
     multiproject_multicluster_setup
-    multi_cluster_deployer_flags=("--cluster-name=prow-test1:1,prow-test2:2" "--machine-type=e2-standard-4" "--num-nodes=1" "--region=us-central1")
+    multi_cluster_deployer_flags=("--create-command=beta container clusters create --quiet --release-channel=regular")
+    multi_cluster_deployer_flags+=("--cluster-name=prow-test1:1,prow-test2:2" "--machine-type=e2-standard-4" "--num-nodes=1" "--region=us-central1")
     multi_cluster_deployer_flags+=("--network=test-network" "--subnetwork-ranges=172.16.4.0/22 172.16.16.0/20 172.20.0.0/14,10.0.4.0/22 10.0.32.0/20 10.4.0.0/14" )
     # These projects are mananged by the boskos project rental pool in
     # https://gke-internal.googlesource.com/istio/test-infra-internal/+/refs/heads/master/boskos/config/resources.yaml#105
