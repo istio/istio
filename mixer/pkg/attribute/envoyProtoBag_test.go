@@ -38,7 +38,7 @@ func TestBagEnvoyAuthzHttp(t *testing.T) {
 		value interface{}
 	}{
 		{"context.protocol", "http"},
-		{"context.reporter.kind", "unknown"},
+		{"context.reporter.kind", "inbound"},
 		{"destination.ip", []byte(net.ParseIP("10.12.2.52").To16())},
 		{"destination.port", int64(9080)},
 		{"source.ip", []byte(net.ParseIP("10.12.1.52").To16())},
@@ -89,7 +89,7 @@ func TestBagEnvoyAuthzGrpc(t *testing.T) {
 		value interface{}
 	}{
 		{"context.protocol", "grpc"},
-		{"context.reporter.kind", "unknown"},
+		{"context.reporter.kind", "inbound"},
 		{"destination.ip", []byte(net.ParseIP("10.12.0.254").To16())},
 		{"destination.port", int64(8079)},
 		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},
@@ -138,7 +138,7 @@ func TestBagEnvoyAlsGrpc(t *testing.T) {
 		value interface{}
 	}{
 		{"context.protocol", "grpc"},
-		{"context.reporter.kind", "unknown"},
+		{"context.reporter.kind", "inbound"},
 		{"destination.ip", []byte(net.ParseIP("10.12.0.254").To16())},
 		{"destination.port", int64(8079)},
 		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},
@@ -188,7 +188,7 @@ func TestBagEnvoyAlsTcp(t *testing.T) {
 		value interface{}
 	}{
 		{"context.protocol", "tcp"},
-		{"context.reporter.kind", "unknown"},
+		{"context.reporter.kind", "inbound"},
 		{"destination.ip", []byte(net.ParseIP("10.12.0.254").To16())},
 		{"destination.port", int64(8079)},
 		{"source.ip", []byte(net.ParseIP("10.12.1.121").To16())},

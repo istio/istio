@@ -92,7 +92,7 @@ func stripPrincipal(principal string) string {
 func AuthzProtoBag(req *authz.CheckRequest) *EnvoyProtoBag {
 	pb := envoyProtoBags.Get().(*EnvoyProtoBag)
 	reqMap := make(map[string]interface{})
-	reqMap["context.reporter.kind"] = "unknown"
+	reqMap["context.reporter.kind"] = "inbound"
 	if attributes := req.GetAttributes(); attributes != nil {
 		if destination := attributes.GetDestination(); destination != nil {
 			fillAddress(reqMap, destination.GetAddress(), "destination")
@@ -173,7 +173,7 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 			reqMap["connection.sent.bytes"] = int64(connection.GetSentBytes())
 		}
 	}
-	reqMap["context.reporter.kind"] = "unknown"
+	reqMap["context.reporter.kind"] = "inbound"
 	if downLocalAddress := commonproperties.GetDownstreamLocalAddress(); downLocalAddress != nil {
 		fillAddress(reqMap, downLocalAddress, "destination")
 	}
