@@ -589,6 +589,27 @@ func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigOb
 	return res
 }
 
+const strictMode = `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+`
+const disableMode = `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: DISABLE
+`
+
 func TestInboundListenerFilters(t *testing.T) {
 	services := []*model.Service{
 		buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow),
@@ -606,28 +627,86 @@ func TestInboundListenerFilters(t *testing.T) {
 			ServicePort: s.Ports[0],
 		})
 	}
-	cg := NewConfigGenTest(t, TestOptions{
-		Services:  services,
-		Instances: instances,
-	})
-	listeners := cg.Listeners(cg.SetupProxy(nil))
-	virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
-	filters := xdstest.ExtractListenerFilters(virtualInbound)
-	evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, map[int]bool{
-		// Should not see HTTP inspector if we declare ports
-		80: true,
-		82: true,
-		// But should see for passthrough or unnamed ports
-		81:   false,
-		1000: false,
-	})
-	evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, map[int]bool{
-		// Permissive mode: inspector is set everywhere
-		80:   false,
-		82:   false,
-		81:   false,
-		1000: false,
-	})
+	cases := []struct {
+		name   string
+		config string
+		http   map[int]bool
+		tls    map[int]bool
+	}{
+		{
+			name:   "permissive",
+			config: "",
+			http: map[int]bool{
+				// Should not see HTTP inspector if we declare ports
+				80: true,
+				82: true,
+				// But should see for passthrough or unnamed ports
+				81:   false,
+				1000: false,
+			},
+			tls: map[int]bool{
+				// Permissive mode: inspector is set everywhere
+				80:   false,
+				82:   false,
+				81:   false,
+				1000: false,
+			},
+		},
+		{
+			name:   "disable",
+			config: disableMode,
+			http: map[int]bool{
+				// Should not see HTTP inspector if we declare ports
+				80: true,
+				82: true,
+				// But should see for passthrough or unnamed ports
+				81:   false,
+				1000: false,
+			},
+			tls: map[int]bool{
+				// No inspector on named ports
+				80: true,
+				82: true,
+				// Unnamed ports still get the inspector
+				81:   false,
+				1000: false,
+			},
+		},
+		{
+			name:   "strict",
+			config: strictMode,
+			http: map[int]bool{
+				// Should not see HTTP inspector if we declare ports
+				80: true,
+				82: true,
+				// But should see for passthrough or unnamed ports
+				81:   false,
+				1000: false,
+			},
+			tls: map[int]bool{
+				// strict mode: inspector is set everywhere.
+				// TODO: do we need the inspector set if its strict mode? We don't do any FCM with it
+				80:   false,
+				82:   false,
+				81:   false,
+				1000: false,
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:     services,
+				Instances:    instances,
+				ConfigString: tt.config,
+			})
+			listeners := cg.Listeners(cg.SetupProxy(nil))
+			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+			filters := xdstest.ExtractListenerFilters(virtualInbound)
+			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, tt.http)
+			evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, tt.tls)
+		})
+	}
 }
 
 func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {

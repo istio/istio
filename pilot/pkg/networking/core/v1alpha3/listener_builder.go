@@ -252,12 +252,14 @@ func listenerPredicateExcludePorts(ports []int) *listener.ListenerFilterChainMat
 			},
 		}})
 	}
-	predicate := &listener.ListenerFilterChainMatchPredicate{Rule: &listener.ListenerFilterChainMatchPredicate_OrMatch{
-		OrMatch: &listener.ListenerFilterChainMatchPredicate_MatchSet{
-			Rules: ranges,
-		},
-	}}
-	return predicate
+	if len(ranges) > 1 {
+		return &listener.ListenerFilterChainMatchPredicate{Rule: &listener.ListenerFilterChainMatchPredicate_OrMatch{
+			OrMatch: &listener.ListenerFilterChainMatchPredicate_MatchSet{
+				Rules: ranges,
+			},
+		}}
+	}
+	return &listener.ListenerFilterChainMatchPredicate{Rule: ranges[0].GetRule()}
 }
 
 func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBuilder {
