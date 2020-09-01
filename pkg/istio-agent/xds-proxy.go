@@ -86,6 +86,7 @@ func initXdsProxy(sa *Agent) (*XdsProxy, error) {
 		if proxy.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
 			return nil, err
 		}
+		proxy.localDNSServer.StartDNS()
 	}
 
 	go func() {

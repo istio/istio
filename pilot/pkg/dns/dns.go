@@ -102,9 +102,12 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	// name in our local nametable. If not, we will forward the query to the
 	// upstream resolvers as is.
 	//
-	// NOTE: There is still a NxN issue here as the app will cycle through N
+	// NOTE: When the workload has more than one nameserver in its resolv.conf (mostly in VMs),
+	// there is an NxN issue here: the app will cycle through N
 	// nameservers for each potential FQDN string. The agent will also cycle through
 	// NxN unfortunately as it cannot infer the orig dst IP from the incoming packet.
+	// On Kubernetes pods, its not an issue as usually there is only one nameserver
+	// pointing to the kube/coredns IP.
 	if dnsConfig != nil {
 		if len(dnsConfig.Servers) > 0 {
 			for _, s := range dnsConfig.Servers {
