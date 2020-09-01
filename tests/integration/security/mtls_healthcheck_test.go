@@ -33,6 +33,7 @@ import (
 // on Minikube. For more details, see https://github.com/istio/istio/issues/12754.
 func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.healthcheck").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{Prefix: "healthcheck", Inject: true})
 			for _, testCase := range []struct {

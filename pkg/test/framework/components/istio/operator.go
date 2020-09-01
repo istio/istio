@@ -477,8 +477,14 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
 
 		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
-				"--set", "values.global.network="+networkName)
+			installSettings = append(installSettings,
+				"--set", "values.global.meshID="+meshID,
+				"--set", "values.global.network="+networkName,
+				// TODO(landow) remove these in favor of a dedicated cross-network gateway deployment
+				// ingress must be enabled for multi-network
+				"--set", "values.gateways.istio-ingressgateway.enabled=true",
+				// prevents gateways from calling gateways and throwing off cross-network traffic
+				"--set", "values.gateways.istio-ingressgateway.env.ISTIO_META_REQUESTED_NETWORK_VIEW="+networkName)
 		}
 
 		if !c.environment.IsControlPlaneCluster(cluster) {

@@ -317,7 +317,6 @@ spec:
 						if err := hostResponses.CheckReachedClusters(hostDestinations.Clusters()); err != nil {
 							return fmt.Errorf("did not reach all clusters for %s: %v", host, err)
 						}
-						// TODO(landow) add res.CheckEqualClusterTraffic() when cross-network weighting is fixed
 					}
 					return nil
 				},
