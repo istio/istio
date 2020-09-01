@@ -15,11 +15,7 @@
 package centralremotekubeconfig
 
 import (
-	"context"
 	"testing"
-
-	kubeApiCore "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
@@ -27,7 +23,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/tests/integration/multicluster"
 )
 
@@ -48,62 +43,14 @@ func TestMain(m *testing.M) {
 			externalControlPlaneCluster := resource.ClusterIndex(1)
 			configCluster := resource.ClusterIndex(0)
 			scopes.Framework.Infof("remote cluster %s", ctx.Clusters()[configCluster].Name())
-			cfg, err := istio.DefaultConfig(ctx)
-			if err != nil {
-				scopes.Framework.Infof("has error in creating istio cfg ")
-				return
-			}
 			for i := 0; i < len(ctx.Clusters()); i++ {
 				s.ControlPlaneTopology[resource.ClusterIndex(i)] = externalControlPlaneCluster
 				s.ConfigTopology[resource.ClusterIndex(i)] = configCluster
 			}
-			//create related namespace ,secret and service account before hand in 2nd cluster
-			istioKubeConfig, err := file.AsString(s.KubeConfig[0])
-			if err != nil {
-				scopes.Framework.Infof("has error in parsing kubeconfig ")
-				return
-			}
-			istiodNS := &kubeApiCore.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: cfg.SystemNamespace,
-				},
-			}
-			for i := 1; i < len(s.KubeConfig); i++ {
-				scopes.Framework.Infof("creating resources in cluster %s", ctx.Clusters()[i].Name())
-				ctx.Clusters()[i].CoreV1().Namespaces().Create(context.TODO(),
-					istiodNS, metav1.CreateOptions{})
-
-				istiokubeconfigSecret := &kubeApiCore.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "istio-kubeconfig",
-					},
-					Data: map[string][]byte{
-						"config": []byte(istioKubeConfig),
-					},
-				}
-				_, err = ctx.Clusters()[i].CoreV1().Secrets(cfg.SystemNamespace).Create(context.TODO(),
-					istiokubeconfigSecret, metav1.CreateOptions{})
-				if err != nil {
-					scopes.Framework.Infof("has error in creating istio-kubeconfig secrets %v", err)
-					return
-				}
-				istiodSA := &kubeApiCore.ServiceAccount{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: cfg.SystemNamespace,
-						Name:      "istiod-service-account",
-					},
-				}
-				_, err = ctx.Clusters()[i].CoreV1().ServiceAccounts(cfg.SystemNamespace).Create(context.TODO(),
-					istiodSA, metav1.CreateOptions{})
-				if err != nil {
-					scopes.Framework.Infof("has error in creating istiod service account %v", err)
-					return
-				}
-			}
 		})).
 		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
 			// Set the control plane values on the config.
-			cfg.RemoteClusterValues =
+			cfg.ConfigClusterValues =
 				`components:
   base:
     enabled: true

@@ -134,6 +134,19 @@ func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource
 	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %s", cluster.Name())
 }
 
+// GetConfigCluster returns the cluster running the istio config for the given cluster based on the ConfigTopology.
+// An error is returned if the given cluster isn't present in the topology, or the cluster in the topology isn't in KubeClusters.
+func (e *Environment) GetConfigCluster(cluster resource.Cluster) (resource.Cluster, error) {
+	if configClusterIndex, ok := e.Settings().ConfigTopology[cluster.Index()]; ok {
+		if int(configClusterIndex) >= len(e.KubeClusters) {
+			err := fmt.Errorf("control plane index %d out of range in %d configured clusters", configClusterIndex, len(e.KubeClusters))
+			return nil, err
+		}
+		return e.KubeClusters[configClusterIndex], nil
+	}
+	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %s", cluster.Name())
+}
+
 // ClustersByNetwork returns an inverse mapping of the network topolgoy to a slice of clusters in a given network.
 func (e *Environment) ClustersByNetwork() map[string][]*Cluster {
 	out := make(map[string][]*Cluster)
