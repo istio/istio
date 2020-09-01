@@ -424,7 +424,7 @@ spec:
 }
 
 func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
-	installSettings, err := generateCommonInstallSettings(i, cfg, configIopFile)
+	installSettings, err := generateCommonInstallSettings(cfg, configIopFile)
 	if err != nil {
 		return err
 	}
@@ -449,7 +449,7 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 			return err
 		}
 	}
-	installSettings, err := generateCommonInstallSettings(i, cfg, iopFile)
+	installSettings, err := generateCommonInstallSettings(cfg, iopFile)
 	if err != nil {
 		return err
 	}
@@ -513,7 +513,7 @@ func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.C
 // Deploy Istio to remote clusters
 func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
 
-	installSettings, err := generateCommonInstallSettings(i, cfg, remoteIopFile)
+	installSettings, err := generateCommonInstallSettings(cfg, remoteIopFile)
 	if err != nil {
 		return err
 	}
@@ -565,7 +565,7 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 
 }
 
-func generateCommonInstallSettings(c *operatorComponent, cfg Config, iopFile string) ([]string, error) {
+func generateCommonInstallSettings(cfg Config, iopFile string) ([]string, error) {
 
 	s, err := image.SettingsFromCommandLine()
 	if err != nil {
