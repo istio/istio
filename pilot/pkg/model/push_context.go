@@ -255,6 +255,8 @@ const (
 	UnknownTrigger TriggerReason = "unknown"
 	// Describes a push triggered for debugging
 	DebugTrigger TriggerReason = "debug"
+	// Describes a push triggered for a Secret change
+	SecretTrigger TriggerReason = "secret"
 )
 
 // Merge two update requests together

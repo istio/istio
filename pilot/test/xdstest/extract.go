@@ -23,6 +23,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcpproxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
@@ -145,6 +146,18 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 			}
 		}
 		res = append(res, c.Name)
+	}
+	return res
+}
+
+func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
+	res := map[string]*tls.Secret{}
+	for _, a := range secrets {
+		scrt := &tls.Secret{}
+		if err := ptypes.UnmarshalAny(a, scrt); err != nil {
+			t.Fatal(err)
+		}
+		res[scrt.Name] = scrt
 	}
 	return res
 }

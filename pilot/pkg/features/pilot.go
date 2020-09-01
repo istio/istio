@@ -217,6 +217,14 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
+	EnableSDSServer = env.RegisterBoolVar(
+		"ISTIOD_ENABLE_SDS_SERVER",
+		false,
+		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
+			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well. "+
+			"This option temporarily only supports gateways running in istio-system namespace.",
+	).Get()
+
 	EnableCRDValidation = env.RegisterBoolVar(
 		"PILOT_ENABLE_CRD_VALIDATION",
 		false,

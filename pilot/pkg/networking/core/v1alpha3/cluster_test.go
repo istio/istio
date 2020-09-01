@@ -2166,11 +2166,12 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name   string
-		opts   *buildClusterOpts
-		tls    *networking.ClientTLSSettings
-		node   *model.Proxy
-		result expectedResult
+		name      string
+		opts      *buildClusterOpts
+		tls       *networking.ClientTLSSettings
+		node      *model.Proxy
+		istiodSds bool
+		result    expectedResult
 	}{
 		{
 			name: "tls mode disabled",
@@ -2753,6 +2754,47 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			},
 		},
 		{
+			name:      "tls mode SIMPLE, with CredentialName specified Istiod SDS",
+			istiodSds: true,
+			opts: &buildClusterOpts{
+				cluster: &cluster.Cluster{
+					Name: "test-cluster",
+				},
+				proxy: &model.Proxy{
+					Metadata: &model.NodeMetadata{},
+					Type:     model.Router,
+				},
+			},
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_SIMPLE,
+				CredentialName:  credentialName,
+				SubjectAltNames: []string{"SAN"},
+				Sni:             "some-sni.com",
+			},
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			result: expectedResult{
+				tlsContext: &tls.UpstreamTlsContext{
+					CommonTlsContext: &tls.CommonTlsContext{
+						ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+							CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+								DefaultValidationContext: &tls.CertificateValidationContext{
+									MatchSubjectAltNames: util.StringToExactMatch([]string{"SAN"}),
+								},
+								ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+									Name:      "kubernetes://" + credentialName + authn_model.SdsCaSuffix,
+									SdsConfig: authn_model.SDSAdsConfig,
+								},
+							},
+						},
+					},
+					Sni: "some-sni.com",
+				},
+				err: nil,
+			},
+		},
+		{
 			name: "tls mode SIMPLE, with CredentialName specified with h2 and no SAN",
 			opts: &buildClusterOpts{
 				cluster: &cluster.Cluster{
@@ -3022,6 +3064,9 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			old := features.EnableSDSServer
+			features.EnableSDSServer = tc.istiodSds
+			defer func() { features.EnableSDSServer = old }()
 			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
