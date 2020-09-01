@@ -80,40 +80,43 @@ func getHTTPFilterConfig(filter *hcm_filter.HttpFilter, out proto.Message) error
 	return nil
 }
 
-func parse(listener *listener.Listener) *parsedListener {
-	parsed := &parsedListener{}
-	for _, fc := range listener.FilterChains {
-		parsedFC := &filterChain{}
-		for _, filter := range fc.Filters {
-			switch filter.Name {
-			case wellknown.HTTPConnectionManager, "envoy.http_connection_manager":
-				if cm := getHTTPConnectionManager(filter); cm != nil {
-					for _, httpFilter := range cm.GetHttpFilters() {
-						switch httpFilter.GetName() {
-						case wellknown.HTTPRoleBasedAccessControl:
-							rbacHTTP := &rbac_http_filter.RBAC{}
-							if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
-								log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
-							} else {
-								parsedFC.rbacHTTP = append(parsedFC.rbacHTTP, rbacHTTP)
+func parse(listeners []*listener.Listener) []*parsedListener {
+	var parsedListeners []*parsedListener
+	for _, l := range listeners {
+		parsed := &parsedListener{}
+		for _, fc := range l.FilterChains {
+			parsedFC := &filterChain{}
+			for _, filter := range fc.Filters {
+				switch filter.Name {
+				case wellknown.HTTPConnectionManager, "envoy.http_connection_manager":
+					if cm := getHTTPConnectionManager(filter); cm != nil {
+						for _, httpFilter := range cm.GetHttpFilters() {
+							switch httpFilter.GetName() {
+							case wellknown.HTTPRoleBasedAccessControl:
+								rbacHTTP := &rbac_http_filter.RBAC{}
+								if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
+									log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
+								} else {
+									parsedFC.rbacHTTP = append(parsedFC.rbacHTTP, rbacHTTP)
+								}
 							}
 						}
 					}
-				}
-			case wellknown.RoleBasedAccessControl:
-				rbacTCP := &rbac_tcp_filter.RBAC{}
-				if err := getFilterConfig(filter, rbacTCP); err != nil {
-					log.Errorf("found RBAC network filter but failed to parse: %s", err)
-				} else {
-					parsedFC.rbacTCP = append(parsedFC.rbacTCP, rbacTCP)
+				case wellknown.RoleBasedAccessControl:
+					rbacTCP := &rbac_tcp_filter.RBAC{}
+					if err := getFilterConfig(filter, rbacTCP); err != nil {
+						log.Errorf("found RBAC network filter but failed to parse: %s", err)
+					} else {
+						parsedFC.rbacTCP = append(parsedFC.rbacTCP, rbacTCP)
+					}
 				}
 			}
+
+			parsed.filterChains = append(parsed.filterChains, parsedFC)
 		}
-
-		parsed.filterChains = append(parsed.filterChains, parsedFC)
+		parsedListeners = append(parsedListeners, parsed)
 	}
-
-	return parsed
+	return parsedListeners
 }
 
 func extractName(name string) (string, string) {
@@ -127,9 +130,9 @@ func extractName(name string) (string, string) {
 }
 
 // Print prints the AuthorizationPolicy in the listener.
-func Print(writer io.Writer, listener *listener.Listener) {
-	parsed := parse(listener)
-	if parsed == nil {
+func Print(writer io.Writer, listeners []*listener.Listener) {
+	parsedListeners := parse(listeners)
+	if parsedListeners == nil {
 		return
 	}
 
@@ -147,25 +150,27 @@ func Print(writer io.Writer, listener *listener.Listener) {
 		policyToRule[name][rule] = struct{}{}
 	}
 
-	for _, fc := range parsed.filterChains {
-		for _, rbacHTTP := range fc.rbacHTTP {
-			action := rbacHTTP.GetRules().GetAction()
-			for name := range rbacHTTP.GetRules().GetPolicies() {
-				nameOfPolicy, indexOfRule := extractName(name)
-				addPolicy(action, nameOfPolicy, indexOfRule)
+	for _, parsed := range parsedListeners {
+		for _, fc := range parsed.filterChains {
+			for _, rbacHTTP := range fc.rbacHTTP {
+				action := rbacHTTP.GetRules().GetAction()
+				for name := range rbacHTTP.GetRules().GetPolicies() {
+					nameOfPolicy, indexOfRule := extractName(name)
+					addPolicy(action, nameOfPolicy, indexOfRule)
+				}
+				if len(rbacHTTP.GetRules().GetPolicies()) == 0 {
+					addPolicy(action, anonymousName, "0")
+				}
 			}
-			if len(rbacHTTP.GetRules().GetPolicies()) == 0 {
-				addPolicy(action, anonymousName, "0")
-			}
-		}
-		for _, rbacTCP := range fc.rbacTCP {
-			action := rbacTCP.GetRules().GetAction()
-			for name := range rbacTCP.GetRules().GetPolicies() {
-				nameOfPolicy, indexOfRule := extractName(name)
-				addPolicy(action, nameOfPolicy, indexOfRule)
-			}
-			if len(rbacTCP.GetRules().GetPolicies()) == 0 {
-				addPolicy(action, anonymousName, "0")
+			for _, rbacTCP := range fc.rbacTCP {
+				action := rbacTCP.GetRules().GetAction()
+				for name := range rbacTCP.GetRules().GetPolicies() {
+					nameOfPolicy, indexOfRule := extractName(name)
+					addPolicy(action, nameOfPolicy, indexOfRule)
+				}
+				if len(rbacTCP.GetRules().GetPolicies()) == 0 {
+					addPolicy(action, anonymousName, "0")
+				}
 			}
 		}
 	}
