@@ -463,55 +463,74 @@ spec:
 							InterceptionMode: "NONE",
 						},
 					})
+					gw := s.SetupProxy(&model.Proxy{
+						ID:              "gw",
+						IPAddresses:     []string{"2.2.2.2"},
+						ConfigNamespace: "default",
+						Metadata: &model.NodeMetadata{
+							Network:              "vm", // should only see the VM
+							InterceptionMode:     "NONE",
+							RequestedNetworkView: []string{"vm"},
+						},
+					})
 
 					tests := []struct {
 						p      *model.Proxy
-						expect map[string]string
+						expect map[string][]string
 					}{
 						{
 							p: pod,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-								"outbound|80||labeled.pod.svc.cluster.local": "3.3.3.3",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
 							},
 						},
 						{
 							p: labeledPod,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
-								"outbound|80||labeled.pod.svc.cluster.local": "10.10.10.40",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"10.10.10.40"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
 							},
 						},
 						{
 							p: se,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-								"outbound|80||labeled.pod.svc.cluster.local": "3.3.3.3",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
 							},
 						},
 						{
 							p: vm,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
-								"outbound|80||labeled.pod.svc.cluster.local": "3.3.3.3",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
+							},
+						},
+						{
+							p: gw,
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com": {"10.10.10.10"},
+								// Network view will filter these out
+								"outbound|80||kubeapp.pod.svc.cluster.local": {},
+								"outbound|80||labeled.pod.svc.cluster.local": {},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {},
 							},
 						},
 					}
 
 					for _, tt := range tests {
 						eps := xdstest.ExtractLoadAssignments(s.Endpoints(tt.p))
-						for c, ip := range tt.expect {
-							c, ip := c, ip
+						for c, ips := range tt.expect {
 							t.Run(fmt.Sprintf("%s from %s", c, tt.p.ID), func(t *testing.T) {
-								assertListEqual(t, eps[c], []string{ip})
+								assertListEqual(t, eps[c], ips)
 							})
 						}
 					}
