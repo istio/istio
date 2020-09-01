@@ -26,9 +26,9 @@ import (
 )
 
 var (
-	agentDNSAddr = "127.0.0.1:15053"
-
-	initErr error
+	testAgentDNSAddr = "127.0.0.1:15053"
+	testAgentDNS     *LocalDNSServer
+	initErr          error
 )
 
 func init() {
@@ -36,13 +36,14 @@ func init() {
 }
 
 func initDNS() error {
-	// TODO: load certificates for TLS
-	agentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local")
+	var err error
+	testAgentDNS, err = NewLocalDNSServer("ns1", "ns1.svc.cluster.local")
 	if err != nil {
 		return err
 	}
-	agentDNS.StartDNS()
-	agentDNS.UpdateLookupTable(&nds.NameTable{
+	testAgentDNS.StartDNS()
+	testAgentDNS.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+	testAgentDNS.UpdateLookupTable(&nds.NameTable{
 		Table: map[string]*nds.NameTable_NameInfo{
 			"www.google.com": {
 				Ips:      []string{"1.1.1.1"},
@@ -102,6 +103,11 @@ func TestDNS(t *testing.T) {
 			expected: a("www.google.com.", []net.IP{net.ParseIP("1.1.1.1").To4()}),
 		},
 		{
+			name:     "success: non k8s host with search namespace yields cname",
+			host:     "www.google.com.ns1.svc.cluster.local.",
+			expected: cname("www.google.com.ns1.svc.cluster.local.", "www.google.com."),
+		},
+		{
 			name:                     "success: non k8s host not in local cache",
 			host:                     "www.bing.com.",
 			expectExternalResolution: true,
@@ -120,6 +126,11 @@ func TestDNS(t *testing.T) {
 			name:     "success: k8s host - shortname",
 			host:     "productpage.",
 			expected: a("productpage.", []net.IP{net.ParseIP("9.9.9.9").To4()}),
+		},
+		{
+			name:     "success: k8s host (name.namespace) with search namespace yields cname",
+			host:     "productpage.ns1.ns1.svc.cluster.local.",
+			expected: cname("productpage.ns1.ns1.svc.cluster.local.", "productpage.ns1."),
 		},
 		{
 			name:     "success: k8s host - non local namespace - name.namespace",
@@ -188,7 +199,7 @@ func TestDNS(t *testing.T) {
 				q = dns.TypeAAAA
 			}
 			m.SetQuestion(tt.host, q)
-			res, _, err := c.Exchange(m, agentDNSAddr)
+			res, _, err := c.Exchange(m, testAgentDNSAddr)
 
 			if err != nil {
 				t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
@@ -209,6 +220,7 @@ func TestDNS(t *testing.T) {
 			}
 		})
 	}
+	testAgentDNS.Close()
 }
 
 // reflect.DeepEqual doesn't seem to work well for dns.RR
@@ -221,52 +233,80 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 	return reflect.DeepEqual(got, want)
 }
 
-// Benchmark - the actual address will be cached by the local resolver.
 // Baseline:
-//      119us via agent if cached
-//      32ms via machine resolver
-// for a lookup, no match and then resolve,
-//  it takes 2.3ms while direct resolution takes 2.03ms
-// So the cache lookup & forward adds a 300us overhead (needs more data)
+//      ~150us via agent if cached for A/AAAA
+//      ~300us via agent when doing the cname redirect
+//      5-6ms to upstream resolver directly
+//      6-7ms via agent to upstream resolver (cache miss)
 func BenchmarkDNS(t *testing.B) {
 	if initErr != nil {
 		t.Fatal(initErr)
 	}
 
-	t.Run("plain", func(b *testing.B) {
-		bench(b, agentDNSAddr)
+	t.ReportAllocs()
+	t.Run("via-agent-cache-miss", func(b *testing.B) {
+		bench(b, testAgentDNSAddr, "www.bing.com.")
 	})
-
-	t.Run("public", func(b *testing.B) {
+	t.ResetTimer()
+	t.Run("public-dns-server", func(b *testing.B) {
 		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		bench(b, dnsConfig.Servers[0]+":53")
+		bench(b, dnsConfig.Servers[0]+":53", "www.bing.com.")
 	})
+	t.ResetTimer()
+	t.Run("via-agent-cache-hit-fqdn", func(b *testing.B) {
+		bench(b, testAgentDNSAddr, "www.google.com.")
+	})
+	t.ResetTimer()
+	t.Run("via-agent-cache-hit-cname", func(b *testing.B) {
+		bench(b, testAgentDNSAddr, "www.google.com.ns1.svc.cluster.local.")
+	})
+	testAgentDNS.Close()
 }
 
-func bench(t *testing.B, dest string) {
+func bench(t *testing.B, nameserver string, hostname string) {
 	errs := 0
 	nrs := 0
+	nxdomain := 0
+	cnames := 0
+	c := dns.Client{
+		Timeout: 1 * time.Second,
+	}
 	for i := 0; i < t.N; i++ {
-		c := dns.Client{
-			Timeout: 1 * time.Second,
-		}
+		toResolve := hostname
+	redirect:
 		m := new(dns.Msg)
-		m.SetQuestion("www.bing.com.", dns.TypeA)
-		res, _, err := c.Exchange(m, dest)
+		m.SetQuestion(toResolve, dns.TypeA)
+		res, _, err := c.Exchange(m, nameserver)
 
 		if err != nil {
 			errs++
 		} else if len(res.Answer) == 0 {
 			nrs++
+		} else {
+			for _, a := range res.Answer {
+				if arec, ok := a.(*dns.A); !ok {
+					// check if this is a cname redirect. If so, repeat the resolution
+					if crec, ok := a.(*dns.CNAME); !ok {
+						errs++
+					} else {
+						cnames++
+						toResolve = crec.Target
+						goto redirect
+					}
+				} else {
+					if arec.Hdr.Rrtype != dns.RcodeSuccess {
+						nxdomain++
+					}
+				}
+			}
 		}
 	}
 
 	if errs+nrs > 0 {
-		t.Log("Sent", t.N, "err", errs, "no response", nrs)
+		t.Log("Sent", t.N, "err", errs, "no response", nrs, "nxdomain", nxdomain, "cname redirect", cnames)
 	}
-
 }

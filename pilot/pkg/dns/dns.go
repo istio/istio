@@ -38,6 +38,7 @@ type LocalDNSServer struct {
 	// in case the data is not in our cache.
 	upstreamClient    *dns.Client
 	resolvConfServers []string
+	searchNamespaces  []string
 	// The namespace where the proxy resides
 	// determines the hosts used for shortname resolution
 	proxyNamespace string
@@ -52,10 +53,13 @@ type LookupTable struct {
 	// of A or AAAA type as appropriate.
 	name4 map[string][]dns.RR
 	name6 map[string][]dns.RR
+	cname map[string][]dns.RR
 }
 
 const (
-	defaultTTL = 3600 // 1hr
+	// In case the client decides to honor the TTL, keep it low so that we can always serve
+	// the latest IP for a host.
+	defaultTTL = 30
 )
 
 func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
@@ -101,10 +105,13 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	// NOTE: There is still a NxN issue here as the app will cycle through N
 	// nameservers for each potential FQDN string. The agent will also cycle through
 	// NxN unfortunately as it cannot infer the orig dst IP from the incoming packet.
-	if dnsConfig != nil && len(dnsConfig.Servers) > 0 {
-		for _, s := range dnsConfig.Servers {
-			h.resolvConfServers = append(h.resolvConfServers, s+":53")
+	if dnsConfig != nil {
+		if len(dnsConfig.Servers) > 0 {
+			for _, s := range dnsConfig.Servers {
+				h.resolvConfServers = append(h.resolvConfServers, s+":53")
+			}
 		}
+		h.searchNamespaces = dnsConfig.Search
 	}
 	return h, nil
 }
@@ -131,6 +138,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 	lookupTable := &LookupTable{
 		name4: map[string][]dns.RR{},
 		name6: map[string][]dns.RR{},
+		cname: map[string][]dns.RR{},
 	}
 	for host, ni := range nt.Table {
 		// Given a host
@@ -144,7 +152,11 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 			altHosts = []string{host + "."}
 		}
 		ipv4, ipv6 := separateIPtypes(ni.Ips)
-		lookupTable.buildDNSAnswers(altHosts, ipv4, ipv6)
+		if len(ipv6) == 0 && len(ipv4) == 0 {
+			// malformed ips
+			continue
+		}
+		lookupTable.buildDNSAnswers(altHosts, ipv4, ipv6, h.searchNamespaces)
 	}
 	h.lookupTable.Store(lookupTable)
 }
@@ -167,8 +179,6 @@ func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 		// This name will always end in a dot
 		hostname := strings.ToLower(req.Question[0].Name)
 
-		// TODO: short circult lengthy search namespace exploration
-		// for k8s names using cname redirect
 		switch req.Question[0].Qtype {
 		case dns.TypeA:
 			answers = lookupTable.lookupHostIPv4(hostname)
@@ -251,26 +261,49 @@ func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNa
 }
 
 func (table *LookupTable) lookupHostIPv4(host string) []dns.RR {
-	if len(table.name4) == 0 {
-		return nil
+	ans := table.name4[host]
+	if len(ans) == 0 {
+		ans = table.cname[host]
 	}
-	return table.name4[host]
+	return ans
 }
 
 func (table *LookupTable) lookupHostIPv6(host string) []dns.RR {
-	if len(table.name6) == 0 {
-		return nil
+	ans := table.name6[host]
+	if len(ans) == 0 {
+		ans = table.cname[host]
 	}
-	return table.name6[host]
+	return ans
 }
 
-func (table *LookupTable) buildDNSAnswers(altHosts []string, ipv4 []net.IP, ipv6 []net.IP) {
+// This function stores the list of hostnames along with the precomputed DNS response for that hostname.
+// Most hostnames have a DNS response containing the A/AAAA records. In addition, this function stores a
+// variant of the host+ the first search domain in resolv.conf as the first query
+// is likely to be host.ns.svc.cluster.local (e.g., www.google.com.ns1.svc.cluster.local) due to
+// the list of search namespaces in resolv.conf (unless the app explicitly does www.google.com. which is unlikely).
+// We will resolve www.google.com.ns1.svc.cluster.local with a CNAME record pointing to www.google.com.
+// which will cause the client's resolver to automatically resolve www.google.com. , and short circuit the lengthy
+// search process down to just two DNS queries. This will eliminate unnecessary upstream DNS queries from the
+// agent, reduce load on DNS servers and improve overall latency. This idea was borrowed and adapted from
+// the autopath plugin in coredns. The implementation here is very different from auto path though.
+// Autopath does inline computation to see if the given query could potentially match something else
+// and then returns a CNAME record. In our case, we preemptively store these random dns names as a host
+// in the lookup table with a CNAME record as the DNS response. This technique eliminates the need
+// to do string parsing, memory allocations, etc. at query time at the cost of 2x number of entries (i.e. memory) to store
+// the lookup table.
+func (table *LookupTable) buildDNSAnswers(altHosts []string, ipv4 []net.IP, ipv6 []net.IP, searchNamespaces []string) {
 	for _, h := range altHosts {
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, ipv4)
 		}
 		if len(ipv6) > 0 {
 			table.name6[h] = aaaa(h, ipv6)
+		}
+		if len(searchNamespaces) > 0 {
+			// host h already ends with a .
+			// search namespace does not. So we append one in the end
+			randomHost := h + searchNamespaces[0] + "."
+			table.cname[randomHost] = cname(randomHost, h)
 		}
 	}
 }
@@ -298,4 +331,14 @@ func aaaa(host string, ips []net.IP) []dns.RR {
 		answers[i] = r
 	}
 	return answers
+}
+
+func cname(host string, targetHost string) []dns.RR {
+	answer := new(dns.CNAME)
+	answer.Hdr = dns.RR_Header{
+		Name:   host,
+		Rrtype: dns.TypeCNAME,
+	}
+	answer.Target = targetHost
+	return []dns.RR{answer}
 }
