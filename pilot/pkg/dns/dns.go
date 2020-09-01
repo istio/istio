@@ -59,6 +59,7 @@ type LookupTable struct {
 const (
 	// In case the client decides to honor the TTL, keep it low so that we can always serve
 	// the latest IP for a host.
+	// TODO: make it configurable
 	defaultTTL = 30
 )
 
@@ -83,6 +84,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 
 	h.upstreamClient = &dns.Client{
 		Net:         "udp",
+		// TODO: make it configurable
 		DialTimeout: 3 * time.Second,
 		ReadTimeout: 500 * time.Millisecond,
 	}
