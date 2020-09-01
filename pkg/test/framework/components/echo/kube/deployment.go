@@ -180,7 +180,7 @@ metadata:
   name: {{ $.Service }}-certs
 data:
   root-cert.pem: |
-{{ .TLSSettings.RootCert | indent 4 }}
+{{ .TLSSettings.RootCertForCA | indent 4 }}
   cert-chain.pem: |
 {{ .TLSSettings.ClientCert | indent 4 }}
   key.pem: |

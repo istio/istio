@@ -24,6 +24,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,6 +39,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -295,14 +298,8 @@ func getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
 	var certPool *x509.CertPool
 	var err error
 	var rootCert []byte
-	if agent.secOpts.ProvCert != "" {
-		// This is most likely a VM using pre-provisioned mTLS certs (key.pem, cert-chain.pem, root-cert.pem)
-		// to talk to Istiod setup mtls
-		rootCert, err = ioutil.ReadFile(agent.secOpts.ProvCert + "/root-cert.pem")
-	} else if agent.secOpts.PilotCertProvider != "" {
-		rootCert, err = agent.loadPilotCertProviderRootCert()
-	}
-
+	xdsCACert := agent.FindRootCAForXDS()
+	rootCert, err = ioutil.ReadFile(xdsCACert)
 	if err != nil {
 		return nil, err
 	}

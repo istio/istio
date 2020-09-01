@@ -95,7 +95,7 @@ type Config struct {
 	// Mirrors Envoy file.
 	XDSRootCAFile string
 
-	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
+	// RootCertForCA contains the XDS root certificate. Used mainly for tests, apps will normally use
 	// XDSRootCAFile
 	RootCert []byte
 

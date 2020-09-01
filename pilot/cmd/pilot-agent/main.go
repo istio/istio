@@ -377,7 +377,7 @@ var (
 				// Instead of introducing a new config, use that.
 
 				dnsSrv := dns.InitDNSAgent(proxyConfig.DiscoveryAddress,
-					role.DNSDomain, sa.RootCert,
+					role.DNSDomain, sa.RootCertForCA,
 					[]string{".global."})
 				dnsSrv.StartDNS(dns.DNSAgentAddr, nil)
 			}

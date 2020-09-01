@@ -89,10 +89,10 @@ type Agent struct {
 	// CertPath is set with the location of the certs, or empty if mounted certs are not present.
 	CertsPath string
 
-	// RootCert is the CA root certificate. It is loaded part of detecting the
+	// RootCertForCA is the CA root certificate. It is loaded part of detecting the
 	// SDS operating mode - may be the Citadel CA, Kubernentes CA or a custom
 	// CA. If not set it should be assumed we are using a public certificate (like ACME).
-	RootCert []byte
+	RootCertForCA []byte
 
 	// WorkloadSecrets is the interface used to get secrets. The SDS agent
 	// is calling this.
@@ -394,7 +394,7 @@ func (sa *Agent) newWorkloadSecretCache() (workloadSecretCache *cache.SecretCach
 			} else {
 				log.Infof("Using CA %s cert with certs: %s", sa.secOpts.CAEndpoint, caCertFile)
 
-				sa.RootCert = rootCert
+				sa.RootCertForCA = rootCert
 			}
 		}
 
@@ -444,24 +444,4 @@ func (sa *Agent) newSecretCache(namespace string) (gatewaySecretCache *cache.Sec
 	gSecretFetcher.Run(gatewaySecretChan)
 	gatewaySecretCache = cache.NewSecretCache(gSecretFetcher, sds.NotifyProxy, sa.secOpts)
 	return gatewaySecretCache
-}
-
-func (sa *Agent) loadPilotCertProviderRootCert() (rootCert []byte, err error) {
-	if sa.secOpts.PilotCertProvider == "istiod" {
-		log.Info("istiod uses self-issued certificate")
-		rootCert, err = ioutil.ReadFile(path.Join(CitadelCACertPath, constants.CACertNamespaceConfigMapDataName))
-	} else if sa.secOpts.PilotCertProvider == "kubernetes" {
-		log.Infof("istiod uses the k8s root certificate %v", k8sCAPath)
-		rootCert, err = ioutil.ReadFile(k8sCAPath)
-	} else if sa.secOpts.PilotCertProvider == "custom" {
-		log.Infof("istiod uses a custom root certificate mounted in a well known location %v",
-			security.DefaultRootCertFilePath)
-		rootCert, err = ioutil.ReadFile(security.DefaultRootCertFilePath)
-	} else {
-		err = fmt.Errorf("unknown cert provider: %s", sa.secOpts.PilotCertProvider)
-	}
-	if err != nil {
-		log.Errorf("failed to read root certs: %v", err)
-	}
-	return
 }
