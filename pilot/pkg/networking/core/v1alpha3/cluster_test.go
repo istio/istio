@@ -187,6 +187,10 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		features.EnableProtocolSniffingForInbound = tc.sniffingEnabledForInbound
 		defer func() { features.EnableProtocolSniffingForInbound = defaultValue }()
 
+		gwClusters := features.FilterGatewayClusterConfig
+		features.FilterGatewayClusterConfig = false
+		defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+
 		settingsName := "default"
 		if settings != nil {
 			settingsName = "override"
@@ -421,6 +425,10 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
+
+			gwClusters := features.FilterGatewayClusterConfig
+			features.FilterGatewayClusterConfig = false
+			defer func() { features.FilterGatewayClusterConfig = gwClusters }()
 
 			c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 				buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", nodeType: model.Router, mesh: testMesh,
@@ -1250,6 +1258,10 @@ func TestGatewayLocalityLB(t *testing.T) {
 		},
 	}
 
+	gwClusters := features.FilterGatewayClusterConfig
+	features.FilterGatewayClusterConfig = false
+	defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+
 	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.Router,
 			locality: &core.Locality{
@@ -1625,6 +1637,11 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
+
+			gwClusters := features.FilterGatewayClusterConfig
+			features.FilterGatewayClusterConfig = false
+			defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+
 			if tt.redisEnabled {
 				defaultValue := features.EnableRedisFilter
 				features.EnableRedisFilter = true
