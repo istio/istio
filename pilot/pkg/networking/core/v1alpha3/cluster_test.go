@@ -1258,6 +1258,10 @@ func TestGatewayLocalityLB(t *testing.T) {
 		},
 	}
 
+	gwClusters := features.FilterGatewayClusterConfig
+	features.FilterGatewayClusterConfig = false
+	defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+
 	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 		buildTestClusters(clusterTest{t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.Router,
 			locality: &core.Locality{
