@@ -25,13 +25,14 @@ import (
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -586,4 +587,78 @@ func getEnvoyFilterConfigs(configPatches []*networking.EnvoyFilter_EnvoyConfigOb
 			}})
 	}
 	return res
+}
+
+func TestInboundListenerFilters(t *testing.T) {
+	services := []*model.Service{
+		buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow),
+		buildServiceWithPort("test2.com", 81, protocol.Unsupported, tnow),
+		buildServiceWithPort("test3.com", 82, protocol.TCP, tnow),
+	}
+	instances := make([]*model.ServiceInstance, 0, len(services))
+	for _, s := range services {
+		instances = append(instances, &model.ServiceInstance{
+			Service: s,
+			Endpoint: &model.IstioEndpoint{
+				EndpointPort: uint32(s.Ports[0].Port),
+				Address:      "1.1.1.1",
+			},
+			ServicePort: s.Ports[0],
+		})
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		Services:  services,
+		Instances: instances,
+	})
+	listeners := cg.Listeners(cg.SetupProxy(nil))
+	virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+	filters := xdstest.ExtractListenerFilters(virtualInbound)
+	evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, map[int]bool{
+		// Should not see HTTP inspector if we declare ports
+		80: false,
+		82: false,
+		// But should see for passthrough or unnamed ports
+		81:   true,
+		1000: true,
+	})
+	evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].GetFilterDisabled(), map[int]bool{
+		// Permissive mode: inspector is set everywhere
+		80:   true,
+		82:   true,
+		81:   true,
+		1000: true,
+	})
+}
+
+func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.ListenerFilterChainMatchPredicate, expected map[int]bool) {
+	t.Helper()
+	for port, expect := range expected {
+		got := evaluateListenerFilterPredicatesInternal(predicate, false, port)
+		if got != expect {
+			t.Errorf("expected port %v to have match=%v, got match=%v", port, expect, got)
+		}
+	}
+}
+
+func evaluateListenerFilterPredicatesInternal(predicate *listener.ListenerFilterChainMatchPredicate, invertMatch bool, port int) bool {
+	if predicate == nil {
+		return !invertMatch
+	}
+	switch r := predicate.Rule.(type) {
+	case *listener.ListenerFilterChainMatchPredicate_NotMatch:
+		return evaluateListenerFilterPredicatesInternal(r.NotMatch, !invertMatch, port)
+	case *listener.ListenerFilterChainMatchPredicate_OrMatch:
+		matches := false
+		for _, r := range r.OrMatch.Rules {
+			matches = matches || evaluateListenerFilterPredicatesInternal(r, invertMatch, port)
+		}
+		if invertMatch {
+			matches = !matches
+		}
+		return matches
+	case *listener.ListenerFilterChainMatchPredicate_DestinationPortRange:
+		return int32(port) >= r.DestinationPortRange.GetStart() && int32(port) < r.DestinationPortRange.GetEnd()
+	default:
+		panic("unsupported predicate")
+	}
 }
