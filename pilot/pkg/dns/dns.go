@@ -83,7 +83,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	h.downstreamMux.Handle(".", h)
 
 	h.upstreamClient = &dns.Client{
-		Net:         "udp",
+		Net: "udp",
 		// TODO: make it configurable
 		DialTimeout: 3 * time.Second,
 		ReadTimeout: 500 * time.Millisecond,
