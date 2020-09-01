@@ -142,18 +142,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 			// forward to istiod
 			requestsChan <- req
-		}
-	}()
-
-	for {
-		select {
-		case err := <-errChan:
-			// error receiving from downstream envoy
-			// recycle connection.
-			_ = upstream.CloseSend()
-			// todo close downstream?
-			return err
-		case req := <-requestsChan:
 			if req.TypeUrl == v3.ListenerType {
 				// for every LDS req, add a NDS req
 				requestsChan <- &discovery.DiscoveryRequest{
@@ -167,6 +155,18 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 					ResponseNonce: req.ResponseNonce,
 				}
 			}
+		}
+	}()
+
+	for {
+		select {
+		case err := <-errChan:
+			// error receiving from downstream envoy
+			// recycle connection.
+			_ = upstream.CloseSend()
+			// todo close downstream?
+			return err
+		case req := <-requestsChan:
 			if err = upstream.Send(req); err != nil {
 				proxyLog.Errorf("upstream send error: %v", err)
 				return err
@@ -174,7 +174,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		case resp := <-responsesChan:
 			if resp.TypeUrl == v3.NameTableType {
 				// intercept. This is for the dns server
-				if p.localDNSServer != nil {
+				if p.localDNSServer != nil && len(resp.Resources) > 0 {
 					var nt nds.NameTable
 					if err = ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
 						proxyLog.Errorf("failed to unmarshall name table: %v", err)
