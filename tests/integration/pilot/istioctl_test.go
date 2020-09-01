@@ -366,11 +366,11 @@ func TestInstallEmptyRevision(t *testing.T) {
 	framework.NewTest(t).Features("installation.istioctl.install-revision").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-
+			g := gomega.NewWithT(t)
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
 			args := []string{"install", "--revision", ""}
 			_, _, err := istioCtl.Invoke(args)
-			gomega.Expect(err).To(gomega.HaveOccurred())
+			g.Expect(err).To(gomega.HaveOccurred())
 	})
 }
 
