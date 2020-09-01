@@ -99,7 +99,7 @@ func TestDNS(t *testing.T) {
 		{
 			name:     "success: non k8s host in local cache",
 			host:     "www.google.com.",
-			expected: a("www.google.com.", 3600, []net.IP{net.ParseIP("1.1.1.1").To4()}),
+			expected: a("www.google.com.", []net.IP{net.ParseIP("1.1.1.1").To4()}),
 		},
 		{
 			name:                     "success: non k8s host not in local cache",
@@ -109,32 +109,32 @@ func TestDNS(t *testing.T) {
 		{
 			name:     "success: k8s host - fqdn",
 			host:     "productpage.ns1.svc.cluster.local.",
-			expected: a("productpage.ns1.svc.cluster.local.", 3600, []net.IP{net.ParseIP("9.9.9.9").To4()}),
+			expected: a("productpage.ns1.svc.cluster.local.", []net.IP{net.ParseIP("9.9.9.9").To4()}),
 		},
 		{
 			name:     "success: k8s host - name.namespace",
 			host:     "productpage.ns1.",
-			expected: a("productpage.ns1.", 3600, []net.IP{net.ParseIP("9.9.9.9").To4()}),
+			expected: a("productpage.ns1.", []net.IP{net.ParseIP("9.9.9.9").To4()}),
 		},
 		{
 			name:     "success: k8s host - shortname",
 			host:     "productpage.",
-			expected: a("productpage.", 3600, []net.IP{net.ParseIP("9.9.9.9").To4()}),
+			expected: a("productpage.", []net.IP{net.ParseIP("9.9.9.9").To4()}),
 		},
 		{
 			name:     "success: k8s host - non local namespace - name.namespace",
 			host:     "reviews.ns2.",
-			expected: a("reviews.ns2.", 3600, []net.IP{net.ParseIP("10.10.10.10").To4()}),
+			expected: a("reviews.ns2.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
 		},
 		{
 			name:     "success: k8s host - non local namespace - fqdn",
 			host:     "reviews.ns2.svc.cluster.local.",
-			expected: a("reviews.ns2.svc.cluster.local.", 3600, []net.IP{net.ParseIP("10.10.10.10").To4()}),
+			expected: a("reviews.ns2.svc.cluster.local.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
 		},
 		{
 			name:     "success: k8s host - non local namespace - name.namespace.svc",
 			host:     "reviews.ns2.svc.",
-			expected: a("reviews.ns2.svc.", 3600, []net.IP{net.ParseIP("10.10.10.10").To4()}),
+			expected: a("reviews.ns2.svc.", []net.IP{net.ParseIP("10.10.10.10").To4()}),
 		},
 		{
 			name:                    "failure: k8s host - non local namespace - shortname",
@@ -144,7 +144,7 @@ func TestDNS(t *testing.T) {
 		{
 			name: "success: remote cluster k8s svc - same ns and different domain - fqdn",
 			host: "details.ns2.svc.cluster.remote.",
-			expected: a("details.ns2.svc.cluster.remote.", 3600,
+			expected: a("details.ns2.svc.cluster.remote.",
 				[]net.IP{net.ParseIP("11.11.11.11").To4(), net.ParseIP("12.12.12.12").To4()}),
 		},
 		{
@@ -155,13 +155,13 @@ func TestDNS(t *testing.T) {
 		{
 			name:     "success: TypeA query returns A records only",
 			host:     "dual.localhost.",
-			expected: a("dual.localhost.", 3600, []net.IP{net.ParseIP("2.2.2.2").To4()}),
+			expected: a("dual.localhost.", []net.IP{net.ParseIP("2.2.2.2").To4()}),
 		},
 		{
 			name:      "success: TypeAAAA query returns AAAA records only",
 			host:      "dual.localhost.",
 			queryAAAA: true,
-			expected:  aaaa("dual.localhost.", 3600, []net.IP{net.ParseIP("2001:db8:0:0:0:ff00:42:8329")}),
+			expected:  aaaa("dual.localhost.", []net.IP{net.ParseIP("2001:db8:0:0:0:ff00:42:8329")}),
 		},
 		{
 			name:                    "failure: Error response if only AAAA records exist for typeA",
@@ -201,10 +201,9 @@ func TestDNS(t *testing.T) {
 				} else {
 					if tt.expectResolutionFailure && res.Rcode != dns.RcodeNameError {
 						t.Errorf("expected resolution failure but it succeeded for %s", tt.host)
-					} else {
-						if !equalsDNSrecords(res.Answer, tt.expected) {
-							t.Errorf("dns responses for %s do not match. \n got %v\nwant %v", tt.host, res.Answer, tt.expected)
-						}
+					}
+					if !equalsDNSrecords(res.Answer, tt.expected) {
+						t.Errorf("dns responses for %s do not match. \n got %v\nwant %v", tt.host, res.Answer, tt.expected)
 					}
 				}
 			}

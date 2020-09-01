@@ -267,21 +267,21 @@ func (table *LookupTable) lookupHostIPv6(host string) []dns.RR {
 func (table *LookupTable) buildDNSAnswers(altHosts []string, ipv4 []net.IP, ipv6 []net.IP) {
 	for _, h := range altHosts {
 		if len(ipv4) > 0 {
-			table.name4[h] = a(h, defaultTTL, ipv4)
+			table.name4[h] = a(h, ipv4)
 		}
 		if len(ipv6) > 0 {
-			table.name6[h] = aaaa(h, defaultTTL, ipv6)
+			table.name6[h] = aaaa(h, ipv6)
 		}
 	}
 }
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hosts.go
 // a takes a slice of net.IPs and returns a slice of A RRs.
-func a(host string, ttl uint32, ips []net.IP) []dns.RR {
+func a(host string, ips []net.IP) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.A)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl}
+		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: defaultTTL}
 		r.A = ip
 		answers[i] = r
 	}
@@ -289,11 +289,11 @@ func a(host string, ttl uint32, ips []net.IP) []dns.RR {
 }
 
 // aaaa takes a slice of net.IPs and returns a slice of AAAA RRs.
-func aaaa(host string, ttl uint32, ips []net.IP) []dns.RR {
+func aaaa(host string, ips []net.IP) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.AAAA)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: ttl}
+		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: defaultTTL}
 		r.AAAA = ip
 		answers[i] = r
 	}
