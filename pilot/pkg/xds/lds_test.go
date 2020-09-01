@@ -25,6 +25,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
@@ -194,6 +195,10 @@ func TestLDSWithIngressGateway(t *testing.T) {
 	testEnv.Ports().PilotHTTPPort = uint16(util.MockPilotHTTPPort)
 	testEnv.IstioSrc = env.IstioSrc
 	testEnv.IstioOut = env.IstioOut
+
+	gwClusters := features.FilterGatewayClusterConfig
+	features.FilterGatewayClusterConfig = false
+	defer func() { features.FilterGatewayClusterConfig = gwClusters }()
 
 	s.XDSServer.ConfigUpdate(&model.PushRequest{Full: true})
 	defer tearDown()
