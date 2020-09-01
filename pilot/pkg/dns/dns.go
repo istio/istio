@@ -236,7 +236,7 @@ func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNa
 	out = append(out, hostname+".")
 	// do not generate alt hostnames if the service is in a different domain (i.e. cluster) than the proxy
 	// as we have no way to resolve conflicts on name.namespace entries across clusters of different domains
-	if proxyDomain == "" || !strings.HasPrefix(hostname, proxyDomain) {
+	if proxyDomain == "" || !strings.HasSuffix(hostname, proxyDomain) {
 		return out
 	}
 	out = append(out, nameinfo.Shortname+"."+nameinfo.Namespace+".")

@@ -15,6 +15,8 @@
 package dns
 
 import (
+	"net"
+	"reflect"
 	"testing"
 	"time"
 
@@ -55,8 +57,26 @@ func initDNS() error {
 			"reviews.ns2.svc.cluster.local": {
 				Ips:       []string{"10.10.10.10"},
 				Registry:  "Kubernetes",
-				Namespace: "ns1",
+				Namespace: "ns2",
 				Shortname: "reviews",
+			},
+			"details.ns2.svc.cluster.remote": {
+				Ips:       []string{"11.11.11.11", "12.12.12.12"},
+				Registry:  "Kubernetes",
+				Namespace: "ns2",
+				Shortname: "details",
+			},
+			"ipv6.localhost": {
+				Ips:      []string{"2001:db8:0:0:0:ff00:42:8329"},
+				Registry: "External",
+			},
+			"dual.localhost": {
+				Ips:      []string{"2.2.2.2", "2001:db8:0:0:0:ff00:42:8329"},
+				Registry: "External",
+			},
+			"ipv4.localhost": {
+				Ips:      []string{"2.2.2.2"},
+				Registry: "External",
 			},
 		},
 	})
@@ -68,18 +88,138 @@ func TestDNS(t *testing.T) {
 		t.Fatal(initErr)
 	}
 
-	t.Run("simple", func(t *testing.T) {
-		c := dns.Client{}
-		m := new(dns.Msg)
-		m.SetQuestion("www.google.com.", dns.TypeA)
-		res, _, err := c.Exchange(m, agentDNSAddr)
+	testCases := []struct {
+		name                     string
+		host                     string
+		queryAAAA                bool
+		expected                 []dns.RR
+		expectResolutionFailure  bool
+		expectExternalResolution bool
+	}{
+		{
+			name:     "success: non k8s host in local cache",
+			host:     "www.google.com.",
+			expected: a("www.google.com.", 3600, []net.IP{net.ParseIP("1.1.1.1").To4()}),
+		},
+		{
+			name:                     "success: non k8s host not in local cache",
+			host:                     "www.bing.com.",
+			expectExternalResolution: true,
+		},
+		{
+			name:     "success: k8s host - fqdn",
+			host:     "productpage.ns1.svc.cluster.local.",
+			expected: a("productpage.ns1.svc.cluster.local.", 3600, []net.IP{net.ParseIP("9.9.9.9").To4()}),
+		},
+		{
+			name:     "success: k8s host - name.namespace",
+			host:     "productpage.ns1.",
+			expected: a("productpage.ns1.", 3600, []net.IP{net.ParseIP("9.9.9.9").To4()}),
+		},
+		{
+			name:     "success: k8s host - shortname",
+			host:     "productpage.",
+			expected: a("productpage.", 3600, []net.IP{net.ParseIP("9.9.9.9").To4()}),
+		},
+		{
+			name:     "success: k8s host - non local namespace - name.namespace",
+			host:     "reviews.ns2.",
+			expected: a("reviews.ns2.", 3600, []net.IP{net.ParseIP("10.10.10.10").To4()}),
+		},
+		{
+			name:     "success: k8s host - non local namespace - fqdn",
+			host:     "reviews.ns2.svc.cluster.local.",
+			expected: a("reviews.ns2.svc.cluster.local.", 3600, []net.IP{net.ParseIP("10.10.10.10").To4()}),
+		},
+		{
+			name:     "success: k8s host - non local namespace - name.namespace.svc",
+			host:     "reviews.ns2.svc.",
+			expected: a("reviews.ns2.svc.", 3600, []net.IP{net.ParseIP("10.10.10.10").To4()}),
+		},
+		{
+			name:                    "failure: k8s host - non local namespace - shortname",
+			host:                    "reviews.",
+			expectResolutionFailure: true,
+		},
+		{
+			name: "success: remote cluster k8s svc - same ns and different domain - fqdn",
+			host: "details.ns2.svc.cluster.remote.",
+			expected: a("details.ns2.svc.cluster.remote.", 3600,
+				[]net.IP{net.ParseIP("11.11.11.11").To4(), net.ParseIP("12.12.12.12").To4()}),
+		},
+		{
+			name:                     "failure: remote cluster k8s svc - same ns and different domain - name.namespace",
+			host:                     "details.ns2.",
+			expectExternalResolution: true, // as the query may be forwarded upstream
+		},
+		{
+			name:     "success: TypeA query returns A records only",
+			host:     "dual.localhost.",
+			expected: a("dual.localhost.", 3600, []net.IP{net.ParseIP("2.2.2.2").To4()}),
+		},
+		{
+			name:      "success: TypeAAAA query returns AAAA records only",
+			host:      "dual.localhost.",
+			queryAAAA: true,
+			expected:  aaaa("dual.localhost.", 3600, []net.IP{net.ParseIP("2001:db8:0:0:0:ff00:42:8329")}),
+		},
+		{
+			name:                    "failure: Error response if only AAAA records exist for typeA",
+			host:                    "ipv6.localhost.",
+			expectResolutionFailure: true,
+		},
+		{
+			name:                    "failure: Error response if only A records exist for typeAAAA",
+			host:                    "ipv4.localhost.",
+			queryAAAA:               true,
+			expectResolutionFailure: true,
+		},
+	}
 
-		if err != nil {
-			t.Error("Failed to resolve", err)
-		} else if len(res.Answer) == 0 {
-			t.Error("No results")
-		}
-	})
+	c := dns.Client{
+		Timeout: 3 * time.Second,
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			m := new(dns.Msg)
+			q := dns.TypeA
+			if tt.queryAAAA {
+				q = dns.TypeAAAA
+			}
+			m.SetQuestion(tt.host, q)
+			res, _, err := c.Exchange(m, agentDNSAddr)
+
+			if err != nil {
+				t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
+			} else {
+				if tt.expectExternalResolution {
+					// just make sure that the response has a valid DNS response from upstream resolvers
+					if res.Rcode != dns.RcodeSuccess {
+						t.Errorf("upstream dns resolution for %s failed", tt.host)
+					}
+				} else {
+					if tt.expectResolutionFailure && res.Rcode != dns.RcodeNameError {
+						t.Errorf("expected resolution failure but it succeeded for %s", tt.host)
+					} else {
+						if !equalsDNSrecords(res.Answer, tt.expected) {
+							t.Errorf("dns responses for %s do not match. \n got %v\nwant %v", tt.host, res.Answer, tt.expected)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// reflect.DeepEqual doesn't seem to work well for dns.RR
+// as the Rdlength field is not updated in the a(), or aaaa() calls.
+// so zero them out before doing reflect.Deepequal
+func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
+	for i := range got {
+		got[i].Header().Rdlength = 0
+	}
+	return reflect.DeepEqual(got, want)
 }
 
 // Benchmark - the actual address will be cached by the local resolver.
