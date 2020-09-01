@@ -148,9 +148,9 @@ func TestDNS(t *testing.T) {
 				[]net.IP{net.ParseIP("11.11.11.11").To4(), net.ParseIP("12.12.12.12").To4()}),
 		},
 		{
-			name:                     "failure: remote cluster k8s svc - same ns and different domain - name.namespace",
-			host:                     "details.ns2.",
-			expectExternalResolution: true, // as the query may be forwarded upstream
+			name:                    "failure: remote cluster k8s svc - same ns and different domain - name.namespace",
+			host:                    "details.ns2.",
+			expectResolutionFailure: true, // on home machines, the ISP may resolve to some generic webpage. So this test may fail on laptops
 		},
 		{
 			name:     "success: TypeA query returns A records only",
