@@ -121,10 +121,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		return err
 	}
 
-	// fire off an initial NDS request
-	ndsRequestChan <- &discovery.DiscoveryRequest{
-		TypeUrl: v3.NameTableType,
-	}
+	firstNDSSent := false
 
 	go func() {
 		for {
@@ -149,6 +146,13 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 			// forward to istiod
 			requestsChan <- req
+			if !firstNDSSent && req.TypeUrl == v3.ListenerType {
+				// fire off an initial NDS request
+				ndsRequestChan <- &discovery.DiscoveryRequest{
+					TypeUrl: v3.NameTableType,
+				}
+				firstNDSSent = true
+			}
 		}
 	}()
 
@@ -189,14 +193,12 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 					TypeUrl:       v3.NameTableType,
 					ResponseNonce: resp.Nonce,
 				}
-			} else {
-				if err := downstream.Send(resp); err != nil {
-					proxyLog.Errorf("downstream send error: %v", err)
-					// we cannot return partial error and hope to restart just the downstream
-					// as we are blindly proxying req/responses. For now, the best course of action
-					// is to terminate upstream connection as well and restart afresh.
-					return err
-				}
+			} else if err := downstream.Send(resp); err != nil {
+				proxyLog.Errorf("downstream send error: %v", err)
+				// we cannot return partial error and hope to restart just the downstream
+				// as we are blindly proxying req/responses. For now, the best course of action
+				// is to terminate upstream connection as well and restart afresh.
+				return err
 			}
 		case <-p.stopChan:
 			_ = upstream.CloseSend()
