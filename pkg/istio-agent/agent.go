@@ -124,7 +124,7 @@ type AgentConfig struct {
 	ProxyXDSViaAgent bool
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	// This option will not be considered if proxyXDSViaAgent is false.
-	DNSCapture string
+	DNSCapture bool
 	// ProxyNamespace to use for local dns resolution
 	ProxyNamespace string
 	// ProxyDomain is the DNS domain associated with the proxy (assumed

@@ -82,7 +82,7 @@ func initXdsProxy(sa *Agent, isSidecar bool) (*XdsProxy, error) {
 	}
 
 	// we dont need dns server on gateways
-	if sa.cfg.DNSCapture != "" && isSidecar {
+	if sa.cfg.DNSCapture && isSidecar {
 		if proxy.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
 			return nil, err
 		}

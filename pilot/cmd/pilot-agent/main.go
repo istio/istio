@@ -316,7 +316,9 @@ var (
 			}
 			if proxyXDSViaAgent == "enable" || proxyXDSViaAgent == "true" || proxyXDSViaAgent == "1" {
 				agentConfig.ProxyXDSViaAgent = true
-				agentConfig.DNSCapture = dnsCaptureByAgent.Get()
+				if dnsCaptureByAgent.Get() != "" {
+					agentConfig.DNSCapture = true
+				}
 				agentConfig.ProxyNamespace = podNamespace
 				agentConfig.ProxyDomain = role.DNSDomain
 			}
