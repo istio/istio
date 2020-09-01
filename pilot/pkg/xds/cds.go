@@ -41,6 +41,7 @@ var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 // Map all configs that impacts CDS for gateways.
 var pushCdsGatewayConfig = map[config.GroupVersionKind]struct{}{
 	gvk.VirtualService: {},
+	gvk.Gateway:        {},
 }
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
