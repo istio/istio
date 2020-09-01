@@ -15,8 +15,6 @@
 package controller
 
 import (
-	"context"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -41,6 +39,7 @@ type kubeEndpointsController interface {
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
+	buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
 	forgetEndpoint(endpoint interface{})
 	getServiceInfo(ep interface{}) (host.Name, string, string)
@@ -88,6 +87,14 @@ func processEndpointEvent(c *Controller, epc kubeEndpointsController, name strin
 
 func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event model.Event) {
 	host, svcName, ns := epc.getServiceInfo(ep)
+	c.RLock()
+	svc := c.servicesMap[host]
+	c.RUnlock()
+
+	if svc == nil {
+		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has not been populated", svcName, ns)
+		return
+	}
 
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, ns)
 	var endpoints []*model.IstioEndpoint
@@ -96,23 +103,10 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	} else {
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
+
 	if features.EnableK8SServiceSelectWorkloadEntries {
-		c.RLock()
-		istioSvc := c.servicesMap[host]
-		c.RUnlock()
-		if istioSvc == nil {
-			log.Infof("Handle EDS endpoint: service %s/%s has not been populated", svcName, ns)
-			svc, err := c.client.CoreV1().Services(ns).Get(context.TODO(), svcName, metav1.GetOptions{})
-			if err == nil {
-				istioSvc = kube.ConvertService(*svc, c.domainSuffix, c.clusterID)
-			} else {
-				log.Errorf("Get service %s/%s failed: %v ", svcName, ns, err)
-			}
-		}
-		if istioSvc != nil {
-			fep := c.collectWorkloadInstanceEndpoints(istioSvc)
-			endpoints = append(endpoints, fep...)
-		}
+		fep := c.collectWorkloadInstanceEndpoints(svc)
+		endpoints = append(endpoints, fep...)
 	}
 
 	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, endpoints)
