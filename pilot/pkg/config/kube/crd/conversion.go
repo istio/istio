@@ -21,7 +21,6 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,37 +30,36 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
 // FromJSON converts a canonical JSON to a proto message
-func FromJSON(s collection.Schema, js string) (proto.Message, error) {
-	pb, err := s.Resource().NewProtoInstance()
+func FromJSON(s collection.Schema, js string) (config.Spec, error) {
+	c, err := s.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyJSON(js, pb); err != nil {
+	if err = config.ApplyJSON(c, js); err != nil {
 		return nil, err
 	}
-	return pb, nil
+	return c, nil
 }
 
 // FromYAML converts a canonical YAML to a proto message
-func FromYAML(s collection.Schema, yml string) (proto.Message, error) {
-	pb, err := s.Resource().NewProtoInstance()
+func FromYAML(s collection.Schema, yml string) (config.Spec, error) {
+	c, err := s.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyYAML(yml, pb); err != nil {
+	if err = config.ApplyYAML(c, yml); err != nil {
 		return nil, err
 	}
-	return pb, nil
+	return c, nil
 }
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func FromJSONMap(s collection.Schema, data interface{}) (proto.Message, error) {
+func FromJSONMap(s collection.Schema, data interface{}) (config.Spec, error) {
 	// Marshal to YAML bytes
 	str, err := yaml.Marshal(data)
 	if err != nil {
@@ -103,7 +101,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 
 // ConvertConfig translates Istio config to k8s config JSON
 func ConvertConfig(cfg config.Config) (IstioObject, error) {
-	spec, err := gogoprotomarshal.ToJSONMap(cfg.Spec)
+	spec, err := config.ToMap(cfg.Spec)
 	if err != nil {
 		return nil, err
 	}

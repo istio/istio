@@ -15,13 +15,13 @@
 package validate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
 
@@ -363,27 +362,18 @@ func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Un
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndYAML(schema collection.Schema, yml string) (proto.Message, error) {
-	pb, err := schema.Resource().NewProtoInstance()
+func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (config.Spec, error) {
+	// Marshal to json bytes
+	str, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
-	if err = gogoprotomarshal.ApplyYAMLStrict(yml, pb); err != nil {
-		return nil, err
-	}
-	return pb, nil
-}
-
-// TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func fromSchemaAndJSONMap(schema collection.Schema, data interface{}) (proto.Message, error) {
-	// Marshal to YAML bytes
-	str, err := yaml.Marshal(data)
+	out, err := schema.Resource().NewInstance()
 	if err != nil {
 		return nil, err
 	}
-	out, err := fromSchemaAndYAML(schema, string(str))
-	if err != nil {
-		return nil, multierror.Prefix(err, fmt.Sprintf("YAML decoding error: %v", string(str)))
+	if err = config.ApplyJSONStrict(out, string(str)); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

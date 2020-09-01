@@ -60,7 +60,7 @@ func TestAggregateStoreMakeValidationFailure(t *testing.T) {
 	stores := []model.ConfigStore{store1}
 
 	store, err := aggregate.Make(stores)
-	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("proto message not found")))
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("not found: broken message name")))
 	g.Expect(store).To(gomega.BeNil())
 }
 
