@@ -324,6 +324,7 @@ var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
+	gvk.Secret:                {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
@@ -362,7 +363,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, push)
-		if marshalledEndpoint, f := eds.Server.cache.Get(builder); f {
+		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f {
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
@@ -377,7 +378,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 			resource := util.MessageToAny(l)
 			resources = append(resources, resource)
-			eds.Server.cache.Add(builder, resource)
+			eds.Server.Cache.Add(builder, resource)
 		}
 	}
 	if len(edsUpdatedServices) == 0 {

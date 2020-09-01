@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
 
@@ -84,6 +86,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		XDSUpdater:      s,
 		NetworksWatcher: opts.NetworksWatcher,
 	})
+
+	secretFake := kubelib.NewFakeClient(k8sObjects...)
+	sc := kubesecrets.NewSecretsController(secretFake.KubeInformer().Core().V1().Secrets())
+	secretFake.RunAndWait(stop)
+	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 		Configs:             opts.Configs,
@@ -262,6 +269,9 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) []runtime.Object {
 		decode := scheme.Codecs.UniversalDeserializer().Decode
 		objectStrs := strings.Split(opts.KubernetesObjectString, "---")
 		for _, s := range objectStrs {
+			if len(strings.TrimSpace(s)) == 0 {
+				continue
+			}
 			o, _, err := decode([]byte(s), nil, nil)
 			if err != nil {
 				t.Fatalf("failed deserializing kubernetes object: %v", err)
