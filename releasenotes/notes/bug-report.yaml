@@ -1,5 +1,6 @@
 apiVersion: release-notes/v2
 kind: feature
 area: istioctl
-issue: 26045
+issue:
+  - 26045
 releaseNotes: istioctl bug-report generates an archive of Istio and cluster information to assist with debugging.
