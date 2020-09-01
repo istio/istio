@@ -48,7 +48,7 @@ type LocalDNSServer struct {
 }
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
-type DNSLookupTable struct {
+type LookupTable struct {
 	// The key is a FQDN matching a DNS query (like example.com.), the value is pre-created DNS RR records
 	// of A or AAAA type as appropriate.
 	name4 map[string][]dns.RR
@@ -129,7 +129,7 @@ func (h *LocalDNSServer) StartDNS() {
 }
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
-	lookupTable := &DNSLookupTable{
+	lookupTable := &LookupTable{
 		name4: map[string][]dns.RR{},
 		name6: map[string][]dns.RR{},
 	}
@@ -162,7 +162,7 @@ func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 		// we expect only one question in the query even though the spec allows many
 		// clients usually do not do more than one query either.
 
-		lookupTable := h.lookupTable.Load().(*DNSLookupTable)
+		lookupTable := h.lookupTable.Load().(*LookupTable)
 		var answers []dns.RR
 
 		// This name will always end in a dot
@@ -251,21 +251,21 @@ func generateAltHosts(hostname string, nameinfo *nds.NameTable_NameInfo, proxyNa
 	return out
 }
 
-func (table *DNSLookupTable) lookupHostIPv4(host string) []dns.RR {
+func (table *LookupTable) lookupHostIPv4(host string) []dns.RR {
 	if len(table.name4) == 0 {
 		return nil
 	}
 	return table.name4[host]
 }
 
-func (table *DNSLookupTable) lookupHostIPv6(host string) []dns.RR {
+func (table *LookupTable) lookupHostIPv6(host string) []dns.RR {
 	if len(table.name6) == 0 {
 		return nil
 	}
 	return table.name6[host]
 }
 
-func (table *DNSLookupTable) buildDNSAnswers(altHosts []string, ipv4 []net.IP, ipv6 []net.IP) {
+func (table *LookupTable) buildDNSAnswers(altHosts []string, ipv4 []net.IP, ipv6 []net.IP) {
 	for _, h := range altHosts {
 		if len(ipv4) > 0 {
 			table.name4[h] = a(h, defaultTTL, ipv4)
