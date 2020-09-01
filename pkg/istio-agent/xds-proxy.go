@@ -101,8 +101,10 @@ func initXdsProxy(sa *Agent, isSidecar bool) (*XdsProxy, error) {
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	errChan := make(chan error)
-	requestsChan := make(chan *discovery.DiscoveryRequest)
-	responsesChan := make(chan *discovery.DiscoveryResponse)
+	requestsChan := make(chan *discovery.DiscoveryRequest, 10)
+	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
+	// A separate channel for nds requests to not contend with the ones from envoys
+	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
 	proxyLog.Infof("connecting to upstream %s", p.istiodAddress)
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
@@ -117,6 +119,11 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	if err != nil {
 		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
 		return err
+	}
+
+	// fire off an initial NDS request
+	ndsRequestChan <- &discovery.DiscoveryRequest{
+		TypeUrl: v3.NameTableType,
 	}
 
 	go func() {
@@ -142,19 +149,6 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 			// forward to istiod
 			requestsChan <- req
-			if req.TypeUrl == v3.ListenerType {
-				// for every LDS req, add a NDS req
-				requestsChan <- &discovery.DiscoveryRequest{
-					// Rather than inventing our own nonces etc.
-					// just copy the same nonces/version info from lds
-					// i.e. if lds fails, nds is assumed to have failed
-					VersionInfo:   req.VersionInfo,
-					Node:          req.Node,
-					ResourceNames: nil,
-					TypeUrl:       v3.NameTableType,
-					ResponseNonce: req.ResponseNonce,
-				}
-			}
 		}
 	}()
 
@@ -171,6 +165,11 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Errorf("upstream send error: %v", err)
 				return err
 			}
+		case req := <-ndsRequestChan:
+			if err = upstream.Send(req); err != nil {
+				proxyLog.Errorf("upstream send error for nds: %v", err)
+				return err
+			}
 		case resp := <-responsesChan:
 			if resp.TypeUrl == v3.NameTableType {
 				// intercept. This is for the dns server
@@ -181,6 +180,14 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 						return err
 					}
 					p.localDNSServer.UpdateLookupTable(&nt)
+				}
+				// queue the next nds request. This wont block most likely as we are the only
+				// users of this channel, compared to the requestChan that could be populated with
+				// request from envoy
+				ndsRequestChan <- &discovery.DiscoveryRequest{
+					VersionInfo:   resp.VersionInfo,
+					TypeUrl:       v3.NameTableType,
+					ResponseNonce: resp.Nonce,
 				}
 			} else {
 				if err := downstream.Send(resp); err != nil {
