@@ -16,13 +16,13 @@
 package nullvm
 
 import (
-	"istio.io/istio/pkg/test/framework/resource"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 	common "istio.io/istio/tests/integration/telemetry/stats/prometheus/http"
 )
 

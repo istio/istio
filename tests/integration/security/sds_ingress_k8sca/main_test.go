@@ -16,11 +16,11 @@
 package sdsingressk8sca
 
 import (
-	"istio.io/istio/pkg/test/framework/resource"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 

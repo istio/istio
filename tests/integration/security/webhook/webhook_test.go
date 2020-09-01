@@ -16,7 +16,6 @@
 package istioctl
 
 import (
-	"istio.io/istio/pkg/test/framework/resource"
 	"regexp"
 	"strings"
 	"testing"
@@ -25,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource"
 )
 
 var (
