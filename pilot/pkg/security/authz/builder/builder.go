@@ -37,7 +37,6 @@ var (
 
 // General setting to control behavior
 type Option struct {
-	forTCP                 bool
 	IsIstioVersionGE15     bool
 	IsOnInboundPassthrough bool
 }
@@ -72,13 +71,13 @@ func New(trustDomainBundle trustdomain.Bundle, workload labels.Collection, names
 func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 	var filters []*httppb.HttpFilter
 
-	if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, b.option); auditConfig != nil {
+	if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, false, b.option); auditConfig != nil {
 		filters = append(filters, createHTTPFilter(auditConfig))
 	}
-	if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, b.option); denyConfig != nil {
+	if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, false, b.option); denyConfig != nil {
 		filters = append(filters, createHTTPFilter(denyConfig))
 	}
-	if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, b.option); allowConfig != nil {
+	if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, false, b.option); allowConfig != nil {
 		filters = append(filters, createHTTPFilter(allowConfig))
 	}
 
@@ -88,15 +87,14 @@ func (b Builder) BuildHTTP() []*httppb.HttpFilter {
 // BuildTCP returns the RBAC TCP filters built from the authorization policy.
 func (b Builder) BuildTCP() []*tcppb.Filter {
 	var filters []*tcppb.Filter
-	b.option.forTCP = true
 
-	if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, b.option); auditConfig != nil {
+	if auditConfig := build(b.auditPolicies, b.trustDomainBundle, rbacpb.RBAC_LOG, true, b.option); auditConfig != nil {
 		filters = append(filters, createTCPFilter(auditConfig))
 	}
-	if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, b.option); denyConfig != nil {
+	if denyConfig := build(b.denyPolicies, b.trustDomainBundle, rbacpb.RBAC_DENY, true, b.option); denyConfig != nil {
 		filters = append(filters, createTCPFilter(denyConfig))
 	}
-	if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, b.option); allowConfig != nil {
+	if allowConfig := build(b.allowPolicies, b.trustDomainBundle, rbacpb.RBAC_ALLOW, true, b.option); allowConfig != nil {
 		filters = append(filters, createTCPFilter(allowConfig))
 	}
 
@@ -104,7 +102,7 @@ func (b Builder) BuildTCP() []*tcppb.Filter {
 }
 
 func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle,
-	action rbacpb.RBAC_Action, option Option) *rbachttppb.RBAC {
+	action rbacpb.RBAC_Action, forTCP bool, option Option) *rbachttppb.RBAC {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -117,34 +115,25 @@ func build(policies []model.AuthorizationPolicy, tdBundle trustdomain.Bundle,
 	for _, policy := range policies {
 		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("ns[%s]-policy[%s]-rule[%d]", policy.Namespace, policy.Name, i)
-			var prefix = "nil"
 			if rule == nil {
 				authzLog.Errorf("skipped nil rule %s", name)
 				continue
 			}
 			m, err := authzmodel.New(rule, option.IsIstioVersionGE15)
 			if err != nil {
-
-				if option.forTCP && option.IsOnInboundPassthrough {
-					prefix = "for TCP Passthrough filter chain 129"
-				} else if !option.forTCP && option.IsOnInboundPassthrough {
-					prefix = "for HTTP Passthrough filter chain 131"
-				}
-
-				authzLog.Errorf("134 %s skipped 134 rule %s: %v", prefix, name, err)
+				authzLog.Errorf("skipped rule %s: %v", name, err)
 				continue
 			}
 			m.MigrateTrustDomain(tdBundle)
-			generated, err := m.Generate(option.forTCP, action)
+			generated, err := m.Generate(forTCP, action)
 			if err != nil {
 
-				if option.forTCP && option.IsOnInboundPassthrough {
-					prefix = "for TCP Passthrough filter chain 142"
-				} else if !option.forTCP && option.IsOnInboundPassthrough {
-					prefix = "for HTTP Passthrough filter chain 144"
+				if forTCP && option.IsOnInboundPassthrough {
+					authzLog.Debugf("On TCP Inbound Passthroush filter chain, skipped rule %s: %v", name, err)
+				} else {
+					authzLog.Errorf("skipped rule %s: %v", name, err)
 				}
 
-				authzLog.Errorf("147 %s skipped 147 rule %s: %v", prefix, name, err)
 				continue
 			}
 			if generated != nil {

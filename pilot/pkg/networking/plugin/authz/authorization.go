@@ -46,8 +46,7 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.Mut
 		return nil
 	}
 
-	var option = builder.Option{}
-	buildFilter(in, mutable, option)
+	buildFilter(in, mutable, false)
 	return nil
 }
 
@@ -65,12 +64,11 @@ func (Plugin) OnInboundListener(in *plugin.InputParams, mutable *networking.Muta
 		return nil
 	}
 
-	var option = builder.Option{}
-	buildFilter(in, mutable, option)
+	buildFilter(in, mutable, false)
 	return nil
 }
 
-func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, option builder.Option) {
+func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, isOnInboundPassthrough bool) {
 	if in.Push == nil || in.Push.AuthzPolicies == nil {
 		authzLog.Debugf("no authorization policy in push context")
 		return
@@ -81,7 +79,10 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects, opt
 	tdBundle := trustdomain.NewBundle(spiffe.GetTrustDomain(), in.Push.Mesh.TrustDomainAliases)
 	namespace := in.Node.ConfigNamespace
 	workload := labels.Collection{in.Node.Metadata.Labels}
-	option.IsIstioVersionGE15 = util.IsIstioVersionGE15(in.Node)
+	option := builder.Option{
+		IsIstioVersionGE15:     util.IsIstioVersionGE15(in.Node),
+		IsOnInboundPassthrough: isOnInboundPassthrough,
+	}
 
 	b := builder.New(tdBundle, workload, namespace, in.Push.AuthzPolicies, option)
 	if b == nil {
@@ -157,9 +158,7 @@ func (Plugin) OnInboundPassthrough(in *plugin.InputParams, mutable *networking.M
 		return nil
 	}
 
-	var option = builder.Option{}
-	option.IsOnInboundPassthrough = true
-	buildFilter(in, mutable, option)
+	buildFilter(in, mutable, true)
 	return nil
 }
 
