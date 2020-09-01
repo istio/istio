@@ -28,10 +28,7 @@ const (
 
 // New creates a rest.Config qne Clientset from the given kubeconfig path and Context.
 func New(kubeconfig, kubeContext string) (clientcmd.ClientConfig, *kubernetes.Clientset, error) {
-	clientConfig, err := defaultRestConfig(kubeconfig, kubeContext)
-	if err != nil {
-		return nil, nil, err
-	}
+	clientConfig := buildClientConfig(kubeconfig, kubeContext)
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, nil, err
@@ -44,20 +41,12 @@ func New(kubeconfig, kubeContext string) (clientcmd.ClientConfig, *kubernetes.Cl
 	return clientConfig, clientset, nil
 }
 
-func defaultRestConfig(kubeconfig, kubeContext string) (clientcmd.ClientConfig, error) {
-	config, err := buildClientConfig(kubeconfig, kubeContext)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
 // buildClientConfig is a helper function that builds client config from a kubeconfig filepath.
 // It overrides the current Context with the one provided (wantEmpty to use default).
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
-func buildClientConfig(kubeconfig, context string) (clientcmd.ClientConfig, error) {
+func buildClientConfig(kubeconfig, context string) clientcmd.ClientConfig {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -81,5 +70,5 @@ func buildClientConfig(kubeconfig, context string) (clientcmd.ClientConfig, erro
 		Timeout:         defaultTimeoutDurationStr,
 	}
 
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides), nil
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 }
