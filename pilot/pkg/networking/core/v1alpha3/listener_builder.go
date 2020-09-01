@@ -27,8 +27,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -39,6 +37,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 var (
@@ -253,12 +252,10 @@ func listenerPredicateExcludePorts(ports []int) *listener.ListenerFilterChainMat
 			},
 		}})
 	}
-	predicate := &listener.ListenerFilterChainMatchPredicate{Rule: &listener.ListenerFilterChainMatchPredicate_NotMatch{
-		NotMatch: &listener.ListenerFilterChainMatchPredicate{Rule: &listener.ListenerFilterChainMatchPredicate_OrMatch{
-			OrMatch: &listener.ListenerFilterChainMatchPredicate_MatchSet{
-				Rules: ranges,
-			},
-		}},
+	predicate := &listener.ListenerFilterChainMatchPredicate{Rule: &listener.ListenerFilterChainMatchPredicate_OrMatch{
+		OrMatch: &listener.ListenerFilterChainMatchPredicate_MatchSet{
+			Rules: ranges,
+		},
 	}}
 	return predicate
 }

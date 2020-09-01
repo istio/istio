@@ -25,8 +25,8 @@ import (
 	wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	networking "istio.io/api/networking/v1alpha3"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -615,18 +615,18 @@ func TestInboundListenerFilters(t *testing.T) {
 	filters := xdstest.ExtractListenerFilters(virtualInbound)
 	evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].FilterDisabled, map[int]bool{
 		// Should not see HTTP inspector if we declare ports
-		80: false,
-		82: false,
+		80: true,
+		82: true,
 		// But should see for passthrough or unnamed ports
-		81:   true,
-		1000: true,
+		81:   false,
+		1000: false,
 	})
-	evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].GetFilterDisabled(), map[int]bool{
+	evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, map[int]bool{
 		// Permissive mode: inspector is set everywhere
-		80:   true,
-		82:   true,
-		81:   true,
-		1000: true,
+		80:   false,
+		82:   false,
+		81:   false,
+		1000: false,
 	})
 }
 
