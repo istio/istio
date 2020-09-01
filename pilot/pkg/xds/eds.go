@@ -277,8 +277,8 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
-	if b.push.Networks != nil && len(b.push.Networks.Networks) > 0 {
-		l.Endpoints = EndpointsByNetworkFilter(b.push, b.network, l.Endpoints)
+	if b.MultiNetworkConfigured() {
+		l.Endpoints = b.EndpointsByNetworkFilter(l.Endpoints)
 	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.

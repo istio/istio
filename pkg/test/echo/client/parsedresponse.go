@@ -198,14 +198,15 @@ func (r ParsedResponses) CheckReachedClusters(clusters resource.Clusters) error 
 	return nil
 }
 
-// CheckEqualClusterTraffic checks that traffic was equally distributed across clusters, with some error (20%).
-// If there were 100 requests and 5 clusters we'd expect 20±4 responses to come from each cluster,
-// This method does not validate that all clusters were hit, instead use CheckReachedClusters in combindation with this.
-func (r ParsedResponses) CheckEqualClusterTraffic() error {
+// CheckEqualClusterTraffic checks that traffic was equally distributed across the given clusters, allowing some percent error.
+// For example, with 100 requests and 20 percent error, each cluster must given received 20±4 responses. Only the passed
+// in clusters will be validated.
+func (r ParsedResponses) CheckEqualClusterTraffic(clusters resource.Clusters, precisionPct int) error {
 	clusterHits := r.clusterDistribution()
-	expected := len(r) / len(clusterHits)
+	expected := len(r) / len(clusters)
+	precision := int(float32(expected) * (float32(precisionPct) / 100))
 	for _, hits := range clusterHits {
-		if !almostEquals(hits, expected, expected/5) {
+		if !almostEquals(hits, expected, precision) {
 			return fmt.Errorf("requests were not equally distributed across clusters: %v", clusterHits)
 		}
 	}
