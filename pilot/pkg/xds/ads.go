@@ -525,7 +525,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
 	if pushRequest.Full {
-		adsLog.Infof("Pushing %v", con.ConID)
 		// Update Proxy with current information.
 		if err := s.updateProxy(con.proxy, pushRequest.Push); err != nil {
 			return nil
