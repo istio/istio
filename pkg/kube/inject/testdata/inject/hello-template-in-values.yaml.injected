@@ -145,10 +145,6 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      dnsConfig:
-        searches:
-        - global
-        - default.global
       initContainers:
       - args:
         - istio-iptables
@@ -178,8 +174,8 @@ spec:
             cpu: "2"
             memory: 1Gi
           requests:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
