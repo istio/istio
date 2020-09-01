@@ -1637,6 +1637,11 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
+
+			gwClusters := features.FilterGatewayClusterConfig
+			features.FilterGatewayClusterConfig = false
+			defer func() { features.FilterGatewayClusterConfig = gwClusters }()
+
 			if tt.redisEnabled {
 				defaultValue := features.EnableRedisFilter
 				features.EnableRedisFilter = true
