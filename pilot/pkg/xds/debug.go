@@ -25,6 +25,8 @@ import (
 	"time"
 
 	adminapi "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -40,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/pkg/log"
 )
 
 var indexTmpl = template.Must(template.New("index").Parse(`<html>
@@ -246,14 +249,10 @@ func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Reques
 	_, _ = w.Write(out)
 }
 
-type debugCacheResponse struct {
-	Endpoints []string `json:"endpoints"`
-}
-
 func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
-	keys := s.cache.Keys()
+	keys := s.Cache.Keys()
 	sort.Strings(keys)
-	bytes, err := json.Marshal(debugCacheResponse{keys})
+	bytes, err := json.Marshal(keys)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, "unable to marshal syncedVersion information: %v", err)
@@ -554,10 +553,43 @@ func (s *DiscoveryServer) configDump(conn *Connection) (*adminapi.ConfigDump, er
 		}
 	}
 
+	secretsDump := &adminapi.SecretsConfigDump{}
+	if s.Generators[v3.SecretType] != nil {
+		secrets := s.Generators[v3.SecretType].Generate(conn.proxy, s.globalPushContext(), conn.Watched(v3.SecretType), nil)
+		if len(secrets) > 0 {
+			for _, secretAny := range secrets {
+				secret := &tls.Secret{}
+				if err := ptypes.UnmarshalAny(secretAny, secret); err != nil {
+					log.Warnf("failed to unmarshal secret: %v", err)
+				}
+				if secret.GetTlsCertificate() != nil {
+					secret.GetTlsCertificate().PrivateKey = &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{
+							InlineBytes: []byte("[redacted]"),
+						},
+					}
+				}
+				secretsDump.DynamicActiveSecrets = append(secretsDump.DynamicActiveSecrets, &adminapi.SecretsConfigDump_DynamicSecret{
+					Name:   secret.Name,
+					Secret: util.MessageToAny(secret),
+				})
+			}
+		}
+	}
+
 	bootstrapAny := util.MessageToAny(&adminapi.BootstrapConfigDump{})
+	scopedRoutesAny := util.MessageToAny(&adminapi.ScopedRoutesConfigDump{})
 	// The config dump must have all configs with connections specified in
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v2/admin/v2alpha/config_dump.proto
-	configDump := &adminapi.ConfigDump{Configs: []*any.Any{bootstrapAny, clustersAny, listenersAny, routeConfigAny}}
+	configDump := &adminapi.ConfigDump{
+		Configs: []*any.Any{
+			bootstrapAny,
+			clustersAny, listenersAny,
+			scopedRoutesAny,
+			routeConfigAny,
+			util.MessageToAny(secretsDump),
+		},
+	}
 	return configDump, nil
 }
 
