@@ -110,6 +110,9 @@ func InstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 func runApplyCmd(cmd *cobra.Command, rootArgs *rootArgs, iArgs *installArgs, logOpts *log.Options) error {
+	if iArgs.revision == "" && cmd.PersistentFlags().Changed("revision") {
+		return fmt.Errorf("empty revision specified")
+	}
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.dryRun && !iArgs.skipConfirmation {
