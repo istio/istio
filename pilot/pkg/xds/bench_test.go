@@ -68,8 +68,9 @@ var testCases = []ConfigInput{
 		ProxyType: model.Router,
 	},
 	{
-		Name:     "empty",
-		Services: 100,
+		Name:      "empty",
+		Services:  100,
+		ProxyType: model.SidecarProxy,
 	},
 	{
 		Name:     "tls",
@@ -167,6 +168,66 @@ func BenchmarkListenerGeneration(b *testing.B) {
 	}
 }
 
+func BenchmarkNameTableGeneration(b *testing.B) {
+	disableLogging()
+	for _, tt := range testCases {
+		b.Run(tt.Name, func(b *testing.B) {
+			s, proxy := setupAndInitializeTest(b, tt)
+			b.ResetTimer()
+			var c model.Resources
+			for n := 0; n < b.N; n++ {
+				c = s.Discovery.Generators[v3.NameTableType].Generate(proxy, s.PushContext(), nil, nil)
+				if len(c) == 0 && tt.ProxyType != model.Router {
+					b.Fatal("Got no name tables!")
+				}
+			}
+			logDebug(b, c)
+		})
+	}
+}
+
+func BenchmarkSecretGeneration(b *testing.B) {
+	disableLogging()
+	cases := []ConfigInput{
+		{
+			Name:     "secrets",
+			Services: 10,
+		},
+		{
+			Name:     "secrets",
+			Services: 1000,
+		},
+	}
+	for _, tt := range cases {
+		b.Run(fmt.Sprintf("%s-%d", tt.Name, tt.Services), func(b *testing.B) {
+			tmpl := template.Must(template.New("").Funcs(sprig.TxtFuncMap()).ParseFiles(path.Join("testdata", "benchmarks", tt.Name+".yaml")))
+			var buf bytes.Buffer
+			if err := tmpl.ExecuteTemplate(&buf, tt.Name+".yaml", tt); err != nil {
+				b.Fatalf("failed to execute template: %v", err)
+			}
+			s := NewFakeDiscoveryServer(b, FakeOptions{
+				KubernetesObjectString: buf.String(),
+			})
+			watchedResources := []string{}
+			for i := 0; i < tt.Services; i++ {
+				watchedResources = append(watchedResources, fmt.Sprintf("k8s://istio-system/sds-credential-%d", i))
+			}
+			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"})
+			gen := s.Discovery.Generators[v3.SecretType]
+			res := &model.WatchedResource{ResourceNames: watchedResources}
+			b.ResetTimer()
+			var c model.Resources
+			for n := 0; n < b.N; n++ {
+				c = gen.Generate(proxy, s.PushContext(), res, &model.PushRequest{Full: true})
+				if len(c) == 0 {
+					b.Fatal("Got no secrets!")
+				}
+			}
+			logDebug(b, c)
+		})
+	}
+}
+
 // BenchmarkEDS measures performance of EDS config generation
 // TODO Add more variables, such as different services
 func BenchmarkEndpointGeneration(b *testing.B) {
@@ -245,7 +306,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 var configCache = map[ConfigInput][]config.Config{}
 
 func getConfigsWithCache(t testing.TB, input ConfigInput) []config.Config {
-	// Config setup is slow for large tests. Cache this and return from cache.
+	// Config setup is slow for large tests. Cache this and return from Cache.
 	// This improves even running a single test, as go will run the full test (including setup) at least twice.
 	if cached, f := configCache[input]; f {
 		return cached

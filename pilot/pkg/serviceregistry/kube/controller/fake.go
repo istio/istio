@@ -129,7 +129,6 @@ type FakeControllerOptions struct {
 	Objects           []runtime.Object
 	NetworksWatcher   mesh.NetworksWatcher
 	ServiceHandler    func(service *model.Service, event model.Event)
-	InstanceHandler   func(instance *model.ServiceInstance, event model.Event)
 	Mode              EndpointMode
 	ClusterID         string
 	WatchedNamespaces string
@@ -163,9 +162,6 @@ func NewFakeControllerWithOptions(opts FakeControllerOptions) (*FakeController, 
 		ClusterID:         opts.ClusterID,
 	}
 	c := NewController(clients, options)
-	if opts.InstanceHandler != nil {
-		_ = c.AppendInstanceHandler(opts.InstanceHandler)
-	}
 	if opts.ServiceHandler != nil {
 		_ = c.AppendServiceHandler(opts.ServiceHandler)
 	}

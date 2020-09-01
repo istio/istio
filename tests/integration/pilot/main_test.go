@@ -106,6 +106,7 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(cfg *istio.Config) {
 			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
+			cfg.Values["meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT"] = "enable"
 			cfg.ControlPlaneValues = `
 # Add TCP port, not in the default install
 components:
