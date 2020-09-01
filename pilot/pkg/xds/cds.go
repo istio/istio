@@ -29,9 +29,7 @@ var _ model.XdsResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
 var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
-	// TODO: investigate if this is correct when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is set
 	gvk.Gateway:               {},
-	gvk.VirtualService:        {},
 	gvk.WorkloadEntry:         {},
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},
