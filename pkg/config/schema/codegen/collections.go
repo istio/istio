@@ -49,6 +49,9 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+{{- range .Packages}}
+	{{.ImportName}} "{{.PackageName}}"
+{{- end}}
 )
 
 var (
@@ -64,6 +67,7 @@ var (
 			Plural: "{{ .Resource.Plural }}",
 			Version: "{{ .Resource.Version }}",
 			Proto: "{{ .Resource.Proto }}",
+			ReflectType: {{ .Type }},
 			ProtoPackage: "{{ .Resource.ProtoPackage }}",
 			ClusterScoped: {{ .Resource.ClusterScoped }},
 			ValidateProto: validation.{{ .Resource.Validate }},
@@ -128,6 +132,7 @@ var (
 type colEntry struct {
 	Collection *ast.Collection
 	Resource   *ast.Resource
+	Type       string
 }
 
 func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
@@ -163,6 +168,11 @@ func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
 	return applyTemplate(staticResourceTemplate, context)
 }
 
+type packageImport struct {
+	PackageName string
+	ImportName  string
+}
+
 // StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
 func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 	entries := make([]colEntry, 0, len(m.Collections))
@@ -172,11 +182,30 @@ func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
 		}
 
+		spl := strings.Split(r.Proto, ".")
+		tname := spl[len(spl)-1]
 		entries = append(entries, colEntry{
 			Collection: c,
 			Resource:   r,
+			Type:       fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.ProtoPackage), tname),
 		})
 	}
+	// Single instance and sort names
+	names := make(map[string]struct{})
+
+	for _, r := range m.Resources {
+		if r.ProtoPackage != "" {
+			names[r.ProtoPackage] = struct{}{}
+		}
+	}
+
+	packages := make([]packageImport, 0, len(names))
+	for p := range names {
+		packages = append(packages, packageImport{p, toImport(p)})
+	}
+	sort.Slice(packages, func(i, j int) bool {
+		return strings.Compare(packages[i].PackageName, packages[j].PackageName) < 0
+	})
 
 	sort.Slice(entries, func(i, j int) bool {
 		return strings.Compare(entries[i].Collection.Name, entries[j].Collection.Name) < 0
@@ -185,11 +214,17 @@ func StaticCollections(packageName string, m *ast.Metadata) (string, error) {
 	context := struct {
 		Entries     []colEntry
 		PackageName string
+		Packages    []packageImport
 	}{
 		Entries:     entries,
 		PackageName: packageName,
+		Packages:    packages,
 	}
 
 	// Calculate the Go packages that needs to be imported for the proto types to be registered.
 	return applyTemplate(staticCollectionsTemplate, context)
+}
+
+func toImport(p string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
 }
