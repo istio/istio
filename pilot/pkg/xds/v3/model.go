@@ -23,6 +23,7 @@ const (
 	EndpointType  = resource.EndpointType
 	ListenerType  = resource.ListenerType
 	RouteType     = resource.RouteType
+	SecretType    = resource.SecretType
 	NameTableType = "type.googleapis.com/istio.networking.nds.v1.NameTable"
 )
 
@@ -37,6 +38,8 @@ func GetShortType(typeURL string) string {
 		return "RDS"
 	case EndpointType:
 		return "EDS"
+	case SecretType:
+		return "SDS"
 	default:
 		return typeURL
 	}
@@ -53,6 +56,8 @@ func GetMetricType(typeURL string) string {
 		return "rds"
 	case EndpointType:
 		return "eds"
+	case SecretType:
+		return "sds"
 	default:
 		return typeURL
 	}
