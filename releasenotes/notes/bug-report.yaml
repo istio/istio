@@ -3,4 +3,6 @@ kind: feature
 area: istioctl
 issue:
   - 26045
-releaseNotes: istioctl bug-report generates an archive of Istio and cluster information to assist with debugging.
+releaseNotes:
+  - |
+    **Added** istioctl bug-report generates an archive of Istio and cluster information to assist with debugging.
