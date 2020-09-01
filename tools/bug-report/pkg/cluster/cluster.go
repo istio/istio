@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/tools/bug-report/pkg/util/path"
 	"istio.io/pkg/log"
 )
 
@@ -75,7 +76,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 			}
 			out.Labels[p.Name] = p.Labels
 			out.Annotations[p.Name] = p.Annotations
-			out.Pod[p.Name] = &p
+			out.Pod[PodKey(p.Namespace, p.Name)] = &p
 		}
 	}
 	if len(errs) != 0 {
@@ -94,7 +95,7 @@ type Resources struct {
 	Labels map[string]map[string]string
 	// Annotations maps a pod name to a map of annotation key-values.
 	Annotations map[string]map[string]string
-	// Pod maps a pod name to its Pod info.
+	// Pod maps a pod name to its Pod info. The key is namespace/pod-name.
 	Pod map[string]*corev1.Pod
 }
 
@@ -117,8 +118,8 @@ func (r *Resources) insertContainer(namespace, deployment, pod, container string
 	c[container] = nil
 }
 
-func (r *Resources) ContainerRestarts(pod, container string) int {
-	for _, cs := range r.Pod[pod].Status.ContainerStatuses {
+func (r *Resources) ContainerRestarts(namespace, pod, container string) int {
+	for _, cs := range r.Pod[PodKey(namespace, pod)].Status.ContainerStatuses {
 		if cs.Name == container {
 			return int(cs.RestartCount)
 		}
@@ -161,4 +162,9 @@ func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
 	}
 	log.Infof("no owning Deployment found for pod %s", pod.Name)
 	return ""
+}
+
+// PodKey returns a unique key based on the namespace and pod name.
+func PodKey(namespace, pod string) string {
+	return path.Path{namespace, pod}.String()
 }

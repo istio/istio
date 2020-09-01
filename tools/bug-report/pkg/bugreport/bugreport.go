@@ -16,6 +16,7 @@ package bugreport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -26,8 +27,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/config"
@@ -43,7 +46,6 @@ import (
 const (
 	bugReportDefaultMaxSizeMb = 500
 	bugReportDefaultTimeout   = 30 * time.Minute
-	bugReportDefaultTempDir   = "/tmp/bug-report"
 )
 
 var (
@@ -87,9 +89,13 @@ func runBugReportCommand(_ *cobra.Command) error {
 		return err
 	}
 
-	_, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
+	clientConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
+	}
+	client, err := kube.NewExtendedClient(clientConfig, "")
+	if err != nil {
+		return err
 	}
 	resources, err := cluster2.GetClusterResources(context.Background(), clientset)
 	if err != nil {
@@ -104,7 +110,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 
 	log.Infof("Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
-	gatherInfo(config, resources, paths)
+	gatherInfo(client, config, resources, paths)
 	if len(gErrors) != 0 {
 		log.Errora(gErrors.ToError())
 	}
@@ -124,18 +130,23 @@ func runBugReportCommand(_ *cobra.Command) error {
 // gatherInfo fetches all logs, resources, debug etc. using goroutines.
 // proxy logs and info are saved in logs/stats/importance global maps.
 // Errors are reported through gErrors.
-func gatherInfo(config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
+func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources, paths []string) {
 	// no timeout on mandatoryWg.
 	var mandatoryWg sync.WaitGroup
 	cmdTimer := time.NewTimer(time.Duration(config.CommandTimeout))
 
 	clusterDir := archive.ClusterInfoPath(tempDir)
-	getFromCluster(content.GetK8sResources, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetCRs, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetEvents, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetClusterInfo, &content.Params{DryRun: config.DryRun}, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetSecrets, &content.Params{DryRun: config.DryRun, Verbose: config.FullSecrets}, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetDescribePods, &content.Params{DryRun: config.DryRun, Namespace: config.IstioNamespace}, clusterDir, &mandatoryWg)
+
+	params := &content.Params{
+		Client: client,
+		DryRun: config.DryRun,
+	}
+	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
+	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
+	getFromCluster(content.GetDescribePods, params.SetNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
 	// optionalWg is subject to timer.
 	var optionalWg sync.WaitGroup
@@ -146,16 +157,15 @@ func gatherInfo(config *config.BugReportConfig, resources *cluster2.Resources, p
 			continue
 		}
 
+		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
 		switch {
 		case container == "istio-proxy":
-			getFromCluster(content.GetCoredumps, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
-				archive.ProxyCoredumpPath(tempDir, namespace, pod), &mandatoryWg)
-			getProxyLogs(config, resources, p, namespace, pod, container, &optionalWg)
+			getFromCluster(content.GetCoredumps, cp, archive.ProxyCoredumpPath(tempDir, namespace, pod), &mandatoryWg)
+			getProxyLogs(client, config, resources, p, namespace, pod, container, &optionalWg)
 
 		case strings.HasPrefix(pod, "istiod-") && container == "discovery":
-			getFromCluster(content.GetIstiodInfo, &content.Params{DryRun: config.DryRun, Namespace: namespace, Pod: pod, Container: container},
-				archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
-			getIstiodLogs(config, resources, namespace, pod, &mandatoryWg)
+			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
+			getIstiodLogs(client, config, resources, namespace, pod, &mandatoryWg)
 
 		}
 	}
@@ -190,11 +200,11 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 // getProxyLogs fetches proxy logs for the given namespace/pod/container and stores the output in global structs.
 // Runs if a goroutine, with errors reported through gErrors.
 // TODO(stewartbutler): output the logs to a more robust/complete structure.
-func getProxyLogs(config *config.BugReportConfig, resources *cluster2.Resources, path, namespace, pod, container string, wg *sync.WaitGroup) {
+func getProxyLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources, path, namespace, pod, container string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		clog, cstat, imp, err := getLog(resources, config, namespace, pod, container)
+		clog, cstat, imp, err := getLog(client, resources, config, namespace, pod, container)
 		appendGlobalErr(err)
 		lock.Lock()
 		if err == nil {
@@ -206,23 +216,30 @@ func getProxyLogs(config *config.BugReportConfig, resources *cluster2.Resources,
 
 // getIstiodLogs fetches Istiod logs for the given namespace/pod and writes the output.
 // Runs if a goroutine, with errors reported through gErrors.
-func getIstiodLogs(config *config.BugReportConfig, resources *cluster2.Resources, namespace, pod string, wg *sync.WaitGroup) {
+func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, resources *cluster2.Resources, namespace, pod string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(resources, config, namespace, pod, "discovery")
+		clog, _, _, err := getLog(client, resources, config, namespace, pod, "discovery")
 		appendGlobalErr(err)
 		writeFile(archive.IstiodPath(tempDir, namespace, pod+".log"), clog)
 	}()
 }
 
 // getLog fetches the logs for the given namespace/pod/container and returns the log text and stats for it.
-func getLog(resources *cluster2.Resources, config *config.BugReportConfig, namespace, pod, container string) (string, *processlog.Stats, int, error) {
+func getLog(client kube.ExtendedClient, resources *cluster2.Resources, config *config.BugReportConfig, namespace, pod, container string) (string, *processlog.Stats, int, error) {
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
-	previous := resources.ContainerRestarts(pod, container) > 0
-	clog, err := kubectlcmd.Logs(namespace, pod, container, previous, config.DryRun)
+	clog, err := kubectlcmd.Logs(client, namespace, pod, container, false, config.DryRun)
 	if err != nil {
 		return "", nil, 0, err
+	}
+	if resources.ContainerRestarts(namespace, pod, container) > 0 {
+		pclog, err := kubectlcmd.Logs(client, namespace, pod, container, true, config.DryRun)
+		if err != nil {
+			return "", nil, 0, err
+		}
+		clog = "========= Previous log present (appended at the end) =========\n\n" + clog +
+			"\n\n========= Previous log =========\n\n" + pclog
 	}
 	var cstat *processlog.Stats
 	clog, cstat = processlog.Process(config, clog)
@@ -240,7 +257,7 @@ func writeFile(path, text string) {
 		return
 	}
 	mkdirOrExit(path)
-	if err := ioutil.WriteFile(path, []byte(text), 0755); err != nil {
+	if err := ioutil.WriteFile(path, []byte(text), 0644); err != nil {
 		log.Errorf(err.Error())
 	}
 }
@@ -259,4 +276,27 @@ func appendGlobalErr(err error) {
 	lock.Lock()
 	gErrors = util.AppendErr(gErrors, err)
 	lock.Unlock()
+}
+
+func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
+	if len(kubeConfig) == 0 {
+		return nil, errors.New("kubeconfig is empty")
+	}
+
+	rawConfig, err := clientcmd.Load(kubeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("kubeconfig cannot be loaded: %v", err)
+	}
+
+	if err := clientcmd.Validate(*rawConfig); err != nil {
+		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
+	}
+
+	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
+
+	clients, err := kube.NewClient(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kube clients: %v", err)
+	}
+	return clients, nil
 }

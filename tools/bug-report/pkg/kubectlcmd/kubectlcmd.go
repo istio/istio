@@ -16,12 +16,14 @@ package kubectlcmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
 	"time"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -49,37 +51,39 @@ type Options struct {
 }
 
 // Logs returns the logs for the given namespace/pod/container.
-func Logs(namespace, pod, container string, previous, dryRun bool) (string, error) {
-	cmdStr := []string{"logs"}
-	if previous {
-		cmdStr = append(cmdStr, "-p")
+func Logs(client kube.ExtendedClient, namespace, pod, container string, previous, dryRun bool) (string, error) {
+	if dryRun {
+		return fmt.Sprintf("Dry run: would be running client.PodLogs(%s, %s, %s)", pod, namespace, container), nil
 	}
-	stdout, err := Run(cmdStr,
-		&Options{
-			Namespace: namespace,
-			ExtraArgs: []string{pod, "-c", container},
-			DryRun:    dryRun,
-		})
+	return client.PodLogs(context.TODO(), pod, namespace, container, previous)
+}
+
+// Cat runs the cat command for the given path in the given namespace/pod/container.
+func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dryRun bool) (string, error) {
+	cmdStr := "cat " + path
+	if dryRun {
+		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
+	}
+	stdout, stderr, err := client.PodExec(pod, namespace, container, cmdStr)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("podExec error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
+			err, util.ConsolidateLog(stderr), stdout)
 	}
 	return stdout, nil
 }
 
 // Exec runs exec for the given command in the given namespace/pod/container.
-func Exec(namespace, pod, container string, dryRun bool, command ...string) (string, error) {
-	cmdStr := []string{"exec"}
-	return Run(cmdStr,
-		&Options{
-			Namespace: namespace,
-			ExtraArgs: append([]string{"-i", "-t", pod, "-c", container, "--"}, command...),
-			DryRun:    dryRun,
-		})
-}
-
-// Cat runs the cat command for the given path in the given namespace/pod/container.
-func Cat(namespace, pod, container, path string, dryRun bool) (string, error) {
-	return Exec(namespace, pod, container, dryRun, "cat", path)
+func Exec(client kube.ExtendedClient, namespace, pod, container, cmdStr string, dryRun bool) (string, error) {
+	if dryRun {
+		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
+	}
+	log.Infof("podExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
+	stdout, stderr, err := client.PodExec(pod, namespace, container, cmdStr)
+	if err != nil {
+		return "", fmt.Errorf("podExec error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
+			err, util.ConsolidateLog(stderr), stdout)
+	}
+	return stdout, nil
 }
 
 // RunCmd runs the given command in kubectl, adding -n namespace if namespace is not empty.

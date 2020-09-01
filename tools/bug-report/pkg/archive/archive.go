@@ -17,42 +17,42 @@ package archive
 import (
 	"archive/tar"
 	"compress/gzip"
-	"fmt"
 	"io"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const (
+	bugReportSubdir     = "bug-report"
 	proxyLogsPathSubdir = "proxies"
 	istioLogsPathSubdir = "istio"
 	clusterInfoSubdir   = "cluster"
 )
 
 var (
-	// Each run of the command produces a new archive.
-	instancePath = fmt.Sprint(rand.Int())
+	tmpDir  string
+	initDir sync.Once
 )
 
 func ProxyLogPath(rootDir, namespace, pod string) string {
-	dir := filepath.Join(rootDir, instancePath, proxyLogsPathSubdir, namespace)
+	dir := filepath.Join(getRootDir(rootDir), proxyLogsPathSubdir, namespace)
 	return filepath.Join(dir, pod+".log")
 }
 
 func ProxyCoredumpPath(rootDir, namespace, pod string) string {
-	dir := filepath.Join(rootDir, instancePath, proxyLogsPathSubdir, namespace)
+	dir := filepath.Join(getRootDir(rootDir), proxyLogsPathSubdir, namespace)
 	return filepath.Join(dir, pod+".core")
 }
 
 func IstiodPath(rootDir, namespace, pod string) string {
-	dir := filepath.Join(rootDir, instancePath, istioLogsPathSubdir, namespace)
+	dir := filepath.Join(getRootDir(rootDir), istioLogsPathSubdir, namespace)
 	return filepath.Join(dir, pod)
 }
 
 func ClusterInfoPath(rootDir string) string {
-	dir := filepath.Join(rootDir, instancePath, clusterInfoSubdir)
+	dir := filepath.Join(getRootDir(rootDir), clusterInfoSubdir)
 	return dir
 }
 
@@ -97,4 +97,14 @@ func Create(srcDir, outPath string) error {
 
 		return nil
 	})
+}
+
+func getRootDir(rootDir string) string {
+	if rootDir != "" {
+		return rootDir
+	}
+	initDir.Do(func() {
+		tmpDir = filepath.Join(os.TempDir(), bugReportSubdir)
+	})
+	return tmpDir
 }

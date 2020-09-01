@@ -19,13 +19,16 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 // New creates a rest.Config qne Clientset from the given kubeconfig path and Context.
-func New(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, error) {
-	restConfig, err := defaultRestConfig(kubeconfig, kubeContext)
+func New(kubeconfig, kubeContext string) (clientcmd.ClientConfig, *kubernetes.Clientset, error) {
+	clientConfig, err := defaultRestConfig(kubeconfig, kubeContext)
+	if err != nil {
+		return nil, nil, err
+	}
+	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -34,9 +37,10 @@ func New(kubeconfig, kubeContext string) (*rest.Config, *kubernetes.Clientset, e
 		return nil, nil, err
 	}
 
-	return restConfig, clientset, nil
+	return clientConfig, clientset, nil
 }
-func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {
+
+func defaultRestConfig(kubeconfig, kubeContext string) (clientcmd.ClientConfig, error) {
 	config, err := buildClientConfig(kubeconfig, kubeContext)
 	if err != nil {
 		return nil, err
@@ -49,7 +53,7 @@ func defaultRestConfig(kubeconfig, kubeContext string) (*rest.Config, error) {
 //
 // This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
 // difference that it loads default configs if not running in-cluster.
-func buildClientConfig(kubeconfig, context string) (*rest.Config, error) {
+func buildClientConfig(kubeconfig, context string) (clientcmd.ClientConfig, error) {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -72,5 +76,5 @@ func buildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 		CurrentContext:  context,
 	}
 
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides).ClientConfig()
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides), nil
 }

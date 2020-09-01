@@ -37,44 +37,52 @@ var (
 
 func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	// k8s client config
-	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", bugReportHelpKubeconfig)
-	cmd.PersistentFlags().StringVar(&args.Context, "context", "", bugReportHelpContext)
+	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", "Path to kube config.")
+	cmd.PersistentFlags().StringVar(&args.Context, "context", "", "Name of the kubeconfig Context to use.")
 
 	// input config
-	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "", bugReportHelpFilename)
+	cmd.PersistentFlags().StringVarP(&configFile, "filename", "f", "", "Path to a file containing configuration in YAML format.")
 
 	// dry run
-	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, bugReportHelpDryRun)
+	cmd.PersistentFlags().BoolVarP(&args.DryRun, "dry-run", "", false, "Only log commands that would be run, don't fetch or write.")
 
 	// full secrets
-	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false, bugReportHelpFullSecrets)
+	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false, "If set, secret contents are included in output.")
 
 	// istio namespaces
-	cmd.PersistentFlags().StringVar(&args.IstioNamespace, "istio-namespace", bugReportDefaultIstioNamespace, bugReportHelpIstioNamespace)
+	cmd.PersistentFlags().StringVar(&args.IstioNamespace, "istio-namespace", bugReportDefaultIstioNamespace, "List of comma-separated namespaces where Istio control planes "+
+		"are installed.")
 
 	// timeouts and max sizes
-	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout, bugReportHelpCommandTimeout)
-	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", bugReportDefaultMaxSizeMb, bugReportHelpMaxArchiveSizeMb)
+	cmd.PersistentFlags().DurationVar(&commandTimeout, "timeout", bugReportDefaultTimeout, "Maximum amount of time to spend fetching logs. When timeout is reached "+
+		"only the logs captured so far are saved to the archive.")
+	cmd.PersistentFlags().Int32Var(&args.MaxArchiveSizeMb, "max-size", bugReportDefaultMaxSizeMb, "Maximum size of the compressed archive in Mb. Logs are prioritized"+
+		"according to importance heuristics.")
 
 	// include / exclude specs
-	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude, bugReportHelpInclude)
-	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude, bugReportHelpExclude)
+	cmd.PersistentFlags().StringSliceVar(&included, "include", bugReportDefaultInclude, "Spec for which pods' proxy logs to include in the archive. See 'help' for examples.")
+	cmd.PersistentFlags().StringSliceVar(&excluded, "exclude", bugReportDefaultExclude, "Spec for which pods' proxy logs to exclude from the archive, after the include spec "+
+		"is processed. See 'help' for examples.")
 
 	// log time ranges
-	cmd.PersistentFlags().StringVar(&startTime, "start-time", "", bugReportHelpStartTime)
-	cmd.PersistentFlags().StringVar(&endTime, "end-time", "", bugReportHelpEndTime)
-	cmd.PersistentFlags().DurationVar(&since, "duration", 0, bugReportHelpSince)
+	cmd.PersistentFlags().StringVar(&startTime, "start-time", "", "Start time for the range of log entries to include in the archive. "+
+		"Default is the infinite past. If set, Since must be unset.")
+	cmd.PersistentFlags().StringVar(&endTime, "end-time", "", "End time for the range of log entries to include in the archive. Default is now.")
+	cmd.PersistentFlags().DurationVar(&since, "duration", 0, "How far to go back in time from end-time for log entries to include in the archive. "+
+		"Default is infinity. If set, start-time must be unset.")
 
 	// log error control
-	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil, bugReportHelpCriticalErrors)
-	cmd.PersistentFlags().StringSliceVar(&args.IgnoredErrors, "ignore-errs", nil, bugReportHelpIgnoredErrors)
+	cmd.PersistentFlags().StringSliceVar(&args.CriticalErrors, "critical-errs", nil, "List of comma separated glob patters to match against log error strings. "+
+		"If any pattern matches an error in the log, the logs is given the highest priority for archive inclusion.")
+	cmd.PersistentFlags().StringSliceVar(&args.IgnoredErrors, "ignore-errs", nil, "List of comma separated glob patters to match against log error strings. "+
+		"Any error matching these patters is ignored when calculating the log importance heuristic.")
 
 	// archive and upload control
-	cmd.PersistentFlags().StringVar(&args.GCSURL, "gcs-url", "", bugReportHelpGCSURL)
-	cmd.PersistentFlags().BoolVar(&args.UploadToGCS, "upload", false, bugReportHelpUploadToGCS)
+	cmd.PersistentFlags().StringVar(&args.GCSURL, "gcs-url", "", "URL of the GCS bucket where the archive is uploaded.")
+	cmd.PersistentFlags().BoolVar(&args.UploadToGCS, "upload", false, "Upload archive to GCS bucket. If gcs-url is unset, a new bucket is created.")
 
 	// output/working dir
-	cmd.PersistentFlags().StringVar(&tempDir, "dir", bugReportDefaultTempDir, bugReportHelpTempDir)
+	cmd.PersistentFlags().StringVar(&tempDir, "dir", "", "Set a specific directory for temporary artifact storage.")
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {
