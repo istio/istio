@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireSingleCluster().
-		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
 			cfg.Values["telemetry.enabled"] = "true"
 			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"

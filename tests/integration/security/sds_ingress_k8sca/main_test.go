@@ -16,6 +16,7 @@
 package sdsingressk8sca
 
 import (
+	"istio.io/istio/pkg/test/framework/resource"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
@@ -38,11 +39,10 @@ func TestMain(m *testing.M) {
 
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-
 	cfg.ControlPlaneValues = `
 values:
   global:

@@ -16,6 +16,7 @@
 package istioctl
 
 import (
+	"istio.io/istio/pkg/test/framework/resource"
 	"regexp"
 	"strings"
 	"testing"
@@ -40,7 +41,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}

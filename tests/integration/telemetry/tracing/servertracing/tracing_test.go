@@ -18,6 +18,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"istio.io/istio/pkg/test/framework/resource"
 	"testing"
 	"time"
 
@@ -64,7 +65,7 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
