@@ -243,7 +243,6 @@ func BenchmarkDNS(t *testing.B) {
 		t.Fatal(initErr)
 	}
 
-	t.ReportAllocs()
 	t.Run("via-agent-cache-miss", func(b *testing.B) {
 		bench(b, testAgentDNSAddr, "www.bing.com.")
 	})
