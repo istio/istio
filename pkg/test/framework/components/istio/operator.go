@@ -30,7 +30,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
-
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -222,7 +221,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 
 	// install config cluster
 	for _, cluster := range env.KubeClusters {
-		if env.IsConfigCluster(cluster) {
+		if env.IsConfigCluster(cluster) && !env.IsControlPlaneCluster(cluster) {
 			if err = installConfigClusters(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
 				return i, err
 			}
@@ -560,6 +559,10 @@ func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cl
 				return fmt.Errorf("failed to create-remote-secret: %v", err)
 			}
 		}
+	}
+	err = applyManifest(i, installSettings, istioCtl, cluster.Name())
+	if err != nil {
+		return err
 	}
 	return nil
 
