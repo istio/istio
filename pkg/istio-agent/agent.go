@@ -27,7 +27,6 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/security/model"
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/security"
@@ -99,29 +98,19 @@ type Agent struct {
 	// is calling this.
 	WorkloadSecrets security.SecretManager
 
-	// If set, this is the Citadel client, used to retrieve certificates.
+	// If set, this is the Citadel upstream, used to retrieve certificates.
 	CitadelClient security.Client
-
-	// Expected SAN for the discovery address, for tests.
-	XDSSAN string
 
 	proxyConfig *mesh.ProxyConfig
 
-	// Listener for the XDS proxy
-	LocalXDSListener net.Listener
-
-	// ProxyGen is a generator for proxied types - will 'generate' XDS by using
-	// an adsc connection.
-	proxyGen *xds.ProxyGen
-
-	// used for XDS portion.
-	localListener   net.Listener
-	localGrpcServer *grpc.Server
-
-	xdsServer *xds.SimpleServer
-
 	cfg     *AgentConfig
 	secOpts *security.Options
+
+	// used for local XDS generator portion, to download all configs and generate xds locally.
+	localXDSGenerator *localXDSGenerator
+
+	// Used when proxying envoy xds via istio-agent is enabled.
+	xdsProxy *XdsProxy
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -129,10 +118,15 @@ type Agent struct {
 // Eventually most non-test settings should graduate to ProxyConfig
 // Please don't add 100 parameters to the NewAgent function (or any other)!
 type AgentConfig struct {
-	// LocalXDSAddr is the address of the XDS proxy. If not set, the env variable XDS_LOCAL will be used.
-	// ( we may use ProxyConfig if this needs to be exposed, or we can base it on the base port - 15000)
+	// ProxyXDSViaAgent if true will enable a local XDS proxy that will simply
+	// ferry Envoy's XDS requests to istiod and responses back to envoy
+	// This flag is temporary until the feature is stabilized.
+	ProxyXDSViaAgent bool
+
+	// LocalXDSGeneratorListenAddress is the address where the agent will listen for XDS connections and generate all
+	// xds configurations locally. If not set, the env variable LOCAL_XDS_GENERATOR will be used.
 	// Set for tests to 127.0.0.1:0.
-	LocalXDSAddr string
+	LocalXDSGeneratorListenAddress string
 
 	// Grpc dial options. Used for testing
 	GrpcOptions []grpc.DialOption
@@ -215,7 +209,7 @@ func NewAgent(proxyConfig *mesh.ProxyConfig, cfg *AgentConfig,
 	sa.secOpts.UseLocalJWT = !sa.secOpts.FileMountedCerts
 
 	// Init the XDS proxy part of the agent.
-	sa.initXDS()
+	sa.initXDSGenerator()
 
 	return sa
 }
@@ -257,13 +251,36 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		return nil, err
 	}
 
-	// Start the XDS client and proxy.
-	err = sa.startXDS(sa.proxyConfig, sa.WorkloadSecrets, podNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("xds proxy: %v", err)
+	// Start the local XDS generator.
+	if sa.localXDSGenerator != nil {
+		err = sa.startXDSGenerator(sa.proxyConfig, sa.WorkloadSecrets, podNamespace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start local xds generator: %v", err)
+		}
 	}
 
+	if sa.cfg.ProxyXDSViaAgent {
+		// TODO: Merge pieces with the nodeagent code
+		sa.xdsProxy, err = initXdsProxy(sa)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
+		}
+	}
 	return server, nil
+}
+
+func (sa *Agent) Close() {
+	if sa.xdsProxy != nil {
+		sa.xdsProxy.close()
+	}
+	sa.closeLocalXDSGenerator()
+}
+
+func (sa *Agent) GetLocalXDSGeneratorListener() net.Listener {
+	if sa.localXDSGenerator != nil {
+		return sa.localXDSGenerator.listener
+	}
+	return nil
 }
 
 func gatewaySdsExists() bool {

@@ -180,12 +180,8 @@ spec:
         imagePullPolicy: Always
         name: istio-init
         resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
           requests:
-            cpu: 10m
-            memory: 10Mi
+            cpu: "4"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
