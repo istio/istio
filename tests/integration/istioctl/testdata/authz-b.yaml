@@ -4,10 +4,13 @@ metadata:
   name: allow-policy
 spec:
   action: ALLOW
+  selector:
+    matchLabels:
+      "istio": "ingressgateway"
   rules:
   - to:
     - operation:
-        methods: ["*"]
+        notPorts: ["100"]
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -15,11 +18,14 @@ metadata:
   name: deny-policy
 spec:
   action: DENY
+  selector:
+    matchLabels:
+      "istio": "ingressgateway"
   rules:
   - to:
     - operation:
-        methods: ["*"]
+        ports: ["100"]
   - to:
     - operation:
-        methods: ["*"]
+        ports: ["100"]
 ---
