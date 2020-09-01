@@ -114,6 +114,7 @@ func isBindtoPort(l *listener.Listener) bool {
 	return bp.Value
 }
 
+// enabledInspector captures if a given listener needs listener filter inspectors added
 type enabledInspector struct {
 	HTTPInspector bool
 	TLSInspector  bool
@@ -133,10 +134,14 @@ func reduceInboundListenerToFilterChains(listeners []*listener.Listener) ([]*lis
 			chain := golangproto.Clone(c).(*listener.FilterChain)
 			inspectors := amendFilterChainMatchFromInboundListener(chain, l)
 			chains = append(chains, chain)
-			prev := inspectorsMap[int(l.Address.GetSocketAddress().GetPortValue())]
-			prev.HTTPInspector = prev.HTTPInspector || inspectors.HTTPInspector
-			prev.TLSInspector = prev.TLSInspector || inspectors.TLSInspector
-			inspectorsMap[int(l.Address.GetSocketAddress().GetPortValue())] = prev
+			// Aggregate the inspector options. If any listener on the port needs inspector, we should add it
+			// Generally there is 1 listener per port anyways.
+			if l.Address.GetSocketAddress().GetPortValue() > 0 {
+				prev := inspectorsMap[int(l.Address.GetSocketAddress().GetPortValue())]
+				prev.HTTPInspector = prev.HTTPInspector || inspectors.HTTPInspector
+				prev.TLSInspector = prev.TLSInspector || inspectors.TLSInspector
+				inspectorsMap[int(l.Address.GetSocketAddress().GetPortValue())] = prev
+			}
 		}
 	}
 	return chains, inspectorsMap
@@ -206,16 +211,21 @@ func (lb *ListenerBuilder) aggregateVirtualInboundListener(needTLSForPassThrough
 	return lb
 }
 
+// buildTLSInspector creates a tls inspector filter. Based on the configured ports, this may be enabled
+// for only some ports.
 func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFilter {
 	ports := make([]int, 0, len(inspectors))
+	// Collect all ports where TLS inspector is disabled.
 	for p, i := range inspectors {
 		if !i.TLSInspector {
 			ports = append(ports, p)
 		}
 	}
+	// No need to filter, return the cached version enabled for all ports
 	if len(ports) == 0 {
 		return xdsfilters.TLSInspector
 	}
+	// Ensure consistent ordering as we are looping over a map
 	sort.Ints(ports)
 	filter := &listener.ListenerFilter{
 		Name:           wellknown.TlsInspector,
@@ -225,16 +235,21 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 	return filter
 }
 
+// buildHTTPInspector creates an http inspector filter. Based on the configured ports, this may be enabled
+// for only some ports.
 func buildHTTPInspector(inspectors map[int]enabledInspector) *listener.ListenerFilter {
 	ports := make([]int, 0, len(inspectors))
+	// Collect all ports where HTTP inspector is disabled.
 	for p, i := range inspectors {
 		if !i.HTTPInspector {
 			ports = append(ports, p)
 		}
 	}
+	// No need to filter, return the cached version enabled for all ports
 	if len(ports) == 0 {
 		return xdsfilters.HTTPInspector
 	}
+	// Ensure consistent ordering as we are looping over a map
 	sort.Ints(ports)
 	filter := &listener.ListenerFilter{
 		Name:           wellknown.HttpInspector,
@@ -244,10 +259,15 @@ func buildHTTPInspector(inspectors map[int]enabledInspector) *listener.ListenerF
 	return filter
 }
 
+// listenerPredicateExcludePorts returns a listener filter predicate that will
+// match everything except the passed in ports. This is useful, for example, to
+// enable protocol sniffing on every port except port X and Y, because X and Y
+// are explicitly declared.
 func listenerPredicateExcludePorts(ports []int) *listener.ListenerFilterChainMatchPredicate {
 	ranges := []*listener.ListenerFilterChainMatchPredicate{}
 	for _, p := range ports {
 		ranges = append(ranges, &listener.ListenerFilterChainMatchPredicate{Rule: &listener.ListenerFilterChainMatchPredicate_DestinationPortRange{
+			// Range is [start, end)
 			DestinationPortRange: &envoytype.Int32Range{
 				Start: int32(p),
 				End:   int32(p + 1),
