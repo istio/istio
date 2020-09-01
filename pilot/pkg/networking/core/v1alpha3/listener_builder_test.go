@@ -642,7 +642,7 @@ func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.Listener
 
 func evaluateListenerFilterPredicatesInternal(predicate *listener.ListenerFilterChainMatchPredicate, invertMatch bool, port int) bool {
 	if predicate == nil {
-		return !invertMatch
+		return false
 	}
 	switch r := predicate.Rule.(type) {
 	case *listener.ListenerFilterChainMatchPredicate_NotMatch:

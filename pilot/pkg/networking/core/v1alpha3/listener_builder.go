@@ -214,7 +214,7 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 		}
 	}
 	if len(ports) == 0 {
-		return xdsfilters.HTTPInspector
+		return xdsfilters.TLSInspector
 	}
 	filter := &listener.ListenerFilter{
 		Name:           wellknown.TlsInspector,
