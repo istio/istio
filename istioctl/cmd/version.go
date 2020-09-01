@@ -112,24 +112,21 @@ func xdsVersionCommand() *cobra.Command {
 		}
 		return nil
 	}
-	versionCmd.Example = `# Retrieve version information directly from XDS, without security
-istioctl x version --xds-address localhost:15012
+	versionCmd.Example = `# Retrieve version information directly from the control plane, using token security
+# (This is the usual way to get the control plane version with an out-of-cluster control plane.)
+istioctl x version --xds-address istio.cloudprovider.example.com:15012
 
-# Retrieve version information directly from XDS, with security
-# (the certificates must be retrieved before this step)
-istioctl x version --xds-address localhost:15010 --cert-dir ~/.istio-certs
+# Retrieve version information via Kubernetes config, using token security
+# (This is the usual way to get the control plane version with an in-cluster control plane.)
+istioctl x version
 
-# Retrieve version information via XDS from all Istio pods in a Kubernetes cluster
-# (without security)
-istioctl x version --xds-port 15010
+# Retrieve version information directly from the control plane, using RSA certificate security
+# (Certificates must be obtained before this step.  The --cert-dir flag lets istioctl bypass the Kubernetes API server.)
+istioctl x version --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
 
-# Retrieve version information via XDS from all Istio pods in a Kubernetes cluster
-# (the certificates must be retrieved before this step)
-istioctl x version --cert-dir ~/.istio-certs
-
-# Retrieve version information via XDS from default control plane Istio pods
-# in a Kubernetes cluster, without security
-istioctl x version --xds-label istio.io/rev=default --xds-port 15010
+# Retrieve version information via XDS from specific control plane in multi-control plane in-cluster configuration
+# (Select a specific control plane in an in-cluster canary Istio configuration.)
+istioctl x version --xds-label istio.io/rev=default
 `
 
 	versionCmd.Flags().VisitAll(func(flag *pflag.Flag) {

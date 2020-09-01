@@ -36,13 +36,7 @@ import (
 var (
 	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 	// Enable interception of DNS.
-	// Will be moved to mesh config after it's stable.
-	// TODO: this captures everything, if we want to split cluster.local to TLS and
-	// keep using plain UDP for the rest - we'll need to add another rule to allow
-	// istio-proxy to send.
-	dnsCaptureByEnvoy = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to envoy on :15013")
-	dnsCaptureByAgent = env.RegisterStringVar("DNS_AGENT", "",
+	dnsCaptureByAgent = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
 		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 )
 

@@ -31,6 +31,7 @@ var _ model.XdsResourceGenerator = &LdsGenerator{}
 var skippedLdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.DestinationRule: {},
 	gvk.WorkloadGroup:   {},
+	gvk.Secret:          {},
 }
 
 func ldsNeedsPush(req *model.PushRequest) bool {

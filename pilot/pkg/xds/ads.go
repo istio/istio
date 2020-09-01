@@ -288,7 +288,7 @@ func (s *DiscoveryServer) StreamAggregatedResources(stream discovery.AggregatedD
 func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.DiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
-	// If there is an error in request that means previous response is errorneous.
+	// If there is an error in request that means previous response is erroneous.
 	// We do not have to respond in that case. In this case request's version info
 	// will be different from the version sent. But it is fragile to rely on that.
 	if request.ErrorDetail != nil {
@@ -562,12 +562,13 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 // PushOrder defines the order that updates will be pushed in. Any types not listed here will be pushed in random
 // order after the types listed here
-var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType}
+var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 var KnownPushOrder = map[string]struct{}{
 	v3.ClusterType:  {},
 	v3.EndpointType: {},
 	v3.ListenerType: {},
 	v3.RouteType:    {},
+	v3.SecretType:   {},
 }
 
 func getPushResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
@@ -655,10 +656,10 @@ func AdsPushAll(s *DiscoveryServer) {
 func (s *DiscoveryServer) AdsPushAll(version string, req *model.PushRequest) {
 	// If we don't know what updated, cannot safely cache. Clear the whole cache
 	if len(req.ConfigsUpdated) == 0 {
-		s.cache.ClearAll()
+		s.Cache.ClearAll()
 	} else {
 		// Otherwise, just clear the updated configs
-		s.cache.Clear(req.ConfigsUpdated)
+		s.Cache.Clear(req.ConfigsUpdated)
 	}
 	if !req.Full {
 		adsLog.Infof("XDS: Incremental Pushing:%s ConnectedEndpoints:%d",

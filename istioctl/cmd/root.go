@@ -229,6 +229,7 @@ debug and diagnose their Istio mesh.
 	postInstallWebhookCmd := Webhook()
 	postInstallWebhookCmd.Deprecated = deprecatedMsg
 	postInstallCmd.AddCommand(postInstallWebhookCmd)
+	experimentalCmd.AddCommand(workloadCommands())
 	experimentalCmd.AddCommand(postInstallCmd)
 
 	analyzeCmd := Analyze()

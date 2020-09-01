@@ -1,4 +1,4 @@
-// Copyright 2020 Istio Authors
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,47 +35,56 @@ import (
 	"istio.io/pkg/log"
 )
 
-// xds-agent runs an XDS server in agent, similar with the SDS server.
-//
+// Experimental
+// xds-generator runs an XDS generator server in agent, similar with the SDS server.
+// It fetches configs from istiod and generates xds configs locally.
 
 var (
-	// Used for debugging. Will also be used to recover in case XDS is unavailable, and to evaluate the
-	// caching. Key format and content should follow the new resource naming spec, will evolve with the spec.
-	// As Envoy implements the spec, they should be used directly by Envoy - while prototyping they can
-	// be handled by the proxy.
-	savePath = env.RegisterStringVar("XDS_SAVE", "",
-		"If set, the XDS proxy will save a snapshot of the received config")
-
-	// Can be used by Envoy or istioctl debug tools. Recommended value: 127.0.0.1:15002
-	xdsAddr = env.RegisterStringVar("XDS_LOCAL", "",
+	// Experimental. to evaluate the potential for generating all XDS configs locally.
+	localXDSGenListenAddr = env.RegisterStringVar("LOCAL_XDS_GENERATOR", "",
 		"Address for a local XDS proxy. If empty, the proxy is disabled")
 
-	// To configure envoy to use the proxy we'll set discoveryAddress to localhost
+	savePath = env.RegisterStringVar("LOCAL_XDS_GENERATOR_CONFIG_SAVE_PATH", "",
+		"If set, the XDS proxy will save a snapshot of the received config")
+
 	xdsUpstream = env.RegisterStringVar("XDS_UPSTREAM", "",
 		"Address for upstream XDS server. If not set, discoveryAddress is used")
 )
 
-// initXDS starts an XDS proxy server, using the adsc connection.
+type localXDSGenerator struct {
+	// used for local XDS generator portion.
+	listener   net.Listener
+	grpcServer *grpc.Server
+	xdsServer  *xds.SimpleServer
+	// ProxyGen is a generator for proxied types - will 'generate' XDS by using
+	// an adsc connection.
+	proxyGen *xds.ProxyGen
+}
+
+// initXDSGenerator starts an XDS proxy server, using the adsc connection.
 // Note that using 'xds.NewXDS' will create a generating server - i.e.
 // adsc would be used to get MCP-over-XDS, and the server would generate
 // configs.
-func (sa *Agent) initXDS() {
-	if sa.cfg.LocalXDSAddr == "" {
-		sa.cfg.LocalXDSAddr = xdsAddr.Get() // default using the env.
+func (sa *Agent) initXDSGenerator() {
+	if sa.cfg.LocalXDSGeneratorListenAddress == "" {
+		sa.cfg.LocalXDSGeneratorListenAddress = localXDSGenListenAddr.Get() // default using the env.
 	}
-	if sa.cfg.LocalXDSAddr == "" {
+	if sa.cfg.LocalXDSGeneratorListenAddress == "" {
 		return // not enabled
 	}
 	s := xds.NewXDS()
-	sa.xdsServer = s
-
 	p := s.NewProxy()
-	sa.proxyGen = p
+
+	sa.localXDSGenerator = &localXDSGenerator{
+		xdsServer: s,
+		proxyGen:  p,
+	}
+
 	// Configure the XDS server running in istio-agent.
 	// Code is shared with Istiod - meaning the internal connection handling, metrics, auth are common
 	// However we configure the generators differently - the MCP (API) generator for Istioctl uses the in-memory
 	// store, and should work the same with Istiod.
-	// TODO: forward any unknown request to the ADSC client, as a default
+	// TODO: forward any unknown request to the ADSC upstream, as a default
 	// -
 	g := s.DiscoveryServer.Generators
 	g["grpc"] = &grpcgen.GrpcConfigGenerator{}
@@ -87,38 +96,22 @@ func (sa *Agent) initXDS() {
 	g[xds.TypeURLConnections] = p
 	g[v3.ClusterType] = p
 
-	// GrpcServer server over UDS, shared by SDS and XDS
-	sa.secOpts.GrpcServer = grpc.NewServer()
-
 	var err error
-	sa.localListener, err = net.Listen("tcp", sa.cfg.LocalXDSAddr)
+	sa.localXDSGenerator.listener, err = net.Listen("tcp", sa.cfg.LocalXDSGeneratorListenAddress)
 	if err != nil {
 		log.Errorf("Failed to set up TCP path: %v", err)
 	}
-	sa.localGrpcServer = grpc.NewServer()
-	s.DiscoveryServer.Register(sa.localGrpcServer)
-	reflection.Register(sa.localGrpcServer)
-	sa.LocalXDSListener = sa.localListener
+	sa.localXDSGenerator.grpcServer = grpc.NewServer()
+	s.DiscoveryServer.Register(sa.localXDSGenerator.grpcServer)
+	reflection.Register(sa.localXDSGenerator.grpcServer)
 }
 
-func (sa *Agent) Close() {
-	if sa.localGrpcServer != nil {
-		sa.localGrpcServer.Stop()
-	}
-	_ = sa.localListener.Close()
-	_ = sa.LocalXDSListener.Close()
-	sa.proxyGen.Close()
-}
-
-// startXDS will start the XDS proxy and client. Will connect to Istiod (or XDS server),
+// startXDSGenerator will start the XDS proxy and upstream. Will connect to Istiod (or XDS server),
 // and start fetching configs to be cached.
 // If 'RequireCerts' is set, will attempt to get certificates. Will then attempt to connect to
 // the XDS server (istiod), and fetch the initial config. Once the config is ready, will start the
 // local XDS proxy and return.
-func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager, namespace string) error {
-	if sa.cfg.LocalXDSAddr == "" {
-		return nil
-	}
+func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets security.SecretManager, namespace string) error {
 	// Same as getPilotSan
 	addr := xdsUpstream.Get()
 	if addr == "" {
@@ -131,7 +124,9 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 
 	cfg := &adsc.Config{
 		XDSSAN:          discHost,
-		ResponseHandler: sa.proxyGen,
+		ResponseHandler: sa.localXDSGenerator.proxyGen,
+		XDSRootCAFile:   sa.FindRootCAForXDS(),
+		RootCert:        sa.RootCert,
 		GrpcOpts:        sa.cfg.GrpcOptions,
 		Namespace:       namespace,
 	}
@@ -150,8 +145,8 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	}
 
 	ads.LocalCacheDir = savePath.Get()
-	ads.Store = sa.xdsServer.MemoryConfigStore
-	ads.Registry = sa.xdsServer.DiscoveryServer.MemRegistry
+	ads.Store = sa.localXDSGenerator.xdsServer.MemoryConfigStore
+	ads.Registry = sa.localXDSGenerator.xdsServer.DiscoveryServer.MemRegistry
 
 	// Send requests for MCP configs, for caching/debugging.
 	ads.WatchConfig()
@@ -159,7 +154,7 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	// Send requests for normal envoy configs
 	ads.Watch()
 
-	sa.proxyGen.AddClient(ads)
+	sa.localXDSGenerator.proxyGen.AddClient(ads)
 
 	syncOk := ads.WaitConfigSync(10 * time.Second)
 	if !syncOk {
@@ -170,12 +165,23 @@ func (sa *Agent) startXDS(proxyConfig *meshconfig.ProxyConfig, secrets security.
 	// TODO: wait for config to sync before starting the rest
 	// TODO: handle push
 
-	if sa.localListener != nil {
+	if sa.localXDSGenerator.listener != nil {
 		go func() {
-			if err := sa.localGrpcServer.Serve(sa.localListener); err != nil {
+			if err := sa.localXDSGenerator.grpcServer.Serve(sa.localXDSGenerator.listener); err != nil {
 				log.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 			}
 		}()
 	}
 	return nil
+}
+
+func (sa *Agent) closeLocalXDSGenerator() {
+	if sa.localXDSGenerator == nil {
+		return
+	}
+	if sa.localXDSGenerator.grpcServer != nil {
+		sa.localXDSGenerator.grpcServer.Stop()
+	}
+	_ = sa.localXDSGenerator.listener.Close()
+	sa.localXDSGenerator.proxyGen.Close()
 }

@@ -217,6 +217,14 @@ var (
 			"Currently this is mutual exclusive - either Endpoints or EndpointSlices will be used",
 	).Get()
 
+	EnableSDSServer = env.RegisterBoolVar(
+		"ISTIOD_ENABLE_SDS_SERVER",
+		false,
+		"If enabled, Istiod will serve SDS for credentialName secrets (rather than in-proxy). "+
+			"To ensure proper security, PILOT_ENABLE_XDS_IDENTITY_CHECK=true is required as well. "+
+			"This option temporarily only supports gateways running in istio-system namespace.",
+	).Get()
+
 	EnableCRDValidation = env.RegisterBoolVar(
 		"PILOT_ENABLE_CRD_VALIDATION",
 		false,
@@ -332,4 +340,8 @@ var (
 
 	EnableEDSCaching = env.RegisterBoolVar("PILOT_ENABLE_EDS_CACHE", true,
 		"If true, Pilot will cache EDS responses.").Get()
+
+	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
+		"If true, Pilot will allow certs specified in Metadata to override DR certs in MUTUAL TLS mode. "+
+			"This is only enabled for migration and will be removed soon.").Get()
 )

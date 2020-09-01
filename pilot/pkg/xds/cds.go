@@ -36,6 +36,7 @@ var skippedCdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
+	gvk.Secret:                {},
 }
 
 func cdsNeedsPush(req *model.PushRequest) bool {
