@@ -362,8 +362,8 @@ func jsonUnmarshallOrFail(t *testing.T, context, s string) interface{} {
 	}
 	return val
 }
-func TestProxyStatus(t *testing.T) {
-	framework.NewTest(t).Features("usability.install.revision").
+func TestInstallEmptyRevision(t *testing.T) {
+	framework.NewTest(t).Features("installation.istioctl.install-revision").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 
@@ -375,7 +375,7 @@ func TestProxyStatus(t *testing.T) {
 }
 
 func TestProxyStatus(t *testing.T) {
-	framework.NewTest(t).Features("installation.istioctl.install-revision").
+	framework.NewTest(t).Features("usability.observability.proxy-status").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
