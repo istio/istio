@@ -22,6 +22,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+const (
+	defaultTimeoutDurationStr = "10m"
+)
+
 // New creates a rest.Config qne Clientset from the given kubeconfig path and Context.
 func New(kubeconfig, kubeContext string) (clientcmd.ClientConfig, *kubernetes.Clientset, error) {
 	clientConfig, err := defaultRestConfig(kubeconfig, kubeContext)
@@ -74,6 +78,7 @@ func buildClientConfig(kubeconfig, context string) (clientcmd.ClientConfig, erro
 	configOverrides := &clientcmd.ConfigOverrides{
 		ClusterDefaults: clientcmd.ClusterDefaults,
 		CurrentContext:  context,
+		Timeout:         defaultTimeoutDurationStr,
 	}
 
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides), nil
