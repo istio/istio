@@ -24,7 +24,6 @@ import (
 	"math"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -39,8 +38,6 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/config/constants"
 )
 
 const (
