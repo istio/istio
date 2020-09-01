@@ -38,11 +38,10 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/dns"
 	nds "istio.io/istio/pilot/pkg/proto"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/pkg/log"
 )
 
 const (
