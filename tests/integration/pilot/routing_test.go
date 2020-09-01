@@ -45,6 +45,9 @@ type TrafficTestCase struct {
 
 	// if enabled, we will assert the request fails, rather than the request succeeds
 	expectFailure bool
+
+	// allow overriding retry timeouts and delays
+	retryOptions []retry.Option
 }
 
 type TrafficCall struct {
@@ -362,6 +365,9 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 
 				// so we can validate all clusters are hit
 				callCount := callsPerCluster * len(destinations)
+				callTimeout := 5 * time.Second
+				// the test timeout should allow the individual requests to timeout
+				retryTimeout := callTimeout * time.Duration(callCount/10)
 				for _, call := range []struct {
 					// The port we call
 					port string
@@ -384,6 +390,7 @@ func protocolSniffingCases(ctx framework.TestContext) []TrafficTestCase {
 						validator: func(responses echoclient.ParsedResponses) error {
 							return responses.CheckOK()
 						},
+						retryOptions: []retry.Option{retry.Timeout(retryTimeout), retry.Delay(500 * time.Millisecond)},
 					})
 				}
 			}
@@ -610,7 +617,7 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase) {
 					return e
 				}
 				return nil
-			}, retry.Delay(time.Millisecond*100), retry.Timeout(time.Second*10), retry.Converge(3))
+			}, append([]retry.Option{retry.Delay(time.Millisecond * 100), retry.Timeout(time.Second * 10), retry.Converge(3)}, tt.retryOptions...)...)
 		}
 	})
 }
