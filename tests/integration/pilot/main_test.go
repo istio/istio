@@ -233,6 +233,8 @@ values:
 					DeployAsVM: true,
 					Subsets:    []echo.SubsetConfig{{}},
 					Cluster:    c[0],
+					// Must be enabled only if proxy_xds_via_agent is true
+					DNSCaptureOnVM: true,
 				})
 			}
 
