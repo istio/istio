@@ -134,7 +134,7 @@ func TestGenerate(t *testing.T) {
 	}{
 		{
 			name:      "simple",
-			proxy:     &model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"},
+			proxy:     &model.Proxy{IdentityVerified: true, Type: model.Router, ConfigNamespace: "istio-system"},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
@@ -146,21 +146,28 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "sidecar",
-			proxy:     &model.Proxy{ConfigNamespace: "istio-system"},
+			proxy:     &model.Proxy{IdentityVerified: true, ConfigNamespace: "istio-system"},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
 			expect:    map[string]Expected{},
 		},
 		{
 			name:      "mismatched namespace",
-			proxy:     &model.Proxy{Type: model.Router},
+			proxy:     &model.Proxy{IdentityVerified: true, Type: model.Router},
+			resources: []string{"kubernetes://generic"},
+			request:   &model.PushRequest{Full: true},
+			expect:    map[string]Expected{},
+		},
+		{
+			name:      "unauthenticated",
+			proxy:     &model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"},
 			resources: []string{"kubernetes://generic"},
 			request:   &model.PushRequest{Full: true},
 			expect:    map[string]Expected{},
 		},
 		{
 			name:  "multiple",
-			proxy: &model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"},
+			proxy: &model.Proxy{IdentityVerified: true, Type: model.Router, ConfigNamespace: "istio-system"},
 			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
 				"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert"},
 			request: &model.PushRequest{Full: true},
@@ -187,7 +194,7 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "full push with updates",
-			proxy:     &model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"},
+			proxy:     &model.Proxy{IdentityVerified: true, Type: model.Router, ConfigNamespace: "istio-system"},
 			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls"},
 			request: &model.PushRequest{Full: true, ConfigsUpdated: map[model.ConfigKey]struct{}{
 				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
@@ -205,7 +212,7 @@ func TestGenerate(t *testing.T) {
 		},
 		{
 			name:      "incremental push with updates",
-			proxy:     &model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"},
+			proxy:     &model.Proxy{IdentityVerified: true, Type: model.Router, ConfigNamespace: "istio-system"},
 			resources: []string{"kubernetes://generic", "kubernetes://generic-mtls"},
 			request: &model.PushRequest{Full: false, ConfigsUpdated: map[model.ConfigKey]struct{}{
 				{Name: "generic-mtls", Namespace: "istio-system", Kind: gvk.Secret}: {},
@@ -220,7 +227,7 @@ func TestGenerate(t *testing.T) {
 		{
 			// If an unknown resource is request, we return all the ones we do know about
 			name:      "unknown",
-			proxy:     &model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"},
+			proxy:     &model.Proxy{IdentityVerified: true, Type: model.Router, ConfigNamespace: "istio-system"},
 			resources: []string{"kubernetes://generic", "foo://invalid", "kubernetes://not-found"},
 			request:   &model.PushRequest{Full: true},
 			expect: map[string]Expected{
