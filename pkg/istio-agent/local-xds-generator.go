@@ -125,6 +125,8 @@ func (sa *Agent) startXDSGenerator(proxyConfig *meshconfig.ProxyConfig, secrets 
 	cfg := &adsc.Config{
 		XDSSAN:          discHost,
 		ResponseHandler: sa.localXDSGenerator.proxyGen,
+		XDSRootCAFile:   sa.FindRootCAForXDS(),
+		RootCert:        sa.RootCert,
 		GrpcOpts:        sa.cfg.GrpcOptions,
 		Namespace:       namespace,
 	}

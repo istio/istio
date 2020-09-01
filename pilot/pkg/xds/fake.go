@@ -214,7 +214,8 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 		Watch:     watch,
 		GrpcOpts: []grpc.DialOption{grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return f.listener.Dial()
-		})},
+		}),
+			grpc.WithInsecure()},
 	})
 	if err != nil {
 		f.t.Fatalf("Error connecting: %v", err)

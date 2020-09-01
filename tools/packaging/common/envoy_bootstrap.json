@@ -146,9 +146,44 @@
       "transport_api_version": "V3",
       "grpc_services": [
         {
+        {{ if .call_credentials }}
+        "google_grpc": {
+          "target_uri": "{{ .discovery_address }}",
+          "stat_prefix": "googlegrpcxds",
+          "channel_credentials": {
+            "ssl_credentials": {
+              "root_certs": {
+                "filename": "{{- .provisioned_cert }}"
+              }
+            }
+          },
+          "call_credentials": {
+              "sts_service": {
+                "token_exchange_service_uri": "http://localhost:{{ .sts_port }}/token",
+                "subject_token_path": "./var/run/secrets/tokens/istio-token",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+              }
+           },
+           "channel_args": {
+              "args": {
+                "grpc.http2.max_pings_without_data": {
+                  "int_value": 0
+                },
+                "grpc.keepalive_time_ms": {
+                  "int_value": 10000
+                },
+                "grpc.keepalive_timeout_ms": {
+                  "int_value": 20000
+                }
+              }
+            }
+
+       }
+         {{ else }}
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
+        {{ end }}
         }
       ]
     }
@@ -219,8 +254,8 @@
             }]
           }]
         }
-      },
-      {
+      } {{ if .call_credentials }}{{ else }}
+       , {
         "name": "xds-grpc",
         {{- if .proxy_via_agent }}
         "type" : "STATIC",
@@ -262,14 +297,8 @@
               ],
               "validation_context": {
                 "trusted_ca": {
-                  {{- if .provisioned_cert }}
-                  "filename": "{{(printf "%s%s" .provisioned_cert "/root-cert.pem") }}"
-                  {{- else if eq .pilot_cert_provider "kubernetes" }}
-                  "filename": "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-                  {{- else if eq .pilot_cert_provider "istiod" }}
-                  "filename": "./var/run/secrets/istio/root-cert.pem"
-                  {{- end }}
-                },
+                  "filename": "{{- .provisioned_cert }}"
+                 },
                 "match_subject_alt_names": {{ .pilot_SAN }}
               }
             }
@@ -319,6 +348,7 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
+      {{ end }}
       {{ if .zipkin }}
       ,
       {
