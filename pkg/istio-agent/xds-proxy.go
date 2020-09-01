@@ -67,7 +67,7 @@ var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 // single tcp connection with multiple gRPC streams.
 // TODO: Right now, the workloadSDS server and gatewaySDS servers are still separate
 // connections. These need to be consolidated
-func initXdsProxy(sa *Agent) (*XdsProxy, error) {
+func initXdsProxy(sa *Agent, isSidecar bool) (*XdsProxy, error) {
 	var err error
 	proxy := &XdsProxy{
 		istiodAddress: sa.proxyConfig.DiscoveryAddress,
@@ -81,7 +81,8 @@ func initXdsProxy(sa *Agent) (*XdsProxy, error) {
 		return nil, err
 	}
 
-	if sa.cfg.DNSCapture != "" {
+	// we dont need dns server on gateways
+	if sa.cfg.DNSCapture != "" && isSidecar {
 		if proxy.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
 			return nil, err
 		}

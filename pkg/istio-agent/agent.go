@@ -265,8 +265,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	}
 
 	if sa.cfg.ProxyXDSViaAgent {
-		// TODO: Merge pieces with the nodeagent code
-		sa.xdsProxy, err = initXdsProxy(sa)
+		sa.xdsProxy, err = initXdsProxy(sa, isSidecar)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
 		}
