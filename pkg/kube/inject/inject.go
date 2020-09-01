@@ -35,7 +35,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,7 +47,9 @@ import (
 	yamlDecoder "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
@@ -461,12 +463,6 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 		return nil, "", err
 	}
 
-	values := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
-		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
-		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
-	}
-
 	if pca, f := metadata.GetAnnotations()[annotation.ProxyConfig.Name]; f {
 		var merr error
 		meshConfig, merr = mesh.ApplyProxyConfig(pca, *meshConfig)
@@ -474,6 +470,41 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 			return nil, "", merr
 		}
 	}
+
+	valuesStruct := &opconfig.Values{}
+	if err := gogoprotomarshal.ApplyYAML(params.valuesConfig, valuesStruct); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
+		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
+	}
+
+	cluster := valuesStruct.GetGlobal().GetMultiCluster().GetClusterName()
+	network := valuesStruct.GetGlobal().GetNetwork()
+	// params may be set from webhook URL, take priority over values yaml
+	if params.proxyEnvs["ISTIO_META_CLUSTER"] != "" {
+		cluster = params.proxyEnvs["ISTIO_META_CLUSTER_ID"]
+	}
+	if params.proxyEnvs["ISTIO_META_NETWORK"] != "" {
+		network = params.proxyEnvs["ISTIO_META_NETWORK"]
+	}
+	// explicit label takes highest precedence
+	if n, ok := metadata.Labels[label.IstioNetwork]; ok {
+		network = n
+	}
+
+	// use network in values for template, and proxy env variables
+	if cluster != "" {
+		params.proxyEnvs["ISTIO_META_CLUSTER_ID"] = cluster
+	}
+	if network != "" {
+		params.proxyEnvs["ISTIO_META_NETWORK"] = network
+	}
+
+	values := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(params.valuesConfig), &values); err != nil {
+		log.Infof("Failed to parse values config: %v [%v]\n", err, params.valuesConfig)
+		return nil, "", multierror.Prefix(err, "could not parse configuration values:")
+	}
+
 	data := SidecarTemplateData{
 		TypeMeta:       typeMetadata,
 		DeploymentMeta: deploymentMetadata,
@@ -542,8 +573,6 @@ func InjectionData(params InjectionParameters, typeMetadata *metav1.TypeMeta, de
 
 	// set sidecar --concurrency
 	applyConcurrency(sic.Containers)
-
-	// overwrite cluster name and network if needed
 	overwriteClusterInfo(sic.Containers, params)
 
 	status := &SidecarInjectionStatus{Version: params.version}
@@ -765,8 +794,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 		meshConfig:          meshconfig,
 		valuesConfig:        valuesConfig,
 		revision:            revision,
-		clusterName:         "",
-		clusterNetwork:      "",
+		proxyEnvs:           map[string]string{},
 		injectedAnnotations: nil,
 	}
 	patchBytes, err := injectPod(params)
@@ -777,7 +805,7 @@ func IntoObject(sidecarTemplate string, valuesConfig string, revision string, me
 	if err != nil {
 		return nil, err
 	}
-	patchedObject, _, err := jsonSerializer.Decode(patched, nil, pod)
+	patchedObject, _, err := jsonSerializer.Decode(patched, nil, &corev1.Pod{})
 	if err != nil {
 		return nil, err
 	}
@@ -1061,27 +1089,28 @@ func potentialPodName(metadata *metav1.ObjectMeta) string {
 // overwriteClusterInfo updates cluster name and network from url path
 // This is needed when webconfig config runs on a different cluster than webhook
 func overwriteClusterInfo(containers []corev1.Container, params InjectionParameters) {
-	for _, c := range containers {
-		if c.Name == ProxyContainerName {
-			if params.clusterName != "" {
-				updateEnvVar(&c, "ISTIO_META_CLUSTER_ID", params.clusterName)
-			}
-			if params.clusterNetwork != "" {
-				updateEnvVar(&c, "ISTIO_META_NETWORK", params.clusterNetwork)
+	if len(params.proxyEnvs) > 0 {
+		log.Debugf("Updating cluster envs based on inject url: %s\n", params.proxyEnvs)
+		for i, c := range containers {
+			if c.Name == ProxyContainerName {
+				updateClusterEnvs(&containers[i], params.proxyEnvs)
+				break
 			}
 		}
 	}
 }
 
-func updateEnvVar(c *corev1.Container, key string, value string) {
+func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 	envVars := make([]corev1.EnvVar, 0)
-	for _, env := range c.Env {
-		if env.Name != key {
+
+	for _, env := range container.Env {
+		if _, found := newKVs[env.Name]; !found {
 			envVars = append(envVars, env)
 		}
 	}
-	log.Debugf("Appending env %v=%s", key, value)
-	envVars = append(envVars,
-		corev1.EnvVar{Name: key, Value: value, ValueFrom: nil})
-	c.Env = envVars
+	for k, v := range newKVs {
+		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v, ValueFrom: nil})
+	}
+
+	container.Env = envVars
 }

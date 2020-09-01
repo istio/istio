@@ -63,8 +63,6 @@ type ListenerBuilder struct {
 	httpProxyListener       *listener.Listener
 	virtualOutboundListener *listener.Listener
 	virtualInboundListener  *listener.Listener
-	// UDP listener for local dns resolution in Envoy
-	dnsListener *listener.Listener
 }
 
 // Setup the filter chain match so that the match should work under both
@@ -202,11 +200,6 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(configgen *ConfigGenera
 	return lb
 }
 
-func (lb *ListenerBuilder) buildSidecarDNSListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
-	lb.dnsListener = configgen.buildSidecarDNSListener(lb.node, lb.push)
-	return lb
-}
-
 func (lb *ListenerBuilder) buildHTTPProxyListener(configgen *ConfigGeneratorImpl) *ListenerBuilder {
 	httpProxy := configgen.buildHTTPProxy(lb.node, lb.push)
 	if httpProxy == nil {
@@ -238,7 +231,6 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener(configgen *ConfigGenerat
 		FilterChains:                        filterChains,
 		TrafficDirection:                    core.TrafficDirection_OUTBOUND,
 	}
-	configgen.onVirtualOutboundListener(lb.node, lb.push, ipTablesListener)
 	lb.virtualOutboundListener = ipTablesListener
 	return lb
 }
@@ -289,7 +281,6 @@ func (lb *ListenerBuilder) patchListeners() {
 	}
 
 	lb.virtualOutboundListener = lb.patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
-	lb.dnsListener = lb.patchOneListener(lb.dnsListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
 	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
 	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node,
 		lb.push, lb.inboundListeners, false)
@@ -300,7 +291,7 @@ func (lb *ListenerBuilder) patchListeners() {
 func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	if lb.node.Type == model.SidecarProxy {
 		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
-		nHTTPProxy, nVirtual, nVirtualInbound, nDNS := 0, 0, 0, 0
+		nHTTPProxy, nVirtual, nVirtualInbound := 0, 0, 0
 		if lb.httpProxyListener != nil {
 			nHTTPProxy = 1
 		}
@@ -310,11 +301,8 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 		if lb.virtualInboundListener != nil {
 			nVirtualInbound = 1
 		}
-		if lb.dnsListener != nil {
-			nDNS = 1
-		}
 
-		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound + nDNS
+		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual + nVirtualInbound
 
 		listeners := make([]*listener.Listener, 0, nListener)
 		listeners = append(listeners, lb.inboundListeners...)
@@ -328,19 +316,15 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 		if lb.virtualInboundListener != nil {
 			listeners = append(listeners, lb.virtualInboundListener)
 		}
-		if lb.dnsListener != nil {
-			listeners = append(listeners, lb.dnsListener)
-		}
 
 		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
-			"%d virtual outbound and %d virtual inbound listeners, and %d DNS listener",
+			"%d virtual outbound and %d virtual inbound listeners",
 			nListener,
 			lb.node.ID,
 			nOutbound,
 			nHTTPProxy,
 			nVirtual,
-			nVirtualInbound,
-			nDNS)
+			nVirtualInbound)
 		return listeners
 	}
 
@@ -376,7 +360,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 			matchingIP = "::0/0"
 		}
 
-		setAccessLog(push, tcpProxy)
+		accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy)
 		tcpProxyFilter := &listener.Filter{
 			Name:       wellknown.TCPProxy,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},
@@ -448,8 +432,7 @@ func buildInboundCatchAllNetworkFilterChains(configgen *ConfigGeneratorImpl,
 	return filterChains, needTLS
 }
 
-func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
-	node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
+func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl, node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
 	// ipv4 and ipv6 feature detect
 	ipVersions := make([]string, 0, 2)
 	if node.SupportsIPv4() {
@@ -475,13 +458,10 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 		}
 
 		in := &plugin.InputParams{
-			ListenerProtocol:   istionetworking.ListenerProtocolHTTP,
-			Node:               node,
-			ServiceInstance:    dummyServiceInstance,
-			Port:               port,
-			Push:               push,
-			Bind:               matchingIP,
-			InboundClusterName: clusterName,
+			ListenerProtocol: istionetworking.ListenerProtocolHTTP,
+			Node:             node,
+			ServiceInstance:  dummyServiceInstance,
+			Push:             push,
 		}
 		// Call plugins to install authn/authz policies.
 		var allChains []istionetworking.FilterChain
@@ -516,11 +496,17 @@ func buildInboundCatchAllHTTPFilterChains(configgen *ConfigGeneratorImpl,
 			}
 		}
 
+		listenerOpts := buildListenerOpts{
+			push:  push,
+			proxy: node,
+			bind:  matchingIP,
+			port:  port,
+		}
 		// Construct the actual filter chains for each of the filter chain from the plugin.
 		for _, chain := range allChains {
-			httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in)
+			httpOpts := configgen.buildSidecarInboundHTTPListenerOptsForPortOrUDS(node, in, clusterName)
 			httpOpts.statPrefix = clusterName
-			connectionManager := buildHTTPConnectionManager(in, httpOpts, chain.HTTP)
+			connectionManager := buildHTTPConnectionManager(listenerOpts, httpOpts, chain.HTTP)
 
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,
@@ -574,7 +560,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 	}
-	setAccessLog(push, tcpProxy)
+	accessLogBuilder.setTCPAccessLog(push.Mesh, tcpProxy)
 	filterStack = append(filterStack, &listener.Filter{
 		Name:       wellknown.TCPProxy,
 		ConfigType: &listener.Filter_TypedConfig{TypedConfig: util.MessageToAny(tcpProxy)},

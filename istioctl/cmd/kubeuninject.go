@@ -42,11 +42,14 @@ import (
 const (
 	annotationPolicy            = "sidecar.istio.io/inject"
 	certVolumeName              = "istio-certs"
+	dataVolumeName              = "istio-data"
 	enableCoreDumpContainerName = "enable-core-dump"
 	envoyVolumeName             = "istio-envoy"
 	initContainerName           = "istio-init"
 	initValidationContainerName = "istio-validation"
 	jwtTokenVolumeName          = "istio-token"
+	pilotCertVolumeName         = "istiod-ca-cert"
+	podInfoVolumeName           = "istio-podinfo"
 	proxyContainerName          = "istio-proxy"
 	sidecarAnnotationPrefix     = "sidecar.istio.io"
 )
@@ -322,8 +325,12 @@ func extractObject(in runtime.Object) (interface{}, error) {
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initValidationContainerName)
 	podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
 	podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
-	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
 	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, dataVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, pilotCertVolumeName)
+	podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, podInfoVolumeName)
 	removeDNSConfig(podSpec.DNSConfig)
 
 	return out, nil

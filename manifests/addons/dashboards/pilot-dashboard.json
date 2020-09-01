@@ -1129,7 +1129,7 @@
           "refId": "B"
         },
         {
-          "expr": "pilot_xds{app=\"istiod\"}",
+          "expr": "sum(pilot_xds{app=\"istiod\"}) by (instance)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Connected Endpoints",
@@ -1760,7 +1760,27 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "default",
+          "value": "default"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": null,
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
   },
   "time": {
     "from": "now-5m",

@@ -17,9 +17,6 @@ package authn
 import (
 	"fmt"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/plugin"
@@ -53,10 +50,6 @@ func (Plugin) OnOutboundListener(in *plugin.InputParams, mutable *networking.Mut
 	}
 
 	return buildFilter(in, mutable)
-}
-
-func (Plugin) OnOutboundPassthroughFilterChain(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	return nil
 }
 
 // OnInboundListener is called whenever a new listener is added to the LDS output for a given service
@@ -95,27 +88,6 @@ func buildFilter(in *plugin.InputParams, mutable *networking.MutableObjects) err
 	}
 
 	return nil
-}
-
-// OnVirtualListener implments the Plugin interface method.
-func (Plugin) OnVirtualListener(in *plugin.InputParams, mutable *networking.MutableObjects) error {
-	return nil
-}
-
-// OnInboundCluster implements the Plugin interface method.
-func (Plugin) OnInboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
-}
-
-// OnOutboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnOutboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
-}
-
-// OnInboundRouteConfiguration implements the Plugin interface method.
-func (Plugin) OnInboundRouteConfiguration(in *plugin.InputParams, route *route.RouteConfiguration) {
-}
-
-// OnOutboundCluster implements the Plugin interface method.
-func (Plugin) OnOutboundCluster(in *plugin.InputParams, cluster *cluster.Cluster) {
 }
 
 // OnInboundPassthrough is called whenever a new passthrough filter chain is added to the LDS output.

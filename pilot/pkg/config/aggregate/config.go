@@ -21,8 +21,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/pkg/ledger"
 	"istio.io/pkg/log"
 )
@@ -33,7 +33,7 @@ var errorUnsupported = errors.New("unsupported operation: the config aggregator 
 // unifies their descriptors
 func Make(stores []model.ConfigStore) (model.ConfigStore, error) {
 	union := collection.NewSchemasBuilder()
-	storeTypes := make(map[resource.GroupVersionKind][]model.ConfigStore)
+	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
 			if len(storeTypes[s.Resource().GroupVersionKind()]) == 0 {
@@ -93,7 +93,7 @@ type store struct {
 	schemas collection.Schemas
 
 	// stores is a mapping from config type to a store
-	stores map[resource.GroupVersionKind][]model.ConfigStore
+	stores map[config.GroupVersionKind][]model.ConfigStore
 
 	getVersion func() string
 
@@ -124,7 +124,7 @@ func (cr *store) Version() string {
 }
 
 // Get the first config found in the stores.
-func (cr *store) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
+func (cr *store) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	for _, store := range cr.stores[typ] {
 		config := store.Get(typ, name, namespace)
 		if config != nil {
@@ -135,12 +135,12 @@ func (cr *store) Get(typ resource.GroupVersionKind, name, namespace string) *mod
 }
 
 // List all configs in the stores.
-func (cr *store) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	if len(cr.stores[typ]) == 0 {
 		return nil, nil
 	}
 	var errs *multierror.Error
-	var configs []model.Config
+	var configs []config.Config
 	// Used to remove duplicated config
 	configMap := make(map[string]struct{})
 
@@ -161,15 +161,15 @@ func (cr *store) List(typ resource.GroupVersionKind, namespace string) ([]model.
 	return configs, errs.ErrorOrNil()
 }
 
-func (cr *store) Delete(_ resource.GroupVersionKind, _, _ string) error {
+func (cr *store) Delete(_ config.GroupVersionKind, _, _ string) error {
 	return errorUnsupported
 }
 
-func (cr *store) Create(model.Config) (string, error) {
+func (cr *store) Create(config.Config) (string, error) {
 	return "", errorUnsupported
 }
 
-func (cr *store) Update(model.Config) (string, error) {
+func (cr *store) Update(config.Config) (string, error) {
 	return "", errorUnsupported
 }
 
@@ -187,7 +187,7 @@ func (cr *storeCache) HasSynced() bool {
 	return true
 }
 
-func (cr *storeCache) RegisterEventHandler(kind resource.GroupVersionKind, handler func(model.Config, model.Config, model.Event)) {
+func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
 	for _, cache := range cr.caches {
 		if _, exists := cache.Schemas().FindByGroupVersionKind(kind); exists {
 			cache.RegisterEventHandler(kind, handler)

@@ -105,5 +105,8 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("BaseDir:           %s\n", s.BaseDir)
 	result += fmt.Sprintf("Selector:          %v\n", s.Selector)
 	result += fmt.Sprintf("FailOnDeprecation: %v\n", s.FailOnDeprecation)
+	result += fmt.Sprintf("CIMode:            %v\n", s.CIMode)
+	result += fmt.Sprintf("Retries:           %v\n", s.Retries)
+	result += fmt.Sprintf("StableNamespaces:  %v\n", s.StableNamespaces)
 	return result
 }

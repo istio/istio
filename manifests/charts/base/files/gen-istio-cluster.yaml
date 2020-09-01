@@ -2540,7 +2540,7 @@ spec:
                       type: object
                     type: array
                   timeout:
-                    description: Timeout for HTTP requests.
+                    description: Timeout for HTTP requests, default is disabled.
                     type: string
                 type: object
               type: array
@@ -3566,7 +3566,7 @@ subjects:
     name: istiod-service-account
     namespace: istio-system
 ---
-# Source: base/templates/clusterrole.yaml
+# Source: base/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -3588,14 +3588,14 @@ rules:
   # TODO lock this down to istio-ca-cert if not using the DNS cert mesh config
   verbs: ["create", "get", "watch", "list", "update", "delete"]
 ---
-# Source: base/templates/clusterrolebinding.yaml
+# Source: base/templates/rolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: istiod-istio-system
   namespace: istio-system
   labels:
-    app: pilot
+    app: istiod
     release: istio
 roleRef:
   apiGroup: rbac.authorization.k8s.io

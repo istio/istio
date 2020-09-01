@@ -84,7 +84,7 @@ func TestIsNPathElement(t *testing.T) {
 		{
 			desc:   "negative-1",
 			in:     "[-1]",
-			expect: false,
+			expect: true,
 		},
 		{
 			desc:   "valid",

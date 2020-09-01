@@ -16,12 +16,14 @@ package xdstest
 
 import (
 	"reflect"
+	"sort"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcpproxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/proto"
@@ -114,13 +116,16 @@ func ExtractEndpoints(cla *endpoint.ClusterLoadAssignment) []string {
 	return got
 }
 
-func ExtractCluster(name string, cc []*cluster.Cluster) *cluster.Cluster {
+func ExtractClusters(cc []*cluster.Cluster) map[string]*cluster.Cluster {
+	res := map[string]*cluster.Cluster{}
 	for _, c := range cc {
-		if c.Name == name {
-			return c
-		}
+		res[c.Name] = c
 	}
-	return nil
+	return res
+}
+
+func ExtractCluster(name string, cc []*cluster.Cluster) *cluster.Cluster {
+	return ExtractClusters(cc)[name]
 }
 
 func ExtractClusterEndpoints(clusters []*cluster.Cluster) map[string][]string {
@@ -141,6 +146,28 @@ func ExtractEdsClusterNames(cl []*cluster.Cluster) []string {
 			}
 		}
 		res = append(res, c.Name)
+	}
+	return res
+}
+
+func ExtractTLSSecrets(t test.Failer, secrets []*any.Any) map[string]*tls.Secret {
+	res := map[string]*tls.Secret{}
+	for _, a := range secrets {
+		scrt := &tls.Secret{}
+		if err := ptypes.UnmarshalAny(a, scrt); err != nil {
+			t.Fatal(err)
+		}
+		res[scrt.Name] = scrt
+	}
+	return res
+}
+
+func FilterClusters(cl []*cluster.Cluster, f func(c *cluster.Cluster) bool) []*cluster.Cluster {
+	res := make([]*cluster.Cluster, 0, len(cl))
+	for _, c := range cl {
+		if f(c) {
+			res = append(res, c)
+		}
 	}
 	return res
 }
@@ -173,4 +200,14 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	}
 
 	return ret
+}
+
+func MapKeys(mp interface{}) []string {
+	keys := reflect.ValueOf(mp).MapKeys()
+	res := []string{}
+	for _, k := range keys {
+		res = append(res, k.String())
+	}
+	sort.Strings(res)
+	return res
 }

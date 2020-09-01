@@ -207,7 +207,7 @@ spec:
       - destination:
           host: c
           subset: v2
-        weight: 25`
+        weight: 15`
 	invalidVirtualServiceV1Beta1 = `
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService

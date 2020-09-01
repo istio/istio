@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/sets"
 	v2 "istio.io/istio/pilot/pkg/xds/v2"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
@@ -124,7 +124,7 @@ type DiscoveryServer struct {
 	debounceOptions debounceOptions
 
 	// Cache for XDS resources
-	cache Cache
+	Cache model.XdsCache
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -165,7 +165,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-		cache: DisabledCache{},
+		Cache: model.DisabledCache{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -176,7 +176,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 	out.initGenerators()
 
 	if features.EnableEDSCaching {
-		out.cache = New()
+		out.Cache = model.NewXdsCache()
 	}
 
 	return out
@@ -186,11 +186,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// Register v3 server
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
-}
-
-func (s *DiscoveryServer) RegisterLegacyv2(rpcs *grpc.Server) {
-	// Register v2 server just for compatibility with gRPC. When gRPC v3 comes out, we can drop this
-	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
@@ -473,8 +468,15 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 
 // initGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) initGenerators() {
+	edsGen := &EdsGenerator{Server: s}
+	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
+	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
+	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
+	s.Generators[v3.EndpointType] = edsGen
+	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
+
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	epGen := &EdsGenerator{Server: s}
+	epGen := &EdsV2Generator{edsGen}
 	s.Generators["grpc/"+v2.EndpointType] = epGen
 	s.Generators["api"] = &apigen.APIGenerator{}
 	s.Generators["api/"+v2.EndpointType] = epGen

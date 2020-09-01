@@ -4,14 +4,15 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_lightstep","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"lightstep":{"accessToken":"abcdefg1234567","address":"lightstep-satellite:8080"}}},"SDS":"true"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_lightstep","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"lightstep":{"accessToken":"abcdefg1234567","address":"lightstep-satellite:8080"}}}}
   },
   "layered_runtime": {
       "layers": [
           {
               "name": "deprecation",
               "static_layer": {
-                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+                  "re2.max_program_size.error_level": 1024
               }
           },
           {
@@ -248,9 +249,11 @@
       "transport_api_version": "V3",
       "grpc_services": [
         {
+        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
+        
         }
       ]
     }
@@ -321,8 +324,8 @@
             }]
           }]
         }
-      },
-      {
+      } 
+       , {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -366,6 +369,7 @@
         "http2_protocol_options": { }
       }
       
+      
       ,
       {
         "name": "lightstep",
@@ -404,7 +408,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -430,7 +434,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -453,7 +457,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -479,7 +483,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -495,7 +499,7 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.lightstep",
+      "name": "envoy.tracers.lightstep",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.trace.v3.LightstepConfig",
         "collector_cluster": "lightstep",

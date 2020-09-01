@@ -30,13 +30,14 @@ import (
 var (
 	// settableFlags are the flags used to istioctl
 	settableFlags = map[string]interface{}{
-		"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", controller.IstioNamespace, "istioctl --istioNamespace override"),
-		"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "istioctl --xds-address override"),
-		"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "istioctl --xds-port override"),
-		"authority":           env.RegisterStringVar("ISTIOCTL_AUTHORITY", "", "istioctl --authority override"),
-		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "istioctl --cert-dir override"),
-		"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "istioctl --insecure override"),
-		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "istioctl should use experimental subcommand variants"),
+		"istioNamespace":      env.RegisterStringVar("ISTIOCTL_ISTIONAMESPACE", controller.IstioNamespace, "The istioctl --istioNamespace override"),
+		"xds-address":         env.RegisterStringVar("ISTIOCTL_XDS_ADDRESS", "", "The istioctl --xds-address override"),
+		"xds-port":            env.RegisterIntVar("ISTIOCTL_XDS_PORT", 15012, "The istioctl --xds-port override"),
+		"authority":           env.RegisterStringVar("ISTIOCTL_AUTHORITY", "", "The istioctl --authority override"),
+		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "The istioctl --cert-dir override"),
+		"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "The istioctl --insecure override"),
+		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "The istioctl should use experimental subcommand variants"),
+		"plaintext":           env.RegisterBoolVar("ISTIOCTL_PLAINTEXT", false, "The istioctl --plaintext override"),
 	}
 )
 

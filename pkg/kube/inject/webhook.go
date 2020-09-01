@@ -48,10 +48,14 @@ import (
 )
 
 var (
-	runtimeScheme  = runtime.NewScheme()
-	codecs         = serializer.NewCodecFactory(runtimeScheme)
-	deserializer   = codecs.UniversalDeserializer()
-	jsonSerializer = kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, runtimeScheme, runtimeScheme, kjson.SerializerOptions{})
+	runtimeScheme     = runtime.NewScheme()
+	codecs            = serializer.NewCodecFactory(runtimeScheme)
+	deserializer      = codecs.UniversalDeserializer()
+	jsonSerializer    = kjson.NewSerializerWithOptions(kjson.DefaultMetaFactory, runtimeScheme, runtimeScheme, kjson.SerializerOptions{})
+	URLParameterToEnv = map[string]string{
+		"cluster": "ISTIO_META_CLUSTER_ID",
+		"net":     "ISTIO_META_NETWORK",
+	}
 )
 
 func init() {
@@ -506,13 +510,6 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 
 	var patch []rfc6902PatchOperation
 
-	// Remove any containers previously injected by kube-inject using
-	// container and volume name as unique key for removal.
-	patch = append(patch, removeContainers(pod.Spec.InitContainers, prevStatus.InitContainers, "/spec/initContainers")...)
-	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
-	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
-	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
-
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
 
 	sidecar := FindSidecar(sic.Containers)
@@ -522,6 +519,17 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
 	}
+
+	if rewrite {
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
+	}
+
+	// Remove any containers previously injected by kube-inject using
+	// container and volume name as unique key for removal.
+	patch = append(patch, removeContainers(pod.Spec.InitContainers, prevStatus.InitContainers, "/spec/initContainers")...)
+	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
+	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
+	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
 		scrape := status.PrometheusScrapeConfiguration{
@@ -557,18 +565,33 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	canonicalSvc, canonicalRev := extractCanonicalServiceLabels(pod.Labels, workloadName)
-	patch = append(patch, addLabels(pod.Labels, map[string]string{
+	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, workloadName)
+	patchLabels := map[string]string{
 		label.TLSMode:                                model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
 		label.IstioRev:                               revision,
-		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
-
-	if rewrite {
-		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
+		model.IstioCanonicalServiceRevisionLabelName: canonicalRev,
 	}
+	if network := topologyValues(sic); network != "" {
+		// only added if if not already set
+		patchLabels[label.IstioNetwork] = network
+	}
+	patch = append(patch, addLabels(pod.Labels, patchLabels)...)
 
 	return json.Marshal(patch)
+}
+
+// topologyValues will find the value of ISTIO_META_NETWORK in the spec or return a zero-value
+func topologyValues(sic *SidecarInjectionSpec) string {
+	// TODO should we just return the values used to populate the template from InjectionData?
+	for _, c := range sic.Containers {
+		for _, e := range c.Env {
+			if e.Name == "ISTIO_META_NETWORK" {
+				return e.Value
+			}
+		}
+	}
+	return ""
 }
 
 func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {
@@ -590,7 +613,7 @@ func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) 
 	return true
 }
 
-func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
+func ExtractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
 	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
 }
 
@@ -678,8 +701,7 @@ type InjectionParameters struct {
 	meshConfig          *meshconfig.MeshConfig
 	valuesConfig        string
 	revision            string
-	clusterName         string
-	clusterNetwork      string
+	proxyEnvs           map[string]string
 	injectedAnnotations map[string]string
 }
 
@@ -791,15 +813,6 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		}
 	}
 
-	clusterName, clusterNetwork := "", ""
-	res := strings.Split(path, "/")
-	if len(res) >= 5 {
-		// if len is less than 5, not enough length for /cluster/X/net/Y
-		clusterName = res[len(res)-3]
-		clusterNetwork = res[len(res)-1]
-
-		log.Debugf("Updating cluster info based on clusterName: %s clusterNetwork: %s\n", clusterName, clusterNetwork)
-	}
 	deploy, typeMeta := getDeployMetaFromPod(&pod)
 	params := InjectionParameters{
 		pod:                 &pod,
@@ -811,9 +824,9 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
-		clusterName:         clusterName,
-		clusterNetwork:      clusterNetwork,
+		proxyEnvs:           parseInjectEnvs(path),
 	}
+
 	patchBytes, err := injectPod(params)
 	if err != nil {
 		handleError(fmt.Sprintf("Pod injection failed: %v", err))
@@ -897,6 +910,33 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("Could not write response: %v", err)
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 	}
+}
+
+// parseInjectEnvs parse new envs from inject url path
+// follow format: /inject/k1/v1/k2/v2, any kv order works
+// eg. "/inject/cluster/cluster1", "/inject/net/network1/cluster/cluster1"
+func parseInjectEnvs(path string) map[string]string {
+	path = strings.TrimSuffix(path, "/")
+	res := strings.Split(path, "/")
+	newEnvs := make(map[string]string)
+
+	for i := 2; i < len(res); i += 2 { // skip '/inject'
+		k := res[i]
+		if i == len(res)-1 { // ignore the last key without value
+			log.Warnf("Odd number of inject env entries, ignore the last key %s\n", k)
+			break
+		}
+
+		env, found := URLParameterToEnv[k]
+		if !found {
+			env = strings.ToUpper(k) // if not found, use the custom env directly
+		}
+		if env != "" {
+			newEnvs[env] = res[i+1]
+		}
+	}
+
+	return newEnvs
 }
 
 func handleError(message string) {

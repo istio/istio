@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/httpserver"
 	"istio.io/istio/operator/pkg/util/tgz"
+	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/pkg/version"
 )
@@ -658,12 +659,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				}
 			}
 
-			if refreshGoldenFiles() {
-				t.Logf("Refreshing golden file for %s", outPath)
-				if err := ioutil.WriteFile(outPath, []byte(got), 0644); err != nil {
-					t.Error(err)
-				}
-			}
+			tutil.RefreshGoldenFile([]byte(got), outPath, t)
 
 			want, err := readFile(outPath)
 			if err != nil {

@@ -214,11 +214,15 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		}
 
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initContainerName)
+		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, initValidationContainerName)
 		podSpec.InitContainers = removeInjectedContainers(podSpec.InitContainers, enableCoreDumpContainerName)
 		podSpec.Containers = removeInjectedContainers(podSpec.Containers, proxyContainerName)
-		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, certVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, dataVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, envoyVolumeName)
 		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, jwtTokenVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, pilotCertVolumeName)
+		podSpec.Volumes = removeInjectedVolumes(podSpec.Volumes, podInfoVolumeName)
 		removeDNSConfig(podSpec.DNSConfig)
 		res.Spec.Template.Spec = *podSpec
 		// If we are in an auto-inject namespace, removing the sidecar isn't enough, we
@@ -233,9 +237,10 @@ func unInjectSideCarFromDeployment(client kubernetes.Interface, deps []appsv1.De
 		}
 		d := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      dep.Name,
-				Namespace: dep.Namespace,
-				UID:       dep.UID,
+				Name:            dep.Name,
+				Namespace:       dep.Namespace,
+				UID:             dep.UID,
+				OwnerReferences: dep.OwnerReferences,
 			},
 		}
 		if _, err := client.AppsV1().Deployments(svcNamespace).UpdateStatus(context.TODO(), d, metav1.UpdateOptions{}); err != nil {

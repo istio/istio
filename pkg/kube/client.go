@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/api/core/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -166,6 +167,10 @@ type ExtendedClient interface {
 
 	// DeleteYAMLFilesDryRun performs a dry run for deleting the resources in the given YAML files.
 	DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) error
+
+	// CreatePerRPCCredentials creates a gRPC bearer token provider that can create (and renew!) Istio tokens
+	CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
+		expirationSeconds int64) (credentials.PerRPCCredentials, error)
 }
 
 var _ Client = &client{}
@@ -479,17 +484,24 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 	if len(istiods) == 0 {
 		return nil, errors.New("unable to find any Istiod instances")
 	}
+	var errs error
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
 		res, err := c.proxyGet(istiod.Name, istiod.Namespace, path, 15014).DoRaw(ctx)
 		if err != nil {
-			return nil, err
+			fmt.Fprintf(os.Stderr, "Problem forwarding to %s.%s: %v; skipping.", istiod.Name, istiod.Namespace, err)
+			errs = multierror.Append(errs, err)
+			continue
 		}
 		if len(res) > 0 {
 			result[istiod.Name] = res
 		}
 	}
-	return result, err
+	// If any Discovery servers responded, treat as a success
+	if len(result) > 0 {
+		return result, nil
+	}
+	return nil, errs
 }
 
 func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string, _ []byte) ([]byte, error) {
@@ -620,6 +632,11 @@ func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) err
 		}
 	}
 	return nil
+}
+
+func (c *client) CreatePerRPCCredentials(ctx context.Context, tokenNamespace, tokenServiceAccount string, audiences []string,
+	expirationSeconds int64) (credentials.PerRPCCredentials, error) {
+	return NewRPCCredentials(c, tokenNamespace, tokenServiceAccount, audiences, expirationSeconds)
 }
 
 func (c *client) applyYAMLFile(namespace string, dryRun bool, file string) error {

@@ -4,14 +4,15 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/all","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:15011","drainDuration":"5s","envoyAccessLogService":{"address":"accesslog-service:15000"},"envoyMetricsService":{"address":"metrics-service:15000","tlsSettings":{"caCertificates":"/etc/istio/ms/ca.pem","clientCertificate":"/etc/istio/ms/client.pem","mode":"MUTUAL","privateKey":"/etc/istio/ms/key.pem"}},"parentShutdownDuration":"6s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","tracing":{"zipkin":{"address":"localhost:6000"}}},"SDS":"true"}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/all","controlPlaneAuthPolicy":"MUTUAL_TLS","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"mypilot:15011","drainDuration":"5s","envoyAccessLogService":{"address":"accesslog-service:15000"},"envoyMetricsService":{"address":"metrics-service:15000","tlsSettings":{"caCertificates":"/etc/istio/ms/ca.pem","clientCertificate":"/etc/istio/ms/client.pem","mode":"MUTUAL","privateKey":"/etc/istio/ms/key.pem"}},"parentShutdownDuration":"6s","proxyAdminPort":15005,"serviceCluster":"istio-proxy","statNameLength":200,"statsdUdpAddress":"10.1.1.1:9125","tracing":{"zipkin":{"address":"localhost:6000"}}}}
   },
   "layered_runtime": {
       "layers": [
           {
               "name": "deprecation",
               "static_layer": {
-                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true
+                  "envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+                  "re2.max_program_size.error_level": 1024
               }
           },
           {
@@ -248,9 +249,11 @@
       "transport_api_version": "V3",
       "grpc_services": [
         {
+        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
+        
         }
       ]
     }
@@ -321,8 +324,8 @@
             }]
           }]
         }
-      },
-      {
+      } 
+       , {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
@@ -358,8 +361,8 @@
               ],
               "validation_context": {
                 "trusted_ca": {
-                  "filename": "./var/run/secrets/istio/root-cert.pem"
-                },
+                  "filename": ""
+                 },
                 "match_subject_alt_names": [{"exact":"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"}]
               }
             }
@@ -401,6 +404,7 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
+      
       
       ,
       {
@@ -486,7 +490,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -512,7 +516,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -535,7 +539,7 @@
           {
             "filters": [
               {
-                "name": "envoy.http_connection_manager",
+                "name": "envoy.filters.network.http_connection_manager",
                 "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
                   "codec_type": "AUTO",
@@ -561,7 +565,7 @@
                     ]
                   },
                   "http_filters": [{
-                    "name": "envoy.router",
+                    "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                     }
@@ -577,7 +581,7 @@
   ,
   "tracing": {
     "http": {
-      "name": "envoy.zipkin",
+      "name": "envoy.tracers.zipkin",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.trace.v3.ZipkinConfig",
         "collector_cluster": "zipkin",
@@ -593,7 +597,7 @@
   "stats_sinks": [
     
     {
-      "name": "envoy.metrics_service",
+      "name": "envoy.stat_sinks.metrics_service",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig",
         "grpc_service": {
@@ -606,7 +610,7 @@
     
     
     {
-      "name": "envoy.statsd",
+      "name": "envoy.stat_sinks.statsd",
       "typed_config": {
         "@type": "type.googleapis.com/envoy.config.metrics.v3.StatsdSink",
         "address": {

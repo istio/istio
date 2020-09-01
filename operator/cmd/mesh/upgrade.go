@@ -202,7 +202,7 @@ func upgrade(rootArgs *rootArgs, args *upgradeArgs, l clog.Logger) (err error) {
 	}
 	checkUpgradeIOPS(currentProfileIOPSYaml, targetIOPSYaml, overrideIOPSYaml, l)
 
-	waitForConfirmation(args.skipConfirmation, l)
+	waitForConfirmation(args.skipConfirmation && !rootArgs.dryRun, l)
 
 	// Apply the Istio Control Plane specs reading from inFilenames to the cluster
 	err = InstallManifests(applyFlagAliases(args.set, args.manifestsPath, ""), args.inFilenames, args.force, rootArgs.dryRun,
@@ -419,6 +419,8 @@ func (client *Client) GetIstioVersions(namespace string) ([]ComponentVersion, er
 
 		switch component {
 		case "statsd-prom-bridge":
+			continue
+		case "mixer":
 			continue
 		}
 

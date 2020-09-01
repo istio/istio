@@ -52,7 +52,7 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 	for _, authn := range s.Authenticators {
 		u, err := authn.Authenticate(ctx)
 		// If one authenticator passes, return
-		if u != nil && err == nil {
+		if u != nil && u.Identities != nil && err == nil {
 			return u.Identities, nil
 		}
 		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v", authn.AuthenticatorType(), err))

@@ -141,7 +141,7 @@ istioctl analyze -L
 				resource.Namespace(selectedNamespace), resource.Namespace(istioNamespace), nil, true, analysisTimeout)
 
 			// Check for suppressions and add them to our SourceAnalyzer
-			var suppressions []snapshotter.AnalysisSuppression
+			suppressions := make([]snapshotter.AnalysisSuppression, 0, len(suppress))
 			for _, s := range suppress {
 				parts := strings.Split(s, "=")
 				if len(parts) != 2 {
@@ -292,7 +292,7 @@ istioctl analyze -L
 			`<code>=<resource> (e.g. '--suppress "IST0102=DestinationRule primary-dr.default"'). Can be repeated. `+
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
-		"the duration to wait before failing")
+		"The duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	return analysisCmd

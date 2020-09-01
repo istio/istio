@@ -44,7 +44,6 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/security/pkg/credentialfetcher"
-	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
@@ -88,9 +87,10 @@ var (
 	podNamespaceVar      = env.RegisterStringVar("POD_NAMESPACE", "", "")
 	kubeAppProberNameVar = env.RegisterStringVar(status.KubeAppProberEnvName, "", "")
 	clusterIDVar         = env.RegisterStringVar("ISTIO_META_CLUSTER_ID", "", "")
+	callCredentials      = env.RegisterBoolVar("CALL_CREDENTIALS", false, "Use JWT directly instead of MTLS")
 
 	pilotCertProvider = env.RegisterStringVar("PILOT_CERT_PROVIDER", "istiod",
-		"the provider of Pilot DNS certificate.").Get()
+		"The provider of Pilot DNS certificate.").Get()
 	jwtPolicy = env.RegisterStringVar("JWT_POLICY", jwt.PolicyThirdParty,
 		"The JWT validation policy.")
 	// ProvCert is the environment controlling the use of pre-provisioned certs, for VMs.
@@ -98,6 +98,15 @@ var (
 	// with extra SAN (labels, etc) in data path.
 	provCert = env.RegisterStringVar("PROV_CERT", "",
 		"Set to a directory containing provisioned certs, for VMs").Get()
+
+	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed XDS servers.
+	xdsRootCA = env.RegisterStringVar("XDS_ROOT_CA", "",
+		"Explicitly set the root CA to expect for the XDS connection.").Get()
+
+	// set to "/etc/ssl/certs/ca-certificates.crt" on debian/ubuntu for ACME/public signed CA servers.
+	caRootCA = env.RegisterStringVar("CA_ROOT_CA", "",
+		"Explicitly set the root CA to expect for the CA connection.").Get()
+
 	outputKeyCertToDir = env.RegisterStringVar("OUTPUT_CERTS", "",
 		"The output directory for the key and certificate. If empty, key and certificate will not be saved. "+
 			"Must be set for VMs using provisioning certificates.").Get()
@@ -260,6 +269,10 @@ var (
 				UseTokenForCSR:     useTokenForCSREnv,
 				CredFetcher:        nil,
 			}
+			// If not set explicitly, default to the discovery address.
+			if caEndpointEnv == "" {
+				secOpts.CAEndpoint = proxyConfig.DiscoveryAddress
+			}
 			secOpts.PluginNames = strings.Split(pluginNamesEnv, ",")
 
 			secOpts.EnableWorkloadSDS = true
@@ -292,7 +305,10 @@ var (
 				secOpts.CredFetcher = credFetcher
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{}, secOpts)
+			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
+				XDSRootCerts: xdsRootCA,
+				CARootCerts:  caRootCA,
+			}, secOpts)
 
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
@@ -375,8 +391,9 @@ var (
 				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
-				ProvCert:            citadel.ProvCert,
+				ProvCert:            sa.FindRootCAForXDS(),
 				Sidecar:             role.Type == model.SidecarProxy,
+				CallCredentials:     callCredentials.Get(),
 			})
 
 			drainDuration, _ := types.DurationFromProto(proxyConfig.TerminationDrainDuration)

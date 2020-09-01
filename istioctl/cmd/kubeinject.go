@@ -327,9 +327,9 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 	}
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigFile, "meshConfigFile", "",
-		"mesh configuration filename. Takes precedence over --meshConfigMapName if set")
+		"Mesh configuration filename. Takes precedence over --meshConfigMapName if set")
 	injectCmd.PersistentFlags().StringVar(&injectConfigFile, "injectConfigFile", "",
-		"injection configuration filename. Cannot be used with --injectConfigMapName")
+		"Injection configuration filename. Cannot be used with --injectConfigMapName")
 	injectCmd.PersistentFlags().StringVar(&valuesFile, "valuesFile", "",
 		"injection values configuration filename.")
 
@@ -348,7 +348,7 @@ istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml \
 		fmt.Sprintf("ConfigMap name for Istio sidecar injection, key should be %q.", injectConfigMapKey))
 
 	injectCmd.PersistentFlags().StringVar(&revision, "revision", "",
-		"control plane revision")
+		"Control plane revision")
 
 	return injectCmd
 }

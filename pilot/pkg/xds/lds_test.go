@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test/env"
@@ -154,7 +155,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 	adsResponse.Watch()
 
-	upd, err := adsResponse.Wait(10*time.Second, "lds", "rds", "cds")
+	upd, err := adsResponse.Wait(10*time.Second, watchAll...)
 	if err != nil {
 		t.Fatal("Failed to receive XDS response", err, upd)
 		return
@@ -215,7 +216,7 @@ func TestLDSWithIngressGateway(t *testing.T) {
 
 	adsResponse.Watch()
 
-	_, err = adsResponse.Wait(10*time.Second, "lds")
+	_, err = adsResponse.Wait(10*time.Second, v3.ListenerType)
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)
 		return
@@ -316,7 +317,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 	adsResponse.Watch()
 
-	_, err = adsResponse.Wait(10*time.Second, "lds")
+	_, err = adsResponse.Wait(10*time.Second, v3.ListenerType)
 	if err != nil {
 		t.Fatal("Failed to receive LDS response", err)
 		return
@@ -417,7 +418,7 @@ func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
 			defer adsResponse.Close()
 
 			adsResponse.Watch()
-			_, err = adsResponse.Wait(10*time.Second, "lds")
+			_, err = adsResponse.Wait(10*time.Second, v3.ListenerType)
 			if err != nil {
 				t.Fatal("Failed to receive LDS response", err)
 				return
