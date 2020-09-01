@@ -164,7 +164,7 @@ func TestWaitForFile(t *testing.T) {
 				// signal to main goroutine writing is complete so we can delete
 				sigChan <- struct{}{}
 			}(tt.fName, tt.waitFor, writeChan)
-			if got := waitForFile(tt.fName, tt.maxWait); got != tt.expect {
+			if got := WaitForFile(tt.fName, tt.maxWait); got != tt.expect {
 				t.Errorf("%s: TestWaitForFile(%s, %v) => %v, expected %v", tt.desc, tt.fName, tt.maxWait,
 					got, tt.expect)
 			}

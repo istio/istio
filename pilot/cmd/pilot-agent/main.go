@@ -241,7 +241,7 @@ var (
 			if len(tlsCerts) > 0 {
 				log.Infof("Monitored certs: %#v", tlsCerts)
 				for _, cert := range tlsCerts {
-					waitForFile(cert, 2*time.Minute)
+					WaitForFile(cert, 2*time.Minute)
 				}
 			}
 
@@ -450,7 +450,7 @@ func init() {
 	}))
 }
 
-func waitForFile(fname string, maxWait time.Duration) bool {
+func WaitForFile(fname string, maxWait time.Duration) bool {
 	log.Infof("waiting %v for %s", maxWait, fname)
 
 	logDelay := 1 * time.Second
