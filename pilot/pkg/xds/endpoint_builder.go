@@ -83,7 +83,6 @@ func (b EndpointBuilder) Key() string {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
 	if b.networkView != nil {
-		// TODO(landow) it's likely this would never be evicted when REQUESTED_NETWORK_VIEW changes.
 		nv := make([]string, 0, len(b.networkView))
 		for nw := range b.networkView {
 			nv = append(nv, nw)
@@ -94,8 +93,8 @@ func (b EndpointBuilder) Key() string {
 	return strings.Join(params, "~")
 }
 
-// MultinetworkConfigured determines if we have gateways to use for building cross-network endpoints.
-func (b *EndpointBuilder) MultinetworkConfigured() bool {
+// MultiNetworkConfigured determines if we have gateways to use for building cross-network endpoints.
+func (b *EndpointBuilder) MultiNetworkConfigured() bool {
 	return b.push.NetworkGateways() != nil
 }
 

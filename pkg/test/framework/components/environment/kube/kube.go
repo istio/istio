@@ -70,7 +70,7 @@ func (e *Environment) IsMulticluster() bool {
 	return len(e.KubeClusters) > 1
 }
 
-// MultinetworkConfigured returns true if there is more than one network name in networkTopology.
+// IsMultinetwork returns true if there is more than one network name in networkTopology.
 func (e *Environment) IsMultinetwork() bool {
 	return len(e.ClustersByNetwork()) > 1
 }

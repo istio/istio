@@ -283,7 +283,6 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyNetworkView map[string]b
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is nil, in that case match any network.
 		if proxyNetworkView != nil && !proxyNetworkView[instance.Endpoint.Network] {
-			// TODO(landow) does this just get handled in ep_filters later?
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
