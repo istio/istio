@@ -15,8 +15,6 @@
 package option
 
 import (
-	"net"
-
 	"github.com/gogo/protobuf/types"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -89,32 +87,8 @@ func DNSLookupFamily(value DNSLookupFamilyValue) Instance {
 	return newOption("dns_lookup_family", value)
 }
 
-func PodName(value string) Instance {
-	return newOptionOrSkipIfZero("PodName", value)
-}
-
-func PodNamespace(value string) Instance {
-	return newOptionOrSkipIfZero("PodNamespace", value)
-}
-
-func PodIP(value net.IP) Instance {
-	return newOption("PodIP", value).withConvert(podIPConverter(value))
-}
-
-func ControlPlaneAuth(value bool) Instance {
-	strVal := ""
-	if value {
-		strVal = "enable"
-	}
-	return newOptionOrSkipIfZero("ControlPlaneAuth", strVal)
-}
-
-func DisableReportCalls(value bool) Instance {
-	strVal := ""
-	if value {
-		strVal = "true"
-	}
-	return newOptionOrSkipIfZero("DisableReportCalls", strVal)
+func ProxyViaAgent(value bool) Instance {
+	return newOption("proxy_via_agent", value)
 }
 
 func OutlierLogPath(value string) Instance {

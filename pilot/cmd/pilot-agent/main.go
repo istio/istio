@@ -73,14 +73,13 @@ var (
 	meshConfigFile string
 
 	// proxy config flags (named identically)
-	serviceCluster           string
-	proxyLogLevel            string
-	proxyComponentLogLevel   string
-	concurrency              int
-	templateFile             string
-	disableInternalTelemetry bool
-	loggingOptions           = log.DefaultOptions()
-	outlierLogPath           string
+	serviceCluster         string
+	proxyLogLevel          string
+	proxyComponentLogLevel string
+	concurrency            int
+	templateFile           string
+	loggingOptions         = log.DefaultOptions()
+	outlierLogPath         string
 
 	instanceIPVar        = env.RegisterStringVar("INSTANCE_IP", "", "")
 	podNameVar           = env.RegisterStringVar("POD_NAME", "", "")
@@ -152,6 +151,9 @@ var (
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
+	proxyXDSViaAgent = env.RegisterStringVar("PROXY_XDS_VIA_AGENT", "",
+		"If set to enable or true or 1, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
+			"will be removed once the feature is stabilized.").Get()
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -305,10 +307,14 @@ var (
 				secOpts.CredFetcher = credFetcher
 			}
 
-			sa := istio_agent.NewAgent(&proxyConfig, &istio_agent.AgentConfig{
+			agentConfig := &istio_agent.AgentConfig{
 				XDSRootCerts: xdsRootCA,
 				CARootCerts:  caRootCA,
-			}, secOpts)
+			}
+			if proxyXDSViaAgent == "enable" || proxyXDSViaAgent == "true" || proxyXDSViaAgent == "1" {
+				agentConfig.ProxyXDSViaAgent = true
+			}
+			sa := istio_agent.NewAgent(&proxyConfig, agentConfig, secOpts)
 
 			var pilotSAN []string
 			if proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS {
@@ -383,16 +389,12 @@ var (
 				ComponentLogLevel:   proxyComponentLogLevel,
 				PilotSubjectAltName: pilotSAN,
 				NodeIPs:             role.IPAddresses,
-				PodName:             podName,
-				PodNamespace:        podNamespace,
-				PodIP:               podIP,
 				STSPort:             stsPort,
-				ControlPlaneAuth:    proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS,
-				DisableReportCalls:  disableInternalTelemetry,
 				OutlierLogPath:      outlierLogPath,
 				PilotCertProvider:   pilotCertProvider,
 				ProvCert:            sa.FindRootCAForXDS(),
 				Sidecar:             role.Type == model.SidecarProxy,
+				ProxyViaAgent:       agentConfig.ProxyXDSViaAgent,
 				CallCredentials:     callCredentials.Get(),
 			})
 
@@ -480,8 +482,6 @@ func init() {
 		"The component log level used to start the Envoy proxy")
 	proxyCmd.PersistentFlags().StringVar(&templateFile, "templateFile", "",
 		"Go template bootstrap config")
-	proxyCmd.PersistentFlags().BoolVar(&disableInternalTelemetry, "disableInternalTelemetry", false,
-		"Disable internal telemetry")
 	proxyCmd.PersistentFlags().StringVar(&outlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
 

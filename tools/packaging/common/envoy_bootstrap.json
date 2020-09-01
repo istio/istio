@@ -257,11 +257,16 @@
       } {{ if .call_credentials }}{{ else }}
        , {
         "name": "xds-grpc",
+        {{- if .proxy_via_agent }}
+        "type" : "STATIC",
+        {{- else }}
         "type": "STRICT_DNS",
         "respect_dns_ttl": true,
         "dns_lookup_family": "{{ .dns_lookup_family }}",
+        {{- end }}
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
+        {{- if not .proxy_via_agent }}
         {{- if eq .config.ControlPlaneAuthPolicy 1 }}
         "transport_socket": {
           "name": "envoy.transport_sockets.tls",
@@ -300,13 +305,20 @@
           }
         },
         {{- end }}
+        {{- end }}
         "load_assignment": {
           "cluster_name": "xds-grpc",
           "endpoints": [{
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
+                  {{- if not .proxy_via_agent }}
                   "socket_address": {{ .pilot_grpc_address }}
+                  {{- else }}
+                  "pipe": {
+                    "path": "./etc/istio/proxy/XDS"
+                  }
+                  {{- end }}
                 }
               }
             }]
