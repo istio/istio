@@ -220,61 +220,44 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	// deploy config cluster
+	// install config cluster
 	for _, cluster := range env.KubeClusters {
 		if env.IsConfigCluster(cluster) {
-			if err = deployIstioIntoCluster(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
+			if err = installConfigClusters(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
 				return i, err
 			}
 		}
 	}
 
-	//deploy control plane(primary) cluster
+	//install control plane(primary) cluster
 	errG := multierror.Group{}
 	for _, cluster := range env.KubeClusters {
 		if env.IsControlPlaneCluster(cluster) {
 			cluster := cluster
-			errG.Go(func() error {
-				if err := deployIstioIntoCluster(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
-					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
-				}
-				if env.IsConfigCluster(cluster) {
-					if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
-						return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
-					}
-				}
-				return nil
-			})
-		}
-	}
-	if errs := errG.Wait(); errs != nil {
-		return nil, fmt.Errorf("%d errors occurred deploying control plane clusters: %v", errs.Len(), errs.ErrorOrNil())
-	}
-
-	// Wait for all of the control planes to be started before deploying remote clusters
-	for _, cluster := range env.KubeClusters {
-		if env.IsControlPlaneCluster(cluster) && env.IsConfigCluster(cluster) {
-			if err := waitForIstioReady(ctx, i, cluster, cfg); err != nil {
-				return nil, err
+			if err = installPrimaryClusters(i, cfg, cluster, istioctlConfigFiles.iopFile); err != nil {
+				return i, err
 			}
 		}
 	}
 
 	// Deploy Istio to remote clusters
-	errG = multierror.Group{}
-	for _, cluster := range env.KubeClusters {
-		if !env.IsControlPlaneCluster(cluster) && !env.IsConfigCluster(cluster) {
-			cluster := cluster
-			errG.Go(func() error {
-				if err := deployIstioIntoCluster(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
-					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
-				}
-				return nil
-			})
+	// Under external control plane mode, we only use config and external control plane(primary)clusters for now
+	if !i.isExternalControlPlane() {
+		errG = multierror.Group{}
+		for _, cluster := range env.KubeClusters {
+			if !(env.IsControlPlaneCluster(cluster) || env.IsConfigCluster(cluster)) {
+				cluster := cluster
+				errG.Go(func() error {
+					if err := installRemoteClusters(i, cfg, cluster, istioctlConfigFiles.remoteIopFile); err != nil {
+						return fmt.Errorf("failed deploying control plane to remote cluster %s: %v", cluster.Name(), err)
+					}
+					return nil
+				})
+			}
 		}
-	}
-	if errs := errG.Wait(); errs != nil {
-		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+		if errs := errG.Wait(); errs != nil {
+			return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+		}
 	}
 
 	if env.IsMulticluster() && !isCentralIstio(env, cfg) && !i.isExternalControlPlane() {
@@ -440,24 +423,153 @@ spec:
 `, cfg.SystemNamespace))
 }
 
-func deployIstioIntoCluster(c *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) (err error) {
-
-	if !c.environment.IsConfigCluster(cluster) && c.environment.IsControlPlaneCluster(cluster) {
-		if err := configExternalControlPlaneCluster(cluster, c.environment, cfg); err != nil {
-			return err
-		}
+func installConfigClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, configIopFile string) error {
+	installSettings, err := generateCommonInstallSettings(i, cfg, configIopFile)
+	if err != nil {
+		return err
 	}
 	// Create an istioctl to configure this cluster.
-	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
+	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
 		Cluster: cluster,
 	})
 	if err != nil {
 		return err
 	}
 
-	s, err := image.SettingsFromCommandLine()
+	err = applyManifest(i, installSettings, istioCtl, cluster.Name())
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func installPrimaryClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) error {
+	if !i.environment.IsConfigCluster(cluster) {
+		if err := configExternalControlPlaneCluster(cluster, i.environment, cfg); err != nil {
+			return err
+		}
+	}
+	installSettings, err := generateCommonInstallSettings(i, cfg, iopFile)
+	if err != nil {
+		return err
+	}
+
+	if i.environment.IsMulticluster() && !i.isExternalControlPlane() {
+		// Set the clusterName for the local cluster.
+		// This MUST match the clusterName in the remote secret for this cluster.
+		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
+
+		if networkName := cluster.NetworkName(); networkName != "" {
+			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
+				"--set", "values.global.network="+networkName)
+		}
+	}
+	// Create an istioctl to configure this cluster.
+	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = applyManifest(i, installSettings, istioCtl, cluster.Name())
+	if err != nil {
+		return err
+	}
+	var istiodAddress net.TCPAddr
+	if !i.environment.IsConfigCluster(cluster) {
+		err = retry.UntilSuccess(func() error {
+			istiodAddress, err = i.RemoteDiscoveryAddressFor(cluster)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Timeout(90*time.Second), retry.Delay(2*time.Second))
+		if err != nil {
+			return err
+		}
+		if err := patchIstiodCustomHost(istiodAddress, cfg, cluster); err != nil {
+			return err
+		}
+		configCluster, err := i.environment.GetConfigCluster(cluster)
+		if err != nil {
+			return err
+		}
+		if err := configureDiscoveryForConfigCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
+			return err
+		}
+	}
+	if i.environment.IsConfigCluster(cluster) {
+		if err := applyIstiodGateway(i.ctx, cfg, cluster); err != nil {
+			return fmt.Errorf("failed applying istiod gateway for cluster %s: %v", cluster.Name(), err)
+		}
+		if err := waitForIstioReady(i.ctx, i, cluster, cfg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Deploy Istio to remote clusters
+func installRemoteClusters(i *operatorComponent, cfg Config, cluster resource.Cluster, remoteIopFile string) error {
+
+	installSettings, err := generateCommonInstallSettings(i, cfg, remoteIopFile)
+	if err != nil {
+		return err
+	}
+	if i.environment.IsMulticluster() && !i.isExternalControlPlane() {
+		// Set the clusterName for the local cluster.
+		// This MUST match the clusterName in the remote secret for this cluster.
+		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
+
+		if networkName := cluster.NetworkName(); networkName != "" {
+			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
+				"--set", "values.global.network="+networkName)
+		}
+	}
+	// Create an istioctl to configure this cluster.
+	istioCtl, err := istioctl.New(i.ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return err
+	}
+	if !i.isExternalControlPlane() {
+		remoteIstiodAddress, err := i.RemoteDiscoveryAddressFor(cluster)
+		if err != nil {
+			return err
+		}
+		installSettings = append(installSettings,
+			"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
+
+		if isCentralIstio(i.environment, cfg) {
+			installSettings = append(installSettings,
+				"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
+				"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
+
+			// base must be installed first in order to create istio-reader-service-account, otherwise create-remote-secret command will fail
+			baseSettings := make([]string, len(installSettings))
+			_ = copy(baseSettings, installSettings)
+			baseSettings = append(baseSettings,
+				"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote-base.yaml"))
+			if err := applyManifest(i, baseSettings, istioCtl, cluster.Name()); err != nil {
+				return fmt.Errorf("failed to deploy centralIstiod base for cluster %v: %v", cluster.Name(), err)
+			}
+			// remote ingress gateway will not start unless the create-remote-secret command has run and created the istiod-ca-cert configmap
+			if err := configureDirectAPIServiceAccessForCluster(i.ctx, i.environment, cfg, cluster); err != nil {
+				return fmt.Errorf("failed to create-remote-secret: %v", err)
+			}
+		}
+	}
+	return nil
+
+}
+
+func generateCommonInstallSettings(c *operatorComponent, cfg Config, iopFile string) ([]string, error) {
+
+	s, err := image.SettingsFromCommandLine()
+	if err != nil {
+		return nil, err
 	}
 	defaultsIOPFile := cfg.IOPFile
 	if !path.IsAbs(defaultsIOPFile) {
@@ -474,74 +586,7 @@ func deployIstioIntoCluster(c *operatorComponent, cfg Config, cluster resource.C
 	for k, v := range cfg.Values {
 		installSettings = append(installSettings, "--set", fmt.Sprintf("values.%s=%s", k, v))
 	}
-
-	if c.environment.IsMulticluster() && !c.isExternalControlPlane() {
-		// Set the clusterName for the local cluster.
-		// This MUST match the clusterName in the remote secret for this cluster.
-		installSettings = append(installSettings, "--set", "values.global.multiCluster.clusterName="+cluster.Name())
-
-		if networkName := cluster.NetworkName(); networkName != "" {
-			installSettings = append(installSettings, "--set", "values.global.meshID="+meshID,
-				"--set", "values.global.network="+networkName)
-		}
-
-		if !c.environment.IsControlPlaneCluster(cluster) {
-			remoteIstiodAddress, err := c.RemoteDiscoveryAddressFor(cluster)
-			if err != nil {
-				return err
-			}
-			installSettings = append(installSettings,
-				"--set", "values.global.remotePilotAddress="+remoteIstiodAddress.IP.String())
-
-			if isCentralIstio(c.environment, cfg) {
-				installSettings = append(installSettings,
-					"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
-					"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
-
-				// base must be installed first in order to create istio-reader-service-account, otherwise create-remote-secret command will fail
-				baseSettings := make([]string, len(installSettings))
-				_ = copy(baseSettings, installSettings)
-				baseSettings = append(baseSettings,
-					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote-base.yaml"))
-				if err := applyManifest(c, baseSettings, istioCtl, cluster.Name()); err != nil {
-					return fmt.Errorf("failed to deploy centralIstiod base for cluster %v: %v", cluster.Name(), err)
-				}
-				// remote ingress gateway will not start unless the create-remote-secret command has run and created the istiod-ca-cert configmap
-				if err := configureDirectAPIServiceAccessForCluster(c.ctx, c.environment, cfg, cluster); err != nil {
-					return fmt.Errorf("failed to create-remote-secret: %v", err)
-				}
-			}
-		}
-	}
-	err = applyManifest(c, installSettings, istioCtl, cluster.Name())
-	if err != nil {
-		return err
-	}
-
-	var istiodAddress net.TCPAddr
-	if !c.environment.IsConfigCluster(cluster) && c.environment.IsControlPlaneCluster(cluster) {
-		err = retry.UntilSuccess(func() error {
-			istiodAddress, err = c.RemoteDiscoveryAddressFor(cluster)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, retry.Timeout(90*time.Second), retry.Delay(2*time.Second))
-		if err != nil {
-			return err
-		}
-		if err := patchIstiodCustomHost(istiodAddress, cfg, cluster); err != nil {
-			return err
-		}
-		configCluster, err := c.environment.GetConfigCluster(cluster)
-		if err != nil {
-			return err
-		}
-		if err := configureDiscoveryForConfigCluster(istiodAddress.IP.String(), cfg, configCluster); err != nil {
-			return err
-		}
-	}
-	return nil
+	return installSettings, nil
 }
 
 func applyIstiodGateway(ctx resource.Context, cfg Config, cluster resource.Cluster) error {
