@@ -29,6 +29,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -38,6 +39,10 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"istio.io/pkg/log"
+
+	"istio.io/istio/pilot/pkg/dns"
+	nds "istio.io/istio/pilot/pkg/proto"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 const (
@@ -52,6 +57,7 @@ type XdsProxy struct {
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
+	localDNSServer       *dns.LocalDNSServer
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -74,6 +80,12 @@ func initXdsProxy(sa *Agent) (*XdsProxy, error) {
 
 	if proxy.istiodDialOptions, err = buildUpstreamClientDialOpts(sa); err != nil {
 		return nil, err
+	}
+
+	if sa.cfg.DNSCapture != "" {
+		if proxy.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
+			return nil, err
+		}
 	}
 
 	go func() {
@@ -141,17 +153,42 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			// todo close downstream?
 			return err
 		case req := <-requestsChan:
+			if req.TypeUrl == v3.ListenerType {
+				// for every LDS req, add a NDS req
+				requestsChan <- &discovery.DiscoveryRequest{
+					// Rather than inventing our own nonces etc.
+					// just copy the same nonces/version info from lds
+					// i.e. if lds fails, nds is assumed to have failed
+					VersionInfo:   req.VersionInfo,
+					Node:          req.Node,
+					ResourceNames: nil,
+					TypeUrl:       v3.NameTableType,
+					ResponseNonce: req.ResponseNonce,
+				}
+			}
 			if err = upstream.Send(req); err != nil {
 				proxyLog.Errorf("upstream send error: %v", err)
 				return err
 			}
 		case resp := <-responsesChan:
-			if err := downstream.Send(resp); err != nil {
-				proxyLog.Errorf("downstream send error: %v", err)
-				// we cannot return partial error and hope to restart just the downstream
-				// as we are blindly proxying req/responses. For now, the best course of action
-				// is to terminate upstream connection as well and restart afresh.
-				return err
+			if resp.TypeUrl == v3.NameTableType {
+				// intercept. This is for the dns server
+				if p.localDNSServer != nil {
+					var nt nds.NameTable
+					if err = ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
+						proxyLog.Errorf("failed to unmarshall name table: %v", err)
+						return err
+					}
+					p.localDNSServer.UpdateLookupTable(&nt)
+				}
+			} else {
+				if err := downstream.Send(resp); err != nil {
+					proxyLog.Errorf("downstream send error: %v", err)
+					// we cannot return partial error and hope to restart just the downstream
+					// as we are blindly proxying req/responses. For now, the best course of action
+					// is to terminate upstream connection as well and restart afresh.
+					return err
+				}
 			}
 		case <-p.stopChan:
 			_ = upstream.CloseSend()
@@ -171,6 +208,9 @@ func (p *XdsProxy) close() {
 	}
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
+	}
+	if p.localDNSServer != nil {
+		p.localDNSServer.Close()
 	}
 }
 

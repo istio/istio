@@ -122,6 +122,14 @@ type AgentConfig struct {
 	// ferry Envoy's XDS requests to istiod and responses back to envoy
 	// This flag is temporary until the feature is stabilized.
 	ProxyXDSViaAgent bool
+	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
+	// This option will not be considered if proxyXDSViaAgent is false.
+	DNSCapture string
+	// ProxyNamespace to use for local dns resolution
+	ProxyNamespace string
+	// ProxyDomain is the DNS domain associated with the proxy (assumed
+	// to include the namespace as well) (for local dns resolution)
+	ProxyDomain string
 
 	// LocalXDSGeneratorListenAddress is the address where the agent will listen for XDS connections and generate all
 	// xds configurations locally. If not set, the env variable LOCAL_XDS_GENERATOR will be used.
@@ -130,9 +138,6 @@ type AgentConfig struct {
 
 	// Grpc dial options. Used for testing
 	GrpcOptions []grpc.DialOption
-
-	// Namespace to connect as
-	Namespace string
 
 	// XDSRootCerts is the location of the root CA for the XDS connection. Used for setting platform certs or
 	// using custom roots.

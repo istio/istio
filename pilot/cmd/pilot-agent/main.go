@@ -151,9 +151,12 @@ var (
 	skipParseTokenEnv = env.RegisterBoolVar("SKIP_PARSE_TOKEN", false,
 		"Skip Parse token to inspect information like expiration time in proxy. This may be possible "+
 			"for example in vm we don't use token to rotate cert.").Get()
-	proxyXDSViaAgent = env.RegisterStringVar("PROXY_XDS_VIA_AGENT", "",
+	proxyXDSViaAgent = env.RegisterStringVar("ISTIO_META_PROXY_XDS_VIA_AGENT", "",
 		"If set to enable or true or 1, envoy will proxy XDS calls via the agent instead of directly connecting to istiod. This option "+
 			"will be removed once the feature is stabilized.").Get()
+	// This is a copy of the env var in the init code.
+	dnsCaptureByAgent = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
+		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 
 	rootCmd = &cobra.Command{
 		Use:          "pilot-agent",
@@ -313,6 +316,9 @@ var (
 			}
 			if proxyXDSViaAgent == "enable" || proxyXDSViaAgent == "true" || proxyXDSViaAgent == "1" {
 				agentConfig.ProxyXDSViaAgent = true
+				agentConfig.DNSCapture = dnsCaptureByAgent.Get()
+				agentConfig.ProxyNamespace = podNamespace
+				agentConfig.ProxyDomain = role.DNSDomain
 			}
 			sa := istio_agent.NewAgent(&proxyConfig, agentConfig, secOpts)
 
