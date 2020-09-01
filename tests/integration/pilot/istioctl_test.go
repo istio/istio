@@ -368,8 +368,8 @@ func TestInstallEmptyRevision(t *testing.T) {
 		Run(func(ctx framework.TestContext) {
 
 			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{})
-			args = []string{"install", "--revision", ""}
-			_, err = istioCtl.Invoke(t, args)
+			args := []string{"install", "--revision", ""}
+			_, _, err := istioCtl.Invoke(args)
 			gomega.Expect(err).To(gomega.HaveOccurred())
 	})
 }
