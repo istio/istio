@@ -2,8 +2,6 @@ module istio.io/istio
 
 go 1.15
 
-replace istio.io/api => github.com/howardjohn/api v0.0.0-20200830233340-4f91eb6dfa6c
-
 replace github.com/golang/glog => github.com/istio/glog v0.0.0-20190424172949-d7cfb6fa2ccd
 
 replace k8s.io/klog => github.com/istio/klog v0.0.0-20190424230111-fb7481ea8bcf
@@ -112,7 +110,7 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200827131210-bd18678dabfe
+	istio.io/api v0.0.0-20200901203538-9a994ae5131f
 	istio.io/client-go v0.0.0-20200812230733-f5504d568313
 	istio.io/gogo-genproto v0.0.0-20200720193312-b523a30fe746
 	istio.io/pkg v0.0.0-20200721143030-6b837ddaf2ab
