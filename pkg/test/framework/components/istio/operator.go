@@ -30,6 +30,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"gopkg.in/yaml.v2"
+
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -222,8 +223,9 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// deploy config cluster
 	for _, cluster := range env.KubeClusters {
 		if env.IsConfigCluster(cluster) {
-			err = deployIstioIntoCluster(i, cfg, cluster, istioctlConfigFiles.configIopFile)
-			return i, err
+			if err = deployIstioIntoCluster(i, cfg, cluster, istioctlConfigFiles.configIopFile); err != nil {
+				return i, err
+			}
 		}
 	}
 
