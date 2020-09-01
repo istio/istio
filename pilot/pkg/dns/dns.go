@@ -22,9 +22,8 @@ import (
 
 	"github.com/miekg/dns"
 
-	"istio.io/pkg/log"
-
 	nds "istio.io/istio/pilot/pkg/proto"
+	"istio.io/pkg/log"
 )
 
 // Holds configurations for the DNS downstreamServer in Istio Agent
