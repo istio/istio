@@ -35,9 +35,11 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/operator/cmd/mesh"
+	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
 	"istio.io/istio/operator/pkg/translate"
+	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/schema"
 )
@@ -180,7 +182,9 @@ func verifyPostInstall(enableVerbose bool, istioNamespaceFlag string,
 			// usual conversion not available.  Convert unstructured to string
 			// and ask operator code to unmarshal.
 
-			iop, err := convertToIstioOperator(un.Object)
+			un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+			by := util.ToYAML(un)
+			iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 			if err != nil {
 				return err
 			}
@@ -246,18 +250,21 @@ func NewVerifyCommand() *cobra.Command {
 	)
 	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
-		Short: "Verifies Istio Installation Status or performs pre-check for the cluster before Istio installation",
+		Short: "Verifies Istio Installation Status",
 		Long: `
 		verify-install verifies Istio installation status against the installation file
 		you specified when you installed Istio. It loops through all the installation
 		resources defined in your installation file and reports whether all of them are
 		in ready status. It will report failure when any of them are not ready.
 
-		If you do not specify installation file it will perform pre-check for your cluster
-		and report whether the cluster is ready for Istio installation.
+		If you do not specify an installation it will check for an IstioOperator resource
+		and will verify if pods and services defined in it are present.
+
+		Note: For verifying whether your cluster is ready for Istio installation, see
+		istioctl experimental precheck.
 `,
 		Example: `
-		# Verify that Istio can be freshly installed
+		# Verify that Istio is installed correctly via Istio Operator
 		istioctl verify-install
 
 		# Verify the deployment matches a custom Istio deployment configuration
@@ -416,7 +423,9 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		return nil, err
 	}
 	for _, un := range ul.Items {
-		iop, err := convertToIstioOperator(un.Object)
+		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		by := util.ToYAML(un.Object)
+		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
 			return nil, err
 		}
@@ -425,15 +434,6 @@ func operatorFromCluster(istioNamespaceFlag string, revision string, restClientG
 		}
 	}
 	return nil, fmt.Errorf("control plane revision %q not found", revision)
-}
-
-func convertToIstioOperator(obj map[string]interface{}) (*v1alpha1.IstioOperator, error) {
-	out := &v1alpha1.IstioOperator{}
-	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // Find all IstioOperator in the cluster.
@@ -446,7 +446,9 @@ func allOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator,
 	}
 	retval := make([]*v1alpha1.IstioOperator, 0)
 	for _, un := range ul.Items {
-		iop, err := convertToIstioOperator(un.Object)
+		un.SetCreationTimestamp(meta_v1.Time{}) // UnmarshalIstioOperator chokes on these
+		by := util.ToYAML(un.Object)
+		iop, err := operator_istio.UnmarshalIstioOperator(by, true)
 		if err != nil {
 			return nil, err
 		}

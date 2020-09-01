@@ -358,9 +358,11 @@ data:
           value: {{ .Values.global.jwtPolicy }}
         - name: PILOT_CERT_PROVIDER
           value: {{ .Values.global.pilotCertProvider }}
-        {{- if .Values.global.caAddress }}
         - name: CA_ADDR
+        {{- if .Values.global.caAddress }}
           value: {{ .Values.global.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
         - name: POD_NAME
           valueFrom:
@@ -637,7 +639,7 @@ data:
 ---
 # Source: istiod-remote/templates/mutatingwebhook.yaml
 # Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds)
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
   name: istio-sidecar-injector-default
@@ -652,15 +654,15 @@ webhooks:
         name: istiod
         namespace: istio-system
         path: "/inject"
-      caBundle: 
-    sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
+      caBundle:
     rules:
       - operations: [ "CREATE" ]
         apiGroups: [""]
         apiVersions: ["v1"]
         resources: ["pods"]
     failurePolicy: Fail
+    admissionReviewVersions: ["v1beta1", "v1"]
+    sideEffects: None
     namespaceSelector:
       matchLabels:
         istio-injection: enabled

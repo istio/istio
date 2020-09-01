@@ -2,7 +2,7 @@
 title: v1alpha1
 layout: protoc-gen-docs
 generator: protoc-gen-docs
-number_of_entries: 58
+number_of_entries: 62
 ---
 <h2 id="ArchConfig">ArchConfig</h2>
 <section>
@@ -187,10 +187,45 @@ No
 No
 </td>
 </tr>
+<tr id="CNIConfig-taint">
+<td><code>taint</code></td>
+<td><code><a href="#CNITaintConfig">CNITaintConfig</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
 <tr id="CNIConfig-podAnnotations" class="deprecated ">
 <td><code>podAnnotations</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
 <td>
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="CNITaintConfig">CNITaintConfig</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="CNITaintConfig-enabled">
+<td><code>enabled</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
+<td>
+<p>Controls whether taint behavior is enabled.</p>
+
 </td>
 <td>
 No
@@ -706,7 +741,7 @@ No
 </tr>
 <tr id="EgressGatewayConfig-labels">
 <td><code>labels</code></td>
-<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 </td>
 <td>
@@ -927,41 +962,6 @@ No
 <td>
 <p>K8s rolling update strategy</p>
 
-</td>
-<td>
-No
-</td>
-</tr>
-</tbody>
-</table>
-</section>
-<h2 id="GatewayLabelsConfig">GatewayLabelsConfig</h2>
-<section>
-<p>GatewayLabelsConfig is a set of Configuration for gateway labels.</p>
-
-<table class="message-fields">
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-<th>Required</th>
-</tr>
-</thead>
-<tbody>
-<tr id="GatewayLabelsConfig-app">
-<td><code>app</code></td>
-<td><code>string</code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="GatewayLabelsConfig-istio">
-<td><code>istio</code></td>
-<td><code>string</code></td>
-<td>
 </td>
 <td>
 No
@@ -1668,7 +1668,7 @@ No
 </tr>
 <tr id="IngressGatewayConfig-labels">
 <td><code>labels</code></td>
-<td><code><a href="#GatewayLabelsConfig">GatewayLabelsConfig</a></code></td>
+<td><code>map&lt;string,&nbsp;string&gt;</code></td>
 <td>
 </td>
 <td>
@@ -2656,6 +2656,17 @@ No
 No
 </td>
 </tr>
+<tr id="TelemetryV2PrometheusConfig-config_override">
+<td><code>configOverride</code></td>
+<td><code><a href="#TelemetryV2PrometheusConfig-ConfigOverride">ConfigOverride</a></code></td>
+<td>
+<p>Overrides default telemetry v2 filter configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
 </tbody>
 </table>
 </section>
@@ -2675,15 +2686,6 @@ No
 <tbody>
 <tr id="TelemetryV2StackDriverConfig-enabled">
 <td><code>enabled</code></td>
-<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
-<td>
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="TelemetryV2StackDriverConfig-logging">
-<td><code>logging</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 </td>
@@ -2721,6 +2723,33 @@ No
 <tr id="TelemetryV2StackDriverConfig-configOverride">
 <td><code>configOverride</code></td>
 <td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-outboundAccessLogging">
+<td><code>outboundAccessLogging</code></td>
+<td><code><a href="#TelemetryV2StackDriverConfig-AccessLogging">AccessLogging</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-inboundAccessLogging">
+<td><code>inboundAccessLogging</code></td>
+<td><code><a href="#TelemetryV2StackDriverConfig-AccessLogging">AccessLogging</a></code></td>
+<td>
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-logging" class="deprecated ">
+<td><code>logging</code></td>
+<td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
 </td>
 <td>
@@ -3068,7 +3097,7 @@ No
 <td><code>holdApplicationUntilProxyStarts</code></td>
 <td><code><a href="https://developers.google.com/protocol-buffers/docs/reference/google.protobuf#boolvalue">BoolValue</a></code></td>
 <td>
-<p>Causes the sidecar to be injected at the front of the container list and blocks the start of the other containers until the proxy is ready</p>
+<p>Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready</p>
 
 </td>
 <td>
@@ -3349,15 +3378,6 @@ No
 <td>
 <p>If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.</p>
 
-</td>
-<td>
-No
-</td>
-</tr>
-<tr id="SidecarInjectorConfig-injectLabel">
-<td><code>injectLabel</code></td>
-<td><code>string</code></td>
-<td>
 </td>
 <td>
 No
@@ -3880,6 +3900,54 @@ No
 <p>GOTYPE: interface{}</p>
 
 </section>
+<h2 id="TelemetryV2PrometheusConfig-ConfigOverride">TelemetryV2PrometheusConfig.ConfigOverride</h2>
+<section>
+<table class="message-fields">
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2PrometheusConfig-ConfigOverride-gateway">
+<td><code>gateway</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Overrides default gateway telemetry v2 configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2PrometheusConfig-ConfigOverride-inboundSidecar">
+<td><code>inboundSidecar</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Overrides default inbound sidecar telemetry v2 configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+<tr id="TelemetryV2PrometheusConfig-ConfigOverride-outboundSidecar">
+<td><code>outboundSidecar</code></td>
+<td><code><a href="#TypeMapStringInterface">TypeMapStringInterface</a></code></td>
+<td>
+<p>Overrides default outbound sidecar telemetry v2 configuration.</p>
+
+</td>
+<td>
+No
+</td>
+</tr>
+</tbody>
+</table>
+</section>
 <h2 id="OutboundTrafficPolicyConfig-Mode">OutboundTrafficPolicyConfig.Mode</h2>
 <section>
 <p>Specifies the sidecar&rsquo;s default behavior when handling outbound traffic from the application.</p>
@@ -3903,6 +3971,44 @@ No
 <td><code>REGISTRY_ONLY</code></td>
 <td>
 <p>Restrict outbound traffic to services defined in the service registry as well as those defined through ServiceEntries</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2StackDriverConfig-AccessLogging">TelemetryV2StackDriverConfig.AccessLogging</h2>
+<section>
+<p>Types of Access logs to export.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>No Logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-FULL">
+<td><code>FULL</code></td>
+<td>
+<p>All logs including both success and error logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-ERRORS_ONLY">
+<td><code>ERRORS_ONLY</code></td>
+<td>
+<p>All error logs. This is currently only available for outbound/client side
+logs. A request is classified as error when <code>status&gt;=400 or
+response_flag != &quot;-&quot;</code></p>
 
 </td>
 </tr>
@@ -4053,6 +4159,82 @@ No
 <td><code>OFF</code></td>
 <td>
 <p>No ingress or sync.</p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2StackDriverConfig-AccessLogging">TelemetryV2StackDriverConfig.AccessLogging</h2>
+<section>
+<p>Types of Access logs to export.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>No Logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-FULL">
+<td><code>FULL</code></td>
+<td>
+<p>All logs including both success and error logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-ERRORS_ONLY">
+<td><code>ERRORS_ONLY</code></td>
+<td>
+<p>All error logs. This is currently only available for outbound/client side
+logs. A request is classified as error when <code>status&gt;=400 or
+response_flag != &quot;-&quot;</code></p>
+
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<h2 id="TelemetryV2StackDriverConfig-AccessLogging">TelemetryV2StackDriverConfig.AccessLogging</h2>
+<section>
+<p>Types of Access logs to export.</p>
+
+<table class="enum-values">
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-NONE">
+<td><code>NONE</code></td>
+<td>
+<p>No Logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-FULL">
+<td><code>FULL</code></td>
+<td>
+<p>All logs including both success and error logs.</p>
+
+</td>
+</tr>
+<tr id="TelemetryV2StackDriverConfig-AccessLogging-ERRORS_ONLY">
+<td><code>ERRORS_ONLY</code></td>
+<td>
+<p>All error logs. This is currently only available for outbound/client side
+logs. A request is classified as error when <code>status&gt;=400 or
+response_flag != &quot;-&quot;</code></p>
 
 </td>
 </tr>

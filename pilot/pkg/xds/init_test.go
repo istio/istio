@@ -14,7 +14,6 @@
 package xds_test
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -26,17 +25,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/ptypes"
 	structpb "github.com/golang/protobuf/ptypes/struct"
-
-	"istio.io/istio/pkg/adsc"
+	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"istio.io/istio/pilot/pkg/model"
-
-	"google.golang.org/genproto/googleapis/rpc/status"
-	"google.golang.org/grpc"
-
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-
-	"istio.io/istio/tests/util"
 )
 
 type AdsClient discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
@@ -64,47 +56,6 @@ func testIP(id uint32) string {
 	ipb := []byte{0, 0, 0, 0}
 	binary.BigEndian.PutUint32(ipb, id)
 	return net.IP(ipb).String()
-}
-
-// connectADSC creates a connection using ASDC client.
-// If certDir is specified, will use MTLS.
-// This has more functionality than 'raw' grpc connection, including
-// sending a more realistic mode metadata.
-func connectADSC(url string, cfg *adsc.Config) (*adsc.ADSC, util.TearDownFunc, error) {
-	if cfg == nil {
-		cfg = &adsc.Config{}
-	}
-
-	if cfg.IP == "" {
-		cfg.IP = "10.11.0.1"
-	}
-
-	// Fill in defaults
-	if cfg.Namespace == "" {
-		cfg.Namespace = "none"
-	}
-
-	adsc, err := adsc.Dial(url, cfg.CertDir, cfg)
-	return adsc, func() {
-		adsc.Close()
-	}, err
-}
-
-func connectADS(url string) (AdsClient, util.TearDownFunc, error) {
-	conn, err := grpc.Dial(url, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		return nil, nil, fmt.Errorf("GRPC dial failed: %s", err)
-	}
-	xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
-	client, err := xds.StreamAggregatedResources(context.Background())
-	if err != nil {
-		return nil, nil, fmt.Errorf("stream resources failed: %s", err)
-	}
-
-	return client, func() {
-		_ = client.CloseSend()
-		_ = conn.Close()
-	}, nil
 }
 
 func adsReceive(ads AdsClient, to time.Duration) (*discovery.DiscoveryResponse, error) {
@@ -228,6 +179,19 @@ func sendCDSReq(node string, client AdsClient) error {
 
 func sendCDSNack(node string, client AdsClient) error {
 	return sendXds(node, client, v3.ClusterType, "NOPE!")
+}
+
+func sendNDSReq(node, namespace string, client AdsClient) error {
+	return client.Send(&discovery.DiscoveryRequest{
+		ResponseNonce: time.Now().String(),
+		Node: &corev3.Node{
+			Id: node,
+			Metadata: model.NodeMetadata{
+				Namespace:  namespace,
+				DNSCapture: "agent",
+			}.ToStruct(),
+		},
+		TypeUrl: v3.NameTableType})
 }
 
 func sendXds(node string, client AdsClient, typeURL string, errMsg string) error {

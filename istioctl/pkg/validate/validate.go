@@ -33,12 +33,12 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
 	operator_validate "istio.io/istio/operator/pkg/validate"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/pkg/log"
 )
@@ -64,11 +64,6 @@ Example resource specifications include:
 	serviceProtocolUDP = "UDP"
 )
 
-const (
-	// RequirementsURL specifies deployment requirements for pod and services
-	RequirementsURL = "https://istio.io/latest/docs/ops/deployment/requirements/"
-)
-
 type validator struct {
 }
 
@@ -83,7 +78,7 @@ func checkFields(un *unstructured.Unstructured) error {
 }
 
 func (v *validator) validateResource(istioNamespace string, un *unstructured.Unstructured) error {
-	gvk := resource.GroupVersionKind{
+	gvk := config.GroupVersionKind{
 		Group:   un.GroupVersionKind().Group,
 		Version: un.GroupVersionKind().Version,
 		Kind:    un.GroupVersionKind().Kind,
@@ -102,7 +97,7 @@ func (v *validator) validateResource(istioNamespace string, un *unstructured.Uns
 		if err = checkFields(un); err != nil {
 			return err
 		}
-		return schema.Resource().ValidateProto(obj.Name, obj.Namespace, obj.Spec)
+		return schema.Resource().ValidateConfig(*obj)
 	}
 
 	var errs error
@@ -173,12 +168,12 @@ func (v *validator) validateServicePortPrefix(istioNamespace string, un *unstruc
 			}
 			if p["name"] == nil {
 				errs = multierror.Append(errs, fmt.Errorf("service %q has an unnamed port. This is not recommended,"+
-					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
+					" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace())))
 				continue
 			}
 			if servicePortPrefixed(p["name"].(string)) {
 				errs = multierror.Append(errs, fmt.Errorf("service %q port %q does not follow the Istio naming convention."+
-					" See "+RequirementsURL, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
+					" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s/:", un.GetName(), un.GetNamespace()), p["name"].(string)))
 			}
 		}
 	}
@@ -196,7 +191,7 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	for _, l := range istioDeploymentLabel {
 		if _, ok := labels[l]; !ok {
 			log.Warnf("deployment %q may not provide Istio metrics and telemetry without label %q."+
-				" See "+RequirementsURL, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
+				" See "+url.DeploymentRequirements, fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
 		}
 	}
 }
@@ -275,7 +270,7 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 
 	c := &cobra.Command{
 		Use:   "validate -f FILENAME [options]",
-		Short: "Validate Istio policy and rules (NOTE: validate is deprecated and will be removed in 1.6. Use 'istioctl analyze' to validate configuration.)",
+		Short: "Validate Istio policy and rules files",
 		Example: `
 		# Validate bookinfo-gateway.yaml
 		istioctl validate -f bookinfo-gateway.yaml
@@ -346,14 +341,14 @@ func handleNamespace(istioNamespace string) string {
 }
 
 // TODO(nmittler): Remove this once Pilot migrates to galley schema.
-func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*model.Config, error) {
+func convertObjectFromUnstructured(schema collection.Schema, un *unstructured.Unstructured, domain string) (*config.Config, error) {
 	data, err := fromSchemaAndJSONMap(schema, un.Object["spec"])
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.Config{
-		ConfigMeta: model.ConfigMeta{
+	return &config.Config{
+		Meta: config.Meta{
 			GroupVersionKind:  schema.Resource().GroupVersionKind(),
 			Name:              un.GetName(),
 			Namespace:         un.GetNamespace(),

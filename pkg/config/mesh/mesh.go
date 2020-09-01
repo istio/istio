@@ -20,21 +20,18 @@ import (
 	"net"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/proto"
-
-	"istio.io/api/networking/v1alpha3"
-
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
+	"istio.io/pkg/filewatcher"
+	"istio.io/pkg/log"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -84,8 +81,6 @@ func DefaultMeshConfig() meshconfig.MeshConfig {
 		AccessLogEncoding:           meshconfig.MeshConfig_TEXT,
 		AccessLogFormat:             "",
 		EnableEnvoyAccessLogService: false,
-		ReportBatchMaxEntries:       100,
-		ReportBatchMaxTime:          types.DurationProto(1 * time.Second),
 		ProtocolDetectionTimeout:    types.DurationProto(5 * time.Second),
 		IngressService:              "istio-ingressgateway",
 		IngressControllerMode:       meshconfig.MeshConfig_STRICT,
@@ -122,27 +117,46 @@ func ApplyProxyConfig(yaml string, meshConfig meshconfig.MeshConfig) (*meshconfi
 	return mc, nil
 }
 
+func extractProxyConfig(yamlText string) (string, error) {
+	mp := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(yamlText), &mp); err != nil {
+		return "", err
+	}
+	proxyConfig := mp["defaultConfig"]
+	if proxyConfig == nil {
+		return "", nil
+	}
+	bytes, err := yaml.Marshal(proxyConfig)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
 // ApplyMeshConfig returns a new MeshConfig decoded from the
 // input YAML with the provided defaults applied to omitted configuration values.
 func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	// We want to keep semantics that all fields are overrides, except proxy config is a merge. This allows
+	// decent customization while also not requiring users to redefine the entire proxy config if they want to override
+	// Note: if we want to add more structure in the future, we will likely need to revisit this idea.
+
+	// Store the current set proxy config so we don't wipe it out, we will configure this later
+	prevProxyConfig := defaultConfig.DefaultConfig
+	defaultProxyConfig := DefaultProxyConfig()
+	defaultConfig.DefaultConfig = &defaultProxyConfig
 	if err := gogoprotomarshal.ApplyYAML(yaml, &defaultConfig); err != nil {
 		return nil, multierror.Prefix(err, "failed to convert to proto.")
 	}
+	defaultConfig.DefaultConfig = prevProxyConfig
 
-	// Reset the default ProxyConfig as jsonpb.UnmarshalString doesn't
-	// handled nested decode properly for our use case.
-	prevDefaultConfig := defaultConfig.DefaultConfig
-	defaultProxyConfig := DefaultProxyConfig()
-	defaultConfig.DefaultConfig = &defaultProxyConfig
-
-	// Re-apply defaults to ProxyConfig if they were defined in the
-	// original input MeshConfig.ProxyConfig.
-	if prevDefaultConfig != nil {
-		origProxyConfigYAML, err := gogoprotomarshal.ToYAML(prevDefaultConfig)
-		if err != nil {
-			return nil, multierror.Prefix(err, "failed to re-encode default proxy config")
-		}
-		if err := gogoprotomarshal.ApplyYAML(origProxyConfigYAML, defaultConfig.DefaultConfig); err != nil {
+	// Get just the proxy config yaml
+	pc, err := extractProxyConfig(yaml)
+	if err != nil {
+		return nil, multierror.Prefix(err, "failed to extract proxy config")
+	}
+	if pc != "" {
+		// Apply proxy config yaml on to the merged mesh config. This gives us "merge" semantics for proxy config
+		if err := gogoprotomarshal.ApplyYAML(pc, defaultConfig.DefaultConfig); err != nil {
 			return nil, multierror.Prefix(err, "failed to convert to proto.")
 		}
 	}
@@ -158,6 +172,18 @@ func ApplyMeshConfig(yaml string, defaultConfig meshconfig.MeshConfig) (*meshcon
 // input YAML with defaults applied to omitted configuration values.
 func ApplyMeshConfigDefaults(yaml string) (*meshconfig.MeshConfig, error) {
 	return ApplyMeshConfig(yaml, DefaultMeshConfig())
+}
+
+func DeepCopyMeshConfig(mc *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
+	j, err := gogoprotomarshal.ToJSON(mc)
+	if err != nil {
+		return nil, err
+	}
+	nmc := &meshconfig.MeshConfig{}
+	if err := gogoprotomarshal.ApplyJSON(j, nmc); err != nil {
+		return nil, err
+	}
+	return nmc, nil
 }
 
 // EmptyMeshNetworks configuration with no networks

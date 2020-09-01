@@ -24,25 +24,22 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/api/networking/v1beta1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/test/util"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 )
 
@@ -58,12 +55,12 @@ func TestGoldenConversion(t *testing.T) {
 				t.Fatal(err)
 			}
 			serviceLister := createFakeLister(ctx)
-			cfgs := map[string]*model.Config{}
+			cfgs := map[string]*config.Config{}
 			for _, obj := range input {
 				ingress := obj.(*v1beta1.Ingress)
 				ConvertIngressVirtualService(*ingress, "mydomain", cfgs, serviceLister)
 			}
-			ordered := []model.Config{}
+			ordered := []config.Config{}
 			for _, v := range cfgs {
 				ordered = append(ordered, *v)
 			}
@@ -96,7 +93,7 @@ func TestGoldenConversion(t *testing.T) {
 }
 
 // Print as YAML
-func marshalYaml(t *testing.T, cl []model.Config) []byte {
+func marshalYaml(t *testing.T, cl []config.Config) []byte {
 	t.Helper()
 	result := []byte{}
 	separator := []byte("---\n")
@@ -220,7 +217,7 @@ func TestConversion(t *testing.T) {
 		},
 	}
 	serviceLister := createFakeLister(ctx)
-	cfgs := map[string]*model.Config{}
+	cfgs := map[string]*config.Config{}
 	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	ConvertIngressVirtualService(ingress2, "mydomain", cfgs, serviceLister)
 
@@ -421,7 +418,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 		},
 	}
 	serviceLister := createFakeLister(ctx, service)
-	cfgs := map[string]*model.Config{}
+	cfgs := map[string]*config.Config{}
 	ConvertIngressVirtualService(ingress, "mydomain", cfgs, serviceLister)
 	if len(cfgs) != 1 {
 		t.Error("VirtualServices, expected 1 got ", len(cfgs))

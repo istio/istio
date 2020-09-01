@@ -24,20 +24,19 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	http_conn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	xdsutil "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/d4l3k/messagediff.v1"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	proto2 "istio.io/istio/pkg/proto"
 )
@@ -350,12 +349,12 @@ func TestIsLocalityEmpty(t *testing.T) {
 func TestBuildConfigInfoMetadata(t *testing.T) {
 	cases := []struct {
 		name string
-		in   model.ConfigMeta
+		in   config.Meta
 		want *core.Metadata
 	}{
 		{
 			"destination-rule",
-			model.ConfigMeta{
+			config.Meta{
 				Name:             "svcA",
 				Namespace:        "default",
 				Domain:           "svc.cluster.local",

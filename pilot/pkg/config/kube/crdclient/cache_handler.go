@@ -19,15 +19,18 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
+
+	//  import GKE cluster authentication plugin
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	//  import OIDC cluster authentication plugin, e.g. for Tectonic
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"k8s.io/client-go/tools/cache"
 
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
-
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/pkg/log"
 )
 
 // cacheHandler abstracts the logic of an informer with a set of handlers. Handlers can be added at runtime
@@ -35,7 +38,7 @@ import (
 type cacheHandler struct {
 	client   *Client
 	informer cache.SharedIndexInformer
-	handlers []func(model.Config, model.Config, model.Event)
+	handlers []func(config.Config, config.Config, model.Event)
 	schema   collection.Schema
 	lister   func(namespace string) cache.GenericNamespaceLister
 }
@@ -52,7 +55,7 @@ func (h *cacheHandler) onEvent(old interface{}, curr interface{}, event model.Ev
 	}
 	currConfig := *TranslateObject(currItem, h.schema.Resource().GroupVersionKind(), h.client.domainSuffix)
 
-	var oldConfig model.Config
+	var oldConfig config.Config
 	if old != nil {
 		oldItem, ok := old.(runtime.Object)
 		if !ok {

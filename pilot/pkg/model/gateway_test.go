@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 )
 
 func TestMergeGateways(t *testing.T) {
@@ -31,56 +32,56 @@ func TestMergeGateways(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		gwConfig           []Config
+		gwConfig           []config.Config
 		serversNum         int
 		serversForRouteNum map[string]int
 		gatewaysNum        int
 	}{
 		{
 			"single-server-config",
-			[]Config{gwHTTPFoo},
+			[]config.Config{gwHTTPFoo},
 			1,
 			map[string]int{"http.7": 1},
 			1,
 		},
 		{
 			"same-server-config",
-			[]Config{gwHTTPFoo, gwHTTPWildcardAlternate},
+			[]config.Config{gwHTTPFoo, gwHTTPWildcardAlternate},
 			1,
 			map[string]int{"http.7": 2},
 			2,
 		},
 		{
 			"multi-server-config",
-			[]Config{gwHTTPFoo, gwHTTPWildcardAlternate, gwHTTPWildcard},
+			[]config.Config{gwHTTPFoo, gwHTTPWildcardAlternate, gwHTTPWildcard},
 			2,
 			map[string]int{"http.7": 2, "http.8": 1},
 			3,
 		},
 		{
 			"http-tcp-server-config",
-			[]Config{gwHTTPFoo, gwTCPWildcard},
+			[]config.Config{gwHTTPFoo, gwTCPWildcard},
 			2,
 			map[string]int{"http.7": 1},
 			2,
 		},
 		{
 			"tcp-tcp-server-config",
-			[]Config{gwTCPWildcard, gwHTTPWildcard},
+			[]config.Config{gwTCPWildcard, gwHTTPWildcard},
 			1,
 			map[string]int{},
 			2,
 		},
 		{
 			"tcp-tcp-server-config",
-			[]Config{gwHTTPWildcard, gwTCPWildcard}, //order matters
+			[]config.Config{gwHTTPWildcard, gwTCPWildcard}, //order matters
 			1,
 			map[string]int{"http.8": 1},
 			2,
 		},
 		{
 			"http-http2-server-config",
-			[]Config{gwHTTPWildcard, gwHTTP2Wildcard}, //order matters
+			[]config.Config{gwHTTPWildcard, gwHTTP2Wildcard}, //order matters
 			1,
 			// http and http2 both present
 			map[string]int{"http.8": 2},
@@ -109,9 +110,9 @@ func TestMergeGateways(t *testing.T) {
 	}
 }
 
-func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string) Config {
-	c := Config{
-		ConfigMeta: ConfigMeta{
+func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string) config.Config {
+	c := config.Config{
+		Meta: config.Meta{
 			Name:      name,
 			Namespace: namespace,
 		},

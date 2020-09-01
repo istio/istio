@@ -24,7 +24,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	kubeApiAdmission "k8s.io/api/admissionregistration/v1"
+	kubeApiAdmission "k8s.io/api/admissionregistration/v1beta1"
 	kubeApiCore "k8s.io/api/core/v1"
 	kubeErrors "k8s.io/apimachinery/pkg/api/errors"
 	kubeApiMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,14 +32,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	dfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
-	kubeTypedAdmission "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
+	kubeTypedAdmission "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	ktesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/pkg/filewatcher"
-
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/testcerts"
+	"istio.io/pkg/filewatcher"
 )
 
 var (
@@ -239,13 +238,13 @@ func createTestController(t *testing.T) *fakeController {
 	fakeClient.RunAndWait(make(chan struct{}))
 
 	fc.endpointStore = fakeClient.KubeInformer().Core().V1().Endpoints().Informer().GetStore()
-	fc.configStore = fakeClient.KubeInformer().Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().GetStore()
+	fc.configStore = fakeClient.KubeInformer().Admissionregistration().V1beta1().ValidatingWebhookConfigurations().Informer().GetStore()
 
 	return fc
 }
 
 func (fc *fakeController) ValidatingWebhookConfigurations() kubeTypedAdmission.ValidatingWebhookConfigurationInterface {
-	return fc.client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	return fc.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations()
 }
 
 func reconcileHelper(t *testing.T, c *fakeController) {

@@ -11,16 +11,17 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/interceptionMode: REDIRECT
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
         sidecar.istio.io/status: '{"version":"","initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null}'
-        traffic.sidecar.istio.io/excludeInboundPorts: "15020"
-        traffic.sidecar.istio.io/includeInboundPorts: "80"
-        traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
       creationTimestamp: null
       labels:
         app: hello
         istio.io/rev: ""
         security.istio.io/tlsMode: istio
+        service.istio.io/canonical-name: hello
+        service.istio.io/canonical-revision: latest
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -46,6 +47,8 @@ spec:
           value: third-party-jwt
         - name: PILOT_CERT_PROVIDER
           value: istiod
+        - name: CA_ADDR
+          value: istiod.istio-system.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -95,8 +98,6 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: DNS_AGENT
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
@@ -168,8 +169,8 @@ spec:
             cpu: "2"
             memory: 1Gi
           requests:
-            cpu: 10m
-            memory: 10Mi
+            cpu: 100m
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

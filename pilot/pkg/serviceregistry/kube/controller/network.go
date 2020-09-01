@@ -43,6 +43,7 @@ func (c *Controller) reloadNetworkLookup() {
 
 	ranger := cidranger.NewPCTrieRanger()
 
+	c.Lock()
 	for n, v := range meshNetworks.Networks {
 		for _, ep := range v.Endpoints {
 			if ep.GetFromCidr() != "" {
@@ -63,32 +64,13 @@ func (c *Controller) reloadNetworkLookup() {
 		}
 	}
 	c.ranger = ranger
-}
-
-// return the mesh network for the endpoint IP. Empty string if not found.
-func (c *Controller) endpointNetwork(endpointIP string) string {
-	// If networkForRegistry is set then all endpoints discovered by this registry
-	// belong to the configured network so simply return it
-	if len(c.networkForRegistry) != 0 {
-		return c.networkForRegistry
+	c.Unlock()
+	// the network for endpoints are computed when we process the events; this will fix the cache
+	// NOTE: this must run before the other network watcher handler that creates a force push
+	if err := c.syncPods(); err != nil {
+		log.Errorf("one or more errors force-syncing pods: %v", err)
 	}
-
-	// Try to determine the network by checking whether the endpoint IP belongs
-	// to any of the configure networks' CIDR ranges
-	if c.ranger == nil {
-		return ""
+	if err := c.syncEndpoints(); err != nil {
+		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
-	entries, err := c.ranger.ContainingNetworks(net.ParseIP(endpointIP))
-	if err != nil {
-		log.Errora(err)
-		return ""
-	}
-	if len(entries) == 0 {
-		return ""
-	}
-	if len(entries) > 1 {
-		log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
-	}
-
-	return (entries[0].(namedRangerEntry)).name
 }

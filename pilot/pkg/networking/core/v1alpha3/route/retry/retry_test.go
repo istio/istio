@@ -19,12 +19,11 @@ import (
 	"testing"
 	"time"
 
+	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
+	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	gogoTypes "github.com/gogo/protobuf/types"
 	"github.com/golang/protobuf/ptypes"
 	. "github.com/onsi/gomega"
-
-	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/config/retry/previous_priorities"
-	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"

@@ -28,12 +28,11 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -352,6 +351,17 @@ func (c *ingressImpl) CloseClients() {
 		cl.CloseIdleConnections()
 	}
 	c.clients = map[clientKey]*http.Client{}
+}
+
+func (c *ingressImpl) PodID(i int) (string, error) {
+	pods, err := c.env.KubeClusters[0].PodsForSelector(context.TODO(), c.namespace, "istio=ingressgateway")
+	if err != nil {
+		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
+	}
+	if i < 0 || i >= len(pods.Items) {
+		return "", fmt.Errorf("pod index out of boundary (%d): %d", len(pods.Items), i)
+	}
+	return pods.Items[i].Name, nil
 }
 
 // adminRequest makes a call to admin port at ingress gateway proxy and returns error on request failure.

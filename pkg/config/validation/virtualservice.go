@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/labels"
 )
 
 func validateRootHTTPRoute(http *networking.HTTPRoute) (errs error) {
@@ -27,7 +28,7 @@ func validateRootHTTPRoute(http *networking.HTTPRoute) (errs error) {
 	}
 	// only delegate can be specified
 	if http.Redirect != nil {
-		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify rewrite", http.Name))
+		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify redirect", http.Name))
 	}
 	if http.Route != nil {
 		errs = appendErrors(errs, fmt.Errorf("root HTTP route %s must not specify route", http.Name))
@@ -134,16 +135,13 @@ func validateChainingHTTPRoute(http *networking.HTTPRoute) (errs error) {
 				errs = appendErrors(errs, ValidatePort(int(match.Port)))
 			}
 
-			// delegate only applies to gateway, so sourceLabels or sourceNamespace does not apply.
-			if len(match.SourceLabels) != 0 {
-				errs = appendErrors(errs, fmt.Errorf("sourceLabels match can not specify on delegate"))
-			}
 			if match.SourceNamespace != "" {
-				errs = appendErrors(errs, fmt.Errorf("sourceNamespace match can not specify on delegate"))
+				if !labels.IsDNS1123Label(match.SourceNamespace) {
+					errs = appendErrors(errs, fmt.Errorf("sourceNamespace match %s is invalid", match.SourceNamespace))
+				}
 			}
-			if len(match.Gateways) != 0 {
-				errs = appendErrors(errs, fmt.Errorf("gateways match can not specify on delegate"))
-			}
+			errs = appendErrors(errs, labels.Instance(match.SourceLabels).Validate())
+			errs = appendErrors(errs, validateGatewayNames(match.Gateways))
 		}
 	}
 

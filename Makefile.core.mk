@@ -19,7 +19,7 @@ ISTIO_GO := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 export ISTIO_GO
 SHELL := /bin/bash -o pipefail
 
-VERSION ?= 1.8-dev
+export VERSION ?= 1.8-dev
 
 # Base version of Istio image to use
 BASE_VERSION ?= 1.8-dev.0
@@ -27,9 +27,6 @@ BASE_VERSION ?= 1.8-dev.0
 export GO111MODULE ?= on
 export GOPROXY ?= https://proxy.golang.org
 export GOSUMDB ?= sum.golang.org
-
-# cumulatively track the directories/files to delete after a clean
-DIRS_TO_CLEAN:=
 
 # If GOPATH is not set by the env, set it to a sane value
 GOPATH ?= $(shell cd ${ISTIO_GO}/../../..; pwd)
@@ -43,11 +40,6 @@ GO ?= go
 
 GOARCH_LOCAL := $(TARGET_ARCH)
 GOOS_LOCAL := $(TARGET_OS)
-
-export ENABLE_COREDUMP ?= false
-
-# NOTE: env var EXTRA_HELM_SETTINGS can contain helm chart override settings, example:
-# EXTRA_HELM_SETTINGS="--set istio-cni.excludeNamespaces={} --set-string istio-cni.tag=v0.1-dev-foo"
 
 #-----------------------------------------------------------------------------
 # Output control
@@ -96,7 +88,6 @@ else
   export LOCAL_OUT := $(ISTIO_OUT)
 endif
 
-export HELM=helm
 export ARTIFACTS ?= $(ISTIO_OUT)
 export JUNIT_OUT ?= $(ARTIFACTS)/junit.xml
 export REPO_ROOT := $(shell git rev-parse --show-toplevel)
@@ -181,9 +172,8 @@ endif
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH ?= ${ISTIO_GO}/tools/packaging/common/envoy_bootstrap.json
 export ISTIO_ENVOY_BOOTSTRAP_CONFIG_DIR = $(dir ${ISTIO_ENVOY_BOOTSTRAP_CONFIG_PATH})
 
-GO_VERSION_REQUIRED:=1.10
-
-HUB?=istio
+# If the hub is not explicitly set, use default to istio.
+HUB ?=istio
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
@@ -274,6 +264,7 @@ BINARIES:=./istioctl/cmd/istioctl \
   ./operator/cmd/operator \
   ./cni/cmd/istio-cni \
   ./cni/cmd/istio-cni-repair \
+  ./cni/cmd/istio-cni-taint \
   ./cni/cmd/install-cni \
   ./tools/istio-iptables \
   ./tools/bug-report
@@ -283,15 +274,15 @@ RELEASE_BINARIES:=pilot-discovery pilot-agent istioctl bug-report
 
 .PHONY: build
 build: depend ## Builds all go binaries.
-	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
+	STATIC=0 GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT)/ $(BINARIES)
 
 # The build-linux target is responsible for building binaries used within containers.
-# This target should be expanded upon as we add more Linux architectures: i.e. buld-arm64.
+# This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
 # Then a new build target can be created such as build-container-bin that builds these
 # various platform images.
 .PHONY: build-linux
 build-linux: depend
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(BINARIES)
 
 # Create targets for ISTIO_OUT_LINUX/binary
 # There are two use cases here:
@@ -304,7 +295,7 @@ ifeq ($(BUILD_ALL),true)
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
 $(ISTIO_OUT_LINUX)/$(shell basename $(1)): $(ISTIO_OUT_LINUX)
-	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS='-extldflags -static -s -w' common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
+	STATIC=0 GOOS=linux GOARCH=amd64 LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(ISTIO_OUT_LINUX)/ $(1)
 endif
 endef
 
@@ -356,10 +347,10 @@ sync-configs-from-istiod:
 
 # Generate kustomize templates.
 gen-kustomize:
-	helm3 template istio --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
+	helm3 template istio --namespace istio-system --include-crds manifests/charts/base > manifests/charts/base/files/gen-istio-cluster.yaml
 	helm3 template istio --namespace istio-system manifests/charts/istio-control/istio-discovery \
 		-f manifests/charts/global.yaml > manifests/charts/istio-control/istio-discovery/files/gen-istio.yaml
-	helm3 template istiod-remote manifests/charts/istiod-remote \
+	helm3 template istiod-remote --namespace istio-system manifests/charts/istiod-remote \
 		-f manifests/charts/global.yaml > manifests/charts/istiod-remote/files/gen-istiod-remote.yaml
 
 #-----------------------------------------------------------------------------
@@ -367,10 +358,8 @@ gen-kustomize:
 #-----------------------------------------------------------------------------
 
 # gobuild script uses custom linker flag to set the variables.
-# Params: OUT VERSION_PKG SRC
 
 RELEASE_LDFLAGS='-extldflags -static -s -w'
-DEBUG_LDFLAGS='-extldflags "-static"'
 
 # Non-static istioctl targets. These are typically a build artifact.
 ${ISTIO_OUT}/release/istioctl-linux-amd64: depend
@@ -424,15 +413,14 @@ ${ISTIO_BIN}/go-junit-report:
 	unset GOOS && unset GOARCH && CGO_ENABLED=1 go get -u github.com/jstemmer/go-junit-report
 
 # This is just an alias for racetest now
-test: racetest
+test: racetest ## Runs all unit tests
 
-TEST_TARGETS ?= ./pilot/... ./istioctl/... ./operator/... ./galley/... ./security/... ./pkg/... ./tests/common/... ./tools/istio-iptables/... ./cni/cmd/... ./cni/pkg/...
 # For now, keep a minimal subset. This can be expanded in the future.
 BENCH_TARGETS ?= ./pilot/...
 
 .PHONY: racetest
-racetest: $(JUNIT_REPORT) ## Runs all unit tests with race detection enabled
-	go test ${GOBUILDFLAGS} ${T} -race $(TEST_TARGETS) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+racetest: $(JUNIT_REPORT)
+	go test ${GOBUILDFLAGS} ${T} -race ./... 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks
@@ -443,7 +431,7 @@ report-benchtest:
 	prow/benchtest.sh report
 
 cni.install-test: docker.install-cni
-	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} ./cni/test/...
+	HUB=${HUB} TAG=${TAG} go test ${GOBUILDFLAGS} -count=1 ${T} -tags=integ ./cni/test/...
 
 #-----------------------------------------------------------------------------
 # Target: clean
@@ -456,7 +444,7 @@ clean: ## Cleans all the intermediate files and folders previously generated.
 #-----------------------------------------------------------------------------
 # Target: docker
 #-----------------------------------------------------------------------------
-.PHONY: push artifacts
+.PHONY: push
 
 # for now docker is limited to Linux compiles - why ?
 include tools/istio-docker.mk

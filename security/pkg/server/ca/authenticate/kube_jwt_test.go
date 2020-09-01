@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/metadata"
 	k8sauth "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -26,10 +28,7 @@ import (
 	ktesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/security/pkg/k8s/tokenreview"
-
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/metadata"
+	"istio.io/istio/pkg/security"
 )
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
@@ -69,26 +68,6 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			expectedErrMsg: "target JWT extraction error: no bearer token exists in HTTP authorization header",
-		},
-		"Review error": {
-			token: "bearer-token",
-			metadata: metadata.MD{
-				"clusterid": []string{primaryCluster},
-				"authorization": []string{
-					"Basic callername",
-				},
-			},
-			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
-		},
-		"Wrong identity length": {
-			token: "bearer-token",
-			metadata: metadata.MD{
-				"clusterid": []string{primaryCluster},
-				"authorization": []string{
-					"Basic callername",
-				},
-			},
-			expectedErrMsg: "failed to validate the JWT: invalid JWT policy: ",
 		},
 		"token not authenticated": {
 			token: invlidToken,
@@ -145,7 +124,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			}
 			if tc.jwtPolicy == jwt.PolicyThirdParty {
-				tokenReview.Spec.Audiences = []string{tokenreview.DefaultAudience}
+				tokenReview.Spec.Audiences = security.TokenAudiences
 			}
 
 			tokenReview.Status.Audiences = []string{}

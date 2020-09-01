@@ -19,35 +19,24 @@ import (
 	"fmt"
 	"strings"
 
+	k8sauth "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
-	k8sauth "k8s.io/api/authentication/v1"
-
-	"istio.io/istio/pkg/jwt"
-)
-
-const (
-	// The default audience for SDS trustworthy JWT. This is to make sure that the CSR requests
-	// contain the JWTs intended for Citadel.
-	DefaultAudience = "istio-ca"
 )
 
 // ValidateK8sJwt validates a k8s JWT at API server.
 // Return {<namespace>, <serviceaccountname>} in the targetToken when the validation passes.
 // Otherwise, return the error.
 // targetToken: the JWT of the K8s service account to be reviewed
-// jwtPolicy: the policy for validating JWT.
-func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken, jwtPolicy string) ([]string, error) {
+// aud: list of audiences to check. If empty 1st party tokens will be checked.
+func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken string, aud []string) ([]string, error) {
 	tokenReview := &k8sauth.TokenReview{
 		Spec: k8sauth.TokenReviewSpec{
 			Token: targetToken,
 		},
 	}
-	if jwtPolicy == jwt.PolicyThirdParty {
-		tokenReview.Spec.Audiences = []string{DefaultAudience}
-	} else if jwtPolicy != jwt.PolicyFirstParty {
-		return nil, fmt.Errorf("invalid JWT policy: %v", jwtPolicy)
+	if aud != nil {
+		tokenReview.Spec.Audiences = aud
 	}
 	reviewRes, err := kubeClient.AuthenticationV1().TokenReviews().Create(context.TODO(), tokenReview, metav1.CreateOptions{})
 	if err != nil {

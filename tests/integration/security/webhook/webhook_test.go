@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,11 +20,10 @@ import (
 	"strings"
 	"testing"
 
-	"istio.io/istio/pkg/test/framework/label"
-
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/label"
 )
 
 var (
@@ -62,7 +62,7 @@ values:
 func TestWebhookManagement(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.control-plane.k8s-certs").
+		Features("security.control-plane.k8s-certs.webhook").
 		Run(func(ctx framework.TestContext) {
 			ctx.Skip("TODO(github.com/istio/istio/issues/20289)")
 

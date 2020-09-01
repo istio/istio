@@ -66,6 +66,10 @@ func MarshalWithJSONPB(val proto.Message) (string, error) {
 
 // UnmarshalWithJSONPB unmarshals y into out using gogo jsonpb (required for many proto defined structs).
 func UnmarshalWithJSONPB(y string, out proto.Message, allowUnknownField bool) error {
+	// Treat nothing as nothing.  If we called jsonpb.Unmarshaler it would return the same.
+	if y == "" {
+		return nil
+	}
 	jb, err := yaml.YAMLToJSON([]byte(y))
 	if err != nil {
 		return err

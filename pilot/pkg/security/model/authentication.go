@@ -15,15 +15,17 @@
 package model
 
 import (
+	"time"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/ptypes"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -49,8 +51,8 @@ const (
 	// Binary header name must has suffix "-bin", according to https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
 	K8sSAJwtTokenHeaderKey = "istio_sds_credentials_header-bin"
 
-	// GatewaySdsUdsPath is the UDS path for ingress gateway to get credentials via SDS.
-	GatewaySdsUdsPath = "unix:./var/run/ingress_gateway/sds"
+	// CredentialNameSDSUdsPath is the UDS path for ingress gateway to get credentials via SDS.
+	CredentialNameSDSUdsPath = "unix:./var/run/ingress_gateway/sds"
 
 	// SdsCaSuffix is the suffix of the sds resource name for root CA.
 	SdsCaSuffix = "-cacert"
@@ -63,20 +65,44 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
+
+	// KubernetesSecretType is the name of a SDS secret stored in Kubernetes
+	KubernetesSecretType    = "kubernetes"
+	KubernetesSecretTypeURI = KubernetesSecretType + "://"
 )
 
-// ConstructSdsSecretConfigWithCustomUds constructs SDS secret configuration for ingress gateway.
-func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecretConfig {
-	if name == "" || sdsUdsPath == "" {
+var (
+	SDSAdsConfig = &core.ConfigSource{
+		ConfigSourceSpecifier: &core.ConfigSource_Ads{
+			Ads: &core.AggregatedConfigSource{},
+		},
+		ResourceApiVersion:  core.ApiVersion_V3,
+		InitialFetchTimeout: features.InitialFetchTimeout,
+	}
+)
+
+// ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
+// from certificates referenced by credentialName in DestinationRule or Gateway.
+// Currently this is served by a local SDS server, but in the future replaced by
+// Istiod SDS server.
+func ConstructSdsSecretConfigForCredential(name string) *tls.SdsSecretConfig {
+	if name == "" {
 		return nil
 	}
 
+	if features.EnableSDSServer && features.EnableXDSIdentityCheck {
+		return &tls.SdsSecretConfig{
+			Name:      KubernetesSecretTypeURI + name,
+			SdsConfig: SDSAdsConfig,
+		}
+	}
+
 	gRPCConfig := &core.GrpcService_GoogleGrpc{
-		TargetUri:  sdsUdsPath,
+		TargetUri:  CredentialNameSDSUdsPath,
 		StatPrefix: SDSStatPrefix,
 	}
 
-	cfg := &tls.SdsSecretConfig{
+	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
 			ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
@@ -96,12 +122,12 @@ func ConstructSdsSecretConfigWithCustomUds(name, sdsUdsPath string) *tls.SdsSecr
 			InitialFetchTimeout: features.InitialFetchTimeout,
 		},
 	}
-
-	return cfg
 }
 
 // Preconfigured SDS configs to avoid excessive memory allocations
 var (
+	// set the fetch timeout to 0 here in defaultSDSConfig and rootSDSConfig
+	// because workload certs are guaranteed exist.
 	defaultSDSConfig = &tls.SdsSecretConfig{
 		Name: SDSDefaultResourceName,
 		SdsConfig: &core.ConfigSource{
@@ -119,7 +145,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 	rootSDSConfig = &tls.SdsSecretConfig{
@@ -139,7 +165,7 @@ var (
 				},
 			},
 			ResourceApiVersion:  core.ApiVersion_V3,
-			InitialFetchTimeout: features.InitialFetchTimeout,
+			InitialFetchTimeout: ptypes.DurationProto(time.Second * 0),
 		},
 	}
 )
@@ -200,64 +226,53 @@ func ConstructValidationContext(rootCAFilePath string, subjectAltNames []string)
 	return ret
 }
 
+func appendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
+	var res []string
+	for _, td := range trustDomainAliases {
+		res = append(res, spiffe.URIPrefix+td+"/")
+	}
+	return res
+}
+
 // ApplyToCommonTLSContext completes the commonTlsContext for `ISTIO_MUTUAL` TLS mode
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata, sdsPath string, subjectAltNames []string) {
-	// configure TLS with SDS
-	if metadata.SdsEnabled && sdsPath != "" {
-		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-		// which does not support rotation, we will serve them over SDS by reading the files.
-		// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
-		res := model.SdsCertificateConfig{
-			CertificatePath:   metadata.TLSServerCertChain,
-			PrivateKeyPath:    metadata.TLSServerKey,
-			CaCertificatePath: metadata.TLSServerRootCert,
-		}
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, metadata *model.NodeMetadata,
+	sdsPath string, subjectAltNames []string, trustDomainAliases []string) {
 
-		// configure server listeners with SDS.
-		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: util.StringToExactMatch(subjectAltNames)},
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
-			},
-		}
-		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
-		}
-	} else {
-		// TODO(ramaraochavali): Clean this codepath later as we default to SDS.
-		// SDS disabled, fall back on using mounted certificates
-		base := metadata.CertBaseDir + constants.AuthCertsPath
-		tlsServerRootCert := model.GetOrDefault(metadata.TLSServerRootCert, base+constants.RootCertFilename)
+	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+	// which does not support rotation, we will serve them over SDS by reading the files.
+	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
+	res := model.SdsCertificateConfig{
+		CertificatePath:   metadata.TLSServerCertChain,
+		PrivateKeyPath:    metadata.TLSServerKey,
+		CaCertificatePath: metadata.TLSServerRootCert,
+	}
 
-		tlsContext.ValidationContextType = ConstructValidationContext(tlsServerRootCert, subjectAltNames)
+	// TODO: if subjectAltName ends with *, create a prefix match as well.
+	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
+	matchSAN := util.StringToExactMatch(subjectAltNames)
+	if len(trustDomainAliases) > 0 {
+		matchSAN = append(matchSAN, util.StringToPrefixMatch(appendURIPrefixToTrustDomain(trustDomainAliases))...)
+	}
 
-		tlsServerCertChain := model.GetOrDefault(metadata.TLSServerCertChain, base+constants.CertChainFilename)
-		tlsServerKey := model.GetOrDefault(metadata.TLSServerKey, base+constants.KeyFilename)
-
-		tlsContext.TlsCertificates = []*tls.TlsCertificate{
-			{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerCertChain,
-					},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_Filename{
-						Filename: tlsServerKey,
-					},
-				},
-			},
-		}
+	// configure server listeners with SDS.
+	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+			DefaultValidationContext:         &tls.CertificateValidationContext{MatchSubjectAltNames: matchSAN},
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
+		},
+	}
+	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
 	}
 }
 
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
 // Used for building upstream TLS context for egress gateway's TLS/mTLS origination
-func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ClientTLSSettings, sdsUdsPath string) {
+func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ClientTLSSettings) {
 	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
 		// create SDS config for gateway to fetch key/cert from agent.
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName),
 		}
 	}
 	// create SDS config for gateway to fetch certificate validation context
@@ -267,19 +282,18 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext, tl
 	}
 	tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-			DefaultValidationContext: defaultValidationContext,
-			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
-				tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath),
+			DefaultValidationContext:         defaultValidationContext,
+			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName + SdsCaSuffix),
 		},
 	}
 }
 
-// ApplyCustomSDSToServerCommonTLSContext applies the customized sds to CommonTlsContext
+// ApplyCredentialSDSToServerCommonTLSContext applies the credentialName sds (Gateway/DestinationRule) to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
-func ApplyCustomSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ServerTLSSettings, sdsUdsPath string) {
+func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext, tlsOpts *networking.ServerTLSSettings) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfigWithCustomUds(tlsOpts.CredentialName, sdsUdsPath),
+		ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName),
 	}
 	// If tls mode is MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
@@ -291,9 +305,8 @@ func ApplyCustomSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext, tl
 		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigWithCustomUds(
-					tlsOpts.CredentialName+SdsCaSuffix, sdsUdsPath),
+				DefaultValidationContext:         defaultValidationContext,
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName + SdsCaSuffix),
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {

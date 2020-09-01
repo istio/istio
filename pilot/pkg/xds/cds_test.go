@@ -16,25 +16,19 @@ package xds_test
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/tests/util"
 )
 
 func TestCDS(t *testing.T) {
-	_, tearDown := initLocalPilotTestEnv(t)
-	defer tearDown()
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	adscon := s.ConnectADS()
 
-	cdsr, cancel, err := connectADS(util.MockPilotGrpcAddr)
+	err := sendCDSReq(sidecarID(app3Ip, "app3"), adscon)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	err = sendCDSReq(sidecarID(app3Ip, "app3"), cdsr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
-	res, err := cdsr.Recv()
+	res, err := adscon.Recv()
 	if err != nil {
 		t.Fatal("Failed to receive CDS", err)
 		return

@@ -21,17 +21,19 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-
+	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/structpath"
@@ -192,12 +194,12 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		endpoints := ExtractEndpoints(s.Endpoints(proxy))
+		endpoints := xdstest.ExtractLoadAssignments(s.Endpoints(proxy))
 		if !listEqualUnordered(endpoints["outbound|80||app.com"], []string{"1.1.1.1"}) {
 			t.Fatalf("expected 1.1.1.1, got %v", endpoints["outbound|80||app.com"])
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -219,13 +221,13 @@ func TestServiceScoping(t *testing.T) {
 		p.IPAddresses = []string{"100.100.100.100"}
 		proxy := s.SetupProxy(p)
 
-		endpoints := ExtractClusterEndpoints(s.Clusters(proxy))
+		endpoints := xdstest.ExtractClusterEndpoints(s.Clusters(proxy))
 		eps := endpoints["inbound|9080|custom-http|sidecar.app"]
 		if !listEqualUnordered(eps, []string{"/var/run/someuds.sock"}) {
 			t.Fatalf("expected /var/run/someuds.sock, got %v", eps)
 		}
 
-		assertListEqual(t, ExtractListenerNames(s.Listeners(proxy)), []string{
+		assertListEqual(t, xdstest.ExtractListenerNames(s.Listeners(proxy)), []string{
 			"0.0.0.0_80",
 			"5.5.5.5_443",
 			"virtualInbound",
@@ -243,7 +245,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"app.com"})
 	})
 
 	t.Run("DNS no self import", func(t *testing.T) {
@@ -256,7 +258,7 @@ func TestServiceScoping(t *testing.T) {
 		})
 		proxy := s.SetupProxy(baseProxy())
 
-		assertListEqual(t, ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
+		assertListEqual(t, xdstest.ExtractClusterEndpoints(s.Clusters(proxy))["outbound|80||app.com"], []string{"included.com"})
 	})
 }
 
@@ -267,12 +269,12 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==15001)]}").
 			Equals("virtualOutbound", "{.name}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
-			Equals("envoy.tcp_proxy", "{.filterChains[0].filters[0].name}").
+			Equals(wellknown.TCPProxy, "{.filterChains[0].filters[0].name}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.cluster}").
 			Equals("PassthroughCluster", "{.filterChains[0].filters[0].typedConfig.statPrefix}").
 			Equals(true, "{.hiddenEnvoyDeprecatedUseOriginalDst}").
@@ -287,7 +289,7 @@ func TestSidecarListeners(t *testing.T) {
 			IPAddresses: []string{"10.2.0.1"},
 			ID:          "app3.testns",
 		})
-		structpath.ForProto(ToDiscoveryResponse(s.Listeners(proxy))).
+		structpath.ForProto(xdstest.ToDiscoveryResponse(s.Listeners(proxy))).
 			Exists("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Select("{.resources[?(@.address.socketAddress.portValue==27018)]}").
 			Equals("0.0.0.0", "{.address.socketAddress.address}").
@@ -339,8 +341,12 @@ func TestMeshNetworking(t *testing.T) {
 					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
 				}},
 				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
-					Gw:   &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"},
-					Port: 15443,
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"}, Port: 15443,
+				}},
+			},
+			"network-2": {
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{Address: "3.3.3.3"}, Port: 15443,
 				}},
 			},
 		}},
@@ -357,21 +363,28 @@ func TestMeshNetworking(t *testing.T) {
 					Port: 15443,
 				}},
 			},
+			// TODO(landow) support service name gateway without fromRegistry
+			"network-2": {
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{Address: "3.3.3.3"}, Port: 15443,
+				}},
+			},
 		}},
 	}
 
 	for _, ingr := range ingresses {
 		t.Run(string(ingr.Spec.Type), func(t *testing.T) {
+			var k8sObjects []runtime.Object
+			k8sObjects = append(k8sObjects,
+				// NodePort ingress needs this
+				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
+				ingr)
+			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
+			networkPodLabels := labels.Instance{"app": "labeled", label.IstioNetwork: "network-2"}
+			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "labeled", ns: "pod", ip: "10.10.10.40", podLabels: networkPodLabels})...)
+
 			for name, networkConfig := range meshNetworkConfigs {
 				t.Run(name, func(t *testing.T) {
-
-					var k8sObjects []runtime.Object
-					k8sObjects = append(k8sObjects,
-						// NodePort ingress needs this
-						&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
-						ingr)
-					k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
-
 					s := NewFakeDiscoveryServer(t, FakeOptions{
 						KubernetesObjects: k8sObjects,
 						ConfigString: `
@@ -391,6 +404,7 @@ spec:
   location: MESH_INTERNAL
   endpoints:
   - address: 10.10.10.30
+    serviceAccount: svc-acc
     labels:
       app: se-pod
     network: network-1
@@ -414,7 +428,7 @@ spec:
       app: httpbin
     network: vm
 `,
-						MeshNetworks: networkConfig,
+						NetworksWatcher: mesh.NewFixedNetworksWatcher(networkConfig),
 					})
 					se := s.SetupProxy(&model.Proxy{
 						ID: "se-pod.pod",
@@ -432,6 +446,14 @@ spec:
 							Labels:    labels.Instance{"app": "kubeapp"},
 						},
 					})
+					labeledPod := s.SetupProxy(&model.Proxy{
+						ID: "labeled-1234.pod",
+						Metadata: &model.NodeMetadata{
+							Network:   "network-2",
+							ClusterID: "Kubernetes",
+							Labels:    networkPodLabels,
+						},
+					})
 					vm := s.SetupProxy(&model.Proxy{
 						ID:              "vm",
 						IPAddresses:     []string{"10.10.10.10"},
@@ -441,42 +463,74 @@ spec:
 							InterceptionMode: "NONE",
 						},
 					})
+					gw := s.SetupProxy(&model.Proxy{
+						ID:              "gw",
+						IPAddresses:     []string{"2.2.2.2"},
+						ConfigNamespace: "default",
+						Metadata: &model.NodeMetadata{
+							Network:              "vm", // should only see the VM
+							InterceptionMode:     "NONE",
+							RequestedNetworkView: []string{"vm"},
+						},
+					})
 
 					tests := []struct {
 						p      *model.Proxy
-						expect map[string]string
+						expect map[string][]string
 					}{
 						{
 							p: pod,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
+							},
+						},
+						{
+							p: labeledPod,
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"10.10.10.40"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
 							},
 						},
 						{
 							p: se,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
 							},
 						},
 						{
 							p: vm,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
+							},
+						},
+						{
+							p: gw,
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com": {"10.10.10.10"},
+								// Network view will filter these out
+								"outbound|80||kubeapp.pod.svc.cluster.local": {},
+								"outbound|80||labeled.pod.svc.cluster.local": {},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {},
 							},
 						},
 					}
 
 					for _, tt := range tests {
-						eps := ExtractEndpoints(s.Endpoints(tt.p))
-						for c, ip := range tt.expect {
+						eps := xdstest.ExtractLoadAssignments(s.Endpoints(tt.p))
+						for c, ips := range tt.expect {
 							t.Run(fmt.Sprintf("%s from %s", c, tt.p.ID), func(t *testing.T) {
-								assertListEqual(t, eps[c], []string{ip})
+								assertListEqual(t, eps[c], ips)
 							})
 						}
 					}
@@ -529,7 +583,7 @@ spec:
 	})
 
 	listeners := s.Listeners(proxy)
-	assertListEqual(t, ExtractListenerNames(listeners), []string{
+	assertListEqual(t, xdstest.ExtractListenerNames(listeners), []string{
 		"0.0.0.0_80",
 		"virtualInbound",
 		"virtualOutbound",
@@ -538,12 +592,12 @@ spec:
 	expectedEgressCluster := "outbound|5000|shiny|foo.bar"
 
 	found := false
-	for _, f := range ExtractListener("virtualOutbound", listeners).FilterChains {
+	for _, f := range xdstest.ExtractListener("virtualOutbound", listeners).FilterChains {
 		// We want to check the match all filter chain, as this is testing the fallback logic
 		if f.FilterChainMatch != nil {
 			continue
 		}
-		tcp := ExtractTCPProxy(t, f)
+		tcp := xdstest.ExtractTCPProxy(t, f)
 		if tcp.GetCluster() != expectedEgressCluster {
 			t.Fatalf("got unexpected fallback destination: %v, want %v", tcp.GetCluster(), expectedEgressCluster)
 		}
@@ -585,8 +639,11 @@ type fakeServiceOpts struct {
 // If servicePorts is empty a default of http-80 will be used.
 func fakePodService(opts fakeServiceOpts) []runtime.Object {
 	baseMeta := metav1.ObjectMeta{
-		Name:      opts.name,
-		Labels:    labels.Instance{"app": opts.name},
+		Name: opts.name,
+		Labels: labels.Instance{
+			"app":         opts.name,
+			label.TLSMode: model.IstioMutualTLSModeLabel,
+		},
 		Namespace: opts.ns,
 	}
 	podMeta := baseMeta

@@ -1,3 +1,4 @@
+// +build integ
 //  Copyright Istio Authors
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,6 +51,7 @@ func TestSdsEgressGatewayIstioMutual(t *testing.T) {
 	// Turn it back on once issue is fixed.
 	t.Skip("https://github.com/istio/istio/issues/17933")
 	framework.NewTest(t).
+		Features("security.egress.mtls.sds").
 		Run(func(ctx framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, ctx)
 

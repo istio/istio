@@ -23,7 +23,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pkg/security"
-
 	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 )
 

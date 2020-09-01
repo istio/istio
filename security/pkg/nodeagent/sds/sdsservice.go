@@ -27,14 +27,8 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
-	"istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/security"
-	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
-	"istio.io/istio/security/pkg/util"
-
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
@@ -42,7 +36,10 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
+	nodeagentutil "istio.io/istio/security/pkg/nodeagent/util"
 	"istio.io/pkg/log"
 )
 
@@ -443,33 +440,20 @@ func (s *sdsservice) FetchSecrets(ctx context.Context, discReq *discovery.Discov
 
 func (s *sdsservice) getToken() (string, error) {
 	token := ""
-	needRenew := false
-	tok, err := ioutil.ReadFile(s.jwtPath)
-	if err != nil {
-		sdsServiceLog.Errorf("failed to get credential token: %v from path %s", err, s.jwtPath)
-		needRenew = true
+	if s.credFetcher != nil {
+		t, err := s.credFetcher.GetPlatformCredential()
+		if err != nil {
+			sdsServiceLog.Errorf("Failed to get credential token through credential fetcher: %v", err)
+			return "", err
+		}
+		token = t
 	} else {
-		tokenExpired, err := util.IsJwtExpired(string(tok), time.Now())
-		if err != nil || tokenExpired {
-			sdsServiceLog.Errorf("JWT expiration checking error: %v or token is expired %v", err, tokenExpired)
-			needRenew = true
-		} else {
-			// We have a valid token.
-			token = string(tok)
-			return token, nil
+		tok, err := ioutil.ReadFile(s.jwtPath)
+		if err != nil {
+			sdsServiceLog.Errorf("failed to get credential token: %v from path %s", err, s.jwtPath)
+			return "", err
 		}
-	}
-	if needRenew {
-		if s.credFetcher != nil {
-			t, err := s.credFetcher.GetPlatformCredential()
-			if err != nil {
-				sdsServiceLog.Errorf("Failed to get credential token through credential fetcher: %v", err)
-				return "", err
-			}
-			token = t
-		} else {
-			return "", fmt.Errorf("failed to read token from path %s and cannot renew token", s.jwtPath)
-		}
+		token = string(tok)
 	}
 	return token, nil
 }
@@ -508,6 +492,12 @@ func clearStaledClients() {
 
 // NotifyProxy sends notification to proxy about secret update,
 // SDS will close streaming connection if secret is nil.
+// TODO: this method may have a race condition and a very confusing logic,
+// it may work if the push channel somehow prevents other secret rotations
+// happening in other go-routines from replacing the per-connection fields
+// while pushChannel happens. This may lead to lost secret rotations for
+// gateway. With SDS moving to istiod - it will no longer be an issue, may
+// be too risky to change this code.
 func NotifyProxy(connKey cache.ConnKey, secret *security.SecretItem) error {
 	conIDresourceNamePrefix := sdsLogPrefix(connKey.ResourceName)
 	sdsClientsMutex.Lock()

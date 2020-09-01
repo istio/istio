@@ -20,14 +20,13 @@ import (
 	gogotypes "github.com/gogo/protobuf/types"
 	golangany "github.com/golang/protobuf/ptypes/any"
 
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pkg/config/schema/gvk"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/pkg/log"
 )
 
@@ -57,7 +56,7 @@ type APIGenerator struct {
 // This provides similar functionality with MCP and :8080/debug/configz.
 //
 // Names are based on the current resource naming in istiod stores.
-func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, updates model.XdsUpdates) model.Resources {
+func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *model.WatchedResource, req *model.PushRequest) model.Resources {
 	resp := []*golangany.Any{}
 
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
@@ -75,7 +74,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 	// TODO: extra validation may be needed - at least logging that a resource
 	// of unknown type was requested. This should not be an error - maybe client asks
 	// for a valid CRD we just don't know about. An empty set indicates we have no such config.
-	rgvk := resource.GroupVersionKind{
+	rgvk := config.GroupVersionKind{
 		Group:   kind[0],
 		Version: kind[1],
 		Kind:    kind[2],
@@ -155,7 +154,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w *
 
 // Convert from model.Config, which has no associated proto, to MCP Resource proto.
 // TODO: define a proto matching Config - to avoid useless superficial conversions.
-func configToResource(c *model.Config) (*mcp.Resource, error) {
+func configToResource(c *config.Config) (*mcp.Resource, error) {
 	r := &mcp.Resource{}
 
 	// MCP, K8S and Istio configs use gogo configs

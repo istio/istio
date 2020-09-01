@@ -35,6 +35,7 @@ features:
       istioctl:
   # features relating to controlling the traffic of the service mesh.
   traffic:
+    locality:
     reachability:
     shifting:
     routing:
@@ -51,6 +52,8 @@ features:
       proxy-config:
       proxy-status:
       authz-check:
+      analysis:
+        line-numbers:
     helpers:
       add-to-mesh:
       remove-from-mesh:
@@ -58,18 +61,50 @@ features:
   security:
     peer:
       secure-naming:
+      trust-domain-validation:
     user:
     ingress:
       mtls:
+        secretrotation:
+        generic-compoundrotation:
+        nongeneric-compoundrotation:
+        gateway:
       tls:
+        secretrotation:
+        gateway:
+          invalid-secret:
+          K8sca:
+          valid-secret:
     egress:
       mtls:
         sds:
       tls:
         filebased:
         sds:
+    authorization:
+      mtls-local:
+      jwt-token:
+      workload-selector:
+      deny-action:
+      negative-match:
+      ingress-gateway:
+      egress-gateway:
+      tcp:
+      conditions:
+      grpc-protocol:
+      path-normalization:
+    authentication:
+      jwt:
+      ingressjwt:
+    reachability:
+    healthcheck:
+    filterchain:
     control-plane:
       k8s-certs:
+        dns-certificate:
+        k8sca:
+        jwt:
+        webhook:
       plugin-cert:
   # features which allow extending or deep integrations with istio and other products
   extensibility:

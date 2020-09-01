@@ -5,6 +5,23 @@ Notes should be created as part of the pull request for any user facing changes.
 a release, the release notes utility will be run in order to generate a release notes file
 which will be reviewed by the release managers and documentation team.
 
+## When to Add Release Notes
+
+Release notes should be added for any user facing changes. These include:
+* CLI changes
+* API changes
+* Configuration schema change
+* Behavioral change
+* Change in non-functional attributes such as efficiency or availability, availability of a new platform
+* A warning about a deprecation
+* Fix of a previous Known Issue
+* Promoting features
+
+No release notes are required for changes to:
+* Tests
+* Build Infrastructure
+* Fixes of bugs that have not been released.
+
 ## Adding a Release Note
 
 To create a release note, create a new file in the [./notes](./notes) directory based on
@@ -20,15 +37,22 @@ area: traffic-management
 issue:
   - https://github.com/istio/istio/issues/23622
   - 23624
-releaseNotes: |
-*Fixed* an issue preventing the operator from recreating watched resources if they are deleted
+
+docs:
+ - [usage] https://istio.io/latest/docs/tasks/traffic-management/request-routing/
+ - [reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/
+
+releaseNotes:
+- |
+**Fixed** an issue preventing the operator from recreating watched resources if they are deleted
 
 upgradeNotes:
   - title: Change the readiness port of gateways
     content: |
       If you are using the 15020 port to check the health of your Istio ingress gateway with your Kubernetes network load balancer, change the port from 15020 to 15021.
 
-securityNotes: |
+securityNotes:
+- |
 __[CVE-2020-15104](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15104)__:
 When validating TLS certificates, Envoy incorrectly allows a wildcard DNS Subject Alternative Name to apply to multiple subdomains. For example, with a SAN of `*.example.com`, Envoy incorrectly allows `nested.subdomain.example.com`, when it should only allow `subdomain.example.com`.
     - CVSS Score: 6.6 [AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:L/A:N/E:F/RL:O/RC:C&version=3.1)
@@ -50,9 +74,13 @@ This field describes the are of Istio that the note affects. Valid values includ
 
 While many pull requests will only fix a single GitHub issue, some pull requests may fix multiple issues. Please list all fixed GitHub issues. Issues written as numbers only will be interpreted as being reported against the `istio/istio` repo, while issues recorded as URLs will be read as the supplied URLs.
 
+## docs
+
+The `docs` field should be used to list related documentation. These will be turned into links and appended to the note alongside the issues.
+
 ### Release Notes
 
-These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `*Action*`.
+These notes detail bug fixes, feature additions, removals, or other general content that has an impact to users. Release notes should be written in complete sentences, and the first word should be an action presented in the format `**Action**`. Acceptable actions are: `**Added**`, `**Deprecated**`, `**Enabled**`, `**Fixed**`, `**Optimized**`, `**Improved**`, `**Removed**`, `**Promoted**`, and `**Upgraded**`.
 
 ### Upgrade Notes
 

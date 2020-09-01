@@ -1,0 +1,31 @@
+{
+    "text_payload": "clt --> srv",
+    "labels": {
+        "destination_app": "srv",
+        "destination_canonical_revision": "v1",
+        "destination_canonical_service": "srv",
+        "destination_namespace": "{{ .EchoNamespace }}",
+        "destination_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+        "destination_service_host": "srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "destination_version": "v1",
+        "destination_workload": "srv-v1",
+        "destination_port": "9000",
+        "mesh_uid": "test-mesh",
+        "response_flag": "-",
+        "service_authentication_policy": "MUTUAL_TLS",
+        "source_app": "clt",
+        "source_canonical_revision": "v1",
+        "source_canonical_service": "clt",
+        "source_namespace": "{{ .EchoNamespace }}",
+        "source_principal": "spiffe://cluster.local/ns/{{ .EchoNamespace }}/sa/default",
+        "source_version": "v1",
+        "source_workload": "clt-v1",
+        "protocol": "tcp",
+        "log_sampled": "false",
+        "requested_server_name": "outbound_.9090_._.srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "upstream_cluster": "inbound|9090|tcp|srv.{{ .EchoNamespace }}.svc.cluster.local",
+        "route_name": "",
+        "x-envoy-original-dst-host": "",
+        "x-envoy-original-path": ""
+    }
+}

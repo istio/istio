@@ -7,7 +7,6 @@ spec:
   meshConfig:
     enablePrometheusMerge: true
     rootNamespace: istio-control
-    mixerCheckServer: foo:1234
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY
     defaultConfig:

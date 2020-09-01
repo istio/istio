@@ -15,6 +15,10 @@
 package service
 
 import (
+	"fmt"
+
+	v1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/galley/pkg/config/analysis"
 	"istio.io/istio/galley/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/galley/pkg/config/analysis/msg"
@@ -22,8 +26,6 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-
-	v1 "k8s.io/api/core/v1"
 )
 
 // PortNameAnalyzer checks the port name of the service
@@ -64,10 +66,17 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 
 func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Context) {
 	svc := r.Message.(*v1.ServiceSpec)
-	for _, port := range svc.Ports {
+	for i, port := range svc.Ports {
 		if instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol); instance.IsUnsupported() {
-			c.Report(collections.K8SCoreV1Services.Name(), msg.NewPortNameIsNotUnderNamingConvention(
-				r, port.Name, int(port.Port), port.TargetPort.String()))
+
+			m := msg.NewPortNameIsNotUnderNamingConvention(
+				r, port.Name, int(port.Port), port.TargetPort.String())
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.PortInPorts, i)); ok {
+				m.Line = line
+			}
+
+			c.Report(collections.K8SCoreV1Services.Name(), m)
 		}
 	}
 }

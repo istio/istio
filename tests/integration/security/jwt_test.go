@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,6 +44,7 @@ func TestRequestAuthentication(t *testing.T) {
 	payload1 := strings.Split(jwt.TokenIssuer1, ".")[1]
 	payload2 := strings.Split(jwt.TokenIssuer2, ".")[1]
 	framework.NewTest(t).
+		Features("security.authentication.jwt").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "req-authn",
@@ -58,17 +60,19 @@ func TestRequestAuthentication(t *testing.T) {
 				file.AsStringOrFail(t, "testdata/requestauthn/b-authn-authz.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/c-authn.yaml.tmpl"),
 				file.AsStringOrFail(t, "testdata/requestauthn/e-authn.yaml.tmpl"),
+				file.AsStringOrFail(t, "testdata/requestauthn/f-authn.yaml.tmpl"),
 			)
 			ctx.Config().ApplyYAMLOrFail(t, ns.Name(), jwtPolicies...)
 			defer ctx.Config().DeleteYAMLOrFail(t, ns.Name(), jwtPolicies...)
 
-			var a, b, c, d, e echo.Instance
+			var a, b, c, d, e, f echo.Instance
 			echoboot.NewBuilder(ctx).
 				With(&a, util.EchoConfig("a", ns, false, nil)).
 				With(&b, util.EchoConfig("b", ns, false, nil)).
 				With(&c, util.EchoConfig("c", ns, false, nil)).
 				With(&d, util.EchoConfig("d", ns, false, nil)).
 				With(&e, util.EchoConfig("e", ns, false, nil)).
+				With(&f, util.EchoConfig("f", ns, false, nil)).
 				BuildOrFail(t)
 
 			testCases := []authn.TestCase{
@@ -259,6 +263,48 @@ func TestRequestAuthentication(t *testing.T) {
 					},
 					ExpectResponseCode: response.StatusCodeOK,
 				},
+				{
+					Name: "invalid-jwks-valid-token-noauthz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   f,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenIssuer1},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusUnauthorized,
+				},
+				{
+					Name: "invalid-jwks-expired-token-noauthz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   f,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+							Headers: map[string][]string{
+								authHeaderKey: {"Bearer " + jwt.TokenExpired},
+							},
+						},
+					},
+					ExpectResponseCode: response.StatusUnauthorized,
+				},
+				{
+					Name: "invalid-jwks-no-token-noauthz",
+					Request: connection.Checker{
+						From: a,
+						Options: echo.CallOptions{
+							Target:   f,
+							PortName: "http",
+							Scheme:   scheme.HTTP,
+						},
+					},
+					ExpectResponseCode: response.StatusCodeOK,
+				},
 			}
 			for _, c := range testCases {
 				t.Run(c.Name, func(t *testing.T) {
@@ -273,6 +319,7 @@ func TestRequestAuthentication(t *testing.T) {
 // The policy is also set at global namespace, with authorization on ingressgateway.
 func TestIngressRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
+		Features("security.authentication.ingressjwt").
 		Run(func(ctx framework.TestContext) {
 			ingr := ist.IngressFor(ctx.Clusters().Default())
 

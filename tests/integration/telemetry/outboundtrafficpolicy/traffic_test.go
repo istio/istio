@@ -1,3 +1,4 @@
+// +build integ
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +46,9 @@ func setupConfig(cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 components:
   egressGateways:
-  - enabled: true`
+  - enabled: true
+    name: istio-egressgateway
+`
 }
 
 func setupPrometheus(ctx resource.Context) (err error) {

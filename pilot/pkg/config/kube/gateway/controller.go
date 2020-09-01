@@ -23,15 +23,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	svc "sigs.k8s.io/service-apis/apis/v1alpha1"
 
-	"istio.io/pkg/ledger"
-
+	"istio.io/istio/pilot/pkg/model"
 	controller2 "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
-
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/pkg/ledger"
 )
 
 var (
@@ -66,11 +64,11 @@ func (c *controller) Schemas() collection.Schemas {
 	)
 }
 
-func (c controller) Get(typ resource.GroupVersionKind, name, namespace string) *model.Config {
+func (c controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	panic("get is not supported")
 }
 
-func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]model.Config, error) {
+func (c controller) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
 	if typ != gvk.Gateway && typ != gvk.VirtualService {
 		return nil, errUnsupportedType
 	}
@@ -89,11 +87,7 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 	}
 	tcpRoute, err := c.cache.List(collections.K8SServiceApisV1Alpha1Tcproutes.Resource().GroupVersionKind(), namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list type TcpRoute: %v", err)
-	}
-	trafficSplit, err := c.cache.List(collections.K8SServiceApisV1Alpha1Trafficsplits.Resource().GroupVersionKind(), namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list type TrafficSplit: %v", err)
+		return nil, fmt.Errorf("failed to list type TCPRoute: %v", err)
 	}
 
 	nsl, err := c.client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -109,7 +103,6 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 		Gateway:      gateway,
 		HTTPRoute:    httpRoute,
 		TCPRoute:     tcpRoute,
-		TrafficSplit: trafficSplit,
 		Namespaces:   namespaces,
 		Domain:       c.domain,
 	}
@@ -124,15 +117,15 @@ func (c controller) List(typ resource.GroupVersionKind, namespace string) ([]mod
 	return nil, errUnsupportedOp
 }
 
-func (c controller) Create(config model.Config) (revision string, err error) {
+func (c controller) Create(config config.Config) (revision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c controller) Update(config model.Config) (newRevision string, err error) {
+func (c controller) Update(config config.Config) (newRevision string, err error) {
 	return "", errUnsupportedOp
 }
 
-func (c controller) Delete(typ resource.GroupVersionKind, name, namespace string) error {
+func (c controller) Delete(typ config.GroupVersionKind, name, namespace string) error {
 	return errUnsupportedOp
 }
 
@@ -144,8 +137,8 @@ func (c controller) GetResourceAtVersion(version string, key string) (resourceVe
 	return c.cache.GetResourceAtVersion(version, key)
 }
 
-func (c controller) RegisterEventHandler(typ resource.GroupVersionKind, handler func(model.Config, model.Config, model.Event)) {
-	c.cache.RegisterEventHandler(typ, func(prev, cur model.Config, event model.Event) {
+func (c controller) RegisterEventHandler(typ config.GroupVersionKind, handler func(config.Config, config.Config, model.Event)) {
+	c.cache.RegisterEventHandler(typ, func(prev, cur config.Config, event model.Event) {
 		handler(prev, cur, event)
 	})
 }

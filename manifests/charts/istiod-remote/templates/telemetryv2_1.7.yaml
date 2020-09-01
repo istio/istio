@@ -211,6 +211,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -224,6 +225,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -262,6 +266,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -275,6 +280,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -313,6 +321,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio",
@@ -327,6 +336,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: stats_outbound
                   runtime: envoy.wasm.runtime.null
@@ -370,6 +382,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -383,6 +396,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: tcp_stats_inbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -419,6 +435,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -432,6 +449,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
                   {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
@@ -468,6 +488,7 @@ spec:
                 configuration:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
+                    {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
                     {
                       "debug": "false",
                       "stat_prefix": "istio"{{- if .Values.global.multiCluster.clusterName }},
@@ -481,6 +502,9 @@ spec:
                       ]
                       {{- end }}
                     }
+                    {{- else }}
+                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+                    {{- end }}
                 vm_config:
                   vm_id: tcp_stats_outbound
                   runtime: envoy.wasm.runtime.null
@@ -610,6 +634,119 @@ spec:
                   code:
                     local: { inline_string: envoy.wasm.null.stackdriver }
 ---
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: tcp-stackdriver-filter-1.7{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  {{- if .Values.meshConfig.rootNamespace }}
+  namespace: {{ .Values.meshConfig.rootNamespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    istio.io/rev: {{ .Values.revision | default "default" }}
+spec:
+  configPatches:
+  {{- if not .Values.telemetry.v2.stackdriver.disableOutbound }}
+  - applyTo: NETWORK_FILTER
+    match:
+      context: SIDECAR_OUTBOUND
+      proxy:
+        proxyVersion: '^1\.7.*'
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.tcp_proxy"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: istio.stackdriver
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+          value:
+            config:
+              root_id: stackdriver_outbound
+              configuration:
+                "@type": "type.googleapis.com/google.protobuf.StringValue"
+                value: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+              vm_config:
+                vm_id: stackdriver_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  local: { inline_string: envoy.wasm.null.stackdriver }
+    {{- end }}
+  - applyTo: NETWORK_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      proxy:
+        proxyVersion: '^1\.7.*'
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.tcp_proxy"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: istio.stackdriver
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+          value:
+            config:
+              root_id: stackdriver_inbound
+              configuration:
+                "@type": "type.googleapis.com/google.protobuf.StringValue"
+                value: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+              vm_config:
+                vm_id: stackdriver_inbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  local: { inline_string: envoy.wasm.null.stackdriver }
+  - applyTo: NETWORK_FILTER
+    match:
+      context: GATEWAY
+      proxy:
+        proxyVersion: '^1\.7.*'
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.tcp_proxy"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: istio.stackdriver
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+          value:
+            config:
+              root_id: stackdriver_outbound
+              configuration:
+                "@type": "type.googleapis.com/google.protobuf.StringValue"
+                value: |
+                  {{- if not .Values.telemetry.v2.stackdriver.configOverride }}
+                  {"disable_server_access_logging": {{ not .Values.telemetry.v2.stackdriver.logging }}}
+                  {{- else }}
+                  {{ toJson .Values.telemetry.v2.stackdriver.configOverride | indent 18 }}
+                  {{- end }}
+              vm_config:
+                vm_id: stackdriver_outbound
+                runtime: envoy.wasm.runtime.null
+                code:
+                  local: { inline_string: envoy.wasm.null.stackdriver }
+---
 {{- if .Values.telemetry.v2.accessLogPolicy.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -655,6 +792,6 @@ spec:
                   code:
                     local: { inline_string: "envoy.wasm.access_log_policy" }
 ---
-{{- end }}
-{{- end }}
-{{- end }}
+{{- end}}
+{{- end}}
+{{- end}}

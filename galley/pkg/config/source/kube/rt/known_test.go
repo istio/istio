@@ -20,17 +20,15 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
-	"k8s.io/api/extensions/v1beta1"
-
-	"istio.io/istio/pkg/config/schema/resource"
-
 	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/data"
 	"istio.io/istio/galley/pkg/config/testing/k8smeta"
+	"istio.io/istio/pkg/config"
 )
 
 func TestParse(t *testing.T) {
@@ -180,7 +178,7 @@ func parse(t *testing.T, input []byte, group, kind, version string) (metaV1.Obje
 	g := NewWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(k8smeta.MustGet().KubeCollections().MustFindByGroupVersionKind(resource.GroupVersionKind{
+	a := pr.GetAdapter(k8smeta.MustGet().KubeCollections().MustFindByGroupVersionKind(config.GroupVersionKind{
 		Group:   group,
 		Version: version,
 		Kind:    kind,

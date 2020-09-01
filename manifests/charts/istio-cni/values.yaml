@@ -46,6 +46,10 @@ cni:
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
 
+  # Experimental taint controller for further race condition mitigation
+  taint:
+    enabled: false
+
 global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.

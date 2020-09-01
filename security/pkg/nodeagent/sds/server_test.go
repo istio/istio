@@ -22,17 +22,15 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
-	"istio.io/istio/pkg/security"
-
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	sds "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
 	mca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google/mock"
@@ -235,7 +233,7 @@ func createSDSClient(t *testing.T, socket string) (*grpc.ClientConn, sds.SecretD
 		t.Errorf("failed to setup connection to socket %q", socket)
 	}
 	sdsClient := sds.NewSecretDiscoveryServiceClient(conn)
-	header := metadata.Pairs(credentialTokenHeaderKey, "FakeSubjectToken")
+	header := metadata.Pairs(credentialTokenHeaderKey, msts.FakeSubjectToken)
 	ctx := metadata.NewOutgoingContext(context.Background(), header)
 	stream, err := sdsClient.StreamSecrets(ctx)
 	if err != nil {

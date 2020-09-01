@@ -53,7 +53,11 @@ func (c *httpProtocol) setHost(r *http.Request, host string) {
 }
 
 func (c *httpProtocol) makeRequest(ctx context.Context, req *request) (string, error) {
-	httpReq, err := http.NewRequest("GET", req.URL, nil)
+	method := req.Method
+	if method == "" {
+		method = "GET"
+	}
+	httpReq, err := http.NewRequest(method, req.URL, nil)
 	if err != nil {
 		return "", err
 	}

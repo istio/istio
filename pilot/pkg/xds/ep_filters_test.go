@@ -25,7 +25,6 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -160,7 +159,8 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
 			_ = push.InitContext(tt.env, nil, nil)
-			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
+			b := NewEndpointBuilder("", tt.conn.proxy, push)
+			filtered := b.EndpointsByNetworkFilter(tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -338,7 +338,8 @@ func TestEndpointsByNetworkFilter_RegistryServiceName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
 			_ = push.InitContext(tt.env, nil, nil)
-			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
+			b := NewEndpointBuilder("", tt.conn.proxy, push)
+			filtered := b.EndpointsByNetworkFilter(tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -513,7 +514,8 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			push := model.NewPushContext()
 			_ = push.InitContext(tt.env, nil, nil)
-			filtered := EndpointsByNetworkFilter(push, tt.conn.node.Metadata.Network, tt.endpoints)
+			b := NewEndpointBuilder("", tt.conn.proxy, push)
+			filtered := b.EndpointsByNetworkFilter(tt.endpoints)
 			if len(filtered) != len(tt.want) {
 				t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(filtered), len(tt.want))
 				return
@@ -563,7 +565,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 
 func xdsConnection(network string) *Connection {
 	return &Connection{
-		node: &model.Proxy{
+		proxy: &model.Proxy{
 			Metadata: &model.NodeMetadata{Network: network},
 		},
 	}

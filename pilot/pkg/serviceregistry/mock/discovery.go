@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/spiffe"
 )
 
 var (
@@ -46,11 +45,12 @@ func NewDiscovery(services map[host.Name]*model.Service, versions int) *ServiceD
 }
 
 // MakeService creates a memory service
-func MakeService(hostname host.Name, address string) *model.Service {
+func MakeService(hostname host.Name, address string, serviceAccounts []string) *model.Service {
 	return &model.Service{
-		CreationTime: time.Now(),
-		Hostname:     hostname,
-		Address:      address,
+		CreationTime:    time.Now(),
+		Hostname:        hostname,
+		Address:         address,
+		ServiceAccounts: serviceAccounts,
 		Ports: []*model.Port{
 			{
 				Name:     PortHTTPName,
@@ -155,7 +155,6 @@ type ServiceDiscovery struct {
 	WantGetProxyServiceInstances  []*model.ServiceInstance
 	ServicesError                 error
 	GetServiceError               error
-	InstancesError                error
 	GetProxyServiceInstancesError error
 }
 
@@ -181,17 +180,13 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) (*model.Service, erro
 }
 
 // InstancesByPort implements discovery interface
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
-	labels labels.Collection) ([]*model.ServiceInstance, error) {
-	if sd.InstancesError != nil {
-		return nil, sd.InstancesError
-	}
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int, labels labels.Collection) []*model.ServiceInstance {
 	if _, ok := sd.services[svc.Hostname]; !ok {
-		return nil, sd.InstancesError
+		return nil
 	}
 	out := make([]*model.ServiceInstance, 0)
 	if svc.External() {
-		return out, sd.InstancesError
+		return out
 	}
 	if port, ok := svc.Ports.GetByPort(num); ok {
 		for v := 0; v < sd.versions; v++ {
@@ -200,7 +195,7 @@ func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, num int,
 			}
 		}
 	}
-	return out, sd.InstancesError
+	return out
 }
 
 // GetProxyServiceInstances implements discovery interface
@@ -238,10 +233,9 @@ func (sd *ServiceDiscovery) GetProxyWorkloadLabels(proxy *model.Proxy) (labels.C
 
 // GetIstioServiceAccounts gets the Istio service accounts for a service hostname.
 func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []int) []string {
-	if svc.Hostname == "world.default.svc.cluster.local" {
-		return []string{
-			spiffe.MustGenSpiffeURI("default", "serviceaccount1"),
-			spiffe.MustGenSpiffeURI("default", "serviceaccount2"),
+	for h, s := range sd.services {
+		if h == svc.Hostname {
+			return s.ServiceAccounts
 		}
 	}
 	return make([]string, 0)
@@ -250,10 +244,6 @@ func (sd *ServiceDiscovery) GetIstioServiceAccounts(svc *model.Service, ports []
 type Controller struct{}
 
 func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) error {
-	return nil
-}
-
-func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
 	return nil
 }
 

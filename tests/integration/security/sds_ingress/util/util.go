@@ -23,23 +23,21 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pkg/test/framework/components/istio/ingress"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/echoboot"
-	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/util/retry"
-
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -211,6 +209,8 @@ func SendRequest(ing ingress.Instance, host string, path string, callType ingres
 	t.Helper()
 	endpointAddress := ing.HTTPSAddress()
 	return retry.UntilSuccess(func() error {
+		// Close clients to ensure we don't reuse TLS connections
+		ing.CloseClients()
 		response, err := ing.Call(ingress.CallOptions{
 			Host:       host,
 			Path:       fmt.Sprintf("/%s", path),

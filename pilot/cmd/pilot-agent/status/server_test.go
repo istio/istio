@@ -32,11 +32,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pkg/test/util/retry"
-
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/pkg/log"
 )
 
 type handler struct{}

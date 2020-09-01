@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -30,8 +31,11 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	kubeApiAdmission "k8s.io/api/admission/v1"
+	openshiftv1 "github.com/openshift/api/apps/v1"
+	"k8s.io/api/admission/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	batch "k8s.io/api/batch/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -47,6 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 )
 
 const yamlSeparator = "\n---"
@@ -596,19 +601,14 @@ func TestWebhookInject(t *testing.T) {
 		c := c
 		t.Run(fmt.Sprintf("[%d] %s", i, c.inputFile), func(t *testing.T) {
 			t.Parallel()
-			wh, cleanup := createTestWebhookFromFile(filepath.Join("testdata/webhook", templateFile), t)
-			defer cleanup()
+			wh := createTestWebhookFromFile(filepath.Join("testdata/webhook", templateFile), t)
 			podYAML := util.ReadFile(input, t)
 			podJSON, err := yaml.YAMLToJSON(podYAML)
 			if err != nil {
 				t.Fatalf(err.Error())
 			}
-			got := wh.inject(&kubeApiAdmission.AdmissionReview{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "admission.k8s.io/v1",
-					Kind:       "AdmissionReview",
-				},
-				Request: &kubeApiAdmission.AdmissionRequest{
+			got := wh.inject(&kube.AdmissionReview{
+				Request: &kube.AdmissionRequest{
 					Object: runtime.RawExtension{
 						Raw: podJSON,
 					},
@@ -623,213 +623,79 @@ func TestWebhookInject(t *testing.T) {
 	}
 }
 
-// TestHelmInject tests the webhook injector with the installation configmap.yaml. It runs through many of the
-// same tests as TestIntoResourceFile in order to verify that the webhook performs the same way as the manual injector.
-func TestHelmInject(t *testing.T) {
-	// Create the webhook from the install configmap.
-	webhook, cleanup := createTestWebhookFromHelmConfigMap(t)
-	defer cleanup()
-	// NOTE: this list is a subset of the list in TestIntoResourceFile. It contains all test cases that operate
-	// on Deployments and do not require updates to the injection Params.
-	cases := []struct {
-		inputFile string
-		wantFile  string
-	}{
-		{
-			inputFile: "hello-probes.yaml",
-			wantFile:  "hello-probes.yaml.injected",
-		},
-		{
-			inputFile: "hello.yaml",
-			wantFile:  "hello-config-map-name.yaml.injected",
-		},
-		{
-			inputFile: "frontend.yaml",
-			wantFile:  "frontend.yaml.injected",
-		},
-		{
-			inputFile: "hello-multi.yaml",
-			wantFile:  "hello-multi.yaml.injected",
-		},
-		{
-			inputFile: "statefulset.yaml",
-			wantFile:  "statefulset.yaml.injected",
-		},
-		{
-			inputFile: "daemonset.yaml",
-			wantFile:  "daemonset.yaml.injected",
-		},
-		{
-			inputFile: "job.yaml",
-			wantFile:  "job.yaml.injected",
-		},
-		{
-			inputFile: "replicaset.yaml",
-			wantFile:  "replicaset.yaml.injected",
-		},
-		{
-			inputFile: "replicationcontroller.yaml",
-			wantFile:  "replicationcontroller.yaml.injected",
-		},
-		{
-			inputFile: "list.yaml",
-			wantFile:  "list.yaml.injected",
-		},
-		{
-			inputFile: "list-frontend.yaml",
-			wantFile:  "list-frontend.yaml.injected",
-		},
-		{
-			inputFile: "deploymentconfig.yaml",
-			wantFile:  "deploymentconfig.yaml.injected",
-		},
-		{
-			inputFile: "deploymentconfig-with-canonical-service-label.yaml",
-			wantFile:  "deploymentconfig-with-canonical-service-label.yaml.injected",
-		},
-		{
-			inputFile: "deploymentconfig-multi.yaml",
-			wantFile:  "deploymentconfig-multi.yaml.injected",
-		},
-		{
-			// Verifies that annotation values are applied properly. This also tests that annotation values
-			// override params when specified.
-			inputFile: "traffic-annotations.yaml",
-			wantFile:  "traffic-annotations.yaml.injected",
-		},
-		{
-			// Verifies that the wildcard character "*" behaves properly when used in annotations.
-			inputFile: "traffic-annotations-wildcards.yaml",
-			wantFile:  "traffic-annotations-wildcards.yaml.injected",
-		},
-		{
-			// Verifies that the wildcard character "*" behaves properly when used in annotations.
-			inputFile: "traffic-annotations-empty-includes.yaml",
-			wantFile:  "traffic-annotations-empty-includes.yaml.injected",
-		},
-		{
-			// Verifies that the status port annotation overrides the default.
-			inputFile: "status_annotations.yaml",
-			wantFile:  "status_annotations.yaml.injected",
-		},
-		{
-			// Verifies that the resource annotation overrides the default.
-			inputFile: "resource_annotations.yaml",
-			wantFile:  "resource_annotations.yaml.injected",
-		},
-		{
-			inputFile: "user-volume.yaml",
-			wantFile:  "user-volume.yaml.injected",
-		},
-		{
-			inputFile: "hello-mtls-not-ready.yaml",
-			wantFile:  "hello-mtls-not-ready.yaml.injected",
-		},
-	}
-
-	for ci, c := range cases {
-		inputFile := filepath.Join("testdata/webhook", c.inputFile)
-		wantFile := filepath.Join("testdata/webhook", c.wantFile)
-		testName := fmt.Sprintf("[%02d] %s", ci, c.wantFile)
-		t.Run(testName, func(t *testing.T) {
-			// Split multi-part yaml documents. Input and output will have the same number of parts.
-			inputYAMLs := splitYamlFile(inputFile, t)
-			wantYAMLs := splitYamlFile(wantFile, t)
-			goldenYAMLs := make([][]byte, len(inputYAMLs))
-
-			for i := 0; i < len(inputYAMLs); i++ {
-				t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
-					// Convert the input YAML to a deployment.
-					inputYAML := inputYAMLs[i]
-					inputJSON := yamlToJSON(inputYAML, t)
-					inputDeployment := jsonToDeployment(inputJSON, t)
-
-					// Convert the wanted YAML to a deployment.
-					wantYAML := wantYAMLs[i]
-					wantJSON := yamlToJSON(wantYAML, t)
-					wantDeployment := jsonToDeployment(wantJSON, t)
-
-					// Generate the patch.  At runtime, the webhook would actually generate the patch against the
-					// pod configuration. But since our input files are deployments, rather than actual pod instances,
-					// we have to apply the patch to the template portion of the deployment only.
-					templateJSON := convertToJSON(inputDeployment.Spec.Template, t)
-					got := webhook.inject(&kubeApiAdmission.AdmissionReview{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: "admission.k8s.io/v1",
-							Kind:       "AdmissionReview",
-						},
-						Request: &kubeApiAdmission.AdmissionRequest{
-							Object: runtime.RawExtension{
-								Raw: templateJSON,
-							},
-						},
-					}, "")
-
-					// Apply the generated patch to the template.
-					patch := prettyJSON(got.Patch, t)
-					patchedTemplateJSON := applyJSONPatch(templateJSON, patch, t)
-					// Create the patched deployment. It's just a copy of the original, but with a patched template
-					// applied.
-					patchedDeployment := inputDeployment.DeepCopy()
-					patchedDeployment.Spec.Template.Reset()
-					if err := json.Unmarshal(patchedTemplateJSON, &patchedDeployment.Spec.Template); err != nil {
-						t.Fatal(err)
-					}
-
-					// normalize and compare the patched deployment with the one we expected.
-					err := normalizeAndCompareDeployments(patchedDeployment, wantDeployment, t)
-
-					if !util.Refresh() {
-						if err != nil {
-							t.Fatalf("Failed validating golden file %s:\n%v", c.wantFile, err)
-						}
-					} else {
-						if err != nil {
-							t.Logf("Updating %s", c.wantFile)
-						}
-						goldenYAMLs[i] = deploymentToYaml(patchedDeployment, t)
-					}
-				})
-			}
-			if util.Refresh() {
-				writeYamlsToGoldenFile(goldenYAMLs, wantFile, t)
-			}
-		})
-	}
+func simulateOwnerRef(m metav1.ObjectMeta, name string, gvk schema.GroupVersionKind) metav1.ObjectMeta {
+	controller := true
+	m.GenerateName = name
+	m.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: gvk.GroupVersion().String(),
+		Kind:       gvk.Kind,
+		Name:       name,
+		Controller: &controller,
+	}}
+	return m
 }
 
-func createTestWebhook(t testing.TB, config *Config, values string) (*Webhook, func()) {
-	m := mesh.DefaultMeshConfig()
-	dir, err := ioutil.TempDir("", "webhook_test")
-	if err != nil {
-		t.Fatalf("TempDir() failed: %v", err)
+func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	defaultConversion := func(template corev1.PodTemplateSpec, name string) *corev1.Pod {
+		template.ObjectMeta = simulateOwnerRef(template.ObjectMeta, name, gvk)
+		return &corev1.Pod{
+			ObjectMeta: template.ObjectMeta,
+			Spec:       template.Spec,
+		}
 	}
-	cleanup := func() {
-		_ = os.RemoveAll(dir)
+	switch o := obj.(type) {
+	case *corev1.Pod:
+		return o
+	case *batch.CronJob:
+		o.Spec.JobTemplate.Spec.Template.ObjectMeta = simulateOwnerRef(o.Spec.JobTemplate.Spec.Template.ObjectMeta, o.Name, gvk)
+		return &corev1.Pod{
+			ObjectMeta: o.Spec.JobTemplate.Spec.Template.ObjectMeta,
+			Spec:       o.Spec.JobTemplate.Spec.Template.Spec,
+		}
+	case *appsv1.DaemonSet:
+		return defaultConversion(o.Spec.Template, o.Name)
+	case *appsv1.ReplicaSet:
+		return defaultConversion(o.Spec.Template, o.Name)
+	case *corev1.ReplicationController:
+		return defaultConversion(*o.Spec.Template, o.Name)
+	case *appsv1.StatefulSet:
+		return defaultConversion(o.Spec.Template, o.Name)
+	case *batchv1.Job:
+		return defaultConversion(o.Spec.Template, o.Name)
+	case *openshiftv1.DeploymentConfig:
+		return defaultConversion(*o.Spec.Template, o.Name)
+	case *appsv1.Deployment:
+		// Deployment is special since its a double nested resource
+		rsgvk := schema.GroupVersionKind{Kind: "ReplicaSet", Group: "apps", Version: "v1"}
+		o.Spec.Template.ObjectMeta = simulateOwnerRef(o.Spec.Template.ObjectMeta, o.Name+"-fake", rsgvk)
+		o.Spec.Template.ObjectMeta.GenerateName += "-"
+		if o.Spec.Template.ObjectMeta.Labels == nil {
+			o.Spec.Template.ObjectMeta.Labels = map[string]string{}
+		}
+		o.Spec.Template.ObjectMeta.Labels["pod-template-hash"] = "fake"
+		return &corev1.Pod{
+			ObjectMeta: o.Spec.Template.ObjectMeta,
+			Spec:       o.Spec.Template.Spec,
+		}
 	}
-	return &Webhook{
-		Config:                 config,
-		sidecarTemplateVersion: "unit-test-fake-version",
-		meshConfig:             &m,
-		valuesConfig:           values,
-	}, cleanup
+	t.Fatalf("unknown type: %T", obj)
+	return nil
 }
 
-func createTestWebhookFromFile(templateFile string, t *testing.T) (*Webhook, func()) {
+func createTestWebhookFromFile(templateFile string, t *testing.T) *Webhook {
 	t.Helper()
 	injectConfig := &Config{}
 	if err := yaml.Unmarshal(util.ReadFile(templateFile, t), injectConfig); err != nil {
 		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
 	}
-	return createTestWebhook(t, injectConfig, "{}")
-}
-
-func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
-	t.Helper()
-	// Load the config map with Helm. This simulates what will be done at runtime, by replacing function calls and
-	// variables and generating a new configmap for use by the injection logic.
-	sidecarTemplate, values, _ := loadInjectionSettings(t, nil, "")
-	return createTestWebhook(t, sidecarTemplate, values)
+	m := mesh.DefaultMeshConfig()
+	return &Webhook{
+		Config:                 injectConfig,
+		sidecarTemplateVersion: "unit-test-fake-version",
+		meshConfig:             &m,
+		valuesConfig:           "{}",
+	}
 }
 
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
@@ -837,7 +703,7 @@ func createTestWebhookFromHelmConfigMap(t *testing.T) (*Webhook, func()) {
 func loadInjectionSettings(t testing.TB, setFlags []string, inFilePath string) (template *Config, values string, meshConfig *meshconfig.MeshConfig) {
 	t.Helper()
 	// add --set installPackagePath=<path to charts snapshot>
-	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir())
+	setFlags = append(setFlags, "installPackagePath="+defaultInstallPackageDir(), "profile=empty", "components.pilot.enabled=true")
 	var inFilenames []string
 	if inFilePath != "" {
 		inFilenames = []string{"testdata/inject/" + inFilePath}
@@ -921,16 +787,6 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 	return byteParts
 }
 
-func writeYamlsToGoldenFile(yamls [][]byte, goldenFile string, t *testing.T) {
-	content := make([]byte, 0)
-	for _, part := range yamls {
-		content = append(content, part...)
-		content = append(content, []byte(yamlSeparator)...)
-		content = append(content, '\n')
-	}
-
-	util.RefreshGoldenFile(content, goldenFile, t)
-}
 func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 	t.Helper()
 	m := make(map[string]interface{})
@@ -938,21 +794,8 @@ func getInjectableYamlDocs(yamlDoc string, t *testing.T) [][]byte {
 		t.Fatal(err)
 	}
 	switch m["kind"] {
-	case "Deployment":
-		return [][]byte{[]byte(yamlDoc)}
-	case "DeploymentConfig":
-		return [][]byte{[]byte(yamlDoc)}
-	case "DaemonSet":
-		return [][]byte{[]byte(yamlDoc)}
-	case "StatefulSet":
-		return [][]byte{[]byte(yamlDoc)}
-	case "Job":
-		return [][]byte{[]byte(yamlDoc)}
-	case "ReplicaSet":
-		return [][]byte{[]byte(yamlDoc)}
-	case "ReplicationController":
-		return [][]byte{[]byte(yamlDoc)}
-	case "CronJob":
+	case "Deployment", "DeploymentConfig", "DaemonSet", "StatefulSet", "Job", "ReplicaSet",
+		"ReplicationController", "CronJob", "Pod":
 		return [][]byte{[]byte(yamlDoc)}
 	case "List":
 		// Split apart the list into separate yaml documents.
@@ -985,16 +828,6 @@ func convertToJSON(i interface{}, t *testing.T) []byte {
 	return prettyJSON(outputJSON, t)
 }
 
-func yamlToJSON(inputYAML []byte, t *testing.T) []byte {
-	t.Helper()
-	// Convert to JSON
-	out, err := yaml.YAMLToJSON(inputYAML)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	return prettyJSON(out, t)
-}
-
 func prettyJSON(inputJSON []byte, t *testing.T) []byte {
 	t.Helper()
 	// Pretty-print the JSON
@@ -1019,58 +852,38 @@ func applyJSONPatch(input, patch []byte, t *testing.T) []byte {
 	return prettyJSON(patchedJSON, t)
 }
 
-func jsonToDeployment(deploymentJSON []byte, t *testing.T) *appsv1.Deployment {
-	t.Helper()
-	var deployment appsv1.Deployment
-	if err := json.Unmarshal(deploymentJSON, &deployment); err != nil {
-		t.Fatal(err)
-	}
-	return &deployment
-}
+func jsonToUnstructured(obj []byte, t *testing.T) *unstructured.Unstructured {
+	r := bytes.NewReader(obj)
+	decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
 
-func deploymentToYaml(deployment *appsv1.Deployment, t *testing.T) []byte {
-	t.Helper()
-	out, err := yaml.Marshal(deployment)
+	out := &unstructured.Unstructured{}
+	err := decoder.Decode(out)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("error decoding object: %v", err)
 	}
 	return out
 }
 
-func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) error {
+func normalizeAndCompareDeployments(got, want *corev1.Pod, t *testing.T) error {
 	t.Helper()
 	// Scrub unimportant fields that tend to differ.
-	getAnnotations(got)[annotation.SidecarStatus.Name] = getAnnotations(want)[annotation.SidecarStatus.Name]
-	gotIstioInit := istioInit(got, t)
-	wantIstioInit := istioInit(want, t)
-	gotIstioInit.Image = wantIstioInit.Image
-	gotIstioInit.TerminationMessagePath = wantIstioInit.TerminationMessagePath
-	gotIstioInit.TerminationMessagePolicy = wantIstioInit.TerminationMessagePolicy
-	gotIstioInit.SecurityContext.Privileged = wantIstioInit.SecurityContext.Privileged
-	gotIstioProxy := istioProxy(got, t)
+	delete(got.Annotations, annotation.SidecarStatus.Name)
+	delete(want.Annotations, annotation.SidecarStatus.Name)
 
-	wantIstioProxy := istioProxy(want, t)
-
-	gotIstioProxy.Image = wantIstioProxy.Image
-	gotIstioProxy.TerminationMessagePath = wantIstioProxy.TerminationMessagePath
-	gotIstioProxy.TerminationMessagePolicy = wantIstioProxy.TerminationMessagePolicy
-
-	envVars := make([]corev1.EnvVar, 0)
-	for _, env := range gotIstioProxy.Env {
-		if env.ValueFrom != nil {
-			env.ValueFrom.FieldRef.APIVersion = ""
-		}
-		// check if metajson is encoded correctly
-		if strings.HasPrefix(env.Name, "ISTIO_METAJSON_") {
-			var mm map[string]string
-			if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
-				t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
+	for _, c := range got.Spec.Containers {
+		for _, env := range c.Env {
+			if env.ValueFrom != nil {
+				env.ValueFrom.FieldRef.APIVersion = ""
 			}
-			continue
+			// check if metajson is encoded correctly
+			if strings.HasPrefix(env.Name, "ISTIO_METAJSON_") {
+				var mm map[string]string
+				if err := json.Unmarshal([]byte(env.Value), &mm); err != nil {
+					t.Fatalf("unable to unmarshal %s: %v", env.Value, err)
+				}
+			}
 		}
-		envVars = append(envVars, env)
 	}
-	gotIstioProxy.Env = envVars
 
 	marshaler := jsonpb.Marshaler{
 		Indent: "  ",
@@ -1087,35 +900,7 @@ func normalizeAndCompareDeployments(got, want *appsv1.Deployment, t *testing.T) 
 	return util.Compare([]byte(gotString), []byte(wantString))
 }
 
-func getAnnotations(d *appsv1.Deployment) map[string]string {
-	return d.Spec.Template.ObjectMeta.Annotations
-}
-
-func istioInit(d *appsv1.Deployment, t *testing.T) *corev1.Container {
-	t.Helper()
-	for i := 0; i < len(d.Spec.Template.Spec.InitContainers); i++ {
-		c := &d.Spec.Template.Spec.InitContainers[i]
-		if c.Name == "istio-init" {
-			return c
-		}
-	}
-	t.Fatal("Failed to find istio-init container")
-	return nil
-}
-
-func istioProxy(d *appsv1.Deployment, t *testing.T) *corev1.Container {
-	t.Helper()
-	for i := 0; i < len(d.Spec.Template.Spec.Containers); i++ {
-		c := &d.Spec.Template.Spec.Containers[i]
-		if c.Name == "istio-proxy" {
-			return c
-		}
-	}
-	t.Fatal("Failed to find istio-proxy container")
-	return nil
-}
-
-func makeTestData(t testing.TB, skip bool) []byte {
+func makeTestData(t testing.TB, skip bool, apiVersion string) []byte {
 	t.Helper()
 
 	pod := corev1.Pod{
@@ -1140,17 +925,21 @@ func makeTestData(t testing.TB, skip bool) []byte {
 		t.Fatalf("Could not create test pod: %v", err)
 	}
 
-	review := kubeApiAdmission.AdmissionReview{
+	review := v1beta1.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "admission.k8s.io/v1",
 			Kind:       "AdmissionReview",
+			APIVersion: fmt.Sprintf("admission.k8s.io/%s", apiVersion),
 		},
-		Request: &kubeApiAdmission.AdmissionRequest{
-			Kind: metav1.GroupVersionKind{},
+		Request: &v1beta1.AdmissionRequest{
+			Kind: metav1.GroupVersionKind{
+				Group:   v1beta1.GroupName,
+				Version: apiVersion,
+				Kind:    "AdmissionRequest",
+			},
 			Object: runtime.RawExtension{
 				Raw: raw,
 			},
-			Operation: kubeApiAdmission.Create,
+			Operation: v1beta1.Create,
 		},
 	}
 	reviewJSON, err := json.Marshal(review)
@@ -1221,8 +1010,9 @@ func TestRunAndServe(t *testing.T) {
 	defer func() { close(stop) }()
 	go wh.Run(stop)
 
-	validReview := makeTestData(t, false)
-	skipReview := makeTestData(t, true)
+	validReview := makeTestData(t, false, "v1beta1")
+	validReviewV1 := makeTestData(t, false, "v1")
+	skipReview := makeTestData(t, true, "v1beta1")
 
 	// nolint: lll
 	validPatch := []byte(`[
@@ -1330,6 +1120,14 @@ func TestRunAndServe(t *testing.T) {
 			wantPatch:      validPatch,
 		},
 		{
+			name:           "valid(v1 version)",
+			body:           validReviewV1,
+			contentType:    "application/json",
+			wantAllowed:    true,
+			wantStatusCode: http.StatusOK,
+			wantPatch:      validPatch,
+		},
+		{
 			name:           "skipped",
 			body:           skipReview,
 			contentType:    "application/json",
@@ -1379,7 +1177,7 @@ func TestRunAndServe(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not read body: %v", err)
 			}
-			var gotReview kubeApiAdmission.AdmissionReview
+			var gotReview v1beta1.AdmissionReview
 			if err := json.Unmarshal(gotBody, &gotReview); err != nil {
 				t.Fatalf("could not decode response body: %v", err)
 			}
@@ -1454,7 +1252,7 @@ func BenchmarkInjectServe(b *testing.B) {
 	defer func() { close(stop) }()
 	go wh.Run(stop)
 
-	body := makeTestData(b, false)
+	body := makeTestData(b, false, "v1beta1")
 	req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(body))
 	req.Header.Add("Content-Type", "application/json")
 
@@ -1506,6 +1304,64 @@ func TestEnablePrometheusAggregation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := enablePrometheusMerge(tt.mesh, tt.anno); got != tt.want {
 				t.Errorf("enablePrometheusMerge() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseInjectEnvs(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want map[string]string
+	}{
+		{
+			name: "empty",
+			in:   "/",
+			want: map[string]string{},
+		},
+		{
+			name: "no-kv",
+			in:   "/inject",
+			want: map[string]string{},
+		},
+		{
+			name: "no-kv-with-tail",
+			in:   "/inject/",
+			want: map[string]string{},
+		},
+		{
+			name: "one-kv",
+			in:   "/inject/cluster/cluster1",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1"},
+		},
+		{
+			name: "two-kv",
+			in:   "/inject/cluster/cluster1/net/network1/",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "ISTIO_META_NETWORK": "network1"},
+		},
+		{
+			name: "not-predefined-kv",
+			in:   "/inject/cluster/cluster1/custom_env/foo",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1", "CUSTOM_ENV": "foo"},
+		},
+		{
+			name: "one-key-without-value",
+			in:   "/inject/cluster",
+			want: map[string]string{},
+		},
+		{
+			name: "key-without-value",
+			in:   "/inject/cluster/cluster1/network",
+			want: map[string]string{"ISTIO_META_CLUSTER_ID": "cluster1"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := parseInjectEnvs(tc.in)
+			if !reflect.DeepEqual(actual, tc.want) {
+				t.Fatalf("Expected result %#v, but got %#v", tc.want, actual)
 			}
 		})
 	}

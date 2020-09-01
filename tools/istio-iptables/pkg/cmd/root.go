@@ -22,29 +22,21 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/tools/istio-iptables/pkg/validation"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+	"istio.io/istio/tools/istio-iptables/pkg/validation"
 	"istio.io/pkg/env"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"istio.io/pkg/log"
 )
 
 var (
 	envoyUserVar = env.RegisterStringVar(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
 	// Enable interception of DNS.
-	// Will be moved to mesh config after it's stable.
-	// TODO: this captures everything, if we want to split cluster.local to TLS and
-	// keep using plain UDP for the rest - we'll need to add another rule to allow
-	// istio-proxy to send.
-	dnsCaptureByEnvoy = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
-		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to envoy on :15013")
-	dnsCaptureByAgent = env.RegisterStringVar("DNS_AGENT", "",
+	dnsCaptureByAgent = env.RegisterStringVar("ISTIO_META_DNS_CAPTURE", "",
 		"If set, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
 )
 
@@ -109,15 +101,13 @@ func constructConfig() *config.Config {
 	if cfg.ProxyUID == "" {
 		usr, err := user.Lookup(envoyUserVar.Get())
 		var userID string
-		// Default to the UID of ENVOY_USER and root
+		// Default to the UID of ENVOY_USER
 		if err != nil {
 			userID = constants.DefaultProxyUID
 		} else {
 			userID = usr.Uid
 		}
-		// If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list
-		// for the CA agent.
-		cfg.ProxyUID = userID + ",0"
+		cfg.ProxyUID = userID
 	}
 	// For TPROXY as its uid and gid are same.
 	if cfg.ProxyGID == "" {

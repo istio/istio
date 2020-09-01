@@ -180,11 +180,11 @@ func (g Gateway) String() string {
 }
 
 const (
-	istioIngressGatewayServiceName = "istio-ingressgateway"
+	IstioIngressGatewayServiceName = "istio-ingressgateway"
 )
 
 func (c *Cluster) readIngressGateways() []*Gateway {
-	ingress, err := c.client.CoreV1().Services(c.Namespace).Get(context2.TODO(), istioIngressGatewayServiceName, metav1.GetOptions{})
+	ingress, err := c.client.CoreV1().Services(c.Namespace).Get(context2.TODO(), IstioIngressGatewayServiceName, metav1.GetOptions{})
 	if err != nil {
 		return nil
 	}

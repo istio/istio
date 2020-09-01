@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"text/template"
 
-	"github.com/Masterminds/sprig"
+	"github.com/Masterminds/sprig/v3"
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -118,6 +118,9 @@ spec:
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
 {{- end }}
+{{- if $p.ServerFirst }}
+          - --server-first={{ $p.Port }}
+{{- end }}
 {{- end }}
 {{- range $i, $p := $.WorkloadOnlyPorts }}
 {{- if eq .Protocol "TCP" }}
@@ -128,6 +131,9 @@ spec:
           - "{{ $p.Port }}"
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
+{{- end }}
+{{- if $p.ServerFirst }}
+          - --server-first={{ $p.Port }}
 {{- end }}
 {{- end }}
           - --version
@@ -211,7 +217,19 @@ spec:
         istio.io/test-vm-version: {{ $subset.Version }}
     spec:
       # Disable kube-dns, to mirror VM
-      dnsPolicy: Default
+      # we set policy to none and explicitly provide a set of invalid values
+      # for nameservers, search namespaces, etc. ndots is set to 1 so that
+      # the application will first try to resolve the hostname (a, a.ns, etc.) as is
+      # before attempting to add the search namespaces.
+      dnsPolicy: None
+      dnsConfig:
+        nameservers:
+        - "8.8.8.8"
+        searches:
+        - "com"
+        options:
+        - name: "ndots"
+          value: "1"
       # Disable service account mount, to mirror VM
       automountServiceAccountToken: false
       containers:
@@ -236,7 +254,7 @@ spec:
           # Block standard inbound ports
           sudo sh -c 'echo ISTIO_LOCAL_EXCLUDE_PORTS="15090,15021,15020" >> /var/lib/istio/envoy/cluster.env'
           # Capture all DNS traffic in the VM and forward to Envoy
-          sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
+          # sudo sh -c 'echo ISTIO_META_DNS_CAPTURE=ALL >> /var/lib/istio/envoy/cluster.env'
           sudo sh -c 'echo ISTIO_PILOT_PORT={{$.VM.IstiodPort}} >> /var/lib/istio/envoy/cluster.env'
 
           # Setup the namespace
@@ -245,7 +263,7 @@ spec:
           sudo sh -c 'echo "{{$.VM.IstiodIP}} istiod.istio-system.svc" >> /etc/hosts'
 
           # TODO: run with systemctl?
-          export ISTIO_AGENT_FLAGS="--concurrency 2 --proxyLogLevel=debug"
+          export ISTIO_AGENT_FLAGS="--concurrency 2"
           sudo -E /usr/local/bin/istio-start.sh&
           /usr/local/bin/server --cluster "{{ $cluster }}" --version "{{ $subset.Version }}" \
 {{- range $i, $p := $.ContainerPorts }}
@@ -257,6 +275,9 @@ spec:
              --port \
 {{- end }}
              "{{ $p.Port }}" \
+{{- if $p.ServerFirst }}
+             --server-first={{ $p.Port }} \
+{{- end }}
 {{- end }}
         env:
         {{- range $name, $value := $.Environment }}

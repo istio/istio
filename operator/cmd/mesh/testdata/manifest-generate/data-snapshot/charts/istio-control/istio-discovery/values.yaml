@@ -90,10 +90,6 @@ sidecarInjectorWebhook:
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
 
-  # If set, will use the value as injection label. The value must match the 'release' label of the injector,
-  # except when 1.2 istio-injection label is used, which must be set to "enabled".
-  injectLabel: istio-injection
-
   # Enable objectSelector to filter out pods with no need for sidecar before calling istio-sidecar-injector.
   # It is disabled by default since this function will only work after k8s v1.15.
   objectSelector:
@@ -157,12 +153,6 @@ meshConfig:
       # istiod and the dns-over-tls listener.
       # DNS_AGENT: DNS-TLS
       DNS_AGENT: ""
-
-      # If empty, DNS capture is disabled.
-      # If set, intercept UDP port :53 and redirect to localhost:15013
-      # Currently only 'ALL' capture is supported - we may refine it if we want
-      # finer grained control.
-      # ISTIO_META_DNS_CAPTURE: ALL
 
   # The namespace to treat as the administrative root namespace for Istio configuration.
   # When processing a leaf namespace Istio will search for declarations in that namespace first

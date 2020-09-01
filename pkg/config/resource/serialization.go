@@ -21,9 +21,8 @@ import (
 	"github.com/gogo/protobuf/types"
 
 	mcp "istio.io/api/mcp/v1alpha1"
-	"istio.io/pkg/log"
-
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/pkg/log"
 )
 
 var scope = log.RegisterScope("resource", "Core resource model scope", 0)

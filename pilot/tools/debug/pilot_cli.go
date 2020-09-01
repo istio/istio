@@ -73,7 +73,6 @@ import (
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
-
 	"istio.io/pkg/env"
 	"istio.io/pkg/log"
 )

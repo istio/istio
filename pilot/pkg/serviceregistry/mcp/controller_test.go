@@ -24,15 +24,13 @@ import (
 	"github.com/gogo/protobuf/types"
 	. "github.com/onsi/gomega"
 
-	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
-
 	mcpapi "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/mcp"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/mcp/sink"
 )
 
@@ -146,7 +144,7 @@ func TestListInvalidType(t *testing.T) {
 	g := NewWithT(t)
 	controller := mcp.NewController(testControllerOptions)
 
-	c, err := controller.List(resource.GroupVersionKind{Kind: "bad-type"}, "some-phony-name-space.com")
+	c, err := controller.List(config.GroupVersionKind{Kind: "bad-type"}, "some-phony-name-space.com")
 	g.Expect(c).To(BeNil())
 	g.Expect(err).To(HaveOccurred())
 	g.Expect(err.Error()).To(ContainSubstring("list unknown type"))
@@ -461,12 +459,12 @@ func TestEventHandler(t *testing.T) {
 		return namespace + "/" + name
 	}
 
-	gotEvents := map[model.Event]map[string]model.Config{
+	gotEvents := map[model.Event]map[string]config.Config{
 		model.EventAdd:    {},
 		model.EventUpdate: {},
 		model.EventDelete: {},
 	}
-	controller.RegisterEventHandler(gvk.ServiceEntry, func(_, m model.Config, e model.Event) {
+	controller.RegisterEventHandler(gvk.ServiceEntry, func(_, m config.Config, e model.Event) {
 		gotEvents[e][makeName(m.Namespace, m.Name)] = m
 	})
 
@@ -495,9 +493,9 @@ func TestEventHandler(t *testing.T) {
 		}
 	}
 
-	makeServiceEntryModel := func(name, host, version string) model.Config {
-		return model.Config{
-			ConfigMeta: model.ConfigMeta{
+	makeServiceEntryModel := func(name, host, version string) config.Config {
+		return config.Config{
+			Meta: config.Meta{
 				GroupVersionKind:  gvk.ServiceEntry,
 				Name:              name,
 				Namespace:         "default",
@@ -515,7 +513,7 @@ func TestEventHandler(t *testing.T) {
 	steps := []struct {
 		name   string
 		change *sink.Change
-		want   map[model.Event]map[string]model.Config
+		want   map[model.Event]map[string]config.Config
 	}{
 		{
 			name: "initial add",
@@ -525,7 +523,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo", "foo.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v0"),
 				},
@@ -539,7 +537,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo", "foo.com", "v1"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventUpdate: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
@@ -554,7 +552,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo1": makeServiceEntryModel("foo1", "foo1.com", "v0"),
 				},
@@ -568,7 +566,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo1", "foo1.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventDelete: {
 					"default/foo": makeServiceEntryModel("foo", "foo.com", "v1"),
 				},
@@ -584,7 +582,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo3", "foo3.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo2": makeServiceEntryModel("foo2", "foo2.com", "v0"),
 					"default/foo3": makeServiceEntryModel("foo3", "foo3.com", "v0"),
@@ -605,7 +603,7 @@ func TestEventHandler(t *testing.T) {
 					makeServiceEntry("foo5", "foo5.com", "v0"),
 				},
 			},
-			want: map[model.Event]map[string]model.Config{
+			want: map[model.Event]map[string]config.Config{
 				model.EventAdd: {
 					"default/foo4": makeServiceEntryModel("foo4", "foo4.com", "v0"),
 					"default/foo5": makeServiceEntryModel("foo5", "foo5.com", "v0"),
@@ -633,7 +631,7 @@ func TestEventHandler(t *testing.T) {
 				}
 			}
 			// clear saved events after every step
-			gotEvents = map[model.Event]map[string]model.Config{
+			gotEvents = map[model.Event]map[string]config.Config{
 				model.EventAdd:    {},
 				model.EventUpdate: {},
 				model.EventDelete: {},
@@ -710,12 +708,10 @@ var _ model.XDSUpdater = &FakeXdsUpdater{}
 type FakeXdsUpdater struct {
 	Events    chan string
 	Endpoints chan []*model.IstioEndpoint
-	EDSErr    chan error
 }
 
 func NewFakeXDS() *FakeXdsUpdater {
 	return &FakeXdsUpdater{
-		EDSErr:    make(chan error, 100),
 		Events:    make(chan string, 100),
 		Endpoints: make(chan []*model.IstioEndpoint, 100),
 	}
@@ -725,10 +721,12 @@ func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {
 	f.Events <- "ConfigUpdate"
 }
 
-func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) error {
+func (f *FakeXdsUpdater) EDSUpdate(_, _, _ string, entry []*model.IstioEndpoint) {
 	f.Events <- "EDSUpdate"
 	f.Endpoints <- entry
-	return <-f.EDSErr
+}
+
+func (f *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (f *FakeXdsUpdater) SvcUpdate(_, _, _ string, _ model.Event) {

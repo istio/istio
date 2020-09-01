@@ -28,13 +28,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	networking "istio.io/api/networking/v1alpha3"
-
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -55,9 +55,13 @@ type FakeXdsUpdater struct {
 	Events chan Event
 }
 
-func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) error {
+var _ model.XDSUpdater = &FakeXdsUpdater{}
+
+func (fx *FakeXdsUpdater) EDSUpdate(_, hostname string, namespace string, entry []*model.IstioEndpoint) {
 	fx.Events <- Event{kind: "eds", host: hostname, namespace: namespace, endpoints: len(entry)}
-	return nil
+}
+
+func (fx *FakeXdsUpdater) EDSCacheUpdate(_, _, _ string, _ []*model.IstioEndpoint) {
 }
 
 func (fx *FakeXdsUpdater) ConfigUpdate(req *model.PushRequest) {
@@ -75,7 +79,7 @@ func setupTest(t *testing.T) (*kubecontroller.Controller, *serviceentry.ServiceE
 	t.Helper()
 	client := kubeclient.NewFakeClient()
 
-	eventch := make(chan Event, 10)
+	eventch := make(chan Event, 100)
 
 	xdsUpdater := &FakeXdsUpdater{
 		Events: eventch,
@@ -114,8 +118,8 @@ func TestWorkloadInstances(t *testing.T) {
 		"app": "foo",
 	}
 	namespace := "namespace"
-	serviceEntry := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	serviceEntry := config.Config{
+		Meta: config.Meta{
 			Name:             "service-entry",
 			Namespace:        namespace,
 			GroupVersionKind: gvk.ServiceEntry,
@@ -150,8 +154,8 @@ func TestWorkloadInstances(t *testing.T) {
 		},
 		Status: v1.PodStatus{PodIP: "1.2.3.4"},
 	}
-	workloadEntry := model.Config{
-		ConfigMeta: model.ConfigMeta{
+	workloadEntry := config.Config{
+		Meta: config.Meta{
 			Name:             "workload",
 			Namespace:        namespace,
 			GroupVersionKind: gvk.WorkloadEntry,
@@ -207,8 +211,8 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("External only with named port override", func(t *testing.T) {
 		_, wc, store, _ := setupTest(t)
 		makeIstioObject(t, store, serviceEntry)
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -234,8 +238,8 @@ func TestWorkloadInstances(t *testing.T) {
 
 	t.Run("External only with target port", func(t *testing.T) {
 		_, wc, store, _ := setupTest(t)
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "service-entry",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.ServiceEntry,
@@ -296,8 +300,8 @@ func TestWorkloadInstances(t *testing.T) {
 				ClusterIP: "9.9.9.9",
 			},
 		})
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -338,8 +342,8 @@ func TestWorkloadInstances(t *testing.T) {
 				ClusterIP: "9.9.9.9",
 			},
 		})
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "workload",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.WorkloadEntry,
@@ -376,8 +380,8 @@ func TestWorkloadInstances(t *testing.T) {
 
 	t.Run("ServiceEntry selects Pod with targetPort number", func(t *testing.T) {
 		_, wc, store, kube := setupTest(t)
-		makeIstioObject(t, store, model.Config{
-			ConfigMeta: model.ConfigMeta{
+		makeIstioObject(t, store, config.Config{
+			Meta: config.Meta{
 				Name:             "service-entry",
 				Namespace:        namespace,
 				GroupVersionKind: gvk.ServiceEntry,
@@ -482,10 +486,7 @@ func expectServiceInstances(t *testing.T, sd serviceregistry.Instance, svc *mode
 	svc.Attributes.ServiceRegistry = string(sd.Provider())
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
-		instances, err := sd.InstancesByPort(svc, port, nil)
-		if err != nil {
-			return fmt.Errorf("instancesByPort() encountered unexpected error: %v", err)
-		}
+		instances := sd.InstancesByPort(svc, port, nil)
 		sortServiceInstances(instances)
 		got := []ServiceInstanceResponse{}
 		for _, i := range instances {
@@ -548,7 +549,7 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	}
 }
 
-func makeIstioObject(t *testing.T, c model.ConfigStore, svc model.Config) {
+func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 	t.Helper()
 	_, err := c.Create(svc)
 	if err != nil {

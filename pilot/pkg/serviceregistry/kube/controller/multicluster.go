@@ -19,19 +19,17 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/log"
-
-	"istio.io/istio/pilot/pkg/features"
-	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/webhooks"
-
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/secretcontroller"
+	"istio.io/istio/pkg/webhooks"
+	"istio.io/pkg/log"
 )
 
 const (
@@ -65,9 +63,10 @@ type Multicluster struct {
 	networksWatcher       mesh.NetworksWatcher
 
 	// fetchCaRoot maps the certificate name to the certificate
-	fetchCaRoot     func() map[string]string
-	caBundlePath    string
-	secretNamespace string
+	fetchCaRoot      func() map[string]string
+	caBundlePath     string
+	secretNamespace  string
+	secretController *secretcontroller.Controller
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -94,13 +93,8 @@ func NewMulticluster(kc kubernetes.Interface, secretNamespace string, opts Optio
 		caBundlePath:          opts.CABundlePath,
 		secretNamespace:       secretNamespace,
 	}
+	mc.initSecretController(kc)
 
-	_ = secretcontroller.StartSecretController(
-		kc,
-		mc.AddMemberCluster,
-		mc.UpdateMemberCluster,
-		mc.DeleteMemberCluster,
-		secretNamespace)
 	return mc, nil
 }
 
@@ -122,6 +116,7 @@ func (m *Multicluster) AddMemberCluster(clients kubelib.Client, clusterID string
 		NetworksWatcher:   m.networksWatcher,
 		Metrics:           m.metrics,
 	}
+	log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 	kubectl := NewController(clients, options)
 
 	remoteKubeController.Controller = kubectl
@@ -166,9 +161,13 @@ func (m *Multicluster) DeleteMemberCluster(clusterID string) error {
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.serviceController.DeleteRegistry(clusterID)
-	if _, ok := m.remoteKubeControllers[clusterID]; !ok {
+	kc, ok := m.remoteKubeControllers[clusterID]
+	if !ok {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
 		return nil
+	}
+	if err := kc.Cleanup(); err != nil {
+		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	close(m.remoteKubeControllers[clusterID].stopCh)
 	delete(m.remoteKubeControllers, clusterID)
@@ -201,4 +200,16 @@ func (m *Multicluster) GetRemoteKubeClient(clusterID string) kubernetes.Interfac
 		return c.client
 	}
 	return nil
+}
+
+func (m *Multicluster) initSecretController(kc kubernetes.Interface) {
+	m.secretController = secretcontroller.StartSecretController(kc,
+		m.AddMemberCluster,
+		m.UpdateMemberCluster,
+		m.DeleteMemberCluster,
+		m.secretNamespace)
+}
+
+func (m *Multicluster) HasSynced() bool {
+	return m.secretController.HasSynced()
 }

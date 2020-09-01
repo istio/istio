@@ -1,5 +1,4 @@
-{{- if .Values.global.configValidation }}
-apiVersion: admissionregistration.k8s.io/v1
+apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: istiod-{{ .Values.global.istioNamespace }}
@@ -37,6 +36,5 @@ webhooks:
     # endpoint is ready.
     failurePolicy: Ignore
     sideEffects: None
-    admissionReviewVersions: ["v1", "v1beta1"]
+    admissionReviewVersions: ["v1beta1", "v1"]
 ---
-{{- end }}

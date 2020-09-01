@@ -24,11 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"istio.io/istio/pkg/config/schema/resource"
-
 	"istio.io/istio/galley/pkg/config/source/kube/rt"
 	"istio.io/istio/galley/pkg/config/testing/basicmeta"
 	"istio.io/istio/galley/pkg/config/testing/data"
+	"istio.io/istio/pkg/config"
 )
 
 func TestParseDynamic(t *testing.T) {
@@ -92,7 +91,7 @@ func parseDynamic(t *testing.T, input []byte, kind string) (metaV1.Object, proto
 	g := NewWithT(t)
 
 	pr := rt.DefaultProvider()
-	a := pr.GetAdapter(basicmeta.MustGet().KubeCollections().MustFindByGroupVersionKind(resource.GroupVersionKind{
+	a := pr.GetAdapter(basicmeta.MustGet().KubeCollections().MustFindByGroupVersionKind(config.GroupVersionKind{
 		Group:   "testdata.istio.io",
 		Version: "v1alpha1",
 		Kind:    kind,
