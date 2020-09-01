@@ -70,7 +70,7 @@ THIS COMMAND IS STILL UNDER ACTIVE DEVELOPMENT AND NOT READY FOR PRODUCTION USE.
 				podName, podNamespace := handlers.InferPodInfo(args[0], handlers.HandleNamespace(namespace, defaultNamespace))
 				configDump, err = getConfigDumpFromPod(podName, podNamespace)
 				if err != nil {
-					return fmt.Errorf("failed to get config dump from pod %s", args[0])
+					return fmt.Errorf("failed to get config dump from pod %s in %s", podName, podNamespace)
 				}
 			} else {
 				return fmt.Errorf("expecting pod name or config dump, found: %d", len(args))

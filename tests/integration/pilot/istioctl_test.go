@@ -411,36 +411,65 @@ func TestAuthZCheck(t *testing.T) {
 	framework.NewTest(t).Features("usability.observability.authz-check").
 		RequiresSingleCluster().
 		Run(func(ctx framework.TestContext) {
-			authPol := file.AsStringOrFail(t, "testdata/authz-a.yaml")
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), authPol)
+			appPolicy := file.AsStringOrFail(t, "testdata/authz-a.yaml")
+			gwPolicy := file.AsStringOrFail(t, "testdata/authz-b.yaml")
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), appPolicy)
+			ctx.Config().ApplyYAMLOrFail(ctx, i.Settings().SystemNamespace, gwPolicy)
 			ctx.WhenDone(func() error {
-				return ctx.Config().DeleteYAML(apps.namespace.Name(), authPol)
+				return ctx.Config().DeleteYAML(apps.namespace.Name(), appPolicy)
+			})
+			ctx.WhenDone(func() error {
+				return ctx.Config().DeleteYAML(i.Settings().SystemNamespace, gwPolicy)
 			})
 
-			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
-
-			podID, err := getPodID(apps.podA[0])
+			gwPod, err := i.IngressFor(ctx.Clusters().Default()).PodID(0)
+			if err != nil {
+				ctx.Fatalf("Could not get Pod ID: %v", err)
+			}
+			appPod, err := getPodID(apps.podA[0])
 			if err != nil {
 				ctx.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			args := []string{"experimental", "authz", "check", fmt.Sprintf("%s.%s", podID, apps.namespace.Name())}
-			wants := []*regexp.Regexp{
-				regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, apps.namespace.Name())),
-				regexp.MustCompile(`ALLOW\s+_anonymous_match_nothing_\s+1`),
-				regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, apps.namespace.Name())),
+			cases := []struct {
+				name  string
+				pod   string
+				wants []*regexp.Regexp
+			}{
+				{
+					name: "ingressgateway",
+					pod:  fmt.Sprintf("%s.%s", gwPod, i.Settings().SystemNamespace),
+					wants: []*regexp.Regexp{
+						regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, i.Settings().SystemNamespace)),
+						regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, i.Settings().SystemNamespace)),
+					},
+				},
+				{
+					name: "workload",
+					pod:  fmt.Sprintf("%s.%s", appPod, apps.namespace.Name()),
+					wants: []*regexp.Regexp{
+						regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, apps.namespace.Name())),
+						regexp.MustCompile(`ALLOW\s+_anonymous_match_nothing_\s+1`),
+						regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, apps.namespace.Name())),
+					},
+				},
 			}
 
-			// Verify the output matches the expected text, which is the policies
-			// loaded above from authz-a.yaml
-			retry.UntilSuccessOrFail(ctx, func() error {
-				output, _ := istioCtl.InvokeOrFail(t, args)
-				for _, want := range wants {
-					if !want.MatchString(output) {
-						return fmt.Errorf("%v did not match %v", output, want)
-					}
-				}
-				return nil
-			}, retry.Timeout(time.Second*5))
+			istioCtl := istioctl.NewOrFail(ctx, ctx, istioctl.Config{Cluster: ctx.Environment().Clusters()[0]})
+			for _, c := range cases {
+				args := []string{"experimental", "authz", "check", c.pod}
+				ctx.NewSubTest(c.name).Run(func(ctx framework.TestContext) {
+					// Verify the output matches the expected text, which is the policies loaded above.
+					retry.UntilSuccessOrFail(ctx, func() error {
+						output, _ := istioCtl.InvokeOrFail(t, args)
+						for _, want := range c.wants {
+							if !want.MatchString(output) {
+								return fmt.Errorf("%v did not match %v", output, want)
+							}
+						}
+						return nil
+					}, retry.Timeout(time.Second*5))
+				})
+			}
 		})
 }
