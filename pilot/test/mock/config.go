@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/atomic"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -294,7 +293,7 @@ func CheckIstioConfigTypes(store model.ConfigStore, namespace string, t *testing
 		name       string
 		configName string
 		schema     collection.Schema
-		spec       proto.Message
+		spec       config2.Spec
 	}{
 		{"VirtualService", configName, collections.IstioNetworkingV1Alpha3Virtualservices, ExampleVirtualService},
 		{"DestinationRule", configName, collections.IstioNetworkingV1Alpha3Destinationrules, ExampleDestinationRule},

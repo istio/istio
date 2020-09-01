@@ -117,8 +117,4 @@ pilot:
       rollingUpdate:
         maxSurge: 100%
         maxUnavailable: 25%
-policy:
-  enabled: false
-telemetry:
-  enabled: false
 

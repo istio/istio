@@ -4,6 +4,12 @@
 package k8smeta
 
 import (
+	"reflect"
+
+	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapicorev1 "k8s.io/api/core/v1"
+	k8sioapiextensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
@@ -22,6 +28,7 @@ var (
 			Plural:        "deployments",
 			Version:       "v1",
 			Proto:         "k8s.io.api.apps.v1.Deployment",
+			ReflectType:   reflect.TypeOf(&k8sioapiappsv1.Deployment{}).Elem(),
 			ProtoPackage:  "k8s.io/api/apps/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -39,6 +46,7 @@ var (
 			Plural:        "endpoints",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Endpoints",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Endpoints{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -56,6 +64,7 @@ var (
 			Plural:        "namespaces",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.NamespaceSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NamespaceSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -73,6 +82,7 @@ var (
 			Plural:        "nodes",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.NodeSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.NodeSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -90,6 +100,7 @@ var (
 			Plural:        "pods",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.Pod",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.Pod{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -107,6 +118,7 @@ var (
 			Plural:        "services",
 			Version:       "v1",
 			Proto:         "k8s.io.api.core.v1.ServiceSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/core/v1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
@@ -125,6 +137,7 @@ var (
 			Plural:        "ingresses",
 			Version:       "v1beta1",
 			Proto:         "k8s.io.api.extensions.v1beta1.IngressSpec",
+			ReflectType:   reflect.TypeOf(&k8sioapiextensionsv1beta1.IngressSpec{}).Elem(),
 			ProtoPackage:  "k8s.io/api/extensions/v1beta1",
 			ClusterScoped: false,
 			ValidateProto: validation.EmptyValidate,
