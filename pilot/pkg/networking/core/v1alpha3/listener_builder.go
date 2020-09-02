@@ -114,7 +114,7 @@ func isBindtoPort(l *listener.Listener) bool {
 	return bp.Value
 }
 
-// enabledInspector captures if a given listener needs listener filter inspectors added
+// enabledInspector captures if for a given listener, listener filter inspectors are added
 type enabledInspector struct {
 	HTTPInspector bool
 	TLSInspector  bool
@@ -136,11 +136,12 @@ func reduceInboundListenerToFilterChains(listeners []*listener.Listener) ([]*lis
 			chains = append(chains, chain)
 			// Aggregate the inspector options. If any listener on the port needs inspector, we should add it
 			// Generally there is 1 listener per port anyways.
-			if l.Address.GetSocketAddress().GetPortValue() > 0 {
-				prev := inspectorsMap[int(l.Address.GetSocketAddress().GetPortValue())]
+			port := int(l.Address.GetSocketAddress().GetPortValue())
+			if port > 0 {
+				prev := inspectorsMap[port]
 				prev.HTTPInspector = prev.HTTPInspector || inspectors.HTTPInspector
 				prev.TLSInspector = prev.TLSInspector || inspectors.TLSInspector
-				inspectorsMap[int(l.Address.GetSocketAddress().GetPortValue())] = prev
+				inspectorsMap[port] = prev
 			}
 		}
 	}
