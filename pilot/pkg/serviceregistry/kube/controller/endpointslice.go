@@ -60,15 +60,6 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
 	hostname := kube.ServiceHostname(svcName, slice.Namespace, esc.c.domainSuffix)
 
-	esc.c.RLock()
-	svc := esc.c.servicesMap[hostname]
-	esc.c.RUnlock()
-
-	if svc == nil {
-		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has mot been populated", svcName, slice.Namespace)
-		return
-	}
-
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
 		for _, e := range slice.Endpoints {
@@ -109,16 +100,6 @@ func (esc *endpointSliceController) updateEDS(es interface{}, event model.Event)
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, slice.Namespace)
 
 	_ = esc.c.xdsUpdater.EDSUpdate(esc.c.clusterID, string(hostname), slice.Namespace, esc.endpointCache.Get(hostname))
-	for _, handler := range esc.c.instanceHandlers {
-		for _, ep := range endpoints {
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: nil,
-				Endpoint:    ep,
-			}
-			handler(si, event)
-		}
-	}
 }
 
 func (esc *endpointSliceController) onEvent(curr interface{}, event model.Event) error {
