@@ -341,11 +341,11 @@ var (
 	EnableEDSCaching = env.RegisterBoolVar("PILOT_ENABLE_EDS_CACHE", true,
 		"If true, Pilot will cache EDS responses.").Get()
 
-	EnableEDSCacheMetrics = env.RegisterBoolVar("PILOT_ENABLE_EDS_CACHE_STATS", true,
-		"If true, Pilot will collect metrics for EDS cache efficency.").Get()
+	EnableEDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
+		"If true, Pilot will collect metrics for XDS cache efficency.").Get()
 
-	EDSCacheMaxSize = env.RegisterIntVar("PILOT_ENABLE_EDS_CACHE_STATS", 2000,
-		"The maximum number of cache entries for the EDS cache.").Get()
+	EDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
+		"The maximum number of cache entries for the XDS cache.").Get()
 
 
 	AllowMetadataCertsInMutualTLS = env.RegisterBoolVar("PILOT_ALLOW_METADATA_CERTS_DR_MUTUAL_TLS", false,
