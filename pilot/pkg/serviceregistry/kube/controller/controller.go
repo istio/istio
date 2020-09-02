@@ -182,6 +182,7 @@ type Controller struct {
 	metadataClient metadata.Interface
 	queue          queue.Instance
 	services       cache.SharedIndexInformer
+	serviceLister  listerv1.ServiceLister
 	endpoints      kubeEndpointsController
 
 	nodeMetadataInformer cache.SharedIndexInformer
@@ -247,6 +248,7 @@ func NewController(client kubernetes.Interface, metadataClient metadata.Interfac
 	sharedInformers := informers.NewSharedInformerFactoryWithOptions(client, options.ResyncPeriod, informers.WithNamespace(options.WatchedNamespace))
 
 	c.services = sharedInformers.Core().V1().Services().Informer()
+	c.serviceLister = sharedInformers.Core().V1().Services().Lister()
 	registerHandlers(c.services, c.queue, "Services", c.onServiceEvent)
 
 	switch options.EndpointMode {
@@ -293,6 +295,19 @@ func (c *Controller) Cluster() string {
 func (c *Controller) checkReadyForEvents() error {
 	if !c.HasSynced() {
 		return errors.New("waiting till full synchronization")
+	}
+	return nil
+}
+
+func (c *Controller) Cleanup() error {
+	svcs, err := c.serviceLister.List(klabels.NewSelector())
+	if err != nil {
+		return fmt.Errorf("error listing services for deletion: %v", err)
+	}
+	for _, s := range svcs {
+		name := kube.ServiceHostname(s.Namespace, s.Namespace, c.domainSuffix)
+		c.xdsUpdater.SvcUpdate(c.clusterID, string(name), s.Namespace, model.EventDelete)
+		// TODO(landow) do we need to notify service handlers?
 	}
 	return nil
 }
