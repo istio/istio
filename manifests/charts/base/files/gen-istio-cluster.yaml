@@ -4606,7 +4606,7 @@ spec:
                         type: object
                       type: array
                     timeout:
-                      description: Timeout for HTTP requests.
+                      description: Timeout for HTTP requests, default is disabled.
                       type: string
                   type: object
                 type: array
@@ -5398,7 +5398,7 @@ spec:
                         type: object
                       type: array
                     timeout:
-                      description: Timeout for HTTP requests.
+                      description: Timeout for HTTP requests, default is disabled.
                       type: string
                   type: object
                 type: array
