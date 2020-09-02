@@ -4,7 +4,7 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/xdsproxy","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy"}}
+    "metadata": {"EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,MESH_ID,SERVICE_ACCOUNT,CLUSTER_ID","INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_opencensusagent","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","parentShutdownDuration":"3s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","tracing":{"openCensusAgent":{"address":"dns://my-oca/endpoint","context":["W3C_TRACE_CONTEXT"]}}}}
   },
   "layered_runtime": {
       "layers": [
@@ -327,7 +327,9 @@
       } 
        , {
         "name": "xds-grpc",
-        "type" : "STATIC",
+        "type": "STRICT_DNS",
+        "respect_dns_ttl": true,
+        "dns_lookup_family": "V4_ONLY",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
         "load_assignment": {
@@ -336,9 +338,7 @@
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
-                  "pipe": {
-                    "path": "./etc/istio/proxy/XDS"
-                  }
+                  "socket_address": {"address": "istio-pilot", "port_value": 15010}
                 }
               }
             }]
@@ -472,6 +472,28 @@
         ]
       }
     ]
+  }
+  ,
+  "tracing": {
+    "http": {
+      "name": "envoy.tracers.opencensus",
+      "typed_config": {
+        "@type": "type.googleapis.com/envoy.config.trace.v3.OpenCensusConfig",
+        "ocagent_exporter_enabled": true,
+        "ocagent_address": "dns://my-oca/endpoint",
+        "incoming_trace_context": ["TRACE_CONTEXT"],
+        "outgoing_trace_context": ["TRACE_CONTEXT"],
+        "trace_config": {
+          "constant_sampler": {
+            "decision": "ALWAYS_PARENT"
+          },
+          "max_number_of_annotations": 200,
+          "max_number_of_attributes": 200,
+          "max_number_of_message_events": 200,
+          "max_number_of_links": 200
+        }
+      }
+    }
   }
   
   
