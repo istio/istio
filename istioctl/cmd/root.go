@@ -369,5 +369,5 @@ func seeExperimentalCmd(name string) *cobra.Command {
 
 // deprecate adds a suffix to command to indicate the command as Deprecated.
 func deprecate(cmd *cobra.Command) {
-	cmd.Short = cmd.Short + deprecatedMsg
+	cmd.Short += deprecatedMsg
 }
