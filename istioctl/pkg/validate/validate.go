@@ -268,17 +268,21 @@ func NewValidateCommand(istioNamespace *string) *cobra.Command {
 	var referential bool
 
 	c := &cobra.Command{
-		Use:   "validate -f FILENAME [options]",
-		Short: "Validate Istio policy and rules files",
+		Use:     "validate -f FILENAME [options]",
+		Aliases: []string{"v"},
+		Short:   "Validate Istio policy and rules files",
 		Example: `
 		# Validate bookinfo-gateway.yaml
-		istioctl validate -f bookinfo-gateway.yaml
+		istioctl validate -f samples/bookinfo/networking/bookinfo-gateway.yaml
+
+		# Validate bookinfo-gateway.yaml with shorthand syntax
+		istioctl v -f samples/bookinfo/networking/bookinfo-gateway.yaml
 		
 		# Validate current deployments under 'default' namespace within the cluster
-		kubectl get deployments -o yaml |istioctl validate -f -
+		kubectl get deployments -o yaml | istioctl validate -f -
 
 		# Validate current services under 'default' namespace within the cluster
-		kubectl get services -o yaml |istioctl validate -f -
+		kubectl get services -o yaml | istioctl validate -f -
 
 		# Also see the related command 'istioctl analyze'
 		istioctl analyze samples/bookinfo/networking/bookinfo-gateway.yaml

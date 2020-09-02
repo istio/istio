@@ -208,6 +208,16 @@ func (e *endpointsController) buildIstioEndpoints(endpoint interface{}, host hos
 	return endpoints
 }
 
+func (e *endpointsController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	ep, err := listerv1.NewEndpointsLister(e.informer.GetIndexer()).Endpoints(namespace).Get(name)
+	if err != nil || ep == nil {
+		log.Debugf("endpoints(%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	return e.buildIstioEndpoints(ep, host)
+}
+
 func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {
 	endpoint := ep.(*v1.Endpoints)
 	return kube.ServiceHostname(endpoint.Name, endpoint.Namespace, e.c.domainSuffix), endpoint.Name, endpoint.Namespace

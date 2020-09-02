@@ -210,7 +210,7 @@ func BenchmarkSecretGeneration(b *testing.B) {
 			})
 			watchedResources := []string{}
 			for i := 0; i < tt.Services; i++ {
-				watchedResources = append(watchedResources, fmt.Sprintf("k8s://istio-system/sds-credential-%d", i))
+				watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://istio-system/sds-credential-%d", i))
 			}
 			proxy := s.SetupProxy(&model.Proxy{Type: model.Router, ConfigNamespace: "istio-system"})
 			gen := s.Discovery.Generators[v3.SecretType]
