@@ -190,7 +190,7 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: name}).AsSelectorPreValidated()
 	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
 	if err != nil || len(slices) == 0 {
-		log.Infof("get endpoints(%s, %s) => error %v", name, namespace, err)
+		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
 		return nil
 	}
 
