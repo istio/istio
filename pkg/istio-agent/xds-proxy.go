@@ -284,7 +284,7 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
-	l, err := setUpUds("./etc/istio/proxy/XDS")
+	l, err := setUpUds("/etc/istio/proxy/XDS")
 	if err != nil {
 		return err
 	}
@@ -330,7 +330,7 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 	if sa.secOpts.ProvCert == "" {
 		// only if running in k8s pod
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
-			"./var/run/secrets/tokens/istio-token",
+			"/var/run/secrets/tokens/istio-token",
 			time.Second * 300,
 		}}))
 	}
