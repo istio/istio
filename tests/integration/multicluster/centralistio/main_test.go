@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 				s.ControlPlaneTopology[resource.ClusterIndex(i)] = primaryCluster
 			}
 		})).
-		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 
 			cfg.Values["global.centralIstiod"] = "true"
 
