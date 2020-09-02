@@ -17,6 +17,7 @@ package xdstest
 import (
 	"reflect"
 	"sort"
+	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -26,6 +27,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
@@ -79,10 +81,25 @@ func ExtractTCPProxy(t test.Failer, fcs *listener.FilterChain) *tcpproxy.TcpProx
 			tcpProxy := &tcpproxy.TcpProxy{}
 			if fc.GetTypedConfig() != nil {
 				if err := ptypes.UnmarshalAny(fc.GetTypedConfig(), tcpProxy); err != nil {
-					t.Fatalf("failed to unmarshal tcp proxy")
+					t.Fatalf("failed to unmarshal tcp proxy: %v", err)
 				}
 			}
 			return tcpProxy
+		}
+	}
+	return nil
+}
+
+func ExtractHTTPConnectionManager(t test.Failer, fcs *listener.FilterChain) *hcm.HttpConnectionManager {
+	for _, fc := range fcs.Filters {
+		if fc.Name == wellknown.HTTPConnectionManager {
+			h := &hcm.HttpConnectionManager{}
+			if fc.GetTypedConfig() != nil {
+				if err := ptypes.UnmarshalAny(fc.GetTypedConfig(), h); err != nil {
+					t.Fatalf("failed to unmarshal hcm: %v", err)
+				}
+			}
+			return h
 		}
 	}
 	return nil
@@ -200,6 +217,18 @@ func InterfaceSlice(slice interface{}) []interface{} {
 	}
 
 	return ret
+}
+
+func Dump(t testing.TB, p proto.Message) string {
+	v := reflect.ValueOf(p)
+	if p == nil || (v.Kind() == reflect.Ptr && v.IsNil()) {
+		return "nil"
+	}
+	s, err := (&jsonpb.Marshaler{Indent: "  "}).MarshalToString(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
 }
 
 func MapKeys(mp interface{}) []string {
