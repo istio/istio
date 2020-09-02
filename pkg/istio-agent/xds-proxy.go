@@ -29,6 +29,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -37,6 +38,9 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
+	"istio.io/istio/pilot/pkg/dns"
+	nds "istio.io/istio/pilot/pkg/proto"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/pkg/log"
 )
 
@@ -52,6 +56,7 @@ type XdsProxy struct {
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
+	localDNSServer       *dns.LocalDNSServer
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -62,7 +67,7 @@ var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
 // single tcp connection with multiple gRPC streams.
 // TODO: Right now, the workloadSDS server and gatewaySDS servers are still separate
 // connections. These need to be consolidated
-func initXdsProxy(sa *Agent) (*XdsProxy, error) {
+func initXdsProxy(sa *Agent, isSidecar bool) (*XdsProxy, error) {
 	var err error
 	proxy := &XdsProxy{
 		istiodAddress: sa.proxyConfig.DiscoveryAddress,
@@ -74,6 +79,14 @@ func initXdsProxy(sa *Agent) (*XdsProxy, error) {
 
 	if proxy.istiodDialOptions, err = buildUpstreamClientDialOpts(sa); err != nil {
 		return nil, err
+	}
+
+	// we dont need dns server on gateways
+	if sa.cfg.DNSCapture && isSidecar {
+		if proxy.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
+			return nil, err
+		}
+		proxy.localDNSServer.StartDNS()
 	}
 
 	go func() {
@@ -88,8 +101,10 @@ func initXdsProxy(sa *Agent) (*XdsProxy, error) {
 // as the new connection may not go to the same istiod. Vice versa case also applies.
 func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	errChan := make(chan error)
-	requestsChan := make(chan *discovery.DiscoveryRequest)
-	responsesChan := make(chan *discovery.DiscoveryResponse)
+	requestsChan := make(chan *discovery.DiscoveryRequest, 10)
+	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
+	// A separate channel for nds requests to not contend with the ones from envoys
+	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
 	proxyLog.Infof("connecting to upstream %s", p.istiodAddress)
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
@@ -105,6 +120,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 		proxyLog.Errorf("failed to create upstream grpc client: %v", err)
 		return err
 	}
+
+	firstNDSSent := false
 
 	go func() {
 		for {
@@ -129,6 +146,13 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 			// forward to istiod
 			requestsChan <- req
+			if !firstNDSSent && req.TypeUrl == v3.ListenerType {
+				// fire off an initial NDS request
+				ndsRequestChan <- &discovery.DiscoveryRequest{
+					TypeUrl: v3.NameTableType,
+				}
+				firstNDSSent = true
+			}
 		}
 	}()
 
@@ -145,8 +169,31 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 				proxyLog.Errorf("upstream send error: %v", err)
 				return err
 			}
+		case req := <-ndsRequestChan:
+			if err = upstream.Send(req); err != nil {
+				proxyLog.Errorf("upstream send error for nds: %v", err)
+				return err
+			}
 		case resp := <-responsesChan:
-			if err := downstream.Send(resp); err != nil {
+			if resp.TypeUrl == v3.NameTableType {
+				// intercept. This is for the dns server
+				if p.localDNSServer != nil && len(resp.Resources) > 0 {
+					var nt nds.NameTable
+					if err = ptypes.UnmarshalAny(resp.Resources[0], &nt); err != nil {
+						proxyLog.Errorf("failed to unmarshall name table: %v", err)
+						return err
+					}
+					p.localDNSServer.UpdateLookupTable(&nt)
+				}
+				// queue the next nds request. This wont block most likely as we are the only
+				// users of this channel, compared to the requestChan that could be populated with
+				// request from envoy
+				ndsRequestChan <- &discovery.DiscoveryRequest{
+					VersionInfo:   resp.VersionInfo,
+					TypeUrl:       v3.NameTableType,
+					ResponseNonce: resp.Nonce,
+				}
+			} else if err := downstream.Send(resp); err != nil {
 				proxyLog.Errorf("downstream send error: %v", err)
 				// we cannot return partial error and hope to restart just the downstream
 				// as we are blindly proxying req/responses. For now, the best course of action
@@ -171,6 +218,9 @@ func (p *XdsProxy) close() {
 	}
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
+	}
+	if p.localDNSServer != nil {
+		p.localDNSServer.Close()
 	}
 }
 
