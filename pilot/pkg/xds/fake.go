@@ -88,7 +88,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	})
 
 	secretFake := kubelib.NewFakeClient(k8sObjects...)
-	sc := kubesecrets.NewSecretsController(secretFake, nil)
+	sc := kubesecrets.NewSecretsController(secretFake, "", nil)
 	secretFake.RunAndWait(stop)
 	s.Generators[v3.SecretType] = NewSecretGen(sc, &model.DisabledCache{})
 

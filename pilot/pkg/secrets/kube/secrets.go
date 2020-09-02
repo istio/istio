@@ -55,27 +55,41 @@ const (
 )
 
 type SecretsController struct {
-	secrets      informersv1.SecretInformer
-	sar          authorizationv1client.SubjectAccessReviewInterface
+	secrets informersv1.SecretInformer
+	sar     authorizationv1client.SubjectAccessReviewInterface
+
+	clusterID    string
 	remoteGetter RemoteKubeClientGetter
 
 	mu                 sync.RWMutex
-	authorizationCache map[string]time.Time
+	authorizationCache map[authorizationKey]authorizationResponse
+}
+
+type authorizationKey struct {
+	cluster string
+	user    string
+}
+
+type authorizationResponse struct {
+	expiration time.Time
+	authorized error
 }
 
 var _ secrets.Controller = &SecretsController{}
 
 type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
-func NewSecretsController(client kube.Client, remoteClientGetter RemoteKubeClientGetter) *SecretsController {
+func NewSecretsController(client kube.Client, clusterId string, remoteClientGetter RemoteKubeClientGetter) *SecretsController {
 	// Informer is lazy loaded, load it now
 	_ = client.KubeInformer().Core().V1().Secrets().Informer()
 
 	return &SecretsController{
-		secrets:            client.KubeInformer().Core().V1().Secrets(),
+		secrets: client.KubeInformer().Core().V1().Secrets(),
+
 		sar:                client.AuthorizationV1().SubjectAccessReviews(),
+		clusterID:          clusterId,
 		remoteGetter:       remoteClientGetter,
-		authorizationCache: make(map[string]time.Time),
+		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
 }
 
@@ -83,49 +97,85 @@ func toUser(serviceAccount, namespace string) string {
 	return fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccount)
 }
 
-const cacheTtl = time.Minute * 30
+const cacheTtl = time.Minute
 
-func (s *SecretsController) cachedAuthorization(key string) bool {
+// cachedAuthorization checks the authorization cache
+func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, bool) {
+	key := authorizationKey{cluster: clusterID, user: user}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	got, f := s.authorizationCache[key]
 	if !f {
-		return false
+		return nil, false
 	}
-	if time.Since(got) > cacheTtl {
+	// Response found, but its expired. Evict it.
+	if got.expiration.Before(time.Now()) {
 		delete(s.authorizationCache, key)
-		return false
+		return nil, false
 	}
-	return true
+	return got.authorized, true
+}
+
+// cachedAuthorization checks the authorization cache
+func (s *SecretsController) insertCache(user, clusterID string, response error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := authorizationKey{cluster: clusterID, user: user}
+	expDelta := cacheTtl
+	if response == nil {
+		// Cache success a bit longer, there is no need to quickly revoke access
+		expDelta *= 5
+	}
+	log.Debugf("cached authorization for user %s: %v", user, response)
+	s.authorizationCache[key] = authorizationResponse{
+		expiration: time.Now().Add(expDelta),
+		authorized: response,
+	}
+}
+
+func (s *SecretsController) getAccessReviewClient(clusterID string) authorizationv1client.SubjectAccessReviewInterface {
+	// first match local/primary cluster
+	if s.clusterID == clusterID || clusterID == "" {
+		return s.sar
+	}
+
+	// secondly try other remote clusters
+	if s.remoteGetter != nil {
+		if res := s.remoteGetter(clusterID); res != nil {
+			return res.AuthorizationV1().SubjectAccessReviews()
+		}
+	}
+
+	return nil
 }
 
 func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID string) error {
 	user := toUser(serviceAccount, namespace)
-	if s.cachedAuthorization(user) {
-		return nil
+	if cached, f := s.cachedAuthorization(user, clusterID); f {
+		return cached
 	}
-	resp, err := s.sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
-		ObjectMeta: metav1.ObjectMeta{},
-		Spec: authorizationv1.SubjectAccessReviewSpec{
-			ResourceAttributes: &authorizationv1.ResourceAttributes{
-				Namespace: namespace,
-				Verb:      "list",
-				Resource:  "secrets",
+	resp := func() error {
+		resp, err := s.sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
+			ObjectMeta: metav1.ObjectMeta{},
+			Spec: authorizationv1.SubjectAccessReviewSpec{
+				ResourceAttributes: &authorizationv1.ResourceAttributes{
+					Namespace: namespace,
+					Verb:      "list",
+					Resource:  "secrets",
+				},
+				User: user,
 			},
-			User: user,
-		},
-	}, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-	if !resp.Status.Allowed {
-		return fmt.Errorf("%s/%s is not authorized to read secrets: %v", serviceAccount, namespace, resp.Status.Reason)
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	log.Debugf("cached authorization for user %s/%s", serviceAccount, namespace)
-	s.authorizationCache[user] = time.Now()
-	return nil
+		}, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+		if !resp.Status.Allowed {
+			return fmt.Errorf("%s/%s is not authorized to read secrets: %v", serviceAccount, namespace, resp.Status.Reason)
+		}
+		return nil
+	}()
+	s.insertCache(user, clusterID, resp)
+	return resp
 }
 
 func (s *SecretsController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte) {

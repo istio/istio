@@ -429,7 +429,7 @@ func (s *Server) initSDSServer() {
 				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 		} else {
 			log.Infof("initializing Kubernetes credential reader")
-			sc := kubesecrets.NewSecretsController(s.kubeClient, s.multicluster.GetRemoteKubeClient)
+			sc := kubesecrets.NewSecretsController(s.kubeClient, s.clusterID, s.multicluster.GetRemoteKubeClient)
 			sc.AddEventHandler(func(name, namespace string) {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full: false,
