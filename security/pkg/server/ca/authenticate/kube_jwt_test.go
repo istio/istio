@@ -78,7 +78,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedErrMsg: "failed to validate the JWT: the token is not authenticated",
+			expectedErrMsg: "failed to validate the JWT from cluster Kubernetes: the token is not authenticated",
 		},
 		"token authenticated": {
 			token: "bearer-token",
