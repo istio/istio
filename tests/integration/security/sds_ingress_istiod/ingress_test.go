@@ -51,7 +51,7 @@ func TestMtlsGateways(t *testing.T) {
 func TestTlsGateways(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("security.ingress.tls.gateway").
+		Features("security.ingress.tls.gateway.valid-secret").
 		Run(func(ctx framework.TestContext) {
 			util.RunTestMultiTLSGateways(ctx, inst)
 		})
