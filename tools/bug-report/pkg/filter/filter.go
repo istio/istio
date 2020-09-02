@@ -17,7 +17,6 @@ package filter
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
 	"istio.io/istio/tools/bug-report/pkg/config"
@@ -123,7 +122,7 @@ func matchesSelectionSpec(sp *config.SelectionSpec, cluster *cluster2.Resources,
 		return false
 	}
 
-	key := strings.Join([]string{namespace, deployment, pod}, ".")
+	key := cluster2.PodKey(namespace, pod)
 	if !match.MatchesMap(sp.Labels, cluster.Labels[key]) {
 		return false
 	}

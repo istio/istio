@@ -17,6 +17,7 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	v1 "k8s.io/api/apps/v1"
@@ -24,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
 	"istio.io/pkg/log"
 )
@@ -37,6 +39,10 @@ const (
 	Label
 	Annotation
 	Container
+)
+
+var (
+	versionRegex = regexp.MustCompile(`.*(\d\.\d\.\d).*`)
 )
 
 // ParsePath parses path into its components. Input must have the form namespace/deployment/pod/container.
@@ -74,8 +80,8 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset) (
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(ns.Name, deployment, p.Name, c.Name)
 			}
-			out.Labels[p.Name] = p.Labels
-			out.Annotations[p.Name] = p.Annotations
+			out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
+			out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
 			out.Pod[PodKey(p.Namespace, p.Name)] = &p
 		}
 	}
@@ -118,6 +124,7 @@ func (r *Resources) insertContainer(namespace, deployment, pod, container string
 	c[container] = nil
 }
 
+// ContainerRestarts returns the number of container restarts for the given container.
 func (r *Resources) ContainerRestarts(namespace, pod, container string) int {
 	for _, cs := range r.Pod[PodKey(namespace, pod)].Status.ContainerStatuses {
 		if cs.Name == container {
@@ -127,6 +134,28 @@ func (r *Resources) ContainerRestarts(namespace, pod, container string) int {
 	return 0
 }
 
+// IsDiscoveryContainer reports whether the given container is the Istio discovery container.
+func (r *Resources) IsDiscoveryContainer(clusterVersion, namespace, pod, container string) bool {
+	return common.IsDiscoveryContainer(clusterVersion, container, r.Labels[PodKey(namespace, pod)])
+}
+
+// PodIstioVersion returns the Istio version for the given pod, if either the proxy or discovery are one of its
+// containers and the tag is in a parseable format.
+func (r *Resources) PodIstioVersion(namespace, pod string) string {
+	p := r.Pod[PodKey(namespace, pod)]
+	if p == nil {
+		return ""
+	}
+
+	for _, c := range p.Spec.Containers {
+		if c.Name == common.ProxyContainerName || c.Name == common.DiscoveryContainerName {
+			return imageToVersion(c.Image)
+		}
+	}
+	return ""
+}
+
+// String implements the Stringer interface.
 func (r *Resources) String() string {
 	return resourcesStringImpl(r.Root, "")
 }
@@ -143,6 +172,11 @@ func resourcesStringImpl(node interface{}, prefix string) string {
 	}
 
 	return out
+}
+
+// PodKey returns a unique key based on the namespace and pod name.
+func PodKey(namespace, pod string) string {
+	return path.Path{namespace, pod}.String()
 }
 
 func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
@@ -164,7 +198,10 @@ func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
 	return ""
 }
 
-// PodKey returns a unique key based on the namespace and pod name.
-func PodKey(namespace, pod string) string {
-	return path.Path{namespace, pod}.String()
+func imageToVersion(imageStr string) string {
+	vs := versionRegex.FindStringSubmatch(imageStr)
+	if len(vs) != 2 {
+		return ""
+	}
+	return vs[0]
 }

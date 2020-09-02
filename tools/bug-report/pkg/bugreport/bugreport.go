@@ -16,7 +16,6 @@ package bugreport
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,12 +26,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/tools/bug-report/pkg/archive"
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
+	"istio.io/istio/tools/bug-report/pkg/common"
 	"istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/content"
 	"istio.io/istio/tools/bug-report/pkg/filter"
@@ -122,7 +121,7 @@ func runBugReportCommand(_ *cobra.Command) error {
 			log.Errorf(err.Error())
 			continue
 		}
-		writeFile(archive.ProxyLogPath(tempDir, namespace, pod), text)
+		writeFile(filepath.Join(archive.ProxyOutputPath(tempDir, namespace, pod), common.ProxyContainerName+".log"), text)
 	}
 	return nil
 }
@@ -158,12 +157,14 @@ func gatherInfo(client kube.ExtendedClient, config *config.BugReportConfig, reso
 		}
 
 		cp := params.SetNamespace(namespace).SetPod(pod).SetContainer(container)
+		proxyDir := archive.ProxyOutputPath(tempDir, namespace, pod)
 		switch {
-		case container == "istio-proxy":
-			getFromCluster(content.GetCoredumps, cp, archive.ProxyCoredumpPath(tempDir, namespace, pod), &mandatoryWg)
+		case common.IsProxyContainer(params.ClusterVersion, container):
+			getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+			getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 			getProxyLogs(client, config, resources, p, namespace, pod, container, &optionalWg)
 
-		case strings.HasPrefix(pod, "istiod-") && container == "discovery":
+		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
 			getFromCluster(content.GetIstiodInfo, cp, archive.IstiodPath(tempDir, namespace, pod), &mandatoryWg)
 			getIstiodLogs(client, config, resources, namespace, pod, &mandatoryWg)
 
@@ -222,9 +223,9 @@ func getIstiodLogs(client kube.ExtendedClient, config *config.BugReportConfig, r
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		clog, _, _, err := getLog(client, resources, config, namespace, pod, "discovery")
+		clog, _, _, err := getLog(client, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
-		writeFile(archive.IstiodPath(tempDir, namespace, pod+".log"), clog)
+		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog)
 	}()
 }
 
@@ -279,27 +280,4 @@ func appendGlobalErr(err error) {
 	lock.Lock()
 	gErrors = util.AppendErr(gErrors, err)
 	lock.Unlock()
-}
-
-func BuildClientsFromConfig(kubeConfig []byte) (kube.Client, error) {
-	if len(kubeConfig) == 0 {
-		return nil, errors.New("kubeconfig is empty")
-	}
-
-	rawConfig, err := clientcmd.Load(kubeConfig)
-	if err != nil {
-		return nil, fmt.Errorf("kubeconfig cannot be loaded: %v", err)
-	}
-
-	if err := clientcmd.Validate(*rawConfig); err != nil {
-		return nil, fmt.Errorf("kubeconfig is not valid: %v", err)
-	}
-
-	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
-
-	clients, err := kube.NewClient(clientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kube clients: %v", err)
-	}
-	return clients, nil
 }

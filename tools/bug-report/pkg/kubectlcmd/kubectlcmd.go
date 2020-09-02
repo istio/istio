@@ -64,6 +64,7 @@ func Cat(client kube.ExtendedClient, namespace, pod, container, path string, dry
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
+	log.Infof("podExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
 	stdout, stderr, err := client.PodExec(pod, namespace, container, cmdStr)
 	if err != nil {
 		return "", fmt.Errorf("podExec error: %s\n\nstderr:\n%s\n\nstdout:\n%s",
