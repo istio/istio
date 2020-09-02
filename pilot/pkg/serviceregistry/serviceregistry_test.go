@@ -610,6 +610,7 @@ func makePod(t *testing.T, c kubernetes.Interface, pod *v1.Pod) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(100 * time.Millisecond)
 }
 
 func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
@@ -618,6 +619,7 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(100 * time.Millisecond)
 }
 
 func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
@@ -651,5 +653,5 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	if _, err := c.CoreV1().Endpoints(namespace).Create(context.TODO(), endpoint, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create endpoints %s in namespace %s (error %v)", name, namespace, err)
 	}
-
+	time.Sleep(100 * time.Millisecond)
 }
