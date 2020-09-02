@@ -269,7 +269,10 @@ debug and diagnose their Istio mesh.
 		Manual:  "Istio Control",
 	}))
 
-	rootCmd.AddCommand(validate.NewValidateCommand(&istioNamespace))
+	validateCmd := validate.NewValidateCommand(&istioNamespace)
+	hideInheritedFlags(validateCmd, "kubeconfig")
+	rootCmd.AddCommand(validateCmd)
+
 	rootCmd.AddCommand(optionsCommand(rootCmd))
 
 	// BFS apply the flag error function to all subcommands
