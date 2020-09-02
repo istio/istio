@@ -66,6 +66,7 @@ type XdsProxy struct {
 	istiodAddress        string
 	istiodDialOptions    []grpc.DialOption
 	localDNSServer       *dns.LocalDNSServer
+	healthChecker WorkloadHealthChecker
 }
 
 var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
@@ -103,6 +104,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 	responsesChan := make(chan *discovery.DiscoveryResponse, 10)
 	// A separate channel for nds requests to not contend with the ones from envoys
 	ndsRequestChan := make(chan *discovery.DiscoveryRequest, 5)
+	healthCheckRequestChan := make(chan *discovery.DiscoveryRequest, 5)
 
 	proxyLog.Infof("connecting to upstream %s", p.istiodAddress)
 	upstreamConn, err := grpc.Dial(p.istiodAddress, p.istiodDialOptions...)
@@ -159,6 +161,7 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			}
 		}
 	}()
+	go p.healthChecker.PerformApplicationHealthCheck(healthCheckRequestChan)
 
 	for {
 		select {
@@ -183,6 +186,11 @@ func (p *XdsProxy) StreamAggregatedResources(downstream discovery.AggregatedDisc
 			if err = sendUpstreamWithTimeout(ctx, upstream, req); err != nil {
 				proxyLog.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
 				return err
+			}
+        case req := <- healthCheckRequestChan:
+        	if err = upstream.Send(req); err != nil {
+        		proxyLog.Errorf("upstream send error for application healthcheck: %v", err)
+        		return err
 			}
 		case resp := <-responsesChan:
 			switch resp.TypeUrl {
