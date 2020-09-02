@@ -524,7 +524,7 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 					"--set", "components.base.enabled=true",
 					"--set", "components.pilot.enabled=false",
 					"--set", "components.istiodRemote.enabled=false",
-					"--set", "components.ingressGateways[0].enabled=false",
+					"--set", "values.gateways.istio-ingressgateway.enabled=false",
 				)
 			}
 		}
