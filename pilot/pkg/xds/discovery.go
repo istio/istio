@@ -178,7 +178,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 		out.Cache = model.NewXdsCache()
 	}
 
-	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.cache)
+	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
 
 	return out
 }
