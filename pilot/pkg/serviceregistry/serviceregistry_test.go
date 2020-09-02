@@ -172,7 +172,10 @@ func TestWorkloadInstances(t *testing.T) {
 			Namespace: namespace,
 			Labels:    labels,
 		},
-		Status: v1.PodStatus{PodIP: "1.2.3.4"},
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+			Phase: v1.PodPending,
+		},
 	}
 	workloadEntry := config.Config{
 		Meta: config.Meta{
