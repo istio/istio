@@ -16,6 +16,8 @@ package model
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/features"
+	"os"
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/any"
@@ -27,12 +29,6 @@ import (
 )
 
 var (
-	writes = monitoring.NewSum(
-		"xds_cache_writes",
-		"Total number of xds cache writes.",
-		monitoring.WithLabels(typeTag),
-	)
-
 	reads = monitoring.NewSum(
 		"xds_cache_reads",
 		"Total number of xds cache reads.",
@@ -40,13 +36,21 @@ var (
 	)
 
 	hits   = reads.With(typeTag.Value("hit"))
-	misses = reads.With(typeTag.Value("hit"))
+	misses = reads.With(typeTag.Value("miss"))
 )
 
-// TODO tune this and make configurable
-const defaultLRUSize = 200
+func hit()  {
+	if features.EnableEDSCacheMetrics {
+		hits.Increment()
+	}
+}
 
-// indexConfig keeps track of which cache keys are dependent on a given ConfigKey
+func miss() {
+	if features.EnableEDSCacheMetrics {
+		misses.Increment()
+	}
+}
+
 func indexConfig(configIndex map[ConfigKey]sets.Set, k string, entry XdsCacheEntry) {
 	for _, config := range entry.DependentConfigs() {
 		if configIndex[config] == nil {
@@ -109,7 +113,6 @@ func (c *inMemoryCache) Add(entry XdsCacheEntry, value *any.Any) {
 	k := entry.Key()
 	c.store[k] = value
 	indexConfig(c.configIndex, k, entry)
-	writes.Increment()
 }
 
 func (c *inMemoryCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
@@ -120,9 +123,9 @@ func (c *inMemoryCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
 	defer c.mu.RUnlock()
 	k, f := c.store[entry.Key()]
 	if f {
-		hits.Increment()
+		hit()
 	} else {
-		misses.Increment()
+		miss()
 	}
 	return k, f
 }
@@ -157,15 +160,16 @@ func (c *inMemoryCache) Keys() []string {
 }
 
 type lruCache struct {
+	store *lru.Cache
+
 	mu          sync.RWMutex
-	store       *lru.Cache
 	configIndex map[ConfigKey]sets.Set
 }
 
 var _ XdsCache = &lruCache{}
 
 func newLru() *lru.Cache {
-	l, err := lru.New(defaultLRUSize)
+	l, err := lru.New(features.EDSCacheMaxSize)
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}
@@ -176,32 +180,30 @@ func (l *lruCache) Add(entry XdsCacheEntry, value *any.Any) {
 	if !entry.Cacheable() {
 		return
 	}
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	k := entry.Key()
 	l.store.Add(k, value)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	indexConfig(l.configIndex, entry.Key(), entry)
-	writes.Increment()
 }
 
 func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
 	if !entry.Cacheable() {
 		return nil, false
 	}
-	l.mu.RLock()
-	defer l.mu.RUnlock()
 	val, ok := l.store.Get(entry.Key())
 	if !ok {
-		misses.Increment()
+		miss()
 		return nil, false
 	}
-	hits.Increment()
+	hit()
 	return val.(*any.Any), true
 }
 
 func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	for ckey := range configs {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
@@ -212,10 +214,11 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 }
 
 func (l *lruCache) ClearAll() {
+	l.store.Purge()
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.configIndex = map[ConfigKey]sets.Set{}
-	l.store = newLru()
 }
 
 func (l *lruCache) Keys() []string {
