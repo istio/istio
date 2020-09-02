@@ -42,4 +42,7 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.Values["global.jwtPolicy"] = "first-party-jwt"
+	// first party jwt doesn't work with xds proxy in agent.
+	cfg.Values["meshConfig.defaultConfig.proxyMetadata.ISTIO_META_PROXY_XDS_VIA_AGENT"] = "disable"
+	cfg.Values["meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE"] = ""
 }
