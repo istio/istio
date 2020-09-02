@@ -484,6 +484,9 @@ type NodeMetadata struct {
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
 
+	// ProxyXDSViaAgent indicates that xds data is being proxied via the agent
+	ProxyXDSViaAgent string `json:"PROXY_XDS_VIA_AGENT,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`

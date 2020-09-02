@@ -77,6 +77,9 @@ type Config struct {
 	// disable sidecar injection, etc.
 	DeployAsVM bool
 
+	// If enabled, dns capture will be enabled on the VM (assuming DeployAsVM is true).
+	DNSCaptureOnVM bool
+
 	// The image name to be used to pull the image for the VM. `DeployAsVM` must be enabled.
 	VMImage string
 
