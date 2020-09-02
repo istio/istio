@@ -264,11 +264,9 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 			})
 		}
 	}
-
-	// To allow for the creation of the reader service accounts
-	// which is required for multicluster setup
-	// TODO: Clean up - this is very hacky.
-	time.Sleep(30 * time.Second)
+	if errs := errG.Wait(); errs != nil {
+		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
+	}
 
 	if env.IsMulticluster() && !isCentralIstio(env, cfg) {
 		// For multicluster, configure direct access so each control plane can get endpoints from all
@@ -276,13 +274,6 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if err := configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
 			return nil, err
 		}
-	}
-
-	// With JWT enabled, remote secrets need to be pushed for ingress to come up.
-	// Without JWT the only thing that mattered was certs just to get the cluster running,
-	// then the kubeapi secrets to discover the remote services.
-	if errs := errG.Wait(); errs != nil {
-		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
 	if env.IsMultinetwork() {
