@@ -17,12 +17,11 @@ package model
 import (
 	"fmt"
 	"istio.io/istio/pilot/pkg/features"
-	"os"
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/any"
 
-	"github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru/simplelru"
 
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/monitoring"
@@ -39,7 +38,7 @@ var (
 	misses = reads.With(typeTag.Value("miss"))
 )
 
-func hit()  {
+func hit() {
 	if features.EnableEDSCacheMetrics {
 		hits.Increment()
 	}
@@ -160,7 +159,7 @@ func (c *inMemoryCache) Keys() []string {
 }
 
 type lruCache struct {
-	store *lru.Cache
+	store simplelru.LRUCache
 
 	mu          sync.RWMutex
 	configIndex map[ConfigKey]sets.Set
@@ -168,8 +167,8 @@ type lruCache struct {
 
 var _ XdsCache = &lruCache{}
 
-func newLru() *lru.Cache {
-	l, err := lru.New(features.EDSCacheMaxSize)
+func newLru() simplelru.LRUCache {
+	l, err := simplelru.NewLRU(features.EDSCacheMaxSize, nil)
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}
@@ -180,11 +179,10 @@ func (l *lruCache) Add(entry XdsCacheEntry, value *any.Any) {
 	if !entry.Cacheable() {
 		return
 	}
-	k := entry.Key()
-	l.store.Add(k, value)
-
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	k := entry.Key()
+	l.store.Add(k, value)
 	indexConfig(l.configIndex, entry.Key(), entry)
 }
 
@@ -192,6 +190,8 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
 	if !entry.Cacheable() {
 		return nil, false
 	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	val, ok := l.store.Get(entry.Key())
 	if !ok {
 		miss()
@@ -202,8 +202,8 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
 }
 
 func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	for ckey := range configs {
 		referenced := l.configIndex[ckey]
 		delete(l.configIndex, ckey)
@@ -214,14 +214,15 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 }
 
 func (l *lruCache) ClearAll() {
-	l.store.Purge()
-
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
 }
 
 func (l *lruCache) Keys() []string {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	iKeys := l.store.Keys()
 	keys := make([]string, 0, len(iKeys))
 	for _, ik := range iKeys {
