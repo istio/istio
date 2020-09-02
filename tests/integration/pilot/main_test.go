@@ -103,10 +103,13 @@ func TestMain(m *testing.M) {
 			}
 			return ctx.Config().ApplyYAML("", string(crd))
 		}).
-		Setup(istio.Setup(&i, func(cfg *istio.Config) {
+		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
-			cfg.Values["meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT"] = "enable"
+			if !ctx.Clusters().IsMulticluster() {
+				// TODO make this compatible with multicluster
+				cfg.Values["meshConfig.defaultConfig.proxyMetadata.PROXY_XDS_VIA_AGENT"] = "enable"
+			}
 			cfg.ControlPlaneValues = `
 # Add TCP port, not in the default install
 components:
