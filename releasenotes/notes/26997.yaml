@@ -28,7 +28,8 @@ issue:
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
 releaseNotes:
-  | ***Added*** Add application configuration-based healthchecking 
+  |
+  ***Added*** Add application configuration-based healthchecking
 
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes.
