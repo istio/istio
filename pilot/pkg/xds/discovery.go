@@ -175,7 +175,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 
 	out.initGenerators()
 
-	if features.EnableEDSCaching {
+	if features.EnableXDSCaching {
 		out.Cache = model.NewXdsCache()
 	}
 

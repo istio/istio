@@ -43,13 +43,13 @@ var (
 )
 
 func hit() {
-	if features.EnableEDSCacheMetrics {
+	if features.EnableXDSCacheMetrics {
 		xdsCacheHits.Increment()
 	}
 }
 
 func miss() {
-	if features.EnableEDSCacheMetrics {
+	if features.EnableXDSCacheMetrics {
 		xdsCacheMisses.Increment()
 	}
 }
@@ -172,7 +172,7 @@ type lruCache struct {
 var _ XdsCache = &lruCache{}
 
 func newLru() simplelru.LRUCache {
-	l, err := simplelru.NewLRU(features.EDSCacheMaxSize, nil)
+	l, err := simplelru.NewLRU(features.XDSCacheMaxSize, nil)
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}
