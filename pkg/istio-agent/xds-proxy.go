@@ -34,7 +34,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
-	//"google.golang.org/grpc/credentials/oauth"
+	"google.golang.org/grpc/credentials/oauth"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
@@ -331,12 +331,12 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 	// In these cases, while we fallback to mTLS to istiod using the provisioned certs
 	// it would be ideal to keep using token plus k8s ca certs for control plane communication
 	// as the intention behind provisioned certs on k8s pods is only for data plane comm.
-	// if sa.secOpts.ProvCert == "" {
-	// 	// only if running in k8s pod
-	// 	dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
-	// 		sa.secOpts.JWTPath,
-	// 	}}))
-	// }
+	if sa.secOpts.ProvCert == "" {
+		// only if running in k8s pod
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
+			sa.secOpts.JWTPath,
+		}}))
+	}
 	return dialOptions, nil
 }
 
