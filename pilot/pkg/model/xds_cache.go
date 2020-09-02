@@ -16,13 +16,13 @@ package model
 
 import (
 	"fmt"
-	"istio.io/istio/pilot/pkg/features"
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/any"
 
 	"github.com/hashicorp/golang-lru/simplelru"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/sets"
 	"istio.io/pkg/monitoring"
 )
