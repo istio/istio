@@ -338,11 +338,11 @@ var (
 			"Use || between <trustdomain, endpoint> tuples. Use | as delimiter between trust domain and endpoint in "+
 			"each tuple. For example: foo|https://url/for/foo||bar|https://url/for/bar").Get()
 
-	EnableEDSCaching = env.RegisterBoolVar("PILOT_ENABLE_EDS_CACHE", true,
-		"If true, Pilot will cache EDS responses.").Get()
+	EnableEDSCaching = env.RegisterBoolVar("PILOT_ENABLE_XDS_CACHE", true,
+		"If true, Pilot will cache XDS responses.").Get()
 
 	EnableEDSCacheMetrics = env.RegisterBoolVar("PILOT_XDS_CACHE_STATS", false,
-		"If true, Pilot will collect metrics for XDS cache efficency.").Get()
+		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
 
 	EDSCacheMaxSize = env.RegisterIntVar("PILOT_XDS_CACHE_SIZE", 20000,
 		"The maximum number of cache entries for the XDS cache.").Get()
