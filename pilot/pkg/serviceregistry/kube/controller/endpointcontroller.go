@@ -92,11 +92,6 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	svc := c.servicesMap[host]
 	c.RUnlock()
 
-	if svc == nil {
-		log.Infof("Handle EDS endpoint: skip updating, service %s/%s has not been populated", svcName, ns)
-		return
-	}
-
 	log.Debugf("Handle EDS endpoint %s in namespace %s", svcName, ns)
 	var endpoints []*model.IstioEndpoint
 	if event == model.EventDelete {
@@ -104,19 +99,12 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	} else {
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
-	fep := c.collectWorkloadInstanceEndpoints(svc)
-	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
-	// fire instance handles for k8s endpoints only
-	for _, handler := range c.instanceHandlers {
-		for _, ep := range endpoints {
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: nil,
-				Endpoint:    ep,
-			}
-			handler(si, event)
-		}
+
+	if features.EnableK8SServiceSelectWorkloadEntries && svc != nil {
+		fep := c.collectWorkloadInstanceEndpoints(svc)
+		endpoints = append(endpoints, fep...)
 	}
+	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, endpoints)
 }
 
 // getPod fetches a pod by IP address.
