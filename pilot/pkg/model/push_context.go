@@ -44,7 +44,7 @@ var (
 // Metrics is an interface for capturing metrics on a per-node basis.
 type Metrics interface {
 	// AddMetric will add an case to the metric for the given node.
-	AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string)
+	AddMetric(metric monitoring.Metric, key string, proxyID, msg string)
 }
 
 var _ Metrics = &PushContext{}
@@ -304,9 +304,9 @@ type ProxyPushStatus struct {
 }
 
 // AddMetric will add an case to the metric.
-func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
 	if ps == nil {
-		log.Infof("Metric without context %s %v %s", key, proxy, msg)
+		log.Infof("Metric without context %s %v %s", key, proxyID, msg)
 		return
 	}
 	ps.proxyStatusMutex.Lock()
@@ -317,10 +317,7 @@ func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxy *Pr
 		metricMap = map[string]ProxyPushStatus{}
 		ps.ProxyStatus[metric.Name()] = metricMap
 	}
-	ev := ProxyPushStatus{Message: msg}
-	if proxy != nil {
-		ev.Proxy = proxy.ID
-	}
+	ev := ProxyPushStatus{Message: msg, Proxy: proxyID}
 	metricMap[key] = ev
 }
 

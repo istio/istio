@@ -158,7 +158,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		t:                    t,
 		store:                configController,
 		env:                  env,
-		ConfigGen:            NewConfigGenerator(opts.Plugins),
+		ConfigGen:            NewConfigGenerator(opts.Plugins, &model.DisabledCache{}),
 		MemRegistry:          msd,
 		ServiceEntryRegistry: se,
 		pushContextLock:      opts.PushContextLock,

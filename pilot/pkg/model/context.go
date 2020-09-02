@@ -123,9 +123,9 @@ func (e *Environment) AddNetworksHandler(h func()) {
 	}
 }
 
-func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
 	if e != nil && e.PushContext != nil {
-		e.PushContext.AddMetric(metric, key, proxy, msg)
+		e.PushContext.AddMetric(metric, key, proxyID, msg)
 	}
 }
 
