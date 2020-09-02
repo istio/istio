@@ -30,6 +30,7 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -339,6 +340,20 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			c.externalNameSvcInstanceMap[svcConv.Hostname] = instances
 		}
 		c.Unlock()
+	}
+
+	// Update endpoint shards when service added, in case endpoint added earlier than service
+	if event == model.EventAdd {
+		// Build IstioEndpoints
+		endpoints := c.endpoints.buildIstioEndpointsWithService(svc.Name, svc.Namespace, svcConv.Hostname)
+		if features.EnableK8SServiceSelectWorkloadEntries {
+			fep := c.collectWorkloadInstanceEndpoints(svcConv)
+			endpoints = append(endpoints, fep...)
+		}
+
+		if len(endpoints) > 0 {
+			c.xdsUpdater.EDSCacheUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, endpoints)
+		}
 	}
 
 	c.xdsUpdater.SvcUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, event)

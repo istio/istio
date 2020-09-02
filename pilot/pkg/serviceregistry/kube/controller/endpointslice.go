@@ -186,6 +186,22 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 	return esc.endpointCache.Get(host)
 }
 
+func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: name}).AsSelectorPreValidated()
+	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
+	if err != nil || len(slices) == 0 {
+		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	endpoints := make([]*model.IstioEndpoint, 0)
+	for _, es := range slices {
+		endpoints = append(endpoints, esc.buildIstioEndpoints(es, host)...)
+	}
+
+	return endpoints
+}
+
 func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {
 	slice := es.(*discoveryv1alpha1.EndpointSlice)
 	svcName := slice.Labels[discoveryv1alpha1.LabelServiceName]
