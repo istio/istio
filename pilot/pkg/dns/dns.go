@@ -60,7 +60,7 @@ const (
 	// In case the client decides to honor the TTL, keep it low so that we can always serve
 	// the latest IP for a host.
 	// TODO: make it configurable
-	defaultTTL = 30
+	defaultTTLInSeconds = 30
 )
 
 func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
@@ -86,7 +86,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 		Net: "udp",
 		// TODO: make it configurable
 		DialTimeout: 3 * time.Second,
-		ReadTimeout: 500 * time.Millisecond,
+		ReadTimeout: 100 * time.Millisecond,
 	}
 
 	// We will use the local resolv.conf for resolving unknown names.
@@ -104,30 +104,28 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 	// name in our local nametable. If not, we will forward the query to the
 	// upstream resolvers as is.
 	if dnsConfig != nil {
-		if len(dnsConfig.Servers) > 0 {
-			for _, s := range dnsConfig.Servers {
-				h.resolvConfServers = append(h.resolvConfServers, s+":53")
-			}
+		for _, s := range dnsConfig.Servers {
+			h.resolvConfServers = append(h.resolvConfServers, s+":53")
 		}
 		h.searchNamespaces = dnsConfig.Search
+	}
+
+	h.downstreamServer = &dns.Server{Handler: h.downstreamMux}
+	h.downstreamServer.PacketConn, err = net.ListenPacket("udp", ":15053")
+	if err != nil {
+		log.Errorf("Failed to listen on port 15053: %v", err)
+		return nil, err
 	}
 	return h, nil
 }
 
 // StartDNS starts the DNS-over-UDP downstreamServer.
 func (h *LocalDNSServer) StartDNS() {
-	var err error
-	h.downstreamServer = &dns.Server{Handler: h.downstreamMux}
-	h.downstreamServer.PacketConn, err = net.ListenPacket("udp", ":15053")
-	if err != nil {
-		log.Warna("Failed to start DNS downstreamServer", err)
-	}
-
-	log.Infoa("Started DNS downstreamServer at 0.0.0.0:15053")
+	log.Infoa("Starting local DNS server at 0.0.0.0:15053")
 	go func() {
 		err := h.downstreamServer.ActivateAndServe()
 		if err != nil {
-			log.Errora("Failed to activate DNS downstreamServer ", err)
+			log.Errorf("Local DNS server terminated: %v", err)
 		}
 	}()
 }
@@ -313,7 +311,7 @@ func a(host string, ips []net.IP) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.A)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: defaultTTL}
+		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
 		r.A = ip
 		answers[i] = r
 	}
@@ -325,7 +323,7 @@ func aaaa(host string, ips []net.IP) []dns.RR {
 	answers := make([]dns.RR, len(ips))
 	for i, ip := range ips {
 		r := new(dns.AAAA)
-		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: defaultTTL}
+		r.Hdr = dns.RR_Header{Name: host, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: defaultTTLInSeconds}
 		r.AAAA = ip
 		answers[i] = r
 	}
