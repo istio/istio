@@ -120,7 +120,8 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 
 func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interface {
 	// first match local/primary cluster
-	if a.clusterID == clusterID {
+	// or if clusterID is not sent (we assume that its a single cluster)
+	if a.clusterID == clusterID || clusterID == "" {
 		return a.kubeClient
 	}
 
@@ -131,8 +132,9 @@ func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interf
 		}
 	}
 
-	// failover to local cluster
-	return a.kubeClient
+	// we did not find the kube client for this cluster.
+	// return nil so that logs will show that this cluster is not available in istiod
+	return nil
 }
 
 func extractBearerToken(ctx context.Context) (string, error) {

@@ -92,7 +92,7 @@ func TestAuthenticate(t *testing.T) {
 			expectedID:     fmt.Sprintf(identityTemplate, "example.com", "default", "example-pod-sa"),
 			expectedErrMsg: "",
 		},
-		"not found remote cluster fallback to primary cluster": {
+		"not found remote cluster results in error": {
 			remoteCluster: false,
 			token:         "bearer-token",
 			metadata: metadata.MD{
@@ -102,8 +102,7 @@ func TestAuthenticate(t *testing.T) {
 				},
 			},
 			jwtPolicy:      jwt.PolicyFirstParty,
-			expectedID:     fmt.Sprintf(identityTemplate, "example.com", "default", "example-pod-sa"),
-			expectedErrMsg: "",
+			expectedErrMsg: "could not get cluster non-exist's kube client",
 		},
 	}
 

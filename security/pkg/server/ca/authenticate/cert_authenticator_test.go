@@ -19,7 +19,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"reflect"
-	"strings"
 	"testing"
 
 	"golang.org/x/net/context"
