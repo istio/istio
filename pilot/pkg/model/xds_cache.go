@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/ptypes/any"
-
 	"github.com/hashicorp/golang-lru/simplelru"
 
 	"istio.io/istio/pilot/pkg/features"
