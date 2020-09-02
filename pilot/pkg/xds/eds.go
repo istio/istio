@@ -277,8 +277,8 @@ func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.Cluster
 
 	// If networks are set (by default they aren't) apply the Split Horizon
 	// EDS filter on the endpoints
-	if b.push.Networks != nil && len(b.push.Networks.Networks) > 0 {
-		l.Endpoints = EndpointsByNetworkFilter(b.push, b.network, l.Endpoints)
+	if b.MultiNetworkConfigured() {
+		l.Endpoints = b.EndpointsByNetworkFilter(l.Endpoints)
 	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
@@ -324,6 +324,7 @@ var skippedEdsConfigs = map[config.GroupVersionKind]struct{}{
 	gvk.WorkloadGroup:         {},
 	gvk.AuthorizationPolicy:   {},
 	gvk.RequestAuthentication: {},
+	gvk.Secret:                {},
 }
 
 func edsNeedsPush(updates model.XdsUpdates) bool {
@@ -362,7 +363,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, push)
-		if marshalledEndpoint, f := eds.Server.cache.Get(builder); f {
+		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f {
 			resources = append(resources, marshalledEndpoint)
 			cached++
 		} else {
@@ -377,7 +378,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, push *model.PushContext, w
 			}
 			resource := util.MessageToAny(l)
 			resources = append(resources, resource)
-			eds.Server.cache.Add(builder, resource)
+			eds.Server.Cache.Add(builder, resource)
 		}
 	}
 	if len(edsUpdatedServices) == 0 {

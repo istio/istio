@@ -75,7 +75,6 @@ type ServiceEntryStore struct { // nolint:golint
 	// seWithSelectorByNamespace keeps track of ServiceEntries with selectors, keyed by namespaces
 	seWithSelectorByNamespace map[string][]servicesWithEntry
 	refreshIndexes            *atomic.Bool
-	instanceHandlers          []func(*model.ServiceInstance, model.Event)
 	workloadHandlers          []func(*model.WorkloadInstance, model.Event)
 }
 
@@ -403,12 +402,6 @@ func (s *ServiceEntryStore) Cluster() string {
 
 // AppendServiceHandler adds service resource event handler. Service Entries does not use these handlers.
 func (s *ServiceEntryStore) AppendServiceHandler(_ func(*model.Service, model.Event)) error {
-	return nil
-}
-
-// AppendInstanceHandler adds instance event handler. Service Entries does not use these handlers.
-func (s *ServiceEntryStore) AppendInstanceHandler(h func(*model.ServiceInstance, model.Event)) error {
-	s.instanceHandlers = append(s.instanceHandlers, h)
 	return nil
 }
 

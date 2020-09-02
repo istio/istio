@@ -19,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	discoveryv2 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v2"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -125,7 +124,7 @@ type DiscoveryServer struct {
 	debounceOptions debounceOptions
 
 	// Cache for XDS resources
-	cache model.XdsCache
+	Cache model.XdsCache
 }
 
 // EndpointShards holds the set of endpoint shards of a service. Registries update
@@ -152,7 +151,6 @@ type EndpointShards struct {
 func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                     env,
-		ConfigGenerator:         core.NewConfigGenerator(plugins),
 		Generators:              map[string]model.XdsResourceGenerator{},
 		EndpointShardsByService: map[string]map[string]*EndpointShards{},
 		concurrentPushLimit:     make(chan struct{}, features.PushThrottle),
@@ -166,7 +164,7 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce.Get(),
 		},
-		cache: model.DisabledCache{},
+		Cache: model.DisabledCache{},
 	}
 
 	// Flush cached discovery responses when detecting jwt public key change.
@@ -176,9 +174,11 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 
 	out.initGenerators()
 
-	if features.EnableEDSCaching {
-		out.cache = model.NewXdsCache()
+	if features.EnableXDSCaching {
+		out.Cache = model.NewXdsCache()
 	}
+
+	out.ConfigGenerator = core.NewConfigGenerator(plugins, out.Cache)
 
 	return out
 }
@@ -187,11 +187,6 @@ func NewDiscoveryServer(env *model.Environment, plugins []string) *DiscoveryServ
 func (s *DiscoveryServer) Register(rpcs *grpc.Server) {
 	// Register v3 server
 	discovery.RegisterAggregatedDiscoveryServiceServer(rpcs, s)
-}
-
-func (s *DiscoveryServer) RegisterLegacyv2(rpcs *grpc.Server) {
-	// Register v2 server just for compatibility with gRPC. When gRPC v3 comes out, we can drop this
-	discoveryv2.RegisterAggregatedDiscoveryServiceServer(rpcs, s.createV2Adapter())
 }
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
@@ -479,6 +474,7 @@ func (s *DiscoveryServer) initGenerators() {
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
 	s.Generators[v3.EndpointType] = edsGen
+	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	epGen := &EdsV2Generator{edsGen}

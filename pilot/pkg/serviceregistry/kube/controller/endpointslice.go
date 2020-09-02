@@ -131,7 +131,7 @@ func sliceServiceInstances(c *Controller, ep *discoveryv1alpha1.EndpointSlice, p
 						})
 						// If the endpoint isn't ready, report this
 						if ep.Conditions.Ready != nil && !*ep.Conditions.Ready && c.metrics != nil {
-							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy, "")
+							c.metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
 						}
 					}
 				}
@@ -184,6 +184,22 @@ func (esc *endpointSliceController) buildIstioEndpoints(es interface{}, host hos
 	}
 	esc.endpointCache.Update(host, slice.Name, endpoints)
 	return esc.endpointCache.Get(host)
+}
+
+func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint {
+	esLabelSelector := klabels.Set(map[string]string{discoveryv1alpha1.LabelServiceName: name}).AsSelectorPreValidated()
+	slices, err := discoverylister.NewEndpointSliceLister(esc.informer.GetIndexer()).EndpointSlices(namespace).List(esLabelSelector)
+	if err != nil || len(slices) == 0 {
+		log.Debugf("endpoint slices of (%s, %s) not found => error %v", name, namespace, err)
+		return nil
+	}
+
+	endpoints := make([]*model.IstioEndpoint, 0)
+	for _, es := range slices {
+		endpoints = append(endpoints, esc.buildIstioEndpoints(es, host)...)
+	}
+
+	return endpoints
 }
 
 func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {

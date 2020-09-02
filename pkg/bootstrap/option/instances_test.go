@@ -15,8 +15,6 @@
 package option_test
 
 import (
-	"encoding/base64"
-	"net"
 	"testing"
 	"time"
 
@@ -157,48 +155,6 @@ func TestOptions(t *testing.T) {
 			key:      "dns_lookup_family",
 			option:   option.DNSLookupFamily(option.DNSLookupFamilyIPv6),
 			expected: option.DNSLookupFamilyValue("AUTO"),
-		},
-		{
-			testName: "pod name",
-			key:      "PodName",
-			option:   option.PodName("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "pod namespace",
-			key:      "PodNamespace",
-			option:   option.PodNamespace("fake"),
-			expected: "fake",
-		},
-		{
-			testName: "pod ip",
-			key:      "PodIP",
-			option:   option.PodIP(net.IPv4(127, 0, 0, 1)),
-			expected: base64.StdEncoding.EncodeToString(net.IPv4(127, 0, 0, 1)),
-		},
-		{
-			testName: "control plane auth true",
-			key:      "ControlPlaneAuth",
-			option:   option.ControlPlaneAuth(true),
-			expected: "enable",
-		},
-		{
-			testName: "control plane auth false",
-			key:      "ControlPlaneAuth",
-			option:   option.ControlPlaneAuth(false),
-			expected: nil,
-		},
-		{
-			testName: "disable report calls true",
-			key:      "DisableReportCalls",
-			option:   option.DisableReportCalls(true),
-			expected: "true",
-		},
-		{
-			testName: "disable report calls false",
-			key:      "DisableReportCalls",
-			option:   option.DisableReportCalls(false),
-			expected: nil,
 		},
 		{
 			testName: "lightstep address empty",

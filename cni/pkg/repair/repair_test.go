@@ -307,7 +307,7 @@ func TestBrokenPodReconciler_listBrokenPods(t *testing.T) {
 				},
 				Options: &Options{},
 			},
-			wantList: v1.PodList{Items: []v1.Pod{brokenPodWaiting, brokenPodTerminating}},
+			wantList: v1.PodList{Items: []v1.Pod{brokenPodTerminating, brokenPodWaiting}},
 		},
 		{
 			name: "With Label Selector",

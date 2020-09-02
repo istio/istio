@@ -510,13 +510,6 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 
 	var patch []rfc6902PatchOperation
 
-	// Remove any containers previously injected by kube-inject using
-	// container and volume name as unique key for removal.
-	patch = append(patch, removeContainers(pod.Spec.InitContainers, prevStatus.InitContainers, "/spec/initContainers")...)
-	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
-	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
-	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
-
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, sic)
 
 	sidecar := FindSidecar(sic.Containers)
@@ -526,6 +519,17 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 			sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: prober})
 		}
 	}
+
+	if rewrite {
+		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
+	}
+
+	// Remove any containers previously injected by kube-inject using
+	// container and volume name as unique key for removal.
+	patch = append(patch, removeContainers(pod.Spec.InitContainers, prevStatus.InitContainers, "/spec/initContainers")...)
+	patch = append(patch, removeContainers(pod.Spec.Containers, prevStatus.Containers, "/spec/containers")...)
+	patch = append(patch, removeVolumes(pod.Spec.Volumes, prevStatus.Volumes, "/spec/volumes")...)
+	patch = append(patch, removeImagePullSecrets(pod.Spec.ImagePullSecrets, prevStatus.ImagePullSecrets, "/spec/imagePullSecrets")...)
 
 	if enablePrometheusMerge(mesh, pod.ObjectMeta.Annotations) {
 		scrape := status.PrometheusScrapeConfiguration{
@@ -561,18 +565,33 @@ func createPatch(pod *corev1.Pod, prevStatus *SidecarInjectionStatus, revision s
 
 	patch = append(patch, updateAnnotation(pod.Annotations, annotations)...)
 
-	canonicalSvc, canonicalRev := extractCanonicalServiceLabels(pod.Labels, workloadName)
-	patch = append(patch, addLabels(pod.Labels, map[string]string{
+	canonicalSvc, canonicalRev := ExtractCanonicalServiceLabels(pod.Labels, workloadName)
+	patchLabels := map[string]string{
 		label.TLSMode:                                model.IstioMutualTLSModeLabel,
 		model.IstioCanonicalServiceLabelName:         canonicalSvc,
 		label.IstioRev:                               revision,
-		model.IstioCanonicalServiceRevisionLabelName: canonicalRev})...)
-
-	if rewrite {
-		patch = append(patch, createProbeRewritePatch(pod.Annotations, &pod.Spec, sic, mesh.GetDefaultConfig().GetStatusPort())...)
+		model.IstioCanonicalServiceRevisionLabelName: canonicalRev,
 	}
+	if network := topologyValues(sic); network != "" {
+		// only added if if not already set
+		patchLabels[label.IstioNetwork] = network
+	}
+	patch = append(patch, addLabels(pod.Labels, patchLabels)...)
 
 	return json.Marshal(patch)
+}
+
+// topologyValues will find the value of ISTIO_META_NETWORK in the spec or return a zero-value
+func topologyValues(sic *SidecarInjectionSpec) string {
+	// TODO should we just return the values used to populate the template from InjectionData?
+	for _, c := range sic.Containers {
+		for _, e := range c.Env {
+			if e.Name == "ISTIO_META_NETWORK" {
+				return e.Value
+			}
+		}
+	}
+	return ""
 }
 
 func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {
@@ -594,7 +613,7 @@ func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) 
 	return true
 }
 
-func extractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
+func ExtractCanonicalServiceLabels(podLabels map[string]string, workloadName string) (string, string) {
 	return extractCanonicalServiceLabel(podLabels, workloadName), extractCanonicalServiceRevision(podLabels)
 }
 
@@ -780,9 +799,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	if pod.ObjectMeta.Namespace == "" {
 		pod.ObjectMeta.Namespace = req.Namespace
 	}
-
-	log.Infof("AdmissionReview for Kind=%v Namespace=%v Name=%v (%v) UID=%v Rfc6902PatchOperation=%v UserInfo=%v",
-		req.Kind, req.Namespace, req.Name, podName, req.UID, req.Operation, req.UserInfo)
+	log.Infof("Sidecar injection request for %v/%v", req.Namespace, podName)
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
@@ -807,6 +824,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		injectedAnnotations: wh.Config.InjectedAnnotations,
 		proxyEnvs:           parseInjectEnvs(path),
 	}
+
 	patchBytes, err := injectPod(params)
 	if err != nil {
 		handleError(fmt.Sprintf("Pod injection failed: %v", err))

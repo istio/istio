@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"sort"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -33,6 +34,7 @@ type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName     string
 	network         string
+	networkView     map[string]bool
 	clusterID       string
 	locality        *core.Locality
 	destinationRule *config.Config
@@ -51,6 +53,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	return EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
+		networkView:     model.GetNetworkView(proxy),
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
 		service:         svc,
@@ -70,7 +73,7 @@ func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 	return b.destinationRule.Spec.(*networkingapi.DestinationRule)
 }
 
-// CacheKey Functions
+// Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b EndpointBuilder) Key() string {
 	params := []string{b.clusterName, b.network, b.clusterID, util.LocalityToString(b.locality)}
 	if b.destinationRule != nil {
@@ -79,7 +82,20 @@ func (b EndpointBuilder) Key() string {
 	if b.service != nil {
 		params = append(params, string(b.service.Hostname)+"/"+b.service.Attributes.Namespace)
 	}
+	if b.networkView != nil {
+		nv := make([]string, 0, len(b.networkView))
+		for nw := range b.networkView {
+			nv = append(nv, nw)
+		}
+		sort.Strings(nv)
+		params = append(params, nv...)
+	}
 	return strings.Join(params, "~")
+}
+
+// MultiNetworkConfigured determines if we have gateways to use for building cross-network endpoints.
+func (b *EndpointBuilder) MultiNetworkConfigured() bool {
+	return b.push.NetworkGateways() != nil
 }
 
 func (b EndpointBuilder) Cacheable() bool {
@@ -98,6 +114,13 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigKey {
 		configs = append(configs, model.ConfigKey{Kind: gvk.ServiceEntry, Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace})
 	}
 	return configs
+}
+
+func (b *EndpointBuilder) canViewNetwork(network string) bool {
+	if b.networkView == nil {
+		return true
+	}
+	return b.networkView[network]
 }
 
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
@@ -162,7 +185,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 
 	if len(locEps) == 0 {
-		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, nil, "")
+		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, "", "")
 	}
 
 	return locEps

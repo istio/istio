@@ -341,8 +341,12 @@ func TestMeshNetworking(t *testing.T) {
 					Ne: &meshconfig.Network_NetworkEndpoints_FromRegistry{FromRegistry: "Kubernetes"},
 				}},
 				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
-					Gw:   &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"},
-					Port: 15443,
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{Address: "2.2.2.2"}, Port: 15443,
+				}},
+			},
+			"network-2": {
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{Address: "3.3.3.3"}, Port: 15443,
 				}},
 			},
 		}},
@@ -359,6 +363,12 @@ func TestMeshNetworking(t *testing.T) {
 					Port: 15443,
 				}},
 			},
+			// TODO(landow) support service name gateway without fromRegistry
+			"network-2": {
+				Gateways: []*meshconfig.Network_IstioNetworkGateway{{
+					Gw: &meshconfig.Network_IstioNetworkGateway_Address{Address: "3.3.3.3"}, Port: 15443,
+				}},
+			},
 		}},
 	}
 
@@ -370,6 +380,9 @@ func TestMeshNetworking(t *testing.T) {
 				&corev1.Node{Status: corev1.NodeStatus{Addresses: []corev1.NodeAddress{{Type: corev1.NodeExternalIP, Address: "2.2.2.2"}}}},
 				ingr)
 			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "kubeapp", ns: "pod", ip: "10.10.10.20"})...)
+			networkPodLabels := labels.Instance{"app": "labeled", label.IstioNetwork: "network-2"}
+			k8sObjects = append(k8sObjects, fakePodService(fakeServiceOpts{name: "labeled", ns: "pod", ip: "10.10.10.40", podLabels: networkPodLabels})...)
+
 			for name, networkConfig := range meshNetworkConfigs {
 				t.Run(name, func(t *testing.T) {
 					s := NewFakeDiscoveryServer(t, FakeOptions{
@@ -433,6 +446,14 @@ spec:
 							Labels:    labels.Instance{"app": "kubeapp"},
 						},
 					})
+					labeledPod := s.SetupProxy(&model.Proxy{
+						ID: "labeled-1234.pod",
+						Metadata: &model.NodeMetadata{
+							Network:   "network-2",
+							ClusterID: "Kubernetes",
+							Labels:    networkPodLabels,
+						},
+					})
 					vm := s.SetupProxy(&model.Proxy{
 						ID:              "vm",
 						IPAddresses:     []string{"10.10.10.10"},
@@ -442,42 +463,74 @@ spec:
 							InterceptionMode: "NONE",
 						},
 					})
+					gw := s.SetupProxy(&model.Proxy{
+						ID:              "gw",
+						IPAddresses:     []string{"2.2.2.2"},
+						ConfigNamespace: "default",
+						Metadata: &model.NodeMetadata{
+							Network:              "vm", // should only see the VM
+							InterceptionMode:     "NONE",
+							RequestedNetworkView: []string{"vm"},
+						},
+					})
 
 					tests := []struct {
 						p      *model.Proxy
-						expect map[string]string
+						expect map[string][]string
 					}{
 						{
 							p: pod,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
+							},
+						},
+						{
+							p: labeledPod,
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"10.10.10.40"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
 							},
 						},
 						{
 							p: se,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "10.10.10.20",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "10.10.10.30",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"10.10.10.20"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"10.10.10.30"},
 							},
 						},
 						{
 							p: vm,
-							expect: map[string]string{
-								"outbound|7070||httpbin.com":                 "10.10.10.10",
-								"outbound|80||kubeapp.pod.svc.cluster.local": "2.2.2.2",
-								"outbound|80||se-pod.pod.svc.cluster.local":  "2.2.2.2",
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com":                 {"10.10.10.10"},
+								"outbound|80||kubeapp.pod.svc.cluster.local": {"2.2.2.2"},
+								"outbound|80||labeled.pod.svc.cluster.local": {"3.3.3.3"},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {"2.2.2.2"},
+							},
+						},
+						{
+							p: gw,
+							expect: map[string][]string{
+								"outbound|7070||httpbin.com": {"10.10.10.10"},
+								// Network view will filter these out
+								"outbound|80||kubeapp.pod.svc.cluster.local": {},
+								"outbound|80||labeled.pod.svc.cluster.local": {},
+								"outbound|80||se-pod.pod.svc.cluster.local":  {},
 							},
 						},
 					}
 
 					for _, tt := range tests {
 						eps := xdstest.ExtractLoadAssignments(s.Endpoints(tt.p))
-						for c, ip := range tt.expect {
+						for c, ips := range tt.expect {
 							t.Run(fmt.Sprintf("%s from %s", c, tt.p.ID), func(t *testing.T) {
-								assertListEqual(t, eps[c], []string{ip})
+								assertListEqual(t, eps[c], ips)
 							})
 						}
 					}

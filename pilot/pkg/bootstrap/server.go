@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
+	kubesecrets "istio.io/istio/pilot/pkg/secrets/kube"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -50,11 +51,11 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/dns"
 	"istio.io/istio/pkg/jwt"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
@@ -148,9 +149,6 @@ type Server struct {
 	GRPCListener       net.Listener
 	SecureGrpcListener net.Listener
 
-	DNSListener    net.Listener
-	IstioDNSServer *dns.IstioDNS
-
 	// fileWatcher used to watch mesh config, networks and certificates.
 	fileWatcher filewatcher.FileWatcher
 
@@ -220,6 +218,8 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if err := s.initKubeClient(args); err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %v", err)
 	}
+
+	s.initSDSServer()
 
 	s.initMeshNetworks(args, s.fileWatcher)
 	s.initMeshHandlers()
@@ -307,8 +307,6 @@ func NewServer(args *PilotArgs) (*Server, error) {
 	if features.XDSAuth {
 		s.XDSServer.Authenticators = authenticators
 	}
-
-	s.initDNSServer(args)
 
 	// Start CA. This should be called after CA and Istiod certs have been created.
 	s.startCA(caOpts)
@@ -419,6 +417,34 @@ func (s *Server) Start(stop <-chan struct{}) error {
 // This should be called before exiting.
 func (s *Server) WaitUntilCompletion() {
 	s.requiredTerminations.Wait()
+}
+
+// initSDSServer starts the SDS server
+func (s *Server) initSDSServer() {
+	if features.EnableSDSServer && s.kubeClient != nil {
+		if !features.EnableXDSIdentityCheck {
+			// Make sure we have security
+			log.Warnf("skipping Kubernetes credential reader, which was enabled by ISTIOD_ENABLE_SDS_SERVER. " +
+				"PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
+		} else {
+			log.Infof("initializing Kubernetes credential reader")
+			sc := kubesecrets.NewSecretsController(s.kubeClient.KubeInformer().Core().V1().Secrets())
+			sc.AddEventHandler(func(name, namespace string) {
+				s.XDSServer.ConfigUpdate(&model.PushRequest{
+					Full: false,
+					ConfigsUpdated: map[model.ConfigKey]struct{}{
+						{
+							Kind:      gvk.Secret,
+							Name:      name,
+							Namespace: namespace,
+						}: {},
+					},
+					Reason: []model.TriggerReason{model.SecretTrigger},
+				})
+			})
+			s.XDSServer.Generators[v3.SecretType] = xds.NewSecretGen(sc, s.XDSServer.Cache)
+		}
+	}
 }
 
 // initKubeClient creates the k8s client if running in an k8s environment.
@@ -593,11 +619,6 @@ func (s *Server) waitForShutdown(stop <-chan struct{}) {
 			}
 		}
 
-		// Stop DNS Server.
-		if s.IstioDNSServer != nil {
-			s.IstioDNSServer.Close()
-		}
-
 		// Shutdown the DiscoveryServer.
 		s.XDSServer.Shutdown()
 	}()
@@ -608,54 +629,6 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
-}
-
-// initDNSServer initializes gRPC DNS Server for DNS resolutions.
-func (s *Server) initDNSServer(args *PilotArgs) {
-	if dns.DNSAddr.Get() != "" {
-		log.Info("initializing DNS server")
-		if err := s.initDNSTLSListener(dns.DNSAddr.Get(), args.ServerOptions.TLSOptions); err != nil {
-			log.Warna("error initializing DNS-over-TLS listener ", err)
-		}
-
-		// Respond to CoreDNS gRPC queries.
-		s.addStartFunc(func(stop <-chan struct{}) error {
-			if s.DNSListener != nil {
-				dnsSvc := dns.InitDNS()
-				dnsSvc.StartDNS(dns.DNSAddr.Get(), s.DNSListener)
-			}
-			return nil
-		})
-	}
-}
-
-// initialize DNS server listener - uses the same certs as gRPC
-func (s *Server) initDNSTLSListener(dns string, tlsOptions TLSOptions) error {
-	if dns == "" {
-		return nil
-	}
-	// Mainly for tests.
-	if !hasCustomTLSCerts(tlsOptions) && s.CA == nil {
-		return nil
-	}
-
-	// TODO: check if client certs can be used with coredns or others.
-	// If yes - we may require or optionally use them
-	cfg := &tls.Config{
-		GetCertificate: s.getIstiodCertificate,
-		ClientAuth:     tls.NoClientCert,
-	}
-
-	// create secure grpc listener
-	l, err := net.Listen("tcp", dns)
-	if err != nil {
-		return err
-	}
-
-	tl := tls.NewListener(l, cfg)
-	s.DNSListener = tl
-
-	return nil
 }
 
 // initialize secureGRPCServer.
@@ -813,31 +786,6 @@ func (s *Server) initRegistryEventHandlers() error {
 	}
 	if err := s.ServiceController().AppendServiceHandler(serviceHandler); err != nil {
 		return fmt.Errorf("append service handler failed: %v", err)
-	}
-
-	instanceHandler := func(si *model.ServiceInstance, _ model.Event) {
-		// TODO: This is an incomplete code. This code path is called for legacy MCP, etc.
-		// In all cases, this is simply an instance update and not a config update. So, we need to update
-		// EDS in all proxies, and do a full config push for the instance that just changed (add/update only).
-		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full: true,
-			ConfigsUpdated: map[model.ConfigKey]struct{}{{
-				Kind:      gvk.ServiceEntry,
-				Name:      string(si.Service.Hostname),
-				Namespace: si.Service.Attributes.Namespace,
-			}: {}},
-			Reason: []model.TriggerReason{model.ServiceUpdate},
-		})
-	}
-	for _, registry := range s.ServiceController().GetRegistries() {
-		// Skip kubernetes and external registries as they are handled separately
-		if registry.Provider() == serviceregistry.Kubernetes ||
-			registry.Provider() == serviceregistry.External {
-			continue
-		}
-		if err := registry.AppendInstanceHandler(instanceHandler); err != nil {
-			return fmt.Errorf("append instance handler to registry %s failed: %v", registry.Provider(), err)
-		}
 	}
 
 	if s.configController != nil {

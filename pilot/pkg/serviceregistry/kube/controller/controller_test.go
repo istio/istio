@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
@@ -406,7 +407,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 				Metadata: &model.NodeMetadata{ServiceAccount: "account",
 					ClusterID: clusterID,
 					Labels: map[string]string{
-						"app": "prod-app",
+						"app":         "prod-app",
+						label.TLSMode: "mutual",
 					}},
 			})
 			if err != nil {
@@ -429,7 +431,8 @@ func TestGetProxyServiceInstances(t *testing.T) {
 					},
 				},
 				ServicePort: &model.Port{Name: "tcp-port", Port: 8080, Protocol: protocol.TCP},
-				Endpoint: &model.IstioEndpoint{Labels: labels.Instance{"app": "prod-app"},
+				Endpoint: &model.IstioEndpoint{
+					Labels:          labels.Instance{"app": "prod-app", label.TLSMode: "mutual"},
 					ServiceAccount:  "account",
 					Address:         "1.1.1.1",
 					EndpointPort:    0,
@@ -438,6 +441,7 @@ func TestGetProxyServiceInstances(t *testing.T) {
 						Label:     "r/z",
 						ClusterID: clusterID,
 					},
+					TLSMode: "mutual",
 				},
 			}
 			if len(metaServices) != 1 {
