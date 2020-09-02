@@ -29,17 +29,13 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/plugin"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/model"
-	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/proto"
 )
@@ -1111,7 +1107,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cgi := NewConfigGenerator([]plugin.Plugin{})
+			cgi := NewConfigGenerator([]plugin.Plugin{}, &pilot_model.DisabledCache{})
 			tc.node.MergedGateway = &pilot_model.MergedGateway{SNIHostsByServer: map[*networking.Server][]string{
 				tc.server: pilot_model.GetSNIHostsForServer(tc.server),
 			}}
@@ -1305,11 +1301,12 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &fakePlugin{}
-			configgen := NewConfigGenerator([]plugin.Plugin{p})
-			env := buildEnv(t, tt.gateways, tt.virtualServices)
-			proxyGateway.SetGatewaysForProxy(env.PushContext)
-			route := configgen.buildGatewayHTTPRouteConfig(&proxyGateway, env.PushContext, tt.routeName)
+			cfgs := tt.gateways
+			cfgs = append(cfgs, tt.virtualServices...)
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs: cfgs,
+			})
+			route := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
 			if route == nil {
 				t.Fatal("got an empty route configuration")
 			}
@@ -1384,13 +1381,12 @@ func TestBuildGatewayListeners(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		p := &fakePlugin{}
-		configgen := NewConfigGenerator([]plugin.Plugin{p})
-		env := buildEnv(t, []config.Config{{Meta: config.Meta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}}, []config.Config{})
-		proxyGateway.SetGatewaysForProxy(env.PushContext)
-		proxyGateway.ServiceInstances = tt.node.ServiceInstances
-		proxyGateway.DiscoverIPVersions()
-		builder := configgen.buildGatewayListeners(&ListenerBuilder{node: &proxyGateway, push: env.PushContext})
+		cg := NewConfigGenTest(t, TestOptions{
+			Configs: []config.Config{{Meta: config.Meta{GroupVersionKind: gvk.Gateway}, Spec: tt.gateway}},
+		})
+		proxy := cg.SetupProxy(&proxyGateway)
+		proxy.ServiceInstances = tt.node.ServiceInstances
+		builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
 		listeners := xdstest.ExtractListenerNames(builder.gatewayListeners)
 		sort.Strings(listeners)
 		sort.Strings(tt.expectedListeners)
@@ -1399,32 +1395,4 @@ func TestBuildGatewayListeners(t *testing.T) {
 		}
 		xdstest.ValidateListeners(t, builder.gatewayListeners)
 	}
-}
-
-func buildEnv(t *testing.T, gateways []config.Config, virtualServices []config.Config) pilot_model.Environment {
-	serviceDiscovery := memregistry.NewServiceDiscovery(nil)
-
-	configStore := pilot_model.MakeIstioStore(memory.MakeWithoutValidation(collections.Pilot))
-	for _, cfg := range gateways {
-		if _, err := configStore.Create(cfg); err != nil {
-			panic(err.Error())
-		}
-	}
-	for _, cfg := range virtualServices {
-		if _, err := configStore.Create(cfg); err != nil {
-			panic(err.Error())
-		}
-	}
-	m := mesh.DefaultMeshConfig()
-	env := pilot_model.Environment{
-		PushContext:      pilot_model.NewPushContext(),
-		ServiceDiscovery: serviceDiscovery,
-		IstioConfigStore: configStore,
-		Watcher:          mesh.NewFixedWatcher(&m),
-	}
-
-	if err := env.PushContext.InitContext(&env, nil, nil); err != nil {
-		t.Fatalf("failed to init push context: %v", err)
-	}
-	return env
 }

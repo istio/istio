@@ -141,7 +141,7 @@ func normalizeClusters(metrics model.Metrics, proxy *model.Proxy, clusters []*cl
 		if !have.Contains(cluster.Name) {
 			out = append(out, cluster)
 		} else {
-			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy,
+			metrics.AddMetric(model.DuplicatedClusters, cluster.Name, proxy.ID,
 				fmt.Sprintf("Duplicate cluster %s found while pushing CDS", cluster.Name))
 		}
 		have.Insert(cluster.Name)
@@ -576,7 +576,7 @@ func applyTrafficPolicy(opts buildClusterOpts) {
 		var mtlsCtxType mtlsContextType
 		tls, mtlsCtxType = buildAutoMtlsSettings(tls, opts.serviceAccounts, opts.istioMtlsSni, opts.proxy,
 			autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, opts.cluster.GetType())
-		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType, opts.proxy)
+		applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 	}
 }
 
@@ -804,14 +804,14 @@ func applyLocalityLBSetting(locality *core.Locality, cluster *cluster.Cluster, l
 	}
 }
 
-func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType, node *model.Proxy) {
+func applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType) {
 	if tls == nil {
 		return
 	}
 
 	c := opts.cluster
 
-	tlsContext, err := buildUpstreamClusterTLSContext(opts, tls, node)
+	tlsContext, err := buildUpstreamClusterTLSContext(opts, tls)
 	if err != nil {
 		log.Errorf("failed to build Upstream TLSContext: %s", err.Error())
 		return
@@ -849,9 +849,7 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-// nolint unparam
-func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings,
-	node *model.Proxy) (*auth.UpstreamTlsContext, error) {
+func buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*auth.UpstreamTlsContext, error) {
 	c := opts.cluster
 	proxy := opts.proxy
 
