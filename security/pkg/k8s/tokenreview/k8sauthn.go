@@ -50,7 +50,7 @@ func ValidateK8sJwt(kubeClient kubernetes.Interface, targetToken string, aud []s
 func getTokenReviewResult(tokenReview *k8sauth.TokenReview) ([]string, error) {
 	if tokenReview.Status.Error != "" {
 		return nil, fmt.Errorf("the service account authentication returns an error: %v",
-			tokenReview)
+			tokenReview.Status.Error)
 	}
 	// An example SA token:
 	// {"alg":"RS256","typ":"JWT"}
