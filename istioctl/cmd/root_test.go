@@ -80,3 +80,14 @@ func TestHideInheritedFlags(t *testing.T) {
 	checkHelpForFlag(t, got, parentFlag1, false)
 	checkHelpForFlag(t, got, childFlag2, true)
 }
+
+func TestDeprecateCommand(t *testing.T) {
+	fakeCmd := &cobra.Command{
+		Use:   "some-command",
+		Short: "short description of the command",
+	}
+	deprecate(fakeCmd)
+	if !strings.HasSuffix(fakeCmd.Short, deprecatedMsg) {
+		t.Errorf("%s short description should have suffix to indicate deprecation, instead got \"%s\"", fakeCmd.Use, fakeCmd.Short)
+	}
+}
