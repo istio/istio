@@ -32,7 +32,7 @@ const (
 	HTTPHealthCheck   HealthCheckType = "HTTP"
 	TCPHealthCheck    HealthCheckType = "TCP"
 	ExecHealthCheck   HealthCheckType = "Exec"
-	HealthInfoTypeUrl string          = "type.googleapis.com/istio.v1.HealthInformation"
+	HealthInfoTypeURL string          = "type.googleapis.com/istio.v1.HealthInformation"
 )
 
 type WorkloadHealthChecker struct {
@@ -86,14 +86,14 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 			if code, err := httpCheck(w.config.HTTPConfig, w.config.ProbeTimeout); code >= 200 && code <= 299 {
 				numSuccess++
 				if numSuccess == w.config.SuccessThresh {
-					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeUrl}
+					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
 				}
 			} else {
 				numFail++
 				if numFail == w.config.FailThresh {
 					notifyHealthChange <- &discovery.DiscoveryRequest{
-						TypeUrl: HealthInfoTypeUrl,
+						TypeUrl: HealthInfoTypeURL,
 						ErrorDetail: &status.Status{
 							Code:    int32(code),
 							Message: err.Error(),
@@ -112,14 +112,14 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 			if err := tcpCheck(w.config.TCPConfig, w.config.ProbeTimeout); err == nil {
 				numSuccess++
 				if numSuccess == w.config.SuccessThresh {
-					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeUrl}
+					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
 				}
 			} else {
 				numFail++
 				if numFail == w.config.FailThresh {
 					notifyHealthChange <- &discovery.DiscoveryRequest{
-						TypeUrl: HealthInfoTypeUrl,
+						TypeUrl: HealthInfoTypeURL,
 						ErrorDetail: &status.Status{
 							Code:    int32(500),
 							Message: err.Error(),
@@ -136,13 +136,13 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 			if err := execCheck(w.config.ExecConfig); err == nil {
 				numSuccess++
 				if numSuccess == w.config.SuccessThresh {
-					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeUrl}
+					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
 				} else {
 					numFail++
 					if numFail == w.config.FailThresh {
 						notifyHealthChange <- &discovery.DiscoveryRequest{
-							TypeUrl: HealthInfoTypeUrl,
+							TypeUrl: HealthInfoTypeURL,
 							ErrorDetail: &status.Status{
 								Code:    int32(500),
 								Message: err.Error(),
