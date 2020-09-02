@@ -268,8 +268,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 	// To allow for the creation of the reader service accounts
 	// which is required for multicluster setup
 	// TODO: Clean up - this is very hacky.
-
-	time.Sleep(30)
+	time.Sleep(30 * time.Second)
 
 	if env.IsMulticluster() && !isCentralIstio(env, cfg) {
 		// For multicluster, configure direct access so each control plane can get endpoints from all
