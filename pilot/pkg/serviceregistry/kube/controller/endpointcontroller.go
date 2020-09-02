@@ -39,6 +39,7 @@ type kubeEndpointsController interface {
 	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Collection) []*model.ServiceInstance
 	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
 	buildIstioEndpoints(ep interface{}, host host.Name) []*model.IstioEndpoint
+	buildIstioEndpointsWithService(name, namespace string, host host.Name) []*model.IstioEndpoint
 	// forgetEndpoint does internal bookkeeping on a deleted endpoint
 	forgetEndpoint(endpoint interface{})
 	getServiceInfo(ep interface{}) (host.Name, string, string)
@@ -102,8 +103,13 @@ func updateEDS(c *Controller, epc kubeEndpointsController, ep interface{}, event
 	} else {
 		endpoints = epc.buildIstioEndpoints(ep, host)
 	}
-	fep := c.collectWorkloadInstanceEndpoints(svc)
-	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, append(endpoints, fep...))
+
+	if features.EnableK8SServiceSelectWorkloadEntries {
+		fep := c.collectWorkloadInstanceEndpoints(svc)
+		endpoints = append(endpoints, fep...)
+	}
+
+	c.xdsUpdater.EDSUpdate(c.clusterID, string(host), ns, endpoints)
 }
 
 // getPod fetches a pod by IP address.
