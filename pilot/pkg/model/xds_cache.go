@@ -101,6 +101,12 @@ type inMemoryCache struct {
 
 // NewXdsCache returns an instance of a cache.
 func NewXdsCache() XdsCache {
+	if features.XDSCacheMaxSize <= 0 {
+		return &inMemoryCache{
+			store:       map[string]*any.Any{},
+			configIndex: map[ConfigKey]sets.Set{},
+		}
+	}
 	return &lruCache{
 		store:       newLru(),
 		configIndex: map[ConfigKey]sets.Set{},
