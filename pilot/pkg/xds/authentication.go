@@ -58,6 +58,6 @@ func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
 		authFailMsgs = append(authFailMsgs, fmt.Sprintf("Authenticator %s: %v\n", authn.AuthenticatorType(), err))
 	}
 
-	adsLog.Errora("Failed to authenticate client from ", peerInfo.Addr.String(), " ", strings.Join(authFailMsgs, "; "))
+	adsLog.Errora("Failed to authenticate client from ", peerInfo.Addr.String(), "\n", strings.Join(authFailMsgs, "; "))
 	return nil, errors.New("authentication failure")
 }
