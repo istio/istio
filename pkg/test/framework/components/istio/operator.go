@@ -521,7 +521,11 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			if baseOnly {
 				// base must be installed first in order to create istio-reader-service-account, otherwise create-remote-secret command will fail
 				installSettings = append(installSettings,
-					"-f", filepath.Join(env.IstioSrc, "tests/integration/multicluster/centralistio/testdata/iop-remote-base.yaml"))
+					"--set", "components.base.enabled=true",
+					"--set", "components.pilot.enabled=false",
+					"--set", "components.istiodRemote.enabled=false",
+					"--set", "components.ingressGateways[0].enabled=false",
+				)
 			}
 		}
 	}
