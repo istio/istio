@@ -124,13 +124,9 @@ are enabled, unless they are individually disabled. For example:
 ```yaml
     telemetry:
       enabled: true
-      v1:
-        enabled: false
       v2:
-        enabled: true
+        enabled: false
 ```
-
-will enable telemetry v2 but disable telemetry v1.
 
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L131) package.
