@@ -194,8 +194,8 @@ func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
 	if !entry.Cacheable() {
 		return nil, false
 	}
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	val, ok := l.store.Get(entry.Key())
 	if !ok {
 		miss()
