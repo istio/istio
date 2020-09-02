@@ -16,8 +16,4 @@ task build(dependsOn: ['copyApplication']){
 
 task clean {
     delete "servers/LibertyProjectServer/apps"
-    delete "servers/LibertyProjectServer/lib"
-    delete "servers/LibertyProjectServer/logs"
-    delete "servers/LibertyProjectServer/workarea"
-    delete "servers/LibertyProjectServer/resources"
 }
