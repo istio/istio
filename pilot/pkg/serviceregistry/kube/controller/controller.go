@@ -350,6 +350,7 @@ func (c *Controller) onServiceEvent(curr interface{}, event model.Event) error {
 			fep := c.collectWorkloadInstanceEndpoints(svcConv)
 			endpoints = append(endpoints, fep...)
 		}
+
 		if len(endpoints) > 0 {
 			c.xdsUpdater.EDSCacheUpdate(c.clusterID, string(svcConv.Hostname), svc.Namespace, endpoints)
 		}

@@ -194,39 +194,12 @@ func (esc *endpointSliceController) buildIstioEndpointsWithService(name, namespa
 		return nil
 	}
 
-	hostname := kube.ServiceHostname(name, namespace, esc.c.domainSuffix)
 	endpoints := make([]*model.IstioEndpoint, 0)
-	for _, slice := range slices {
-		for _, e := range slice.Endpoints {
-			if e.Conditions.Ready != nil && !*e.Conditions.Ready {
-				// Ignore not ready endpoints
-				continue
-			}
-			for _, a := range e.Addresses {
-				pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, host)
-				if pod == nil && expectedPod {
-					continue
-				}
-				builder := esc.newEndpointBuilder(pod, e)
-				// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-				for _, port := range slice.Ports {
-					var portNum int32
-					if port.Port != nil {
-						portNum = *port.Port
-					}
-					var portName string
-					if port.Name != nil {
-						portName = *port.Name
-					}
-
-					istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName)
-					endpoints = append(endpoints, istioEndpoint)
-				}
-			}
-		}
-		esc.endpointCache.Update(hostname, slice.Name, endpoints)
+	for _, es := range slices {
+		endpoints = append(endpoints, esc.buildIstioEndpoints(es, host)...)
 	}
-	return esc.endpointCache.Get(hostname)
+
+	return endpoints
 }
 
 func (esc *endpointSliceController) getServiceInfo(es interface{}) (host.Name, string, string) {

@@ -216,23 +216,7 @@ func (e *endpointsController) buildIstioEndpointsWithService(name, namespace str
 		return nil
 	}
 
-	endpoints := make([]*model.IstioEndpoint, 0)
-	for _, ss := range ep.Subsets {
-		for _, ea := range ss.Addresses {
-			pod, expectedPod := getPod(e.c, ea.IP, &metav1.ObjectMeta{Name: ep.Name, Namespace: ep.Namespace}, ea.TargetRef, host)
-			if pod == nil && expectedPod {
-				continue
-			}
-			builder := NewEndpointBuilder(e.c, pod)
-
-			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range ss.Ports {
-				istioEndpoint := builder.buildIstioEndpoint(ea.IP, port.Port, port.Name)
-				endpoints = append(endpoints, istioEndpoint)
-			}
-		}
-	}
-	return endpoints
+	return e.buildIstioEndpoints(ep, host)
 }
 
 func (e *endpointsController) getServiceInfo(ep interface{}) (host.Name, string, string) {
