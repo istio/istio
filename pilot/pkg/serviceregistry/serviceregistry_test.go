@@ -203,7 +203,7 @@ func TestWorkloadInstances(t *testing.T) {
 		kc, _, _, kube, _ := setupTest(t)
 		makeService(t, kube, service)
 		makePod(t, kube, pod)
-		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 
 		instances := []ServiceInstanceResponse{{
 			Hostname:   expectedSvc.Hostname,
@@ -217,7 +217,7 @@ func TestWorkloadInstances(t *testing.T) {
 	t.Run("Kubernetes only: endpoint occur earlier", func(t *testing.T) {
 		kc, _, _, kube, xdsUpdater := setupTest(t)
 		makePod(t, kube, pod)
-		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 
 		// make service populated later than endpoint
 		makeService(t, kube, service)
@@ -485,7 +485,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, store, serviceEntry)
 
 		makePod(t, kube, pod)
-		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		makeIstioObject(t, store, workloadEntry)
 
 		instances := []ServiceInstanceResponse{
@@ -513,7 +513,7 @@ func TestWorkloadInstances(t *testing.T) {
 		makeIstioObject(t, store, serviceEntry)
 
 		makePod(t, kube, pod)
-		createEndpoints(t, kube, "service", namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		makeIstioObject(t, store, workloadEntry)
 
 		instances := []ServiceInstanceResponse{
