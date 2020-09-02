@@ -43,7 +43,7 @@ type LdsEnv struct {
 
 func getDefaultLdsEnv() *LdsEnv {
 	listenerEnv := LdsEnv{
-		configgen: NewConfigGenerator([]plugin.Plugin{&fakePlugin{}}),
+		configgen: NewConfigGenerator([]plugin.Plugin{&fakePlugin{}}, &model.DisabledCache{}),
 	}
 	return &listenerEnv
 }

@@ -1376,7 +1376,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 			Protocol: "GRPC",
 		},
 	}
-	configgen := NewConfigGenerator([]plugin.Plugin{})
+	configgen := NewConfigGenerator([]plugin.Plugin{}, &model.DisabledCache{})
 	instance := configgen.findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
 	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
@@ -2135,7 +2135,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				proxy: proxy,
 				mesh:  push.Mesh,
 			}
-			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx, proxy)
+			applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
 			if test.expectTransportSocket && opts.cluster.TransportSocket == nil ||
 				!test.expectTransportSocket && opts.cluster.TransportSocket != nil {
@@ -2186,7 +2186,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 		name      string
 		opts      *buildClusterOpts
 		tls       *networking.ClientTLSSettings
-		node      *model.Proxy
 		istiodSds bool
 		result    expectedResult
 	}{
@@ -2200,7 +2199,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			tls: &networking.ClientTLSSettings{
 				Mode: networking.ClientTLSSettings_DISABLE,
 			},
-			node:   &model.Proxy{},
 			result: expectedResult{nil, nil},
 		},
 		{
@@ -2220,9 +2218,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CaCertificates:    metadataRootCert,
 				SubjectAltNames:   []string{"SAN"},
 				Sni:               "some-sni.com",
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2297,9 +2292,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames:   []string{"SAN"},
 				Sni:               "some-sni.com",
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2370,9 +2362,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2398,9 +2387,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CaCertificates:  rootCert,
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2452,9 +2438,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CaCertificates:  rootCert,
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2509,9 +2492,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2558,7 +2538,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				ClientCertificate: "",
 				PrivateKey:        "some-fake-key",
 			},
-			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				fmt.Errorf("client cert must be provided"),
@@ -2576,7 +2555,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				ClientCertificate: "some-fake-cert",
 				PrivateKey:        "",
 			},
-			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				fmt.Errorf("client key must be provided"),
@@ -2598,9 +2576,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				PrivateKey:        clientKey,
 				SubjectAltNames:   []string{"SAN"},
 				Sni:               "some-sni.com",
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2651,9 +2626,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CaCertificates:    rootCert,
 				SubjectAltNames:   []string{"SAN"},
 				Sni:               "some-sni.com",
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2728,9 +2700,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2788,9 +2757,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -2827,9 +2793,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				Mode:           networking.ClientTLSSettings_SIMPLE,
 				CredentialName: credentialName,
 				Sni:            "some-sni.com",
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2885,9 +2848,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CredentialName:  credentialName,
 				SubjectAltNames: []string{"SAN"},
 				Sni:             "some-sni.com",
-			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
 			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
@@ -2970,9 +2930,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				CredentialName: credentialName,
 				Sni:            "some-sni.com",
 			},
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{},
-			},
 			result: expectedResult{
 				tlsContext: &tls.UpstreamTlsContext{
 					CommonTlsContext: &tls.CommonTlsContext{
@@ -3051,7 +3008,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				Mode:           networking.ClientTLSSettings_MUTUAL,
 				CredentialName: "fake-cred",
 			},
-			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				nil,
@@ -3072,7 +3028,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				Mode:           networking.ClientTLSSettings_SIMPLE,
 				CredentialName: "fake-cred",
 			},
-			node: &model.Proxy{},
 			result: expectedResult{
 				nil,
 				nil,
@@ -3084,7 +3039,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			old := features.EnableSDSServer
 			features.EnableSDSServer = tc.istiodSds
 			defer func() { features.EnableSDSServer = old }()
-			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls, tc.node)
+			ret, err := buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
 				t.Errorf("expecting:\n err=%v but got err=%v", tc.result.err, err)
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
