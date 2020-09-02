@@ -2,22 +2,23 @@ package istioagent
 
 import (
 	"fmt"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"google.golang.org/genproto/googleapis/rpc/status"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"time"
+
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
 )
 
 type HealthCheckType string
 
 const (
-	HTTPHealthCheck HealthCheckType = "HTTP"
-	TCPHealthCheck HealthCheckType = "TCP"
-	ExecHealthCheck HealthCheckType = "Exec"
-	HealthInfoTypeUrl string = "type.googleapis.com/istio.v1.HealthInformation"
+	HTTPHealthCheck   HealthCheckType = "HTTP"
+	TCPHealthCheck    HealthCheckType = "TCP"
+	ExecHealthCheck   HealthCheckType = "Exec"
+	HealthInfoTypeUrl string          = "type.googleapis.com/istio.v1.HealthInformation"
 )
 
 type WorkloadHealthChecker struct {
@@ -25,21 +26,21 @@ type WorkloadHealthChecker struct {
 }
 
 type ApplicationHealthCheckConfig struct {
-	InitialDelay time.Duration
-	ProbeTimeout time.Duration
+	InitialDelay   time.Duration
+	ProbeTimeout   time.Duration
 	CheckFrequency time.Duration
-	SuccessThresh int
-	FailThresh int
-	CheckType HealthCheckType
-	HTTPConfig HTTPHealthCheckConfig
-	TCPConfig TCPHealthCheckConfig
-	ExecConfig ExecHealthCheckConfig
+	SuccessThresh  int
+	FailThresh     int
+	CheckType      HealthCheckType
+	HTTPConfig     HTTPHealthCheckConfig
+	TCPConfig      TCPHealthCheckConfig
+	ExecConfig     ExecHealthCheckConfig
 }
 
 type HTTPHealthCheckConfig struct {
-	Path string
-	Port uint32
-	Scheme string
+	Path    string
+	Port    uint32
+	Scheme  string
 	Headers map[string]string
 }
 
@@ -50,7 +51,7 @@ type TCPHealthCheckConfig struct {
 
 type ExecHealthCheckConfig struct {
 	ExecutableName string
-	Args []string
+	Args           []string
 }
 
 // PerformApplicationHealthCheck Performs the application-provided configuration health check.
@@ -169,9 +170,9 @@ func tcpCheck(config TCPHealthCheckConfig, timeout time.Duration) error {
 // todo does adding Stderr to exec cmd return the error there?
 func execCheck(config ExecHealthCheckConfig) error {
 	healthCheckCmd := &exec.Cmd{
-		Path: config.ExecutableName,
-		Args: config.Args,
-		Stdin: os.Stdin,
+		Path:   config.ExecutableName,
+		Args:   config.Args,
+		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 	}
 	return healthCheckCmd.Run()
