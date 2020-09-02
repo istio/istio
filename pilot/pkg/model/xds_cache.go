@@ -27,26 +27,30 @@ import (
 	"istio.io/pkg/monitoring"
 )
 
+func init() {
+	monitoring.MustRegister(xdsCacheReads)
+}
+
 var (
-	reads = monitoring.NewSum(
+	xdsCacheReads = monitoring.NewSum(
 		"xds_cache_reads",
-		"Total number of xds cache reads.",
+		"Total number of xds cache xdsCacheReads.",
 		monitoring.WithLabels(typeTag),
 	)
 
-	hits   = reads.With(typeTag.Value("hit"))
-	misses = reads.With(typeTag.Value("miss"))
+	xdsCacheHits   = xdsCacheReads.With(typeTag.Value("hit"))
+	xdsCacheMisses = xdsCacheReads.With(typeTag.Value("miss"))
 )
 
 func hit() {
 	if features.EnableEDSCacheMetrics {
-		hits.Increment()
+		xdsCacheHits.Increment()
 	}
 }
 
 func miss() {
 	if features.EnableEDSCacheMetrics {
-		misses.Increment()
+		xdsCacheMisses.Increment()
 	}
 }
 
