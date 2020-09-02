@@ -17,5 +17,6 @@ package secrets
 type Controller interface {
 	GetKeyAndCert(name, namespace string) (key []byte, cert []byte)
 	GetCaCert(name, namespace string) (cert []byte)
+	Authorize(serviceAccount, namespace, clusterID string) error
 	AddEventHandler(func(name, namespace string))
 }

@@ -15,13 +15,22 @@
 package kube
 
 import (
+	"context"
+	"fmt"
 	"strings"
+	"sync"
+	"time"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	informersv1 "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
+	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/secrets"
+	"istio.io/istio/pkg/kube"
 	"istio.io/pkg/log"
 )
 
@@ -46,15 +55,77 @@ const (
 )
 
 type SecretsController struct {
-	secrets informersv1.SecretInformer
+	secrets      informersv1.SecretInformer
+	sar          authorizationv1client.SubjectAccessReviewInterface
+	remoteGetter RemoteKubeClientGetter
+
+	mu                 sync.RWMutex
+	authorizationCache map[string]time.Time
 }
 
 var _ secrets.Controller = &SecretsController{}
 
-func NewSecretsController(informer informersv1.SecretInformer) *SecretsController {
+type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
+
+func NewSecretsController(client kube.Client, remoteClientGetter RemoteKubeClientGetter) *SecretsController {
 	// Informer is lazy loaded, load it now
-	_ = informer.Informer()
-	return &SecretsController{informer}
+	_ = client.KubeInformer().Core().V1().Secrets().Informer()
+
+	return &SecretsController{
+		secrets:            client.KubeInformer().Core().V1().Secrets(),
+		sar:                client.AuthorizationV1().SubjectAccessReviews(),
+		remoteGetter:       remoteClientGetter,
+		authorizationCache: make(map[string]time.Time),
+	}
+}
+
+func toUser(serviceAccount, namespace string) string {
+	return fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccount)
+}
+
+const cacheTtl = time.Minute * 30
+
+func (s *SecretsController) cachedAuthorization(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	got, f := s.authorizationCache[key]
+	if !f {
+		return false
+	}
+	if time.Since(got) > cacheTtl {
+		delete(s.authorizationCache, key)
+		return false
+	}
+	return true
+}
+
+func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID string) error {
+	user := toUser(serviceAccount, namespace)
+	if s.cachedAuthorization(user) {
+		return nil
+	}
+	resp, err := s.sar.Create(context.Background(), &authorizationv1.SubjectAccessReview{
+		ObjectMeta: metav1.ObjectMeta{},
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Namespace: namespace,
+				Verb:      "list",
+				Resource:  "secrets",
+			},
+			User: user,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	if !resp.Status.Allowed {
+		return fmt.Errorf("%s/%s is not authorized to read secrets: %v", serviceAccount, namespace, resp.Status.Reason)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	log.Debugf("cached authorization for user %s/%s", serviceAccount, namespace)
+	s.authorizationCache[user] = time.Now()
+	return nil
 }
 
 func (s *SecretsController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte) {

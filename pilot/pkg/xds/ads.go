@@ -398,9 +398,11 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
-		if err := checkConnectionIdentity(con); err != nil {
+		if id, err := checkConnectionIdentity(con); err != nil {
 			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
 			return fmt.Errorf("authorization failed: %v", err)
+		} else {
+			con.proxy.VerifiedIdentity = id
 		}
 	}
 
@@ -412,7 +414,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 	return nil
 }
 
-func checkConnectionIdentity(con *Connection) error {
+func checkConnectionIdentity(con *Connection) (*spiffe.Identity, error) {
 	for _, rawID := range con.Identities {
 		spiffeID, err := spiffe.ParseIdentity(rawID)
 		if err != nil {
@@ -424,9 +426,9 @@ func checkConnectionIdentity(con *Connection) error {
 		if con.proxy.Metadata.ServiceAccount != "" && spiffeID.ServiceAccount != con.proxy.Metadata.ServiceAccount {
 			continue
 		}
-		return nil
+		return &spiffeID, nil
 	}
-	return fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
+	return nil, fmt.Errorf("no identities (%v) matched %v/%v", con.Identities, con.proxy.ConfigNamespace, con.proxy.Metadata.ServiceAccount)
 }
 
 func connectionID(node string) string {
