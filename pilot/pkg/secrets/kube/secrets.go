@@ -61,8 +61,9 @@ type SecretsController struct {
 	clusterID    string
 	remoteGetter RemoteKubeClientGetter
 
-	mu                 sync.RWMutex
-	authorizationCache map[authorizationKey]authorizationResponse
+	mu                   sync.RWMutex
+	authorizationCache   map[authorizationKey]authorizationResponse
+	authorizationEnabled bool
 }
 
 type authorizationKey struct {
@@ -86,10 +87,11 @@ func NewSecretsController(client kube.Client, clusterId string, remoteClientGett
 	return &SecretsController{
 		secrets: client.KubeInformer().Core().V1().Secrets(),
 
-		sar:                client.AuthorizationV1().SubjectAccessReviews(),
-		clusterID:          clusterId,
-		remoteGetter:       remoteClientGetter,
-		authorizationCache: make(map[authorizationKey]authorizationResponse),
+		authorizationEnabled: true,
+		sar:                  client.AuthorizationV1().SubjectAccessReviews(),
+		clusterID:            clusterId,
+		remoteGetter:         remoteClientGetter,
+		authorizationCache:   make(map[authorizationKey]authorizationResponse),
 	}
 }
 
@@ -104,6 +106,9 @@ func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, 
 	key := authorizationKey{cluster: clusterID, user: user}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !s.authorizationEnabled {
+		return nil, true
+	}
 	got, f := s.authorizationCache[key]
 	if !f {
 		return nil, false
@@ -147,6 +152,13 @@ func (s *SecretsController) getAccessReviewClient(clusterID string) authorizatio
 	}
 
 	return nil
+}
+
+// DisableAuthorization makes the authorization check always pass. Should be used only for tests.
+func (s *SecretsController) DisableAuthorization() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.authorizationEnabled = false
 }
 
 func (s *SecretsController) Authorize(serviceAccount, namespace, clusterID string) error {
