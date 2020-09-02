@@ -334,7 +334,7 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 	if sa.secOpts.ProvCert == "" {
 		// only if running in k8s pod
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
-			"/var/run/secrets/tokens/istio-token",
+			sa.secOpts.JWTPath,
 		}}))
 	}
 	return dialOptions, nil
