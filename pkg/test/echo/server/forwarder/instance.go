@@ -17,11 +17,11 @@ package forwarder
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/golang/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 
 	"istio.io/istio/pkg/test/echo/common"
@@ -84,7 +84,7 @@ func New(cfg Config) (*Instance, error) {
 
 // Run the forwarder and collect the responses.
 func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) {
-	g, _ := errgroup.WithContext(context.Background())
+	g := multierror.Group{}
 	responses := make([]string, i.count)
 
 	var throttle *time.Ticker
@@ -126,7 +126,7 @@ func (i *Instance) Run(ctx context.Context) (*proto.ForwardEchoResponse, error) 
 	}
 
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%d/%d requests had errors; first error: %v", err.Len(), i.count, err.Errors[0])
 	}
 
 	return &proto.ForwardEchoResponse{
