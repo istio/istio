@@ -558,7 +558,6 @@ func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 	}
 	return out
 }
-
 func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {
