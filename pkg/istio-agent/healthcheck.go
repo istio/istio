@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"time"
@@ -55,7 +56,7 @@ type HTTPHealthCheckConfig struct {
 	Path    string
 	Port    uint32
 	Scheme  string
-	Headers map[string]string
+	Headers map[string][]string
 }
 
 type TCPHealthCheckConfig struct {
@@ -80,18 +81,28 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 	// delay before starting probes.
 	time.Sleep(w.config.InitialDelay)
 
+	// tracks number of success & failures after last success/failure
 	numSuccess, numFail := 0, 0
+	// if the last send/event was a success, this is true, by default false because we want to
+	// first send a healthy message.
+	lastStateHealthy := false
 	if w.config.CheckType == HTTPHealthCheck {
 		for {
+			// healthy
 			if code, err := httpCheck(w.config.HTTPConfig, w.config.ProbeTimeout); code >= 200 && code <= 299 {
 				numSuccess++
-				if numSuccess == w.config.SuccessThresh {
+				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
+					numFail = 0
+					lastStateHealthy = true
 				}
 			} else {
+				// not healthy
 				numFail++
-				if numFail == w.config.FailThresh {
+				// application is officially unhealthy if the number of failures matches
+				// the failure threshold set by the user and the last event was application healthy.
+				if numFail == w.config.FailThresh && lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{
 						TypeUrl: HealthInfoTypeURL,
 						ErrorDetail: &status.Status{
@@ -99,7 +110,9 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 							Message: err.Error(),
 						},
 					}
+					numSuccess = 0
 					numFail = 0
+					lastStateHealthy = false
 				}
 			}
 			// should this be a time.Ticker?
@@ -114,6 +127,8 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 				if numSuccess == w.config.SuccessThresh {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
+					numFail = 0
+					lastStateHealthy = true
 				}
 			} else {
 				numFail++
@@ -125,7 +140,9 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 							Message: err.Error(),
 						},
 					}
+					numSuccess = 0
 					numFail = 0
+					lastStateHealthy = false
 				}
 			}
 		}
@@ -138,6 +155,8 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 				if numSuccess == w.config.SuccessThresh {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
+					numFail = 0
+					lastStateHealthy = false
 				} else {
 					numFail++
 					if numFail == w.config.FailThresh {
@@ -148,7 +167,9 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 								Message: err.Error(),
 							},
 						}
+						numSuccess = 0
 						numFail = 0
+						lastStateHealthy = false
 					}
 				}
 			}
@@ -162,8 +183,16 @@ func httpCheck(config HTTPHealthCheckConfig, timeout time.Duration) (int, error)
 	client := http.Client{
 		Timeout: timeout,
 	}
-	url := fmt.Sprintf("%s://localhost:%v/%s", config.Scheme, config.Port, config.Path)
-	resp, err := client.Get(url)
+	checkURL, err := url.Parse(fmt.Sprintf("%s://localhost:%v/%s", config.Scheme, config.Port, config.Path))
+	req := &http.Request{
+		Method: "GET",
+		URL:    checkURL,
+		Header: config.Headers,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		resp.Body.Close()
+	}
 	return resp.StatusCode, err
 }
 
