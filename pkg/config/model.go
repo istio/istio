@@ -88,7 +88,7 @@ type Config struct {
 	// Spec holds the configuration object as a gogo protobuf message
 	Spec Spec
 
-	// Status holds the long-running status of the application.
+	// Status holds long-running status.
 	Status Status
 }
 
