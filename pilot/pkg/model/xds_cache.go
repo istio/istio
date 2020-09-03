@@ -28,6 +28,8 @@ import (
 
 func init() {
 	monitoring.MustRegister(xdsCacheReads)
+	monitoring.MustRegister(xdsCacheEvictions)
+	monitoring.MustRegister(xdsCacheSize)
 }
 
 var (
@@ -35,6 +37,16 @@ var (
 		"xds_cache_reads",
 		"Total number of xds cache xdsCacheReads.",
 		monitoring.WithLabels(typeTag),
+	)
+
+	xdsCacheEvictions = monitoring.NewSum(
+		"xds_cache_evictions",
+		"Total number of xds cache evictions.",
+	)
+
+	xdsCacheSize = monitoring.NewGauge(
+		"xds_cache_size",
+		"Current size of xds cache",
 	)
 
 	xdsCacheHits   = xdsCacheReads.With(typeTag.Value("hit"))
@@ -50,6 +62,18 @@ func hit() {
 func miss() {
 	if features.EnableXDSCacheMetrics {
 		xdsCacheMisses.Increment()
+	}
+}
+
+func evict(k interface{}, v interface{}) {
+	if features.EnableXDSCacheMetrics {
+		xdsCacheEvictions.Increment()
+	}
+}
+
+func size(cs int) {
+	if features.EnableXDSCacheMetrics {
+		xdsCacheSize.Record(float64(cs))
 	}
 }
 
@@ -121,6 +145,7 @@ func (c *inMemoryCache) Add(entry XdsCacheEntry, value *any.Any) {
 	k := entry.Key()
 	c.store[k] = value
 	indexConfig(c.configIndex, k, entry)
+	size(len(c.store))
 }
 
 func (c *inMemoryCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
@@ -148,6 +173,7 @@ func (c *inMemoryCache) Clear(configs map[ConfigKey]struct{}) {
 			delete(c.store, keys)
 		}
 	}
+	size(len(c.store))
 }
 
 func (c *inMemoryCache) ClearAll() {
@@ -155,6 +181,7 @@ func (c *inMemoryCache) ClearAll() {
 	defer c.mu.Unlock()
 	c.store = map[string]*any.Any{}
 	c.configIndex = map[ConfigKey]sets.Set{}
+	size(len(c.store))
 }
 
 func (c *inMemoryCache) Keys() []string {
@@ -177,7 +204,7 @@ type lruCache struct {
 var _ XdsCache = &lruCache{}
 
 func newLru() simplelru.LRUCache {
-	l, err := simplelru.NewLRU(features.XDSCacheMaxSize, nil)
+	l, err := simplelru.NewLRU(features.XDSCacheMaxSize, evict)
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}
@@ -193,6 +220,7 @@ func (l *lruCache) Add(entry XdsCacheEntry, value *any.Any) {
 	k := entry.Key()
 	l.store.Add(k, value)
 	indexConfig(l.configIndex, entry.Key(), entry)
+	size(l.store.Len())
 }
 
 func (l *lruCache) Get(entry XdsCacheEntry) (*any.Any, bool) {
@@ -220,6 +248,7 @@ func (l *lruCache) Clear(configs map[ConfigKey]struct{}) {
 			l.store.Remove(key)
 		}
 	}
+	size(l.store.Len())
 }
 
 func (l *lruCache) ClearAll() {
@@ -227,6 +256,7 @@ func (l *lruCache) ClearAll() {
 	defer l.mu.Unlock()
 	l.store.Purge()
 	l.configIndex = map[ConfigKey]sets.Set{}
+	size(l.store.Len())
 }
 
 func (l *lruCache) Keys() []string {
