@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aggregate_test
+package aggregate
 
 import (
 	"fmt"
@@ -24,7 +24,6 @@ import (
 	"go.uber.org/atomic"
 
 	"istio.io/istio/galley/pkg/config/testing/fixtures"
-	"istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -44,7 +43,7 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := aggregate.Make(stores)
+	store, err := makeStore(stores, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	schemas := store.Schemas()
@@ -59,7 +58,7 @@ func TestAggregateStoreMakeValidationFailure(t *testing.T) {
 
 	stores := []model.ConfigStore{store1}
 
-	store, err := aggregate.Make(stores)
+	store, err := makeStore(stores, nil)
 	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("not found: broken message name")))
 	g.Expect(store).To(gomega.BeNil())
 }
@@ -81,7 +80,7 @@ func TestAggregateStoreGet(t *testing.T) {
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := aggregate.Make(stores)
+	store, err := makeStore(stores, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c := store.Get(collections.K8SServiceApisV1Alpha1Gatewayclasses.Resource().GroupVersionKind(), "other", "")
@@ -113,12 +112,71 @@ func TestAggregateStoreList(t *testing.T) {
 
 	stores := []model.ConfigStore{store1, store2}
 
-	store, err := aggregate.Make(stores)
+	store, err := makeStore(stores, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	l, err := store.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(l).To(gomega.HaveLen(2))
+}
+
+func TestAggregateStoreWrite(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	store1 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
+	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
+
+	stores := []model.ConfigStore{store1, store2}
+
+	store, err := makeStore(stores, store1)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	if _, err := store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
+			Name:             "other",
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	la, err := store.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(la).To(gomega.HaveLen(1))
+	g.Expect(la[0].Name).To(gomega.Equal("other"))
+
+	l, err := store1.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(l).To(gomega.HaveLen(1))
+	g.Expect(l[0].Name).To(gomega.Equal("other"))
+
+	// Check the aggregated and individual store return identical response
+	g.Expect(la).To(gomega.BeEquivalentTo(l))
+
+	l, err = store2.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(l).To(gomega.HaveLen(0))
+}
+
+func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	store1 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
+	store2 := memory.Make(collection.SchemasFor(collections.K8SServiceApisV1Alpha1Httproutes))
+
+	stores := []model.ConfigStore{store1, store2}
+
+	store, err := makeStore(stores, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	if _, err := store.Create(config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(),
+			Name:             "other",
+		},
+	}); err != errorUnsupported {
+		t.Fatalf("unexpected error, want %v got %v", errorUnsupported, err)
+	}
 }
 
 func TestAggregateStoreFails(t *testing.T) {
@@ -128,7 +186,7 @@ func TestAggregateStoreFails(t *testing.T) {
 
 	stores := []model.ConfigStore{store1}
 
-	store, err := aggregate.Make(stores)
+	store, err := makeStore(stores, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	t.Run("Fails to Delete", func(t *testing.T) {
@@ -169,7 +227,7 @@ func TestAggregateStoreCache(t *testing.T) {
 
 	stores := []model.ConfigStoreCache{controller1, controller2}
 
-	cacheStore, err := aggregate.MakeCache(stores)
+	cacheStore, err := MakeCache(stores)
 	if err != nil {
 		t.Fatal(err)
 	}
