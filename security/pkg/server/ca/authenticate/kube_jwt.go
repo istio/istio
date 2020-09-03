@@ -105,7 +105,7 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 	}
 	id, err = tokenreview.ValidateK8sJwt(kubeClient, targetJWT, aud)
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate the JWT: %v", err)
+		return nil, fmt.Errorf("failed to validate the JWT from cluster %s: %v", clusterID, err)
 	}
 	if len(id) != 2 {
 		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
@@ -120,7 +120,8 @@ func (a *KubeJWTAuthenticator) Authenticate(ctx context.Context) (*Caller, error
 
 func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interface {
 	// first match local/primary cluster
-	if a.clusterID == clusterID {
+	// or if clusterID is not sent (we assume that its a single cluster)
+	if a.clusterID == clusterID || clusterID == "" {
 		return a.kubeClient
 	}
 
@@ -131,8 +132,9 @@ func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interf
 		}
 	}
 
-	// failover to local cluster
-	return a.kubeClient
+	// we did not find the kube client for this cluster.
+	// return nil so that logs will show that this cluster is not available in istiod
+	return nil
 }
 
 func extractBearerToken(ctx context.Context) (string, error) {

@@ -403,9 +403,6 @@ func vmTestCases(vms echo.Instances) []TrafficTestCase {
 	var testCases []vmCase
 
 	for _, vm := range vms {
-		if !vm.Config().DNSCaptureOnVM {
-			continue
-		}
 		testCases = append(testCases,
 			vmCase{
 				name: "dns: VM to k8s cluster IP service name.namespace host",
