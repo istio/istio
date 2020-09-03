@@ -77,7 +77,7 @@ var (
 
 // SecretFetcher fetches secret via watching k8s secrets or sending CSR to CA.
 type SecretFetcher struct {
-	// If caClient is set, use caClient to send CSR to CA.
+	// If CaClient is set, use caClient to send CSR to CA.
 	CaClient security.Client
 
 	// Controller and store for secret objects.
