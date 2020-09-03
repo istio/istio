@@ -83,6 +83,8 @@ var (
 	// ServiceAccountFilePath is the helm service account file.
 	ServiceAccountFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/service_account.yaml")
 
+	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
+	OtelCollectorInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/opentelemetry/opentelemetry-collector.yaml")
 	// RedisInstallFilePath is the redis installation file.
 	RedisInstallFilePath = path.Join(IstioSrc, "pkg/test/framework/components/redis/redis.yaml")
 

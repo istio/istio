@@ -249,11 +249,9 @@
       "transport_api_version": "V3",
       "grpc_services": [
         {
-        
           "envoy_grpc": {
             "cluster_name": "xds-grpc"
           }
-        
         }
       ]
     }
@@ -324,8 +322,8 @@
             }]
           }]
         }
-      } 
-       , {
+      },
+      {
         "name": "xds-grpc",
         "type" : "STATIC",
         "connect_timeout": "1s",
@@ -368,7 +366,6 @@
         "max_requests_per_connection": 1,
         "http2_protocol_options": { }
       }
-      
       
       
     ],

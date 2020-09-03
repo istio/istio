@@ -4,4 +4,4 @@ area: telemetry
 
 releaseNotes:
   - |
-    **Updated** added support for OpenCensusAgent formatted trace export with configurable trace context headers.
+    **Added** added support for OpenCensusAgent formatted trace export with configurable trace context headers.

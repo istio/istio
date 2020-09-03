@@ -214,7 +214,7 @@ func TestOptions(t *testing.T) {
 			testName: "openCensusAgent empty context",
 			key:      "openCensusAgentContexts",
 			option:   option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{}),
-			expected: "[\"TRACE_CONTEXT\",\"GRPC_BIN\",\"CLOUD_TRACE_CONTEXT\",\"B3\"]",
+			expected: `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`,
 		},
 		{
 			testName: "openCensusAgent order context",
@@ -225,7 +225,7 @@ func TestOptions(t *testing.T) {
 				meshAPI.Tracing_OpenCensusAgent_GRPC_BIN,
 				meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT,
 			}),
-			expected: "[\"CLOUD_TRACE_CONTEXT\",\"B3\",\"GRPC_BIN\",\"TRACE_CONTEXT\"]",
+			expected: `["CLOUD_TRACE_CONTEXT","B3","GRPC_TRACE_BIN","TRACE_CONTEXT"]`,
 		},
 		{
 			testName: "openCensusAgent one context",
@@ -233,7 +233,7 @@ func TestOptions(t *testing.T) {
 			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
 				meshAPI.Tracing_OpenCensusAgent_B3,
 			}),
-			expected: "[\"B3\"]",
+			expected: `["B3"]`,
 		},
 		{
 			testName: "stackdriver enabled",
