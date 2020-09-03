@@ -36,6 +36,8 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		// EndpointSlice is not enabled by default on older clusters
+		RequireEnvironmentVersion("1.17").
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
