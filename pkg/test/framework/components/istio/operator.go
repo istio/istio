@@ -618,7 +618,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster resource.Cluster) error {
 	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
 		Get(context.TODO(), multicluster.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
-	if err != nil && sa != nil {
+	if err == nil && sa != nil {
 		scopes.Framework.Infof("service account exists in %s", cluster.Name())
 		return nil
 	}
