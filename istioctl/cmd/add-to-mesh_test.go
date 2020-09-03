@@ -302,7 +302,7 @@ func TestSplitEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.arg, func(t *testing.T) {
-			gotKey, gotValue := SplitEqual(tt.arg)
+			gotKey, gotValue := splitEqual(tt.arg)
 			if gotKey != tt.wantKey {
 				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
 			}

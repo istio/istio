@@ -546,19 +546,6 @@ func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
 	s.Spec = spec
 }
 
-func convertToUnsignedInt32Map(s []string) map[string]uint32 {
-	out := make(map[string]uint32, len(s))
-	for _, l := range s {
-		k, v := splitEqual(l)
-		u64, err := strconv.ParseUint(v, 10, 32)
-		if err != nil {
-			log.Errorf("failed to convert to uint32: %v", err)
-		}
-		out[k] = uint32(u64)
-	}
-	return out
-}
-
 func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {
