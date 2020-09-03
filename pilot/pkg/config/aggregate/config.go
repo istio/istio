@@ -29,7 +29,7 @@ import (
 
 var errorUnsupported = errors.New("unsupported operation: the config aggregator is read-only")
 
-// make creates an aggregate config store from several config stores and
+// makeStore creates an aggregate config store from several config stores and
 // unifies their descriptors
 func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.ConfigStore, error) {
 	union := collection.NewSchemasBuilder()

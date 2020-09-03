@@ -140,13 +140,18 @@ func TestAggregateStoreWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	l, err := store.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
+	la, err := store.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(l).To(gomega.HaveLen(1))
+	g.Expect(la).To(gomega.HaveLen(1))
+	g.Expect(la[0].Name).To(gomega.Equal("other"))
 
-	l, err = store1.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
+	l, err := store1.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(l).To(gomega.HaveLen(1))
+	g.Expect(l[0].Name).To(gomega.Equal("other"))
+
+	// Check the aggregated and individual store return identical response
+	g.Expect(la).To(gomega.BeEquivalentTo(l))
 
 	l, err = store2.List(collections.K8SServiceApisV1Alpha1Httproutes.Resource().GroupVersionKind(), "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
