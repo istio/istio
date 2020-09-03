@@ -30,7 +30,7 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			ctx.Config().ApplyYAMLOrFail(ctx, apps.namespace.Name(), `
+			ctx.Config().ApplyYAMLOrFail(ctx, apps.Namespace.Name(), `
 apiVersion: networking.x-k8s.io/v1alpha1
 kind: GatewayClass
 metadata:
@@ -161,7 +161,7 @@ func TestIngress(t *testing.T) {
 				return nil
 			})
 
-			if err := ctx.Config().ApplyYAML(apps.namespace.Name(), `
+			if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), `
 apiVersion: networking.k8s.io/v1beta1
 kind: IngressClass
 metadata:

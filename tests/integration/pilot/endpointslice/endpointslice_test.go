@@ -19,8 +19,35 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/pilot/common"
 )
+
+var (
+	i istio.Instance
+
+	// Below are various preconfigured echo deployments. Whenever possible, tests should utilize these
+	// to avoid excessive creation/tear down of deployments. In general, a test should only deploy echo if
+	// its doing something unique to that specific test.
+	apps = &common.EchoDeployments{}
+)
+
+func TestMain(m *testing.M) {
+	framework.
+		NewSuite(m).
+		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_USE_ENDPOINT_SLICE: "true"`
+		})).
+		Setup(func(ctx resource.Context) error {
+			return common.SetupApps(ctx, apps)
+		}).
+		Run()
+}
 
 func TestTraffic(t *testing.T) {
 	framework.
