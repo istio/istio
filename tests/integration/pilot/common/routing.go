@@ -8,11 +8,10 @@ import (
 
 	echoclient "istio.io/istio/pkg/test/echo/client"
 	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-func virtualServiceCases(ctx framework.TestContext, apps *EchoDeployments) []TrafficTestCase {
+func virtualServiceCases(apps *EchoDeployments) []TrafficTestCase {
 	var cases []TrafficTestCase
 	callCount := callsPerCluster * len(apps.PodB)
 	for _, podA := range apps.PodA {
@@ -216,12 +215,12 @@ spec:
 		splits := []map[string]int{
 			{
 				PodBSvc:  50,
-				VmASvc:   25,
+				VMSvc:    25,
 				NakedSvc: 25,
 			},
 			{
 				PodBSvc:  80,
-				VmASvc:   10,
+				VMSvc:    10,
 				NakedSvc: 10,
 			},
 		}
@@ -247,9 +246,9 @@ spec:
         host: naked
       weight: %d
     - destination:
-        host: vm-a
+        host: vm
       weight: %d
-`, split[PodBSvc], split[NakedSvc], split[VmASvc]),
+`, split[PodBSvc], split[NakedSvc], split[VMSvc]),
 				call: func() (echoclient.ParsedResponses, error) {
 					return podA.Call(echo.CallOptions{Target: apps.PodB[0], PortName: "http", Count: 100})
 				},
@@ -287,7 +286,7 @@ spec:
 }
 
 // Todo merge with security TestReachability code
-func protocolSniffingCases(ctx framework.TestContext, apps *EchoDeployments) []TrafficTestCase {
+func protocolSniffingCases(apps *EchoDeployments) []TrafficTestCase {
 	cases := []TrafficTestCase{}
 	// TODO add VMs to clients when DNS works for VMs.
 	for _, clients := range []echo.Instances{apps.PodA, apps.Naked, apps.Headless} {
@@ -295,7 +294,7 @@ func protocolSniffingCases(ctx framework.TestContext, apps *EchoDeployments) []T
 
 			destinationSets := []echo.Instances{
 				apps.PodA,
-				apps.VmA,
+				apps.VM,
 				// only hit same network naked services
 				apps.Naked.Match(echo.InNetwork(client.Config().Cluster.NetworkName())),
 				// only hit same cluster headless services
@@ -307,7 +306,7 @@ func protocolSniffingCases(ctx framework.TestContext, apps *EchoDeployments) []T
 				destinations := destinations
 				// grabbing the 0th assumes all echos in destinations have the same service name
 				destination := destinations[0]
-				if apps.Naked.Contains(client) && apps.VmA.Contains(destination) {
+				if apps.Naked.Contains(client) && apps.VM.Contains(destination) {
 					// Need a sidecar to connect to VMs
 					continue
 				}
@@ -351,7 +350,7 @@ type vmCase struct {
 	host string
 }
 
-func VmTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
+func VMTestCases(vms echo.Instances, apps *EchoDeployments) []TrafficTestCase {
 	var testCases []vmCase
 
 	for _, vm := range vms {

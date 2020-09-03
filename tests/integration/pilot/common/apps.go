@@ -28,7 +28,7 @@ type EchoDeployments struct {
 	// Echo app to be used by tests, with no sidecar injected
 	Naked echo.Instances
 	// A virtual machine echo app (only deployed to one cluster)
-	VmA echo.Instances
+	VM echo.Instances
 
 	// Echo app to be used by tests, with no sidecar injected
 	External echo.Instances
@@ -42,7 +42,7 @@ const (
 	PodASvc     = "a"
 	PodBSvc     = "b"
 	PodCSvc     = "c"
-	VmASvc      = "vm-a"
+	VMSvc       = "vm"
 	HeadlessSvc = "headless"
 	NakedSvc    = "naked"
 	ExternalSvc = "external"
@@ -146,7 +146,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 
 	for _, c := range ctx.Clusters().ByNetwork() {
 		builder.With(nil, echo.Config{
-			Service:    VmASvc,
+			Service:    VMSvc,
 			Namespace:  apps.Namespace,
 			Ports:      EchoPorts,
 			DeployAsVM: true,
@@ -166,7 +166,7 @@ func SetupApps(ctx resource.Context, apps *EchoDeployments) error {
 	apps.Headless = echos.Match(echo.Service(HeadlessSvc))
 	apps.Naked = echos.Match(echo.Service(NakedSvc))
 	apps.External = echos.Match(echo.Service(ExternalSvc))
-	apps.VmA = echos.Match(echo.Service(VmASvc))
+	apps.VM = echos.Match(echo.Service(VMSvc))
 
 	apps.ExternalHost = "fake.example.com"
 	if err := ctx.Config().ApplyYAML(apps.Namespace.Name(), fmt.Sprintf(`

@@ -77,11 +77,11 @@ func ExecuteTrafficTest(ctx framework.TestContext, tt TrafficTestCase, namespace
 
 func RunTrafficTest(ctx framework.TestContext, apps *EchoDeployments) {
 	cases := map[string][]TrafficTestCase{}
-	cases["virtualservice"] = virtualServiceCases(ctx, apps)
-	// TODO(https://github.com/istio/istio/issues/26798)
-	//cases["sniffing"] = protocolSniffingCases(ctx)
+	cases["virtualservice"] = virtualServiceCases(apps)
+	// TODO(https://github.com/istio/istio/issues/26798) enable sniffing tests
+	_ = protocolSniffingCases
 	cases["serverfirst"] = serverFirstTestCases(apps)
-	cases["vm"] = VmTestCases(apps.VmA, apps)
+	cases["vm"] = VMTestCases(apps.VM, apps)
 	for n, tts := range cases {
 		ctx.NewSubTest(n).Run(func(ctx framework.TestContext) {
 			for _, tt := range tts {
