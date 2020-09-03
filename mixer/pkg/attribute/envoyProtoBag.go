@@ -182,6 +182,8 @@ func AccessLogProtoBag(msg *accesslog.StreamAccessLogsMessage, num int) *EnvoyPr
 	}
 	if respflags := commonproperties.GetResponseFlags(); respflags != nil {
 		reqMap["context.proxy_error_code"] = ParseEnvoyResponseFlags(respflags)
+	} else {
+		reqMap["context.proxy_error_code"] = "-"
 	}
 
 	if tlsproperties := commonproperties.GetTlsProperties(); tlsproperties != nil {
