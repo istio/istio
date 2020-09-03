@@ -265,7 +265,8 @@ func setUpUds(udsPath string) (net.Listener, error) {
 }
 
 type fileTokenSource struct {
-	path string
+	path   string
+	period time.Duration
 }
 
 var _ = oauth2.TokenSource(&fileTokenSource{})
@@ -284,11 +285,12 @@ func (ts *fileTokenSource) Token() (*oauth2.Token, error) {
 
 	return &oauth2.Token{
 		AccessToken: tok,
+		Expiry:      time.Now().Add(ts.period),
 	}, nil
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
-	l, err := setUpUds("/etc/istio/proxy/XDS")
+	l, err := setUpUds("./etc/istio/proxy/XDS")
 	if err != nil {
 		return err
 	}
@@ -335,6 +337,7 @@ func buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
 		// only if running in k8s pod
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(oauth.TokenSource{&fileTokenSource{
 			sa.secOpts.JWTPath,
+			time.Second * 300,
 		}}))
 	}
 	return dialOptions, nil
