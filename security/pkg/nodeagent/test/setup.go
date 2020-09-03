@@ -174,8 +174,7 @@ func (e *Env) StartSDSServer(t *testing.T) {
 		t.Fatalf("failed to create CA client: %+v", err)
 	}
 	secretFetcher := &secretfetcher.SecretFetcher{
-		UseCaClient: true,
-		CaClient:    caClient,
+		CaClient: caClient,
 	}
 	opt := e.cacheOptions(t)
 	workloadSecretCache := cache.NewSecretCache(secretFetcher, sds.NotifyProxy, opt)
