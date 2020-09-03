@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"istio.io/istio/istioctl/pkg/multicluster"
 	"os"
 	"path"
 	"path/filepath"
@@ -222,7 +223,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if env.IsControlPlaneCluster(cluster) {
 			cluster := cluster
 			errG.Go(func() error {
-				if err := deployControlPlane(i, cfg, cluster, iopFile, false); err != nil {
+				if err := deployControlPlane(i, cfg, cluster, iopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
 				if err := applyIstiodGateway(ctx, cfg, cluster); err != nil {
@@ -251,28 +252,11 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		}
 	}
 
-	// Deploy base to remote clusters so create remote secret won't fail (need service account)
-	errG = multierror.Group{}
-	for _, cluster := range env.KubeClusters {
-		if !env.IsControlPlaneCluster(cluster) {
-			cluster := cluster
-			errG.Go(func() error {
-				if err := deployControlPlane(i, cfg, cluster, remoteIopFile, true); err != nil {
-					return fmt.Errorf("failed deploying base to cluster %s: %v", cluster.Name(), err)
-				}
-				return nil
-			})
-		}
-	}
-	if errs := errG.Wait(); errs != nil {
-		return nil, fmt.Errorf("%d errors occurred deploying base to remote clusters: %v", errs.Len(), errs.ErrorOrNil())
-	}
-
 	// Remote secrets must be present for remote install to succeed
 	if env.IsMulticluster() {
 		// For multicluster, configure direct access so each control plane can get endpoints from all
 		// API servers.
-		if err := configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
+		if err := i.configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -283,7 +267,7 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		if !env.IsControlPlaneCluster(cluster) {
 			cluster := cluster
 			errG.Go(func() error {
-				if err := deployControlPlane(i, cfg, cluster, remoteIopFile, false); err != nil {
+				if err := deployControlPlane(i, cfg, cluster, remoteIopFile); err != nil {
 					return fmt.Errorf("failed deploying control plane to cluster %s: %v", cluster.Name(), err)
 				}
 				return nil
@@ -460,7 +444,7 @@ spec:
 `, cfg.SystemNamespace))
 }
 
-func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string, baseOnly bool) (err error) {
+func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Cluster, iopFile string) (err error) {
 	// Create an istioctl to configure this cluster.
 	istioCtl, err := istioctl.New(c.ctx, istioctl.Config{
 		Cluster: cluster,
@@ -517,18 +501,6 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				installSettings = append(installSettings,
 					"--set", fmt.Sprintf("values.istiodRemote.injectionURL=https://%s:%d/inject", remoteIstiodAddress.IP.String(), 15017),
 					"--set", fmt.Sprintf("values.base.validationURL=https://%s:%d/validate", remoteIstiodAddress.IP.String(), 15017))
-			}
-			if baseOnly {
-				// base must be installed first in order to create istio-reader-service-account, otherwise create-remote-secret command will fail
-				installSettings = append(installSettings,
-					"--set", "profile=empty",
-					"--set", "components.base.enabled=true",
-					"--set", "components.base.enabled=true",
-					"--set", "values.gateways.istio-ingressgateway.enabled=false",
-				)
-				if isCentralIstio(c.environment, cfg) {
-					installSettings = append(installSettings, "--set", "components.istiodRemote.enabled=false")
-				}
 			}
 		}
 	}
@@ -615,19 +587,23 @@ func waitForControlPlane(ctx resource.Context, dumper resource.Dumper, cluster r
 	return nil
 }
 
-func configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment, cfg Config) error {
+func (i *operatorComponent) configureDirectAPIServerAccess(ctx resource.Context, env *kube.Environment, cfg Config) error {
 	// Configure direct access for each control plane to each APIServer. This allows each control plane to
 	// automatically discover endpoints in remote clusters.
 	for _, cluster := range env.KubeClusters {
-		if err := configureDirectAPIServiceAccessForCluster(ctx, env, cfg, cluster); err != nil {
+		if err := i.configureDirectAPIServiceAccessForCluster(ctx, env, cfg, cluster); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
+func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.Environment, cfg Config,
 	cluster resource.Cluster) error {
+	// Ensure the istio-reader-service-account exists
+	if err := i.createServiceAccount(ctx, cluster); err != nil {
+		return err
+	}
 	// Create a secret.
 	secret, err := createRemoteSecret(ctx, cluster, cfg)
 	if err != nil {
@@ -637,6 +613,25 @@ func configureDirectAPIServiceAccessForCluster(ctx resource.Context, env *kube.E
 		return fmt.Errorf("failed applying remote secret to clusters: %v", err)
 	}
 	return nil
+}
+
+func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster resource.Cluster) error {
+	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
+		Get(context.TODO(), multicluster.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
+	if err != nil && sa != nil {
+		return nil
+	}
+	istioCtl, err := istioctl.New(ctx, istioctl.Config{
+		Cluster: cluster,
+	})
+	if err != nil {
+		return err
+	}
+	return applyManifest(i, []string{
+		"--set", "profile=empty",
+		"--set", "components.base.enabled=true",
+		"--set", "values.global.configValidation=false",
+	}, istioCtl, cluster.Name())
 }
 
 func createRemoteSecret(ctx resource.Context, cluster resource.Cluster, cfg Config) (string, error) {
