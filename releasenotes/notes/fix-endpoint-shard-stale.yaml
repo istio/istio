@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+releaseNotes:
+  - |
+    **Fixed** endpoint missed from eds when kubernetes service populated later than endpoints.
