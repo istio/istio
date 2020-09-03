@@ -631,6 +631,7 @@ func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster r
 		"--set", "profile=empty",
 		"--set", "components.base.enabled=true",
 		"--set", "values.global.configValidation=false",
+		"--manifests", filepath.Join(env.IstioSrc, "manifests"),
 	}, istioCtl, cluster.Name())
 }
 
