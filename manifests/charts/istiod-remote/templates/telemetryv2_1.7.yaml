@@ -785,7 +785,7 @@ spec:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "log_window_duration": {{ .Values.telemetry.v2.accessLogPolicy.logWindowDuration }}
+                      "log_window_duration": "{{ .Values.telemetry.v2.accessLogPolicy.logWindowDuration }}"
                     }
                 vm_config:
                   runtime: envoy.wasm.runtime.null
