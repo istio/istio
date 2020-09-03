@@ -1043,7 +1043,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 		ps.ServiceByHostname[s.Hostname] = s
 		s.Mutex.RLock()
-		ps.ClusterVIPs[s] = s.ClusterVIPs
+		ps.ClusterVIPs[s] = make(map[string]string)
+		for k, v := range s.ClusterVIPs {
+			ps.ClusterVIPs[s][k] = v
+		}
 		s.Mutex.RUnlock()
 	}
 
