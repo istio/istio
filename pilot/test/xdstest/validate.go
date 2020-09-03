@@ -81,13 +81,13 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 		}
 	}
 	for _, p := range destPorts.List() {
-		hasTlsInspector := false
+		hasTLSInspector := false
 		for _, fc := range l.FilterChains {
 			if p == int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()) && fc.GetFilterChainMatch().GetTransportProtocol() != "" {
-				hasTlsInspector = true
+				hasTLSInspector = true
 			}
 		}
-		if hasTlsInspector {
+		if hasTLSInspector {
 			for _, fc := range l.FilterChains {
 				if p == int(fc.GetFilterChainMatch().GetDestinationPort().GetValue()) && fc.GetFilterChainMatch().GetTransportProtocol() == "" {
 					// Note: matches [{transport=tls},{}] and [{transport=tls},{transport=buffer}]
