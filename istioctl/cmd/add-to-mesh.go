@@ -420,8 +420,8 @@ func addServiceOnVMToMesh(dynamicClient dynamic.Interface, client kubernetes.Int
 	if err != nil {
 		return err
 	}
-	labels := convertToMap(l)
-	annotations := convertToMap(a)
+	labels := ConvertToMap(l)
+	annotations := ConvertToMap(a)
 	opts := &vmServiceOpts{
 		Name:           svcName,
 		Namespace:      ns,
@@ -542,18 +542,18 @@ func generateK8sService(s *corev1.Service, o *vmServiceOpts) {
 	s.Spec = spec
 }
 
-func convertToMap(s []string) map[string]string {
+func ConvertToMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {
-		k, v := splitEqual(l)
+		k, v := SplitEqual(l)
 		out[k] = v
 	}
 	return out
 }
 
-// splitEqual splits key=value string into key,value. if no = is found
+// SplitEqual splits key=value string into key,value. if no = is found
 // the whole string is the key and value is empty.
-func splitEqual(str string) (string, string) {
+func SplitEqual(str string) (string, string) {
 	idx := strings.Index(str, "=")
 	var k string
 	var v string

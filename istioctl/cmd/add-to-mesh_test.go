@@ -302,7 +302,7 @@ func TestSplitEqual(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.arg, func(t *testing.T) {
-			gotKey, gotValue := splitEqual(tt.arg)
+			gotKey, gotValue := SplitEqual(tt.arg)
 			if gotKey != tt.wantKey {
 				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
 			}
@@ -326,7 +326,7 @@ func TestConvertToMap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := convertToMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
+			if got := ConvertToMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("convertToMap() = %v, want %v", got, tt.want)
 			}
 		})
