@@ -71,9 +71,9 @@ func evict(k interface{}, v interface{}) {
 	}
 }
 
-func size(len int) {
+func size(cs int) {
 	if features.EnableXDSCacheMetrics {
-		xdsCacheSize.Record(float64(len))
+		xdsCacheSize.Record(float64(cs))
 	}
 }
 
