@@ -197,8 +197,7 @@ type Controller struct {
 	domainSuffix         string
 	clusterID            string
 
-	serviceHandlers  []func(*model.Service, model.Event)
-	instanceHandlers []func(*model.ServiceInstance, model.Event)
+	serviceHandlers []func(*model.Service, model.Event)
 
 	// This is only used for test
 	stop chan struct{}
@@ -1035,7 +1034,6 @@ func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) e
 
 // AppendInstanceHandler implements a service catalog operation
 func (c *Controller) AppendInstanceHandler(f func(*model.ServiceInstance, model.Event)) error {
-	c.instanceHandlers = append(c.instanceHandlers, f)
 	return nil
 }
 
@@ -1076,14 +1074,6 @@ func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *v1.Objec
 
 func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event, epc *endpointsController) {
 	hostname := kube.ServiceHostname(ep.Name, ep.Namespace, c.domainSuffix)
-
-	c.RLock()
-	svc := c.servicesMap[hostname]
-	c.RUnlock()
-	if svc == nil {
-		log.Infof("Handle EDS endpoints: skip updating, service %s/%s has not been populated", ep.Name, ep.Namespace)
-		return
-	}
 	endpoints := make([]*model.IstioEndpoint, 0)
 	if event != model.EventDelete {
 		for _, ss := range ep.Subsets {
@@ -1110,16 +1100,6 @@ func (c *Controller) updateEDS(ep *v1.Endpoints, event model.Event, epc *endpoin
 	log.Debugf("Handle EDS: %d endpoints for %s in namespace %s", len(endpoints), ep.Name, ep.Namespace)
 
 	_ = c.xdsUpdater.EDSUpdate(c.clusterID, string(hostname), ep.Namespace, endpoints)
-	for _, handler := range c.instanceHandlers {
-		for _, ep := range endpoints {
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: nil,
-				Endpoint:    ep,
-			}
-			handler(si, event)
-		}
-	}
 }
 
 // namedRangerEntry for holding network's CIDR and name
