@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+
+# This YAML file describes the format for specifying a release notes entry for Istio.
+# This should be filled in for all user facing changes.
+
+# kind describes the type of change that this represents.
+# Valid Values are:
+# - bug-fix -- Used to specify that this change represents a bug fix.
+# - security-fix -- Used to specify that this change represents a security fix.
+# - feature -- Used to specify a new feature that has been added.
+# - test -- Used to describe additional testing added. This file is optional for
+#   tests, but included for completeness.
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Updated** install script to bypass Github API Rate Limiting.
+

@@ -84,12 +84,17 @@ func TestGolden(t *testing.T) {
 		expectLightstepAccessToken bool
 		stats                      stats
 		checkLocality              bool
+		proxyViaAgent              bool
 		stsPort                    int
 		platformMeta               map[string]string
 		setup                      func()
 		teardown                   func()
 		check                      func(got *bootstrap.Bootstrap, t *testing.T)
 	}{
+		{
+			base:          "xdsproxy",
+			proxyViaAgent: true,
+		},
 		{
 			base: "auth",
 		},
@@ -327,6 +332,7 @@ func TestGolden(t *testing.T) {
 				OutlierLogPath:    "/dev/stdout",
 				PilotCertProvider: "istiod",
 				STSPort:           c.stsPort,
+				ProxyViaAgent:     c.proxyViaAgent,
 			}).CreateFileForEpoch(0)
 			if err != nil {
 				t.Fatal(err)

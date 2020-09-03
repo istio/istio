@@ -123,9 +123,9 @@ func (e *Environment) AddNetworksHandler(h func()) {
 	}
 }
 
-func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxy *Proxy, msg string) {
+func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
 	if e != nil && e.PushContext != nil {
-		e.PushContext.AddMetric(metric, key, proxy, msg)
+		e.PushContext.AddMetric(metric, key, proxyID, msg)
 	}
 }
 
@@ -484,6 +484,9 @@ type NodeMetadata struct {
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture string `json:"DNS_CAPTURE,omitempty"`
 
+	// ProxyXDSViaAgent indicates that xds data is being proxied via the agent
+	ProxyXDSViaAgent string `json:"PROXY_XDS_VIA_AGENT,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]interface{} `json:"-"`
@@ -745,22 +748,18 @@ const UnnamedNetwork = ""
 // GetNetworkView returns the networks that the proxy requested.
 // When sending EDS/CDS-with-dns-endpoints, Pilot will only send
 // endpoints corresponding to the networks that the proxy wants to see.
-// If not set, we assume that the proxy wants to see endpoints from the default
-// unnamed network.
+// If not set, we assume that the proxy wants to see endpoints in any network.
 func GetNetworkView(node *Proxy) map[string]bool {
-	if node == nil {
-		return map[string]bool{UnnamedNetwork: true}
+	if node == nil || len(node.Metadata.RequestedNetworkView) == 0 {
+		return nil
 	}
 
 	nmap := make(map[string]bool)
 	for _, n := range node.Metadata.RequestedNetworkView {
 		nmap[n] = true
 	}
+	nmap[UnnamedNetwork] = true
 
-	if len(nmap) == 0 {
-		// Proxy sees endpoints from the default unnamed network only
-		nmap[UnnamedNetwork] = true
-	}
 	return nmap
 }
 

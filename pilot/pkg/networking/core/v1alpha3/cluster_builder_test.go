@@ -695,6 +695,14 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		FilterMetadata: make(map[string]*structpb.Struct),
 	}
 
+	nwMetadata := func(nw string) *core.Metadata {
+		return &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{"istio": {Fields: map[string]*structpb.Value{
+				"network": {Kind: &structpb.Value_StringValue{StringValue: nw}},
+			}}},
+		}
+	}
+
 	cases := []struct {
 		name      string
 		mesh      meshconfig.MeshConfig
@@ -716,6 +724,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Label:     "region1/zone1/subzone1",
 						},
 						LbWeight: 30,
+						Network:  "nw-0",
 					},
 				},
 				{
@@ -729,6 +738,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Label:     "region1/zone1/subzone1",
 						},
 						LbWeight: 30,
+						Network:  "nw-1",
 					},
 				},
 				{
@@ -742,6 +752,21 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Label:     "region2/zone1/subzone1",
 						},
 						LbWeight: 40,
+						Network:  "",
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Address:      "192.168.1.4",
+						EndpointPort: 10001,
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "filtered-out",
 					},
 				},
 			},
@@ -771,7 +796,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
+							Metadata: nwMetadata("nw-0"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -791,7 +816,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 									},
 								},
 							},
-							Metadata: emptyMetadata,
+							Metadata: nwMetadata("nw-1"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 30,
 							},
@@ -923,7 +948,12 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 			}
 
 			cb := NewClusterBuilder(cg.SetupProxy(proxy), cg.PushContext())
-			actual := cb.buildLocalityLbEndpoints(model.GetNetworkView(nil), service, 8080, nil)
+			nv := map[string]bool{
+				"nw-0":               true,
+				"nw-1":               true,
+				model.UnnamedNetwork: true,
+			}
+			actual := cb.buildLocalityLbEndpoints(nv, service, 8080, nil)
 			sortEndpoints(actual)
 			if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 				t.Fatalf("Expected (-) != actual (+):\n%s", v)

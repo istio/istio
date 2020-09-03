@@ -46,10 +46,11 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/envoyproxy/go-control-plane v0.9.7-0.20200811182123-112a4904c4b0
-	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/color v1.9.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-logr/logr v0.2.1-0.20200730175230-ee2de8da5be6 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
@@ -62,6 +63,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/hashicorp/go-version v1.2.0
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/vault/api v1.0.3
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/kr/pretty v0.2.0
@@ -102,7 +104,7 @@ require (
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/genproto v0.0.0-20200806141610-86f49bd18e98
-	google.golang.org/grpc v1.31.0
+	google.golang.org/grpc v1.33.0-dev.0.20200828165940-d8ef479ab79a
 	google.golang.org/grpc/examples v0.0.0-20200825162801-44d73dff99bf // indirect
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1
@@ -110,17 +112,17 @@ require (
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	helm.sh/helm/v3 v3.2.4
-	istio.io/api v0.0.0-20200827131210-bd18678dabfe
+	istio.io/api v0.0.0-20200903133517-d3db41cca51a
 	istio.io/client-go v0.0.0-20200812230733-f5504d568313
 	istio.io/gogo-genproto v0.0.0-20200720193312-b523a30fe746
-	istio.io/pkg v0.0.0-20200721143030-6b837ddaf2ab
-	k8s.io/api v0.18.8
-	k8s.io/apiextensions-apiserver v0.18.8
-	k8s.io/apimachinery v0.18.8
-	k8s.io/cli-runtime v0.18.8
-	k8s.io/client-go v0.18.8
-	k8s.io/kubectl v0.18.8
-	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
+	istio.io/pkg v0.0.0-20200807223740-7c8bbc23c476
+	k8s.io/api v0.19.0
+	k8s.io/apiextensions-apiserver v0.19.0
+	k8s.io/apimachinery v0.19.0
+	k8s.io/cli-runtime v0.19.0
+	k8s.io/client-go v0.19.0
+	k8s.io/kubectl v0.19.0
+	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 	sigs.k8s.io/controller-runtime v0.6.1
 	sigs.k8s.io/service-apis v0.0.0-20200731055707-56154e7bfde5
 	sigs.k8s.io/yaml v1.2.0

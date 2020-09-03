@@ -50,16 +50,13 @@ type ProxyConfig struct {
 	ComponentLogLevel   string
 	PilotSubjectAltName []string
 	NodeIPs             []string
-	PodName             string
-	PodNamespace        string
-	PodIP               net.IP
 	STSPort             int
-	ControlPlaneAuth    bool
-	DisableReportCalls  bool
 	OutlierLogPath      string
 	PilotCertProvider   string
 	ProvCert            string
 	Sidecar             bool
+	ProxyViaAgent       bool
+	CallCredentials     bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -161,15 +158,12 @@ func (e *envoy) Run(config interface{}, epoch int, abort <-chan error) error {
 			PilotSubjectAltName: e.PilotSubjectAltName,
 			LocalEnv:            os.Environ(),
 			NodeIPs:             e.NodeIPs,
-			PodName:             e.PodName,
-			PodNamespace:        e.PodNamespace,
-			PodIP:               e.PodIP,
 			STSPort:             e.STSPort,
-			ControlPlaneAuth:    e.ControlPlaneAuth,
-			DisableReportCalls:  e.DisableReportCalls,
+			ProxyViaAgent:       e.ProxyViaAgent,
 			OutlierLogPath:      e.OutlierLogPath,
 			PilotCertProvider:   e.PilotCertProvider,
 			ProvCert:            e.ProvCert,
+			CallCredentials:     e.CallCredentials,
 			DiscoveryHost:       discHost,
 		}).CreateFileForEpoch(epoch)
 		if err != nil {

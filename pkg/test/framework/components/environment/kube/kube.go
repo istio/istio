@@ -112,6 +112,15 @@ func (e *Environment) IsControlPlaneCluster(cluster resource.Cluster) bool {
 	return true
 }
 
+// IsConfigCluster returns true if the cluster uses itself as config cluster in the ConfigTopology.
+// We return if there is no mapping for the cluster, similar to the behavior of the istio.test.kube.controlPlaneTopology.
+func (e *Environment) IsConfigCluster(cluster resource.Cluster) bool {
+	if configIndex, ok := e.Settings().ConfigTopology[cluster.Index()]; ok {
+		return configIndex == cluster.Index()
+	}
+	return true
+}
+
 // GetControlPlaneCluster returns the cluster running the control plane for the given cluster based on the ControlPlaneTopology.
 // An error is returned if the given cluster isn't present in the topology, or the cluster in the topology isn't in KubeClusters.
 func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource.Cluster, error) {
@@ -121,6 +130,19 @@ func (e *Environment) GetControlPlaneCluster(cluster resource.Cluster) (resource
 			return nil, err
 		}
 		return e.KubeClusters[controlPlaneIndex], nil
+	}
+	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %s", cluster.Name())
+}
+
+// GetConfigCluster returns the cluster running the istio config for the given cluster based on the ConfigTopology.
+// An error is returned if the given cluster isn't present in the topology, or the cluster in the topology isn't in KubeClusters.
+func (e *Environment) GetConfigCluster(cluster resource.Cluster) (resource.Cluster, error) {
+	if configClusterIndex, ok := e.Settings().ConfigTopology[cluster.Index()]; ok {
+		if int(configClusterIndex) >= len(e.KubeClusters) {
+			err := fmt.Errorf("control plane index %d out of range in %d configured clusters", configClusterIndex, len(e.KubeClusters))
+			return nil, err
+		}
+		return e.KubeClusters[configClusterIndex], nil
 	}
 	return nil, fmt.Errorf("no control plane cluster found in topology for cluster %s", cluster.Name())
 }

@@ -37,6 +37,7 @@ var (
 		"cert-dir":            env.RegisterStringVar("ISTIOCTL_CERT_DIR", "", "The istioctl --cert-dir override"),
 		"insecure":            env.RegisterBoolVar("ISTIOCTL_INSECURE", false, "The istioctl --insecure override"),
 		"prefer-experimental": env.RegisterBoolVar("ISTIOCTL_PREFER_EXPERIMENTAL", false, "The istioctl should use experimental subcommand variants"),
+		"plaintext":           env.RegisterBoolVar("ISTIOCTL_PLAINTEXT", false, "The istioctl --plaintext override"),
 	}
 )
 

@@ -80,16 +80,13 @@ type Config struct {
 	PilotSubjectAltName []string
 	LocalEnv            []string
 	NodeIPs             []string
-	PodName             string
-	PodNamespace        string
-	PodIP               net.IP
 	STSPort             int
-	ControlPlaneAuth    bool
-	DisableReportCalls  bool
+	ProxyViaAgent       bool
 	OutlierLogPath      string
 	PilotCertProvider   string
 	ProvCert            string
 	DiscoveryHost       string
+	CallCredentials     bool
 }
 
 // newTemplateParams creates a new template configuration for the given configuration.
@@ -106,15 +103,12 @@ func (cfg Config) toTemplateParams() (map[string]interface{}, error) {
 
 	opts = append(opts,
 		option.NodeID(cfg.Node),
-		option.PodName(cfg.PodName),
-		option.PodNamespace(cfg.PodNamespace),
-		option.PodIP(cfg.PodIP),
 		option.PilotSubjectAltName(cfg.PilotSubjectAltName),
-		option.ControlPlaneAuth(cfg.ControlPlaneAuth),
-		option.DisableReportCalls(cfg.DisableReportCalls),
+		option.ProxyViaAgent(cfg.ProxyViaAgent),
 		option.PilotCertProvider(cfg.PilotCertProvider),
 		option.OutlierLogPath(cfg.OutlierLogPath),
 		option.ProvCert(cfg.ProvCert),
+		option.CallCredentials(cfg.CallCredentials),
 		option.DiscoveryHost(cfg.DiscoveryHost))
 
 	if cfg.STSPort > 0 {

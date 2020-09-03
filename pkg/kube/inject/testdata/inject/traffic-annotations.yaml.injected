@@ -114,8 +114,6 @@ spec:
           value: cluster.local
         - name: FOO
           value: bar
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{}'
         image: gcr.io/istio-testing/proxyv2:latest
         imagePullPolicy: Always
         name: istio-proxy
@@ -182,12 +180,8 @@ spec:
         imagePullPolicy: Always
         name: istio-init
         resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
           requests:
-            cpu: 10m
-            memory: 10Mi
+            cpu: "4"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

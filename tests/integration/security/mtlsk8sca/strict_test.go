@@ -33,7 +33,7 @@ import (
 // - Send HTTP/gRPC requests between apps.
 func TestMtlsStrictK8sCA(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.control-plane.k8s-certs").
+		Features("security.control-plane.k8s-certs.k8sca").
 		Run(func(ctx framework.TestContext) {
 
 			// TODO: due to issue https://github.com/istio/istio/issues/25286,

@@ -84,7 +84,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		out := generateVirtualHostDomains(c.service, c.port, c.node)
+		out := generateVirtualHostDomains(c.service, c.port, c.node, model.NewPushContext())
 		sort.SliceStable(c.want, func(i, j int) bool { return c.want[i] < c.want[j] })
 		sort.SliceStable(out, func(i, j int) bool { return out[i] < out[j] })
 		if !reflect.DeepEqual(out, c.want) {
@@ -124,7 +124,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 
 	virtualServices := []*config.Config{&virtualService6}
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 
@@ -892,7 +892,7 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	expectedHosts map[string]map[string]bool, registryOnly bool) {
 	t.Helper()
 	p := &fakePlugin{}
-	configgen := NewConfigGenerator([]plugin.Plugin{p})
+	configgen := NewConfigGenerator([]plugin.Plugin{p}, &model.DisabledCache{})
 
 	env := buildListenerEnvWithVirtualServices(services, virtualServices)
 

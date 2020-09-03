@@ -104,7 +104,7 @@ func NewCoreComponent(cn name.ComponentName, opts *Options) IstioComponent {
 	case name.IstiodRemoteComponentName:
 		component = NewIstiodRemoteComponent(opts)
 	default:
-		panic("Unknown component componentName: " + string(cn))
+		scope.Errorf("Unknown component componentName: " + string(cn))
 	}
 	return component
 }

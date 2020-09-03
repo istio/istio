@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 25500
+releaseNotes:
+- |
+  **Added** The network for a Pod can be specified via the label "topology.istio.io/network". This overrides the setting for the cluster's installation values (values.globalnetwork). If the label isn't set, it is injected based on the global value for the cluster.

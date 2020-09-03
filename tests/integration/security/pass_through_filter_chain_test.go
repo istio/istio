@@ -38,6 +38,7 @@ import (
 func TestPassThroughFilterChain(t *testing.T) {
 	framework.
 		NewTest(t).
+		Features("security.filterchain").
 		Run(func(ctx framework.TestContext) {
 			ns := namespace.NewOrFail(t, ctx, namespace.Config{
 				Prefix: "pass-through-filter-chain",
