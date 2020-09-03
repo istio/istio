@@ -124,7 +124,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 		for {
 			if err := tcpCheck(w.config.TCPConfig, w.config.ProbeTimeout); err == nil {
 				numSuccess++
-				if numSuccess == w.config.SuccessThresh {
+				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
 					numFail = 0
@@ -132,7 +132,7 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 				}
 			} else {
 				numFail++
-				if numFail == w.config.FailThresh {
+				if numFail == w.config.FailThresh && lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{
 						TypeUrl: HealthInfoTypeURL,
 						ErrorDetail: &status.Status{
@@ -152,14 +152,14 @@ func (w *WorkloadHealthChecker) PerformApplicationHealthCheck(notifyHealthChange
 		for {
 			if err := execCheck(w.config.ExecConfig); err == nil {
 				numSuccess++
-				if numSuccess == w.config.SuccessThresh {
+				if numSuccess == w.config.SuccessThresh && !lastStateHealthy {
 					notifyHealthChange <- &discovery.DiscoveryRequest{TypeUrl: HealthInfoTypeURL}
 					numSuccess = 0
 					numFail = 0
 					lastStateHealthy = false
 				} else {
 					numFail++
-					if numFail == w.config.FailThresh {
+					if numFail == w.config.FailThresh && lastStateHealthy {
 						notifyHealthChange <- &discovery.DiscoveryRequest{
 							TypeUrl: HealthInfoTypeURL,
 							ErrorDetail: &status.Status{
