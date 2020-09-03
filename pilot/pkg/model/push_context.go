@@ -86,7 +86,8 @@ type PushContext struct {
 	ServiceByHostname             map[host.Name]*Service            `json:"-"`
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
-
+	// ClusterVIPs contains a map service and its cluster addresses. It is stored here
+	// to avoid locking each service for every proxy during push.
 	ClusterVIPs map[*Service]map[string]string
 
 	// VirtualService related
