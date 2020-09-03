@@ -48,7 +48,7 @@ func TestMain(m *testing.M) {
 				s.ConfigTopology[resource.ClusterIndex(i)] = configCluster
 			}
 		})).
-		Setup(istio.Setup(&ist, func(cfg *istio.Config) {
+		Setup(istio.Setup(&ist, func(_ resource.Context, cfg *istio.Config) {
 			// Set the control plane values on the config.
 			cfg.ConfigClusterValues =
 				`components:
