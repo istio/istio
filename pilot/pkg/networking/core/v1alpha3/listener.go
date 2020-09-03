@@ -883,6 +883,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 			}
 
 			for _, service := range services {
+				saddress := service.GetServiceAddressForProxy(node, push)
 				for _, servicePort := range service.Ports {
 					// bind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
@@ -899,7 +900,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind == "" && service.Resolution == model.Passthrough &&
-						service.GetServiceAddressForProxy(node) == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
+						saddress == constants.UnspecifiedIP && servicePort.Protocol.IsTCP() {
 						instances := push.InstancesByPort(service, servicePort.Port, nil)
 						if service.Attributes.ServiceRegistry != string(serviceregistry.Kubernetes) && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
 							// A Kubernetes service with no endpoints means there are no endpoints at
@@ -933,7 +934,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundListeners(node *model.
 						// Standard logic for headless and non headless services
 						if features.EnableThriftFilter &&
 							servicePort.Protocol.IsThrift() {
-							listenerOpts.bind = service.GetServiceAddressForProxy(node)
+							listenerOpts.bind = saddress
 						}
 						configgen.buildSidecarOutboundListenerForPortOrUDS(node, listenerOpts, listenerMap, virtualServices, actualWildcard)
 					}
@@ -1171,7 +1172,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundTCPListenerOptsForPort
 	// ip:port. This will reduce the impact of a listener reload
 
 	if len(listenerOpts.bind) == 0 {
-		svcListenAddress := listenerOpts.service.GetServiceAddressForProxy(listenerOpts.proxy)
+		svcListenAddress := listenerOpts.service.GetServiceAddressForProxy(listenerOpts.proxy, listenerOpts.push)
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly

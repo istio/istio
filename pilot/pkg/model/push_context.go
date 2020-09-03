@@ -87,6 +87,8 @@ type PushContext struct {
 	// ServiceAccounts contains a map of hostname and port to service accounts.
 	ServiceAccounts map[host.Name]map[int][]string `json:"-"`
 
+	ClusterVIPs map[*Service]map[string]string
+
 	// VirtualService related
 	// This contains all virtual services visible to this namespace extracted from
 	// exportTos that explicitly contained this namespace. The keys are namespace,gateway.
@@ -467,6 +469,7 @@ func NewPushContext() *PushContext {
 		ServiceByHostname:                           map[host.Name]*Service{},
 		ProxyStatus:                                 map[string]map[string]ProxyPushStatus{},
 		ServiceAccounts:                             map[host.Name]map[int][]string{},
+		ClusterVIPs:                                 map[*Service]map[string]string{},
 	}
 }
 
@@ -1038,6 +1041,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment) error {
 		}
 		ps.ServiceByHostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 		ps.ServiceByHostname[s.Hostname] = s
+		s.Mutex.RLock()
+		ps.ClusterVIPs[s] = s.ClusterVIPs
+		s.Mutex.RUnlock()
 	}
 
 	ps.initServiceAccounts(env, allServices)
