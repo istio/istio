@@ -17,6 +17,24 @@
 set -euo pipefail
 
 # single-cluster installations may need this gateway to allow VMs to get discovery
+# for non-single cluster, we add additional topology information
+SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
+if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
+  if [[ -z "${CLUSTER:-}" ]]; then
+  echo The CLUSTER environment variable must be set.
+  exit 1
+  fi
+  if [[ -z "${NETWORK:-}" ]]; then
+    echo The NETWORK environment variable must be set.
+    exit 1
+  fi
+  if [[ -z "${MESH:-}" ]]; then
+    echo The MESH environment variable must be set.
+    exit 1
+  fi
+fi
+
+# base
 IOP=$(cat <<EOF
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
@@ -33,6 +51,21 @@ spec:
         label:
           istio: eastwestgateway
           app: istio-eastwestgateway
+EOF
+)
+
+# mark this as a multi-network gateway
+if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
+  IOP=$(cat <<EOF
+$IOP
+          topology.istio.io/network: $NETWORK
+EOF
+)
+fi
+
+# ports
+IOP=$(cat <<EOF
+$IOP
         enabled: true
         k8s:
           env:
@@ -56,20 +89,8 @@ spec:
 EOF
 )
 
-SINGLE_CLUSTER="${SINGLE_CLUSTER:-0}"
+# additional multicluster/multinetwork meta
 if [[ "${SINGLE_CLUSTER}" -eq 0 ]]; then
-  if [[ -z "${CLUSTER:-}" ]]; then
-  echo The CLUSTER environment variable must be set.
-  exit 1
-  fi
-  if [[ -z "${NETWORK:-}" ]]; then
-    echo The NETWORK environment variable must be set.
-    exit 1
-  fi
-  if [[ -z "${MESH:-}" ]]; then
-    echo The MESH environment variable must be set.
-    exit 1
-  fi
   IOP=$(cat <<EOF
 $IOP
           env:

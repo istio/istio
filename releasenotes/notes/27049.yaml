@@ -4,5 +4,5 @@ area: installation
 
 releaseNotes:
 - |
-  **Improved** Enable configurng multi-network without using [meshNetworks](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).
-  Instead "topology.istio.io/network" and "topology.istio.io/gatewayPort" on the gateway's Kubernetes Service can mark it as a gateway.
+  **Improved** multi-network configuration so that labeling a service with `topology.istio.io/network=network-name` can
+  configure cross-network gateways without using meshNetworks [meshNetworks](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).

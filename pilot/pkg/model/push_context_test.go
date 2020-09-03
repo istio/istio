@@ -1176,6 +1176,8 @@ func TestIsClusterLocal(t *testing.T) {
 	}
 }
 
+var _ ServiceDiscovery = &localServiceDiscovery{}
+
 // MockDiscovery is an in-memory ServiceDiscover with mock services
 type localServiceDiscovery struct {
 	services         []*Service
@@ -1205,5 +1207,10 @@ func (l *localServiceDiscovery) GetProxyWorkloadLabels(proxy *Proxy) (labels.Col
 }
 
 func (l *localServiceDiscovery) GetIstioServiceAccounts(svc *Service, ports []int) []string {
+	return nil
+}
+
+func (l *localServiceDiscovery) NetworkGateways() map[string][]*Gateway {
+	// TODO implement fromRegistry logic from kube controller if needed
 	return nil
 }
