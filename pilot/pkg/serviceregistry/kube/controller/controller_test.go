@@ -25,7 +25,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	coreV1 "k8s.io/api/core/v1"
-	discoveryv1alpha1 "k8s.io/api/discovery/v1alpha1"
+	discovery "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -923,9 +923,6 @@ func TestExternalNameServiceInstances(t *testing.T) {
 				t.Fatalf("failed to get services (%v): %v", converted, err)
 			}
 			instances := controller.InstancesByPort(converted[0], 1, labels.Collection{})
-			if err != nil {
-				t.Fatal(err)
-			}
 			if len(instances) != 1 {
 				t.Fatalf("expected 1 instance, got %v", instances)
 			}
@@ -1095,33 +1092,33 @@ func createEndpoints(controller *FakeController, name, namespace string, portNam
 	}
 
 	// Create endpoint slice as well
-	esps := make([]discoveryv1alpha1.EndpointPort, 0)
+	esps := make([]discovery.EndpointPort, 0)
 	for _, name := range portNames {
 		n := name // Create a stable reference to take the pointer from
-		esps = append(esps, discoveryv1alpha1.EndpointPort{Name: &n, Port: &portNum})
+		esps = append(esps, discovery.EndpointPort{Name: &n, Port: &portNum})
 	}
 
-	sliceEndpoint := []discoveryv1alpha1.Endpoint{}
+	sliceEndpoint := []discovery.Endpoint{}
 	for i, ip := range ips {
-		sliceEndpoint = append(sliceEndpoint, discoveryv1alpha1.Endpoint{
+		sliceEndpoint = append(sliceEndpoint, discovery.Endpoint{
 			Addresses: []string{ip},
 			TargetRef: refs[i],
 		})
 	}
-	endpointSlice := &discoveryv1alpha1.EndpointSlice{
+	endpointSlice := &discovery.EndpointSlice{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				discoveryv1alpha1.LabelServiceName: name,
+				discovery.LabelServiceName: name,
 			},
 		},
 		Endpoints: sliceEndpoint,
 		Ports:     esps,
 	}
-	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metaV1.CreateOptions{}); err != nil {
+	if _, err := controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Create(context.TODO(), endpointSlice, metaV1.CreateOptions{}); err != nil {
 		if errors.IsAlreadyExists(err) {
-			_, err = controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{})
+			_, err = controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{})
 		}
 		if err != nil {
 			t.Fatalf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
@@ -1156,26 +1153,26 @@ func updateEndpoints(controller *FakeController, name, namespace string, portNam
 	}
 
 	// Update endpoint slice as well
-	esps := make([]discoveryv1alpha1.EndpointPort, 0)
+	esps := make([]discovery.EndpointPort, 0)
 	for _, name := range portNames {
-		esps = append(esps, discoveryv1alpha1.EndpointPort{Name: &name, Port: &portNum})
+		esps = append(esps, discovery.EndpointPort{Name: &name, Port: &portNum})
 	}
-	endpointSlice := &discoveryv1alpha1.EndpointSlice{
+	endpointSlice := &discovery.EndpointSlice{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				discoveryv1alpha1.LabelServiceName: name,
+				discovery.LabelServiceName: name,
 			},
 		},
-		Endpoints: []discoveryv1alpha1.Endpoint{
+		Endpoints: []discovery.Endpoint{
 			{
 				Addresses: ips,
 			},
 		},
 		Ports: esps,
 	}
-	if _, err := controller.client.DiscoveryV1alpha1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{}); err != nil {
+	if _, err := controller.client.DiscoveryV1beta1().EndpointSlices(namespace).Update(context.TODO(), endpointSlice, metaV1.UpdateOptions{}); err != nil {
 		t.Errorf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
 	}
 }
@@ -1614,7 +1611,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 			if err := controller.client.CoreV1().Endpoints("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
 				t.Fatal(err)
 			}
-			if err := controller.client.DiscoveryV1alpha1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
+			if err := controller.client.DiscoveryV1beta1().EndpointSlices("nsA").Delete(context.TODO(), "svc", metaV1.DeleteOptions{}); err != nil {
 				t.Fatal(err)
 			}
 			assertPendingResync(0)
@@ -1697,9 +1694,6 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	instances := controller.InstancesByPort(converted[0], 8080, labels.Collection{{
 		"app": "prod-app",
 	}})
-	if err != nil {
-		t.Fatalf("Failed to getInstancesByPort: %v", err)
-	}
 	var gotEndpointIPs []string
 	for _, instance := range instances {
 		gotEndpointIPs = append(gotEndpointIPs, instance.Endpoint.Address)
