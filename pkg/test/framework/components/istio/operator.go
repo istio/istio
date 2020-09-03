@@ -616,6 +616,7 @@ func (i *operatorComponent) configureDirectAPIServiceAccessForCluster(ctx resour
 }
 
 func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster resource.Cluster) error {
+	// TODO(landow) we should not have users do this. instead this could be a part of create-remote-secret
 	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
 		Get(context.TODO(), multicluster.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
 	if err == nil && sa != nil {
