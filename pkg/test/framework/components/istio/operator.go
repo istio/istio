@@ -619,8 +619,11 @@ func (i *operatorComponent) createServiceAccount(ctx resource.Context, cluster r
 	sa, err := cluster.CoreV1().ServiceAccounts("istio-system").
 		Get(context.TODO(), multicluster.DefaultServiceAccountName, kubeApiMeta.GetOptions{})
 	if err != nil && sa != nil {
+		scopes.Framework.Infof("service account exists in %s", cluster.Name())
 		return nil
 	}
+	scopes.Framework.Infof("creating service account in %s", cluster.Name())
+
 	istioCtl, err := istioctl.New(ctx, istioctl.Config{
 		Cluster: cluster,
 	})
