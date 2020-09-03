@@ -1108,6 +1108,8 @@ istio.io/api v0.0.0-20200626203124-c07d1d63dab7 h1:7EruC/H7vE0Zwe8NnekcH7e6O6x3M
 istio.io/api v0.0.0-20200626203124-c07d1d63dab7/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
 istio.io/api v0.0.0-20200902182028-f52bc37f9018 h1:ft8nuhLAkL1rK+CFCEbdLP8PcZ89Ap9iKUnD7EOcbVY=
 istio.io/api v0.0.0-20200902182028-f52bc37f9018/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
+istio.io/api v0.0.0-20200903133517-d3db41cca51a h1:l1YEt98JU8SHXWsHPDPvz9ER7OitlSNL5gtqCDrk98A=
+istio.io/api v0.0.0-20200903133517-d3db41cca51a/go.mod h1:88HN3o1fSD1jo+Z1WTLlJfMm9biopur6Ct9BFKjiB64=
 istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26 h1:XLTmjndquXukwZVU9G6c3d/2ew43te4SuMap8UTP1R4=
 istio.io/client-go v0.0.0-20200626204548-8f69a2d0fe26/go.mod h1:OQTGBgFbgNzUMafgS5LExTTMQAA+JeC6d0m1Tphi2dk=
 istio.io/gogo-genproto v0.0.0-20190930162913-45029607206a/go.mod h1:OzpAts7jljZceG4Vqi5/zXy/pOg1b209T3jb7Nv5wIs=
