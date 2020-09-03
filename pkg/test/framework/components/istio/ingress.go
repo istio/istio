@@ -28,8 +28,6 @@ import (
 	"sync"
 	"time"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -85,63 +83,7 @@ type ingressImpl struct {
 func (c *ingressImpl) getAddressInner(cluster resource.Cluster, ns string, port int) (interface{}, bool, error) {
 	// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
 	// port.
-	if !c.env.Settings().LoadBalancerSupported {
-		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", istioLabel))
-		if err != nil {
-			return nil, false, err
-		}
-
-		names := make([]string, 0, len(pods.Items))
-		for _, p := range pods.Items {
-			names = append(names, p.Name)
-		}
-		scopes.Framework.Debugf("Querying ingressImpl, pods:\n%v\n", names)
-		if len(pods.Items) == 0 {
-			return nil, false, fmt.Errorf("no ingressImpl pod found")
-		}
-
-		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
-		ip := pods.Items[0].Status.HostIP
-		if ip == "" {
-			return nil, false, fmt.Errorf("no Host IP available on the ingressImpl node yet")
-		}
-
-		svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), ingressServiceName, v1.GetOptions{})
-		if err != nil {
-			return nil, false, err
-		}
-
-		scopes.Framework.Debugf("Found service for the gateway:\n%v\n", svc)
-		if len(svc.Spec.Ports) == 0 {
-			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, "istio-ingressgateway")
-		}
-
-		var nodePort int32
-		for _, svcPort := range svc.Spec.Ports {
-			if svcPort.Protocol == "TCP" && svcPort.Port == int32(port) {
-				nodePort = svcPort.NodePort
-				break
-			}
-		}
-		if nodePort == 0 {
-			return nil, false, fmt.Errorf("no port %d found in service: %s/%s", port, ns, "istio-ingressgateway")
-		}
-
-		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
-	}
-
-	// Otherwise, get the load balancer IP.
-	svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), ingressServiceName, v1.GetOptions{})
-	if err != nil {
-		return nil, false, err
-	}
-
-	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
-		return nil, false, fmt.Errorf("service ingressImpl is not available yet: %s/%s", svc.Namespace, svc.Name)
-	}
-
-	ip := svc.Status.LoadBalancer.Ingress[0].IP
-	return net.TCPAddr{IP: net.ParseIP(ip), Port: port}, true, nil
+	return getRemoteServiceAddress(c.env.Settings(), cluster, ns, istioLabel, ingressServiceName, port)
 }
 
 // HTTPAddress returns HTTP address of ingress gateway.

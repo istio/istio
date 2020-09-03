@@ -15,13 +15,21 @@
 package istio
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+)
+
+const (
+	istiodLabel = "pilot"
 )
 
 var (
@@ -68,13 +76,95 @@ func waitForValidationWebhook(ctx resource.Context, cluster resource.Cluster, cf
 }
 
 func (i *operatorComponent) RemoteDiscoveryAddressFor(cluster resource.Cluster) (net.TCPAddr, error) {
+	var addr net.TCPAddr
 	cp, err := i.environment.GetControlPlaneCluster(cluster)
 	if err != nil {
 		return net.TCPAddr{}, err
 	}
-	addr := i.IngressFor(cp).DiscoveryAddress()
+	if !i.environment.IsConfigCluster(cp) {
+		address, err := retry.Do(func() (interface{}, bool, error) {
+			return getRemoteServiceAddress(i.environment.Settings(), cluster, i.settings.SystemNamespace, istiodLabel,
+				istiodSvcName, discoveryPort)
+		}, retryTimeout, retryDelay)
+		if err != nil {
+			return net.TCPAddr{}, err
+		}
+		addr = address.(net.TCPAddr)
+	} else {
+		addr = i.IngressFor(cp).DiscoveryAddress()
+	}
 	if addr.IP.String() == "<nil>" {
 		return net.TCPAddr{}, fmt.Errorf("failed to get ingress IP for %s", cp.Name())
 	}
 	return addr, nil
+}
+
+func getRemoteServiceAddress(s *kube.Settings, cluster resource.Cluster, ns, label, svcName string,
+	port int) (interface{}, bool, error) {
+
+	if !s.LoadBalancerSupported {
+		pods, err := cluster.PodsForSelector(context.TODO(), ns, fmt.Sprintf("istio=%s", label))
+		if err != nil {
+			return nil, false, err
+		}
+
+		names := make([]string, 0, len(pods.Items))
+		for _, p := range pods.Items {
+			names = append(names, p.Name)
+		}
+		scopes.Framework.Debugf("Querying remote service, pods:\n%v\n", names)
+		if len(pods.Items) == 0 {
+			return nil, false, fmt.Errorf("no remote service pod found")
+		}
+
+		scopes.Framework.Debugf("Found pod: \n%v\n", pods.Items[0].Name)
+		ip := pods.Items[0].Status.HostIP
+		if ip == "" {
+			return nil, false, fmt.Errorf("no Host IP available on the remote service node yet")
+		}
+
+		svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+		if err != nil {
+			return nil, false, err
+		}
+
+		if len(svc.Spec.Ports) == 0 {
+			return nil, false, fmt.Errorf("no ports found in service: %s/%s", ns, svcName)
+		}
+
+		var nodePort int32
+		for _, svcPort := range svc.Spec.Ports {
+			if svcPort.Protocol == "TCP" && svcPort.Port == int32(port) {
+				nodePort = svcPort.NodePort
+				break
+			}
+		}
+		if nodePort == 0 {
+			return nil, false, fmt.Errorf("no port %d found in service: %s/%s", port, ns, svcName)
+		}
+
+		return net.TCPAddr{IP: net.ParseIP(ip), Port: int(nodePort)}, true, nil
+	}
+
+	// Otherwise, get the load balancer IP.
+	svc, err := cluster.CoreV1().Services(ns).Get(context.TODO(), svcName, v1.GetOptions{})
+	if err != nil {
+		return nil, false, err
+	}
+
+	if len(svc.Status.LoadBalancer.Ingress) == 0 || svc.Status.LoadBalancer.Ingress[0].IP == "" {
+		return nil, false, fmt.Errorf("service %s is not available yet: %s/%s", svcName, svc.Namespace, svc.Name)
+	}
+
+	ip := svc.Status.LoadBalancer.Ingress[0].IP
+	return net.TCPAddr{IP: net.ParseIP(ip), Port: port}, true, nil
+}
+
+func (i *operatorComponent) isExternalControlPlane() bool {
+	for _, cluster := range i.environment.KubeClusters {
+		if i.environment.IsControlPlaneCluster(cluster) && !i.environment.IsConfigCluster(cluster) {
+			return true
+		}
+	}
+	return false
 }
