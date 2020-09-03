@@ -3468,6 +3468,9 @@ rules:
   - apiGroups: ["apps"]
     resources: ["replicasets"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
 ---
 # Source: base/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
