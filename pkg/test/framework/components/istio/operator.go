@@ -523,9 +523,11 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 				installSettings = append(installSettings,
 					"--set", "components.base.enabled=true",
 					"--set", "components.pilot.enabled=false",
-					"--set", "components.istiodRemote.enabled=false",
 					"--set", "values.gateways.istio-ingressgateway.enabled=false",
 				)
+				if isCentralIstio(c.environment, cfg) {
+					installSettings = append(installSettings, "--set", "components.istiodRemote.enabled=false")
+				}
 			}
 		}
 	}
