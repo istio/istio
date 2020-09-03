@@ -140,6 +140,7 @@ values:
 	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
+	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
 }
 
 func testSetup(ctx resource.Context) (err error) {
