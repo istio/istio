@@ -131,8 +131,7 @@ func (a *KubeJWTAuthenticator) GetKubeClient(clusterID string) kubernetes.Interf
 		}
 	}
 
-	// failover to local cluster
-	return a.kubeClient
+	return nil
 }
 
 func extractBearerToken(ctx context.Context) (string, error) {
