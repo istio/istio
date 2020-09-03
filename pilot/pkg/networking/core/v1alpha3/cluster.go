@@ -515,6 +515,10 @@ var h2UpgradeMap = map[upgradeTuple]bool{
 func applyH2Upgrade(opts buildClusterOpts, connectionPool *networking.ConnectionPoolSettings) {
 	if shouldH2Upgrade(opts.cluster.Name, opts.direction, opts.port, opts.mesh, connectionPool) {
 		setH2Options(opts.cluster)
+		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
+		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
+		// the upstream cluster will use HTTP2.
+		opts.cluster.ProtocolSelection = cluster.Cluster_USE_DOWNSTREAM_PROTOCOL
 	}
 }
 
@@ -525,6 +529,20 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 		return false
 	}
 
+	// TODO (mjog)
+	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
+	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
+	if connectionPool != nil && connectionPool.Http != nil {
+		override = connectionPool.Http.H2UpgradePolicy
+	}
+	// If user wants an upgrade at destination rule/port level that means he is sure that
+	// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
+	// enabled and user wants to upgrade/preserve http protocol from client.
+	if override == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE {
+		log.Debugf("Upgrading cluster: %v (%v %v)", clusterName, mesh.H2UpgradePolicy, override)
+		return true
+	}
+
 	// Do not upgrade non-http ports
 	// This also ensures that we are only upgrading named ports so that
 	// EnableProtocolSniffingForInbound does not interfere.
@@ -533,13 +551,6 @@ func shouldH2Upgrade(clusterName string, direction model.TrafficDirection, port 
 	// even though the application only supports http 1.1.
 	if port != nil && !port.Protocol.IsHTTP() {
 		return false
-	}
-
-	// TODO (mjog)
-	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
-	override := networking.ConnectionPoolSettings_HTTPSettings_DEFAULT
-	if connectionPool != nil && connectionPool.Http != nil {
-		override = connectionPool.Http.H2UpgradePolicy
 	}
 
 	if !h2UpgradeMap[upgradeTuple{mesh.H2UpgradePolicy, override}] {

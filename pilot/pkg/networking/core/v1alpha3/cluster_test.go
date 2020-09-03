@@ -3117,6 +3117,17 @@ func TestShouldH2Upgrade(t *testing.T) {
 			upgrade: true,
 		},
 		{
+			name:        "mesh default - dr upgrade non http port",
+			clusterName: "bar",
+			direction:   model.TrafficDirectionOutbound,
+			port:        model.Port{Protocol: protocol.Unsupported},
+			mesh:        meshconfig.MeshConfig{},
+			connectionPool: networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_UPGRADE}},
+			upgrade: true,
+		},
+		{
 			name:        "mesh no_upgrade - dr default",
 			clusterName: "bar",
 			direction:   model.TrafficDirectionOutbound,
