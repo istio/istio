@@ -106,8 +106,6 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.Values["telemetry.v2.metadataExchange.wasmEnabled"] = "false"
 			cfg.Values["telemetry.v2.prometheus.wasmEnabled"] = "false"
-			cfg.Values["meshConfig.defaultConfig.proxyMetadata.ISTIO_META_PROXY_XDS_VIA_AGENT"] = "enable"
-			cfg.Values["meshConfig.defaultConfig.proxyMetadata.ISTIO_META_DNS_CAPTURE"] = "ALL"
 			cfg.ControlPlaneValues = `
 # Add TCP port, not in the default install
 components:
@@ -225,7 +223,6 @@ values:
 
 			}
 
-			isSingleCluster := !ctx.Clusters().IsMulticluster()
 			for _, c := range ctx.Clusters().ByNetwork() {
 				builder.With(nil, echo.Config{
 					Service:        vmASvc,
@@ -234,7 +231,6 @@ values:
 					DeployAsVM:     true,
 					Subsets:        []echo.SubsetConfig{{}},
 					Cluster:        c[0],
-					DNSCaptureOnVM: isSingleCluster,
 				})
 			}
 
