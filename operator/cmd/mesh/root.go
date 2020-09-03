@@ -16,9 +16,9 @@ package mesh
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/spf13/cobra"
-
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/url"
 	"istio.io/pkg/log"
@@ -35,6 +35,7 @@ settings (--set meshConfig.enableTracing=true). See documentation for more info:
 (e.g. ~/Downloads/istio-` + baseVersion + `/manifests)
 or release tar URL (e.g. ` + url.ReleaseTar + `).
 `
+	ComponentFlagHelpStr = fmt.Sprintf("Specify which component to generate manifests for.")
 )
 
 const (

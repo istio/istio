@@ -58,7 +58,7 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *manifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "charts", "", "", ChartsDeprecatedStr)
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringSliceVar(&args.components, "component", nil, "Components to generate manifests for. For example, --component=Base")
+	cmd.PersistentFlags().StringSliceVar(&args.components, "component", nil, ComponentFlagHelpStr)
 }
 
 func manifestGenerateCmd(rootArgs *rootArgs, mgArgs *manifestGenerateArgs, logOpts *log.Options) *cobra.Command {
@@ -105,9 +105,11 @@ func manifestGenerate(args *rootArgs, mgArgs *manifestGenerateArgs, logopts *log
 	if len(mgArgs.components) != 0 {
 		filteredManifests := name.ManifestMap{}
 		for _, cArg := range mgArgs.components {
-			titledComponentName := name.ComponentName(strings.Title(strings.ToLower(cArg)))
-			if cManifests, ok := manifests[titledComponentName]; ok {
-				filteredManifests[titledComponentName] = cManifests
+			componentName := name.ComponentName(cArg)
+			if cManifests, ok := manifests[componentName]; ok {
+				filteredManifests[componentName] = cManifests
+			} else {
+				return fmt.Errorf("incorrect component name: %s. Valid options: %v", cArg, name.AllComponentNames)
 			}
 		}
 		manifests = filteredManifests
