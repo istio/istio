@@ -268,8 +268,8 @@ func deploy(ctx resource.Context, env *kube.Environment, cfg Config) (Instance, 
 		return nil, fmt.Errorf("%d errors occurred deploying base to remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	// Remote secrets must be present for remtoe install to succeed
-	if env.IsMulticluster() && !isCentralIstio(env, cfg) {
+	// Remote secrets must be present for remote install to succeed
+	if env.IsMulticluster() {
 		// For multicluster, configure direct access so each control plane can get endpoints from all
 		// API servers.
 		if err := configureDirectAPIServerAccess(ctx, env, cfg); err != nil {
