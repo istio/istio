@@ -521,8 +521,9 @@ func deployControlPlane(c *operatorComponent, cfg Config, cluster resource.Clust
 			if baseOnly {
 				// base must be installed first in order to create istio-reader-service-account, otherwise create-remote-secret command will fail
 				installSettings = append(installSettings,
+					"--set", "profile=empty",
 					"--set", "components.base.enabled=true",
-					"--set", "components.pilot.enabled=false",
+					"--set", "components.base.enabled=true",
 					"--set", "values.gateways.istio-ingressgateway.enabled=false",
 				)
 				if isCentralIstio(c.environment, cfg) {
