@@ -297,7 +297,7 @@ dump_pilot_url(){
   outfile="${dname}/$(basename "${url}")-${pilot_pod}"
 
   log "Fetching ${url} from pilot"
-  kubectl -n istio-system exec -i -t "${pilot_pod}" -c istio-proxy -- \
+  kubectl -n istio-system exec -i -t "${pilot_pod}" -- \
       curl "http://localhost:8080/${url}" > "${outfile}"
 }
 
