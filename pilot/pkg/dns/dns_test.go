@@ -187,38 +187,47 @@ func TestDNS(t *testing.T) {
 		},
 	}
 
-	c := dns.Client{
-		Timeout: 3 * time.Second,
+	clients := []dns.Client{
+		{
+			Timeout: 3 * time.Second,
+			Net:     "udp",
+		},
+		{
+			Timeout: 3 * time.Second,
+			Net:     "tcp",
+		},
 	}
 
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			m := new(dns.Msg)
-			q := dns.TypeA
-			if tt.queryAAAA {
-				q = dns.TypeAAAA
-			}
-			m.SetQuestion(tt.host, q)
-			res, _, err := c.Exchange(m, testAgentDNSAddr)
+	for _, c := range clients {
+		for _, tt := range testCases {
+			t.Run(c.Net+"-"+tt.name, func(t *testing.T) {
+				m := new(dns.Msg)
+				q := dns.TypeA
+				if tt.queryAAAA {
+					q = dns.TypeAAAA
+				}
+				m.SetQuestion(tt.host, q)
+				res, _, err := c.Exchange(m, testAgentDNSAddr)
 
-			if err != nil {
-				t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
-			} else {
-				if tt.expectExternalResolution {
-					// just make sure that the response has a valid DNS response from upstream resolvers
-					if res.Rcode != dns.RcodeSuccess {
-						t.Errorf("upstream dns resolution for %s failed", tt.host)
-					}
+				if err != nil {
+					t.Errorf("Failed to resolve query for %s: %v", tt.host, err)
 				} else {
-					if tt.expectResolutionFailure && res.Rcode != dns.RcodeNameError {
-						t.Errorf("expected resolution failure but it succeeded for %s", tt.host)
-					}
-					if !equalsDNSrecords(res.Answer, tt.expected) {
-						t.Errorf("dns responses for %s do not match. \n got %v\nwant %v", tt.host, res.Answer, tt.expected)
+					if tt.expectExternalResolution {
+						// just make sure that the response has a valid DNS response from upstream resolvers
+						if res.Rcode != dns.RcodeSuccess {
+							t.Errorf("upstream dns resolution for %s failed", tt.host)
+						}
+					} else {
+						if tt.expectResolutionFailure && res.Rcode != dns.RcodeNameError {
+							t.Errorf("expected resolution failure but it succeeded for %s", tt.host)
+						}
+						if !equalsDNSrecords(res.Answer, tt.expected) {
+							t.Errorf("dns responses for %s do not match. \n got %v\nwant %v", tt.host, res.Answer, tt.expected)
+						}
 					}
 				}
-			}
-		})
+			})
+		}
 	}
 	testAgentDNS.Close()
 }

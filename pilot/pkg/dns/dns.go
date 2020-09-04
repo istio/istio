@@ -30,15 +30,8 @@ type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
 	lookupTable atomic.Value
 
-	downstreamUDPMux    *dns.ServeMux
-	downstreamUDPServer *dns.Server
-	downstreamTCPMux    *dns.ServeMux
-	downstreamTCPServer *dns.Server
-
-	// This is the upstream Client used to make upstream DNS queries
-	// in case the data is not in our cache.
-	upstreamUDPClient *dns.Client
-	upstreamTCPClient *dns.Client
+	udpDNSProxy *dnsProxy
+	tcpDNSProxy *dnsProxy
 
 	resolvConfServers []string
 	searchNamespaces  []string
@@ -68,9 +61,7 @@ const (
 
 func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
-		downstreamUDPMux: dns.NewServeMux(),
-		downstreamTCPMux: dns.NewServeMux(),
-		proxyNamespace:   proxyNamespace,
+		proxyNamespace: proxyNamespace,
 	}
 
 	// proxyDomain could contain the namespace making it redundant.
@@ -82,16 +73,6 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 		}
 		h.proxyDomainParts = parts
 		h.proxyDomain = strings.Join(parts, ".")
-	}
-
-	h.downstreamUDPMux.Handle(".", h)
-	h.downstreamTCPMux.Handle(".", h)
-
-	h.upstreamUDPClient = &dns.Client{
-		Net: "udp",
-	}
-	h.upstreamTCPClient = &dns.Client{
-		Net: "tcp",
 	}
 
 	// We will use the local resolv.conf for resolving unknown names.
@@ -115,36 +96,20 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string) (*LocalDNSServer, err
 		h.searchNamespaces = dnsConfig.Search
 	}
 
-	h.downstreamUDPServer = &dns.Server{Handler: h.downstreamUDPMux}
-	h.downstreamUDPServer.PacketConn, err = net.ListenPacket("udp", ":15053")
-	if err != nil {
-		log.Errorf("Failed to listen on UDP port 15053: %v", err)
+	if h.udpDNSProxy, err = newDNSProxy("udp", h); err != nil {
 		return nil, err
 	}
-	h.downstreamTCPServer = &dns.Server{Handler: h.downstreamTCPMux}
-	h.downstreamTCPServer.Listener, err = net.Listen("tcp", ":15053")
-	if err != nil {
-		log.Errorf("Failed to listen on TCP port 15053: %v", err)
+	if h.tcpDNSProxy, err = newDNSProxy("tcp", h); err != nil {
 		return nil, err
 	}
+
 	return h, nil
 }
 
 // StartDNS starts the DNS-over-UDP downstreamUDPServer.
 func (h *LocalDNSServer) StartDNS() {
-	log.Infoa("Starting local DNS server at 0.0.0.0:15053")
-	go func() {
-		err := h.downstreamUDPServer.ActivateAndServe()
-		if err != nil {
-			log.Errorf("Local UDP DNS server terminated: %v", err)
-		}
-	}()
-	go func() {
-		err := h.downstreamTCPServer.ActivateAndServe()
-		if err != nil {
-			log.Errorf("Local TCP DNS server terminated: %v", err)
-		}
-	}()
+	go h.udpDNSProxy.start()
+	go h.tcpDNSProxy.start()
 }
 
 func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
@@ -175,7 +140,7 @@ func (h *LocalDNSServer) UpdateLookupTable(nt *nds.NameTable) {
 }
 
 // ServerDNS is the implementation of DNS interface
-func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
+func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dns.Msg) {
 	var response *dns.Msg
 
 	if len(req.Question) == 0 {
@@ -205,7 +170,7 @@ func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 			response.SetReply(req)
 			response.Answer = answers
 		} else {
-			response = h.queryUpstream(req)
+			response = h.queryUpstream(proxy.upstreamClient, req)
 		}
 	}
 
@@ -213,23 +178,15 @@ func (h *LocalDNSServer) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 }
 
 func (h *LocalDNSServer) Close() {
-	if h.downstreamUDPServer != nil {
-		if err := h.downstreamUDPServer.Shutdown(); err != nil {
-			log.Errorf("error in shutting down dns downstreamUDPServer :%v", err)
-		}
-	}
-	if h.downstreamTCPServer != nil {
-		if err := h.downstreamTCPServer.Shutdown(); err != nil {
-			log.Errorf("error in shutting down dns downstreamTCPServer :%v", err)
-		}
-	}
+	h.udpDNSProxy.close()
+	h.tcpDNSProxy.close()
 }
 
 // TODO: Figure out how to send parallel queries to all nameservers
-func (h *LocalDNSServer) queryUpstream(req *dns.Msg) *dns.Msg {
+func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range h.resolvConfServers {
-		cResponse, _, err := h.upstreamUDPClient.Exchange(req, upstream)
+		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil && len(cResponse.Answer) > 0 {
 			response = cResponse
 			break
