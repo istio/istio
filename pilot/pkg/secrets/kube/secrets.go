@@ -80,7 +80,7 @@ var _ secrets.Controller = &SecretsController{}
 
 type RemoteKubeClientGetter func(clusterID string) kubernetes.Interface
 
-func NewSecretsController(client kube.Client, clusterId string, remoteClientGetter RemoteKubeClientGetter) *SecretsController {
+func NewSecretsController(client kube.Client, clusterID string, remoteClientGetter RemoteKubeClientGetter) *SecretsController {
 	// Informer is lazy loaded, load it now
 	_ = client.KubeInformer().Core().V1().Secrets().Informer()
 
@@ -89,7 +89,7 @@ func NewSecretsController(client kube.Client, clusterId string, remoteClientGett
 
 		authorizationEnabled: true,
 		sar:                  client.AuthorizationV1().SubjectAccessReviews(),
-		clusterID:            clusterId,
+		clusterID:            clusterID,
 		remoteGetter:         remoteClientGetter,
 		authorizationCache:   make(map[authorizationKey]authorizationResponse),
 	}
@@ -99,9 +99,10 @@ func toUser(serviceAccount, namespace string) string {
 	return fmt.Sprintf("system:serviceaccount:%s:%s", namespace, serviceAccount)
 }
 
-const cacheTtl = time.Minute
+const cacheTTL = time.Minute
 
 // cachedAuthorization checks the authorization cache
+// nolint
 func (s *SecretsController) cachedAuthorization(user, clusterID string) (error, bool) {
 	key := authorizationKey{cluster: clusterID, user: user}
 	s.mu.Lock()
@@ -126,7 +127,7 @@ func (s *SecretsController) insertCache(user, clusterID string, response error) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := authorizationKey{cluster: clusterID, user: user}
-	expDelta := cacheTtl
+	expDelta := cacheTTL
 	if response == nil {
 		// Cache success a bit longer, there is no need to quickly revoke access
 		expDelta *= 5

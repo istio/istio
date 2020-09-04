@@ -398,12 +398,12 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection) error
 
 	if features.EnableXDSIdentityCheck && con.Identities != nil {
 		// TODO: allow locking down, rejecting unauthenticated requests.
-		if id, err := checkConnectionIdentity(con); err != nil {
+		id, err := checkConnectionIdentity(con)
+		if err != nil {
 			adsLog.Warnf("Unauthorized XDS: %v with identity %v: %v", con.PeerAddr, con.Identities, err)
 			return fmt.Errorf("authorization failed: %v", err)
-		} else {
-			con.proxy.VerifiedIdentity = id
 		}
+		con.proxy.VerifiedIdentity = id
 	}
 
 	s.addCon(con.ConID, con)
