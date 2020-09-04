@@ -86,9 +86,11 @@ func operatorInit(args *rootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	already, _ := isControllerInstalled(clientset, oiArgs.common.operatorNamespace, oiArgs.common.revision)
 	if already {
 		l.LogAndPrintf("Operator controller is already installed in %s namespace.", oiArgs.common.operatorNamespace)
-		l.LogAndPrintf("Upgrading operator controller in namespace: %s using image: %s/operator:%s", oiArgs.common.operatorNamespace, oiArgs.common.hub, oiArgs.common.tag)
+		l.LogAndPrintf("Upgrading operator controller in namespace: %s using image: %s/operator:%s",
+			oiArgs.common.operatorNamespace, oiArgs.common.hub, oiArgs.common.tag)
 	} else {
-		l.LogAndPrintf("Installing operator controller in namespace: %s using image: %s/operator:%s", oiArgs.common.operatorNamespace, oiArgs.common.hub, oiArgs.common.tag)
+		l.LogAndPrintf("Installing operator controller in namespace: %s using image: %s/operator:%s",
+			oiArgs.common.operatorNamespace, oiArgs.common.hub, oiArgs.common.tag)
 	}
 
 	l.LogAndPrintf("Operator controller will watch namespaces: %s", oiArgs.common.watchedNamespaces)
