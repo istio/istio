@@ -628,6 +628,8 @@ func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// TODO(@hzxuzhonghu): figure out a more graceful way to make sure objects reflected by informer and processed.
+	time.Sleep(100 * time.Millisecond)
 }
 
 func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace string, ports []v1.EndpointPort, ips []string) {
