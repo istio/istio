@@ -177,6 +177,24 @@ func TestAddToMesh(t *testing.T) {
 			expectedOutput:    "Error: deployment \"test\" does not exist\n",
 		},
 		{
+			description: "service does not exist (with short syntax)",
+			args: strings.Split("x add svc test --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput:    "Error: services \"test\" not found\n",
+		},
+		{
+			description: "deployment does not exist (with short syntax)",
+			args: strings.Split("x add deploy test --meshConfigFile testdata/mesh-config.yaml"+
+				" --injectConfigFile testdata/inject-config.yaml"+
+				" --valuesFile testdata/inject-values.yaml", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			expectedOutput:    "Error: deployment \"test\" does not exist\n",
+		},
+		{
 			description: "service without deployment",
 			args: strings.Split("experimental add-to-mesh service dummyservice --meshConfigFile testdata/mesh-config.yaml"+
 				" --injectConfigFile testdata/inject-config.yaml"+
@@ -213,6 +231,15 @@ func TestAddToMesh(t *testing.T) {
 		{
 			description:       "service already exists",
 			args:              strings.Split("experimental add-to-mesh external-service dummyservice 11.11.11.11 tcp:12345", " "),
+			expectedException: true,
+			k8sConfigs:        cannedK8sConfigs,
+			dynamicConfigs:    cannedDynamicConfigs,
+			namespace:         "default",
+			expectedOutput:    "Error: service \"dummyservice\" already exists, skip\n",
+		},
+		{
+			description:       "service already exists (with short syntax)",
+			args:              strings.Split("x add es dummyservice 11.11.11.11 tcp:12345", " "),
 			expectedException: true,
 			k8sConfigs:        cannedK8sConfigs,
 			dynamicConfigs:    cannedDynamicConfigs,
