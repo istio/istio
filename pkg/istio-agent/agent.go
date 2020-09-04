@@ -265,7 +265,7 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 
 func (sa *Agent) initLocalDNSServer(isSidecar bool) (err error) {
 	// we dont need dns server on gateways
-	if sa.cfg.DNSCapture && isSidecar {
+	if sa.cfg.DNSCapture && sa.cfg.ProxyXDSViaAgent && isSidecar {
 		if sa.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
 			return err
 		}
