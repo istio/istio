@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc"
 
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/dns"
 	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -102,6 +103,9 @@ type Agent struct {
 
 	// Used when proxying envoy xds via istio-agent is enabled.
 	xdsProxy *XdsProxy
+
+	// local DNS Server that processes DNS requests locally and forwards to upstream DNS if needed.
+	localDNSServer *dns.LocalDNSServer
 }
 
 // AgentConfig contains additional config for the agent, not included in ProxyConfig.
@@ -247,8 +251,11 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 		}
 	}
 
+	if err = sa.initLocalDNSServer(isSidecar); err != nil {
+		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
+	}
 	if sa.cfg.ProxyXDSViaAgent {
-		sa.xdsProxy, err = initXdsProxy(sa, isSidecar)
+		sa.xdsProxy, err = initXdsProxy(sa)
 		if err != nil {
 			return nil, fmt.Errorf("failed to start xds proxy: %v", err)
 		}
@@ -256,9 +263,23 @@ func (sa *Agent) Start(isSidecar bool, podNamespace string) (*sds.Server, error)
 	return server, nil
 }
 
+func (sa *Agent) initLocalDNSServer(isSidecar bool) (err error) {
+	// we dont need dns server on gateways
+	if sa.cfg.DNSCapture && sa.cfg.ProxyXDSViaAgent && isSidecar {
+		if sa.localDNSServer, err = dns.NewLocalDNSServer(sa.cfg.ProxyNamespace, sa.cfg.ProxyDomain); err != nil {
+			return err
+		}
+		sa.localDNSServer.StartDNS()
+	}
+	return nil
+}
+
 func (sa *Agent) Close() {
 	if sa.xdsProxy != nil {
 		sa.xdsProxy.close()
+	}
+	if sa.localDNSServer != nil {
+		sa.localDNSServer.Close()
 	}
 	sa.closeLocalXDSGenerator()
 }
