@@ -297,7 +297,7 @@ dump_istiod_url(){
   outfile="${dname}/$(basename "${url}")-${istiod_pod}"
 
   log "Fetching ${url} from istiod"
-  kubectl -n istio-system exec -it "${istiod_pod}" -c istio-proxy -- \
+  kubectl -n istio-system exec -it "${istiod_pod}" -- \
       curl "http://localhost:8080/${url}" > "${outfile}"
 }
 
